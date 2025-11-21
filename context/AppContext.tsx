@@ -3,6 +3,7 @@ import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderItem
 import { INITIAL_PRODUCTS, INITIAL_SECTIONS, COIN_REWARD_RATE } from '../constants';
 import { connectWallet, formatAddress } from '../services/web3Service';
 import { supabase } from '../services/supabase';
+import { autoCommit, generateProductAddedMessage, generateProductUpdatedMessage, generateProductDeletedMessage } from '../services/autoCommitService';
 
 // Mock user profiles for testing
 export const MOCK_USERS: UserProfile[] = [
@@ -226,9 +227,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             } else {
                 // Optimistic update or wait for subscription
                 setProducts(prev => [...prev, p]);
+                // Auto-commit the change
+                await autoCommit({ message: generateProductAddedMessage(p.name) });
             }
         } else {
             setProducts(prev => [...prev, p]);
+            // Auto-commit the change
+            await autoCommit({ message: generateProductAddedMessage(p.name) });
         }
     };
 
@@ -251,13 +256,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 alert('Failed to update product in database');
             } else {
                 setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
+                // Auto-commit the change
+                await autoCommit({ message: generateProductUpdatedMessage(updated.name) });
             }
         } else {
             setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
+            // Auto-commit the change
+            await autoCommit({ message: generateProductUpdatedMessage(updated.name) });
         }
     };
 
     const deleteProduct = async (id: string) => {
+        // Get product name before deleting for commit message
+        const product = products.find(p => p.id === id);
+        const productName = product?.name || id;
+
         if (isSupabaseConfigured) {
             const { error } = await supabase.from('products').delete().eq('id', id);
             if (error) {
@@ -265,9 +278,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 alert('Failed to delete product from database');
             } else {
                 setProducts(prev => prev.filter(p => p.id !== id));
+                // Auto-commit the change
+                await autoCommit({ message: generateProductDeletedMessage(productName) });
             }
         } else {
             setProducts(prev => prev.filter(p => p.id !== id));
+            // Auto-commit the change
+            await autoCommit({ message: generateProductDeletedMessage(productName) });
         }
     };
 

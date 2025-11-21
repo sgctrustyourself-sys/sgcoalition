@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Product } from '../types';
-import { Plus, Edit2, Trash2, Save, X, Package, DollarSign, Image as ImageIcon, Copy, RotateCcw, ShoppingCart } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Package, DollarSign, Image as ImageIcon, Copy, RotateCcw, ShoppingCart, GitBranch } from 'lucide-react';
 import Orders from './Orders';
+import GitManager from '../components/GitManager';
 
 const Admin: React.FC = () => {
     const { products, addProduct, updateProduct, deleteProduct, isSupabaseConfigured } = useApp();
-    const [activeTab, setActiveTab] = useState<'products' | 'orders'>('products');
+    const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'git'>('products');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isAdding, setIsAdding] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -196,11 +197,23 @@ const Admin: React.FC = () => {
                         <ShoppingCart size={20} />
                         Orders
                     </button>
+                    <button
+                        onClick={() => setActiveTab('git')}
+                        className={`flex items-center gap-2 px-6 py-3 font-bold uppercase tracking-wide transition-colors ${activeTab === 'git'
+                            ? 'border-b-2 border-black text-black'
+                            : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                    >
+                        <GitBranch size={20} />
+                        Version Control
+                    </button>
                 </div>
 
                 {/* Conditional Content Based on Active Tab */}
                 {activeTab === 'orders' ? (
                     <Orders />
+                ) : activeTab === 'git' ? (
+                    <GitManager />
                 ) : (
                     <>
                         {/* Stats Cards */}
