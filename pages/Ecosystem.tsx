@@ -1,56 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink, Copy, TrendingUp, Users, Coins, Award, Gift, Check, Twitter, MessageCircle, Share2, ChevronRight, Wallet, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react';
+import { ExternalLink, Gift, Shield, Zap, Map, ArrowRight, Wallet, CheckCircle2 } from 'lucide-react';
 import { fetchSGCoinData, fetchRecentTrades } from '../services/priceService';
-import { SGCoinData, Trade } from '../types';
+import { SGCoinData } from '../types';
 import { connectWallet, getSGCoinBalance, formatAddress } from '../services/web3Service';
 import { ethers } from 'ethers';
+import SGCoinCard from '../components/SGCoinCard';
 
 const Ecosystem = () => {
     const [tokenData, setTokenData] = useState<SGCoinData | null>(null);
-    const [trades, setTrades] = useState<Trade[]>([]);
-    const [copied, setCopied] = useState(false);
-    const [completedTasks, setCompletedTasks] = useState<string[]>([]);
     const [walletAddress, setWalletAddress] = useState<string | null>(null);
     const [userSGCoinBalance, setUserSGCoinBalance] = useState<number | null>(null);
     const [isConnecting, setIsConnecting] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
     const CONTRACT_ADDRESS = '0x951806a2581c22C478aC613a675e6c898E2aBe21';
 
-    React.useEffect(() => {
-        const loadData = async () => {
+    const loadData = async () => {
+        try {
             const data = await fetchSGCoinData();
             if (data) {
                 setTokenData(data);
-                const recentTrades = await fetchRecentTrades(data.price);
-                setTrades(recentTrades);
+                setLastUpdated(new Date());
             }
-        };
+        } catch (error) {
+            console.error("Failed to load token data", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
         loadData();
-        // Refresh every 60 seconds
-        const interval = setInterval(loadData, 60000);
+        const interval = setInterval(loadData, 30000); // Refresh every 30s
         return () => clearInterval(interval);
     }, []);
-
-    const copyToClipboard = () => {
-        navigator.clipboard.writeText(CONTRACT_ADDRESS);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
-    const giveawayTasks = [
-        { id: 'twitter', title: 'Follow @CoalitionBrand on Twitter', icon: Twitter, url: 'https://twitter.com/intent/follow?screen_name=CoalitionBrand' },
-        { id: 'discord', title: 'Join our Discord community', icon: MessageCircle, url: 'https://discord.gg/bByqsC5f5V' },
-        { id: 'share', title: 'Share this page on Twitter', icon: Share2, url: 'https://twitter.com/intent/tweet?text=Check%20out%20SGCoin%20Ecosystem!' }
-    ];
-
-    const toggleTask = (taskId: string) => {
-        setCompletedTasks(prev =>
-            prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]
-        );
-    };
-
-    const allTasksCompleted = completedTasks.length === giveawayTasks.length;
 
     const handleConnectWallet = async () => {
         setIsConnecting(true);
@@ -58,8 +43,6 @@ const Ecosystem = () => {
             const walletData = await connectWallet();
             if (walletData) {
                 setWalletAddress(walletData.address);
-
-                // Fetch SGCoin balance
                 if (window.ethereum) {
                     const provider = new ethers.BrowserProvider(window.ethereum);
                     const balance = await getSGCoinBalance(walletData.address, provider);
@@ -74,436 +57,173 @@ const Ecosystem = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
+        <div className="min-h-screen bg-gray-50 font-sans text-brand-black">
             {/* Hero Section */}
-            <section className="relative bg-gradient-to-r from-brand-black to-gray-900 text-white py-20 px-4 overflow-hidden">
-                <div className="absolute inset-0 opacity-10">
-                    <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzRjMC0yLjIxLTEuNzktNC00LTRzLTQgMS43OS00IDQgMS43OSA0IDQgNCA0LTEuNzkgNC00em0wLTEwYzAtMi4yMS0xLjc5LTQtNC00cy00IDEuNzktNCA0IDEuNzkgNCA0IDQgNC0xLjc5IDQtNHptMC0xMGMwLTIuMjEtMS43OS00LTQtNHMtNCAxLjc5LTQgNCAxLjc5IDQgNCA0IDQtMS43OSA0LTR6Ii8+PC9nPjwvZz48L3N2Zz4=')] bg-repeat"></div>
+            <section className="bg-brand-black text-white py-20 px-4 relative overflow-hidden">
+                <div className="absolute inset-0 opacity-10 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
+                <div className="max-w-7xl mx-auto relative z-10 text-center">
+                    <h1 className="font-display text-6xl md:text-8xl font-bold uppercase tracking-tighter mb-6">
+                        The Ecosystem
+                    </h1>
+                    <p className="text-xl md:text-2xl text-gray-400 max-w-2xl mx-auto font-light">
+                        Fueling the future of decentralized fashion with <span className="text-brand-accent font-bold">SGCoin</span>.
+                    </p>
                 </div>
-                <div className="max-w-6xl mx-auto relative z-10">
-                    <div className="text-center mb-12">
-                        <h1 className="font-display text-5xl md:text-7xl font-bold uppercase tracking-tighter mb-4">
-                            SGCoin Ecosystem
-                        </h1>
-                        <p className="text-xl md:text-2xl text-gray-300 font-light">
-                            Powering Digital Fashion Since 2019
-                        </p>
-                    </div>
+            </section>
 
-                    {/* Token Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-gray-300 text-sm">Current Price</span>
-                                <TrendingUp className="w-5 h-5 text-brand-accent" />
-                            </div>
-                            <p className="text-3xl font-bold">
-                                {tokenData ? `$${tokenData.price.toFixed(8)}` : 'Loading...'}
-                            </p>
-                            {tokenData && (
-                                <p className={`text-sm mt-1 ${tokenData.priceChange24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    {tokenData.priceChange24h ? (
-                                        <>
-                                            {tokenData.priceChange24h >= 0 ? '+' : ''}{tokenData.priceChange24h.toFixed(2)}% (24h)
-                                        </>
-                                    ) : (
-                                        <span className="text-gray-400">No change (24h)</span>
-                                    )}
-                                </p>
-                            )}
-                        </div>
-                        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-gray-300 text-sm">Market Cap</span>
-                                <Coins className="w-5 h-5 text-brand-accent" />
-                            </div>
-                            <p className="text-3xl font-bold">
-                                {tokenData ? `$${(tokenData.marketCap / 1000).toFixed(1)}K` : 'Loading...'}
-                            </p>
-                            <p className="text-sm text-gray-400 mt-1">Fully Diluted</p>
-                        </div>
-                        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-gray-300 text-sm">Liquidity</span>
-                                <Users className="w-5 h-5 text-brand-accent" />
-                            </div>
-                            <p className="text-3xl font-bold">
-                                {tokenData ? `$${(tokenData.liquidity / 1000).toFixed(1)}K` : 'Loading...'}
-                            </p>
-                            <p className="text-sm text-gray-400 mt-1">Total Liquidity</p>
-                        </div>
+            {/* SGCoin Live Data Section */}
+            <section className="py-12 px-4 -mt-10 relative z-20">
+                <div className="max-w-5xl mx-auto">
+                    <SGCoinCard data={tokenData} isLoading={isLoading} />
+                    <div className="text-center mt-4 text-xs text-gray-400 flex items-center justify-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        Last updated: {lastUpdated.toLocaleTimeString()}
                     </div>
+                </div>
+            </section>
 
-                    {/* CTA Buttons */}
-                    <div className="flex flex-wrap justify-center gap-4">
-                        <a href={`https://polygonscan.com/token/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="bg-white text-black px-8 py-3 rounded-sm font-bold uppercase tracking-widest hover:bg-gray-200 transition flex items-center">
-                            View on PolygonScan <ExternalLink className="w-4 h-4 ml-2" />
-                        </a>
-                        <button className="border-2 border-white text-white px-8 py-3 rounded-sm font-bold uppercase tracking-widest hover:bg-white hover:text-black transition">
-                            Add to Wallet
-                        </button>
+            {/* Main Content Grid */}
+            <section className="py-16 px-4 max-w-7xl mx-auto grid md:grid-cols-2 gap-12">
+
+                {/* Staking Section */}
+                <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:border-brand-accent/50 transition-colors">
+                    <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-6 text-purple-600">
+                        <Shield size={24} />
                     </div>
+                    <h2 className="font-display text-3xl font-bold uppercase mb-4">Staking Rewards</h2>
+                    <p className="text-gray-600 mb-6 leading-relaxed">
+                        Lock your SGCoin to earn passive rewards. Stakers receive a share of transaction fees and exclusive access to limited drops.
+                    </p>
+                    <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="font-bold text-sm uppercase text-gray-500">Current APY</span>
+                            <span className="font-bold text-green-600 text-xl">12.5%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-purple-600 h-2 rounded-full" style={{ width: '65%' }}></div>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-2 text-right">Total Value Locked: $45,230</p>
+                    </div>
+                    <button className="w-full py-3 bg-black text-white font-bold uppercase tracking-widest rounded hover:bg-gray-800 transition">
+                        Start Staking
+                    </button>
+                </div>
 
-                    {/* Wallet Connection */}
-                    <div className="mt-8 flex justify-center">
-                        {!walletAddress ? (
+                {/* Utilities Section */}
+                <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:border-brand-accent/50 transition-colors">
+                    <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-6 text-blue-600">
+                        <Zap size={24} />
+                    </div>
+                    <h2 className="font-display text-3xl font-bold uppercase mb-4">Coalition Utility</h2>
+                    <p className="text-gray-600 mb-6 leading-relaxed">
+                        SGCoin isn't just a token; it's your key to the Coalition universe. Use it for real-world benefits.
+                    </p>
+                    <ul className="space-y-4 mb-8">
+                        <li className="flex items-start gap-3">
+                            <CheckCircle2 className="w-5 h-5 text-brand-accent flex-shrink-0 mt-0.5" />
+                            <span className="text-sm font-medium">Purchase exclusive "Token-Only" merchandise</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                            <CheckCircle2 className="w-5 h-5 text-brand-accent flex-shrink-0 mt-0.5" />
+                            <span className="text-sm font-medium">Get 15% discount on all store items when paying with SGCoin</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                            <CheckCircle2 className="w-5 h-5 text-brand-accent flex-shrink-0 mt-0.5" />
+                            <span className="text-sm font-medium">Vote on future designs and brand direction</span>
+                        </li>
+                    </ul>
+                    <Link to="/shop" className="block w-full py-3 border-2 border-black text-center font-bold uppercase tracking-widest rounded hover:bg-black hover:text-white transition">
+                        Shop with SGCoin
+                    </Link>
+                </div>
+            </section>
+
+            {/* Rewards / Giveaway Section */}
+            <section className="py-16 px-4 bg-brand-accent text-white">
+                <div className="max-w-4xl mx-auto text-center">
+                    <Gift size={48} className="mx-auto mb-6 opacity-90" />
+                    <h2 className="font-display text-4xl font-bold uppercase mb-4">Weekly Rewards</h2>
+                    <p className="text-xl text-white/80 mb-8">
+                        Hold SGCoin to automatically enter our weekly giveaways.
+                    </p>
+                    <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 inline-block w-full max-w-lg">
+                        <p className="text-sm font-bold uppercase tracking-widest mb-2 text-white/60">Next Draw In</p>
+                        <div className="text-4xl font-bold font-mono mb-6">04d : 12h : 45m</div>
+                        <div className="flex items-center justify-center gap-2 text-sm">
+                            <Wallet size={16} />
+                            <span>Connect wallet to verify eligibility</span>
+                        </div>
+                        {!walletAddress && (
                             <button
                                 onClick={handleConnectWallet}
                                 disabled={isConnecting}
-                                className="bg-gradient-to-r from-brand-accent to-purple-600 text-white px-8 py-3 rounded-sm font-bold uppercase tracking-widest hover:opacity-90 transition flex items-center gap-2 disabled:opacity-50"
+                                className="mt-6 px-8 py-3 bg-white text-brand-accent font-bold uppercase tracking-widest rounded hover:bg-gray-100 transition"
                             >
-                                <Wallet className="w-5 h-5" />
-                                {isConnecting ? 'Connecting...' : 'Connect Wallet to See Your Balance'}
+                                {isConnecting ? 'Connecting...' : 'Connect Wallet'}
                             </button>
-                        ) : (
-                            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20 text-center">
-                                <div className="flex items-center justify-center gap-2 mb-3">
-                                    <Wallet className="w-5 h-5 text-brand-accent" />
-                                    <span className="text-sm text-gray-300">Connected: {formatAddress(walletAddress)}</span>
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-sm text-gray-300 mb-1">Your SGCoin Balance</p>
-                                    <p className="text-4xl font-bold text-white">
-                                        {userSGCoinBalance !== null ? userSGCoinBalance.toLocaleString() : 'Loading...'}
-                                    </p>
-                                    <p className="text-xs text-gray-400 mt-1">SGCOIN</p>
-                                </div>
+                        )}
+                        {walletAddress && (
+                            <div className="mt-6 text-green-300 font-bold flex items-center justify-center gap-2">
+                                <CheckCircle2 size={20} />
+                                Wallet Connected: {formatAddress(walletAddress)}
                             </div>
                         )}
                     </div>
                 </div>
             </section>
 
-            {/* Token Information */}
-            <section className="py-16 px-4 max-w-6xl mx-auto">
-                <div className="bg-white rounded-lg shadow-lg p-8 border border-gray-200">
-                    <h2 className="font-display text-3xl font-bold uppercase mb-6">Token Information</h2>
-                    <div className="grid md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-500 uppercase mb-2">Contract Address</label>
-                            <div className="flex items-center gap-2">
-                                <code className="flex-1 bg-gray-100 px-4 py-3 rounded-sm text-sm font-mono break-all">
-                                    {CONTRACT_ADDRESS}
-                                </code>
-                                <button onClick={copyToClipboard} className="p-3 hover:bg-gray-100 rounded-sm transition" title="Copy address">
-                                    {copied ? <Check className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
-                                </button>
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-500 uppercase mb-2">Network</label>
-                            <p className="bg-gray-100 px-4 py-3 rounded-sm font-medium">Polygon (MATIC)</p>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-500 uppercase mb-2">Token Type</label>
-                            <p className="bg-gray-100 px-4 py-3 rounded-sm font-medium">ERC-20</p>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-500 uppercase mb-2">Decimals</label>
-                            <p className="bg-gray-100 px-4 py-3 rounded-sm font-medium">18</p>
-                        </div>
-                        <div className="md:col-span-2 bg-purple-50 p-4 rounded border border-purple-100">
-                            <label className="block text-sm font-bold text-purple-800 uppercase mb-2">Tokenomics</label>
-                            <div className="flex flex-wrap gap-4">
-                                <span className="bg-white px-3 py-1 rounded border border-purple-200 text-sm font-medium text-purple-700">
-                                    💎 Reflections (Earn by Holding)
-                                </span>
-                                <span className="bg-white px-3 py-1 rounded border border-purple-200 text-sm font-medium text-purple-700">
-                                    💧 Automatic Liquidity
-                                </span>
-                                <span className="bg-white px-3 py-1 rounded border border-purple-200 text-sm font-medium text-purple-700">
-                                    🔥 Deflationary
-                                </span>
-                            </div>
-                        </div>
+            {/* Roadmap Section */}
+            <section className="py-20 px-4 max-w-4xl mx-auto">
+                <div className="text-center mb-16">
+                    <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mb-6 text-gray-600 mx-auto">
+                        <Map size={24} />
                     </div>
+                    <h2 className="font-display text-4xl font-bold uppercase">The Roadmap</h2>
                 </div>
-            </section>
 
-            {/* Ecosystem Growth & Lifestyle */}
-            <section className="py-16 px-4 bg-black text-white">
-                <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
-                    <div>
-                        <h2 className="font-display text-4xl font-bold uppercase mb-6 leading-tight">
-                            Building a <span className="text-brand-accent">Decentralized</span> Lifestyle
-                        </h2>
-                        <p className="text-gray-300 text-lg mb-6 leading-relaxed">
-                            We are building a world where we own everything we make and buy what we can afford.
-                            It's a lot of different lifestyles here, united by freedom and ownership.
-                        </p>
-                        <div className="space-y-6">
-                            <div className="flex items-start">
-                                <div className="bg-brand-accent/20 p-3 rounded-lg mr-4">
-                                    <RefreshCw className="w-6 h-6 text-brand-accent" />
+                <div className="space-y-12 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gray-200">
+                    {[
+                        { phase: 'Phase 1', title: 'Foundation', status: 'completed', items: ['Token Launch', 'Website V1', 'Community Building'] },
+                        { phase: 'Phase 2', title: 'Integration', status: 'current', items: ['E-commerce Integration', 'Staking Dashboard', 'NFT Verification'] },
+                        { phase: 'Phase 3', title: 'Expansion', status: 'upcoming', items: ['Mobile App', 'Global Events', 'DAO Governance'] }
+                    ].map((item, idx) => (
+                        <div key={idx} className={`relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group`}>
+                            <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 ${item.status === 'completed' ? 'bg-black' : item.status === 'current' ? 'bg-brand-accent' : 'bg-gray-300'}`}>
+                                {item.status === 'completed' && <CheckCircle2 size={16} className="text-white" />}
+                                {item.status === 'current' && <div className="w-3 h-3 bg-white rounded-full animate-pulse" />}
+                            </div>
+                            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded ${item.status === 'completed' ? 'bg-gray-100 text-gray-600' : item.status === 'current' ? 'bg-brand-accent/10 text-brand-accent' : 'bg-gray-50 text-gray-400'}`}>
+                                        {item.phase}
+                                    </span>
+                                    {item.status === 'current' && <span className="text-xs font-bold text-brand-accent animate-pulse">In Progress</span>}
                                 </div>
-                                <div>
-                                    <h3 className="font-bold text-xl mb-2">10% Reinvestment Protocol</h3>
-                                    <p className="text-gray-400">
-                                        Every purchase in our ecosystem automatically triggers a 10% reinvestment back into the SGCoin fund.
-                                        This mechanism sustains liquidity and helps grow the token price organically with every sale.
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-start">
-                                <div className="bg-purple-500/20 p-3 rounded-lg mr-4">
-                                    <Award className="w-6 h-6 text-purple-400" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-xl mb-2">NFT Integration</h3>
-                                    <p className="text-gray-400">
-                                        Our shirt NFTs are more than just digital collectibles—they are your entry pass into this decentralized land.
-                                        Own your style, own your assets, and join a community that values true ownership.
-                                    </p>
-                                </div>
+                                <h3 className="font-bold text-xl mb-3">{item.title}</h3>
+                                <ul className="space-y-2">
+                                    {item.items.map((subItem, i) => (
+                                        <li key={i} className="text-sm text-gray-600 flex items-center gap-2">
+                                            <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                                            {subItem}
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
                         </div>
-                    </div>
-                    <div className="bg-gray-900 rounded-lg p-6 border border-gray-800 shadow-2xl">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="font-bold text-xl uppercase">Recent Ecosystem Activity</h3>
-                            <div className="flex items-center gap-2 text-xs text-gray-400">
-                                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                Live Updates
-                            </div>
-                        </div>
-                        <div className="overflow-hidden">
-                            <div className="grid grid-cols-4 text-xs font-bold text-gray-500 uppercase mb-3 px-2">
-                                <div>Type</div>
-                                <div>Price</div>
-                                <div>Amount</div>
-                                <div className="text-right">Time</div>
-                            </div>
-                            <div className="space-y-1 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                {trades.length > 0 ? trades.map((trade) => (
-                                    <div key={trade.id} className="grid grid-cols-4 text-sm p-2 rounded hover:bg-white/5 transition border-b border-gray-800/50 last:border-0">
-                                        <div className={`font-bold flex items-center ${trade.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
-                                            {trade.type === 'buy' ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
-                                            {trade.type.toUpperCase()}
-                                        </div>
-                                        <div className="font-mono text-gray-300">${trade.price.toFixed(6)}</div>
-                                        <div className="text-gray-400">{trade.amount.toLocaleString()}</div>
-                                        <div className="text-right text-gray-500 text-xs">
-                                            {Math.floor((Date.now() - trade.timestamp) / 60000)}m ago
-                                        </div>
-                                    </div>
-                                )) : (
-                                    <div className="text-center py-8 text-gray-500">Loading trades...</div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
+                    ))}
                 </div>
             </section>
 
-            {/* Community Story */}
-            <section className="py-16 px-4 bg-gradient-to-r from-brand-accent/10 to-purple-100">
-                <div className="max-w-4xl mx-auto text-center">
-                    <Award className="w-16 h-16 mx-auto mb-6 text-brand-accent" />
-                    <h2 className="font-display text-4xl font-bold uppercase mb-6">The Decentraland Drip Provider</h2>
-                    <blockquote className="text-xl md:text-2xl text-gray-700 italic mb-8 leading-relaxed">
-                        "I went around to everyone, new or old member. Come into my stream, you got my newest items. I love doing giveaways."
-                    </blockquote>
-                    <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl mx-auto">
-                        <h3 className="font-bold text-xl mb-4 flex items-center justify-center">
-                            <Award className="w-6 h-6 mr-2 text-yellow-500" />
-                            Community Achievement
-                        </h3>
-                        <p className="text-gray-700 mb-4">
-                            Nearly won a <span className="font-bold text-brand-accent">$10,000+ grant</span> with overwhelming community support:
-                        </p>
-                        <div className="grid grid-cols-2 gap-4 text-center">
-                            <div className="bg-green-50 rounded-lg p-4 border-2 border-green-200">
-                                <p className="text-4xl font-bold text-green-600">30+</p>
-                                <p className="text-sm text-gray-600 mt-1">Community Votes</p>
-                            </div>
-                            <div className="bg-red-50 rounded-lg p-4 border-2 border-red-200">
-                                <p className="text-4xl font-bold text-red-600">5</p>
-                                <p className="text-sm text-gray-600 mt-1">Whale Votes (Won)</p>
-                            </div>
-                        </div>
-                        <p className="text-sm text-gray-600 mt-4 italic">
-                            The community support showed what truly matters - not the size of wallets, but the size of hearts.
-                        </p>
-                    </div>
-                </div>
-            </section>
-
-            {/* NFT Journey Timeline */}
-            <section className="py-16 px-4 max-w-6xl mx-auto">
-                <h2 className="font-display text-4xl font-bold uppercase text-center mb-12">Our NFT Journey</h2>
-                <div className="relative">
-                    {/* Timeline Line */}
-                    <div className="absolute left-1/2 transform -translate-x-1/2 h-full w-1 bg-gradient-to-b from-brand-accent to-purple-500 hidden md:block"></div>
-
-                    {/* Timeline Items */}
-                    <div className="space-y-12">
-                        {[
-                            { year: '2019-2020', title: 'The Beginning', items: ['Early NFT experiments', 'Community building', 'Vision formation'] },
-                            { year: '2021', title: 'Decentraland Era', items: ['Became "Decentraland Drip Provider"', 'Stream giveaways launched', 'Community growth'] },
-                            { year: '2022', title: 'Grant Campaign', items: ['30+ community votes', '$10k+ grant nomination', 'Learned about whale voting power'] },
-                            { year: '2023-2024', title: 'Coalition Evolution', items: ['SGCoin token launch', 'Physical clothing line', 'Ecosystem expansion'] }
-                        ].map((period, idx) => (
-                            <div key={idx} className={`flex items-center ${idx % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'}`}>
-                                <div className={`flex-1 ${idx % 2 === 0 ? 'md:text-right md:pr-12' : 'md:pl-12'}`}>
-                                    <div className="bg-white rounded-lg shadow-lg p-6 border-2 border-brand-accent/20 hover:border-brand-accent transition">
-                                        <span className="text-brand-accent font-bold text-sm uppercase tracking-widest">{period.year}</span>
-                                        <h3 className="font-display text-2xl font-bold mt-2 mb-4">{period.title}</h3>
-                                        <ul className="space-y-2">
-                                            {period.items.map((item, i) => (
-                                                <li key={i} className="text-gray-600 flex items-start">
-                                                    <ChevronRight className="w-4 h-4 mr-2 text-brand-accent flex-shrink-0 mt-1" />
-                                                    <span>{item}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                </div>
-                                <div className="hidden md:block w-8 h-8 bg-brand-accent rounded-full border-4 border-white shadow-lg z-10"></div>
-                                <div className="flex-1"></div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* Giveaway Widget */}
-            <section className="py-16 px-4 bg-gradient-to-r from-purple-600 to-brand-accent text-white">
-                <div className="max-w-2xl mx-auto">
-                    <div className="text-center mb-8">
-                        <Gift className="w-16 h-16 mx-auto mb-4" />
-                        <h2 className="font-display text-4xl font-bold uppercase mb-2">Weekly Giveaway</h2>
-                        <p className="text-xl text-purple-100">Continue the tradition of giving back</p>
-                    </div>
-
-                    <div className="bg-white/10 backdrop-blur-sm rounded-lg p-8 border border-white/20">
-                        <div className="mb-6">
-                            <h3 className="font-bold text-2xl mb-2">This Week's Prize</h3>
-                            <p className="text-xl">Coalition Hoodie + 1,000 SGCoin</p>
-                            <p className="text-sm text-purple-200 mt-2">Ends: December 1, 2024</p>
-                        </div>
-
-                        <div className="mb-6">
-                            <h4 className="font-bold mb-4">Complete tasks to enter:</h4>
-                            <div className="space-y-3">
-                                {giveawayTasks.map(task => {
-                                    const Icon = task.icon;
-                                    const isCompleted = completedTasks.includes(task.id);
-                                    return (
-                                        <label key={task.id} className={`flex items-center gap-4 p-4 rounded-lg cursor-pointer transition ${isCompleted ? 'bg-green-500/20 border-2 border-green-400' : 'bg-white/10 border-2 border-white/20 hover:bg-white/20'}`}>
-                                            <input
-                                                type="checkbox"
-                                                checked={isCompleted}
-                                                onChange={() => toggleTask(task.id)}
-                                                className="w-5 h-5"
-                                            />
-                                            <Icon className="w-5 h-5" />
-                                            <span className="flex-1">{task.title}</span>
-                                            {task.url !== '#' && (
-                                                <a href={task.url} target="_blank" rel="noopener noreferrer" className="text-sm underline hover:text-purple-200">
-                                                    Go <ExternalLink className="w-3 h-3 inline ml-1" />
-                                                </a>
-                                            )}
-                                        </label>
-                                    );
-                                })}</div>
-                        </div>
-
-                        <div className="mb-6">
-                            <div className="flex justify-between text-sm mb-2">
-                                <span>Progress</span>
-                                <span>{completedTasks.length}/{giveawayTasks.length} tasks</span>
-                            </div>
-                            <div className="w-full bg-white/20 rounded-full h-3">
-                                <div className="bg-white rounded-full h-3 transition-all" style={{ width: `${(completedTasks.length / giveawayTasks.length) * 100}%` }}></div>
-                            </div>
-                        </div>
-
-                        <button
-                            disabled={!allTasksCompleted}
-                            className={`w-full py-4 rounded-sm font-bold uppercase tracking-widest transition ${allTasksCompleted ? 'bg-white text-purple-600 hover:bg-gray-100' : 'bg-white/20 text-white/50 cursor-not-allowed'}`}
-                        >
-                            {allTasksCompleted ? 'Enter Giveaway' : 'Complete All Tasks to Enter'}
-                        </button>
-
-                        <p className="text-center text-sm text-purple-200 mt-4">
-                            Current entries: 47 • Winner announced weekly
-                        </p>
-                    </div>
-                </div>
-            </section>
-
-            {/* OpenSea Collections */}
-            <section className="py-16 px-4 max-w-6xl mx-auto">
-                <h2 className="font-display text-4xl font-bold uppercase text-center mb-12">OpenSea Collections</h2>
-                <div className="bg-gray-100 rounded-lg p-12 text-center border-2 border-dashed border-gray-300">
-                    <p className="text-gray-500 text-lg mb-4">📦 OpenSea collections will appear here</p>
-                    <p className="text-sm text-gray-400">Send your collection URLs to add them!</p>
-                </div>
-            </section>
-
-            {/* Decentraland Wearables */}
-            <section className="py-16 px-4 max-w-6xl mx-auto bg-gray-50">
-                <h2 className="font-display text-4xl font-bold uppercase text-center mb-4">Decentraland Wearables</h2>
-                <p className="text-center text-gray-600 mb-12">Virtual fashion for the metaverse</p>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {/* Trust Yourself (T-Shirt + Sword) */}
-                    <div className="bg-white rounded-lg shadow-lg overflow-hidden border-2 border-gray-200 hover:border-brand-accent transition group">
-                        <div className="aspect-square bg-black relative overflow-hidden flex items-center justify-center">
-                            <img
-                                src="https://i.imgur.com/dUr24UZ.png"
-                                alt="Trust Yourself T-Shirt with Sword"
-                                className="w-full h-full object-contain"
-                            />
-                            <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full">
-                                RARE
-                            </div>
-                        </div>
-                        <div className="p-6">
-                            <h3 className="font-bold text-lg mb-2">Trust Yourself (T-Shirt + Sword)</h3>
-                            <p className="text-sm text-gray-600 mb-3">Wearable shirt with sword included - Black/Yellow colorways with Red Glow effect</p>
-                            <div className="flex items-center gap-2 mb-4">
-                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded font-bold">Upper Body</span>
-                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold">Collaboration: LingXing</span>
-                            </div>
-                            <a
-                                href="https://decentraland.org/marketplace/contracts/0x2691f0feaa0137af3edb3acaf83ca5d6a3cfdf32/items/0"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block w-full bg-brand-accent text-white text-center py-3 rounded-sm font-bold uppercase tracking-wide hover:bg-purple-700 transition"
-                            >
-                                View in Marketplace <ExternalLink className="w-4 h-4 inline ml-1" />
-                            </a>
-                        </div>
-                    </div>
-
-                    {/* Add More Products Card */}
-                    <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg shadow-lg overflow-hidden border-2 border-dashed border-gray-400 flex items-center justify-center p-12">
-                        <div className="text-center">
-                            <p className="text-4xl mb-4">➕</p>
-                            <p className="font-bold text-gray-700 mb-2">More Products Coming</p>
-                            <p className="text-sm text-gray-500">Send more Decentraland links to add them!</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mt-12 text-center">
-                    <a
-                        href="https://decentraland.org/marketplace"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-brand-accent hover:text-brand-black font-bold"
-                    >
-                        Visit Decentraland Marketplace <ChevronRight className="w-4 h-4 ml-1" />
-                    </a>
-                </div>
-            </section>
-
-            {/* Back to Home */}
-            <section className="py-12 px-4 text-center">
-                <Link to="/" className="inline-flex items-center text-brand-accent hover:text-brand-black font-bold">
-                    ← Back to Home
-                </Link>
+            {/* Footer CTA */}
+            <section className="py-16 text-center">
+                <a
+                    href={`https://polygonscan.com/token/${CONTRACT_ADDRESS}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center text-gray-400 hover:text-brand-black transition font-medium"
+                >
+                    View Contract on PolygonScan <ExternalLink size={16} className="ml-2" />
+                </a>
             </section>
         </div>
     );
