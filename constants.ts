@@ -29,6 +29,33 @@ export const INITIAL_PRODUCTS: Product[] = [
     }
   },
   {
+    id: 'prod_nft_001',
+    name: 'Coalition NF-Tee',
+    price: 65,
+    images: ['/images/coalition-nf-tee-front.png', '/images/coalition-nf-tee-back.png'],
+    description: 'The future of streetwear. This limited edition phygital tee serves as your access pass to the Coalition ecosystem. Features exclusive "Trust Yourself" puff print and embedded NFC technology linked to its digital twin on the Polygon blockchain.',
+    category: 'apparel',
+    isFeatured: true,
+    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+    sizeInventory: {
+      'S': 50,
+      'M': 100,
+      'L': 100,
+      'XL': 75,
+      'XXL': 25
+    },
+    nft: {
+      contractAddress: '0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201',
+      tokenId: '1', // Placeholder for the new collection
+      chain: 'polygon',
+      openseaUrl: 'https://opensea.io/item/polygon/0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201/6915469788939700255662107688630493008422408564534094781606241966635645665283',
+      nfcTags: {
+        neck: 'https://linktr.ee/sgcoalition',
+        tag: 'https://coalition.brand/verify/prod_nft_001'
+      }
+    }
+  },
+  {
     id: 'prod_002',
     name: 'Baltimore Hoodie',
     price: 85,

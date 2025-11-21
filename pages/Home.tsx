@@ -6,7 +6,7 @@ import { Section } from '../types';
 import ProductCard from '../components/ProductCard';
 
 const Home = () => {
-    const { sections, products, isAdminMode, updateSections, updateSection } = useApp();
+    const { sections, products, isAdminMode, updateSections, updateSection, isLoading } = useApp();
 
     const moveSection = (index: number, direction: 'up' | 'down') => {
         const newSections = [...sections];
@@ -28,32 +28,54 @@ const Home = () => {
         switch (section.type) {
             case 'hero':
                 content = (
-                    <div className="relative h-[80vh] w-full flex items-center justify-center bg-black text-white overflow-hidden">
-                        {/* Placeholder for Hero Video/Image */}
-                        <div className="absolute inset-0 bg-[url('https://picsum.photos/1920/1080')] bg-cover bg-center opacity-50"></div>
-                        <div className="relative z-10 text-center px-4 max-w-3xl">
-                            <h1 className="font-display text-5xl md:text-7xl font-bold uppercase tracking-tighter mb-4">
+                    <div className="relative h-[85vh] w-full flex items-center justify-center bg-black text-white overflow-hidden">
+                        {/* Hero Video/Image */}
+                        <div className="absolute inset-0 bg-[url('/hero-cinematic.png')] bg-cover bg-center opacity-60"></div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/50"></div>
+
+                        <div className="relative z-10 text-center px-4 max-w-4xl">
+                            <h1 className="font-display text-6xl md:text-8xl font-bold uppercase tracking-tighter mb-6 text-glow">
                                 {section.title}
                             </h1>
-                            <p className="text-lg md:text-xl text-gray-200 font-light mb-8">
+                            <p className="text-lg md:text-2xl text-gray-300 font-light mb-10 tracking-wide max-w-2xl mx-auto">
                                 {section.content}
                             </p>
-                            <Link to="/shop" className="inline-block bg-white text-black px-8 py-4 text-sm font-bold uppercase tracking-widest hover:bg-gray-200 transition">
-                                Shop the Collection
+                            <Link to="/shop" className="inline-block bg-white text-black px-10 py-4 text-sm font-bold uppercase tracking-[0.2em] hover:bg-gray-200 hover:scale-105 transition-all duration-300 box-glow">
+                                Shop Collection
                             </Link>
                         </div>
                     </div>
                 );
                 break;
             case 'featured':
+                if (isLoading && (!products || products.length === 0)) {
+                    content = (
+                        <section className="py-24 px-4 max-w-7xl mx-auto">
+                            <div className="grid md:grid-cols-2 gap-16 items-center animate-pulse">
+                                <div className="order-2 md:order-1 space-y-6">
+                                    <div className="h-4 bg-gray-800/50 rounded w-1/4"></div>
+                                    <div className="h-12 bg-gray-800/50 rounded w-3/4"></div>
+                                    <div className="h-24 bg-gray-800/50 rounded w-full"></div>
+                                    <div className="flex gap-8">
+                                        <div className="h-8 bg-gray-800/50 rounded w-20"></div>
+                                        <div className="h-12 bg-gray-800/50 rounded w-40"></div>
+                                    </div>
+                                </div>
+                                <div className="order-1 md:order-2 bg-gray-800/50 aspect-square rounded-lg"></div>
+                            </div>
+                        </section>
+                    );
+                    break;
+                }
+
                 const featured = products && products.length > 0
                     ? (products.find(p => p.isFeatured) || products[0])
                     : null;
 
                 if (!featured) {
                     content = (
-                        <section className="py-16 md:py-24 px-4 max-w-7xl mx-auto">
-                            <div className="text-center text-gray-400">
+                        <section className="py-24 px-4 max-w-7xl mx-auto">
+                            <div className="text-center text-gray-600">
                                 <p>No featured products available</p>
                             </div>
                         </section>
@@ -62,23 +84,24 @@ const Home = () => {
                 }
 
                 content = (
-                    <section className="py-16 md:py-24 px-4 max-w-7xl mx-auto">
-                        <div className="grid md:grid-cols-2 gap-12 items-center">
+                    <section className="py-24 px-4 max-w-7xl mx-auto">
+                        <div className="grid md:grid-cols-2 gap-16 items-center">
                             <div className="order-2 md:order-1">
-                                <span className="text-brand-accent font-bold tracking-widest text-xs uppercase mb-2 block">{section.title}</span>
-                                <h2 className="font-display text-4xl font-bold mb-4">{featured.name}</h2>
-                                <p className="text-gray-600 mb-6 leading-relaxed">
+                                <span className="text-brand-accent font-bold tracking-[0.2em] text-xs uppercase mb-4 block animate-pulse">{section.title}</span>
+                                <h2 className="font-display text-5xl font-bold mb-6 text-white uppercase tracking-wide">{featured.name}</h2>
+                                <p className="text-gray-400 mb-8 leading-relaxed text-lg font-light">
                                     {featured.description}
                                 </p>
-                                <div className="flex items-center gap-4">
-                                    <span className="text-2xl font-bold">${featured.price}</span>
-                                    <Link to={`/product/${featured.id}`} className="bg-black text-white px-6 py-3 text-xs font-bold uppercase tracking-wide hover:bg-gray-800">
+                                <div className="flex items-center gap-8">
+                                    <span className="text-3xl font-bold text-white font-mono">${featured.price}</span>
+                                    <Link to={`/product/${featured.id}`} className="bg-white text-black px-8 py-4 text-xs font-bold uppercase tracking-widest hover:bg-gray-200 transition-colors">
                                         View Product
                                     </Link>
                                 </div>
                             </div>
-                            <div className="order-1 md:order-2 bg-gray-100 aspect-square relative overflow-hidden">
-                                <img src={featured.images[0]} alt={featured.name} className="w-full h-full object-cover" />
+                            <div className="order-1 md:order-2 bg-gray-900 aspect-square relative overflow-hidden border border-white/5 group">
+                                <img src={featured.images[0]} alt={featured.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition duration-700" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none"></div>
                             </div>
                         </div>
                     </section>
@@ -86,26 +109,41 @@ const Home = () => {
                 break;
             case 'grid':
                 content = (
-                    <section className="py-16 px-4 max-w-7xl mx-auto">
-                        <div className="flex justify-between items-end mb-8">
-                            <h2 className="font-display text-3xl font-bold uppercase">{section.title}</h2>
-                            <Link to="/shop" className="text-sm font-bold border-b border-black pb-1">View All</Link>
+                    <section className="py-24 px-4 max-w-7xl mx-auto border-t border-white/5">
+                        <div className="flex justify-between items-end mb-12">
+                            <h2 className="font-display text-4xl font-bold uppercase text-white tracking-wide">{section.title}</h2>
+                            <Link to="/shop" className="text-sm font-bold text-gray-400 hover:text-white border-b border-gray-700 hover:border-white pb-1 transition-all uppercase tracking-widest">View All</Link>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
-                            {products.slice(0, 6).map(p => <ProductCard key={p.id} product={p} />)}
-                        </div>
+                        {isLoading && (!products || products.length === 0) ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16">
+                                {[...Array(3)].map((_, i) => (
+                                    <div key={i} className="animate-pulse">
+                                        <div className="bg-gray-800/50 aspect-[3/4] rounded-lg mb-4"></div>
+                                        <div className="h-4 bg-gray-800/50 rounded w-3/4 mb-2"></div>
+                                        <div className="h-4 bg-gray-800/50 rounded w-1/4"></div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16">
+                                {products.slice(0, 6).map(p => <ProductCard key={p.id} product={p} />)}
+                            </div>
+                        )}
                     </section>
                 );
                 break;
             case 'about_teaser':
                 content = (
-                    <section className="bg-brand-black text-white py-20 px-4 text-center">
-                        <div className="max-w-2xl mx-auto">
-                            <h2 className="font-display text-3xl font-bold uppercase mb-6">{section.title}</h2>
-                            <p className="text-gray-400 mb-8 leading-relaxed">
+                    <section className="relative py-32 px-4 text-center overflow-hidden">
+                        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1492633423870-43d1cd2775eb?q=80&w=2940&auto=format&fit=crop')] bg-cover bg-center opacity-20 fixed-bg"></div>
+                        <div className="absolute inset-0 bg-gradient-to-b from-black via-black/80 to-black"></div>
+
+                        <div className="relative z-10 max-w-3xl mx-auto">
+                            <h2 className="font-display text-4xl md:text-5xl font-bold uppercase mb-8 text-white tracking-wider">{section.title}</h2>
+                            <p className="text-gray-400 mb-10 leading-relaxed text-xl font-light">
                                 {section.content}
                             </p>
-                            <Link to="/about" className="text-white border border-white px-8 py-3 text-xs font-bold uppercase tracking-widest hover:bg-white hover:text-black transition">
+                            <Link to="/about" className="inline-block border border-white/30 text-white px-10 py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-white hover:text-black hover:border-white transition-all duration-300">
                                 Read Our Story
                             </Link>
                         </div>
@@ -123,20 +161,24 @@ const Home = () => {
 
                             <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="flex flex-col">
-                                    <label className="text-[10px] font-bold uppercase text-gray-400 mb-1">Section Title</label>
+                                    <label className="text-[10px] font-bold uppercase text-gray-400 mb-1" htmlFor={`section-title-${section.id}`}>Section Title</label>
                                     <input
+                                        id={`section-title-${section.id}`}
                                         value={section.title}
                                         onChange={(e) => updateSection(section.id, { title: e.target.value })}
                                         className="font-bold text-sm bg-transparent border-b border-gray-200 focus:border-black outline-none transition-colors py-1"
+                                        placeholder="Enter section title"
                                     />
                                 </div>
                                 {(section.type === 'hero' || section.type === 'about_teaser') && (
                                     <div className="flex flex-col">
-                                        <label className="text-[10px] font-bold uppercase text-gray-400 mb-1">Content Text</label>
+                                        <label className="text-[10px] font-bold uppercase text-gray-400 mb-1" htmlFor={`section-content-${section.id}`}>Content Text</label>
                                         <input
+                                            id={`section-content-${section.id}`}
                                             value={section.content || ''}
                                             onChange={(e) => updateSection(section.id, { content: e.target.value })}
                                             className="text-xs text-gray-600 bg-transparent border-b border-gray-200 focus:border-black outline-none transition-colors truncate focus:text-clip py-1"
+                                            placeholder="Enter section content"
                                         />
                                     </div>
                                 )}
@@ -147,13 +189,14 @@ const Home = () => {
                                     onClick={() => updateSection(section.id, { isVisible: !section.isVisible })}
                                     className={`p-2 rounded hover:bg-gray-100 ${!section.isVisible ? 'bg-red-50 text-red-500' : 'text-gray-600'}`}
                                     title={section.isVisible ? "Hide Section" : "Show Section"}
+                                    aria-label={section.isVisible ? "Hide Section" : "Show Section"}
                                 >
                                     {section.isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                                 </button>
 
                                 <div className="flex flex-col gap-1">
-                                    <button onClick={() => moveSection(index, 'up')} disabled={isFirst} className="p-1 hover:bg-gray-100 rounded disabled:opacity-25"><ChevronUp className="w-3 h-3" /></button>
-                                    <button onClick={() => moveSection(index, 'down')} disabled={isLast} className="p-1 hover:bg-gray-100 rounded disabled:opacity-25"><ChevronDown className="w-3 h-3" /></button>
+                                    <button onClick={() => moveSection(index, 'up')} disabled={isFirst} className="p-1 hover:bg-gray-100 rounded disabled:opacity-25" title="Move Up" aria-label="Move Up"><ChevronUp className="w-3 h-3" /></button>
+                                    <button onClick={() => moveSection(index, 'down')} disabled={isLast} className="p-1 hover:bg-gray-100 rounded disabled:opacity-25" title="Move Down" aria-label="Move Down"><ChevronDown className="w-3 h-3" /></button>
                                 </div>
                             </div>
                         </div>
@@ -178,7 +221,7 @@ const Home = () => {
             {isAdminMode && (
                 <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-black text-white px-6 py-3 rounded-full shadow-2xl z-50 flex items-center gap-4">
                     <span className="text-sm font-bold">Layout Edit Mode</span>
-                    <button onClick={() => alert("To add new sections, development implementation is required.")} className="bg-white text-black rounded-full p-1 hover:bg-gray-200">
+                    <button onClick={() => alert("To add new sections, development implementation is required.")} className="bg-white text-black rounded-full p-1 hover:bg-gray-200" title="Add Section" aria-label="Add Section">
                         <Plus className="w-4 h-4" />
                     </button>
                 </div>

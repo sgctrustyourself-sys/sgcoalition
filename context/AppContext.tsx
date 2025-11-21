@@ -1,49 +1,10 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
-import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderItem } from '../types';
+import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderItem, Giveaway, GiveawayEntry } from '../types';
 import { INITIAL_PRODUCTS, INITIAL_SECTIONS, COIN_REWARD_RATE } from '../constants';
 import { connectWallet, formatAddress } from '../services/web3Service';
 import { supabase } from '../services/supabase';
 import { autoCommit, generateProductAddedMessage, generateProductUpdatedMessage, generateProductDeletedMessage } from '../services/autoCommitService';
-
-// Mock user profiles for testing
-export const MOCK_USERS: UserProfile[] = [
-    {
-        uid: 'user_001',
-        displayName: 'John Doe',
-        email: 'john@example.com',
-        walletAddress: null,
-        sgCoinBalance: 1200,
-        isAdmin: false,
-        favorites: []
-    },
-    {
-        uid: 'user_002',
-        displayName: 'Jane Smith',
-        email: 'jane@example.com',
-        walletAddress: null,
-        sgCoinBalance: 3500,
-        isAdmin: false,
-        favorites: []
-    },
-    {
-        uid: 'user_003',
-        displayName: 'Alex Johnson',
-        email: 'alex@example.com',
-        walletAddress: null,
-        sgCoinBalance: 10000,
-        isAdmin: false,
-        favorites: []
-    },
-    {
-        uid: 'user_004',
-        displayName: 'Sarah Williams',
-        email: 'sarah@example.com',
-        walletAddress: null,
-        sgCoinBalance: 0,
-        isAdmin: false,
-        favorites: []
-    }
-];
+import { signOut } from '../services/auth';
 
 interface AppState {
     products: Product[];
@@ -54,6 +15,7 @@ interface AppState {
     isCartOpen: boolean;
     isAdminMode: boolean;
     isSupabaseConfigured: boolean;
+    isLoading: boolean;
     addProduct: (p: Product) => Promise<void>;
     updateProduct: (p: Product) => Promise<void>;
     deleteProduct: (id: string) => Promise<void>;
@@ -78,6 +40,13 @@ interface AppState {
     getOrderById: (orderId: string) => Order | undefined;
     deductInventory: (items: OrderItem[]) => Promise<void>;
     generateOrderNumber: () => string;
+    // Giveaway Functions
+    giveaways: Giveaway[];
+    addGiveaway: (g: Giveaway) => Promise<void>;
+    updateGiveaway: (g: Giveaway) => Promise<void>;
+    deleteGiveaway: (id: string) => Promise<void>;
+    addGiveawayEntry: (entry: GiveawayEntry) => Promise<void>;
+    pickGiveawayWinner: (giveawayId: string, count: number) => Promise<void>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -90,7 +59,16 @@ export const useApp = () => {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     // State
-    const [products, setProducts] = useState<Product[]>([]);
+    const [products, setProducts] = useState<Product[]>(() => {
+        try {
+            const saved = localStorage.getItem('coalition_products_v3');
+            return saved ? JSON.parse(saved) : [];
+        } catch (e) {
+            console.error("Failed to parse cached products:", e);
+            return [];
+        }
+    });
+
     const [sections, setSections] = useState<Section[]>(() => {
         const saved = localStorage.getItem('coalition_sections');
         return saved ? JSON.parse(saved) : INITIAL_SECTIONS;
@@ -100,66 +78,140 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return saved ? JSON.parse(saved) : [];
     });
     const [cart, setCart] = useState<CartItem[]>([]);
-    const [user, setUser] = useState<UserProfile | null>(() => {
-        const saved = localStorage.getItem('coalition_current_user');
-        return saved ? JSON.parse(saved) : null;
+    const [user, setUser] = useState<UserProfile | null>(null);
+    const [giveaways, setGiveaways] = useState<Giveaway[]>(() => {
+        const saved = localStorage.getItem('coalition_giveaways_v1');
+        return saved ? JSON.parse(saved) : [];
     });
+
     const [isCartOpen, setCartOpen] = useState(false);
     const [isAdminMode, setIsAdminMode] = useState(false);
     const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Check Supabase Config
+    // Check Supabase Config & Auth State
     useEffect(() => {
-        try {
-            const hasKeys = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
-            setIsSupabaseConfigured(!!hasKeys);
+        let mounted = true;
 
-            if (!hasKeys) {
-                console.warn("Supabase keys missing. Falling back to localStorage.");
-                const saved = localStorage.getItem('coalition_products_v3');
-                const parsedProducts = saved ? JSON.parse(saved) : [];
-                // Load INITIAL_PRODUCTS if localStorage is empty or has empty array
-                setProducts(parsedProducts.length > 0 ? parsedProducts : INITIAL_PRODUCTS);
-            } else {
-                fetchProducts().catch(err => {
-                    console.error("Failed to fetch products from Supabase:", err);
-                    // Fallback to localStorage on error
-                    const saved = localStorage.getItem('coalition_products_v3');
-                    setProducts(saved ? JSON.parse(saved) : INITIAL_PRODUCTS);
-                });
+        const initApp = async () => {
+            try {
+                const hasKeys = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
+                if (mounted) setIsSupabaseConfigured(!!hasKeys);
 
-                // Real-time subscription
-                try {
+                if (!hasKeys) {
+                    console.warn("Supabase keys missing. Falling back to localStorage.");
+                    setProducts(prev => {
+                        const prevIds = new Set(prev.map(p => p.id));
+                        const newItems = INITIAL_PRODUCTS.filter(p => !prevIds.has(p.id));
+                        if (newItems.length > 0) {
+                            return [...prev, ...newItems];
+                        }
+                        return prev.length === 0 ? INITIAL_PRODUCTS : prev;
+                    });
+                    if (mounted) setIsLoading(false);
+                } else {
+                    // Always fetch fresh data from Supabase
+                    const fetchedProducts = await fetchProducts();
+
+                    // SAFEGUARD: Ensure Coalition NF-Tee is always in the list locally
+                    const nftProduct = INITIAL_PRODUCTS.find(p => p.id === 'prod_nft_001');
+                    if (nftProduct) {
+                        setProducts(prev => {
+                            const index = prev.findIndex(p => p.id === 'prod_nft_001');
+                            if (index === -1) {
+                                console.log("Force adding Coalition NF-Tee to local state");
+                                return [...prev, nftProduct];
+                            } else {
+                                // Force update metadata (e.g. OpenSea URL)
+                                const newProducts = [...prev];
+                                newProducts[index] = { ...newProducts[index], ...nftProduct };
+                                return newProducts;
+                            }
+                        });
+
+                        // Background Seeding: Only if we successfully fetched from DB and it wasn't there
+                        if (fetchedProducts && !fetchedProducts.some(p => p.id === 'prod_nft_001')) {
+                            console.log("Seeding Coalition NF-Tee to Supabase...");
+                            const dbProduct = {
+                                id: nftProduct.id,
+                                name: nftProduct.name,
+                                price: nftProduct.price,
+                                category: nftProduct.category,
+                                images: nftProduct.images,
+                                description: nftProduct.description,
+                                is_featured: nftProduct.isFeatured,
+                                sizes: nftProduct.sizes,
+                                nft_metadata: nftProduct.nft,
+                                size_inventory: nftProduct.sizeInventory
+                            };
+
+                            // Fire and forget seeding to avoid blocking UI
+                            supabase.from('products').insert([dbProduct]).then(({ error }) => {
+                                if (error) console.error("Failed to seed product:", error);
+                                else console.log("Product seeded successfully");
+                            });
+                        }
+                    }
+
+                    // Real-time subscription for products
                     const subscription = supabase
                         .channel('products_channel')
                         .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
                             console.log('Real-time update:', payload);
-                            fetchProducts(); // Refresh full list to be safe
+                            fetchProducts();
                         })
                         .subscribe();
 
+                    // Auth State Listener
+                    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+                        if (!mounted) return;
+
+                        if (session?.user) {
+                            // Load favorites from localStorage for now, or DB later
+                            const savedFavorites = localStorage.getItem(`coalition_favorites_${session.user.id}`);
+
+                            setUser({
+                                uid: session.user.id,
+                                displayName: session.user.user_metadata.full_name || session.user.email?.split('@')[0] || 'User',
+                                email: session.user.email || null,
+                                walletAddress: null,
+                                sgCoinBalance: 0, // TODO: Fetch from DB
+                                isAdmin: false, // TODO: Check role
+                                favorites: savedFavorites ? JSON.parse(savedFavorites) : []
+                            });
+                        } else {
+                            setUser(null);
+                        }
+                    });
+
                     return () => {
                         subscription.unsubscribe();
+                        authListener.subscription.unsubscribe();
                     };
-                } catch (subError) {
-                    console.error("Failed to setup Supabase subscription:", subError);
                 }
+            } catch (error) {
+                console.error("Critical error in AppContext initialization:", error);
+                if (mounted) setIsLoading(false);
             }
-        } catch (error) {
-            console.error("Critical error in AppContext initialization:", error);
-            // Fallback to localStorage
-            const saved = localStorage.getItem('coalition_products_v3');
-            setProducts(saved ? JSON.parse(saved) : INITIAL_PRODUCTS);
-        }
+        };
+
+        initApp();
+
+        return () => {
+            mounted = false;
+        };
     }, []);
 
-    const fetchProducts = async () => {
+    const fetchProducts = async (): Promise<Product[] | null> => {
+        if (!import.meta.env.VITE_SUPABASE_URL) return null;
+
         try {
+            setIsLoading(true);
             const { data, error } = await supabase.from('products').select('*');
+
             if (error) throw error;
 
             if (data) {
-                // Map DB columns to Product type
                 const mappedProducts: Product[] = data.map(item => ({
                     id: item.id,
                     name: item.name,
@@ -170,15 +222,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     description: item.description,
                     isFeatured: item.is_featured,
                     sizes: item.sizes || [],
+                    sizeInventory: item.size_inventory || {},
                     nft: item.nft_metadata
                 }));
+
                 setProducts(mappedProducts);
+                // Always cache successful fetches
+                localStorage.setItem('coalition_products_v3', JSON.stringify(mappedProducts));
+                return mappedProducts;
             }
+            return null;
         } catch (err) {
             console.error('Error fetching products:', err);
-            // Fallback if fetch fails (e.g. table doesn't exist yet)
-            const saved = localStorage.getItem('coalition_products_v3');
-            setProducts(saved ? JSON.parse(saved) : INITIAL_PRODUCTS);
+            return null;
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -192,19 +250,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [orders]);
 
     useEffect(() => {
-        if (user) {
-            localStorage.setItem('coalition_current_user', JSON.stringify(user));
-        } else {
-            localStorage.removeItem('coalition_current_user');
-        }
-    }, [user]);
+        localStorage.setItem('coalition_giveaways_v1', JSON.stringify(giveaways));
+    }, [giveaways]);
 
-    // If using localStorage fallback, persist products
+    // Redundant useEffect for products removed - we now save immediately after fetch
+    // or if we modify locally (for optimistic updates)
     useEffect(() => {
-        if (!isSupabaseConfigured) {
+        if (products.length > 0) {
             localStorage.setItem('coalition_products_v3', JSON.stringify(products));
         }
-    }, [products, isSupabaseConfigured]);
+    }, [products]);
 
     const addProduct = async (p: Product) => {
         if (isSupabaseConfigured) {
@@ -212,7 +267,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 id: p.id,
                 name: p.name,
                 price: p.price,
-                stock: p.stock,
                 category: p.category,
                 images: p.images,
                 description: p.description,
@@ -225,14 +279,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 console.error('Error adding product:', error);
                 alert('Failed to add product to database');
             } else {
-                // Optimistic update or wait for subscription
                 setProducts(prev => [...prev, p]);
-                // Auto-commit the change
                 await autoCommit({ message: generateProductAddedMessage(p.name) });
             }
         } else {
             setProducts(prev => [...prev, p]);
-            // Auto-commit the change
             await autoCommit({ message: generateProductAddedMessage(p.name) });
         }
     };
@@ -242,7 +293,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const dbProduct = {
                 name: updated.name,
                 price: updated.price,
-                stock: updated.stock,
                 category: updated.category,
                 images: updated.images,
                 description: updated.description,
@@ -256,18 +306,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 alert('Failed to update product in database');
             } else {
                 setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
-                // Auto-commit the change
                 await autoCommit({ message: generateProductUpdatedMessage(updated.name) });
             }
         } else {
             setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
-            // Auto-commit the change
             await autoCommit({ message: generateProductUpdatedMessage(updated.name) });
         }
     };
 
     const deleteProduct = async (id: string) => {
-        // Get product name before deleting for commit message
         const product = products.find(p => p.id === id);
         const productName = product?.name || id;
 
@@ -278,12 +325,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 alert('Failed to delete product from database');
             } else {
                 setProducts(prev => prev.filter(p => p.id !== id));
-                // Auto-commit the change
                 await autoCommit({ message: generateProductDeletedMessage(productName) });
             }
         } else {
             setProducts(prev => prev.filter(p => p.id !== id));
-            // Auto-commit the change
             await autoCommit({ message: generateProductDeletedMessage(productName) });
         }
     };
@@ -300,7 +345,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (existing) {
                 return prev.map(item => item.cartId === existing.cartId ? { ...item, quantity: item.quantity + 1 } : item);
             }
-            // Use first image for cart item
             return [...prev, { ...product, selectedSize: size, quantity: 1, cartId: Math.random().toString(36).substr(2, 9) }];
         });
         setCartOpen(true);
@@ -310,39 +354,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCart(prev => prev.filter(item => item.cartId !== cartId));
     };
 
+    const clearCart = () => setCart([]);
+
     const toggleFavorite = (pid: string) => {
         if (!user) return;
         const isFav = user.favorites.includes(pid);
         const newFavs = isFav ? user.favorites.filter(id => id !== pid) : [pid, ...user.favorites];
         const updatedUser = { ...user, favorites: newFavs };
         setUser(updatedUser);
-        // Persist favorites per user
         localStorage.setItem(`coalition_favorites_${user.uid}`, JSON.stringify(newFavs));
     };
 
     const login = async (provider: AuthProvider, userId?: string) => {
-        // Mock Login Logic
-        if (provider === AuthProvider.GOOGLE) {
-            // If userId provided, find that specific user
-            if (userId) {
-                const selectedUser = MOCK_USERS.find(u => u.uid === userId);
-                if (selectedUser) {
-                    // Load user's saved favorites from localStorage
-                    const savedFavorites = localStorage.getItem(`coalition_favorites_${userId}`);
-                    setUser({
-                        ...selectedUser,
-                        favorites: savedFavorites ? JSON.parse(savedFavorites) : []
-                    });
-                }
-            } else {
-                // Default to first user if no selection (shouldn't happen with new UI)
-                const savedFavorites = localStorage.getItem(`coalition_favorites_${MOCK_USERS[0].uid}`);
-                setUser({
-                    ...MOCK_USERS[0],
-                    favorites: savedFavorites ? JSON.parse(savedFavorites) : []
-                });
-            }
-        } else if (provider === AuthProvider.METAMASK) {
+        if (provider === AuthProvider.METAMASK) {
             const walletData = await connectWallet();
             if (walletData) {
                 setUser({
@@ -358,21 +382,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
-    const loginUser = login; // Alias for consistency
+    const loginUser = login;
 
-    const logout = () => {
+    const logout = async () => {
+        await signOut();
         setUser(null);
-        setIsAdminMode(false);
     };
 
     const updateUser = (data: Partial<UserProfile>) => {
-        if (user) {
-            setUser({ ...user, ...data });
-        }
-    };
-
-    const clearCart = () => {
-        setCart([]);
+        if (user) setUser({ ...user, ...data });
     };
 
     const loginAdmin = (password: string) => {
@@ -383,112 +401,141 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return false;
     };
 
-    const logoutAdmin = () => {
-        setIsAdminMode(false);
-    };
+    const logoutAdmin = () => setIsAdminMode(false);
 
-    const cartTotal = () => {
-        return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    };
+    const cartTotal = () => cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-    const calculateReward = (total: number) => {
-        return Math.floor(total * COIN_REWARD_RATE);
-    };
-
-    // Order Management Functions
-    const generateOrderNumber = (): string => {
-        const orderCount = orders.length + 1;
-        return `ORD-${String(orderCount).padStart(4, '0')}`;
-    };
+    const calculateReward = (total: number) => Math.floor(total * COIN_REWARD_RATE);
 
     const addOrder = async (order: Order) => {
-        try {
-            setOrders(prev => [...prev, order]);
-
-            // Deduct inventory for the order
-            await deductInventory(order.items);
-
-            console.log('Order added successfully:', order.orderNumber);
-        } catch (error) {
-            console.error('Error adding order:', error);
-            throw error;
-        }
+        setOrders(prev => [order, ...prev]);
+        await deductInventory(order.items);
     };
 
-    const updateOrder = async (order: Order) => {
-        try {
-            setOrders(prev => prev.map(o => o.id === order.id ? order : o));
-            console.log('Order updated successfully:', order.orderNumber);
-        } catch (error) {
-            console.error('Error updating order:', error);
-            throw error;
-        }
+    const updateOrder = async (updatedOrder: Order) => {
+        setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
     };
 
     const deleteOrder = async (orderId: string) => {
-        try {
-            setOrders(prev => prev.filter(o => o.id !== orderId));
-            console.log('Order deleted successfully');
-        } catch (error) {
-            console.error('Error deleting order:', error);
-            throw error;
-        }
+        setOrders(prev => prev.filter(o => o.id !== orderId));
     };
 
-    const getOrderById = (orderId: string): Order | undefined => {
-        return orders.find(o => o.id === orderId);
-    };
+    const getOrderById = (orderId: string) => orders.find(o => o.id === orderId);
 
     const deductInventory = async (items: OrderItem[]) => {
-        try {
-            const updatedProducts = products.map(product => {
-                // Find if this product has items in the order
-                const orderItems = items.filter(item => item.productId === product.id);
+        // Optimistic update
+        setProducts(prev => prev.map(p => {
+            const orderItem = items.find(i => i.productId === p.id);
+            if (orderItem && p.sizeInventory) {
+                const newInventory = { ...p.sizeInventory };
+                if (newInventory[orderItem.selectedSize] > 0) {
+                    newInventory[orderItem.selectedSize] -= orderItem.quantity;
+                }
+                return { ...p, sizeInventory: newInventory };
+            }
+            return p;
+        }));
 
-                if (orderItems.length === 0) return product;
-
-                // Create a copy of sizeInventory
-                const newSizeInventory = { ...(product.sizeInventory || {}) };
-
-                // Deduct quantities for each size
-                orderItems.forEach(item => {
-                    const currentStock = newSizeInventory[item.selectedSize] || 0;
-                    newSizeInventory[item.selectedSize] = Math.max(0, currentStock - item.quantity);
-                });
-
-                return {
-                    ...product,
-                    sizeInventory: newSizeInventory
-                };
-            });
-
-            setProducts(updatedProducts);
-
-            // If using Supabase, update there too
-            if (isSupabaseConfigured) {
-                for (const product of updatedProducts) {
-                    const matchingProduct = products.find(p => p.id === product.id);
-                    if (matchingProduct && JSON.stringify(matchingProduct.sizeInventory) !== JSON.stringify(product.sizeInventory)) {
-                        await updateProduct(product);
+        // Supabase update
+        if (isSupabaseConfigured) {
+            for (const item of items) {
+                const product = products.find(p => p.id === item.productId);
+                if (product && product.sizeInventory) {
+                    const newInventory = { ...product.sizeInventory };
+                    if (newInventory[item.selectedSize] > 0) {
+                        newInventory[item.selectedSize] -= item.quantity;
                     }
+                    await supabase.from('products').update({ size_inventory: newInventory }).eq('id', item.productId);
                 }
             }
-
-            console.log('Inventory deducted successfully');
-        } catch (error) {
-            console.error('Error deducting inventory:', error);
-            throw error;
         }
     };
 
+    const generateOrderNumber = () => {
+        return 'ORD-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+    };
+
+    // Giveaway Functions
+    const addGiveaway = async (g: Giveaway) => {
+        setGiveaways(prev => [...prev, g]);
+    };
+
+    const updateGiveaway = async (updated: Giveaway) => {
+        setGiveaways(prev => prev.map(g => g.id === updated.id ? updated : g));
+    };
+
+    const deleteGiveaway = async (id: string) => {
+        setGiveaways(prev => prev.filter(g => g.id !== id));
+    };
+
+    const addGiveawayEntry = async (entry: GiveawayEntry) => {
+        setGiveaways(prev => prev.map(g => {
+            if (g.id === entry.giveawayId) {
+                return { ...g, entries: [...g.entries, entry] };
+            }
+            return g;
+        }));
+    };
+
+    const pickGiveawayWinner = async (giveawayId: string, count: number) => {
+        setGiveaways(prev => prev.map(g => {
+            if (g.id === giveawayId) {
+                const eligibleEntries = g.entries;
+                const winners: string[] = [];
+                for (let i = 0; i < count; i++) {
+                    if (eligibleEntries.length > 0) {
+                        const randomIndex = Math.floor(Math.random() * eligibleEntries.length);
+                        winners.push(eligibleEntries[randomIndex].userId);
+                        eligibleEntries.splice(randomIndex, 1);
+                    }
+                }
+                return { ...g, winners, status: 'completed' };
+            }
+            return g;
+        }));
+    };
 
     return (
         <AppContext.Provider value={{
-            products, cart, user, sections, orders, isCartOpen, isAdminMode, isSupabaseConfigured,
-            addProduct, updateProduct, deleteProduct, addToCart, removeFromCart, clearCart,
-            toggleFavorite, login, loginUser, logout, updateUser, setCartOpen, loginAdmin, logoutAdmin, updateSections, updateSection,
-            cartTotal, calculateReward,
-            addOrder, updateOrder, deleteOrder, getOrderById, deductInventory, generateOrderNumber
+            products,
+            cart,
+            user,
+            sections,
+            orders,
+            isCartOpen,
+            isAdminMode,
+            isSupabaseConfigured,
+            isLoading,
+            addProduct,
+            updateProduct,
+            deleteProduct,
+            addToCart,
+            removeFromCart,
+            clearCart,
+            toggleFavorite,
+            login,
+            loginUser,
+            logout,
+            updateUser,
+            setCartOpen,
+            loginAdmin,
+            logoutAdmin,
+            updateSections,
+            updateSection,
+            cartTotal,
+            calculateReward,
+            addOrder,
+            updateOrder,
+            deleteOrder,
+            getOrderById,
+            deductInventory,
+            generateOrderNumber,
+            giveaways,
+            addGiveaway,
+            updateGiveaway,
+            deleteGiveaway,
+            addGiveawayEntry,
+            pickGiveawayWinner
         }}>
             {children}
         </AppContext.Provider>

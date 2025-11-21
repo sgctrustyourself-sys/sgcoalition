@@ -9,28 +9,28 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     const isFav = user?.favorites.includes(product.id);
 
     return (
-        <div className="group relative bg-white">
-            <div className="aspect-[4/5] overflow-hidden bg-gray-100 relative">
+        <div className="group relative bg-transparent">
+            <div className="aspect-[4/5] overflow-hidden bg-gray-900 relative border border-white/5">
                 <img
                     src={product.images[0]}
                     alt={product.name}
-                    className="h-full w-full object-cover object-center group-hover:scale-105 transition duration-500"
+                    className="h-full w-full object-cover object-center group-hover:scale-105 group-hover:grayscale transition duration-700 ease-in-out"
                 />
                 {product.nft && (
-                    <div className="absolute top-2 left-2 bg-gradient-to-r from-purple-600 to-brand-accent text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
-                        <span className="text-xs">🔗</span>
-                        NFT-BACKED
+                    <div className="absolute top-2 left-2 bg-black/80 backdrop-blur border border-white/20 text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 uppercase tracking-wider">
+                        <span className="text-brand-accent">✦</span>
+                        Digital Twin
                     </div>
                 )}
                 {user && (
                     <button
                         onClick={(e) => { e.preventDefault(); toggleFavorite(product.id); }}
-                        className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition"
+                        className="absolute top-2 right-2 p-2 bg-black/50 backdrop-blur-sm rounded-full hover:bg-white hover:text-black transition-all border border-white/10"
                     >
-                        <Heart className={`w-4 h-4 ${isFav ? 'fill-red-500 text-red-500' : 'text-gray-900'}`} />
+                        <Heart className={`w-4 h-4 ${isFav ? 'fill-red-500 text-red-500' : 'text-white'}`} />
                     </button>
                 )}
-                <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition duration-300 bg-gradient-to-t from-black/80 to-transparent">
+                <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition duration-300 bg-gradient-to-t from-black via-black/80 to-transparent">
                     <button
                         onClick={(e) => {
                             e.preventDefault();
@@ -38,23 +38,23 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
                             const size = product.sizes?.[0] || 'One Size';
                             addToCart(product, size);
                         }}
-                        className="w-full bg-white text-black py-2 text-xs font-bold uppercase tracking-wide"
+                        className="w-full bg-white text-black py-3 text-xs font-bold uppercase tracking-widest hover:bg-gray-200 transition-colors"
                     >
                         Quick Add
                     </button>
                 </div>
             </div>
-            <div className="mt-4 flex justify-between">
+            <div className="mt-4 flex justify-between items-start">
                 <div>
-                    <h3 className="text-sm text-gray-900 font-medium">
+                    <h3 className="text-sm text-white font-bold uppercase tracking-wide">
                         <Link to={`/product/${product.id}`}>
                             <span aria-hidden="true" className="absolute inset-0" />
                             {product.name}
                         </Link>
                     </h3>
-                    <p className="mt-1 text-xs text-gray-500 uppercase">{product.category}</p>
+                    <p className="mt-1 text-xs text-gray-500 uppercase tracking-widest">{product.category}</p>
                 </div>
-                <p className="text-sm font-medium text-gray-900">${product.price}</p>
+                <p className="text-sm font-bold text-white font-mono">${product.price}</p>
             </div>
         </div>
     );

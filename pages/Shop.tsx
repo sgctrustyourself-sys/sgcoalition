@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
 
 const Shop = () => {
-    const { products } = useApp();
+    const { products, isLoading } = useApp();
     const [isFiltersOpen, setFiltersOpen] = useState(false);
 
     // Filter States
@@ -15,7 +15,7 @@ const Shop = () => {
 
     // Derived Data
     const categories = ['all', ...Array.from(new Set(products.map(p => p.category)))];
-    const allSizes = Array.from(new Set(products.flatMap(p => p.sizes || [])));
+    const allSizes = Array.from(new Set(products.flatMap(p => p.sizes || []))) as string[];
 
     const toggleSize = (size: string) => {
         setSelectedSizes(prev =>
@@ -145,7 +145,17 @@ const Shop = () => {
 
                 {/* Product Grid */}
                 <div className="flex-1">
-                    {filteredProducts.length > 0 ? (
+                    {isLoading && products.length === 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
+                            {[...Array(6)].map((_, i) => (
+                                <div key={i} className="animate-pulse">
+                                    <div className="bg-gray-800/50 aspect-[3/4] rounded-lg mb-4"></div>
+                                    <div className="h-4 bg-gray-800/50 rounded w-3/4 mb-2"></div>
+                                    <div className="h-4 bg-gray-800/50 rounded w-1/4"></div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : filteredProducts.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
                             {filteredProducts.map(p => <ProductCard key={p.id} product={p} />)}
                         </div>

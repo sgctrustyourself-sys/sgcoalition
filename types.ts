@@ -47,7 +47,8 @@ export interface Section {
 
 export enum AuthProvider {
   GOOGLE = 'GOOGLE',
-  METAMASK = 'METAMASK'
+  METAMASK = 'METAMASK',
+  DISCORD = 'DISCORD'
 }
 
 export interface SGCoinData {
@@ -119,4 +120,37 @@ export interface Order {
   paidAt?: string;
   notes?: string;
   shippingAddress?: ShippingAddress;
+}
+
+export enum GiveawayStatus {
+  ACTIVE = 'active',
+  UPCOMING = 'upcoming',
+  ENDED = 'ended'
+}
+
+export interface GiveawayEntry {
+  id: string;
+  giveawayId: string;
+  userId?: string;
+  name: string;
+  email: string;
+  entryCount: number;
+  timestamp: number;
+  source: 'manual' | 'purchase' | 'form' | 'social';
+}
+
+export interface Giveaway {
+  id: string;
+  title: string;
+  prize: string;
+  prizeImage?: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  status: GiveawayStatus;
+  requirements: string[]; // e.g., "Follow on Twitter", "Join Discord"
+  maxEntriesPerUser: number;
+  entries: GiveawayEntry[];
+  winners?: GiveawayEntry[];
+  createdAt: number;
 }

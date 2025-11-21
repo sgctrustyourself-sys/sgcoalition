@@ -1,230 +1,238 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { ExternalLink, Gift, Shield, Zap, Map, ArrowRight, Wallet, CheckCircle2 } from 'lucide-react';
-import { fetchSGCoinData, fetchRecentTrades } from '../services/priceService';
+import { useApp } from '../context/AppContext';
 import { SGCoinData } from '../types';
-import { connectWallet, getSGCoinBalance, formatAddress } from '../services/web3Service';
-import { ethers } from 'ethers';
+import { fetchSGCoinData, fetchRecentTrades } from '../services/priceService';
 import SGCoinCard from '../components/SGCoinCard';
+import { ArrowRight, ExternalLink, Gift, Trophy, Clock, Users, CheckCircle } from 'lucide-react';
 
 const Ecosystem = () => {
-    const [tokenData, setTokenData] = useState<SGCoinData | null>(null);
-    const [walletAddress, setWalletAddress] = useState<string | null>(null);
-    const [userSGCoinBalance, setUserSGCoinBalance] = useState<number | null>(null);
-    const [isConnecting, setIsConnecting] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-
-    const CONTRACT_ADDRESS = '0x951806a2581c22C478aC613a675e6c898E2aBe21';
-
-    const loadData = async () => {
-        try {
-            const data = await fetchSGCoinData();
-            if (data) {
-                setTokenData(data);
-                setLastUpdated(new Date());
-            }
-        } catch (error) {
-            console.error("Failed to load token data", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    const { giveaways, addGiveawayEntry, user } = useApp();
+    const [coinData, setCoinData] = useState<SGCoinData | null>(null);
+    const [trades, setTrades] = useState<any[]>([]);
+    const [activeGiveaway, setActiveGiveaway] = useState<any>(null);
+    const [email, setEmail] = useState('');
+    const [hasEntered, setHasEntered] = useState(false);
 
     useEffect(() => {
+        const loadData = async () => {
+            const data = await fetchSGCoinData();
+            setCoinData(data);
+            const recentTrades = await fetchRecentTrades();
+            setTrades(recentTrades);
+        };
+
         loadData();
-        const interval = setInterval(loadData, 30000); // Refresh every 30s
+        const interval = setInterval(loadData, 30000);
         return () => clearInterval(interval);
     }, []);
 
-    const handleConnectWallet = async () => {
-        setIsConnecting(true);
+    // Load Active Giveaway
+    useEffect(() => {
+        const active = giveaways.find(g => g.status === 'active');
+        setActiveGiveaway(active || null);
+
+        // Check if user has already entered
+        if (active && user) {
+            const entered = active.entries.some(e => e.email === user.email || e.userId === user.uid);
+            setHasEntered(entered);
+        }
+    }, [giveaways, user]);
+
+    const handleEnterGiveaway = async () => {
+        if (!activeGiveaway) return;
+        if (!email && !user) {
+            alert('Please enter your email to join.');
+            return;
+        }
+
         try {
-            const walletData = await connectWallet();
-            if (walletData) {
-                setWalletAddress(walletData.address);
-                if (window.ethereum) {
-                    const provider = new ethers.BrowserProvider(window.ethereum);
-                    const balance = await getSGCoinBalance(walletData.address, provider);
-                    setUserSGCoinBalance(balance);
-                }
-            }
-        } catch (error) {
-            console.error('Error connecting wallet:', error);
-        } finally {
-            setIsConnecting(false);
+            await addGiveawayEntry({
+                id: `entry_${Date.now()}`,
+                giveawayId: activeGiveaway.id,
+                userId: user?.uid,
+                name: user?.displayName || email.split('@')[0],
+                email: user?.email || email,
+                entryCount: 1,
+                timestamp: Date.now(),
+                source: 'form'
+            });
+            setHasEntered(true);
+            alert('You have successfully entered the giveaway!');
+        } catch (error: any) {
+            alert('Failed to enter giveaway: ' + error.message);
         }
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 font-sans text-brand-black">
+        <div className="bg-black min-h-screen text-white">
             {/* Hero Section */}
-            <section className="bg-brand-black text-white py-20 px-4 relative overflow-hidden">
-                <div className="absolute inset-0 opacity-10 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
-                <div className="max-w-7xl mx-auto relative z-10 text-center">
-                    <h1 className="font-display text-6xl md:text-8xl font-bold uppercase tracking-tighter mb-6">
-                        The Ecosystem
+            <div className="relative h-[60vh] flex items-center justify-center overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-b from-gray-900 to-black opacity-90 z-10"></div>
+                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1639762681485-074b7f938ba0?q=80&w=2832&auto=format&fit=crop')] bg-cover bg-center opacity-40"></div>
+
+                <div className="relative z-20 text-center px-4 max-w-4xl mx-auto">
+                    <h1 className="font-display text-5xl md:text-7xl font-bold uppercase tracking-tighter mb-6">
+                        The <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">Ecosystem</span>
                     </h1>
-                    <p className="text-xl md:text-2xl text-gray-400 max-w-2xl mx-auto font-light">
-                        Fueling the future of decentralized fashion with <span className="text-brand-accent font-bold">SGCoin</span>.
+                    <p className="text-xl text-gray-300 max-w-2xl mx-auto leading-relaxed">
+                        A decentralized economy powered by SGCoin. Stake, earn, and unlock exclusive rewards in the Coalition universe.
                     </p>
                 </div>
-            </section>
+            </div>
 
-            {/* SGCoin Live Data Section */}
-            <section className="py-12 px-4 -mt-10 relative z-20">
-                <div className="max-w-5xl mx-auto">
-                    <SGCoinCard data={tokenData} isLoading={isLoading} />
-                    <div className="text-center mt-4 text-xs text-gray-400 flex items-center justify-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                        Last updated: {lastUpdated.toLocaleTimeString()}
-                    </div>
-                </div>
-            </section>
+            {/* Live SGCoin Data */}
+            <div className="max-w-7xl mx-auto px-4 -mt-20 relative z-30 mb-24">
+                <SGCoinCard data={coinData} />
+            </div>
 
             {/* Main Content Grid */}
-            <section className="py-16 px-4 max-w-7xl mx-auto grid md:grid-cols-2 gap-12">
+            <div className="max-w-7xl mx-auto px-4 pb-24 grid grid-cols-1 lg:grid-cols-3 gap-12">
 
-                {/* Staking Section */}
-                <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:border-brand-accent/50 transition-colors">
-                    <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-6 text-purple-600">
-                        <Shield size={24} />
-                    </div>
-                    <h2 className="font-display text-3xl font-bold uppercase mb-4">Staking Rewards</h2>
-                    <p className="text-gray-600 mb-6 leading-relaxed">
-                        Lock your SGCoin to earn passive rewards. Stakers receive a share of transaction fees and exclusive access to limited drops.
-                    </p>
-                    <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="font-bold text-sm uppercase text-gray-500">Current APY</span>
-                            <span className="font-bold text-green-600 text-xl">12.5%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div className="bg-purple-600 h-2 rounded-full" style={{ width: '65%' }}></div>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-2 text-right">Total Value Locked: $45,230</p>
-                    </div>
-                    <button className="w-full py-3 bg-black text-white font-bold uppercase tracking-widest rounded hover:bg-gray-800 transition">
-                        Start Staking
-                    </button>
-                </div>
+                {/* Left Column: Token Info & Staking */}
+                <div className="lg:col-span-2 space-y-12">
 
-                {/* Utilities Section */}
-                <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:border-brand-accent/50 transition-colors">
-                    <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-6 text-blue-600">
-                        <Zap size={24} />
-                    </div>
-                    <h2 className="font-display text-3xl font-bold uppercase mb-4">Coalition Utility</h2>
-                    <p className="text-gray-600 mb-6 leading-relaxed">
-                        SGCoin isn't just a token; it's your key to the Coalition universe. Use it for real-world benefits.
-                    </p>
-                    <ul className="space-y-4 mb-8">
-                        <li className="flex items-start gap-3">
-                            <CheckCircle2 className="w-5 h-5 text-brand-accent flex-shrink-0 mt-0.5" />
-                            <span className="text-sm font-medium">Purchase exclusive "Token-Only" merchandise</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                            <CheckCircle2 className="w-5 h-5 text-brand-accent flex-shrink-0 mt-0.5" />
-                            <span className="text-sm font-medium">Get 15% discount on all store items when paying with SGCoin</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                            <CheckCircle2 className="w-5 h-5 text-brand-accent flex-shrink-0 mt-0.5" />
-                            <span className="text-sm font-medium">Vote on future designs and brand direction</span>
-                        </li>
-                    </ul>
-                    <Link to="/shop" className="block w-full py-3 border-2 border-black text-center font-bold uppercase tracking-widest rounded hover:bg-black hover:text-white transition">
-                        Shop with SGCoin
-                    </Link>
-                </div>
-            </section>
-
-            {/* Rewards / Giveaway Section */}
-            <section className="py-16 px-4 bg-brand-accent text-white">
-                <div className="max-w-4xl mx-auto text-center">
-                    <Gift size={48} className="mx-auto mb-6 opacity-90" />
-                    <h2 className="font-display text-4xl font-bold uppercase mb-4">Weekly Rewards</h2>
-                    <p className="text-xl text-white/80 mb-8">
-                        Hold SGCoin to automatically enter our weekly giveaways.
-                    </p>
-                    <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 inline-block w-full max-w-lg">
-                        <p className="text-sm font-bold uppercase tracking-widest mb-2 text-white/60">Next Draw In</p>
-                        <div className="text-4xl font-bold font-mono mb-6">04d : 12h : 45m</div>
-                        <div className="flex items-center justify-center gap-2 text-sm">
-                            <Wallet size={16} />
-                            <span>Connect wallet to verify eligibility</span>
-                        </div>
-                        {!walletAddress && (
-                            <button
-                                onClick={handleConnectWallet}
-                                disabled={isConnecting}
-                                className="mt-6 px-8 py-3 bg-white text-brand-accent font-bold uppercase tracking-widest rounded hover:bg-gray-100 transition"
-                            >
-                                {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-                            </button>
-                        )}
-                        {walletAddress && (
-                            <div className="mt-6 text-green-300 font-bold flex items-center justify-center gap-2">
-                                <CheckCircle2 size={20} />
-                                Wallet Connected: {formatAddress(walletAddress)}
+                    {/* Token Utility */}
+                    <section>
+                        <h2 className="font-display text-3xl font-bold uppercase mb-8 flex items-center gap-3">
+                            <Trophy className="text-yellow-500" /> Token Utility
+                        </h2>
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 hover:border-gray-700 transition">
+                                <h3 className="font-bold text-xl mb-3 text-blue-400">Governance</h3>
+                                <p className="text-gray-400 text-sm leading-relaxed">
+                                    Holders vote on future product drops, charity initiatives, and brand direction. Your voice shapes the Coalition.
+                                </p>
                             </div>
-                        )}
-                    </div>
-                </div>
-            </section>
-
-            {/* Roadmap Section */}
-            <section className="py-20 px-4 max-w-4xl mx-auto">
-                <div className="text-center mb-16">
-                    <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mb-6 text-gray-600 mx-auto">
-                        <Map size={24} />
-                    </div>
-                    <h2 className="font-display text-4xl font-bold uppercase">The Roadmap</h2>
-                </div>
-
-                <div className="space-y-12 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gray-200">
-                    {[
-                        { phase: 'Phase 1', title: 'Foundation', status: 'completed', items: ['Token Launch', 'Website V1', 'Community Building'] },
-                        { phase: 'Phase 2', title: 'Integration', status: 'current', items: ['E-commerce Integration', 'Staking Dashboard', 'NFT Verification'] },
-                        { phase: 'Phase 3', title: 'Expansion', status: 'upcoming', items: ['Mobile App', 'Global Events', 'DAO Governance'] }
-                    ].map((item, idx) => (
-                        <div key={idx} className={`relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group`}>
-                            <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 ${item.status === 'completed' ? 'bg-black' : item.status === 'current' ? 'bg-brand-accent' : 'bg-gray-300'}`}>
-                                {item.status === 'completed' && <CheckCircle2 size={16} className="text-white" />}
-                                {item.status === 'current' && <div className="w-3 h-3 bg-white rounded-full animate-pulse" />}
+                            <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 hover:border-gray-700 transition">
+                                <h3 className="font-bold text-xl mb-3 text-purple-400">Staking Rewards</h3>
+                                <p className="text-gray-400 text-sm leading-relaxed">
+                                    Lock your SGCoin to earn APY and gain early access to limited edition merchandise.
+                                </p>
                             </div>
-                            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                                <div className="flex justify-between items-center mb-2">
-                                    <span className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded ${item.status === 'completed' ? 'bg-gray-100 text-gray-600' : item.status === 'current' ? 'bg-brand-accent/10 text-brand-accent' : 'bg-gray-50 text-gray-400'}`}>
-                                        {item.phase}
-                                    </span>
-                                    {item.status === 'current' && <span className="text-xs font-bold text-brand-accent animate-pulse">In Progress</span>}
+                            <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 hover:border-gray-700 transition">
+                                <h3 className="font-bold text-xl mb-3 text-green-400">Marketplace</h3>
+                                <p className="text-gray-400 text-sm leading-relaxed">
+                                    Use SGCoin to purchase exclusive items in the shop with zero transaction fees.
+                                </p>
+                            </div>
+                            <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 hover:border-gray-700 transition">
+                                <h3 className="font-bold text-xl mb-3 text-pink-400">NFT Integration</h3>
+                                <p className="text-gray-400 text-sm leading-relaxed">
+                                    Connect your wallet to verify ownership of Coalition NFTs and unlock digital-physical twins.
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Roadmap / Future */}
+                    <section className="bg-gradient-to-r from-gray-900 to-black p-8 rounded-2xl border border-gray-800">
+                        <h2 className="font-display text-2xl font-bold uppercase mb-6">The Roadmap</h2>
+                        <div className="space-y-6 relative before:absolute before:inset-0 before:ml-6 before:w-0.5 before:bg-gray-800">
+                            <div className="relative pl-12">
+                                <div className="absolute left-4 top-2 w-4 h-4 bg-green-500 rounded-full border-4 border-gray-900"></div>
+                                <h4 className="font-bold text-lg text-white">Phase 1: Launch</h4>
+                                <p className="text-gray-400 text-sm">Token deployment, website launch, and initial merch drop.</p>
+                            </div>
+                            <div className="relative pl-12">
+                                <div className="absolute left-4 top-2 w-4 h-4 bg-blue-500 rounded-full border-4 border-gray-900"></div>
+                                <h4 className="font-bold text-lg text-white">Phase 2: Expansion</h4>
+                                <p className="text-gray-400 text-sm">Staking platform, community governance, and charity partnerships.</p>
+                            </div>
+                            <div className="relative pl-12">
+                                <div className="absolute left-4 top-2 w-4 h-4 bg-gray-700 rounded-full border-4 border-gray-900"></div>
+                                <h4 className="font-bold text-lg text-gray-500">Phase 3: Metaverse</h4>
+                                <p className="text-gray-500 text-sm">Virtual showroom and digital-only fashion collections.</p>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                {/* Right Column: Giveaway Widget */}
+                <div className="lg:col-span-1">
+                    <div className="sticky top-24">
+                        <div className="bg-gradient-to-b from-gray-900 to-black rounded-2xl border border-gray-800 p-1 shadow-2xl overflow-hidden">
+                            {/* Gradient Border Effect */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-20 animate-pulse"></div>
+
+                            <div className="relative bg-gray-900 rounded-xl p-6 h-full flex flex-col">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded uppercase animate-pulse">
+                                        Live Now
+                                    </div>
+                                    <Gift className="text-purple-400 w-6 h-6" />
                                 </div>
-                                <h3 className="font-bold text-xl mb-3">{item.title}</h3>
-                                <ul className="space-y-2">
-                                    {item.items.map((subItem, i) => (
-                                        <li key={i} className="text-sm text-gray-600 flex items-center gap-2">
-                                            <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                                            {subItem}
-                                        </li>
-                                    ))}
-                                </ul>
+
+                                {activeGiveaway ? (
+                                    <>
+                                        <h3 className="font-display text-3xl font-bold uppercase mb-2 leading-none">
+                                            {activeGiveaway.title}
+                                        </h3>
+                                        <p className="text-gray-400 text-sm mb-6">
+                                            {activeGiveaway.description || "Enter now for a chance to win exclusive rewards!"}
+                                        </p>
+
+                                        <div className="bg-black/50 rounded-lg p-4 mb-6 border border-gray-800">
+                                            <div className="text-xs text-gray-500 uppercase font-bold mb-1">Current Prize</div>
+                                            <div className="text-xl font-bold text-white">{activeGiveaway.prize}</div>
+                                            {activeGiveaway.prizeImage && (
+                                                <img src={activeGiveaway.prizeImage} alt="Prize" className="mt-3 rounded w-full h-32 object-cover" />
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-3 mb-6">
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-gray-500 flex items-center gap-2"><Clock size={14} /> Ends In</span>
+                                                <span className="font-mono font-bold text-yellow-500">
+                                                    {Math.max(0, Math.ceil((new Date(activeGiveaway.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} Days
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-gray-500 flex items-center gap-2"><Users size={14} /> Entries</span>
+                                                <span className="font-mono font-bold text-blue-400">{activeGiveaway.entries.length}</span>
+                                            </div>
+                                        </div>
+
+                                        {hasEntered ? (
+                                            <div className="bg-green-900/30 border border-green-800 p-4 rounded-lg text-center">
+                                                <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                                                <h4 className="font-bold text-green-400">You're In!</h4>
+                                                <p className="text-xs text-green-300">Good luck! Winner announced soon.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {!user && (
+                                                    <input
+                                                        type="email"
+                                                        placeholder="Enter your email"
+                                                        className="w-full bg-black border border-gray-700 rounded p-3 text-sm focus:border-purple-500 outline-none transition"
+                                                        value={email}
+                                                        onChange={(e) => setEmail(e.target.value)}
+                                                    />
+                                                )}
+                                                <button
+                                                    onClick={handleEnterGiveaway}
+                                                    className="w-full bg-white text-black font-bold uppercase py-3 rounded hover:bg-gray-200 transition flex items-center justify-center gap-2"
+                                                >
+                                                    Enter Giveaway <ArrowRight size={16} />
+                                                </button>
+                                                <p className="text-xs text-center text-gray-600">
+                                                    By entering, you agree to our terms.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <div className="text-center py-12">
+                                        <Trophy className="w-12 h-12 text-gray-700 mx-auto mb-4" />
+                                        <h3 className="font-bold text-xl text-gray-500">No Active Giveaways</h3>
+                                        <p className="text-gray-600 text-sm mt-2">Check back soon for new rewards!</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
-                    ))}
+                    </div>
                 </div>
-            </section>
-
-            {/* Footer CTA */}
-            <section className="py-16 text-center">
-                <a
-                    href={`https://polygonscan.com/token/${CONTRACT_ADDRESS}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center text-gray-400 hover:text-brand-black transition font-medium"
-                >
-                    View Contract on PolygonScan <ExternalLink size={16} className="ml-2" />
-                </a>
-            </section>
+            </div>
         </div>
     );
 };
