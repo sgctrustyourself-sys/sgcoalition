@@ -1,6 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderItem, Giveaway, GiveawayEntry } from '../types';
-import { INITIAL_PRODUCTS, INITIAL_SECTIONS, COIN_REWARD_RATE } from '../constants';
+import { INITIAL_SECTIONS, COIN_REWARD_RATE } from '../constants';
 import { connectWallet, formatAddress } from '../services/web3Service';
 import { supabase } from '../services/supabase';
 import { autoCommit, generateProductAddedMessage, generateProductUpdatedMessage, generateProductDeletedMessage } from '../services/autoCommitService';
@@ -59,15 +59,7 @@ export const useApp = () => {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     // State
-    const [products, setProducts] = useState<Product[]>(() => {
-        try {
-            const saved = localStorage.getItem('coalition_products_v3');
-            return saved ? JSON.parse(saved) : [];
-        } catch (e) {
-            console.error("Failed to parse cached products:", e);
-            return [];
-        }
-    });
+    const [products, setProducts] = useState<Product[]>([]);
 
     const [sections, setSections] = useState<Section[]>(() => {
         const saved = localStorage.getItem('coalition_sections');
@@ -99,96 +91,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (mounted) setIsSupabaseConfigured(!!hasKeys);
 
                 if (!hasKeys) {
-                    console.warn("Supabase keys missing. Falling back to localStorage.");
-                    setProducts(prev => {
-                        const prevIds = new Set(prev.map(p => p.id));
-                        const newItems = INITIAL_PRODUCTS.filter(p => !prevIds.has(p.id));
-                        if (newItems.length > 0) {
-                            return [...prev, ...newItems];
-                        }
-                        return prev.length === 0 ? INITIAL_PRODUCTS : prev;
-                    });
+                    console.error("Supabase keys missing. Cannot load products.");
+                    setProducts([]);
                     if (mounted) setIsLoading(false);
-                } else {
-                    // Always fetch fresh data from Supabase
-                    const fetchedProducts = await fetchProducts();
-
-                    // SAFEGUARD: Ensure Coalition NF-Tee is always in the list locally
-                    const nftProduct = INITIAL_PRODUCTS.find(p => p.id === 'prod_nft_001');
-                    if (nftProduct) {
-                        setProducts(prev => {
-                            const index = prev.findIndex(p => p.id === 'prod_nft_001');
-                            if (index === -1) {
-                                console.log("Force adding Coalition NF-Tee to local state");
-                                return [...prev, nftProduct];
-                            } else {
-                                // Force update metadata (e.g. OpenSea URL)
-                                const newProducts = [...prev];
-                                newProducts[index] = { ...newProducts[index], ...nftProduct };
-                                return newProducts;
-                            }
-                        });
-
-                        // Background Seeding: Only if we successfully fetched from DB and it wasn't there
-                        if (fetchedProducts && !fetchedProducts.some(p => p.id === 'prod_nft_001')) {
-                            console.log("Seeding Coalition NF-Tee to Supabase...");
-                            const dbProduct = {
-                                id: nftProduct.id,
-                                name: nftProduct.name,
-                                price: nftProduct.price,
-                                category: nftProduct.category,
-                                images: nftProduct.images,
-                                description: nftProduct.description,
-                                is_featured: nftProduct.isFeatured,
-                                sizes: nftProduct.sizes,
-                                nft_metadata: nftProduct.nft,
-                                size_inventory: nftProduct.sizeInventory
-                            };
-
-                            // Fire and forget seeding to avoid blocking UI
-                            supabase.from('products').insert([dbProduct]).then(({ error }) => {
-                                if (error) console.error("Failed to seed product:", error);
-                                else console.log("Product seeded successfully");
-                            });
-                        }
-                    }
-
-                    // Real-time subscription for products
-                    const subscription = supabase
-                        .channel('products_channel')
-                        .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
-                            console.log('Real-time update:', payload);
-                            fetchProducts();
-                        })
-                        .subscribe();
-
-                    // Auth State Listener
-                    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-                        if (!mounted) return;
-
-                        if (session?.user) {
-                            // Load favorites from localStorage for now, or DB later
-                            const savedFavorites = localStorage.getItem(`coalition_favorites_${session.user.id}`);
-
-                            setUser({
-                                uid: session.user.id,
-                                displayName: session.user.user_metadata.full_name || session.user.email?.split('@')[0] || 'User',
-                                email: session.user.email || null,
-                                walletAddress: null,
-                                sgCoinBalance: 0, // TODO: Fetch from DB
-                                isAdmin: false, // TODO: Check role
-                                favorites: savedFavorites ? JSON.parse(savedFavorites) : []
-                            });
-                        } else {
-                            setUser(null);
-                        }
-                    });
-
-                    return () => {
-                        subscription.unsubscribe();
-                        authListener.subscription.unsubscribe();
-                    };
+                    return;
                 }
+
+                // Always fetch fresh data from Supabase
+                await fetchProducts();
+
+                // Real-time subscription for products
+                const subscription = supabase
+                    .channel('products_channel')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
+                        console.log('Real-time update:', payload);
+                        fetchProducts();
+                    })
+                    .subscribe();
+
+                // Auth State Listener
+                const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+                    if (!mounted) return;
+
+                    if (session?.user) {
+                        // Load favorites from localStorage for now, or DB later
+                        const savedFavorites = localStorage.getItem(`coalition_favorites_${session.user.id}`);
+
+                        setUser({
+                            uid: session.user.id,
+                            displayName: session.user.user_metadata.full_name || session.user.email?.split('@')[0] || 'User',
+                            email: session.user.email || null,
+                            walletAddress: null,
+                            sgCoinBalance: 0, // TODO: Fetch from DB
+                            isAdmin: false, // TODO: Check role
+                            favorites: savedFavorites ? JSON.parse(savedFavorites) : []
+                        });
+                    } else {
+                        setUser(null);
+                    }
+                });
+
+                return () => {
+                    subscription.unsubscribe();
+                    authListener.subscription.unsubscribe();
+                };
             } catch (error) {
                 console.error("Critical error in AppContext initialization:", error);
                 if (mounted) setIsLoading(false);
@@ -203,15 +149,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, []);
 
     const fetchProducts = async (): Promise<Product[] | null> => {
-        if (!import.meta.env.VITE_SUPABASE_URL) return null;
+        if (!import.meta.env.VITE_SUPABASE_URL) {
+            console.error('❌ Supabase URL not configured');
+            return null;
+        }
 
         try {
+            console.log('🔄 Fetching products from Supabase...');
             setIsLoading(true);
             const { data, error } = await supabase.from('products').select('*');
 
             if (error) throw error;
 
             if (data) {
+                console.log(`✅ Fetched ${data.length} products from Supabase`);
                 const mappedProducts: Product[] = data.map(item => ({
                     id: item.id,
                     name: item.name,
@@ -227,13 +178,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }));
 
                 setProducts(mappedProducts);
-                // Always cache successful fetches
-                localStorage.setItem('coalition_products_v3', JSON.stringify(mappedProducts));
+                console.log('✅ Products state updated:', mappedProducts.map(p => ({ id: p.id, name: p.name })));
                 return mappedProducts;
             }
-            return null;
+            console.warn('⚠️ No products returned from Supabase');
+            return [];
         } catch (err) {
-            console.error('Error fetching products:', err);
+            console.error('❌ Error fetching products:', err);
             return null;
         } finally {
             setIsLoading(false);
@@ -253,13 +204,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         localStorage.setItem('coalition_giveaways_v1', JSON.stringify(giveaways));
     }, [giveaways]);
 
-    // Redundant useEffect for products removed - we now save immediately after fetch
-    // or if we modify locally (for optimistic updates)
-    useEffect(() => {
-        if (products.length > 0) {
-            localStorage.setItem('coalition_products_v3', JSON.stringify(products));
-        }
-    }, [products]);
+    // Products are now managed exclusively by Supabase - no localStorage caching
 
     const addProduct = async (p: Product) => {
         if (isSupabaseConfigured) {
@@ -272,6 +217,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 description: p.description,
                 is_featured: p.isFeatured,
                 sizes: p.sizes,
+                size_inventory: p.sizeInventory || {},
                 nft_metadata: p.nft
             };
             const { error } = await supabase.from('products').insert([dbProduct]);
@@ -279,38 +225,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 console.error('Error adding product:', error);
                 alert('Failed to add product to database');
             } else {
-                setProducts(prev => [...prev, p]);
+                // Refresh from database to ensure we have the latest data
+                await fetchProducts();
                 await autoCommit({ message: generateProductAddedMessage(p.name) });
             }
         } else {
-            setProducts(prev => [...prev, p]);
-            await autoCommit({ message: generateProductAddedMessage(p.name) });
+            console.error('Supabase not configured - cannot add product');
+            alert('Database not configured. Cannot add product.');
         }
     };
 
     const updateProduct = async (updated: Product) => {
-        if (isSupabaseConfigured) {
-            const dbProduct = {
-                name: updated.name,
-                price: updated.price,
-                category: updated.category,
-                images: updated.images,
-                description: updated.description,
-                is_featured: updated.isFeatured,
-                sizes: updated.sizes,
-                nft_metadata: updated.nft
-            };
-            const { error } = await supabase.from('products').update(dbProduct).eq('id', updated.id);
+        console.log('🔄 UPDATE STARTED:', { id: updated.id, name: updated.name });
+
+        if (!isSupabaseConfigured) {
+            console.error('❌ Supabase not configured - cannot update product');
+            alert('Database not configured. Cannot update product.');
+            return;
+        }
+
+        const dbProduct = {
+            name: updated.name,
+            price: updated.price,
+            category: updated.category,
+            images: updated.images,
+            description: updated.description,
+            is_featured: updated.isFeatured,
+            sizes: updated.sizes,
+            size_inventory: updated.sizeInventory || {},
+            nft_metadata: updated.nft
+        };
+
+        console.log('📤 Sending update to Supabase:', dbProduct);
+
+        try {
+            const { data, error } = await supabase
+                .from('products')
+                .update(dbProduct)
+                .eq('id', updated.id)
+                .select();
+
             if (error) {
-                console.error('Error updating product:', error);
-                alert('Failed to update product in database');
-            } else {
-                setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
-                await autoCommit({ message: generateProductUpdatedMessage(updated.name) });
+                console.error('❌ Supabase update error:', error);
+                console.error('Error details:', {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code
+                });
+                alert(`Failed to update product: ${error.message}`);
+                return;
             }
-        } else {
-            setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
+
+            console.log('✅ Supabase update successful:', data);
+            console.log('🔄 Refreshing products from database...');
+
+            const refreshedProducts = await fetchProducts();
+
+            if (refreshedProducts) {
+                const updatedProduct = refreshedProducts.find(p => p.id === updated.id);
+                if (updatedProduct) {
+                    console.log('✅ Verified product in refreshed data:', updatedProduct);
+                } else {
+                    console.warn('⚠️ Updated product not found in refreshed data');
+                }
+            }
+
             await autoCommit({ message: generateProductUpdatedMessage(updated.name) });
+            console.log('✅ UPDATE COMPLETE');
+
+        } catch (err) {
+            console.error('❌ Unexpected error during update:', err);
+            alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
         }
     };
 

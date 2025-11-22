@@ -244,11 +244,11 @@ const Checkout: React.FC = () => {
 
     if (cart.length === 0) {
         return (
-            <div className="min-h-screen pt-24 pb-16 px-4">
+            <div className="min-h-screen pt-24 pb-16 px-4 bg-black">
                 <div className="max-w-2xl mx-auto text-center py-20">
-                    <h1 className="font-display text-3xl font-bold mb-4">Your cart is empty</h1>
-                    <p className="text-gray-600 mb-8">Add some items to your cart before checking out.</p>
-                    <button onClick={() => navigate('/shop')} className="bg-black text-white px-8 py-3 rounded-sm font-bold uppercase tracking-widest hover:bg-gray-800 transition">
+                    <h1 className="font-display text-3xl font-bold mb-4 text-white">Your cart is empty</h1>
+                    <p className="text-gray-400 mb-8">Add some items to your cart before checking out.</p>
+                    <button onClick={() => navigate('/shop')} className="bg-white text-black px-8 py-3 rounded-lg font-bold uppercase tracking-widest hover:bg-gray-200 transition shadow-[0_0_15px_rgba(255,255,255,0.2)]">
                         Continue Shopping
                     </button>
                 </div>
@@ -257,15 +257,15 @@ const Checkout: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen pt-24 pb-16 px-4 bg-gray-50">
+        <div className="min-h-screen pt-24 pb-16 px-4 bg-black">
             <div className="max-w-4xl mx-auto">
-                <button onClick={() => navigate(-1)} className="flex items-center text-sm text-gray-500 hover:text-black mb-8 transition">
+                <button onClick={() => navigate(-1)} className="flex items-center text-sm text-gray-400 hover:text-white mb-8 transition">
                     <ArrowLeft className="w-4 h-4 mr-1" /> Back
                 </button>
-                <h1 className="font-display text-4xl font-bold uppercase mb-8">Checkout</h1>
+                <h1 className="font-display text-4xl font-bold uppercase mb-8 text-white">Checkout</h1>
 
                 {validationError && (
-                    <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+                    <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg">
                         {validationError}
                     </div>
                 )}
@@ -275,59 +275,59 @@ const Checkout: React.FC = () => {
                     <div className="lg:col-span-2 space-y-6">
 
                         {/* Contact & Shipping Form - ALWAYS VISIBLE */}
-                        <div className="bg-white rounded-lg shadow-sm p-6 space-y-6">
+                        <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-6 backdrop-blur-sm">
                             {/* Contact Info */}
                             <div>
-                                <h3 className="font-bold mb-2">Contact Information</h3>
+                                <h3 className="font-bold mb-2 text-white uppercase text-sm tracking-wide">Contact Information</h3>
                                 <input
                                     name="email"
                                     type="email"
                                     placeholder="Email Address"
                                     value={shippingInfo.email}
                                     onChange={handleInputChange}
-                                    className="border p-2 rounded w-full"
+                                    className="bg-black/30 border border-white/10 p-3 rounded-lg w-full text-white placeholder-gray-500 focus:border-white/30 focus:outline-none transition"
                                     required
                                 />
                             </div>
 
                             {/* Shipping Info */}
                             <div>
-                                <h3 className="font-bold mb-2">Shipping Address</h3>
+                                <h3 className="font-bold mb-2 text-white uppercase text-sm tracking-wide">Shipping Address</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <input name="name" placeholder="Full Name" value={shippingInfo.name} onChange={handleInputChange} className="border p-2 rounded w-full" required />
-                                    <input name="address1" placeholder="Address Line 1" value={shippingInfo.address1} onChange={handleInputChange} className="border p-2 rounded w-full" required />
-                                    <input name="city" placeholder="City" value={shippingInfo.city} onChange={handleInputChange} className="border p-2 rounded w-full" required />
-                                    <input name="state" placeholder="State/Province" value={shippingInfo.state} onChange={handleInputChange} className="border p-2 rounded w-full" required />
-                                    <input name="zip" placeholder="ZIP / Postal Code" value={shippingInfo.zip} onChange={handleInputChange} className="border p-2 rounded w-full" required />
-                                    <input name="country" placeholder="Country" value={shippingInfo.country} onChange={handleInputChange} className="border p-2 rounded w-full" required />
+                                    <input name="name" placeholder="Full Name" value={shippingInfo.name} onChange={handleInputChange} className="bg-black/30 border border-white/10 p-3 rounded-lg w-full text-white placeholder-gray-500 focus:border-white/30 focus:outline-none transition" required />
+                                    <input name="address1" placeholder="Address Line 1" value={shippingInfo.address1} onChange={handleInputChange} className="bg-black/30 border border-white/10 p-3 rounded-lg w-full text-white placeholder-gray-500 focus:border-white/30 focus:outline-none transition" required />
+                                    <input name="city" placeholder="City" value={shippingInfo.city} onChange={handleInputChange} className="bg-black/30 border border-white/10 p-3 rounded-lg w-full text-white placeholder-gray-500 focus:border-white/30 focus:outline-none transition" required />
+                                    <input name="state" placeholder="State/Province" value={shippingInfo.state} onChange={handleInputChange} className="bg-black/30 border border-white/10 p-3 rounded-lg w-full text-white placeholder-gray-500 focus:border-white/30 focus:outline-none transition" required />
+                                    <input name="zip" placeholder="ZIP / Postal Code" value={shippingInfo.zip} onChange={handleInputChange} className="bg-black/30 border border-white/10 p-3 rounded-lg w-full text-white placeholder-gray-500 focus:border-white/30 focus:outline-none transition" required />
+                                    <input name="country" placeholder="Country" value={shippingInfo.country} onChange={handleInputChange} className="bg-black/30 border border-white/10 p-3 rounded-lg w-full text-white placeholder-gray-500 focus:border-white/30 focus:outline-none transition" required />
                                 </div>
                             </div>
 
                             {/* Shipping Method */}
                             <div>
-                                <h3 className="font-bold mb-2">Shipping Method</h3>
-                                <div className="flex items-center space-x-4">
-                                    <label className="flex items-center cursor-pointer">
-                                        <input type="radio" name="shipping" value="standard" checked={shippingMethod === 'standard'} onChange={() => setShippingMethod('standard')} className="mr-2" />
-                                        <span>Standard (Free, 4‑7 days)</span>
+                                <h3 className="font-bold mb-2 text-white uppercase text-sm tracking-wide">Shipping Method</h3>
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <label className="flex items-center cursor-pointer p-3 rounded-lg border border-white/10 hover:bg-white/5 transition flex-1">
+                                        <input type="radio" name="shipping" value="standard" checked={shippingMethod === 'standard'} onChange={() => setShippingMethod('standard')} className="mr-3 accent-white" />
+                                        <span className="text-white text-sm">Standard (Free, 4‑7 days)</span>
                                     </label>
-                                    <label className="flex items-center cursor-pointer">
-                                        <input type="radio" name="shipping" value="express" checked={shippingMethod === 'express'} onChange={() => setShippingMethod('express')} className="mr-2" />
-                                        <span>Express (+$10, 1‑3 days)</span>
+                                    <label className="flex items-center cursor-pointer p-3 rounded-lg border border-white/10 hover:bg-white/5 transition flex-1">
+                                        <input type="radio" name="shipping" value="express" checked={shippingMethod === 'express'} onChange={() => setShippingMethod('express')} className="mr-3 accent-white" />
+                                        <span className="text-white text-sm">Express (+$10, 1‑3 days)</span>
                                     </label>
                                 </div>
                             </div>
                         </div>
 
                         {/* Payment Method Selection */}
-                        <div className="bg-white rounded-lg shadow-sm p-6">
-                            <h2 className="font-display text-xl font-bold uppercase mb-4">Payment Method</h2>
+                        <div className="bg-white/5 border border-white/10 rounded-xl p-6 backdrop-blur-sm">
+                            <h2 className="font-display text-xl font-bold uppercase mb-4 text-white">Payment Method</h2>
                             <div className="grid grid-cols-2 gap-4 mb-6">
-                                <button onClick={() => setPaymentMethod('card')} className={`p-4 border-2 rounded-lg transition ${paymentMethod === 'card' ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                                <button onClick={() => setPaymentMethod('card')} className={`p-4 border-2 rounded-lg transition ${paymentMethod === 'card' ? 'border-white bg-white/10 text-white' : 'border-white/20 text-gray-400 hover:border-white/30 hover:text-white'}`}>
                                     <CreditCard className="w-6 h-6 mx-auto mb-2" />
                                     <p className="font-bold text-sm">Credit/Debit Card</p>
                                 </button>
-                                <button onClick={() => setPaymentMethod('crypto')} className={`p-4 border-2 rounded-lg transition ${paymentMethod === 'crypto' ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                                <button onClick={() => setPaymentMethod('crypto')} className={`p-4 border-2 rounded-lg transition ${paymentMethod === 'crypto' ? 'border-white bg-white/10 text-white' : 'border-white/20 text-gray-400 hover:border-white/30 hover:text-white'}`}>
                                     <Wallet className="w-6 h-6 mx-auto mb-2" />
                                     <p className="font-bold text-sm">Crypto Payment</p>
                                 </button>
@@ -348,17 +348,17 @@ const Checkout: React.FC = () => {
                                             />
                                         </Elements>
                                     ) : (
-                                        <div className="text-center py-8 border-t border-gray-100 mt-4">
+                                        <div className="text-center py-8 border-t border-white/10 mt-4">
                                             {isLoading ? (
                                                 <>
-                                                    <Loader className="w-8 h-8 animate-spin mx-auto text-gray-400" />
-                                                    <p className="text-sm text-gray-500 mt-2">Initializing secure payment...</p>
+                                                    <Loader className="w-8 h-8 animate-spin mx-auto text-white" />
+                                                    <p className="text-sm text-gray-400 mt-2">Initializing secure payment...</p>
                                                 </>
                                             ) : (
-                                                <div className="text-red-600">
+                                                <div className="text-red-400">
                                                     <p className="mb-2">Unable to load payment system.</p>
-                                                    {error && <p className="text-xs text-gray-500 mb-4">{error}</p>}
-                                                    <button onClick={createPaymentIntent} className="text-sm underline hover:text-black">Retry</button>
+                                                    {error && <p className="text-xs text-gray-400 mb-4">{error}</p>}
+                                                    <button onClick={createPaymentIntent} className="text-sm underline hover:text-white">Retry</button>
                                                 </div>
                                             )}
                                         </div>
@@ -369,33 +369,33 @@ const Checkout: React.FC = () => {
                             {/* Crypto Payment Section */}
                             {paymentMethod === 'crypto' && (
                                 <div className="space-y-4">
-                                    <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg p-6">
+                                    <div className="bg-gradient-to-br from-purple-900/20 to-blue-900/20 border-2 border-purple-500/30 rounded-lg p-6 backdrop-blur-sm">
                                         <div className="flex items-center gap-3 mb-4">
                                             <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
                                                 <Wallet className="w-5 h-5 text-white" />
                                             </div>
                                             <div>
-                                                <h3 className="font-bold text-purple-900">Decentralized Payment</h3>
-                                                <p className="text-sm text-purple-700">Send crypto directly to our wallet</p>
+                                                <h3 className="font-bold text-purple-300">Decentralized Payment</h3>
+                                                <p className="text-sm text-purple-400">Send crypto directly to our wallet</p>
                                             </div>
                                         </div>
-                                        <div className="bg-white rounded-lg p-4 mb-4">
-                                            <p className="text-xs text-gray-500 mb-2 uppercase font-bold">Wallet Address</p>
+                                        <div className="bg-black/30 border border-white/10 rounded-lg p-4 mb-4">
+                                            <p className="text-xs text-gray-400 mb-2 uppercase font-bold">Wallet Address</p>
                                             <div className="flex items-center gap-2">
-                                                <code className="flex-1 text-sm font-mono bg-gray-50 p-2 rounded border border-gray-200 break-all">{WALLET_ADDRESS}</code>
-                                                <button onClick={copyAddress} className="p-2 hover:bg-gray-100 rounded transition" title="Copy address">
-                                                    {copied ? <Check className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-gray-600" />}
+                                                <code className="flex-1 text-sm font-mono bg-black/50 p-2 rounded border border-white/10 break-all text-gray-300">{WALLET_ADDRESS}</code>
+                                                <button onClick={copyAddress} className="p-2 hover:bg-white/10 rounded transition" title="Copy address">
+                                                    {copied ? <Check className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5 text-gray-400" />}
                                                 </button>
                                             </div>
                                         </div>
-                                        <div className="bg-purple-100 border border-purple-200 rounded-lg p-4 mb-4">
-                                            <p className="text-sm text-purple-900 font-bold mb-2">Amount to Send:</p>
-                                            <p className="text-2xl font-bold text-purple-900">${total.toFixed(2)} USD</p>
-                                            <p className="text-xs text-purple-700 mt-1">(Equivalent in ETH, MATIC, or other supported crypto)</p>
+                                        <div className="bg-purple-500/20 border border-purple-500/30 rounded-lg p-4 mb-4">
+                                            <p className="text-sm text-purple-300 font-bold mb-2">Amount to Send:</p>
+                                            <p className="text-2xl font-bold text-purple-200">${total.toFixed(2)} USD</p>
+                                            <p className="text-xs text-purple-400 mt-1">(Equivalent in ETH, MATIC, or other supported crypto)</p>
                                         </div>
-                                        <div className="text-sm text-purple-800 space-y-2">
+                                        <div className="text-sm text-purple-300 space-y-2">
                                             <p className="font-bold">Instructions:</p>
-                                            <ol className="list-decimal list-inside space-y-1">
+                                            <ol className="list-decimal list-inside space-y-1 text-purple-400">
                                                 <li>Copy the wallet address above</li>
                                                 <li>Send ${total.toFixed(2)} USD equivalent in crypto</li>
                                                 <li>Click "I've Sent Payment" below</li>
@@ -403,7 +403,7 @@ const Checkout: React.FC = () => {
                                             </ol>
                                         </div>
                                     </div>
-                                    <button onClick={handleCryptoConfirmation} className="w-full bg-purple-600 text-white py-4 rounded-sm font-bold uppercase tracking-widest hover:bg-purple-700 transition flex items-center justify-center gap-2">
+                                    <button onClick={handleCryptoConfirmation} className="w-full bg-purple-600 text-white py-4 rounded-lg font-bold uppercase tracking-widest hover:bg-purple-700 transition flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(147,51,234,0.3)]">
                                         <Check className="w-5 h-5" /> I've Sent Payment
                                     </button>
                                 </div>
@@ -413,27 +413,27 @@ const Checkout: React.FC = () => {
 
                     {/* Right side: Order Total */}
                     <div className="lg:col-span-1">
-                        <div className="bg-white rounded-lg shadow-sm p-6 sticky top-24">
-                            <h2 className="font-display text-xl font-bold uppercase mb-4">Total</h2>
+                        <div className="bg-white/5 border border-white/10 rounded-xl p-6 sticky top-24 backdrop-blur-sm">
+                            <h2 className="font-display text-xl font-bold uppercase mb-4 text-white">Total</h2>
                             <div className="space-y-3 mb-6">
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600">Subtotal</span>
-                                    <span className="font-medium">${total.toFixed(2)}</span>
+                                    <span className="text-gray-400">Subtotal</span>
+                                    <span className="font-medium text-white">${total.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600">Shipping</span>
-                                    <span className="font-medium text-green-600">{shippingMethod === 'express' ? '+$10' : 'FREE'}</span>
+                                    <span className="text-gray-400">Shipping</span>
+                                    <span className="font-medium text-green-400">{shippingMethod === 'express' ? '+$10' : 'FREE'}</span>
                                 </div>
-                                <div className="flex justify-between text-sm pt-3 border-t border-gray-200">
-                                    <span className="text-gray-600">SGCoin Reward</span>
+                                <div className="flex justify-between text-sm pt-3 border-t border-white/10">
+                                    <span className="text-gray-400">SGCoin Reward</span>
                                     <span className="font-bold text-brand-accent">+{reward.toLocaleString()}</span>
                                 </div>
-                                <div className="flex justify-between text-lg font-bold pt-3 border-t border-gray-200">
-                                    <span>Total</span>
-                                    <span>${(total + shippingCost).toFixed(2)}</span>
+                                <div className="flex justify-between text-lg font-bold pt-3 border-t border-white/10">
+                                    <span className="text-white">Total</span>
+                                    <span className="text-white">${(total + shippingCost).toFixed(2)}</span>
                                 </div>
                             </div>
-                            <div className="text-xs text-gray-500 text-center">
+                            <div className="text-xs text-gray-400 text-center pt-4 border-t border-white/10">
                                 <p>🔒 Secure Payment</p>
                                 <p className="mt-1">Powered by Stripe</p>
                             </div>

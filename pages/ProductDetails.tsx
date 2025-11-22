@@ -164,16 +164,16 @@ const ProductDetails = () => {
     };
 
     return (
-        <div className="pt-24 pb-16 min-h-screen bg-white">
+        <div className="pt-24 pb-16 min-h-screen bg-black">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <button onClick={() => navigate(-1)} className="flex items-center text-sm text-gray-500 hover:text-black mb-8">
+                <button onClick={() => navigate(-1)} className="flex items-center text-sm text-gray-400 hover:text-white mb-8">
                     <ArrowLeft className="w-4 h-4 mr-1" /> Back
                 </button>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                     {/* Image Gallery */}
                     <div className="space-y-4">
-                        <div className="aspect-[4/5] bg-gray-100 overflow-hidden rounded-sm relative">
+                        <div className="aspect-[4/5] bg-white/5 overflow-hidden rounded-sm relative">
                             <img
                                 src={(isEditing && editForm.images ? editForm.images : product.images)[activeImageIndex]}
                                 alt={product.name}
@@ -205,16 +205,16 @@ const ProductDetails = () => {
                     {/* Product Info */}
                     <div>
                         {isAdminMode && isEditing ? (
-                            <div className="bg-gray-50 p-6 rounded-lg space-y-4 border border-gray-200">
+                            <div className="bg-white/5 p-6 rounded-lg space-y-4 border border-white/10">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h3 className="font-bold uppercase flex items-center"><Shield className="w-4 h-4 mr-2" /> Edit Product</h3>
-                                    <button onClick={() => setIsEditing(false)} className="text-xs text-gray-500 underline">Cancel</button>
+                                    <h3 className="font-bold uppercase flex items-center text-white"><Shield className="w-4 h-4 mr-2" /> Edit Product</h3>
+                                    <button onClick={() => setIsEditing(false)} className="text-xs text-gray-400 underline hover:text-white">Cancel</button>
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Name</label>
+                                    <label className="block text-xs font-bold uppercase text-gray-400 mb-1">Name</label>
                                     <input
-                                        className="w-full p-2 border border-gray-300 rounded-sm"
+                                        className="w-full p-2 border border-white/10 rounded-sm bg-black/30 text-white placeholder-gray-500"
                                         value={editForm.name || ''}
                                         onChange={e => setEditForm({ ...editForm, name: e.target.value })}
                                     />
@@ -222,20 +222,20 @@ const ProductDetails = () => {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Price</label>
+                                        <label className="block text-xs font-bold uppercase text-gray-400 mb-1">Price</label>
                                         <input
                                             type="number"
-                                            className="w-full p-2 border border-gray-300 rounded-sm"
+                                            className="w-full p-2 border border-white/10 rounded-sm bg-black/30 text-white"
                                             value={editForm.price || 0}
                                             onChange={e => setEditForm({ ...editForm, price: Number(e.target.value) })}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Size Inventory</label>
+                                        <label className="block text-xs font-bold uppercase text-gray-400 mb-1">Size Inventory</label>
                                         <div className="space-y-2">
                                             {(editForm.sizes || ['S', 'M', 'L', 'XL']).map((size) => (
                                                 <div key={size} className="flex items-center gap-2">
-                                                    <span className="w-12 text-xs font-bold text-gray-600">{size}:</span>
+                                                    <span className="w-12 text-xs font-bold text-gray-400">{size}:</span>
                                                     <input
                                                         type="number"
                                                         value={editForm.sizeInventory?.[size] || 0}
@@ -244,7 +244,7 @@ const ProductDetails = () => {
                                                             newInventory[size] = parseInt(e.target.value) || 0;
                                                             setEditForm({ ...editForm, sizeInventory: newInventory });
                                                         }}
-                                                        className="flex-1 p-2 border border-gray-300 rounded-sm"
+                                                        className="flex-1 p-2 border border-white/10 rounded-sm bg-black/30 text-white"
                                                         min="0"
                                                     />
                                                 </div>
@@ -254,9 +254,9 @@ const ProductDetails = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Description</label>
+                                    <label className="block text-xs font-bold uppercase text-gray-400 mb-1">Description</label>
                                     <textarea
-                                        className="w-full p-2 border border-gray-300 rounded-sm h-24"
+                                        className="w-full p-2 border border-white/10 rounded-sm h-24 bg-black/30 text-white placeholder-gray-500"
                                         value={editForm.description || ''}
                                         onChange={e => setEditForm({ ...editForm, description: e.target.value })}
                                     />
@@ -264,18 +264,18 @@ const ProductDetails = () => {
 
                                 {/* Image Management */}
                                 <div>
-                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Images</label>
+                                    <label className="block text-xs font-bold uppercase text-gray-400 mb-1">Images</label>
 
                                     {/* URL Input */}
                                     <div className="flex space-x-2 mb-2">
                                         <input
-                                            className="flex-1 p-2 border border-gray-300 rounded-sm text-sm"
+                                            className="flex-1 p-2 border border-white/10 rounded-sm text-sm bg-black/30 text-white placeholder-gray-500"
                                             placeholder="Image URL"
                                             value={newImageUrl}
                                             onChange={e => setNewImageUrl(e.target.value)}
                                         />
-                                        <button onClick={addImage} className="bg-gray-200 px-3 rounded-sm hover:bg-gray-300" title="Add from URL">
-                                            <Plus className="w-4 h-4" />
+                                        <button onClick={addImage} className="bg-white/10 px-3 rounded-sm hover:bg-white/20 border border-white/10" title="Add from URL">
+                                            <Plus className="w-4 h-4 text-white" />
                                         </button>
                                     </div>
 
@@ -291,19 +291,19 @@ const ProductDetails = () => {
                                         <button
                                             onClick={() => fileInputRef.current?.click()}
                                             disabled={isUploading}
-                                            className="w-full bg-blue-500 text-white px-4 py-2 rounded-sm hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
+                                            className="w-full bg-brand-accent text-white px-4 py-2 rounded-sm hover:bg-brand-accent/80 disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
                                         >
                                             <Upload className="w-4 h-4" />
                                             {isUploading ? 'Uploading...' : 'Upload from PC'}
                                         </button>
-                                        <p className="text-xs text-gray-500 mt-1 text-center">JPG, PNG, GIF, WebP • Max 2MB</p>
+                                        <p className="text-xs text-gray-400 mt-1 text-center">JPG, PNG, GIF, WebP • Max 2MB</p>
                                     </div>
 
                                     {/* Image Grid */}
                                     <div className="grid grid-cols-4 gap-2">
                                         {editForm.images?.map((img, idx) => (
                                             <div key={idx} className="relative group aspect-[4/5]">
-                                                <img src={img} className="w-full h-full object-cover rounded-sm border border-gray-200" />
+                                                <img src={img} className="w-full h-full object-cover rounded-sm border border-white/10" alt={`Product image ${idx + 1}`} />
                                                 <button
                                                     onClick={() => removeImage(idx)}
                                                     className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
@@ -316,16 +316,16 @@ const ProductDetails = () => {
                                 </div>
 
                                 <div className="flex space-x-2 pt-4">
-                                    <button onClick={handleSave} className="flex-1 bg-black text-white py-2 font-bold uppercase text-xs tracking-widest hover:bg-gray-800">Save Changes</button>
-                                    <button onClick={handleDelete} className="px-4 border border-red-500 text-red-500 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                                    <button onClick={handleSave} className="flex-1 bg-white text-black py-2 font-bold uppercase text-xs tracking-widest hover:bg-gray-200">Save Changes</button>
+                                    <button onClick={handleDelete} className="px-4 border border-red-500 text-red-400 hover:bg-red-500/10" title="Delete product"><Trash2 className="w-4 h-4" /></button>
                                 </div>
                             </div>
                         ) : (
                             <>
                                 <div className="flex justify-between items-start">
                                     <div>
-                                        <h1 className="text-3xl font-display font-bold text-gray-900 uppercase tracking-wide">{product.name}</h1>
-                                        <p className="mt-2 text-xl text-gray-900 font-medium">${product.price}</p>
+                                        <h1 className="text-3xl font-display font-bold text-white uppercase tracking-wide">{product.name}</h1>
+                                        <p className="mt-2 text-xl text-white font-medium">${product.price}</p>
                                     </div>
                                     {isAdminMode && (
                                         <button
@@ -338,16 +338,16 @@ const ProductDetails = () => {
                                 </div>
 
                                 <div className="mt-8">
-                                    <h3 className="text-sm font-medium text-gray-900">Description</h3>
-                                    <div className="mt-4 prose prose-sm text-gray-500">
+                                    <h3 className="text-sm font-medium text-white">Description</h3>
+                                    <div className="mt-4 prose prose-sm text-gray-400">
                                         <p>{product.description}</p>
                                     </div>
                                 </div>
 
                                 <div className="mt-8">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="text-sm font-medium text-gray-900">Size</h3>
-                                        <a href="#" className="text-sm font-medium text-brand-accent hover:text-brand-black">Size guide</a>
+                                        <h3 className="text-sm font-medium text-white">Size</h3>
+                                        <a href="#" className="text-sm font-medium text-brand-accent hover:text-white">Size guide</a>
                                     </div>
 
                                     <div className="grid grid-cols-4 gap-4 sm:grid-cols-8 lg:grid-cols-4 mt-4">
@@ -360,15 +360,15 @@ const ProductDetails = () => {
                                                     onClick={() => !isOutOfStock && setSelectedSize(size)}
                                                     disabled={isOutOfStock}
                                                     className={`group relative border py-3 px-4 flex flex-col items-center justify-center text-sm font-medium uppercase focus:outline-none sm:flex-1 ${selectedSize === size
-                                                            ? 'border-black ring-1 ring-black'
-                                                            : isOutOfStock
-                                                                ? 'border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed'
-                                                                : 'border-gray-200 hover:bg-gray-50'
+                                                        ? 'border-white ring-2 ring-white bg-white/10 text-white'
+                                                        : isOutOfStock
+                                                            ? 'border-white/10 bg-white/5 text-gray-500 cursor-not-allowed'
+                                                            : 'border-white/20 hover:bg-white/10 text-white'
                                                         }`}
                                                     title={isOutOfStock ? 'Out of stock' : `${sizeStock} in stock`}
                                                 >
                                                     <span>{size}</span>
-                                                    <span className={`text-[10px] mt-1 ${isOutOfStock ? 'text-red-500' : sizeStock < 5 ? 'text-yellow-600' : 'text-green-600'}`}>
+                                                    <span className={`text-[10px] mt-1 ${isOutOfStock ? 'text-red-400' : sizeStock < 5 ? 'text-yellow-400' : 'text-green-400'}`}>
                                                         {isOutOfStock ? 'Out' : `${sizeStock} left`}
                                                     </span>
                                                 </button>
@@ -395,62 +395,62 @@ const ProductDetails = () => {
                                     </button>
                                 </div>
                                 <div className="mt-6 text-center">
-                                    <p className="text-xs text-gray-500">Free shipping on orders over $200</p>
+                                    <p className="text-xs text-gray-400">Free shipping on orders over $200</p>
                                 </div>
 
                                 {product.nft && (
-                                    <div className="mt-8 border-t border-gray-200 pt-8">
-                                        <h3 className="font-display text-lg font-bold uppercase mb-4 flex items-center text-gray-900">
+                                    <div className="mt-8 border-t border-white/10 pt-8">
+                                        <h3 className="font-display text-lg font-bold uppercase mb-4 flex items-center text-white">
                                             <Scan className="w-5 h-5 mr-2 text-brand-accent" />
                                             Digital Verification
                                         </h3>
-                                        <div className="bg-gray-50 rounded-lg p-5 border border-gray-200 space-y-4">
+                                        <div className="bg-white/5 rounded-lg p-5 border border-white/10 space-y-4">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center">
                                                     <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
-                                                    <span className="text-sm font-bold text-gray-700">Blockchain Verified</span>
+                                                    <span className="text-sm font-bold text-gray-300">Blockchain Verified</span>
                                                 </div>
-                                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded font-bold uppercase tracking-wider">{product.nft.chain}</span>
+                                                <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded font-bold uppercase tracking-wider">{product.nft.chain}</span>
                                             </div>
 
-                                            <div className="text-sm text-gray-600">
+                                            <div className="text-sm text-gray-400">
                                                 <p className="mb-2">This physical item is linked to a digital asset on the blockchain.</p>
                                                 <a
                                                     href={product.nft.openseaUrl}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="inline-flex items-center text-brand-accent hover:text-brand-black font-bold text-xs uppercase tracking-wide"
+                                                    className="inline-flex items-center text-brand-accent hover:text-white font-bold text-xs uppercase tracking-wide"
                                                 >
                                                     View on OpenSea <ExternalLink className="w-3 h-3 ml-1" />
                                                 </a>
                                             </div>
 
                                             {product.nft.nfcTags && (
-                                                <div className="pt-4 border-t border-gray-200">
-                                                    <p className="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center">
+                                                <div className="pt-4 border-t border-white/10">
+                                                    <p className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center">
                                                         <Smartphone className="w-3 h-3 mr-1" /> Dual NFC Integration
                                                     </p>
                                                     <div className="grid grid-cols-2 gap-3 mb-4">
-                                                        <div className="bg-white p-3 rounded border border-gray-200 text-center hover:border-brand-accent transition cursor-help" title="Scan the tag on the neck label">
-                                                            <p className="text-xs font-bold text-gray-900">Neck Tag</p>
-                                                            <p className="text-[10px] text-gray-500 mt-1">Opens Linktree</p>
+                                                        <div className="bg-white/5 p-3 rounded border border-white/10 text-center hover:border-brand-accent transition cursor-help" title="Scan the tag on the neck label">
+                                                            <p className="text-xs font-bold text-white">Neck Tag</p>
+                                                            <p className="text-[10px] text-gray-400 mt-1">Opens Linktree</p>
                                                         </div>
-                                                        <div className="bg-white p-3 rounded border border-gray-200 text-center hover:border-brand-accent transition cursor-help" title="Scan the tag on the bottom hem">
-                                                            <p className="text-xs font-bold text-gray-900">Bottom Tag</p>
-                                                            <p className="text-[10px] text-gray-500 mt-1">NFT Claim / Verify</p>
+                                                        <div className="bg-white/5 p-3 rounded border border-white/10 text-center hover:border-brand-accent transition cursor-help" title="Scan the tag on the bottom hem">
+                                                            <p className="text-xs font-bold text-white">Bottom Tag</p>
+                                                            <p className="text-[10px] text-gray-400 mt-1">NFT Claim / Verify</p>
                                                         </div>
                                                     </div>
 
                                                     {/* Unlock Section */}
-                                                    <div className="bg-white p-4 rounded border border-purple-200 shadow-sm">
-                                                        <h4 className="font-bold text-sm mb-2 flex items-center">
+                                                    <div className="bg-white/5 p-4 rounded border border-purple-500/30 shadow-sm">
+                                                        <h4 className="font-bold text-sm mb-2 flex items-center text-white">
                                                             {nftOwned ? <Unlock className="w-4 h-4 mr-2 text-green-500" /> : <Lock className="w-4 h-4 mr-2 text-gray-400" />}
                                                             Owner Perks
                                                         </h4>
 
                                                         {!nftOwned ? (
                                                             <div>
-                                                                <p className="text-xs text-gray-600 mb-3">
+                                                                <p className="text-xs text-gray-400 mb-3">
                                                                     Connect your wallet to verify ownership and unlock exclusive content.
                                                                 </p>
                                                                 <button

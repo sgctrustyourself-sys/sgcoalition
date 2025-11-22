@@ -73,21 +73,27 @@ const ProductManager: React.FC = () => {
                 nft: editForm.nft,
             };
 
+            console.log('💾 SAVING PRODUCT:', productData);
+
             if (isAdding) {
+                console.log('➕ Adding new product...');
                 await addProduct(productData);
-                setSuccess('Product added successfully');
+                console.log('✅ Product added successfully');
+                setSuccess('Product added successfully! Check console for details.');
             } else {
+                console.log('✏️ Updating existing product...');
                 await updateProduct(productData);
-                setSuccess('Product updated successfully');
+                console.log('✅ Product updated successfully');
+                setSuccess('Product updated successfully! Check console for verification.');
             }
 
             setTimeout(() => {
                 cancelEdit();
                 setSuccess(null);
-            }, 1500);
+            }, 2000);
         } catch (err) {
-            console.error("Failed to save product", err);
-            setError("Failed to save product. Please try again.");
+            console.error("❌ SAVE FAILED:", err);
+            setError(`Failed to save product: ${err instanceof Error ? err.message : 'Unknown error'}. Check console for details.`);
         } finally {
             setIsSaving(false);
         }
@@ -396,8 +402,8 @@ const ProductManager: React.FC = () => {
                                                     <span
                                                         key={size}
                                                         className={`text-xs px-2 py-1 rounded border ${(qty as number) > 0
-                                                                ? 'border-green-500/30 text-green-400 bg-green-500/10'
-                                                                : 'border-red-500/30 text-red-400 bg-red-500/10'
+                                                            ? 'border-green-500/30 text-green-400 bg-green-500/10'
+                                                            : 'border-red-500/30 text-red-400 bg-red-500/10'
                                                             }`}
                                                     >
                                                         {size}: {qty}
