@@ -40,7 +40,7 @@ const Arcade = () => {
             physics: {
                 default: "matter",
                 matter: {
-                    gravity: { y: 1.5 },
+                    gravity: { y: 1.2 }, // Reduced gravity for better feel
                     debug: false
                 }
             },
@@ -48,6 +48,7 @@ const Arcade = () => {
         };
 
         let ball: any, hoop: any, backboard: any, net: any;
+        let leftRim: any, rightRim: any;
         let isDragging = false;
         let dragStartX = 0, dragStartY = 0;
         let score = 0, misses = 0;
@@ -56,6 +57,7 @@ const Arcade = () => {
         let gameActive = true;
         let scored = false;
         let ballsShot = 0;
+        let graphics: any;
 
         function preload(this: any) {
             this.load.image("ball", "/assets/arcade/coalition-basketball.png");
@@ -68,18 +70,40 @@ const Arcade = () => {
             const bg = this.add.image(300, 400, "court");
             bg.setDisplaySize(600, 800);
 
+            // Graphics for drag line
+            graphics = this.add.graphics();
+
             // Hoop and backboard
             hoop = this.add.image(300, 200, "hoop");
             hoop.setScale(0.6);
 
             // Backboard (invisible physics body)
-            backboard = this.matter.add.rectangle(300, 190, 180, 10, {
+            backboard = this.matter.add.rectangle(300, 160, 180, 10, {
                 isStatic: true,
-                label: 'backboard'
+                label: 'backboard',
+                friction: 0.5,
+                restitution: 0.5
             });
 
-            // Net sensor (score detection)
-            net = this.matter.add.rectangle(300, 220, 80, 20, {
+            // Rim Colliders (Left and Right edges of the hoop)
+            // Hoop is at 300, 200. Scale 0.6.
+            // Adjust positions to match the visual hoop
+            leftRim = this.matter.add.circle(255, 200, 5, {
+                isStatic: true,
+                label: 'rim',
+                friction: 0.2,
+                restitution: 0.8
+            });
+
+            rightRim = this.matter.add.circle(345, 200, 5, {
+                isStatic: true,
+                label: 'rim',
+                friction: 0.2,
+                restitution: 0.8
+            });
+
+            // Net sensor (score detection) - positioned below the rim
+            net = this.matter.add.rectangle(300, 230, 60, 10, {
                 isStatic: true,
                 isSensor: true,
                 label: 'net'
@@ -135,7 +159,8 @@ const Arcade = () => {
                     pointer.x, pointer.y,
                     ball.x, ball.y
                 );
-                if (distance < 50 && ball.body.velocity.y < 1) {
+                // Allow grabbing anywhere if ball is static, or near ball
+                if (ball.isStatic || distance < 100) {
                     isDragging = true;
                     dragStartX = pointer.x;
                     dragStartY = pointer.y;
@@ -143,15 +168,33 @@ const Arcade = () => {
                 }
             });
 
+            this.input.on('pointermove', (pointer: any) => {
+                if (isDragging && gameActive) {
+                    // Draw trajectory line
+                    graphics.clear();
+                    graphics.lineStyle(4, 0xFFD700, 0.8);
+                    graphics.beginPath();
+                    graphics.moveTo(ball.x, ball.y);
+                    graphics.lineTo(ball.x + (dragStartX - pointer.x), ball.y + (dragStartY - pointer.y));
+                    graphics.strokePath();
+                }
+            });
+
             this.input.on('pointerup', (pointer: any) => {
                 if (!gameActive || !isDragging) return;
                 isDragging = false;
+                graphics.clear();
 
-                const velocityX = (dragStartX - pointer.x) * 0.03;
-                const velocityY = (dragStartY - pointer.y) * 0.03;
+                // Increased velocity multiplier significantly
+                const power = 0.18;
+                const velocityX = (dragStartX - pointer.x) * power;
+                const velocityY = (dragStartY - pointer.y) * power;
 
                 ball.setStatic(false);
                 ball.setVelocity(velocityX, velocityY);
+                // Add some spin
+                ball.setAngularVelocity(velocityX * 0.05);
+
                 scored = false;
                 ballsShot++;
             });
@@ -161,7 +204,8 @@ const Arcade = () => {
                 event.pairs.forEach((pair: any) => {
                     if ((pair.bodyA.label === 'net' || pair.bodyB.label === 'net') && !scored) {
                         const ballBody = pair.bodyA.label === 'Circle Body' ? pair.bodyA : pair.bodyB;
-                        if (ballBody.velocity.y > 0) { // Ball going down through hoop
+                        // Check if ball is moving down
+                        if (ballBody.velocity.y > 0) {
                             score += 2;
                             scored = true;
                             scoreText.setText("SCORE: " + score);
@@ -176,6 +220,23 @@ const Arcade = () => {
 
                             // Flash effect
                             this.cameras.main.flash(200, 255, 215, 0);
+
+                            // Floating text
+                            const floatText = this.add.text(300, 250, "+2", {
+                                fontSize: "40px",
+                                color: "#FFD700",
+                                fontFamily: "Arial Black",
+                                stroke: "#000000",
+                                strokeThickness: 4
+                            }).setOrigin(0.5);
+
+                            this.tweens.add({
+                                targets: floatText,
+                                y: 200,
+                                alpha: 0,
+                                duration: 1000,
+                                onComplete: () => floatText.destroy()
+                            });
                         }
                     }
                 });
@@ -206,11 +267,6 @@ const Arcade = () => {
                     misses++;
                 }
                 resetBall.call(this);
-            }
-
-            // Visual drag indicator
-            if (isDragging) {
-                // Could add arrow or power indicator here
             }
         }
 
