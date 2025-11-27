@@ -1,13 +1,15 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trophy, ArrowLeft } from 'lucide-react';
+import { Trophy, ArrowLeft, RotateCcw } from 'lucide-react';
 
 const Arcade = () => {
     const gameContainerRef = useRef<HTMLDivElement>(null);
     const gameInstanceRef = useRef<any>(null);
+    const [highScore, setHighScore] = useState(() => {
+        return parseInt(localStorage.getItem('coalitionHoopsHighScore') || '0');
+    });
 
     useEffect(() => {
-        // Load Phaser from CDN
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js';
         script.async = true;
@@ -17,11 +19,12 @@ const Arcade = () => {
         document.body.appendChild(script);
 
         return () => {
-            // Cleanup game instance on unmount
             if (gameInstanceRef.current) {
                 gameInstanceRef.current.destroy(true);
             }
-            document.body.removeChild(script);
+            if (document.body.contains(script)) {
+                document.body.removeChild(script);
+            }
         };
     }, []);
 
@@ -30,150 +33,281 @@ const Arcade = () => {
 
         const config = {
             type: (window as any).Phaser.AUTO,
-            width: 800,
-            height: 400,
-            backgroundColor: "#000000",
+            width: 600,
+            height: 800,
+            backgroundColor: "#1a1a1a",
             parent: gameContainerRef.current,
             physics: {
-                default: "arcade",
-                arcade: { gravity: { y: 1000 }, debug: false }
+                default: "matter",
+                matter: {
+                    gravity: { y: 1.5 },
+                    debug: false
+                }
             },
             scene: { preload, create, update }
         };
 
-        let player: any, ground: any, cursors: any, obstacles: any, scoreText: any;
-        let score = 0;
-        let gameOver = false;
+        let ball: any, hoop: any, backboard: any, net: any;
+        let isDragging = false;
+        let dragStartX = 0, dragStartY = 0;
+        let score = 0, misses = 0;
+        let scoreText: any, timeText: any, highScoreText: any;
+        let gameTime = 60;
+        let gameActive = true;
+        let scored = false;
+        let ballsShot = 0;
 
         function preload(this: any) {
-            // Coalition-themed assets
-            this.load.image("player", "/assets/arcade/coalition-runner.png");
-            this.load.image("ground", "/assets/arcade/ground.png");
-            this.load.image("obstacle", "/assets/arcade/obstacle.png");
+            this.load.image("ball", "/assets/arcade/coalition-basketball.png");
+            this.load.image("hoop", "/assets/arcade/basketball-hoop.png");
+            this.load.image("court", "/assets/arcade/basketball-court.png");
         }
 
         function create(this: any) {
-            // Ground
-            ground = this.physics.add.staticGroup();
-            ground.create(400, 390, "ground").setScale(2).refreshBody();
+            // Background
+            const bg = this.add.image(300, 400, "court");
+            bg.setDisplaySize(600, 800);
 
-            // Player
-            player = this.physics.add.sprite(100, 300, "player").setScale(0.5);
-            player.setCollideWorldBounds(true);
+            // Hoop and backboard
+            hoop = this.add.image(300, 200, "hoop");
+            hoop.setScale(0.6);
 
-            // Obstacles group
-            obstacles = this.physics.add.group();
-
-            // Collisions
-            this.physics.add.collider(player, ground);
-            this.physics.add.collider(player, obstacles, hitObstacle, null, this);
-
-            // Controls
-            cursors = this.input.keyboard.createCursorKeys();
-            this.input.on("pointerdown", jump, this);
-
-            // Score display - Coalition style
-            scoreText = this.add.text(20, 20, "DISTANCE: 0m", {
-                fontSize: "28px",
-                color: "#FFFFFF",
-                fontFamily: "Arial Black",
-                stroke: "#000000",
-                strokeThickness: 6
+            // Backboard (invisible physics body)
+            backboard = this.matter.add.rectangle(300, 190, 180, 10, {
+                isStatic: true,
+                label: 'backboard'
             });
 
-            // Add Coalition branding
-            this.add.text(400, 30, "COALITION RUNNER", {
-                fontSize: "20px",
+            // Net sensor (score detection)
+            net = this.matter.add.rectangle(300, 220, 80, 20, {
+                isStatic: true,
+                isSensor: true,
+                label: 'net'
+            });
+
+            // Basketball
+            resetBall.call(this);
+
+            // UI - Title
+            this.add.text(300, 40, "COALITION HOOPS", {
+                fontSize: "32px",
                 color: "#FFD700",
                 fontFamily: "Arial Black",
                 stroke: "#000000",
                 strokeThickness: 4
             }).setOrigin(0.5);
 
-            // Spawn obstacles periodically
-            this.time.addEvent({
-                delay: 1500,
-                callback: spawnObstacle,
-                callbackScope: this,
-                loop: true
-            });
-        }
-
-        function update(this: any) {
-            if (gameOver) return;
-
-            // Auto-jump on input
-            if ((cursors.space.isDown || cursors.up.isDown) && player.body.touching.down) {
-                jump.call(this);
-            }
-
-            // Increment score
-            score += 1;
-            scoreText.setText("DISTANCE: " + Math.floor(score / 10) + "m");
-        }
-
-        function jump(this: any) {
-            if (player.body.touching.down) {
-                player.setVelocityY(-550);
-            }
-        }
-
-        function spawnObstacle(this: any) {
-            const obs = obstacles.create(830, 345, "obstacle").setVelocityX(-300);
-            obs.setScale(0.4);
-            obs.setCollideWorldBounds(false);
-            obs.setImmovable(true);
-        }
-
-        function hitObstacle(this: any, player: any, obs: any) {
-            gameOver = true;
-
-            // Game Over text
-            this.add.text(400, 160, "GAME OVER", {
-                fontSize: "48px",
-                color: "#FF4444",
-                fontFamily: "Arial Black",
-                stroke: "#000000",
-                strokeThickness: 6
-            }).setOrigin(0.5);
-
-            // Final score
-            this.add.text(400, 220, "FINAL DISTANCE: " + Math.floor(score / 10) + "m", {
+            // Score
+            scoreText = this.add.text(20, 80, "SCORE: 0", {
                 fontSize: "24px",
                 color: "#FFFFFF",
+                fontFamily: "Arial Black"
+            });
+
+            // High Score
+            const savedHighScore = parseInt(localStorage.getItem('coalitionHoopsHighScore') || '0');
+            highScoreText = this.add.text(580, 80, `BEST: ${savedHighScore}`, {
+                fontSize: "20px",
+                color: "#FFD700",
+                fontFamily: "Arial Black"
+            }).setOrigin(1, 0);
+
+            // Time
+            timeText = this.add.text(300, 750, "TIME: 60", {
+                fontSize: "28px",
+                color: "#FF4444",
                 fontFamily: "Arial Black",
                 stroke: "#000000",
                 strokeThickness: 4
             }).setOrigin(0.5);
 
-            // Restart instruction
-            this.add.text(400, 270, "Refresh page to play again", {
+            // Instructions
+            this.add.text(300, 500, "DRAG & RELEASE TO SHOOT", {
                 fontSize: "18px",
                 color: "#AAAAAA",
                 fontFamily: "Arial"
             }).setOrigin(0.5);
 
-            this.physics.pause();
+            // Mouse controls
+            this.input.on('pointerdown', (pointer: any) => {
+                if (!gameActive) return;
+                const distance = Phaser.Math.Distance.Between(
+                    pointer.x, pointer.y,
+                    ball.x, ball.y
+                );
+                if (distance < 50 && ball.body.velocity.y < 1) {
+                    isDragging = true;
+                    dragStartX = pointer.x;
+                    dragStartY = pointer.y;
+                    ball.setStatic(true);
+                }
+            });
+
+            this.input.on('pointerup', (pointer: any) => {
+                if (!gameActive || !isDragging) return;
+                isDragging = false;
+
+                const velocityX = (dragStartX - pointer.x) * 0.03;
+                const velocityY = (dragStartY - pointer.y) * 0.03;
+
+                ball.setStatic(false);
+                ball.setVelocity(velocityX, velocityY);
+                scored = false;
+                ballsShot++;
+            });
+
+            // Collision detection
+            this.matter.world.on('collisionstart', (event: any) => {
+                event.pairs.forEach((pair: any) => {
+                    if ((pair.bodyA.label === 'net' || pair.bodyB.label === 'net') && !scored) {
+                        const ballBody = pair.bodyA.label === 'Circle Body' ? pair.bodyA : pair.bodyB;
+                        if (ballBody.velocity.y > 0) { // Ball going down through hoop
+                            score += 2;
+                            scored = true;
+                            scoreText.setText("SCORE: " + score);
+
+                            // Update high score
+                            const currentHigh = parseInt(localStorage.getItem('coalitionHoopsHighScore') || '0');
+                            if (score > currentHigh) {
+                                localStorage.setItem('coalitionHoopsHighScore', score.toString());
+                                highScoreText.setText(`BEST: ${score}`);
+                                setHighScore(score);
+                            }
+
+                            // Flash effect
+                            this.cameras.main.flash(200, 255, 215, 0);
+                        }
+                    }
+                });
+            });
+
+            // Timer
+            this.time.addEvent({
+                delay: 1000,
+                callback: () => {
+                    if (gameActive) {
+                        gameTime--;
+                        timeText.setText("TIME: " + gameTime);
+                        if (gameTime <= 0) {
+                            endGame.call(this);
+                        }
+                    }
+                },
+                loop: true
+            });
+        }
+
+        function update(this: any) {
+            if (!gameActive) return;
+
+            // Reset ball if it goes off screen
+            if (ball.y > 850 || ball.x < -50 || ball.x > 650) {
+                if (!scored && ballsShot > 0) {
+                    misses++;
+                }
+                resetBall.call(this);
+            }
+
+            // Visual drag indicator
+            if (isDragging) {
+                // Could add arrow or power indicator here
+            }
+        }
+
+        function resetBall(this: any) {
+            if (ball) ball.destroy();
+            ball = this.matter.add.image(300, 650, "ball");
+            ball.setCircle(25);
+            ball.setMass(1);
+            ball.setFriction(0.005);
+            ball.setBounce(0.6);
+            ball.setScale(0.15);
+            scored = false;
+        }
+
+        function endGame(this: any) {
+            gameActive = false;
+
+            // Darken screen
+            const overlay = this.add.rectangle(300, 400, 600, 800, 0x000000, 0.8);
+
+            // Game Over
+            this.add.text(300, 250, "GAME OVER", {
+                fontSize: "48px",
+                color: "#FF4444",
+                fontFamily: "Arial Black",
+                stroke: "#000000",
+                strokeThickness: 6
+            }).setOrigin(0.5).setDepth(100);
+
+            // Final Score
+            this.add.text(300, 330, `FINAL SCORE: ${score}`, {
+                fontSize: "32px",
+                color: "#FFFFFF",
+                fontFamily: "Arial Black",
+                stroke: "#000000",
+                strokeThickness: 4
+            }).setOrigin(0.5).setDepth(100);
+
+            // Accuracy
+            const accuracy = ballsShot > 0 ? ((score / 2) / ballsShot * 100).toFixed(0) : 0;
+            this.add.text(300, 390, `Accuracy: ${accuracy}%`, {
+                fontSize: "24px",
+                color: "#FFD700",
+                fontFamily: "Arial"
+            }).setOrigin(0.5).setDepth(100);
+
+            // High Score
+            const finalHigh = parseInt(localStorage.getItem('coalitionHoopsHighScore') || '0');
+            if (score >= finalHigh) {
+                this.add.text(300, 450, "🏆 NEW HIGH SCORE! 🏆", {
+                    fontSize: "28px",
+                    color: "#FFD700",
+                    fontFamily: "Arial Black"
+                }).setOrigin(0.5).setDepth(100);
+            }
+
+            // Restart hint
+            this.add.text(300, 550, "Refresh page to play again", {
+                fontSize: "20px",
+                color: "#AAAAAA",
+                fontFamily: "Arial"
+            }).setOrigin(0.5).setDepth(100);
         }
 
         gameInstanceRef.current = new (window as any).Phaser.Game(config);
     };
 
+    const handleRestart = () => {
+        window.location.reload();
+    };
+
     return (
         <div className="min-h-screen bg-black pt-20 pb-16">
-            <div className="max-w-6xl mx-auto px-4">
+            <div className="max-w-4xl mx-auto px-4">
                 {/* Header */}
                 <div className="mb-8">
                     <Link to="/" className="inline-flex items-center text-gray-400 hover:text-white mb-6">
                         <ArrowLeft className="w-4 h-4 mr-2" />
                         Back to Home
                     </Link>
-                    <h1 className="text-4xl md:text-6xl font-display font-bold text-white uppercase mb-4">
-                        Coalition <span className="text-brand-accent">Arcade</span>
-                    </h1>
-                    <p className="text-gray-400 text-lg">
-                        Play Coalition Runner and compete for the highest score!
-                    </p>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-4xl md:text-6xl font-display font-bold text-white uppercase mb-2">
+                                Coalition <span className="text-brand-accent">Hoops</span>
+                            </h1>
+                            <p className="text-gray-400 text-lg">
+                                Shoot as many baskets as you can in 60 seconds!
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleRestart}
+                            className="flex items-center gap-2 bg-brand-accent text-black px-6 py-3 rounded-lg font-bold hover:bg-yellow-400 transition"
+                        >
+                            <RotateCcw className="w-5 h-5" />
+                            Restart
+                        </button>
+                    </div>
                 </div>
 
                 {/* Game Container */}
@@ -181,33 +315,41 @@ const Arcade = () => {
                     <div className="flex justify-center">
                         <div
                             ref={gameContainerRef}
-                            className="border-4 border-brand-accent rounded-lg overflow-hidden w-[800px] h-[400px]"
+                            className="border-4 border-brand-accent rounded-lg overflow-hidden w-[600px] h-[800px]"
                         />
                     </div>
                 </div>
 
-                {/* Instructions */}
-                <div className="grid md:grid-cols-2 gap-6">
+                {/* Instructions & Stats */}
+                <div className="grid md:grid-cols-3 gap-6">
                     <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
                         <h3 className="text-xl font-bold text-white mb-4 flex items-center">
                             <Trophy className="w-5 h-5 mr-2 text-yellow-500" />
                             How to Play
                         </h3>
-                        <ul className="space-y-2 text-gray-400">
-                            <li>• <strong className="text-white">SPACE</strong> or <strong className="text-white">UP ARROW</strong> to jump</li>
-                            <li>• <strong className="text-white">CLICK/TAP</strong> anywhere to jump</li>
-                            <li>• Avoid obstacles to increase your distance</li>
-                            <li>• Challenge: Reach 100m!</li>
+                        <ul className="space-y-2 text-gray-400 text-sm">
+                            <li>• <strong className="text-white">DRAG</strong> the ball backward</li>
+                            <li>• <strong className="text-white">RELEASE</strong> to shoot</li>
+                            <li>• Each basket = <strong className="text-yellow-400">2 points</strong></li>
+                            <li>• You have <strong className="text-red-400">60 seconds</strong></li>
                         </ul>
                     </div>
 
                     <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                        <h3 className="text-xl font-bold text-white mb-4">Your Best</h3>
+                        <div className="text-center">
+                            <div className="text-5xl font-bold text-brand-accent mb-2">{highScore}</div>
+                            <div className="text-gray-400 text-sm">High Score</div>
+                        </div>
+                    </div>
+
+                    <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
                         <h3 className="text-xl font-bold text-white mb-4">Coming Soon</h3>
-                        <ul className="space-y-2 text-gray-400">
+                        <ul className="space-y-2 text-gray-400 text-sm">
                             <li>• 🏆 Global Leaderboard</li>
-                            <li>• 🎁 High Score Rewards</li>
-                            <li>• 🎮 New Game Modes</li>
-                            <li>• 🪙 SGCoin Integration</li>
+                            <li>• 🎁 Score Rewards</li>
+                            <li>• 🔥 Combo Multipliers</li>
+                            <li>• 🪙 SGCoin Prizes</li>
                         </ul>
                     </div>
                 </div>
