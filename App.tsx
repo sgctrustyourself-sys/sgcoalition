@@ -42,6 +42,7 @@ const SavedAddresses = React.lazy(() => import('./pages/SavedAddresses'));
 const MyReviews = React.lazy(() => import('./pages/MyReviews'));
 const SearchResults = React.lazy(() => import('./pages/SearchResults'));
 const PublicWishlist = React.lazy(() => import('./pages/PublicWishlist'));
+const Arcade = React.lazy(() => import('./pages/Arcade'));
 
 // Tutorial Pages
 const Welcome = React.lazy(() => import('./pages/tutorial/Welcome'));
@@ -78,6 +79,7 @@ const App = () => {
                     <Route path="/my-reviews" element={<MyReviews />} />
                     <Route path="/ecosystem" element={<Ecosystem />} />
                     <Route path="/archive" element={<Archive />} />
+                    <Route path="/arcade" element={<Arcade />} />
                     <Route path="/checkout" element={<Checkout />} />
                     <Route path="/order/success" element={<OrderSuccess />} />
                     <Route path="/order/cancel" element={<OrderCancel />} />

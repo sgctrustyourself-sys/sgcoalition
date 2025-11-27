@@ -45,6 +45,7 @@ const Navbar = () => {
                             <Link to="/shop" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Shop</Link>
                             <Link to="/about" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Story</Link>
                             <Link to="/ecosystem" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Ecosystem</Link>
+                            <Link to="/arcade" className="text-xs font-bold uppercase tracking-widest text-brand-accent hover:text-white hover:text-glow transition-all flex items-center gap-1">Arcade</Link>
                             {user && <Link to="/favorites" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all flex items-center gap-1"><Heart className="w-3 h-3" />Favorites</Link>}
                             <Link to="/tutorial/welcome" className="text-xs font-bold uppercase tracking-widest text-green-400 hover:text-green-300 hover:text-glow transition-all">SGCoin Setup</Link>
                             {user && <Link to="/profile" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Profile</Link>}
@@ -122,6 +123,7 @@ const Navbar = () => {
                         <Link to="/shop" className="block text-lg font-display font-bold uppercase tracking-widest text-white" onClick={() => setMobileMenuOpen(false)}>Shop</Link>
                         <Link to="/about" className="block text-lg font-display font-bold uppercase tracking-widest text-white" onClick={() => setMobileMenuOpen(false)}>Story</Link>
                         <Link to="/ecosystem" className="block text-lg font-display font-bold uppercase tracking-widest text-white" onClick={() => setMobileMenuOpen(false)}>Ecosystem</Link>
+                        <Link to="/arcade" className="block text-lg font-display font-bold uppercase tracking-widest text-brand-accent" onClick={() => setMobileMenuOpen(false)}>Arcade</Link>
                         {user && <Link to="/favorites" className="block text-lg font-display font-bold uppercase tracking-widest text-white flex items-center gap-2" onClick={() => setMobileMenuOpen(false)}><Heart className="w-4 h-4" />Favorites</Link>}
                         <Link to="/tutorial/welcome" className="block text-lg font-display font-bold uppercase tracking-widest text-green-400" onClick={() => setMobileMenuOpen(false)}>SGCoin Setup</Link>
 
