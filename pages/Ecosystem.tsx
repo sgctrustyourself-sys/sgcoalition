@@ -15,13 +15,16 @@ const Ecosystem = () => {
     const [activeGiveaway, setActiveGiveaway] = useState<any>(null);
     const [email, setEmail] = useState('');
     const [hasEntered, setHasEntered] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const loadData = async () => {
+            setIsLoading(true);
             const data = await fetchSGCoinData();
             setCoinData(data);
             const recentTrades = await fetchRecentTrades(data?.price || 0);
             setTrades(recentTrades);
+            setIsLoading(false);
         };
 
         loadData();
@@ -85,7 +88,7 @@ const Ecosystem = () => {
 
             {/* Live SGCoin Data */}
             <div className="max-w-7xl mx-auto px-4 -mt-20 relative z-30 mb-12">
-                <SGCoinCard data={coinData} />
+                <SGCoinCard data={coinData} isLoading={isLoading} />
 
                 <div className="mt-8 text-center">
                     <Link
