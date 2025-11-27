@@ -56,7 +56,7 @@ export default async function handler(req: any, res: any) {
 
         // Fallback 3: Hardcoded Fallback (The latest known working URL)
         if (!origin) {
-            origin = 'https://coalition-brand-m463tsoyc-derron-byrds-projects.vercel.app';
+            origin = 'https://sgcoalition.xyz';
         }
 
         // Remove trailing slash if present

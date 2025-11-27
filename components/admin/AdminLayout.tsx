@@ -1,11 +1,11 @@
 import React from 'react';
-import { Package, ShoppingCart, GitBranch, Gift, Settings, LogOut, Menu, X } from 'lucide-react';
+import { Package, ShoppingCart, GitBranch, Gift, Settings, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'products' | 'orders' | 'git' | 'giveaways' | 'settings';
-    onTabChange: (tab: 'products' | 'orders' | 'git' | 'giveaways' | 'settings') => void;
+    activeTab: 'products' | 'orders' | 'reviews' | 'analytics' | 'sgcoin-distribution' | 'sgcoin-requests' | 'git' | 'giveaways' | 'inquiries' | 'settings';
+    onTabChange: (tab: 'products' | 'orders' | 'reviews' | 'analytics' | 'sgcoin-distribution' | 'sgcoin-requests' | 'git' | 'giveaways' | 'inquiries' | 'settings') => void;
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange }) => {
@@ -15,8 +15,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
     const navItems = [
         { id: 'products', label: 'Products', icon: Package },
         { id: 'orders', label: 'Orders', icon: ShoppingCart },
+        { id: 'reviews', label: 'Reviews', icon: Star },
+        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+        { id: 'sgcoin-distribution', label: 'SGCoin Distribution', icon: Coins },
+        { id: 'sgcoin-requests', label: 'SGCoin Requests', icon: Coins },
         { id: 'git', label: 'Version Control', icon: GitBranch },
         { id: 'giveaways', label: 'Giveaways', icon: Gift },
+        { id: 'inquiries', label: 'Custom Inquiries', icon: MessageSquare },
         // { id: 'settings', label: 'Settings', icon: Settings },
     ] as const;
 
@@ -36,8 +41,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                             key={item.id}
                             onClick={() => onTabChange(item.id)}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${activeTab === item.id
-                                    ? 'bg-white text-black font-bold shadow-[0_0_15px_rgba(255,255,255,0.3)]'
-                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                ? 'bg-white text-black font-bold shadow-[0_0_15px_rgba(255,255,255,0.3)]'
+                                : 'text-gray-400 hover:text-white hover:bg-white/5'
                                 }`}
                         >
                             <item.icon className={`w-5 h-5 ${activeTab === item.id ? 'text-black' : 'text-gray-400 group-hover:text-white'}`} />
@@ -77,8 +82,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                                     setIsMobileMenuOpen(false);
                                 }}
                                 className={`w-full flex items-center gap-3 px-4 py-4 rounded-lg border ${activeTab === item.id
-                                        ? 'bg-white text-black border-white'
-                                        : 'border-white/10 text-gray-400'
+                                    ? 'bg-white text-black border-white'
+                                    : 'border-white/10 text-gray-400'
                                     }`}
                             >
                                 <item.icon className="w-5 h-5" />

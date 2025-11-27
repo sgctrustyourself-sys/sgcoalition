@@ -46,7 +46,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     },
     nft: {
       contractAddress: '0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201',
-      tokenId: '1', // Placeholder for the new collection
+      tokenId: '6915469788939700255662107688630493008422408564534094781606241966635645665283',
       chain: 'polygon',
       openseaUrl: 'https://opensea.io/item/polygon/0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201/6915469788939700255662107688630493008422408564534094781606241966635645665283',
       nfcTags: {
@@ -104,20 +104,80 @@ export const INITIAL_SECTIONS: Section[] = [
     order: 1
   },
   {
+    id: 'sec_custom_inquiry',
+    type: 'custom_inquiry_cta',
+    title: 'Custom Designs',
+    isVisible: true,
+    order: 2
+  },
+  {
     id: 'sec_grid',
     type: 'grid',
     title: 'Latest Drops',
     isVisible: true,
-    order: 2
+    order: 3
   },
   {
     id: 'sec_about',
     type: 'about_teaser',
     title: 'The Coalition',
     isVisible: true,
-    order: 3,
+    order: 4,
     content: ABOUT_TEXT.substring(0, 200) + '...'
   },
 ];
 
 export const COIN_REWARD_RATE = 1500; // 30,000 coins per $20 = 1500 per $1
+
+// ============================================
+// NO REFUNDS POLICY CONFIGURATION
+// ============================================
+
+export const SALES_FINAL_ENABLED = import.meta.env.VITE_SALES_FINAL === 'true';
+
+export const CONSENT_TEXT = "All sales are final. No returns, exchanges, or refunds will be accepted.";
+
+export const CONSENT_CHECKBOX_TEXT = "I confirm I have read and agree that all sales are final and I will not request a refund or return.";
+
+export const REFUND_POLICY_FULL_TEXT = `
+All sales are final. We do not accept returns, exchanges, or refunds on any products purchased through this website.
+
+By completing your purchase, you acknowledge and agree to this policy.
+
+If you have questions about a product before purchasing, please contact us at support@sgcoalition.xyz.
+`.trim();
+
+// ============================================
+// SGCOIN DISCOUNT CONFIGURATION
+// ============================================
+
+export const SGCOIN_DISCOUNT_ENABLED = import.meta.env.VITE_SGCOIN_DISCOUNT_ENABLED === 'true';
+export const SGCOIN_DISCOUNT_PERCENTAGE = parseFloat(import.meta.env.VITE_SGCOIN_DISCOUNT_PERCENTAGE || '10');
+
+export const SGCOIN_PAYMENT_METHODS = ['sgcoin', 'gmoney'] as const;
+export type SGCoinPaymentMethod = typeof SGCOIN_PAYMENT_METHODS[number];
+
+// ============================================
+// TUTORIAL CONFIGURATION
+// ============================================
+
+export const SGCOIN_CONTRACT_ADDRESS = '0x951806a2581c22C478aC613a675e6c898E2aBe21';
+export const QUICKSWAP_SWAP_URL = 'https://dapp.quickswap.exchange/swap/best/ETH/0x951806a2581c22C478aC613a675e6c898E2aBe21?chainId=137';
+export const POLYGON_RPC_URL = 'https://polygon-rpc.com';
+export const POLYGON_CHAIN_ID = 137;
+export const POLYGON_CURRENCY_SYMBOL = 'MATIC';
+export const POLYGON_BLOCK_EXPLORER = 'https://polygonscan.com';
+
+// Tutorial Progress
+export const TUTORIAL_STORAGE_KEY = 'sgcoin_tutorial_progress';
+export const TUTORIAL_STEPS = 6;
+
+// Tutorial Step Names
+export const TUTORIAL_STEP_NAMES = [
+  'Welcome',
+  'Install MetaMask',
+  'Switch to Polygon',
+  'Fund Wallet',
+  'Swap on QuickSwap',
+  'Use SGCoin'
+];

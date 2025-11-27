@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Giveaway, GiveawayStatus } from '../../types';
-import { Plus, Gift, Calendar, Users, Trophy, Trash2, Copy, AlertCircle, CheckCircle } from 'lucide-react';
+import { Plus, Gift, Calendar, Users, Trophy, Trash2, Copy, AlertCircle, CheckCircle, Instagram } from 'lucide-react';
+import InstagramEntriesTab from './InstagramEntriesTab';
 
 const GiveawayManager: React.FC = () => {
-    const { giveaways, addGiveaway, deleteGiveaway, pickGiveawayWinner } = useApp();
+    const { giveaways, addGiveaway, deleteGiveaway, pickGiveawayWinner, products } = useApp();
     const [activeTab, setActiveTab] = useState<'active' | 'past' | 'create'>('active');
     const [selectedGiveaway, setSelectedGiveaway] = useState<Giveaway | null>(null);
+    const [detailTab, setDetailTab] = useState<'overview' | 'instagram-entries'>('overview');
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
@@ -18,6 +20,32 @@ const GiveawayManager: React.FC = () => {
         requirements: ['Join Discord', 'Follow on Twitter'],
         prizeImage: ''
     });
+
+    const handleProductSelect = (productId: string) => {
+        if (!productId) {
+            // Clear form if no product selected
+            setFormData({
+                title: '',
+                prize: '',
+                description: '',
+                maxEntriesPerUser: 1,
+                requirements: ['Join Discord', 'Follow on Twitter'],
+                prizeImage: ''
+            });
+            return;
+        }
+
+        const product = products.find(p => p.id === productId);
+        if (product) {
+            setFormData({
+                ...formData,
+                title: `${product.name} Giveaway`,
+                prize: product.name,
+                description: `Win a ${product.name}! ${product.description}`,
+                prizeImage: product.images[0]
+            });
+        }
+    };
 
     const handleCreate = async () => {
         if (!formData.title || !formData.prize || !formData.startDate || !formData.endDate) {
@@ -147,8 +175,8 @@ const GiveawayManager: React.FC = () => {
                                     <div className="flex justify-between items-start mb-2">
                                         <h3 className="font-bold text-white">{g.title}</h3>
                                         <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${g.status === 'active' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                                                g.status === 'upcoming' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-                                                    'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                                            g.status === 'upcoming' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                                                'bg-gray-500/20 text-gray-400 border border-gray-500/30'
                                             }`}>
                                             {g.status}
                                         </span>
@@ -180,6 +208,25 @@ const GiveawayManager: React.FC = () => {
                             </h3>
 
                             <div className="space-y-4">
+                                {/* Product Selector */}
+                                <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-lg">
+                                    <label className="block text-xs font-bold uppercase mb-2 text-blue-400">Quick Select from Products</label>
+                                    <select
+                                        className="w-full bg-black/30 border border-white/10 p-3 rounded-lg text-white focus:border-white/30 outline-none"
+                                        onChange={e => handleProductSelect(e.target.value)}
+                                        defaultValue=""
+                                        aria-label="Select product to auto-fill"
+                                    >
+                                        <option value="">-- Select a product to auto-fill --</option>
+                                        {products.filter(p => !p.archived).map(product => (
+                                            <option key={product.id} value={product.id}>
+                                                {product.name} - ${product.price.toFixed(2)}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-gray-500 mt-2">Selecting a product will automatically fill in the title, prize, and description below.</p>
+                                </div>
+
                                 <div>
                                     <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Title</label>
                                     <input
@@ -188,6 +235,7 @@ const GiveawayManager: React.FC = () => {
                                         value={formData.title}
                                         onChange={e => setFormData({ ...formData, title: e.target.value })}
                                         placeholder="Weekly Merch Drop"
+                                        aria-label="Giveaway Title"
                                     />
                                 </div>
 
@@ -358,6 +406,15 @@ const GiveawayManager: React.FC = () => {
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+
+                            {/* Instagram Entries Section */}
+                            <div className="mt-8 pt-8 border-t border-white/10">
+                                <h3 className="font-bold uppercase text-lg mb-4 text-white flex items-center gap-2">
+                                    <Instagram className="w-5 h-5 text-pink-400" />
+                                    Instagram Giveaway Entries
+                                </h3>
+                                <InstagramEntriesTab giveawayId={selectedGiveaway.id} />
                             </div>
                         </div>
                     )}

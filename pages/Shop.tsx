@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { Filter, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
+import SearchBar from '../components/SearchBar';
+import ProductCardSkeleton from '../components/ProductCardSkeleton';
 
 const Shop = () => {
     const { products, isLoading } = useApp();
     const [isFiltersOpen, setFiltersOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     // Filter States
     const [category, setCategory] = useState<string>('all');
@@ -24,6 +27,14 @@ const Shop = () => {
     };
 
     const filteredProducts = products
+        .filter(p => !p.archived) // Exclude archived products from shop
+        .filter(p => {
+            // Search filter
+            if (!searchQuery) return true;
+            const query = searchQuery.toLowerCase();
+            return p.name.toLowerCase().includes(query) ||
+                p.description.toLowerCase().includes(query);
+        })
         .filter(p => category === 'all' || p.category === category)
         .filter(p => selectedSizes.length === 0 || (p.sizes && p.sizes.some(s => selectedSizes.includes(s))))
         .filter(p => p.price >= priceRange.min && p.price <= priceRange.max)
@@ -31,6 +42,8 @@ const Shop = () => {
             // Sort Logic
             if (sortOption === 'price-asc') return a.price - b.price;
             if (sortOption === 'price-desc') return b.price - a.price;
+            if (sortOption === 'name-asc') return a.name.localeCompare(b.name);
+            if (sortOption === 'name-desc') return b.name.localeCompare(a.name);
             // Popularity Proxy: Featured items first
             if (sortOption === 'popularity') return (a.isFeatured === b.isFeatured) ? 0 : a.isFeatured ? -1 : 1;
             // Newest Proxy: Compare IDs (assuming ascending ID string = newer) and reverse
@@ -61,11 +74,22 @@ const Shop = () => {
                         >
                             <option value="newest">Newest Arrivals</option>
                             <option value="popularity">Popularity</option>
+                            <option value="name-asc">Name (A-Z)</option>
+                            <option value="name-desc">Name (Z-A)</option>
                             <option value="price-asc">Price: Low to High</option>
                             <option value="price-desc">Price: High to Low</option>
                         </select>
                     </div>
                 </div>
+            </div>
+
+            {/* Search Bar */}
+            <div className="mb-8">
+                <SearchBar
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder="Search products by name or description..."
+                />
             </div>
 
             <div className="flex flex-col md:flex-row gap-12">
@@ -103,7 +127,8 @@ const Shop = () => {
                                     type="number"
                                     value={priceRange.min}
                                     onChange={(e) => setPriceRange({ ...priceRange, min: Number(e.target.value) })}
-                                    className="w-16 border-b border-gray-300 p-1 focus:outline-none focus:border-black"
+                                    className="w-16 border-b border-gray-300 p-1 focus:outline-none focus:border-black text-white bg-transparent"
+                                    aria-label="Minimum price"
                                 />
                                 <span className="text-gray-400">-</span>
                                 <span className="text-gray-500">$</span>
@@ -111,7 +136,8 @@ const Shop = () => {
                                     type="number"
                                     value={priceRange.max}
                                     onChange={(e) => setPriceRange({ ...priceRange, max: Number(e.target.value) })}
-                                    className="w-16 border-b border-gray-300 p-1 focus:outline-none focus:border-black"
+                                    className="w-16 border-b border-gray-300 p-1 focus:outline-none focus:border-black text-white bg-transparent"
+                                    aria-label="Maximum price"
                                 />
                             </div>
                         </div>
@@ -134,7 +160,7 @@ const Shop = () => {
 
                         <div className="pt-4 border-t border-gray-100">
                             <button
-                                onClick={() => { setCategory('all'); setSelectedSizes([]); setPriceRange({ min: 0, max: 500 }); }}
+                                onClick={() => { setCategory('all'); setSelectedSizes([]); setPriceRange({ min: 0, max: 500 }); setSearchQuery(''); }}
                                 className="text-xs text-gray-500 underline hover:text-black"
                             >
                                 Clear All Filters
@@ -148,11 +174,7 @@ const Shop = () => {
                     {isLoading && products.length === 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
                             {[...Array(6)].map((_, i) => (
-                                <div key={i} className="animate-pulse">
-                                    <div className="bg-gray-800/50 aspect-[3/4] rounded-lg mb-4"></div>
-                                    <div className="h-4 bg-gray-800/50 rounded w-3/4 mb-2"></div>
-                                    <div className="h-4 bg-gray-800/50 rounded w-1/4"></div>
-                                </div>
+                                <ProductCardSkeleton key={i} />
                             ))}
                         </div>
                     ) : filteredProducts.length > 0 ? (

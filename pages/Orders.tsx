@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 import { Order, OrderStatus } from '../types';
 import { Download, Search, Filter, Eye, Edit2, Trash2, FileText, Plus } from 'lucide-react';
 import ManualOrderForm from '../components/ManualOrderForm';
@@ -7,6 +8,7 @@ import Invoice from '../components/Invoice';
 
 export const Orders: React.FC = () => {
     const { orders, deleteOrder } = useApp();
+    const { addToast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [filterType, setFilterType] = useState<string>('all');
@@ -64,7 +66,7 @@ export const Orders: React.FC = () => {
             setShowDeleteConfirm(null);
         } catch (error) {
             console.error('Failed to delete order:', error);
-            alert('Failed to delete order');
+            addToast('Failed to delete order', 'error');
         }
     };
 

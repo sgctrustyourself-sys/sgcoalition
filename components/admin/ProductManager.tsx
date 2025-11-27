@@ -71,6 +71,7 @@ const ProductManager: React.FC = () => {
                 sizes: editForm.sizes || ['S', 'M', 'L', 'XL'],
                 sizeInventory: editForm.sizeInventory || {},
                 nft: editForm.nft,
+                archived: editForm.archived || false,
             };
 
             console.log('💾 SAVING PRODUCT:', productData);
@@ -293,34 +294,58 @@ const ProductManager: React.FC = () => {
                         {/* Right Column: Images & Details */}
                         <div className="space-y-5">
                             <div>
-                                <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Images</label>
-                                <div className="space-y-3">
-                                    {(editForm.images || ['']).map((img, index) => (
-                                        <div key={index} className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={img}
-                                                onChange={(e) => updateImage(index, e.target.value)}
-                                                className="flex-1 bg-black/30 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-white/30 outline-none"
-                                                placeholder="Image URL"
-                                            />
-                                            {(editForm.images?.length || 0) > 1 && (
-                                                <button
-                                                    onClick={() => removeImageField(index)}
-                                                    className="p-3 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20"
-                                                >
-                                                    <X className="w-4 h-4" />
-                                                </button>
-                                            )}
+                                <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Images (Imgur URLs)</label>
+
+                                {/* Image Preview Grid */}
+                                <div className="grid grid-cols-3 gap-2 mb-3">
+                                    {(editForm.images || []).map((img, index) => (
+                                        <div key={index} className="relative aspect-square bg-black/30 rounded-lg overflow-hidden border border-white/10 group">
+                                            <img src={img} alt={`Product ${index}`} className="w-full h-full object-cover" />
+                                            <button
+                                                onClick={() => removeImageField(index)}
+                                                className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
+                                                title="Remove Image"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
                                         </div>
                                     ))}
+                                </div>
+
+                                {/* Add Image Input */}
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        id="imgur-input"
+                                        className="flex-1 bg-black/30 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-white/30 outline-none"
+                                        placeholder="Paste Imgur URL (e.g. https://i.imgur.com/...)"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                const input = e.currentTarget;
+                                                if (input.value) {
+                                                    setEditForm(prev => ({ ...prev, images: [...(prev.images || []), input.value] }));
+                                                    input.value = '';
+                                                }
+                                            }
+                                        }}
+                                    />
                                     <button
-                                        onClick={addImageField}
-                                        className="text-xs text-brand-accent hover:text-white font-bold uppercase tracking-wide"
+                                        onClick={() => {
+                                            const input = document.getElementById('imgur-input') as HTMLInputElement;
+                                            if (input.value) {
+                                                setEditForm(prev => ({ ...prev, images: [...(prev.images || []), input.value] }));
+                                                input.value = '';
+                                            }
+                                        }}
+                                        className="bg-white/10 text-white px-4 rounded-lg font-bold uppercase text-xs hover:bg-white/20"
                                     >
-                                        + Add Another Image
+                                        Add
                                     </button>
                                 </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Supported: Direct Imgur links (.jpg, .png) or hosted links.
+                                </p>
                             </div>
 
                             <div>
@@ -331,6 +356,25 @@ const ProductManager: React.FC = () => {
                                     className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-white/30 outline-none h-32"
                                     placeholder="Product description..."
                                 />
+                            </div>
+
+                            {/* Archive Toggle */}
+                            <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="font-bold text-white uppercase text-sm">Archive Product</h4>
+                                        <p className="text-xs text-gray-400">Hide from shop but keep in archive</p>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={editForm.archived || false}
+                                            onChange={(e) => updateField('archived', e.target.checked)}
+                                        />
+                                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-accent"></div>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -10,7 +10,7 @@ import { Lock, Unlock, Loader } from 'lucide-react';
 const ProductDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { products, addToCart, isAdminMode, updateProduct, deleteProduct, user, toggleFavorite, loginUser } = useApp();
+    const { products, addToCart, isAdminMode, updateProduct, deleteProduct, user, toggleFavorite, loginUser, isLoading } = useApp();
 
     const [product, setProduct] = useState<Product | undefined>(undefined);
     const [selectedSize, setSelectedSize] = useState<string>('');
@@ -84,6 +84,7 @@ const ProductDetails = () => {
     };
 
     useEffect(() => {
+        if (isLoading) return;
         const found = products.find(p => p.id === id);
         if (found) {
             setProduct(found);
@@ -92,7 +93,9 @@ const ProductDetails = () => {
         } else {
             navigate('/shop');
         }
-    }, [id, products, navigate]);
+    }, [id, products, navigate, isLoading]);
+
+    if (isLoading) return <div className="pt-24 text-center text-white">Loading...</div>;
 
     if (!product) return null;
 
@@ -325,7 +328,14 @@ const ProductDetails = () => {
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <h1 className="text-3xl font-display font-bold text-white uppercase tracking-wide">{product.name}</h1>
-                                        <p className="mt-2 text-xl text-white font-medium">${product.price}</p>
+                                        <div className="flex items-center gap-3 mt-2">
+                                            <p className="text-xl text-white font-medium">${product.price}</p>
+                                            {product.stock === 1 && (
+                                                <span className="bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide animate-pulse">
+                                                    Only 1 Available
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                     {isAdminMode && (
                                         <button
@@ -354,23 +364,27 @@ const ProductDetails = () => {
                                         {product.sizes?.map((size) => {
                                             const sizeStock = product.sizeInventory?.[size] || 0;
                                             const isOutOfStock = sizeStock === 0;
+                                            const isOneSize = product.sizes?.length === 1 && size === 'One Size';
+
                                             return (
                                                 <button
                                                     key={size}
                                                     onClick={() => !isOutOfStock && setSelectedSize(size)}
-                                                    disabled={isOutOfStock}
-                                                    className={`group relative border py-3 px-4 flex flex-col items-center justify-center text-sm font-medium uppercase focus:outline-none sm:flex-1 ${selectedSize === size
+                                                    disabled={isOutOfStock || isOneSize}
+                                                    className={`group relative border py-3 px-4 flex flex-col items-center justify-center text-sm font-medium uppercase focus:outline-none sm:flex-1 ${selectedSize === size || isOneSize
                                                         ? 'border-white ring-2 ring-white bg-white/10 text-white'
                                                         : isOutOfStock
                                                             ? 'border-white/10 bg-white/5 text-gray-500 cursor-not-allowed'
                                                             : 'border-white/20 hover:bg-white/10 text-white'
-                                                        }`}
+                                                        } ${isOneSize ? 'cursor-default ring-0 border-white/30' : ''}`}
                                                     title={isOutOfStock ? 'Out of stock' : `${sizeStock} in stock`}
                                                 >
                                                     <span>{size}</span>
-                                                    <span className={`text-[10px] mt-1 ${isOutOfStock ? 'text-red-400' : sizeStock < 5 ? 'text-yellow-400' : 'text-green-400'}`}>
-                                                        {isOutOfStock ? 'Out' : `${sizeStock} left`}
-                                                    </span>
+                                                    {!isOneSize && (
+                                                        <span className={`text-[10px] mt-1 ${isOutOfStock ? 'text-red-400' : sizeStock < 5 ? 'text-yellow-400' : 'text-green-400'}`}>
+                                                            {isOutOfStock ? 'Out' : `${sizeStock} left`}
+                                                        </span>
+                                                    )}
                                                 </button>
                                             );
                                         })}

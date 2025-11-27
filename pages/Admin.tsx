@@ -4,9 +4,16 @@ import ProductManager from '../components/admin/ProductManager';
 import OrderManager from '../components/admin/OrderManager';
 import GitControl from '../components/admin/GitControl';
 import GiveawayManager from '../components/admin/GiveawayManager';
+import CustomInquiryManager from '../components/admin/CustomInquiryManager';
+import SGCoinRequestManager from '../components/admin/SGCoinRequestManager';
+import ReviewManager from '../admin/ReviewManager';
+import AnalyticsDashboard from '../admin/AnalyticsDashboard';
+import SGCoinDistribution from '../admin/SGCoinDistribution';
+import { useApp } from '../context/AppContext';
 
 const Admin: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'git' | 'giveaways' | 'settings'>('products');
+    const { user } = useApp();
+    const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'reviews' | 'analytics' | 'sgcoin-distribution' | 'sgcoin-requests' | 'git' | 'giveaways' | 'inquiries' | 'settings'>('products');
 
     const renderContent = () => {
         switch (activeTab) {
@@ -14,10 +21,20 @@ const Admin: React.FC = () => {
                 return <ProductManager />;
             case 'orders':
                 return <OrderManager />;
+            case 'reviews':
+                return <ReviewManager />;
+            case 'analytics':
+                return <AnalyticsDashboard />;
+            case 'sgcoin-distribution':
+                return <SGCoinDistribution />;
             case 'git':
                 return <GitControl />;
             case 'giveaways':
                 return <GiveawayManager />;
+            case 'inquiries':
+                return <CustomInquiryManager />;
+            case 'sgcoin-requests':
+                return <SGCoinRequestManager adminWalletAddress={user?.walletAddress || ''} />;
             case 'settings':
                 return (
                     <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">

@@ -31,6 +31,7 @@ const Footer = () => {
                         <li><Link to="/about" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">About Us</Link></li>
                         <li><Link to="/privacy" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Privacy Policy</Link></li>
                         <li><Link to="/terms" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Terms of Service</Link></li>
+                        <li><Link to="/archive" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Archive</Link></li>
                         <li><a href="mailto:support@coalitionbrand.com" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Contact Us</a></li>
                     </ul>
                 </div>

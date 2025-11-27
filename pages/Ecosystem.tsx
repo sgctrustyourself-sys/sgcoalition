@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useApp } from '../context/AppContext';
-import { SGCoinData } from '../types';
-import { fetchSGCoinData, fetchRecentTrades } from '../services/priceService';
+import { Link } from 'react-router-dom';
+import { Trophy, ExternalLink, Gift, Clock, Users, CheckCircle, ArrowRight } from 'lucide-react';
 import SGCoinCard from '../components/SGCoinCard';
-import { ArrowRight, ExternalLink, Gift, Trophy, Clock, Users, CheckCircle } from 'lucide-react';
+import { useApp } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
+import { fetchSGCoinData, fetchRecentTrades } from '../utils/sgcoinApi';
+import { addGiveawayEntry } from '../utils/giveawayUtils';
 
 const Ecosystem = () => {
-    const { giveaways, addGiveawayEntry, user } = useApp();
-    const [coinData, setCoinData] = useState<SGCoinData | null>(null);
+    const { user, giveaways } = useApp();
+    const { addToast } = useToast();
+    const [coinData, setCoinData] = useState<any>(null);
     const [trades, setTrades] = useState<any[]>([]);
     const [activeGiveaway, setActiveGiveaway] = useState<any>(null);
     const [email, setEmail] = useState('');
@@ -17,7 +20,7 @@ const Ecosystem = () => {
         const loadData = async () => {
             const data = await fetchSGCoinData();
             setCoinData(data);
-            const recentTrades = await fetchRecentTrades();
+            const recentTrades = await fetchRecentTrades(data?.price || 0);
             setTrades(recentTrades);
         };
 
@@ -41,7 +44,7 @@ const Ecosystem = () => {
     const handleEnterGiveaway = async () => {
         if (!activeGiveaway) return;
         if (!email && !user) {
-            alert('Please enter your email to join.');
+            addToast('Please enter your email to join.', 'warning');
             return;
         }
 
@@ -57,9 +60,9 @@ const Ecosystem = () => {
                 source: 'form'
             });
             setHasEntered(true);
-            alert('You have successfully entered the giveaway!');
+            addToast('You have successfully entered the giveaway!', 'success');
         } catch (error: any) {
-            alert('Failed to enter giveaway: ' + error.message);
+            addToast('Failed to enter giveaway: ' + error.message, 'error');
         }
     };
 
@@ -81,8 +84,49 @@ const Ecosystem = () => {
             </div>
 
             {/* Live SGCoin Data */}
-            <div className="max-w-7xl mx-auto px-4 -mt-20 relative z-30 mb-24">
+            <div className="max-w-7xl mx-auto px-4 -mt-20 relative z-30 mb-12">
                 <SGCoinCard data={coinData} />
+
+                <div className="mt-8 text-center">
+                    <Link
+                        to="/buy-sgcoin"
+                        className="inline-block bg-gradient-to-r from-blue-600 to-purple-600 text-white font-display font-bold text-xl uppercase tracking-widest py-5 px-12 rounded-full hover:scale-105 transition-transform shadow-lg shadow-purple-500/20 border border-white/10"
+                    >
+                        ( Click Here To Buy SGCOIN/GMONEY from Coalition )
+                    </Link>
+                </div>
+            </div>
+
+            {/* DexScreener Live Chart */}
+            <div className="max-w-7xl mx-auto px-4 mb-24">
+                <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+                    <div className="p-6 border-b border-gray-800">
+                        <h2 className="font-display text-2xl font-bold uppercase flex items-center gap-3">
+                            <ExternalLink className="text-blue-400" />
+                            Live Trading Chart
+                        </h2>
+                        <p className="text-gray-400 text-sm mt-2">
+                            Real-time SGCOIN / WBTC trading data on QuickSwap (Polygon)
+                        </p>
+                    </div>
+                    <div className="relative w-full h-[600px]">
+                        <iframe
+                            src="https://dexscreener.com/polygon/0x951806a2581c22C478aC613a675e6c898E2aBe21?embed=1&theme=dark&trades=0&info=0"
+                            className="w-full h-full border-0"
+                            title="DexScreener SGCOIN Chart"
+                        />
+                    </div>
+                    <div className="p-4 bg-black/50 border-t border-gray-800">
+                        <a
+                            href="https://dexscreener.com/polygon/0x951806a2581c22C478aC613a675e6c898E2aBe21"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-2 justify-center"
+                        >
+                            View Full Chart on DexScreener <ExternalLink size={14} />
+                        </a>
+                    </div>
+                </div>
             </div>
 
             {/* Main Content Grid */}
@@ -200,23 +244,14 @@ const Ecosystem = () => {
                                             </div>
                                         ) : (
                                             <div className="space-y-3">
-                                                {!user && (
-                                                    <input
-                                                        type="email"
-                                                        placeholder="Enter your email"
-                                                        className="w-full bg-black border border-gray-700 rounded p-3 text-sm focus:border-purple-500 outline-none transition"
-                                                        value={email}
-                                                        onChange={(e) => setEmail(e.target.value)}
-                                                    />
-                                                )}
-                                                <button
-                                                    onClick={handleEnterGiveaway}
-                                                    className="w-full bg-white text-black font-bold uppercase py-3 rounded hover:bg-gray-200 transition flex items-center justify-center gap-2"
+                                                <a
+                                                    href={`/#/giveaway/${activeGiveaway.id}`}
+                                                    className="block w-full bg-white text-black font-bold uppercase py-3 rounded hover:bg-gray-200 transition text-center flex items-center justify-center gap-2"
                                                 >
                                                     Enter Giveaway <ArrowRight size={16} />
-                                                </button>
+                                                </a>
                                                 <p className="text-xs text-center text-gray-600">
-                                                    By entering, you agree to our terms.
+                                                    Follow @sgcoalition, like a post, and share to your story to enter!
                                                 </p>
                                             </div>
                                         )}

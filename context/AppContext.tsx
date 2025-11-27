@@ -5,6 +5,9 @@ import { connectWallet, formatAddress } from '../services/web3Service';
 import { supabase } from '../services/supabase';
 import { autoCommit, generateProductAddedMessage, generateProductUpdatedMessage, generateProductDeletedMessage } from '../services/autoCommitService';
 import { signOut } from '../services/auth';
+import { verifyProductWrite, debugProductState } from '../services/productVerification';
+import { retryQueue } from '../services/retryQueue';
+import { useToast } from './ToastContext';
 
 interface AppState {
     products: Product[];
@@ -47,6 +50,10 @@ interface AppState {
     deleteGiveaway: (id: string) => Promise<void>;
     addGiveawayEntry: (entry: GiveawayEntry) => Promise<void>;
     pickGiveawayWinner: (giveawayId: string, count: number) => Promise<void>;
+    // Wallet Connection Functions
+    connectMetaMaskWallet: (address: string) => Promise<void>;
+    connectManualWallet: (address: string) => Promise<void>;
+    disconnectWallet: () => Promise<void>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -58,7 +65,7 @@ export const useApp = () => {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // State
+    const { addToast } = useToast();
     const [products, setProducts] = useState<Product[]>([]);
 
     const [sections, setSections] = useState<Section[]>(() => {
@@ -100,12 +107,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 // Always fetch fresh data from Supabase
                 await fetchProducts();
 
-                // Real-time subscription for products
+                // Real-time subscription for products with debouncing
+                let refreshTimeout: NodeJS.Timeout;
+                const debouncedRefresh = () => {
+                    clearTimeout(refreshTimeout);
+                    // Wait 1 second before refreshing to allow multiple rapid changes to settle
+                    refreshTimeout = setTimeout(() => {
+                        console.log('🔄 Debounced refresh triggered by real-time update');
+                        fetchProducts();
+                    }, 1000);
+                };
+
                 const subscription = supabase
                     .channel('products_channel')
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
-                        console.log('Real-time update:', payload);
-                        fetchProducts();
+                        console.log('📡 Real-time update received:', payload.eventType, (payload.new as any)?.name || (payload.old as any)?.name);
+                        debouncedRefresh();
                     })
                     .subscribe();
 
@@ -174,7 +191,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     isFeatured: item.is_featured,
                     sizes: item.sizes || [],
                     sizeInventory: item.size_inventory || {},
-                    nft: item.nft_metadata
+                    nft: item.nft_metadata,
+                    archived: item.archived || false,
+                    archivedAt: item.archived_at,
+                    releasedAt: item.released_at,
+                    soldAt: item.sold_at
                 }));
 
                 setProducts(mappedProducts);
@@ -207,7 +228,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Products are now managed exclusively by Supabase - no localStorage caching
 
     const addProduct = async (p: Product) => {
-        if (isSupabaseConfigured) {
+        if (!isSupabaseConfigured) {
+            console.error('Supabase not configured - cannot add product');
+            addToast('Database not configured. Cannot add product.', 'error');
+            return;
+        }
+
+        console.log('➕ Adding product:', p.name);
+
+        // OPTIMISTIC UPDATE: Add to local state immediately
+        setProducts(prev => [...prev, p]);
+
+        try {
             const dbProduct = {
                 id: p.id,
                 name: p.name,
@@ -218,20 +250,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 is_featured: p.isFeatured,
                 sizes: p.sizes,
                 size_inventory: p.sizeInventory || {},
-                nft_metadata: p.nft
+                nft_metadata: p.nft,
+                archived: p.archived || false,
+                archived_at: p.archivedAt,
+                released_at: p.releasedAt,
+                sold_at: p.soldAt
             };
+
             const { error } = await supabase.from('products').insert([dbProduct]);
+
             if (error) {
-                console.error('Error adding product:', error);
-                alert('Failed to add product to database');
+                console.error('❌ Error adding product:', error);
+                // ROLLBACK: Remove from local state
+                setProducts(prev => prev.filter(prod => prod.id !== p.id));
+                // Add to retry queue
+                retryQueue.add('add', p);
+                addToast(`Failed to save product "${p.name}". It will be retried automatically.`, 'error');
+                return;
+            }
+
+            // VERIFY: Confirm product was written to database
+            const verified = await verifyProductWrite(p.id);
+
+            if (!verified) {
+                console.warn('⚠️ Product write verification failed, adding to retry queue');
+                retryQueue.add('add', p);
+                addToast(`Product "${p.name}" may not have saved correctly. It will be retried automatically.`, 'warning');
             } else {
-                // Refresh from database to ensure we have the latest data
-                await fetchProducts();
+                console.log('✅ Product added and verified:', p.name);
+                // Remove from retry queue if it was there
+                retryQueue.remove(p.id);
                 await autoCommit({ message: generateProductAddedMessage(p.name) });
             }
-        } else {
-            console.error('Supabase not configured - cannot add product');
-            alert('Database not configured. Cannot add product.');
+
+        } catch (err) {
+            console.error('❌ Unexpected error adding product:', err);
+            // ROLLBACK: Remove from local state
+            setProducts(prev => prev.filter(prod => prod.id !== p.id));
+            retryQueue.add('add', p);
+            addToast(`Unexpected error saving product "${p.name}". It will be retried automatically.`, 'error');
         }
     };
 
@@ -240,9 +297,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (!isSupabaseConfigured) {
             console.error('❌ Supabase not configured - cannot update product');
-            alert('Database not configured. Cannot update product.');
+            addToast('Database not configured. Cannot update product.', 'error');
             return;
         }
+
+        // Store original state for rollback
+        const originalProduct = products.find(p => p.id === updated.id);
+
+        // OPTIMISTIC UPDATE: Update local state immediately
+        setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
 
         const dbProduct = {
             name: updated.name,
@@ -253,7 +316,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             is_featured: updated.isFeatured,
             sizes: updated.sizes,
             size_inventory: updated.sizeInventory || {},
-            nft_metadata: updated.nft
+            nft_metadata: updated.nft,
+            archived: updated.archived,
+            archived_at: updated.archivedAt,
+            released_at: updated.releasedAt,
+            sold_at: updated.soldAt
         };
 
         console.log('📤 Sending update to Supabase:', dbProduct);
@@ -273,30 +340,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     hint: error.hint,
                     code: error.code
                 });
-                alert(`Failed to update product: ${error.message}`);
+
+                // ROLLBACK: Restore original state
+                if (originalProduct) {
+                    setProducts(prev => prev.map(p => p.id === updated.id ? originalProduct : p));
+                }
+
+                // Add to retry queue
+                retryQueue.add('update', updated);
+                alert(`Failed to update product "${updated.name}". It will be retried automatically.\n\nError: ${error.message}`);
                 return;
             }
 
             console.log('✅ Supabase update successful:', data);
-            console.log('🔄 Refreshing products from database...');
 
-            const refreshedProducts = await fetchProducts();
+            // VERIFY: Confirm update was written
+            const verified = await verifyProductWrite(updated.id);
 
-            if (refreshedProducts) {
-                const updatedProduct = refreshedProducts.find(p => p.id === updated.id);
-                if (updatedProduct) {
-                    console.log('✅ Verified product in refreshed data:', updatedProduct);
-                } else {
-                    console.warn('⚠️ Updated product not found in refreshed data');
-                }
+            if (!verified) {
+                console.warn('⚠️ Product update verification failed');
+                retryQueue.add('update', updated);
+                alert(`Product "${updated.name}" may not have updated correctly. It will be retried automatically.`);
+            } else {
+                console.log('✅ Product update verified:', updated.name);
+                retryQueue.remove(updated.id);
+                await autoCommit({ message: generateProductUpdatedMessage(updated.name) });
             }
 
-            await autoCommit({ message: generateProductUpdatedMessage(updated.name) });
             console.log('✅ UPDATE COMPLETE');
 
         } catch (err) {
             console.error('❌ Unexpected error during update:', err);
-            alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+
+            // ROLLBACK: Restore original state
+            if (originalProduct) {
+                setProducts(prev => prev.map(p => p.id === updated.id ? originalProduct : p));
+            }
+
+            retryQueue.add('update', updated);
+            alert(`Unexpected error updating product "${updated.name}". It will be retried automatically.`);
         }
     };
 
@@ -431,7 +513,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     if (newInventory[item.selectedSize] > 0) {
                         newInventory[item.selectedSize] -= item.quantity;
                     }
-                    await supabase.from('products').update({ size_inventory: newInventory }).eq('id', item.productId);
+
+                    // Auto-Archive Logic
+                    const totalStock = Object.values(newInventory).reduce((a, b) => (a as number) + (b as number), 0);
+                    const updates: any = { size_inventory: newInventory };
+
+                    if (totalStock === 0) {
+                        const now = new Date().toISOString();
+                        updates.archived = true;
+                        updates.archived_at = now;
+                        updates.sold_at = now;
+                        console.log(`📦 Product ${product.name} sold out! Auto-archiving...`);
+                    }
+
+                    await supabase.from('products').update(updates).eq('id', item.productId);
                 }
             }
         }
@@ -481,6 +576,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }));
     };
 
+    // Wallet Connection Functions
+    const connectMetaMaskWallet = async (address: string) => {
+        if (user) {
+            const updatedUser = {
+                ...user,
+                connectedWalletAddress: address,
+                walletConnectionMethod: 'metamask' as const,
+                walletConnectedAt: Date.now()
+            };
+            setUser(updatedUser);
+            localStorage.setItem('coalition_user', JSON.stringify(updatedUser));
+        }
+    };
+
+    const connectManualWallet = async (address: string) => {
+        if (user) {
+            const updatedUser = {
+                ...user,
+                connectedWalletAddress: address,
+                walletConnectionMethod: 'manual' as const,
+                walletConnectedAt: Date.now()
+            };
+            setUser(updatedUser);
+            localStorage.setItem('coalition_user', JSON.stringify(updatedUser));
+        }
+    };
+
+    const disconnectWallet = async () => {
+        if (user) {
+            const updatedUser = {
+                ...user,
+                connectedWalletAddress: undefined,
+                walletConnectionMethod: undefined,
+                walletConnectedAt: undefined
+            };
+            setUser(updatedUser);
+            localStorage.setItem('coalition_user', JSON.stringify(updatedUser));
+        }
+    };
+
     return (
         <AppContext.Provider value={{
             products,
@@ -521,7 +656,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             updateGiveaway,
             deleteGiveaway,
             addGiveawayEntry,
-            pickGiveawayWinner
+            pickGiveawayWinner,
+            connectMetaMaskWallet,
+            connectManualWallet,
+            disconnectWallet
         }}>
             {children}
         </AppContext.Provider>

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 import { Giveaway, GiveawayStatus, GiveawayEntry } from '../types';
 import { Plus, Gift, Calendar, Users, Trophy, Trash2, ExternalLink, Copy, Check } from 'lucide-react';
 
 const Giveaways: React.FC = () => {
     const { giveaways, addGiveaway, deleteGiveaway, pickGiveawayWinner } = useApp();
+    const { addToast } = useToast();
     const [activeTab, setActiveTab] = useState<'active' | 'past' | 'create'>('active');
     const [selectedGiveaway, setSelectedGiveaway] = useState<Giveaway | null>(null);
 
@@ -20,7 +22,7 @@ const Giveaways: React.FC = () => {
 
     const handleCreate = async () => {
         if (!formData.title || !formData.prize || !formData.startDate || !formData.endDate) {
-            alert('Please fill in all required fields');
+            addToast('Please fill in all required fields', 'warning');
             return;
         }
 
@@ -67,7 +69,7 @@ const Giveaways: React.FC = () => {
     const copyLink = (id: string) => {
         const link = `${window.location.origin}/#/ecosystem?giveaway=${id}`;
         navigator.clipboard.writeText(link);
-        alert('Giveaway link copied to clipboard!');
+        addToast('Giveaway link copied to clipboard!', 'success');
     };
 
     const filteredGiveaways = giveaways.filter(g => {
@@ -127,8 +129,8 @@ const Giveaways: React.FC = () => {
                                     <div className="flex justify-between items-start mb-2">
                                         <h3 className="font-bold text-lg">{g.title}</h3>
                                         <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${g.status === 'active' ? 'bg-green-100 text-green-800' :
-                                                g.status === 'upcoming' ? 'bg-blue-100 text-blue-800' :
-                                                    'bg-gray-100 text-gray-800'
+                                            g.status === 'upcoming' ? 'bg-blue-100 text-blue-800' :
+                                                'bg-gray-100 text-gray-800'
                                             }`}>
                                             {g.status}
                                         </span>

@@ -4,6 +4,7 @@ import { GripVertical, Eye, EyeOff, ChevronUp, ChevronDown, Plus } from 'lucide-
 import { useApp } from '../context/AppContext';
 import { Section } from '../types';
 import ProductCard from '../components/ProductCard';
+import SmsSignup from '../components/SmsSignup';
 
 const Home = () => {
     const { sections, products, isAdminMode, updateSections, updateSection, isLoading } = useApp();
@@ -102,6 +103,81 @@ const Home = () => {
                             <div className="order-1 md:order-2 bg-gray-900 aspect-square relative overflow-hidden border border-white/5 group">
                                 <img src={featured.images[0]} alt={featured.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition duration-700" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none"></div>
+                            </div>
+                        </div>
+                    </section>
+                );
+                break;
+            case 'custom_inquiry_cta':
+                content = (
+                    <section className="py-20 px-4 max-w-7xl mx-auto">
+                        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-900/20 via-black to-blue-900/20 border border-purple-500/20">
+                            <div className="absolute inset-0 opacity-10">
+                                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')]"></div>
+                            </div>
+                            <div className="relative z-10 grid md:grid-cols-2 gap-12 p-12 md:p-16 items-center">
+                                <div className="space-y-6">
+                                    <div className="inline-block">
+                                        <span className="bg-purple-500/20 text-purple-300 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider border border-purple-500/30">
+                                            Custom Designs
+                                        </span>
+                                    </div>
+                                    <h2 className="font-display text-4xl md:text-5xl font-bold uppercase text-white leading-tight">
+                                        Bring Your Vision to Life
+                                    </h2>
+                                    <p className="text-gray-300 text-lg leading-relaxed">
+                                        Have a unique design in mind? We create custom apparel and 3D printed products tailored to your exact specifications.
+                                    </p>
+                                    <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                                        <Link
+                                            to="/custom-inquiry"
+                                            className="inline-flex items-center justify-center bg-white text-black px-8 py-4 rounded-lg font-bold uppercase tracking-wider hover:bg-gray-200 transition-all hover:scale-105 shadow-lg"
+                                        >
+                                            Request Custom Design
+                                        </Link>
+                                    </div>
+                                </div>
+                                <div className="space-y-6">
+                                    <div className="bg-black/40 backdrop-blur-sm border border-white/10 rounded-xl p-6 hover:border-purple-500/30 transition-colors">
+                                        <div className="flex items-start gap-4">
+                                            <div className="bg-purple-500/20 p-3 rounded-lg">
+                                                <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-white mb-2">Custom Apparel</h3>
+                                                <p className="text-gray-400 text-sm">Unique pants, shirts, and jackets designed exactly how you want them.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-black/40 backdrop-blur-sm border border-white/10 rounded-xl p-6 hover:border-blue-500/30 transition-colors">
+                                        <div className="flex items-start gap-4">
+                                            <div className="bg-blue-500/20 p-3 rounded-lg">
+                                                <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-white mb-2">3D Printed Products</h3>
+                                                <p className="text-gray-400 text-sm">Custom 3D designs and prototypes brought to reality.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-black/40 backdrop-blur-sm border border-white/10 rounded-xl p-6 hover:border-green-500/30 transition-colors">
+                                        <div className="flex items-start gap-4">
+                                            <div className="bg-green-500/20 p-3 rounded-lg">
+                                                <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-white mb-2">Expert Craftsmanship</h3>
+                                                <p className="text-gray-400 text-sm">Quality materials and attention to detail in every piece.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -217,7 +293,12 @@ const Home = () => {
 
     return (
         <div className="min-h-screen pb-20">
-            {sections.map((s, i) => renderSection(s, i))}
+            {sections.map((s, i) => (
+                <React.Fragment key={s.id}>
+                    {renderSection(s, i)}
+                    {s.type === 'featured' && <SmsSignup />}
+                </React.Fragment>
+            ))}
             {isAdminMode && (
                 <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-black text-white px-6 py-3 rounded-full shadow-2xl z-50 flex items-center gap-4">
                     <span className="text-sm font-bold">Layout Edit Mode</span>

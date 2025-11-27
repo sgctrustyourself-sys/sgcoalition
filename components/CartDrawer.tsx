@@ -1,6 +1,10 @@
 import React from 'react';
 import { X, ShoppingBag, Trash2, Hexagon } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import NoRefundsBanner from './NoRefundsBanner';
+import FreeShippingBar from './ui/FreeShippingBar';
+import CartUpsells from './CartUpsells';
+import { SALES_FINAL_ENABLED } from '../constants';
 
 const CartDrawer = () => {
     const { isCartOpen, setCartOpen, cart, removeFromCart, cartTotal, calculateReward } = useApp();
@@ -19,7 +23,7 @@ const CartDrawer = () => {
             <div className="relative w-full max-w-md bg-black h-full shadow-2xl flex flex-col animate-slide-in border-l border-white/10">
                 <div className="p-4 flex items-center justify-between border-b border-white/10">
                     <h2 className="font-display text-xl font-bold uppercase text-white">Your Cart</h2>
-                    <button onClick={() => setCartOpen(false)} className="p-1 hover:bg-white/10 rounded-full transition text-gray-400 hover:text-white">
+                    <button onClick={() => setCartOpen(false)} className="p-1 hover:bg-white/10 rounded-full transition text-gray-400 hover:text-white" aria-label="Close cart">
                         <X className="w-6 h-6" />
                     </button>
                 </div>
@@ -42,13 +46,23 @@ const CartDrawer = () => {
                                     <p className="text-xs text-gray-400 mt-1">Size: {item.selectedSize}</p>
                                     <div className="flex items-center justify-between mt-4">
                                         <span className="text-xs text-gray-400">Qty: {item.quantity}</span>
-                                        <button onClick={() => removeFromCart(item.cartId)} className="text-red-400 hover:text-red-300">
+                                        <button onClick={() => removeFromCart(item.cartId)} className="text-red-400 hover:text-red-300" aria-label="Remove item">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
                                 </div>
                             </div>
                         ))
+                    )}
+
+                    {/* Free Shipping Progress */}
+                    {cart.length > 0 && (
+                        <FreeShippingBar cartTotal={total} className="mt-6" />
+                    )}
+
+                    {/* Cart Upsells */}
+                    {cart.length > 0 && (
+                        <CartUpsells cartItems={cart} cartTotal={total} className="mt-6" />
                     )}
                 </div>
 
@@ -66,6 +80,14 @@ const CartDrawer = () => {
                                 <span>${total.toFixed(2)}</span>
                             </div>
                         </div>
+
+                        {/* No Refunds Policy Banner */}
+                        {SALES_FINAL_ENABLED && (
+                            <div className="mb-4">
+                                <NoRefundsBanner variant="warning" />
+                            </div>
+                        )}
+
                         <button
                             onClick={() => {
                                 setCartOpen(false);

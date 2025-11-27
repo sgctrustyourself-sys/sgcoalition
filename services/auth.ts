@@ -38,7 +38,7 @@ export const signOut = async () => {
 
 export const resetPasswordForEmail = async (email: string) => {
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/#/update-password`,
+        redirectTo: `https://sgcoalition.xyz/#/update-password`,
     });
     return { data, error };
 };

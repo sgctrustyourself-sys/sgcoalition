@@ -53,15 +53,16 @@ export const getSGCoinBalance = async (address: string, provider: ethers.Browser
     }
 };
 
-export const checkNftOwnership = async (walletAddress: string): Promise<boolean> => {
+export const checkNftOwnership = async (
+    contractAddress: string,
+    tokenId: string,
+    walletAddress: string,
+    existingProvider?: ethers.BrowserProvider
+): Promise<boolean> => {
     try {
         if (!window.ethereum) return false;
 
-        // Polygon Mainnet Contract for the shirt
-        const CONTRACT_ADDRESS = '0x2953399124F0cBB46d2CbACD8A89cF0599974963';
-        const TOKEN_ID = '67476661736706826402334837807262280876627670843566903063373917897237540765716';
-
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        const provider = existingProvider || new ethers.BrowserProvider(window.ethereum);
         const network = await provider.getNetwork();
 
         if (Number(network.chainId) !== POLYGON_CHAIN_ID) {
@@ -69,8 +70,8 @@ export const checkNftOwnership = async (walletAddress: string): Promise<boolean>
             return false;
         }
 
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, ERC1155_ABI, provider);
-        const balance = await contract.balanceOf(walletAddress, TOKEN_ID);
+        const contract = new ethers.Contract(contractAddress, ERC1155_ABI, provider);
+        const balance = await contract.balanceOf(walletAddress, tokenId);
         return balance > 0n;
     } catch (error) {
         console.error("Error checking NFT ownership:", error);

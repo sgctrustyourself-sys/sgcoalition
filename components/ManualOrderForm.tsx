@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { OrderItem } from '../types';
+import { useToast } from '../context/ToastContext';
+import { OrderItem, Order } from '../types';
 import { X, Plus, Trash2 } from 'lucide-react';
 
 interface ManualOrderFormProps {
@@ -8,8 +9,9 @@ interface ManualOrderFormProps {
     onSuccess: () => void;
 }
 
-export const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess }) => {
-    const { products, addOrder, generateOrderNumber } = useApp();
+const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess }) => {
+    const { products, addOrder, generateOrderNumber, deductInventory } = useApp();
+    const { addToast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Customer information
@@ -71,15 +73,15 @@ export const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuc
 
     const validateForm = (): boolean => {
         if (!customerName.trim()) {
-            alert('Please enter customer name');
+            addToast('Please enter customer name', 'warning');
             return false;
         }
         if (!customerEmail.trim() || !customerEmail.includes('@')) {
-            alert('Please enter a valid email');
+            addToast('Please enter a valid email', 'warning');
             return false;
         }
         if (orderItems.some(item => !item.productId || !item.selectedSize || item.quantity < 1)) {
-            alert('Please complete all order items');
+            addToast('Please complete all order items', 'warning');
             return false;
         }
 
@@ -90,7 +92,7 @@ export const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuc
 
             const availableStock = product.sizeInventory?.[item.selectedSize] || 0;
             if (availableStock < item.quantity) {
-                alert(`Insufficient stock for ${product.name} (Size ${item.selectedSize}). Available: ${availableStock}`);
+                addToast(`Insufficient stock for ${product.name} (Size ${item.selectedSize}). Available: ${availableStock}`, 'error');
                 return false;
             }
         }
@@ -146,12 +148,13 @@ export const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuc
             };
 
             await addOrder(order);
-            alert(`Order ${orderNumber} created successfully!`);
+            await deductInventory(items);
+            addToast(`Order ${orderNumber} created successfully!`, 'success');
             onSuccess();
             onClose();
         } catch (error) {
             console.error('Error creating manual order:', error);
-            alert('Failed to create order. Please try again.');
+            addToast('Failed to create order. Please try again.', 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -163,7 +166,7 @@ export const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuc
                 {/* Header */}
                 <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
                     <h2 className="text-2xl font-bold text-gray-900">Create Manual Order</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close form">
                         <X size={24} />
                     </button>
                 </div>
@@ -171,35 +174,38 @@ export const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuc
                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
                     {/* Customer Information */}
                     <div className="bg-gray-50 p-4 rounded-lg">
-                        <h3 className="font-bold text-lg mb-4">Customer Information</h3>
+                        <h3 className="font-bold text-lg mb-4 text-gray-900">Customer Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium mb-1">Name *</label>
+                                <label htmlFor="customerName" className="block text-sm font-medium mb-1 text-gray-900">Name *</label>
                                 <input
+                                    id="customerName"
                                     type="text"
                                     value={customerName}
                                     onChange={(e) => setCustomerName(e.target.value)}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                                    className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Email *</label>
+                                <label htmlFor="customerEmail" className="block text-sm font-medium mb-1 text-gray-900">Email *</label>
                                 <input
+                                    id="customerEmail"
                                     type="email"
                                     value={customerEmail}
                                     onChange={(e) => setCustomerEmail(e.target.value)}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                                    className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Phone</label>
+                                <label htmlFor="customerPhone" className="block text-sm font-medium mb-1 text-gray-900">Phone</label>
                                 <input
+                                    id="customerPhone"
                                     type="tel"
                                     value={customerPhone}
                                     onChange={(e) => setCustomerPhone(e.target.value)}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                                    className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
                                 />
                             </div>
                         </div>
@@ -208,7 +214,7 @@ export const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuc
                     {/* Order Items */}
                     <div className="bg-gray-50 p-4 rounded-lg">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-bold text-lg">Order Items</h3>
+                            <h3 className="font-bold text-lg text-gray-900">Order Items</h3>
                             <button
                                 type="button"
                                 onClick={addOrderItem}
@@ -227,35 +233,37 @@ export const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuc
                                     <div key={index} className="bg-white p-4 rounded-lg border border-gray-200">
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                                             <div className="md:col-span-2">
-                                                <label className="block text-sm font-medium mb-1">Product *</label>
+                                                <label htmlFor={`product-${index}`} className="block text-sm font-medium mb-1 text-gray-900">Product *</label>
                                                 <select
+                                                    id={`product-${index}`}
                                                     value={item.productId}
                                                     onChange={(e) => updateOrderItem(index, 'productId', e.target.value)}
-                                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                                                    className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
                                                     required
                                                 >
-                                                    <option value="">Select product...</option>
+                                                    <option value="" className="text-gray-900">Select product...</option>
                                                     {products.map(product => (
-                                                        <option key={product.id} value={product.id}>
+                                                        <option key={product.id} value={product.id} className="text-gray-900">
                                                             {product.name} - ${product.price.toFixed(2)}
                                                         </option>
                                                     ))}
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium mb-1">Size *</label>
+                                                <label htmlFor={`size-${index}`} className="block text-sm font-medium mb-1 text-gray-900">Size *</label>
                                                 <select
+                                                    id={`size-${index}`}
                                                     value={item.selectedSize}
                                                     onChange={(e) => updateOrderItem(index, 'selectedSize', e.target.value)}
-                                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                                                    className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
                                                     required
                                                     disabled={!item.productId}
                                                 >
-                                                    <option value="">Select size...</option>
+                                                    <option value="" className="text-gray-900">Select size...</option>
                                                     {selectedProduct?.sizes?.map(size => {
                                                         const stock = selectedProduct.sizeInventory?.[size] || 0;
                                                         return (
-                                                            <option key={size} value={size}>
+                                                            <option key={size} value={size} className="text-gray-900">
                                                                 {size} ({stock} available)
                                                             </option>
                                                         );
@@ -264,14 +272,15 @@ export const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuc
                                             </div>
                                             <div className="flex gap-2">
                                                 <div className="flex-1">
-                                                    <label className="block text-sm font-medium mb-1">Qty *</label>
+                                                    <label htmlFor={`quantity-${index}`} className="block text-sm font-medium mb-1 text-gray-900">Qty *</label>
                                                     <input
+                                                        id={`quantity-${index}`}
                                                         type="number"
                                                         min="1"
                                                         max={availableStock}
                                                         value={item.quantity}
                                                         onChange={(e) => updateOrderItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                                                        className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
                                                         required
                                                     />
                                                 </div>
@@ -281,6 +290,7 @@ export const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuc
                                                         onClick={() => removeOrderItem(index)}
                                                         className="mt-6 p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
                                                         title="Remove item"
+                                                        aria-label="Remove item"
                                                     >
                                                         <Trash2 size={20} />
                                                     </button>
@@ -305,41 +315,44 @@ export const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuc
 
                     {/* Payment Details */}
                     <div className="bg-gray-50 p-4 rounded-lg">
-                        <h3 className="font-bold text-lg mb-4">Payment Details</h3>
+                        <h3 className="font-bold text-lg mb-4 text-gray-900">Payment Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-sm font-medium mb-1">Payment Method *</label>
+                                <label htmlFor="paymentMethod" className="block text-sm font-medium mb-1 text-gray-900">Payment Method *</label>
                                 <select
+                                    id="paymentMethod"
                                     value={paymentMethod}
                                     onChange={(e) => setPaymentMethod(e.target.value as any)}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                                    className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
                                 >
-                                    <option value="cash">Cash</option>
-                                    <option value="venmo">Venmo</option>
-                                    <option value="zelle">Zelle</option>
-                                    <option value="other">Other</option>
+                                    <option value="cash" className="text-gray-900">Cash</option>
+                                    <option value="venmo" className="text-gray-900">Venmo</option>
+                                    <option value="zelle" className="text-gray-900">Zelle</option>
+                                    <option value="other" className="text-gray-900">Other</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Tax ($)</label>
+                                <label htmlFor="tax" className="block text-sm font-medium mb-1 text-gray-900">Tax ($)</label>
                                 <input
+                                    id="tax"
                                     type="number"
                                     step="0.01"
                                     min="0"
                                     value={tax}
                                     onChange={(e) => setTax(parseFloat(e.target.value) || 0)}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                                    className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Discount ($)</label>
+                                <label htmlFor="discount" className="block text-sm font-medium mb-1 text-gray-900">Discount ($)</label>
                                 <input
+                                    id="discount"
                                     type="number"
                                     step="0.01"
                                     min="0"
                                     value={discount}
                                     onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                                    className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
                                 />
                             </div>
                         </div>
@@ -381,55 +394,60 @@ export const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuc
                                 onChange={(e) => setIncludeShipping(e.target.checked)}
                                 className="w-4 h-4"
                             />
-                            <label htmlFor="includeShipping" className="font-bold text-lg cursor-pointer">
+                            <label htmlFor="includeShipping" className="font-bold text-lg cursor-pointer text-gray-900">
                                 Include Shipping Address
                             </label>
                         </div>
                         {includeShipping && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium mb-1">Address</label>
+                                    <label htmlFor="shippingAddress1" className="block text-sm font-medium mb-1 text-gray-900">Address</label>
                                     <input
+                                        id="shippingAddress1"
                                         type="text"
                                         value={shippingAddress.address1}
                                         onChange={(e) => setShippingAddress({ ...shippingAddress, address1: e.target.value })}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                                        className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">City</label>
+                                    <label htmlFor="shippingCity" className="block text-sm font-medium mb-1 text-gray-900">City</label>
                                     <input
+                                        id="shippingCity"
                                         type="text"
                                         value={shippingAddress.city}
                                         onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                                        className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">State</label>
+                                    <label htmlFor="shippingState" className="block text-sm font-medium mb-1 text-gray-900">State</label>
                                     <input
+                                        id="shippingState"
                                         type="text"
                                         value={shippingAddress.state}
                                         onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                                        className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">ZIP</label>
+                                    <label htmlFor="shippingZip" className="block text-sm font-medium mb-1 text-gray-900">ZIP</label>
                                     <input
+                                        id="shippingZip"
                                         type="text"
                                         value={shippingAddress.zip}
                                         onChange={(e) => setShippingAddress({ ...shippingAddress, zip: e.target.value })}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                                        className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Country</label>
+                                    <label htmlFor="shippingCountry" className="block text-sm font-medium mb-1 text-gray-900">Country</label>
                                     <input
+                                        id="shippingCountry"
                                         type="text"
                                         value={shippingAddress.country}
                                         onChange={(e) => setShippingAddress({ ...shippingAddress, country: e.target.value })}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                                        className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
                                     />
                                 </div>
                             </div>
@@ -438,8 +456,9 @@ export const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuc
 
                     {/* Notes */}
                     <div>
-                        <label className="block text-sm font-medium mb-1">Notes</label>
+                        <label htmlFor="notes" className="block text-sm font-medium mb-1">Notes</label>
                         <textarea
+                            id="notes"
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             rows={3}

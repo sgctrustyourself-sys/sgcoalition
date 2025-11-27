@@ -1,5 +1,6 @@
 import React from 'react';
 import { Order } from '../types';
+import { useToast } from '../context/ToastContext';
 import { X, Printer, Download } from 'lucide-react';
 
 interface InvoiceProps {
@@ -8,6 +9,7 @@ interface InvoiceProps {
 }
 
 export const Invoice: React.FC<InvoiceProps> = ({ order, onClose }) => {
+    const { addToast } = useToast();
     const handlePrint = () => {
         window.print();
     };
@@ -15,7 +17,7 @@ export const Invoice: React.FC<InvoiceProps> = ({ order, onClose }) => {
     const handleDownloadPDF = () => {
         // For a simple implementation, we'll use the browser's print to PDF feature
         // For a more advanced solution, you could integrate a library like jsPDF or html2pdf
-        alert('Please use your browser\'s Print function and select "Save as PDF" as the destination.');
+        addToast('Please use your browser\'s Print function and select "Save as PDF" as the destination.', 'info');
         window.print();
     };
 
@@ -90,8 +92,8 @@ const InvoiceContent: React.FC<{ order: Order; formatDate: (date: string) => str
                         <p><span className="font-semibold">Date:</span> {formatDate(order.createdAt)}</p>
                         <p><span className="font-semibold">Status:</span>
                             <span className={`ml-2 px-2 py-1 rounded text-xs font-bold uppercase ${order.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
-                                    order.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                        'bg-red-100 text-red-800'
+                                order.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-red-100 text-red-800'
                                 }`}>
                                 {order.paymentStatus}
                             </span>

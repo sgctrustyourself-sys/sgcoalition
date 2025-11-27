@@ -18,6 +18,14 @@ export interface Product {
       tag?: string;  // NFT claim/OpenSea URL
     };
   };
+  // Archive System Fields
+  archived?: boolean;
+  archivedAt?: string; // ISO timestamp
+  releasedAt?: string; // ISO timestamp
+  soldAt?: string;     // ISO timestamp
+  // Urgency & Scarcity Fields
+  isLimitedEdition?: boolean; // Limited edition badge
+  saleEndDate?: string; // ISO timestamp for flash sales
 }
 
 export interface CartItem extends Product {
@@ -31,14 +39,32 @@ export interface UserProfile {
   displayName: string | null;
   email: string | null;
   walletAddress: string | null;
+  connectedWalletAddress?: string; // Permanently linked wallet address
+  walletConnectionMethod?: 'metamask' | 'manual'; // How wallet was connected
+  walletConnectedAt?: number; // Timestamp of connection
   sgCoinBalance: number;
   isAdmin: boolean;
   favorites: string[]; // Product IDs
+  addresses?: Address[];
+  defaultAddressId?: string;
+  wishlistSettings?: WishlistSettings; // Wishlist sharing configuration
+}
+
+export interface Address {
+  id: string;
+  label: string; // "Home", "Work", etc.
+  fullName: string;
+  street: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  isDefault: boolean;
 }
 
 export interface Section {
   id: string;
-  type: 'hero' | 'featured' | 'grid' | 'about_teaser';
+  type: 'hero' | 'featured' | 'custom_inquiry_cta' | 'grid' | 'about_teaser';
   title: string;
   isVisible: boolean;
   order: number;
@@ -101,7 +127,9 @@ export interface OrderItem {
 export interface Order {
   id: string;
   orderNumber: string; // Human-readable order number (e.g., "ORD-001")
-  userId?: string;
+  userId?: string; // Optional now for guest orders
+  isGuest: boolean; // New: indicates if this is a guest order
+  guestEmail?: string; // New: email for guest orders
   customerName: string;
   customerEmail: string;
   customerPhone?: string;
@@ -110,16 +138,19 @@ export interface Order {
   tax: number;
   discount: number;
   total: number;
-  paymentMethod: 'stripe' | 'cash' | 'venmo' | 'zelle' | 'other';
-  paymentStatus: 'pending' | 'paid' | 'refunded';
+  paymentMethod: string;
+  paymentStatus: OrderStatus;
   orderType: 'online' | 'manual';
-  status: OrderStatus;
-  stripeSessionId?: string;
-  createdAt: string;
-  updatedAt: string;
-  paidAt?: string;
+  shippingAddress?: {
+    address1: string;
+    city: string;
+    state: string;
+    zip: string;
+    country: string;
+  };
   notes?: string;
-  shippingAddress?: ShippingAddress;
+  createdAt: string;
+  paidAt?: string;
 }
 
 export enum GiveawayStatus {
@@ -153,4 +184,50 @@ export interface Giveaway {
   entries: GiveawayEntry[];
   winners?: GiveawayEntry[];
   createdAt: number;
+}
+
+export interface InstagramGiveawayEntry {
+  id: string;
+  giveawayId: string;
+  name: string;
+  email: string;
+  instagramUsername: string;
+  screenshotFollowUrl: string;
+  screenshotLikeUrl: string;
+  screenshotStoryUrl: string;
+  verified: boolean;
+  createdAt: number;
+  ipAddress?: string;
+}
+
+export interface Review {
+  id: string;
+  productId: string;
+  userId: string;
+  userName: string;
+  rating: number; // 1-5
+  comment: string;
+  createdAt: number;
+  verified: boolean; // Admin approved
+  purchaseVerified?: boolean; // User has matching order
+  // Enhanced features
+  photos?: string[]; // Base64 encoded images or URLs
+  helpfulCount?: number; // Number of helpful votes
+  helpfulVotes?: string[]; // User IDs who voted helpful
+  sgCoinRewarded?: boolean; // Prevent duplicate rewards
+  brandResponse?: {
+    message: string;
+    respondedAt: number;
+    respondedBy: string;
+  };
+}
+
+export interface WishlistSettings {
+  isPublic: boolean;
+  name: string;
+  description?: string;
+  shareId: string;
+  shareCount: number;
+  createdAt: number;
+  updatedAt: number;
 }
