@@ -1,20 +1,81 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Heart, Share2 } from 'lucide-react';
+import { ArrowLeft, Heart, Share2, Shield, ExternalLink, Smartphone, Scan, Lock, Unlock, Loader } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Product } from '../types';
-import { Loader } from 'lucide-react';
+import { Product, AuthProvider } from '../types';
+import { ethers } from 'ethers';
+import { checkNftOwnership, switchToPolygon } from '../services/web3Service';
 import FrequentlyBoughtTogether from '../components/FrequentlyBoughtTogether';
 import FloatingHelpButton from '../components/FloatingHelpButton';
 
 const ProductDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { products, addToCart, user, toggleFavorite, isLoading } = useApp();
+    const { products, addToCart, user, toggleFavorite, loginUser, isLoading } = useApp();
 
     const [product, setProduct] = useState<Product | undefined>(undefined);
     const [selectedSize, setSelectedSize] = useState<string>('');
     const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+    // NFT Unlock State
+    const [isCheckingNft, setIsCheckingNft] = useState(false);
+    const [nftOwned, setNftOwned] = useState(false);
+    const [unlockMessage, setUnlockMessage] = useState('');
+
+    const handleUnlockPerks = async () => {
+        if (!product?.nft) return;
+
+        setIsCheckingNft(true);
+        setUnlockMessage('');
+
+        try {
+            // 1. Ensure Wallet Connected
+            let currentAddress = user?.walletAddress;
+            if (!currentAddress) {
+                // Trigger login if not connected
+                await loginUser(AuthProvider.METAMASK);
+                // We need to wait a bit or check if login was successful. 
+                // For simplicity, we'll ask them to click again if not connected immediately.
+                if (!window.ethereum?.selectedAddress) {
+                    setUnlockMessage('Please connect your wallet to verify ownership.');
+                    setIsCheckingNft(false);
+                    return;
+                }
+                currentAddress = window.ethereum.selectedAddress;
+            }
+
+            // 2. Ensure Polygon Network
+            const switched = await switchToPolygon();
+            if (!switched) {
+                setUnlockMessage('Please switch to Polygon network to verify.');
+                setIsCheckingNft(false);
+                return;
+            }
+
+            // 3. Check Ownership
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const isOwner = await checkNftOwnership(
+                product.nft.contractAddress,
+                product.nft.tokenId,
+                currentAddress!,
+                provider
+            );
+
+            if (isOwner) {
+                setNftOwned(true);
+                setUnlockMessage('🎉 Verified! You own this item.');
+            } else {
+                setNftOwned(false);
+                setUnlockMessage('❌ You do not own this NFT yet. Buy the shirt to claim it!');
+            }
+
+        } catch (error) {
+            console.error('Unlock error:', error);
+            setUnlockMessage('Error verifying ownership. Please try again.');
+        } finally {
+            setIsCheckingNft(false);
+        }
+    };
 
     useEffect(() => {
         if (isLoading) return;
@@ -152,6 +213,98 @@ const ProductDetails = () => {
                         <div className="mt-6 text-center">
                             <p className="text-xs text-gray-400">Free shipping on orders over $200</p>
                         </div>
+
+                        {/* NFT Verification Section */}
+                        {product.nft && (
+                            <div className="mt-8 border-t border-white/10 pt-8">
+                                <h3 className="font-display text-lg font-bold uppercase mb-4 flex items-center text-white">
+                                    <Scan className="w-5 h-5 mr-2 text-brand-accent" />
+                                    Digital Verification
+                                </h3>
+                                <div className="bg-white/5 rounded-lg p-5 border border-white/10 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center">
+                                            <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
+                                            <span className="text-sm font-bold text-gray-300">Blockchain Verified</span>
+                                        </div>
+                                        <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded font-bold uppercase tracking-wider">{product.nft.chain}</span>
+                                    </div>
+
+                                    <div className="text-sm text-gray-400">
+                                        <p className="mb-2">This physical item is linked to a digital asset on the blockchain.</p>
+                                        <a
+                                            href={product.nft.openseaUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center text-brand-accent hover:text-white font-bold text-xs uppercase tracking-wide"
+                                        >
+                                            View on OpenSea <ExternalLink className="w-3 h-3 ml-1" />
+                                        </a>
+                                    </div>
+
+                                    {product.nft.nfcTags && (
+                                        <div className="pt-4 border-t border-white/10">
+                                            <p className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center">
+                                                <Smartphone className="w-3 h-3 mr-1" /> Dual NFC Integration
+                                            </p>
+                                            <div className="grid grid-cols-2 gap-3 mb-4">
+                                                <div className="bg-white/5 p-3 rounded border border-white/10 text-center hover:border-brand-accent transition cursor-help" title="Scan the tag on the neck label">
+                                                    <p className="text-xs font-bold text-white">Neck Tag</p>
+                                                    <p className="text-[10px] text-gray-400 mt-1">Opens Linktree</p>
+                                                </div>
+                                                <div className="bg-white/5 p-3 rounded border border-white/10 text-center hover:border-brand-accent transition cursor-help" title="Scan the tag on the bottom hem">
+                                                    <p className="text-xs font-bold text-white">Bottom Tag</p>
+                                                    <p className="text-[10px] text-gray-400 mt-1">NFT Claim / Verify</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Unlock Section */}
+                                            <div className="bg-white/5 p-4 rounded border border-purple-500/30 shadow-sm">
+                                                <h4 className="font-bold text-sm mb-2 flex items-center text-white">
+                                                    {nftOwned ? <Unlock className="w-4 h-4 mr-2 text-green-500" /> : <Lock className="w-4 h-4 mr-2 text-gray-400" />}
+                                                    Owner Perks
+                                                </h4>
+
+                                                {!nftOwned ? (
+                                                    <div>
+                                                        <p className="text-xs text-gray-400 mb-3">
+                                                            Connect your wallet to verify ownership and unlock exclusive content.
+                                                        </p>
+                                                        <button
+                                                            onClick={handleUnlockPerks}
+                                                            disabled={isCheckingNft}
+                                                            className="w-full bg-black text-white text-xs font-bold uppercase py-2 rounded-sm hover:bg-gray-800 transition flex items-center justify-center"
+                                                        >
+                                                            {isCheckingNft ? (
+                                                                <>
+                                                                    <Loader className="w-3 h-3 mr-2 animate-spin" /> Verifying...
+                                                                </>
+                                                            ) : (
+                                                                'Unlock Perks'
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="bg-green-50 p-3 rounded border border-green-200 text-center">
+                                                        <p className="text-xs font-bold text-green-700 mb-1">ACCESS GRANTED</p>
+                                                        <p className="text-sm font-mono bg-white p-2 rounded border border-green-100 select-all">
+                                                            VIP-CODE-2024
+                                                        </p>
+                                                        <p className="text-[10px] text-green-600 mt-1">Use this code for 20% off your next order!</p>
+                                                    </div>
+                                                )}
+
+                                                {unlockMessage && !nftOwned && (
+                                                    <p className={`text-xs mt-2 text-center ${unlockMessage.includes('Verified') ? 'text-green-600' : 'text-red-500'}`}>
+                                                        {unlockMessage}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Frequently Bought Together */}
                         <div className="mt-12">
