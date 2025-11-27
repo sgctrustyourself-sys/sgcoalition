@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 
 const Ecosystem = () => {
     return (
-        <div className="bg-black min-h-screen text-white pt-24 pb-12">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="text-center mb-12">
-                    <h1 className="text-4xl md:text-6xl font-display font-bold uppercase mb-4">
-                        The <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">Ecosystem</span>
+        <div className="min-h-screen text-white pt-24 pb-12" style={{ background: 'red', zIndex: 9999, position: 'relative' }}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" style={{ background: 'yellow', padding: '50px' }}>
+                <div className="text-center mb-12" style={{ background: 'blue', padding: '50px' }}>
+                    <h1 className="text-4xl md:text-6xl font-display font-bold uppercase mb-4" style={{ color: 'white', fontSize: '60px' }}>
+                        ECOSYSTEM TEST - IF YOU SEE THIS IT WORKS
                     </h1>
                     <p className="text-xl text-gray-300 max-w-2xl mx-auto">
                         A decentralized economy powered by SGCoin. Stake, earn, and unlock exclusive rewards.
