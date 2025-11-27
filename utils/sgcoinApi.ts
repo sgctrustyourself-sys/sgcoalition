@@ -6,10 +6,10 @@ export const fetchSGCoinData = async () => {
     // Mock SGCoin data - replace with actual API call
     return {
         price: 0.000045,
-        priceChange24h: 12.5,
+        change24h: 12.5,
         volume24h: 15000,
         marketCap: 450000,
-        liquidity: 125000
+        holders: 1250
     };
 };
 
