@@ -8,6 +8,8 @@ import { fetchSGCoinData, fetchRecentTrades } from '../utils/sgcoinApi';
 import { addGiveawayEntry } from '../utils/giveawayUtils';
 
 const Ecosystem = () => {
+    console.log('[Ecosystem] Component mounting...');
+
     const { user, giveaways } = useApp();
     const { addToast } = useToast();
     const [coinData, setCoinData] = useState<any>(null);
@@ -18,13 +20,23 @@ const Ecosystem = () => {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        console.log('[Ecosystem] useEffect running - loading data');
         const loadData = async () => {
-            setIsLoading(true);
-            const data = await fetchSGCoinData();
-            setCoinData(data);
-            const recentTrades = await fetchRecentTrades(data?.price || 0);
-            setTrades(recentTrades);
-            setIsLoading(false);
+            try {
+                setIsLoading(true);
+                console.log('[Ecosystem] Fetching SGCoin data...');
+                const data = await fetchSGCoinData();
+                console.log('[Ecosystem] SGCoin data received:', data);
+                setCoinData(data);
+                const recentTrades = await fetchRecentTrades(data?.price || 0);
+                console.log('[Ecosystem] Trades received:', recentTrades);
+                setTrades(recentTrades);
+                setIsLoading(false);
+                console.log('[Ecosystem] Data loading complete');
+            } catch (error) {
+                console.error('[Ecosystem] Error loading data:', error);
+                setIsLoading(false);
+            }
         };
 
         loadData();
@@ -34,6 +46,7 @@ const Ecosystem = () => {
 
     // Load Active Giveaway
     useEffect(() => {
+        console.log('[Ecosystem] Loading active giveaway, total giveaways:', giveaways?.length);
         const active = giveaways.find(g => g.status === 'active');
         setActiveGiveaway(active || null);
 
@@ -68,6 +81,8 @@ const Ecosystem = () => {
             addToast('Failed to enter giveaway: ' + error.message, 'error');
         }
     };
+
+    console.log('[Ecosystem] Rendering, isLoading:', isLoading, 'coinData:', !!coinData);
 
     return (
         <div className="bg-black min-h-screen text-white">
