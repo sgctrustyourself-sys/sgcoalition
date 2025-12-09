@@ -29,6 +29,7 @@ const Footer = () => {
                     <h4 className="font-bold uppercase mb-6 text-xs tracking-[0.2em] text-gray-400">Support</h4>
                     <ul className="space-y-3 text-sm text-gray-500">
                         <li><Link to="/about" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">About Us</Link></li>
+                        <li><Link to="/membership" className="hover:text-purple-400 text-purple-500 hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">VIP Membership</Link></li>
                         <li><Link to="/privacy" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Privacy Policy</Link></li>
                         <li><Link to="/terms" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Terms of Service</Link></li>
                         <li><Link to="/archive" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Archive</Link></li>
