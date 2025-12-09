@@ -23,6 +23,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
                 <img
                     src={product.images[0]}
                     alt={product.name}
+                    loading="lazy"
                     className="h-full w-full object-cover object-center group-hover:scale-105 group-hover:grayscale transition duration-700 ease-in-out"
                 />
                 {product.nft && (
@@ -87,4 +88,4 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     );
 };
 
-export default ProductCard;
+export default React.memo(ProductCard);

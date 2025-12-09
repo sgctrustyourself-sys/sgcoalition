@@ -26,7 +26,7 @@ const Shop = () => {
         );
     };
 
-    const filteredProducts = products
+    const filteredProducts = React.useMemo(() => products
         .filter(p => !p.archived) // Exclude archived products from shop
         .filter(p => {
             // Search filter
@@ -50,7 +50,7 @@ const Shop = () => {
             if (sortOption === 'newest') return String(b.id).localeCompare(String(a.id));
 
             return 0;
-        });
+        }), [products, searchQuery, category, selectedSizes, priceRange, sortOption]);
 
     return (
         <div className="pt-12 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-screen">

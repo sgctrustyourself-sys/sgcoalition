@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, ArrowRight, Loader2, Shield, Hexagon } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, Shield, Hexagon, Check } from 'lucide-react';
 import AuthLayout from '../components/AuthLayout';
 import { signInWithEmail, signInWithDiscord } from '../services/auth';
 import { useApp } from '../context/AppContext';
@@ -14,16 +14,33 @@ const Login = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const [rememberMe, setRememberMe] = useState(false);
+
+    React.useEffect(() => {
+        const savedEmail = localStorage.getItem('coalition_remembered_email');
+        if (savedEmail) {
+            setEmail(savedEmail);
+            setRememberMe(true);
+        }
+    }, []);
+
     const handleEmailLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
+
+        if (rememberMe) {
+            localStorage.setItem('coalition_remembered_email', email);
+        } else {
+            localStorage.removeItem('coalition_remembered_email');
+        }
+
         const { error } = await signInWithEmail(email, password);
         if (error) {
             setError(error.message);
             setLoading(false);
         } else {
-            navigate('/');
+            navigate('/tutorial/welcome');
         }
     };
 
@@ -62,6 +79,7 @@ const Login = () => {
                             className="w-full bg-white/5 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white placeholder-gray-600 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all text-sm"
                             placeholder="name@example.com"
                             required
+                            autoComplete="email"
                         />
                     </div>
                 </div>
@@ -69,7 +87,6 @@ const Login = () => {
                 <div className="space-y-1">
                     <div className="flex justify-between items-center ml-1">
                         <label className="text-xs font-bold uppercase text-gray-500">Password</label>
-                        <Link to="/forgot-password" className="text-[10px] text-gray-400 hover:text-white transition-colors">Forgot?</Link>
                     </div>
                     <div className="relative group">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-white transition-colors" />
@@ -80,8 +97,25 @@ const Login = () => {
                             className="w-full bg-white/5 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white placeholder-gray-600 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all text-sm"
                             placeholder="••••••••"
                             required
+                            autoComplete="current-password"
                         />
                     </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${rememberMe ? 'bg-purple-600 border-purple-600' : 'border-gray-600 group-hover:border-gray-400'}`}>
+                            {rememberMe && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                        <input
+                            type="checkbox"
+                            className="hidden"
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                        />
+                        <span className="text-gray-400 group-hover:text-gray-300 transition-colors">Remember me</span>
+                    </label>
+                    <Link to="/forgot-password" className="text-gray-400 hover:text-white transition-colors">Forgot Password?</Link>
                 </div>
 
                 <button

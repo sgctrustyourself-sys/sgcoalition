@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CreditCard, Loader, Wallet, Copy, Check, Sparkles } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { OrderStatus } from '../types';
 import { useToast } from '../context/ToastContext';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import FloatingHelpButton from '../components/FloatingHelpButton';
 import { calculateCartDiscount, isSGCoinDiscountEnabled, getDiscountPercentageText } from '../utils/pricing';
+import { trackReferralEvent } from '../utils/referralAnalytics';
+import { validateCouponCode, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
 
 // Load Stripe with publishable key
 const stripePromise = loadStripe(
@@ -107,6 +110,13 @@ const Checkout: React.FC = () => {
     const [copied, setCopied] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
 
+    // Coupon code state
+    const [couponCode, setCouponCode] = useState('');
+    const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+    const [couponReferrerName, setCouponReferrerName] = useState<string | null>(null);
+    const [couponError, setCouponError] = useState<string | null>(null);
+    const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+
     // Shipping information state - Lifted up
     const [shippingInfo, setShippingInfo] = useState({
         email: '',
@@ -119,14 +129,27 @@ const Checkout: React.FC = () => {
     });
 
     const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>('standard');
-    const shippingCost = shippingMethod === 'express' ? 10 : 0;
+
+    // VIP Free Shipping Logic
+    const isVIP = user?.isVIP || false;
+    const baseShippingCost = shippingMethod === 'express' ? 10 : 0;
+    const shippingCost = (isVIP && shippingMethod === 'standard') ? 0 : baseShippingCost;
+
     const total = cartTotal();
     const reward = calculateReward(total);
+
+    // Store Credit Logic
+    const [useStoreCredit, setUseStoreCredit] = useState(false);
+    const availableCredit = user?.storeCredit || 0;
+    const creditToApply = useStoreCredit ? Math.min(availableCredit, total + shippingCost) : 0;
+    const [isZeroAmount, setIsZeroAmount] = useState(false);
 
     // Calculate SGCoin discount if crypto payment is selected
     const discountEnabled = isSGCoinDiscountEnabled();
     const discount = (paymentMethod === 'crypto' && discountEnabled) ? calculateCartDiscount(total) : 0;
-    const finalTotal = total - discount + shippingCost;
+
+    // Final Total Calculation
+    const finalTotal = Math.max(0, total - discount + shippingCost - creditToApply);
 
     const WALLET_ADDRESS = '0x0F4A0466C2a1d3FA6Ed55a20994617F0533fbf74';
 
@@ -134,7 +157,49 @@ const Checkout: React.FC = () => {
         if (cart.length > 0 && paymentMethod === 'card') {
             createPaymentIntent();
         }
-    }, [cart, paymentMethod]);
+        // If payment method is crypto, we don't need payment intent
+        if (paymentMethod === 'crypto') {
+            setClientSecret('');
+            setIsZeroAmount(false);
+        }
+    }, [cart, paymentMethod, useStoreCredit, shippingMethod]);
+
+    // Check for existing coupon on mount
+    useEffect(() => {
+        const existingCoupon = getAppliedCouponCode();
+        if (existingCoupon) {
+            setAppliedCoupon(existingCoupon);
+            setCouponCode(existingCoupon);
+        }
+    }, []);
+
+    const handleApplyCoupon = async () => {
+        setCouponError(null);
+        setIsValidatingCoupon(true);
+
+        const result = await validateCouponCode(couponCode);
+
+        if (result.valid) {
+            applyCouponCode(couponCode);
+            setAppliedCoupon(couponCode.toUpperCase());
+            setCouponReferrerName(result.referrerName || null);
+            addToast('Coupon code applied successfully!', 'success');
+        } else {
+            setCouponError(result.error || 'Invalid code');
+            addToast(result.error || 'Invalid coupon code', 'error');
+        }
+
+        setIsValidatingCoupon(false);
+    };
+
+    const handleRemoveCoupon = () => {
+        sessionStorage.removeItem('referralCode');
+        setAppliedCoupon(null);
+        setCouponCode('');
+        setCouponReferrerName(null);
+        setCouponError(null);
+        addToast('Coupon code removed', 'info');
+    };
 
     const createPaymentIntent = async () => {
         setIsLoading(true);
@@ -143,14 +208,27 @@ const Checkout: React.FC = () => {
             const response = await fetch('/api/create-payment-intent', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: total }),
+                body: JSON.stringify({
+                    amount: total + shippingCost,
+                    userId: user?.uid,
+                    useStoreCredit
+                }),
             });
+
             if (!response.ok) {
                 const err = await response.json().catch(() => ({ error: 'Network error' }));
                 throw new Error(err.error || 'Failed to create payment intent');
             }
-            const { clientSecret } = await response.json();
-            setClientSecret(clientSecret);
+            const data = await response.json();
+
+            if (data.zeroAmount) {
+                setIsZeroAmount(true);
+                setClientSecret('');
+            } else {
+                setIsZeroAmount(false);
+                setClientSecret(data.clientSecret);
+            }
+
         } catch (err: any) {
             console.error('Payment intent error:', err);
             setError(err.message || 'Failed to initialize payment. Please check your connection.');
@@ -192,16 +270,15 @@ const Checkout: React.FC = () => {
         try {
             const orderNumber = generateOrderNumber();
             const subtotal = total;
-            const tax = 0; // Add tax calculation if needed
-            const discount = 0; // Add discount calculation if needed
-            const isGuest = !user; // User is guest if not logged in
+            const tax = 0;
+            const isGuest = !user;
 
             const order = {
                 id: `order_${Date.now()}`,
                 orderNumber,
-                userId: user?.uid, // Optional for guest orders
-                isGuest, // Mark as guest order
-                guestEmail: isGuest ? shippingInfo.email : undefined, // Store email for guest orders
+                userId: user?.uid,
+                isGuest,
+                guestEmail: isGuest ? shippingInfo.email : undefined,
                 customerName: shippingInfo.name,
                 customerEmail: shippingInfo.email,
                 customerPhone: '',
@@ -216,10 +293,10 @@ const Checkout: React.FC = () => {
                 })),
                 subtotal,
                 tax,
-                discount,
-                total: subtotal + tax - discount + shippingCost,
+                discount: discount + creditToApply,
+                total: finalTotal,
                 paymentMethod: paymentMethodUsed as any,
-                paymentStatus: paymentMethodUsed === 'crypto' ? 'pending' as const : 'paid' as const,
+                paymentStatus: paymentMethodUsed === 'crypto' ? OrderStatus.PENDING : OrderStatus.PAID,
                 orderType: 'online' as const,
                 createdAt: new Date().toISOString(),
                 paidAt: paymentMethodUsed !== 'crypto' ? new Date().toISOString() : undefined,
@@ -233,11 +310,55 @@ const Checkout: React.FC = () => {
             };
 
             await addOrder(order);
+
+            // Save order to sessionStorage so OrderSuccess can display it even if cart is cleared
+            sessionStorage.setItem('pendingOrder', JSON.stringify(order));
+
+            // Track referral purchase if user came from a referral link
+            const referralCode = sessionStorage.getItem('referralCode');
+            if (referralCode && user) {
+                await trackReferralEvent(referralCode, 'purchase', user.uid);
+            }
+
             clearCart();
             return orderNumber;
         } catch (error) {
             console.error('Error creating order:', error);
             throw error;
+        }
+    };
+
+    const handleCompleteFreeOrder = async () => {
+        if (!validateShipping()) return;
+        setIsLoading(true);
+        try {
+            const response = await fetch('/api/place-order-credits', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: user?.uid,
+                    total: creditToApply,
+                    items: cart
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || 'Failed to process store credit');
+            }
+
+            sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
+
+            const orderNumber = await createOrder('store_credit');
+            sessionStorage.setItem('orderNumber', orderNumber);
+
+            window.location.href = `${window.location.origin}/#/order/success?payment_method=store_credit&shippingMethod=${shippingMethod}&shippingCost=${shippingCost}`;
+
+        } catch (e: any) {
+            console.error(e);
+            addToast(e.message || 'Order failed', 'error');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -285,7 +406,7 @@ const Checkout: React.FC = () => {
                     {/* Left side: Form & Payment */}
                     <div className="lg:col-span-2 space-y-6">
 
-                        {/* Contact & Shipping Form - ALWAYS VISIBLE */}
+                        {/* Contact & Shipping Form */}
                         <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-6 backdrop-blur-sm">
                             {/* Contact Info */}
                             <div>
@@ -382,7 +503,10 @@ const Checkout: React.FC = () => {
                                             />
                                             <span>Standard Shipping</span>
                                         </div>
-                                        <span>Free</span>
+                                        <div className="text-right">
+                                            <span className={isVIP ? "line-through text-gray-400 text-xs mr-2" : ""}>{isVIP ? "$5.00" : "Free"}</span>
+                                            {isVIP && <span className="text-brand-accent font-bold">VIP FREE</span>}
+                                        </div>
                                     </label>
                                     <label className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition ${shippingMethod === 'express' ? 'border-white bg-white/10' : 'border-white/10 hover:border-white/30'}`}>
                                         <div className="flex items-center">
@@ -400,75 +524,176 @@ const Checkout: React.FC = () => {
                                     </label>
                                 </div>
                             </div>
+
+                            {/* Coupon Code */}
+                            <div>
+                                <h3 className="font-bold mb-2 text-white uppercase text-sm tracking-wide">Referral / Coupon Code</h3>
+                                {appliedCoupon ? (
+                                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <Sparkles className="w-4 h-4 text-green-400" />
+                                                <span className="text-green-400 font-bold text-sm">Code Applied: {appliedCoupon}</span>
+                                            </div>
+                                            <button
+                                                onClick={handleRemoveCoupon}
+                                                className="text-xs text-gray-400 hover:text-white transition"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                        {couponReferrerName && (
+                                            <p className="text-xs text-gray-300">
+                                                Supporting {couponReferrerName}'s referral
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                placeholder="Enter referral code"
+                                                value={couponCode}
+                                                onChange={(e) => {
+                                                    setCouponCode(e.target.value.toUpperCase());
+                                                    setCouponError(null);
+                                                }}
+                                                className="flex-1 bg-black/30 border border-white/10 p-3 rounded-lg text-white placeholder-gray-500 focus:border-white/30 focus:outline-none transition uppercase"
+                                            />
+                                            <button
+                                                onClick={handleApplyCoupon}
+                                                disabled={!couponCode.trim() || isValidatingCoupon}
+                                                className="px-6 py-3 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {isValidatingCoupon ? 'Validating...' : 'Apply'}
+                                            </button>
+                                        </div>
+                                        {couponError && (
+                                            <p className="text-red-400 text-xs">{couponError}</p>
+                                        )}
+                                        <p className="text-xs text-gray-500">
+                                            Have a referral code from a friend? Enter it here!
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
+
+                        {/* Store Credit Section */}
+                        {availableCredit > 0 && (
+                            <div className="bg-white/5 border border-white/10 rounded-xl p-6 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4">
+                                <h3 className="font-bold mb-4 text-white uppercase text-sm tracking-wide flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-brand-accent" />
+                                    Store Credit
+                                </h3>
+                                <label className="flex items-center justify-between p-4 rounded-lg border border-white/20 bg-black/20 cursor-pointer hover:border-white/40 transition">
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="checkbox"
+                                            checked={useStoreCredit}
+                                            onChange={(e) => setUseStoreCredit(e.target.checked)}
+                                            className="w-5 h-5 rounded border-gray-500 text-brand-accent focus:ring-brand-accent"
+                                        />
+                                        <div>
+                                            <p className="font-bold text-white">Apply Store Credit</p>
+                                            <p className="text-sm text-gray-400">Available balance: ${availableCredit.toFixed(2)}</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-green-400 font-bold">
+                                        -${Math.min(availableCredit, total + shippingCost).toFixed(2)}
+                                    </span>
+                                </label>
+                            </div>
+                        )}
 
                         {/* Payment Method Selection */}
                         <div className="bg-white/5 border border-white/10 rounded-xl p-6 backdrop-blur-sm">
                             <h3 className="font-bold mb-4 text-white uppercase text-sm tracking-wide">Payment Method</h3>
-                            <div className="grid grid-cols-2 gap-4 mb-6">
-                                <button
-                                    onClick={() => setPaymentMethod('card')}
-                                    className={`flex flex-col items-center justify-center p-4 rounded-lg border transition ${paymentMethod === 'card' ? 'bg-white text-black border-white' : 'border-white/20 hover:border-white text-gray-400 hover:text-white'}`}
-                                >
-                                    <CreditCard className="w-6 h-6 mb-2" />
-                                    <span className="font-bold text-sm">Credit Card</span>
-                                </button>
-                                <button
-                                    onClick={() => setPaymentMethod('crypto')}
-                                    className={`flex flex-col items-center justify-center p-4 rounded-lg border transition ${paymentMethod === 'crypto' ? 'bg-white text-black border-white' : 'border-white/20 hover:border-white text-gray-400 hover:text-white'}`}
-                                >
-                                    <Wallet className="w-6 h-6 mb-2" />
-                                    <span className="font-bold text-sm">Crypto (USDC)</span>
-                                </button>
-                            </div>
 
-                            {/* Card Payment */}
-                            {paymentMethod === 'card' && clientSecret && (
-                                <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night', labels: 'floating' } }}>
-                                    <PaymentForm
-                                        total={finalTotal}
-                                        shippingInfo={shippingInfo}
-                                        shippingMethod={shippingMethod}
-                                        shippingCost={shippingCost}
-                                        validateShipping={validateShipping}
-                                        onSuccess={() => createOrder('card')}
-                                    />
-                                </Elements>
-                            )}
-
-                            {/* Crypto Payment */}
-                            {paymentMethod === 'crypto' && (
-                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                    <div className="bg-blue-500/10 border border-blue-500/30 p-4 rounded-lg">
-                                        <div className="flex items-start gap-3">
-                                            <Sparkles className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                                            <div>
-                                                <h4 className="font-bold text-blue-400 text-sm uppercase tracking-wide mb-1">Pay with Crypto & Save</h4>
-                                                <p className="text-sm text-gray-300">
-                                                    Pay with USDC on Polygon network and get <span className="text-white font-bold">{getDiscountPercentageText()} off</span> your order!
-                                                </p>
-                                            </div>
-                                        </div>
+                            {isZeroAmount ? (
+                                <div className="text-center py-6">
+                                    <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/20 rounded-full mb-4">
+                                        <Check className="w-8 h-8 text-green-400" />
                                     </div>
-
-                                    <div className="bg-black/50 p-4 rounded-lg border border-white/10">
-                                        <p className="text-sm text-gray-400 mb-2">Send <span className="text-white font-bold">{finalTotal.toFixed(2)} USDC</span> to:</p>
-                                        <div className="flex items-center justify-between bg-white/5 p-3 rounded border border-white/10">
-                                            <code className="text-xs sm:text-sm font-mono text-gray-300 truncate mr-2">{WALLET_ADDRESS}</code>
-                                            <button onClick={copyAddress} className="text-gray-400 hover:text-white transition">
-                                                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-                                        <p className="text-xs text-gray-500 mt-2">Network: Polygon (MATIC)</p>
-                                    </div>
-
+                                    <h4 className="text-white font-bold text-lg mb-2">Paid with Store Credit</h4>
+                                    <p className="text-gray-400 text-sm mb-6">No additional payment required.</p>
                                     <button
-                                        onClick={handleCryptoConfirmation}
-                                        className="w-full bg-blue-600 text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-blue-500 transition shadow-[0_0_20px_rgba(37,99,235,0.3)]"
+                                        onClick={handleCompleteFreeOrder}
+                                        disabled={isLoading}
+                                        className="w-full bg-brand-accent text-black py-4 rounded font-bold uppercase tracking-widest hover:bg-white transition disabled:opacity-50"
                                     >
-                                        I Have Sent the Payment
+                                        {isLoading ? 'Processing...' : 'Complete Order'}
                                     </button>
                                 </div>
+                            ) : (
+                                <>
+                                    <div className="grid grid-cols-2 gap-4 mb-6">
+                                        <button
+                                            onClick={() => setPaymentMethod('card')}
+                                            className={`flex flex-col items-center justify-center p-4 rounded-lg border transition ${paymentMethod === 'card' ? 'bg-white text-black border-white' : 'border-white/20 hover:border-white text-gray-400 hover:text-white'}`}
+                                        >
+                                            <CreditCard className="w-6 h-6 mb-2" />
+                                            <span className="font-bold text-sm">Credit Card</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setPaymentMethod('crypto')}
+                                            className={`flex flex-col items-center justify-center p-4 rounded-lg border transition ${paymentMethod === 'crypto' ? 'bg-white text-black border-white' : 'border-white/20 hover:border-white text-gray-400 hover:text-white'}`}
+                                        >
+                                            <Wallet className="w-6 h-6 mb-2" />
+                                            <span className="font-bold text-sm">Crypto (USDC)</span>
+                                        </button>
+                                    </div>
+
+                                    {/* Card Payment */}
+                                    {paymentMethod === 'card' && clientSecret && (
+                                        <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night', labels: 'floating' } }}>
+                                            <PaymentForm
+                                                total={finalTotal}
+                                                shippingInfo={shippingInfo}
+                                                shippingMethod={shippingMethod}
+                                                shippingCost={shippingCost}
+                                                validateShipping={validateShipping}
+                                                onSuccess={() => createOrder('card')}
+                                            />
+                                        </Elements>
+                                    )}
+
+                                    {/* Crypto Payment */}
+                                    {paymentMethod === 'crypto' && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                            <div className="bg-blue-500/10 border border-blue-500/30 p-4 rounded-lg">
+                                                <div className="flex items-start gap-3">
+                                                    <Sparkles className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <h4 className="font-bold text-blue-400 text-sm uppercase tracking-wide mb-1">Pay with Crypto & Save</h4>
+                                                        <p className="text-sm text-gray-300">
+                                                            Pay with USDC on Polygon network and get <span className="text-white font-bold">{getDiscountPercentageText()} off</span> your order!
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-black/50 p-4 rounded-lg border border-white/10">
+                                                <p className="text-sm text-gray-400 mb-2">Send <span className="text-white font-bold">{finalTotal.toFixed(2)} USDC</span> to:</p>
+                                                <div className="flex items-center justify-between bg-white/5 p-3 rounded border border-white/10">
+                                                    <code className="text-xs sm:text-sm font-mono text-gray-300 truncate mr-2">{WALLET_ADDRESS}</code>
+                                                    <button onClick={copyAddress} className="text-gray-400 hover:text-white transition">
+                                                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                                                    </button>
+                                                </div>
+                                                <p className="text-xs text-gray-500 mt-2">Network: Polygon (MATIC)</p>
+                                            </div>
+
+                                            <button
+                                                onClick={handleCryptoConfirmation}
+                                                className="w-full bg-blue-600 text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-blue-500 transition shadow-[0_0_20px_rgba(37,99,235,0.3)]"
+                                            >
+                                                I Have Sent the Payment
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
@@ -510,6 +735,12 @@ const Checkout: React.FC = () => {
                                         <span>-${discount.toFixed(2)}</span>
                                     </div>
                                 )}
+                                {useStoreCredit && creditToApply > 0 && (
+                                    <div className="flex justify-between text-brand-accent">
+                                        <span>Store Credit</span>
+                                        <span>-${creditToApply.toFixed(2)}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between text-white font-bold text-lg pt-3 border-t border-white/10">
                                     <span>Total</span>
                                     <span>${finalTotal.toFixed(2)}</span>
@@ -524,7 +755,7 @@ const Checkout: React.FC = () => {
                 </div>
             </div>
             <FloatingHelpButton />
-        </div>
+        </div >
     );
 };
 

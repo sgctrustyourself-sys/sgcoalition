@@ -9,6 +9,10 @@ const OrderSuccess = () => {
     const [orderDetails, setOrderDetails] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [shippingInfo, setShippingInfo] = useState<any>(null);
+    const [isMembershipSuccess, setIsMembershipSuccess] = useState(false);
+
+    const sessionId = searchParams.get('session_id');
+    const type = searchParams.get('type');
 
     const paymentIntentId = searchParams.get('payment_intent');
     const paymentMethod = searchParams.get('payment_method');
@@ -20,10 +24,40 @@ const OrderSuccess = () => {
     const reward = calculateReward(total);
 
     useEffect(() => {
+        const verifySubscription = async () => {
+            if (sessionId && type === 'membership') {
+                try {
+                    const response = await fetch('/api/verify-subscription', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sessionId }),
+                    });
+                    if (response.ok) {
+                        setIsMembershipSuccess(true);
+                        setIsLoading(false);
+                        // Redirect to profile after short delay
+                        setTimeout(() => {
+                            window.location.href = '/#/profile';
+                        }, 3000);
+                        return true;
+                    }
+                } catch (e) {
+                    console.error('Subscription verification failed:', e);
+                }
+                return false;
+            }
+            return false;
+        };
+
         const processOrder = async () => {
+            // Check subscription first
+            const isSub = await verifySubscription();
+            if (isSub) return;
+
             const hasPaymentConfirmation = paymentIntentId || paymentMethod || txHash;
 
             if (!hasPaymentConfirmation) {
+                // If we also failed subscription check, stop loading
                 setIsLoading(false);
                 return;
             }
@@ -115,14 +149,35 @@ const OrderSuccess = () => {
         };
 
         processOrder();
-    }, [paymentIntentId, paymentMethod, txHash, cart, user, reward, shippingMethod, shippingCost]);
+    }, [paymentIntentId, paymentMethod, txHash, cart, user, reward, shippingMethod, shippingCost, sessionId, type]);
 
     if (isLoading) {
         return (
             <div className="min-h-screen pt-24 pb-16 px-4 flex items-center justify-center">
                 <div className="text-center">
                     <Loader className="w-12 h-12 animate-spin mx-auto text-brand-accent mb-4" />
-                    <p className="text-gray-600">Processing your order...</p>
+                    <p className="text-gray-600">Processing...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (isMembershipSuccess) {
+        return (
+            <div className="min-h-screen pt-24 pb-16 px-4 bg-black text-white">
+                <div className="max-w-2xl mx-auto text-center py-20">
+                    <div className="inline-flex items-center justify-center w-24 h-24 bg-purple-600/20 rounded-full mb-6 border border-purple-500">
+                        <CheckCircle className="w-12 h-12 text-purple-400" />
+                    </div>
+                    <h1 className="font-display text-4xl md:text-5xl font-bold uppercase mb-4 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-white">
+                        Welcome to VIP
+                    </h1>
+                    <p className="text-xl text-gray-400 mb-8">
+                        Your membership is active. Your $15 store credit has been applied.
+                    </p>
+                    <Link to="/profile" className="inline-flex items-center gap-2 bg-white text-black px-10 py-4 rounded-sm font-bold uppercase tracking-widest hover:bg-gray-200 transition">
+                        View Profile
+                    </Link>
                 </div>
             </div>
         );

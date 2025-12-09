@@ -1,7 +1,8 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderItem, Giveaway, GiveawayEntry } from '../types';
 import { INITIAL_SECTIONS, COIN_REWARD_RATE } from '../constants';
-import { connectWallet, formatAddress } from '../services/web3Service';
+import { connectWallet, formatAddress, getSGCoinBalance } from '../services/web3Service';
+import { ethers } from 'ethers';
 import { supabase } from '../services/supabase';
 import { autoCommit, generateProductAddedMessage, generateProductUpdatedMessage, generateProductDeletedMessage } from '../services/autoCommitService';
 import { signOut } from '../services/auth';
@@ -104,8 +105,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     return;
                 }
 
+                // Auth State Listener - Initialize BEFORE fetching data
+                const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+                    if (!mounted) return;
+
+                    console.log('🔐 Auth state changed:', event, session?.user?.email);
+
+                    if (session?.user) {
+                        // Load favorites from localStorage for now, or DB later
+                        const savedFavorites = localStorage.getItem(`coalition_favorites_${session.user.id}`);
+
+                        // Fetch linked wallet
+                        let walletAddress = null;
+                        let sgCoinBalance = 0;
+                        let walletConnectionMethod = undefined;
+                        let walletConnectedAt = undefined;
+
+                        try {
+                            const { data: linkedWallet } = await supabase
+                                .from('wallet_accounts')
+                                .select('wallet_address')
+                                .eq('user_id', session.user.id)
+                                .single();
+
+                            if (linkedWallet?.wallet_address) {
+                                walletAddress = linkedWallet.wallet_address;
+                                walletConnectionMethod = 'metamask'; // Default to metamask for now
+                                walletConnectedAt = Date.now();
+
+                                // Try to fetch balance using public provider
+                                try {
+                                    const provider = new ethers.JsonRpcProvider('https://polygon-rpc.com');
+                                    sgCoinBalance = await getSGCoinBalance(walletAddress, provider);
+                                } catch (err) {
+                                    console.warn('Failed to fetch SGCoin balance:', err);
+                                }
+                            }
+                        } catch (err) {
+                            console.error('Error fetching linked wallet:', err);
+                        }
+
+                        // Fetch VIP Profile Data
+                        let isVIP = false;
+                        let storeCredit = 0.0;
+                        try {
+                            const { data: profile } = await supabase
+                                .from('profiles')
+                                .select('is_vip, store_credit')
+                                .eq('id', session.user.id)
+                                .single();
+
+                            if (profile) {
+                                isVIP = profile.is_vip || false;
+                                storeCredit = profile.store_credit || 0.0;
+                            }
+                        } catch (err) {
+                            console.warn('Failed to fetch profile data:', err);
+                        }
+
+                        setUser({
+                            uid: session.user.id,
+                            displayName: session.user.user_metadata.full_name || session.user.email?.split('@')[0] || 'User',
+                            email: session.user.email || null,
+                            walletAddress: walletAddress,
+                            connectedWalletAddress: walletAddress || undefined,
+                            walletConnectionMethod: walletConnectionMethod as any,
+                            walletConnectedAt: walletConnectedAt,
+                            sgCoinBalance: sgCoinBalance,
+                            isAdmin: false, // TODO: Check role
+                            favorites: savedFavorites ? JSON.parse(savedFavorites) : [],
+                            isVIP: isVIP,
+                            storeCredit: storeCredit
+                        });
+                    } else {
+                        setUser(null);
+                    }
+                });
+
                 // Always fetch fresh data from Supabase
-                await fetchProducts();
+                // Don't await this if we want auth to settle first, but usually fine to await if auth listener is already set up
+                fetchProducts();
 
                 // Real-time subscription for products with debouncing
                 let refreshTimeout: NodeJS.Timeout;
@@ -125,28 +204,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         debouncedRefresh();
                     })
                     .subscribe();
-
-                // Auth State Listener
-                const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-                    if (!mounted) return;
-
-                    if (session?.user) {
-                        // Load favorites from localStorage for now, or DB later
-                        const savedFavorites = localStorage.getItem(`coalition_favorites_${session.user.id}`);
-
-                        setUser({
-                            uid: session.user.id,
-                            displayName: session.user.user_metadata.full_name || session.user.email?.split('@')[0] || 'User',
-                            email: session.user.email || null,
-                            walletAddress: null,
-                            sgCoinBalance: 0, // TODO: Fetch from DB
-                            isAdmin: false, // TODO: Check role
-                            favorites: savedFavorites ? JSON.parse(savedFavorites) : []
-                        });
-                    } else {
-                        setUser(null);
-                    }
-                });
 
                 return () => {
                     subscription.unsubscribe();

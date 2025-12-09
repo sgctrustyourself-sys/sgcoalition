@@ -6,14 +6,14 @@ import { useApp } from '../context/AppContext';
 const MobileBottomNav: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { cart } = useApp();
+    const { cart, setCartOpen } = useApp();
 
     const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
     const navItems = [
         { icon: Home, label: 'Home', path: '/' },
         { icon: ShoppingBag, label: 'Shop', path: '/shop' },
-        { icon: ShoppingCart, label: 'Cart', path: '/cart', badge: cartItemCount },
+        { icon: ShoppingCart, label: 'Cart', path: '/cart', badge: cartItemCount, action: () => setCartOpen(true) },
         { icon: User, label: 'Profile', path: '/profile' },
     ];
 
@@ -25,12 +25,12 @@ const MobileBottomNav: React.FC = () => {
     return (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-lg border-t border-white/10 z-50">
             <div className="flex items-center justify-around h-16 px-2">
-                {navItems.map(({ icon: Icon, label, path, badge }) => {
+                {navItems.map(({ icon: Icon, label, path, badge, action }) => {
                     const active = isActive(path);
                     return (
                         <button
-                            key={path}
-                            onClick={() => navigate(path)}
+                            key={label}
+                            onClick={() => action ? action() : navigate(path)}
                             className={`flex flex-col items-center justify-center flex-1 h-full relative transition-colors ${active ? 'text-white' : 'text-gray-400'
                                 }`}
                             aria-label={label}

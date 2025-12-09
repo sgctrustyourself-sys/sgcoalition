@@ -1,11 +1,11 @@
 import React from 'react';
-import { Package, ShoppingCart, GitBranch, Gift, Settings, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3 } from 'lucide-react';
+import { Package, ShoppingCart, GitBranch, Gift, Settings, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3, TrendingUp, Instagram } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'products' | 'orders' | 'reviews' | 'analytics' | 'sgcoin-distribution' | 'sgcoin-requests' | 'git' | 'giveaways' | 'inquiries' | 'settings';
-    onTabChange: (tab: 'products' | 'orders' | 'reviews' | 'analytics' | 'sgcoin-distribution' | 'sgcoin-requests' | 'git' | 'giveaways' | 'inquiries' | 'settings') => void;
+    activeTab: 'products' | 'orders' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'settings';
+    onTabChange: (tab: 'products' | 'orders' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'settings') => void;
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange }) => {
@@ -17,8 +17,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
         { id: 'orders', label: 'Orders', icon: ShoppingCart },
         { id: 'reviews', label: 'Reviews', icon: Star },
         { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+        { id: 'referrals', label: 'Referrals', icon: TrendingUp },
         { id: 'sgcoin-distribution', label: 'SGCoin Distribution', icon: Coins },
         { id: 'sgcoin-requests', label: 'SGCoin Requests', icon: Coins },
+        { id: 'instagram', label: 'Instagram Links', icon: Instagram },
         { id: 'git', label: 'Version Control', icon: GitBranch },
         { id: 'giveaways', label: 'Giveaways', icon: Gift },
         { id: 'inquiries', label: 'Custom Inquiries', icon: MessageSquare },

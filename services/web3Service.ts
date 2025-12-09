@@ -30,7 +30,7 @@ const ERC1155_ABI = [
     'function balanceOf(address account, uint256 id) view returns (uint256)'
 ];
 
-export const getSGCoinBalance = async (address: string, provider: ethers.BrowserProvider): Promise<number> => {
+export const getSGCoinBalance = async (address: string, provider: ethers.Provider): Promise<number> => {
     try {
         const network = await provider.getNetwork();
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Activity, DollarSign, BarChart3 } from 'lucide-react';
 import { SGCoinData } from '../types';
+import AnimatedCounter from './AnimatedCounter';
 
 interface SGCoinCardProps {
     data: SGCoinData | null;
@@ -50,7 +51,7 @@ const SGCoinCard: React.FC<SGCoinCardProps> = ({ data, isLoading = false }) => {
 
                     <div className="flex items-baseline gap-4 mb-6">
                         <h2 className="text-5xl md:text-6xl font-display font-bold text-brand-black tracking-tight">
-                            ${(data.price ?? 0).toFixed(6)}
+                            $<AnimatedCounter end={data.price ?? 0} decimals={6} duration={2000} />
                         </h2>
                         <div className={`flex items-center px-3 py-1 rounded-full text-sm font-bold ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                             {isPositive ? <TrendingUp size={16} className="mr-1" /> : <TrendingDown size={16} className="mr-1" />}
@@ -63,20 +64,20 @@ const SGCoinCard: React.FC<SGCoinCardProps> = ({ data, isLoading = false }) => {
                             <p className="text-xs text-gray-400 uppercase font-bold mb-1">Market Cap</p>
                             <p className="font-bold text-gray-900 flex items-center">
                                 <DollarSign size={14} className="text-gray-400" />
-                                {((data.marketCap ?? 0) / 1000).toFixed(1)}K
+                                <AnimatedCounter end={(data.marketCap ?? 0) / 1000} decimals={1} suffix="K" duration={2000} />
                             </p>
                         </div>
                         <div>
                             <p className="text-xs text-gray-400 uppercase font-bold mb-1">24h Volume</p>
                             <p className="font-bold text-gray-900 flex items-center">
                                 <BarChart3 size={14} className="text-gray-400 mr-1" />
-                                ${(data.volume24h ?? 0).toLocaleString()}
+                                $<AnimatedCounter end={data.volume24h ?? 0} duration={2000} />
                             </p>
                         </div>
                         <div>
                             <p className="text-xs text-gray-400 uppercase font-bold mb-1">Liquidity</p>
                             <p className="font-bold text-gray-900">
-                                ${(data.liquidity ?? 0).toLocaleString()}
+                                $<AnimatedCounter end={data.liquidity ?? 0} duration={2000} />
                             </p>
                         </div>
                         <div>

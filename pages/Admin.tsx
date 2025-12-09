@@ -6,14 +6,16 @@ import GitControl from '../components/admin/GitControl';
 import GiveawayManager from '../components/admin/GiveawayManager';
 import CustomInquiryManager from '../components/admin/CustomInquiryManager';
 import SGCoinRequestManager from '../components/admin/SGCoinRequestManager';
+import InstagramLinksManager from '../admin/InstagramLinksManager';
 import ReviewManager from '../admin/ReviewManager';
 import AnalyticsDashboard from '../admin/AnalyticsDashboard';
 import SGCoinDistribution from '../admin/SGCoinDistribution';
+import ReferralAnalytics from '../admin/ReferralAnalytics';
 import { useApp } from '../context/AppContext';
 
 const Admin: React.FC = () => {
     const { user } = useApp();
-    const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'reviews' | 'analytics' | 'sgcoin-distribution' | 'sgcoin-requests' | 'git' | 'giveaways' | 'inquiries' | 'settings'>('products');
+    const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'settings'>('products');
 
     const renderContent = () => {
         switch (activeTab) {
@@ -25,8 +27,12 @@ const Admin: React.FC = () => {
                 return <ReviewManager />;
             case 'analytics':
                 return <AnalyticsDashboard />;
+            case 'referrals':
+                return <ReferralAnalytics />;
             case 'sgcoin-distribution':
                 return <SGCoinDistribution />;
+            case 'instagram':
+                return <InstagramLinksManager />;
             case 'git':
                 return <GitControl />;
             case 'giveaways':

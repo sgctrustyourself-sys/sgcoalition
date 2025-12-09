@@ -1,5 +1,5 @@
-import React, { Suspense } from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import React, { Suspense, useEffect } from 'react';
+import { HashRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Analytics } from '@vercel/analytics/react';
 import { AppProvider } from './context/AppContext';
@@ -12,7 +12,11 @@ import MobileBottomNav from './components/MobileBottomNav';
 import ToastContainer from './components/ui/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
 import { TutorialProvider } from './context/TutorialContext';
-import ChatWidget from './components/ChatWidget';
+import { storeReferralCode } from './utils/referralSystem';
+
+const AIChatWidget = React.lazy(() => import('./components/AIChatWidget'));
+import { trackReferralEvent } from './utils/referralAnalytics';
+import { supabase } from './services/supabase';
 
 // Lazy Load Pages
 const Home = React.lazy(() => import('./pages/Home'));
@@ -20,6 +24,7 @@ const Shop = React.lazy(() => import('./pages/Shop'));
 const ProductDetails = React.lazy(() => import('./pages/ProductDetails'));
 const About = React.lazy(() => import('./pages/About'));
 const Profile = React.lazy(() => import('./pages/Profile'));
+const Membership = React.lazy(() => import('./pages/Membership'));
 const Ecosystem = React.lazy(() => import('./pages/Ecosystem'));
 const Archive = React.lazy(() => import('./pages/Archive'));
 const Checkout = React.lazy(() => import('./pages/Checkout'));
@@ -32,10 +37,12 @@ const NotFound = React.lazy(() => import('./pages/NotFound'));
 const Login = React.lazy(() => import('./pages/Login'));
 const Signup = React.lazy(() => import('./pages/Signup'));
 const ForgotPassword = React.lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
 const UpdatePassword = React.lazy(() => import('./pages/UpdatePassword'));
 const GiveawayEntry = React.lazy(() => import('./pages/GiveawayEntry'));
 const CustomInquiry = React.lazy(() => import('./pages/CustomInquiry'));
 const BuySGCoin = React.lazy(() => import('./pages/BuySGCoin'));
+const AIPortal = React.lazy(() => import('./pages/AIPortal'));
 const Favorites = React.lazy(() => import('./pages/Favorites'));
 const OrderHistory = React.lazy(() => import('./pages/OrderHistory'));
 const SavedAddresses = React.lazy(() => import('./pages/SavedAddresses'));
@@ -51,16 +58,57 @@ const FundWallet = React.lazy(() => import('./pages/tutorial/FundWallet'));
 const QuickSwap = React.lazy(() => import('./pages/tutorial/QuickSwap'));
 const UsingSGCoin = React.lazy(() => import('./pages/tutorial/UsingSGCoin'));
 
+// Component to handle referral code detection
+const ReferralTracker = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const refCode = params.get('ref');
+
+    if (refCode) {
+      console.log('[Referral] Detected referral code:', refCode);
+      storeReferralCode(refCode);
+
+      // Track the click
+      trackReferralEvent(refCode, 'click');
+    }
+  }, [location]);
+
+  return null;
+};
+
+// Handle Auth Events (Password Recovery)
+const AuthEventHandler = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        navigate('/reset-password');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  return null;
+};
+
 const App = () => {
   return (
     <ToastProvider>
       <AppProvider>
         <TutorialProvider>
           <HashRouter>
+            <AuthEventHandler />
+            <ReferralTracker />
             <div className="min-h-screen flex flex-col font-sans text-white bg-black selection:bg-brand-accent selection:text-black">
               <Navbar />
               <CartDrawer />
-              <ChatWidget />
+              <Suspense fallback={null}>
+                <AIChatWidget />
+              </Suspense>
               <ToastContainer />
               <main className="flex-grow">
                 <Suspense fallback={<PageLoader />}>
@@ -91,10 +139,13 @@ const App = () => {
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<Signup />} />
                     <Route path="/forgot-password" element={<ForgotPassword />} />
+                    <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/update-password" element={<UpdatePassword />} />
                     <Route path="/giveaway/:id" element={<GiveawayEntry />} />
                     <Route path="/custom-inquiry" element={<CustomInquiry />} />
                     <Route path="/buy-sgcoin" element={<BuySGCoin />} />
+                    <Route path="/membership" element={<Membership />} />
+                    <Route path="/ai-portal" element={<AIPortal />} />
 
                     {/* Tutorial Routes */}
                     <Route path="/tutorial/welcome" element={<Welcome />} />

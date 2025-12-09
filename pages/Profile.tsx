@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Hexagon, Package, Truck, CheckCircle, Clock, Settings, Wallet, Link as LinkIcon, AlertCircle, CheckCircle2, Copy } from 'lucide-react';
+import { Hexagon, Package, Truck, CheckCircle, Clock, Settings, Wallet, Link as LinkIcon, AlertCircle, CheckCircle2, Copy, DollarSign, Star } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import Skeleton from '../components/ui/Skeleton';
 import ProductCardSkeleton from '../components/ProductCardSkeleton';
 import OrderSkeleton from '../components/OrderSkeleton';
+import ReferralDashboard from '../components/ReferralDashboard';
+import AccountLinking from '../components/AccountLinking';
 
 interface Order {
     id: string;
@@ -22,7 +24,7 @@ interface Order {
 const Profile = () => {
     const { user, products, connectMetaMaskWallet, connectManualWallet, disconnectWallet, isLoading } = useApp();
     const [orders, setOrders] = useState<Order[]>([]);
-    const [activeTab, setActiveTab] = useState<'favorites' | 'orders' | 'settings'>('orders');
+    const [activeTab, setActiveTab] = useState<'favorites' | 'orders' | 'referrals' | 'settings'>('orders');
     const [manualAddress, setManualAddress] = useState('');
     const [isConnecting, setIsConnecting] = useState(false);
     const [error, setError] = useState('');
@@ -96,14 +98,43 @@ const Profile = () => {
                                     {user.walletAddress ? user.walletAddress : user.email}
                                 </p>
                             </div>
-                            <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl border border-white/10 min-w-[250px]">
-                                <div className="text-xs text-gray-400 uppercase tracking-widest mb-1">SGCoin Balance</div>
-                                <div className="text-4xl font-bold text-brand-accent flex items-center">
-                                    <Hexagon className="w-8 h-8 mr-3 fill-current" />
-                                    {user.sgCoinBalance.toLocaleString()}
-                                </div>
-                                <div className="text-xs text-gray-400 mt-2">
-                                    Current Value: ${(user.sgCoinBalance * 0.002).toFixed(2)} USD
+                            <div className="flex gap-4">
+                                {user.isVIP && (
+                                    <div className="bg-gradient-to-br from-purple-900/50 to-blue-900/50 backdrop-blur-md p-6 rounded-xl border border-purple-500/30 min-w-[200px] relative overflow-hidden group">
+                                        <div className="absolute inset-0 bg-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                        <div className="text-xs text-purple-300 uppercase tracking-widest mb-1 font-bold">Membership</div>
+                                        <div className="text-xl font-bold text-white flex items-center gap-2">
+                                            <Star className="w-5 h-5 text-purple-400 fill-current" />
+                                            Coalition VIP
+                                        </div>
+                                        <div className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                                            Active <CheckCircle2 className="w-3 h-3 text-green-500" />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {user.storeCredit && user.storeCredit > 0 && (
+                                    <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl border border-white/10 min-w-[200px]">
+                                        <div className="text-xs text-gray-400 uppercase tracking-widest mb-1">Store Credit</div>
+                                        <div className="text-4xl font-bold text-white flex items-center">
+                                            <span className="text-2xl mr-1">$</span>
+                                            {user.storeCredit.toFixed(2)}
+                                        </div>
+                                        <div className="text-xs text-green-400 mt-2">
+                                            Available for checkout
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl border border-white/10 min-w-[250px]">
+                                    <div className="text-xs text-gray-400 uppercase tracking-widest mb-1">SGCoin Balance</div>
+                                    <div className="text-4xl font-bold text-brand-accent flex items-center">
+                                        <Hexagon className="w-8 h-8 mr-3 fill-current" />
+                                        {user.sgCoinBalance.toLocaleString()}
+                                    </div>
+                                    <div className="text-xs text-gray-400 mt-2">
+                                        Current Value: ${(user.sgCoinBalance * 0.002).toFixed(2)} USD
+                                    </div>
                                 </div>
                             </div>
                         </>
@@ -131,6 +162,16 @@ const Profile = () => {
                         }`}
                 >
                     ❤️ Favorites ({favorites.length})
+                </button>
+                <button
+                    onClick={() => setActiveTab('referrals')}
+                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 ${activeTab === 'referrals'
+                        ? 'border-black text-black'
+                        : 'border-transparent text-gray-400 hover:text-gray-600'
+                        }`}
+                >
+                    <DollarSign className="w-5 h-5 inline mr-2" />
+                    Referrals
                 </button>
                 <button
                     onClick={() => setActiveTab('settings')}
@@ -291,10 +332,23 @@ const Profile = () => {
                 </div>
             )}
 
+            {/* Referrals Tab */}
+            {activeTab === 'referrals' && (
+                <div>
+                    <h2 className="font-display text-2xl font-bold uppercase mb-6">Referral Program</h2>
+                    <ReferralDashboard />
+                </div>
+            )}
+
             {/* Settings Tab */}
             {activeTab === 'settings' && (
                 <div>
                     <h2 className="font-display text-2xl font-bold uppercase mb-6">Account Settings</h2>
+
+                    {/* Account Linking Section */}
+                    <div className="mb-8">
+                        <AccountLinking />
+                    </div>
 
                     {/* Wallet Connection Card */}
                     <div className="bg-white rounded-xl border-2 border-gray-200 p-6 max-w-2xl">

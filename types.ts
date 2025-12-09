@@ -47,7 +47,13 @@ export interface UserProfile {
   favorites: string[]; // Product IDs
   addresses?: Address[];
   defaultAddressId?: string;
+  defaultAddressId?: string;
   wishlistSettings?: WishlistSettings; // Wishlist sharing configuration
+  // Membership / Subscription
+  isVIP?: boolean;
+  storeCredit?: number; // Accumulated store credit from subscription
+  subscriptionId?: string;
+  subscriptionStatus?: 'active' | 'canceled' | 'past_due';
 }
 
 export interface Address {

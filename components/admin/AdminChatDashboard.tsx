@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Send, Check, Clock, User as UserIcon } from 'lucide-react';
-import { ChatConversation, ChatMessage } from '../types/chatTypes';
-import { getAllConversations, addMessage, getConversation, saveConversation } from '../utils/chatUtils';
+import { ChatConversation, ChatMessage } from '../../types/chatTypes';
+import { getAllConversations, addMessage, getConversation, saveConversation } from '../../utils/chatUtils';
 
 const AdminChatDashboard = () => {
     const [conversations, setConversations] = useState<ChatConversation[]>([]);
@@ -86,8 +86,8 @@ const AdminChatDashboard = () => {
                                     key={conv.id}
                                     onClick={() => setSelectedConversation(conv)}
                                     className={`w-full text-left p-3 rounded-lg transition ${selectedConversation?.id === conv.id
-                                            ? 'bg-blue-500/20 border border-blue-500/50'
-                                            : 'bg-white/5 hover:bg-white/10 border border-transparent'
+                                        ? 'bg-blue-500/20 border border-blue-500/50'
+                                        : 'bg-white/5 hover:bg-white/10 border border-transparent'
                                         }`}
                                 >
                                     <div className="flex items-center justify-between mb-1">
@@ -172,10 +172,10 @@ const AdminChatDashboard = () => {
                                 >
                                     <div
                                         className={`max-w-[80%] rounded-2xl px-4 py-2 ${msg.sender === 'admin'
-                                                ? 'bg-blue-500 text-white'
-                                                : msg.type === 'system'
-                                                    ? 'bg-gray-800 text-gray-300 border border-white/10'
-                                                    : 'bg-white/10 text-white'
+                                            ? 'bg-blue-500 text-white'
+                                            : msg.type === 'system'
+                                                ? 'bg-gray-800 text-gray-300 border border-white/10'
+                                                : 'bg-white/10 text-white'
                                             }`}
                                     >
                                         {msg.sender === 'user' && (
