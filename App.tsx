@@ -42,21 +42,13 @@ const UpdatePassword = React.lazy(() => import('./pages/UpdatePassword'));
 const GiveawayEntry = React.lazy(() => import('./pages/GiveawayEntry'));
 const CustomInquiry = React.lazy(() => import('./pages/CustomInquiry'));
 const BuySGCoin = React.lazy(() => import('./pages/BuySGCoin'));
-const AIPortal = React.lazy(() => import('./pages/AIPortal'));
 const Favorites = React.lazy(() => import('./pages/Favorites'));
 const OrderHistory = React.lazy(() => import('./pages/OrderHistory'));
 const SavedAddresses = React.lazy(() => import('./pages/SavedAddresses'));
 const MyReviews = React.lazy(() => import('./pages/MyReviews'));
 const SearchResults = React.lazy(() => import('./pages/SearchResults'));
 const PublicWishlist = React.lazy(() => import('./pages/PublicWishlist'));
-
-// Tutorial Pages
-const Welcome = React.lazy(() => import('./pages/tutorial/Welcome'));
-const MetaMask = React.lazy(() => import('./pages/tutorial/MetaMask'));
-const Polygon = React.lazy(() => import('./pages/tutorial/Polygon'));
-const FundWallet = React.lazy(() => import('./pages/tutorial/FundWallet'));
-const QuickSwap = React.lazy(() => import('./pages/tutorial/QuickSwap'));
-const UsingSGCoin = React.lazy(() => import('./pages/tutorial/UsingSGCoin'));
+const Help = React.lazy(() => import('./pages/Help'));
 
 // Component to handle referral code detection
 const ReferralTracker = () => {
@@ -145,15 +137,7 @@ const App = () => {
                     <Route path="/custom-inquiry" element={<CustomInquiry />} />
                     <Route path="/buy-sgcoin" element={<BuySGCoin />} />
                     <Route path="/membership" element={<Membership />} />
-                    <Route path="/ai-portal" element={<AIPortal />} />
-
-                    {/* Tutorial Routes */}
-                    <Route path="/tutorial/welcome" element={<Welcome />} />
-                    <Route path="/tutorial/metamask" element={<MetaMask />} />
-                    <Route path="/tutorial/polygon" element={<Polygon />} />
-                    <Route path="/tutorial/fund-wallet" element={<FundWallet />} />
-                    <Route path="/tutorial/quickswap" element={<QuickSwap />} />
-                    <Route path="/tutorial/use-sgcoin" element={<UsingSGCoin />} />
+                    <Route path="/help" element={<Help />} />
 
                     <Route path="*" element={<NotFound />} />
                   </Routes>

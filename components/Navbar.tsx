@@ -43,10 +43,8 @@ const Navbar = () => {
                         <div className="hidden md:flex items-center space-x-10">
                             <Link to="/" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Home</Link>
                             <Link to="/shop" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Shop</Link>
-                            <Link to="/about" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Story</Link>
-                            <Link to="/ecosystem" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Ecosystem</Link>
                             <Link to="/membership" className="text-xs font-bold uppercase tracking-widest text-purple-400 hover:text-purple-300 hover:text-glow transition-all flex items-center gap-1"><Star className="w-3 h-3" />VIP</Link>
-                            <Link to="/tutorial/welcome" className="text-xs font-bold uppercase tracking-widest text-green-400 hover:text-green-300 hover:text-glow transition-all">SGCoin Setup</Link>
+                            <Link to="/help" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Help</Link>
                             {user && <Link to="/profile" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Profile</Link>}
 
                             {/* Admin Dashboard Link (only show when in admin mode) */}
@@ -120,10 +118,8 @@ const Navbar = () => {
                     <div className="md:hidden bg-black/95 backdrop-blur-xl border-b border-white/10 p-6 space-y-6 shadow-2xl absolute w-full">
                         <Link to="/" className="block text-lg font-display font-bold uppercase tracking-widest text-white" onClick={() => setMobileMenuOpen(false)}>Home</Link>
                         <Link to="/shop" className="block text-lg font-display font-bold uppercase tracking-widest text-white" onClick={() => setMobileMenuOpen(false)}>Shop</Link>
-                        <Link to="/about" className="block text-lg font-display font-bold uppercase tracking-widest text-white" onClick={() => setMobileMenuOpen(false)}>Story</Link>
-                        <Link to="/ecosystem" className="block text-lg font-display font-bold uppercase tracking-widest text-white" onClick={() => setMobileMenuOpen(false)}>Ecosystem</Link>
                         <Link to="/membership" className="block text-lg font-display font-bold uppercase tracking-widest text-purple-400" onClick={() => setMobileMenuOpen(false)}>VIP Membership</Link>
-                        <Link to="/tutorial/welcome" className="block text-lg font-display font-bold uppercase tracking-widest text-green-400" onClick={() => setMobileMenuOpen(false)}>SGCoin Setup</Link>
+                        <Link to="/help" className="block text-lg font-display font-bold uppercase tracking-widest text-white" onClick={() => setMobileMenuOpen(false)}>Help</Link>
 
                         {!user ? (
                             <div className="pt-6 border-t border-white/10 space-y-4">
