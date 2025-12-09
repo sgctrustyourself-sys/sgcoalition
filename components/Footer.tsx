@@ -16,7 +16,7 @@ const Footer = () => {
                         Crafted in Baltimore, Maryland.<br />
                         Built for the resilient.
                     </p>
-                    <p className="text-gray-600 text-xs mt-6">© 2024 Coalition Brand.</p>
+                    <p className="text-gray-600 text-xs mt-6">© 2024 Coalition Brand. v1.1</p>
                 </div>
 
                 <div>
