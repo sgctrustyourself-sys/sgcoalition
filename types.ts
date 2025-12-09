@@ -47,7 +47,6 @@ export interface UserProfile {
   favorites: string[]; // Product IDs
   addresses?: Address[];
   defaultAddressId?: string;
-  defaultAddressId?: string;
   wishlistSettings?: WishlistSettings; // Wishlist sharing configuration
   // Membership / Subscription
   isVIP?: boolean;
