@@ -40,7 +40,7 @@ const Login = () => {
             setError(error.message);
             setLoading(false);
         } else {
-            navigate('/tutorial/welcome');
+            navigate('/');
         }
     };
 
@@ -127,26 +127,18 @@ const Login = () => {
                 </button>
             </form>
 
-            <div className="relative my-8">
-                <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-white/10"></div>
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-black px-2 text-gray-500">Or continue with</span>
-                </div>
-            </div>
-
-            {/* Discord button hidden for now */}
-            <button onClick={handleDiscordLogin} className="hidden">
-                <Shield className="w-4 h-4 mr-2" /> Discord
-            </button>
-
-            <button
-                onClick={handleMetaMaskLogin}
-                className="w-full bg-[#F6851B]/10 border border-[#F6851B]/20 text-[#F6851B] font-bold text-sm py-3 rounded-lg hover:bg-[#F6851B]/20 transition-all flex items-center justify-center gap-2"
-            >
-                <Hexagon className="w-4 h-4 mr-2" /> Connect MetaMask
-            </button>
+            {/* MetaMask - Optional, de-emphasized */}
+            <details className="mt-6">
+                <summary className="text-gray-500 text-xs cursor-pointer hover:text-gray-400 transition-colors text-center">
+                    Advanced: Connect with Crypto Wallet
+                </summary>
+                <button
+                    onClick={handleMetaMaskLogin}
+                    className="w-full mt-4 bg-white/5 border border-white/10 text-gray-400 font-bold text-sm py-3 rounded-lg hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2"
+                >
+                    <Hexagon className="w-4 h-4" /> Connect MetaMask
+                </button>
+            </details>
 
             <div className="mt-8 text-center">
                 <p className="text-gray-500 text-xs">

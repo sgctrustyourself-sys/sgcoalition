@@ -68,13 +68,10 @@ const Navbar = () => {
                             )}
 
                             {!user ? (
-                                <div className="flex items-center space-x-4 pl-4 border-l border-white/10">
+                                <div className="flex items-center pl-4 border-l border-white/10">
                                     <Link to="/login" className="text-xs font-bold uppercase tracking-widest text-white hover:text-glow transition-all">
                                         Login
                                     </Link>
-                                    <button onClick={() => login(AuthProvider.METAMASK)} className="text-xs font-bold uppercase tracking-widest border border-white/20 px-4 py-2 hover:bg-white hover:text-black transition-all flex items-center gap-2" title="Connect Wallet">
-                                        <Hexagon className="w-3 h-3" /> Connect
-                                    </button>
                                 </div>
                             ) : (
                                 <div className="flex items-center space-x-6 pl-4 border-l border-white/10">
@@ -126,9 +123,6 @@ const Navbar = () => {
                                 <Link to="/login" className="block w-full text-center py-3 border border-white/20 text-white font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all" onClick={() => setMobileMenuOpen(false)}>
                                     Login
                                 </Link>
-                                <button onClick={() => { login(AuthProvider.METAMASK); setMobileMenuOpen(false); }} className="w-full py-3 bg-brand-accent text-white font-bold uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2" title="Connect Wallet">
-                                    <Hexagon className="w-4 h-4" /> Connect Wallet
-                                </button>
                             </div>
                         ) : (
                             <div className="pt-6 border-t border-white/10 space-y-4">
