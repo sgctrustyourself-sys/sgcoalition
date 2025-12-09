@@ -16,6 +16,16 @@ const Shop = () => {
     const [priceRange, setPriceRange] = useState<{ min: number, max: number }>({ min: 0, max: 500 });
     const [sortOption, setSortOption] = useState<string>('newest');
 
+    // VIP Banner State
+    const [showVIPBanner, setShowVIPBanner] = useState<boolean>(() => {
+        return localStorage.getItem('coalition_vip_banner_dismissed') !== 'true';
+    });
+
+    const dismissVIPBanner = () => {
+        setShowVIPBanner(false);
+        localStorage.setItem('coalition_vip_banner_dismissed', 'true');
+    };
+
     // Derived Data
     const categories = ['all', ...Array.from(new Set(products.map(p => p.category)))];
     const allSizes = Array.from(new Set(products.flatMap(p => p.sizes || []))) as string[];
@@ -54,6 +64,42 @@ const Shop = () => {
 
     return (
         <div className="pt-12 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-screen">
+            {/* VIP Membership Banner */}
+            {showVIPBanner && (
+                <div className="mb-8 bg-gradient-to-r from-purple-900/30 via-purple-800/30 to-blue-900/30 border border-purple-500/30 rounded-lg p-6 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                    <div className="relative flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="text-xs font-bold uppercase tracking-widest text-purple-300 bg-purple-500/20 px-2 py-1 rounded">MEMBERS ONLY</span>
+                            </div>
+                            <h3 className="text-lg md:text-xl font-display font-bold uppercase text-white mb-2">
+                                Get Free Shipping + $15 Monthly Credit
+                            </h3>
+                            <p className="text-sm text-gray-300">
+                                Join Coalition VIP for only $15/month. Build your credit while you shop.
+                                <span className="hidden md:inline"> The membership that pays for itself.</span>
+                            </p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-center gap-3">
+                            <a
+                                href="#/membership"
+                                className="px-6 py-3 bg-white text-black font-bold text-sm uppercase tracking-widest hover:bg-gray-200 transition-all whitespace-nowrap"
+                            >
+                                Learn More
+                            </a>
+                            <button
+                                onClick={dismissVIPBanner}
+                                className="text-gray-400 hover:text-white transition-colors text-sm whitespace-nowrap"
+                                title="Dismiss"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="flex flex-col md:flex-row justify-between items-baseline border-b border-gray-200 pb-6 mb-8">
                 <h1 className="text-4xl font-display font-bold uppercase">Shop All</h1>
 

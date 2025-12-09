@@ -48,6 +48,79 @@ const Home = () => {
                     </div>
                 );
                 break;
+            case 'vip':
+                content = (
+                    <section className="py-20 px-4 bg-gradient-to-b from-black via-purple-900/10 to-black relative overflow-hidden">
+                        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl"></div>
+                        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl"></div>
+
+                        <div className="max-w-6xl mx-auto relative z-10">
+                            <div className="text-center mb-12">
+                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/20 border border-purple-500/30 mb-4">
+                                    <span className="text-xs font-bold uppercase tracking-widest text-purple-300">EXCLUSIVE MEMBERSHIP</span>
+                                </div>
+                                <h2 className="font-display text-4xl md:text-5xl font-bold uppercase tracking-tight mb-4">
+                                    Coalition <span className="text-purple-400">VIP</span>
+                                </h2>
+                                <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+                                    The membership that pays for itself. Build credit while you shop.
+                                </p>
+                            </div>
+
+                            <div className="grid md:grid-cols-3 gap-6 mb-12">
+                                {/* Benefit 1 */}
+                                <div className="bg-white/5 border border-white/10 rounded-xl p-6 hover:border-purple-500/30 transition-colors group">
+                                    <div className="bg-purple-500/20 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                        <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="font-display text-xl font-bold uppercase mb-2 text-white">$15 Monthly Credit</h3>
+                                    <p className="text-gray-400 text-sm">
+                                        Get $15 store credit added to your account every month. The membership effectively costs you nothing.
+                                    </p>
+                                </div>
+
+                                {/* Benefit 2 */}
+                                <div className="bg-white/5 border border-white/10 rounded-xl p-6 hover:border-blue-500/30 transition-colors group">
+                                    <div className="bg-blue-500/20 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                        <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="font-display text-xl font-bold uppercase mb-2 text-white">Free Shipping</h3>
+                                    <p className="text-gray-400 text-sm">
+                                        Enjoy free standard shipping on every single order. No minimums, no exceptions.
+                                    </p>
+                                </div>
+
+                                {/* Benefit 3 */}
+                                <div className="bg-white/5 border border-white/10 rounded-xl p-6 hover:border-green-500/30 transition-colors group">
+                                    <div className="bg-green-500/20 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                        <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="font-display text-xl font-bold uppercase mb-2 text-white">Build Credit</h3>
+                                    <p className="text-gray-400 text-sm">
+                                        Works with credit-building cards like Ava. Recurring payments help boost your credit score.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="text-center">
+                                <Link
+                                    to="/membership"
+                                    className="inline-block px-10 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold text-sm uppercase tracking-widest hover:brightness-110 transition-all shadow-lg shadow-purple-900/40"
+                                >
+                                    Join for $15/Month
+                                </Link>
+                                <p className="mt-4 text-xs text-gray-500">Cancel anytime. No hidden fees.</p>
+                            </div>
+                        </div>
+                    </section>
+                );
+                break;
             case 'featured':
                 if (isLoading && (!products || products.length === 0)) {
                     content = (
