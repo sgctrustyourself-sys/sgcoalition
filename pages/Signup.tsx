@@ -21,7 +21,17 @@ const Signup = () => {
         const { error } = await signUpWithEmail(email, password, fullName);
 
         if (error) {
-            setError(error.message);
+            console.error('❌ Signup error details:', error);
+            // Log full error object for debugging
+            if (error instanceof Object) {
+                console.error('Error code:', (error as any).code);
+                console.error('Error details:', (error as any).details);
+                console.error('Error hint:', (error as any).hint);
+                const detailedError = (error as any).details || (error as any).message || JSON.stringify(error);
+                setError(`Database Error: ${detailedError}`);
+            } else {
+                setError(String(error));
+            }
             setLoading(false);
         } else {
             setSuccess(true);
@@ -61,7 +71,8 @@ const Signup = () => {
     return (
         <AuthLayout title="Create Account" subtitle="Join the Antigravity ecosystem">
             {error && (
-                <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded text-red-400 text-xs text-center">
+                <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded text-red-400 text-xs text-center break-words">
+                    <p className="font-bold">Signup Failed</p>
                     {error}
                 </div>
             )}
@@ -109,6 +120,7 @@ const Signup = () => {
                             placeholder="Create a password"
                             required
                             minLength={6}
+                            autoComplete="new-password"
                         />
                     </div>
                 </div>

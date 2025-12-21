@@ -43,7 +43,25 @@ const Navbar = () => {
                         <div className="hidden md:flex items-center space-x-10">
                             <Link to="/" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Home</Link>
                             <Link to="/shop" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Shop</Link>
-                            <Link to="/membership" className="text-xs font-bold uppercase tracking-widest text-purple-400 hover:text-purple-300 hover:text-glow transition-all flex items-center gap-1"><Star className="w-3 h-3" />VIP</Link>
+
+                            {/* Universe Dropdown */}
+                            <div className="relative group">
+                                <button className="text-xs font-bold uppercase tracking-widest text-purple-400 hover:text-purple-300 hover:text-glow transition-all flex items-center gap-1">
+                                    <Star className="w-3 h-3" /> Universe
+                                </button>
+                                <div className="absolute top-full left-0 mt-2 w-48 bg-black/90 backdrop-blur-md border border-white/10 rounded-lg shadow-xl py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-left">
+                                    <Link to="/membership" className="block px-4 py-3 text-xs font-bold uppercase tracking-widest text-purple-400 hover:bg-white/5 hover:text-purple-300 transition-colors">
+                                        VIP Membership
+                                    </Link>
+                                    <Link to="/ecosystem" className="block px-4 py-3 text-xs font-bold uppercase tracking-widest text-gray-400 hover:bg-white/5 hover:text-white transition-colors">
+                                        Ecosystem
+                                    </Link>
+                                    <Link to="/buy-sgcoin" className="block px-4 py-3 text-xs font-bold uppercase tracking-widest text-brand-accent hover:bg-white/5 hover:text-blue-300 transition-colors">
+                                        Buy SGCoin
+                                    </Link>
+                                </div>
+                            </div>
+
                             <Link to="/help" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Help</Link>
                             {user && <Link to="/profile" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Profile</Link>}
 
