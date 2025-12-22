@@ -117,6 +117,7 @@ const Shop = () => {
                             value={sortOption}
                             onChange={(e) => setSortOption(e.target.value)}
                             className="text-sm font-bold uppercase bg-transparent border-none focus:ring-0 cursor-pointer"
+                            title="Sort products"
                         >
                             <option value="newest">Newest Arrivals</option>
                             <option value="popularity">Popularity</option>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
-import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderItem, Giveaway, GiveawayEntry } from '../types';
-import { INITIAL_SECTIONS, COIN_REWARD_RATE } from '../constants';
+import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderItem, Giveaway, GiveawayEntry, GiveawayStatus } from '../types';
+import { INITIAL_SECTIONS, INITIAL_PRODUCTS, COIN_REWARD_RATE } from '../constants';
 import { connectWallet, formatAddress, getSGCoinBalance } from '../services/web3Service';
 import { ethers } from 'ethers';
 import { supabase } from '../services/supabase';
@@ -645,15 +645,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setGiveaways(prev => prev.map(g => {
             if (g.id === giveawayId) {
                 const eligibleEntries = g.entries;
-                const winners: string[] = [];
+                const winnersList: GiveawayEntry[] = [];
                 for (let i = 0; i < count; i++) {
                     if (eligibleEntries.length > 0) {
                         const randomIndex = Math.floor(Math.random() * eligibleEntries.length);
-                        winners.push(eligibleEntries[randomIndex].userId);
+                        winnersList.push(eligibleEntries[randomIndex]);
                         eligibleEntries.splice(randomIndex, 1);
                     }
                 }
-                return { ...g, winners, status: 'completed' };
+                return { ...g, winners: winnersList, status: GiveawayStatus.ENDED };
             }
             return g;
         }));
