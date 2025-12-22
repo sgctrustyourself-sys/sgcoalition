@@ -19,6 +19,7 @@ interface AppState {
     isCartOpen: boolean;
     isAdminMode: boolean;
     isSupabaseConfigured: boolean;
+    isConfigError: boolean;
     isLoading: boolean;
     addProduct: (p: Product) => Promise<void>;
     updateProduct: (p: Product) => Promise<void>;
@@ -87,6 +88,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isCartOpen, setCartOpen] = useState(false);
     const [isAdminMode, setIsAdminMode] = useState(false);
     const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(false);
+    const [isConfigError, setIsConfigError] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
     // Check Supabase Config & Auth State
@@ -95,7 +97,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const initApp = async () => {
             try {
-                const hasKeys = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
+                const hasKeys = import.meta.env.VITE_SUPABASE_URL &&
+                    import.meta.env.VITE_SUPABASE_ANON_KEY &&
+                    import.meta.env.VITE_SUPABASE_URL !== 'VITE_SUPABASE_URL' &&
+                    import.meta.env.VITE_SUPABASE_ANON_KEY !== 'VITE_SUPABASE_ANON_KEY' &&
+                    import.meta.env.VITE_SUPABASE_ANON_KEY !== 'VITE_SUPABASE_URL';
+
                 if (mounted) setIsSupabaseConfigured(!!hasKeys);
 
                 if (!hasKeys) {
@@ -223,15 +230,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, []);
 
     const fetchProducts = async (): Promise<Product[] | null> => {
-        if (!import.meta.env.VITE_SUPABASE_URL) {
-            console.error('❌ Supabase URL not configured');
-            return null;
+        const url = import.meta.env.VITE_SUPABASE_URL;
+        const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        // Detect literal string placeholders from failed builds/deployments
+        const isUrlInvalid = !url || url === 'VITE_SUPABASE_URL';
+        const isKeyInvalid = !key || key === 'VITE_SUPABASE_ANON_KEY' || key === 'VITE_SUPABASE_URL';
+
+        if (isUrlInvalid || isKeyInvalid) {
+            console.warn('⚠️ Supabase configuration missing or invalid. Falling back to local products.');
+            setIsConfigError(true);
+            setProducts(INITIAL_PRODUCTS);
+            return INITIAL_PRODUCTS;
         }
 
         try {
             console.log('🔄 Fetching products from Supabase...');
             setIsLoading(true);
             const { data, error } = await supabase.from('products').select('*');
+
+            if (error) {
+                if (error.message.includes('Invalid API key') || error.code === 'PGRST301') {
+                    console.error('❌ Supabase Auth Error: Invalid API Key. Please check your environment variables.');
+                    setIsConfigError(true);
+                    setProducts(INITIAL_PRODUCTS);
+                    return INITIAL_PRODUCTS;
+                }
+                throw error;
+            }
 
             if (error) throw error;
 
@@ -683,6 +709,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             isCartOpen,
             isAdminMode,
             isSupabaseConfigured,
+            isConfigError,
             isLoading,
             addProduct,
             updateProduct,

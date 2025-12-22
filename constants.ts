@@ -82,6 +82,19 @@ export const INITIAL_PRODUCTS: Product[] = [
     sizeInventory: {
       'One Size': 200
     }
+  },
+  {
+    id: 'prod_wallet_001',
+    name: 'Custom Coalition x Chrome Hearts Wallet',
+    price: 45.0,
+    images: ['https://i.imgur.com/SS6KbOQ.jpeg', 'https://i.imgur.com/NUXZizv.jpeg'],
+    description: "Exclusive 1/1 custom Coalition x Chrome Hearts collaboration wallet. This unique piece features premium leather construction with signature Chrome Hearts detailing and Coalition branding. A rare collector's item that combines luxury craftsmanship with streetwear culture. One of a kind - once it's gone, it's gone forever.",
+    category: 'accessory',
+    isFeatured: true,
+    sizes: ['One Size'],
+    sizeInventory: {
+      'One Size': 1
+    }
   }
 ];
 
