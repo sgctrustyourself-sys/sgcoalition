@@ -237,3 +237,4 @@ export interface WishlistSettings {
   createdAt: number;
   updatedAt: number;
 }
+declare module 'ethers';

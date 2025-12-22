@@ -128,6 +128,8 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
             const order = {
                 id: `order_${Date.now()}`,
                 orderNumber,
+                userId: 'admin_manual',
+                isGuest: false,
                 customerName,
                 customerEmail,
                 customerPhone,
@@ -137,7 +139,7 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
                 discount,
                 total,
                 paymentMethod,
-                paymentStatus: OrderStatus.PAID,
+                paymentStatus: OrderStatus.PAID as OrderStatus,
                 orderType: 'manual' as const,
                 createdAt: new Date().toISOString(),
                 paidAt: new Date().toISOString(),

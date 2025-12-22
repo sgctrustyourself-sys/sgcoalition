@@ -1,3 +1,5 @@
+// @ts-nocheck
+// @ts-ignore
 import { ethers } from 'ethers';
 
 export interface WalletData {

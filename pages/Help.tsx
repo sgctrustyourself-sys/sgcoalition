@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp, HelpCircle, Wallet, CreditCard, Star, Package, 
 
 interface FAQItem {
     question: string;
-    answer: string | JSX.Element;
+    answer: string | React.ReactNode;
     icon: any;
 }
 
