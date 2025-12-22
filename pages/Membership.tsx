@@ -183,9 +183,10 @@ const Membership = () => {
                         <div className="space-y-4">
                             <div className="flex items-start gap-4 bg-white/5 border border-white/10 rounded-lg p-4">
                                 <div className="text-2xl">🛍️</div>
-                                <div>
+                                <div className="flex-1">
                                     <h4 className="font-bold text-white mb-1">Every Purchase</h4>
-                                    <p className="text-sm text-gray-400">Earn 10% back in SGCoin on all Coalition products</p>
+                                    <p className="text-sm text-gray-400">Earn 1000 SGCoin per $1 spent on all Coalition products</p>
+                                    <p className="text-xs text-yellow-400 mt-1">⚠️ Starting rate - will be adjusted to a more stable price soon</p>
                                 </div>
                             </div>
                             <div className="flex items-start gap-4 bg-white/5 border border-white/10 rounded-lg p-4">

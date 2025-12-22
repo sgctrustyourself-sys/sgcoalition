@@ -60,12 +60,15 @@ const Help = () => {
                 <>
                     <p className="mb-3">SGCoin is our loyalty reward token on the Polygon blockchain. You earn SGCoin automatically on every purchase:</p>
                     <ul className="list-disc list-inside space-y-2 text-gray-300">
-                        <li>Earn <strong>1 SGCoin per $1 spent</strong></li>
+                        <li>Earn <strong>1000 SGCoin per $1 spent</strong></li>
                         <li>SGCoin balance shows in your profile</li>
                         <li>Use SGCoin for exclusive perks and future rewards</li>
                     </ul>
                     <p className="mt-3 text-gray-400 text-sm">
                         <strong>💡 Pro tip:</strong> Linking a crypto wallet is optional. You can shop and earn SGCoin without one!
+                    </p>
+                    <p className="mt-2 text-yellow-400 text-xs">
+                        ⚠️ Starting rate: 1000 SGCoin per $1. Rate will be adjusted to a more stable price soon.
                     </p>
                 </>
             )
