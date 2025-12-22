@@ -26,8 +26,8 @@ const ProductManager: React.FC = () => {
             description: '',
             category: 'apparel',
             isFeatured: false,
-            sizes: ['S', 'M', 'L', 'XL'],
-            sizeInventory: { 'S': 0, 'M': 0, 'L': 0, 'XL': 0 },
+            sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+            sizeInventory: { 'S': 0, 'M': 0, 'L': 0, 'XL': 0, 'XXL': 0 },
         });
     };
 
@@ -135,7 +135,22 @@ const ProductManager: React.FC = () => {
 
     // Update form field
     const updateField = (field: keyof Product, value: any) => {
-        setEditForm(prev => ({ ...prev, [field]: value }));
+        setEditForm(prev => {
+            const updated = { ...prev, [field]: value };
+
+            // Dynamic defaults based on category change
+            if (field === 'category') {
+                if (value === 'accessory') {
+                    updated.sizes = ['One Size'];
+                    updated.sizeInventory = { 'One Size': 0 };
+                } else if (value === 'apparel') {
+                    updated.sizes = ['S', 'M', 'L', 'XL', 'XXL'];
+                    updated.sizeInventory = { 'S': 0, 'M': 0, 'L': 0, 'XL': 0, 'XXL': 0 };
+                }
+            }
+
+            return updated;
+        });
     };
 
     // Update image URL
