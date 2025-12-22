@@ -6,7 +6,7 @@ import SearchBar from '../components/SearchBar';
 import ProductCardSkeleton from '../components/ProductCardSkeleton';
 
 const Shop = () => {
-    const { products, isLoading } = useApp();
+    const { products, isLoading, isConfigError } = useApp();
     const [isFiltersOpen, setFiltersOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -226,6 +226,21 @@ const Shop = () => {
                     ) : filteredProducts.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
                             {filteredProducts.map(p => <ProductCard key={p.id} product={p} />)}
+                        </div>
+                    ) : isConfigError ? (
+                        <div className="py-20 text-center px-4 bg-red-900/10 border border-red-500/20 rounded-lg">
+                            <h3 className="text-xl font-bold text-red-400 mb-2 font-display uppercase">Database Connection Error</h3>
+                            <p className="text-gray-400 max-w-md mx-auto mb-6">
+                                The application is unable to connect to the database. This is usually caused by missing or invalid environment variables in your Vercel settings.
+                            </p>
+                            <div className="text-xs text-left bg-black/50 p-4 rounded border border-white/10 font-mono text-gray-400 max-w-lg mx-auto overflow-x-auto">
+                                <p className="text-red-300 mb-2">// Diagnostic Info:</p>
+                                <p>Error: Invalid API Key (PGRST301)</p>
+                                <p>Variable Status:</p>
+                                <p>- VITE_SUPABASE_URL: {import.meta.env.VITE_SUPABASE_URL ? 'SET' : 'MISSING'}</p>
+                                <p>- VITE_SUPABASE_ANON_KEY: {import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'MISSING'}</p>
+                                <p className="mt-2 text-yellow-300/70">Tip: Ensure these are set in Vercel Project Settings &gt; Environment Variables and that you have triggered a new deployment.</p>
+                            </div>
                         </div>
                     ) : (
                         <div className="py-20 text-center text-gray-500">

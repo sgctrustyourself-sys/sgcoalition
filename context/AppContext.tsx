@@ -1,6 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
-import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderItem, Giveaway, GiveawayEntry } from '../types';
-import { INITIAL_SECTIONS, COIN_REWARD_RATE } from '../constants';
+import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderItem, Giveaway, GiveawayEntry, GiveawayStatus } from '../types';
+import { INITIAL_SECTIONS, COIN_REWARD_RATE, INITIAL_PRODUCTS } from '../constants';
 import { connectWallet, formatAddress, getSGCoinBalance } from '../services/web3Service';
 import { ethers } from 'ethers';
 import { supabase } from '../services/supabase';
@@ -19,6 +19,7 @@ interface AppState {
     isCartOpen: boolean;
     isAdminMode: boolean;
     isSupabaseConfigured: boolean;
+    isConfigError: boolean;
     isLoading: boolean;
     addProduct: (p: Product) => Promise<void>;
     updateProduct: (p: Product) => Promise<void>;
@@ -87,6 +88,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isCartOpen, setCartOpen] = useState(false);
     const [isAdminMode, setIsAdminMode] = useState(false);
     const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(false);
+    const [isConfigError, setIsConfigError] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
     // Check Supabase Config & Auth State
@@ -95,12 +97,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const initApp = async () => {
             try {
-                const hasKeys = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
+                const hasKeys = import.meta.env.VITE_SUPABASE_URL &&
+                    import.meta.env.VITE_SUPABASE_ANON_KEY &&
+                    import.meta.env.VITE_SUPABASE_URL !== 'VITE_SUPABASE_URL';
+
                 if (mounted) setIsSupabaseConfigured(!!hasKeys);
 
                 if (!hasKeys) {
-                    console.error("Supabase keys missing. Cannot load products.");
-                    setProducts([]);
+                    console.warn("Supabase keys missing or invalid. Falling back to initial products.");
+                    setProducts(INITIAL_PRODUCTS);
                     if (mounted) setIsLoading(false);
                     return;
                 }
@@ -223,9 +228,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, []);
 
     const fetchProducts = async (): Promise<Product[] | null> => {
-        if (!import.meta.env.VITE_SUPABASE_URL) {
-            console.error('❌ Supabase URL not configured');
-            return null;
+        if (!import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL === 'VITE_SUPABASE_URL') {
+            console.error('❌ Supabase URL not configured or invalid placeholder used');
+            setProducts(INITIAL_PRODUCTS);
+            return INITIAL_PRODUCTS;
         }
 
         try {
@@ -233,10 +239,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsLoading(true);
             const { data, error } = await supabase.from('products').select('*');
 
-            if (error) throw error;
+            if (error) {
+                if (error.message.includes('Invalid API key') || error.code === 'PGRST301') {
+                    console.error('❌ Supabase Auth Error: Invalid API Key. Falling back to initial products.');
+                    setIsConfigError(true);
+                    setProducts(INITIAL_PRODUCTS);
+                    return INITIAL_PRODUCTS;
+                }
+                throw error;
+            }
 
             if (data) {
                 console.log(`✅ Fetched ${data.length} products from Supabase`);
+                setIsConfigError(false);
                 const mappedProducts: Product[] = data.map(item => ({
                     id: item.id,
                     name: item.name,
@@ -263,7 +278,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return [];
         } catch (err) {
             console.error('❌ Error fetching products:', err);
-            return null;
+            // Fallback to local products if fetch fails
+            setProducts(INITIAL_PRODUCTS);
+            return INITIAL_PRODUCTS;
         } finally {
             setIsLoading(false);
         }
@@ -619,15 +636,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setGiveaways(prev => prev.map(g => {
             if (g.id === giveawayId) {
                 const eligibleEntries = g.entries;
-                const winners: string[] = [];
+                const winners: GiveawayEntry[] = [];
                 for (let i = 0; i < count; i++) {
                     if (eligibleEntries.length > 0) {
                         const randomIndex = Math.floor(Math.random() * eligibleEntries.length);
-                        winners.push(eligibleEntries[randomIndex].userId);
+                        winners.push(eligibleEntries[randomIndex]);
                         eligibleEntries.splice(randomIndex, 1);
                     }
                 }
-                return { ...g, winners, status: 'completed' };
+                return { ...g, winners, status: GiveawayStatus.ENDED };
             }
             return g;
         }));
@@ -683,6 +700,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             isCartOpen,
             isAdminMode,
             isSupabaseConfigured,
+            isConfigError,
             isLoading,
             addProduct,
             updateProduct,
