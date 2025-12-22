@@ -95,6 +95,19 @@ export const INITIAL_PRODUCTS: Product[] = [
     sizeInventory: {
       'One Size': 1
     }
+  },
+  {
+    id: 'prod_wallet_002',
+    name: 'Coalition (Camo Green) Custom Wallet (1/1)',
+    price: 45,
+    images: ['https://i.imgur.com/aphcZ2t.jpg', 'https://i.imgur.com/e7M0POe.jpg'],
+    description: 'Exclusive 1/1 custom wallet featuring camo green aesthetic and signature Coalition branding. Hand-crafted and unique.',
+    category: 'accessory',
+    isFeatured: true,
+    sizes: ['One Size'],
+    sizeInventory: {
+      'One Size': 1
+    }
   }
 ];
 
