@@ -58,6 +58,7 @@ interface AppState {
     disconnectWallet: () => Promise<void>;
     fetchProducts: () => Promise<Product[] | null>;
     autoCommit: (options: any) => Promise<string | null>;
+    users: UserProfile[]; // TODO: Implement user fetching for public wishlists
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -304,11 +305,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (saved) {
                     const localProducts: Product[] = JSON.parse(saved);
                     mergedProducts = mappedProducts.map(dbProduct => {
-                        const localProduct = localProducts.find(p => p.id === dbProduct.id);
-                        if (localProduct && localProduct.updatedAt && dbProduct.updatedAt) {
-                            // If local is newer, keep local
-                            if (new Date(localProduct.updatedAt) > new Date(dbProduct.updatedAt)) {
-                                console.log(`💎 Using dominant local version for ${dbProduct.name}`);
+                        // ROBUST ID COMPARISON: Ensure both are strings
+                        const localProduct = localProducts.find(p => String(p.id) === String(dbProduct.id));
+
+                        if (localProduct && localProduct.updatedAt) {
+                            // CASE 1: DB has no timestamp (schema error or legacy) -> Local wins
+                            if (!dbProduct.updatedAt) {
+                                console.log(`💎 Dominance: Local wins (DB has no timestamp) for ${dbProduct.name}`);
+                                return localProduct;
+                            }
+
+                            // CASE 2: Compare timestamps
+                            const dbTime = new Date(dbProduct.updatedAt).getTime();
+                            const localTime = new Date(localProduct.updatedAt).getTime();
+
+                            if (localTime > dbTime) {
+                                console.log(`💎 Dominance: Local wins (Newer) for ${dbProduct.name}`);
                                 return localProduct;
                             }
                         }
@@ -776,6 +788,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             products,
             cart,
             user,
+            users: [], // TODO: Implement or fetch users
             sections,
             orders,
             isCartOpen,
