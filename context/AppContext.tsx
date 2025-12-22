@@ -68,7 +68,10 @@ export const useApp = () => {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { addToast } = useToast();
-    const [products, setProducts] = useState<Product[]>([]);
+    const [products, setProducts] = useState<Product[]>(() => {
+        const saved = localStorage.getItem('coalition_products_local');
+        return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+    });
 
     const [sections, setSections] = useState<Section[]>(() => {
         const saved = localStorage.getItem('coalition_sections');
@@ -240,8 +243,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (isUrlInvalid || isKeyInvalid) {
             console.warn('⚠️ Supabase configuration missing or invalid. Falling back to local products.');
             setIsConfigError(true);
-            setProducts(INITIAL_PRODUCTS);
-            return INITIAL_PRODUCTS;
+            const saved = localStorage.getItem('coalition_products_local');
+            const productsToLoad = saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+            setProducts(productsToLoad);
+            return productsToLoad;
         }
 
         try {
@@ -253,8 +258,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (error.message.includes('Invalid API key') || error.code === 'PGRST301') {
                     console.error('❌ Supabase Auth Error: Invalid API Key. Please check your environment variables.');
                     setIsConfigError(true);
-                    setProducts(INITIAL_PRODUCTS);
-                    return INITIAL_PRODUCTS;
+                    const saved = localStorage.getItem('coalition_products_local');
+                    const productsToLoad = saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+                    setProducts(productsToLoad);
+                    return productsToLoad;
                 }
                 throw error;
             }
@@ -320,7 +327,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.log('➕ Adding product:', p.name);
 
         // OPTIMISTIC UPDATE: Add to local state immediately
-        setProducts(prev => [...prev, p]);
+        const newProducts = [...products, p];
+        setProducts(newProducts);
+        localStorage.setItem('coalition_products_local', JSON.stringify(newProducts));
 
         try {
             const dbProduct = {
@@ -345,7 +354,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (error) {
                 console.error('❌ Error adding product:', error);
                 // ROLLBACK: Remove from local state
-                setProducts(prev => prev.filter(prod => prod.id !== p.id));
+                const filtered = products.filter(prod => prod.id !== p.id);
+                setProducts(filtered);
+                localStorage.setItem('coalition_products_local', JSON.stringify(filtered));
                 // Add to retry queue
                 retryQueue.add('add', p);
                 addToast(`Failed to save product "${p.name}". It will be retried automatically.`, 'error');
@@ -369,7 +380,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } catch (err) {
             console.error('❌ Unexpected error adding product:', err);
             // ROLLBACK: Remove from local state
-            setProducts(prev => prev.filter(prod => prod.id !== p.id));
+            const filtered = products.filter(prod => prod.id !== p.id);
+            setProducts(filtered);
+            localStorage.setItem('coalition_products_local', JSON.stringify(filtered));
             retryQueue.add('add', p);
             addToast(`Unexpected error saving product "${p.name}". It will be retried automatically.`, 'error');
         }
@@ -388,7 +401,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const originalProduct = products.find(p => p.id === updated.id);
 
         // OPTIMISTIC UPDATE: Update local state immediately
-        setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
+        const updatedList = products.map(p => p.id === updated.id ? updated : p);
+        setProducts(updatedList);
+        localStorage.setItem('coalition_products_local', JSON.stringify(updatedList));
 
         const dbProduct = {
             name: updated.name,
@@ -426,7 +441,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
                 // ROLLBACK: Restore original state
                 if (originalProduct) {
-                    setProducts(prev => prev.map(p => p.id === updated.id ? originalProduct : p));
+                    const restoredList = products.map(p => p.id === updated.id ? originalProduct : p);
+                    setProducts(restoredList);
+                    localStorage.setItem('coalition_products_local', JSON.stringify(restoredList));
                 }
 
                 // Add to retry queue
@@ -457,7 +474,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             // ROLLBACK: Restore original state
             if (originalProduct) {
-                setProducts(prev => prev.map(p => p.id === updated.id ? originalProduct : p));
+                const restoredList = products.map(p => p.id === updated.id ? originalProduct : p);
+                setProducts(restoredList);
+                localStorage.setItem('coalition_products_local', JSON.stringify(restoredList));
             }
 
             retryQueue.add('update', updated);
@@ -475,12 +494,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 console.error('Error deleting product:', error);
                 alert('Failed to delete product from database');
             } else {
-                setProducts(prev => prev.filter(p => p.id !== id));
+                const filtered = products.filter(p => p.id !== id);
+                setProducts(filtered);
+                localStorage.setItem('coalition_products_local', JSON.stringify(filtered));
                 await autoCommit({ message: generateProductDeletedMessage(productName) });
             }
         } else {
-            setProducts(prev => prev.filter(p => p.id !== id));
-            await autoCommit({ message: generateProductDeletedMessage(productName) });
+            // Fallback for local persistence when Supabase is down
+            const filtered = products.filter(p => p.id !== id);
+            setProducts(filtered);
+            localStorage.setItem('coalition_products_local', JSON.stringify(filtered));
+            addToast(`Product "${productName}" removed locally. Sync to database failed.`, 'warning');
         }
     };
 

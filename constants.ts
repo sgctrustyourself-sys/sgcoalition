@@ -25,7 +25,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     "soldAt": null
   },
   {
-    "id": "prod_003",
+    "id": "prod_wallet_001",
     "name": "Custom Coalition x Chrome Hearts Wallet",
     "price": 45,
     "images": [
@@ -40,29 +40,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     "sizeInventory": {
       "One Size": 0
-    },
-    "nft": null,
-    "archived": true,
-    "archivedAt": null,
-    "releasedAt": null,
-    "soldAt": null
-  },
-  {
-    "id": "prod_002",
-    "name": "Custom Wallet (1/1)",
-    "price": 35,
-    "images": [
-      "https://i.imgur.com/aphcZ2t.jpg",
-      "https://i.imgur.com/e7M0POe.jpg"
-    ],
-    "description": "Exclusive 1/1 custom wallet featuring camo green aesthetic and signature Coalition branding. Hand-crafted and unique.",
-    "category": "accessory",
-    "isFeatured": false,
-    "sizes": [
-      "One Size"
-    ],
-    "sizeInventory": {
-      "One Size": 1
     },
     "nft": null,
     "archived": false,
@@ -106,6 +83,29 @@ export const INITIAL_PRODUCTS: Product[] = [
       "openseaUrl": "https://opensea.io/item/polygon/0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201/6915469788939700255662107688630493008422408564534094781606241966635645665283",
       "contractAddress": "0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201"
     },
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
+  },
+  {
+    "id": "prod_wallet_002",
+    "name": "Coalition Green Camo Wallet",
+    "price": 35,
+    "images": [
+      "https://i.imgur.com/aphcZ2t.jpg",
+      "https://i.imgur.com/e7M0POe.jpg"
+    ],
+    "description": "Exclusive 1/1 custom wallet featuring camo green aesthetic and signature Coalition branding. Hand-crafted and unique.",
+    "category": "accessory",
+    "isFeatured": false,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 1
+    },
+    "nft": null,
     "archived": false,
     "archivedAt": null,
     "releasedAt": null,
