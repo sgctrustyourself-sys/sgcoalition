@@ -110,7 +110,7 @@ const Help = () => {
         {
             icon: Shield,
             question: "What is your return policy?",
-            answer: "We accept returns within 30 days of delivery for unworn, unwashed items with original tags. Email support@coalitionbrand.com to initiate a return. Note: Items marked as 'Final Sale' or purchased with full store credit are not eligible for return."
+            answer: "We accept returns within 30 days of delivery for unworn, unwashed items with original tags. Email sgctrustyourself@gmail.com to initiate a return. Note: Items marked as 'Final Sale' or purchased with full store credit are not eligible for return."
         },
         {
             icon: HelpCircle,
@@ -129,7 +129,7 @@ const Help = () => {
                 <>
                     <p className="mb-3">We're here to help! Reach us at:</p>
                     <ul className="list-disc list-inside space-y-2 text-gray-300">
-                        <li>Email: <a href="mailto:support@coalitionbrand.com" className="text-purple-400 hover:text-purple-300 underline">support@coalitionbrand.com</a></li>
+                        <li>Email: <a href="mailto:sgctrustyourself@gmail.com" className="text-purple-400 hover:text-purple-300 underline">sgctrustyourself@gmail.com</a></li>
                         <li>Join our <a href="https://discord.gg/bByqsC5f5V" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 underline">Discord community</a></li>
                     </ul>
                 </>
@@ -205,7 +205,7 @@ const Help = () => {
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <a
-                            href="mailto:support@coalitionbrand.com"
+                            href="mailto:sgctrustyourself@gmail.com"
                             className="px-8 py-3 bg-white text-black font-bold uppercase tracking-widest hover:bg-gray-200 transition-all"
                         >
                             Email Support

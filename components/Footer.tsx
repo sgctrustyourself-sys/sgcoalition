@@ -31,7 +31,7 @@ const Footer = () => {
                         <li><Link to="/about" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">About Us</Link></li>
                         <li><Link to="/help" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Help</Link></li>
                         <li><Link to="/archive" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Archive</Link></li>
-                        <li><a href="mailto:support@coalitionbrand.com" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Contact Us</a></li>
+                        <li><a href="mailto:sgctrustyourself@gmail.com" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Contact Us</a></li>
                     </ul>
                 </div>
                 <div>

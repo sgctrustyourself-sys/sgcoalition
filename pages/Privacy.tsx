@@ -53,7 +53,7 @@ const Privacy = () => {
                     <section>
                         <h2 className="font-bold text-black text-xl uppercase mb-4">5. Contact Us</h2>
                         <p>
-                            If you have any questions about this privacy policy or our privacy practices, please contact us at support@coalitionbrand.com.
+                            If you have any questions about this privacy policy or our privacy practices, please contact us at sgctrustyourself@gmail.com.
                         </p>
                     </section>
                 </div>
