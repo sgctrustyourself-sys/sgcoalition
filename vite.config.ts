@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => {
             vendor: ['react', 'react-dom', 'react-router-dom'],
             supabase: ['@supabase/supabase-js'],
             ui: ['lucide-react', 'framer-motion'],
-            utils: ['ethers', 'date-fns']
+            utils: ['ethers']
           }
         }
       }
