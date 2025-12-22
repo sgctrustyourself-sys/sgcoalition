@@ -7,11 +7,8 @@ export interface WalletData {
     sgCoinBalance?: number;
 }
 
-declare global {
-    interface Window {
-        ethereum?: any;
-    }
-}
+// Window interface declaration removed to avoid conflict
+
 
 // SGCoin Token Contract Address on Polygon
 const SGCOIN_CONTRACT_ADDRESS = '0x951806a2581c22C478aC613a675e6c898E2aBe21';
@@ -60,9 +57,9 @@ export const checkNftOwnership = async (
     existingProvider?: ethers.BrowserProvider
 ): Promise<boolean> => {
     try {
-        if (!window.ethereum) return false;
+        if (!(window as any).ethereum) return false;
 
-        const provider = existingProvider || new ethers.BrowserProvider(window.ethereum);
+        const provider = existingProvider || new ethers.BrowserProvider((window as any).ethereum);
         const network = await provider.getNetwork();
 
         if (Number(network.chainId) !== POLYGON_CHAIN_ID) {
@@ -80,13 +77,13 @@ export const checkNftOwnership = async (
 };
 
 export const connectWallet = async (): Promise<WalletData | null> => {
-    if (!window.ethereum) {
+    if (!(window as any).ethereum) {
         alert("MetaMask is not installed. Please install it to use Web3 features.");
         return null;
     }
 
     try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        const provider = new ethers.BrowserProvider((window as any).ethereum);
         const accounts = await provider.send("eth_requestAccounts", []);
 
         if (accounts.length === 0) {

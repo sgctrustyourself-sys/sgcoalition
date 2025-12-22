@@ -1,0 +1,8 @@
+﻿C:\Users\SG\Downloads\New folder (2)\constants.ts
+C:\Users\SG\Downloads\New folder (2)\constants_9606965.ts
+C:\Users\SG\Downloads\New folder (2)\constants_old.ts
+C:\Users\SG\Downloads\New folder (2)\constants_utf8.ts
+C:\Users\SG\Downloads\New folder (2)\constants_vold.ts
+C:\Users\SG\Downloads\New folder (2)\context\AppContext.tsx
+C:\Users\SG\Downloads\New folder (2)\scripts\seedProducts.ts
+C:\Users\SG\Downloads\New folder (2)\scripts\syncProducts.ts

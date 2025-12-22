@@ -26,6 +26,7 @@ export interface Product {
   // Urgency & Scarcity Fields
   isLimitedEdition?: boolean; // Limited edition badge
   saleEndDate?: string; // ISO timestamp for flash sales
+  updatedAt?: string;   // ISO timestamp for dominance tracking
 }
 
 export interface CartItem extends Product {
@@ -46,7 +47,6 @@ export interface UserProfile {
   isAdmin: boolean;
   favorites: string[]; // Product IDs
   addresses?: Address[];
-  defaultAddressId?: string;
   defaultAddressId?: string;
   wishlistSettings?: WishlistSettings; // Wishlist sharing configuration
   // Membership / Subscription

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Heart, Share2, Shield, Plus, Trash2, X, Upload, ExternalLink, Smartphone, Scan } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -6,10 +6,6 @@ import { Product, AuthProvider } from '../types';
 import { ethers } from 'ethers';
 import { checkNftOwnership, switchToPolygon } from '../services/web3Service';
 import { Lock, Unlock, Loader } from 'lucide-react';
-import FrequentlyBoughtTogether from '../components/FrequentlyBoughtTogether';
-import FloatingHelpButton from '../components/FloatingHelpButton';
-
-const ProductReviews = React.lazy(() => import('../components/ProductReviews'));
 
 const ProductDetails = () => {
     const { id } = useParams();
@@ -44,6 +40,8 @@ const ProductDetails = () => {
             if (!currentAddress) {
                 // Trigger login if not connected
                 await loginUser(AuthProvider.METAMASK);
+                // We need to wait a bit or check if login was successful. 
+                // For simplicity, we'll ask them to click again if not connected immediately.
                 if (!window.ethereum?.selectedAddress) {
                     setUnlockMessage('Please connect your wallet to verify ownership.');
                     setIsCheckingNft(false);
@@ -71,10 +69,10 @@ const ProductDetails = () => {
 
             if (isOwner) {
                 setNftOwned(true);
-                setUnlockMessage('🎁 Verified! You own this item.');
+                setUnlockMessage('≡ƒÄë Verified! You own this item.');
             } else {
                 setNftOwned(false);
-                setUnlockMessage('❌ You do not own this NFT yet. Buy the shirt to claim it!');
+                setUnlockMessage('Γ¥î You do not own this NFT yet. Buy the shirt to claim it!');
             }
 
         } catch (error) {
@@ -132,11 +130,13 @@ const ProductDetails = () => {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        // Validate file type
         if (!file.type.startsWith('image/')) {
             alert('Please select an image file (JPG, PNG, GIF, WebP)');
             return;
         }
 
+        // Validate file size (2MB limit)
         if (file.size > 2 * 1024 * 1024) {
             alert('Image must be less than 2MB. Please choose a smaller file.');
             return;
@@ -151,6 +151,7 @@ const ProductDetails = () => {
                 setEditForm({ ...editForm, images: [...editForm.images, base64] });
             }
             setIsUploading(false);
+            // Reset file input
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
@@ -182,7 +183,6 @@ const ProductDetails = () => {
                                 <button
                                     onClick={() => toggleFavorite(product.id)}
                                     className="absolute top-4 right-4 p-3 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition shadow-sm"
-                                    title={isFav ? 'Remove from favorites' : 'Add to favorites'}
                                 >
                                     <Heart className={`w-5 h-5 ${isFav ? 'fill-red-500 text-red-500' : 'text-gray-900'}`} />
                                 </button>
@@ -212,27 +212,22 @@ const ProductDetails = () => {
                                 </div>
 
                                 <div>
-                                    <label htmlFor="edit-name" className="block text-xs font-bold uppercase text-gray-400 mb-1">Name</label>
+                                    <label className="block text-xs font-bold uppercase text-gray-400 mb-1">Name</label>
                                     <input
-                                        id="edit-name"
                                         className="w-full p-2 border border-white/10 rounded-sm bg-black/30 text-white placeholder-gray-500"
                                         value={editForm.name || ''}
                                         onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                                        title="Product Name"
-                                        placeholder="Product Name"
                                     />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label htmlFor="edit-price" className="block text-xs font-bold uppercase text-gray-400 mb-1">Price</label>
+                                        <label className="block text-xs font-bold uppercase text-gray-400 mb-1">Price</label>
                                         <input
-                                            id="edit-price"
                                             type="number"
                                             className="w-full p-2 border border-white/10 rounded-sm bg-black/30 text-white"
                                             value={editForm.price || 0}
                                             onChange={e => setEditForm({ ...editForm, price: Number(e.target.value) })}
-                                            title="Product Price"
                                         />
                                     </div>
                                     <div>
@@ -240,9 +235,8 @@ const ProductDetails = () => {
                                         <div className="space-y-2">
                                             {(editForm.sizes || ['S', 'M', 'L', 'XL']).map((size) => (
                                                 <div key={size} className="flex items-center gap-2">
-                                                    <label htmlFor={`edit-inventory-${size}`} className="w-12 text-xs font-bold text-gray-400">{size}:</label>
+                                                    <span className="w-12 text-xs font-bold text-gray-400">{size}:</span>
                                                     <input
-                                                        id={`edit-inventory-${size}`}
                                                         type="number"
                                                         value={editForm.sizeInventory?.[size] || 0}
                                                         onChange={(e) => {
@@ -252,7 +246,6 @@ const ProductDetails = () => {
                                                         }}
                                                         className="flex-1 p-2 border border-white/10 rounded-sm bg-black/30 text-white"
                                                         min="0"
-                                                        title={`${size} Inventory`}
                                                     />
                                                 </div>
                                             ))}
@@ -261,13 +254,11 @@ const ProductDetails = () => {
                                 </div>
 
                                 <div>
-                                    <label htmlFor="edit-description" className="block text-xs font-bold uppercase text-gray-400 mb-1">Description</label>
+                                    <label className="block text-xs font-bold uppercase text-gray-400 mb-1">Description</label>
                                     <textarea
-                                        id="edit-description"
                                         className="w-full p-2 border border-white/10 rounded-sm h-24 bg-black/30 text-white placeholder-gray-500"
                                         value={editForm.description || ''}
                                         onChange={e => setEditForm({ ...editForm, description: e.target.value })}
-                                        title="Product Description"
                                     />
                                 </div>
 
@@ -277,14 +268,11 @@ const ProductDetails = () => {
 
                                     {/* URL Input */}
                                     <div className="flex space-x-2 mb-2">
-                                        <label htmlFor="edit-image-url" className="sr-only">New Image URL</label>
                                         <input
-                                            id="edit-image-url"
                                             className="flex-1 p-2 border border-white/10 rounded-sm text-sm bg-black/30 text-white placeholder-gray-500"
                                             placeholder="Image URL"
                                             value={newImageUrl}
                                             onChange={e => setNewImageUrl(e.target.value)}
-                                            title="New Image URL"
                                         />
                                         <button onClick={addImage} className="bg-white/10 px-3 rounded-sm hover:bg-white/20 border border-white/10" title="Add from URL">
                                             <Plus className="w-4 h-4 text-white" />
@@ -299,8 +287,6 @@ const ProductDetails = () => {
                                             accept="image/*"
                                             onChange={handleImageUpload}
                                             className="hidden"
-                                            title="Upload product image"
-                                            aria-label="Upload product image"
                                         />
                                         <button
                                             onClick={() => fileInputRef.current?.click()}
@@ -310,7 +296,7 @@ const ProductDetails = () => {
                                             <Upload className="w-4 h-4" />
                                             {isUploading ? 'Uploading...' : 'Upload from PC'}
                                         </button>
-                                        <p className="text-xs text-gray-400 mt-1 text-center">JPG, PNG, GIF, WebP • Max 2MB</p>
+                                        <p className="text-xs text-gray-400 mt-1 text-center">JPG, PNG, GIF, WebP ΓÇó Max 2MB</p>
                                     </div>
 
                                     {/* Image Grid */}
@@ -321,7 +307,6 @@ const ProductDetails = () => {
                                                 <button
                                                     onClick={() => removeImage(idx)}
                                                     className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
-                                                    title="Remove image"
                                                 >
                                                     <X className="w-3 h-3" />
                                                 </button>
@@ -507,20 +492,7 @@ const ProductDetails = () => {
                         )}
                     </div>
                 </div>
-
-                {/* Frequently Bought Together */}
-                <div className="mt-12">
-                    <FrequentlyBoughtTogether currentProduct={product} />
-                </div>
-
-                {/* Product Reviews */}
-                <div className="mt-12">
-                    <React.Suspense fallback={<div className="h-40 bg-white/5 animate-pulse rounded-lg" />}>
-                        <ProductReviews productId={product.id} />
-                    </React.Suspense>
-                </div>
             </div>
-            <FloatingHelpButton />
         </div>
     );
 };

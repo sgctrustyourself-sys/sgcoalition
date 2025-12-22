@@ -1,17 +1,32 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
-import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, Copy, Search, AlertCircle, CheckCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, Copy, Search, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 
 const ProductManager: React.FC = () => {
-    const { products, addProduct, updateProduct, deleteProduct } = useApp();
+    const { products, addProduct, updateProduct, deleteProduct, fetchProducts, autoCommit } = useApp();
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isAdding, setIsAdding] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [editForm, setEditForm] = useState<Partial<Product>>({});
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+
+    // Helper to clean Imgur URLs (convert gallery/album links to direct links)
+    const cleanImgurUrl = (url: string): string => {
+        if (!url) return url;
+        let cleaned = url.trim();
+
+        // Convert imgur.com/a/abc or imgur.com/gallery/abc to i.imgur.com/abc.png
+        if (cleaned.includes('imgur.com/') && !cleaned.includes('i.imgur.com/')) {
+            const parts = cleaned.split('/');
+            const id = parts[parts.length - 1].split('.')[0];
+            cleaned = `https://i.imgur.com/${id}.png`;
+        }
+        return cleaned;
+    };
 
     // Initialize new product form
     const initNewProduct = () => {
@@ -156,7 +171,7 @@ const ProductManager: React.FC = () => {
     // Update image URL
     const updateImage = (index: number, value: string) => {
         const newImages = [...(editForm.images || [''])];
-        newImages[index] = value;
+        newImages[index] = cleanImgurUrl(value);
         setEditForm(prev => ({ ...prev, images: newImages }));
     };
 
@@ -169,6 +184,32 @@ const ProductManager: React.FC = () => {
     const removeImageField = (index: number) => {
         const newImages = (editForm.images || ['']).filter((_, i) => i !== index);
         setEditForm(prev => ({ ...prev, images: newImages.length > 0 ? newImages : [''] }));
+    };
+
+    // Handle manual sync/save
+    const handleManualSync = async () => {
+        setIsSyncing(true);
+        setSuccess(null);
+        setError(null);
+
+        try {
+            console.log('🔄 Manual sync triggered...');
+            const latest = await fetchProducts();
+            if (latest) {
+                // Trigger a global "Save" commit
+                await autoCommit({
+                    message: `Manual catalog sync & lock-in (${latest.length} products)`,
+                    author: 'Coalition Admin'
+                });
+                setSuccess('Catalog successfully saved and locked in!');
+                setTimeout(() => setSuccess(null), 3000);
+            }
+        } catch (err) {
+            console.error('Manual sync failed:', err);
+            setError('Failed to sync and lock in changes. Please try again.');
+        } finally {
+            setIsSyncing(false);
+        }
     };
 
     // Filter products
@@ -197,8 +238,18 @@ const ProductManager: React.FC = () => {
                         />
                     </div>
                     <button
+                        onClick={handleManualSync}
+                        disabled={isSyncing}
+                        className="flex items-center gap-2 bg-brand-accent text-white px-4 py-2 rounded-lg font-bold uppercase text-sm hover:bg-brand-accent/80 transition disabled:opacity-50"
+                        title="Save and lock in all changes"
+                    >
+                        {isSyncing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {isSyncing ? 'Syncing...' : 'Save & Lock'}
+                    </button>
+                    <button
                         onClick={initNewProduct}
                         className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-lg font-bold uppercase text-sm hover:bg-gray-200 transition"
+                        title="Add New Product"
                     >
                         <Plus className="w-4 h-4" />
                         Add Product
@@ -227,7 +278,7 @@ const ProductManager: React.FC = () => {
                         <h3 className="font-display text-xl font-bold uppercase text-white">
                             {isAdding ? 'Add New Product' : 'Edit Product'}
                         </h3>
-                        <button onClick={cancelEdit} className="text-gray-400 hover:text-white transition">
+                        <button onClick={cancelEdit} className="text-gray-400 hover:text-white transition" title="Close editor">
                             <X className="w-6 h-6" />
                         </button>
                     </div>
@@ -236,33 +287,39 @@ const ProductManager: React.FC = () => {
                         {/* Left Column: Basic Info */}
                         <div className="space-y-5">
                             <div>
-                                <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Product Name</label>
+                                <label htmlFor="product-name" className="block text-xs font-bold uppercase text-gray-400 mb-2">Product Name</label>
                                 <input
+                                    id="product-name"
                                     type="text"
                                     value={editForm.name || ''}
                                     onChange={(e) => updateField('name', e.target.value)}
                                     className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-white/30 outline-none"
                                     placeholder="e.g. Coalition Classic Tee"
+                                    title="Product Name"
                                 />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Price ($)</label>
+                                    <label htmlFor="product-price" className="block text-xs font-bold uppercase text-gray-400 mb-2">Price ($)</label>
                                     <input
+                                        id="product-price"
                                         type="number"
                                         value={editForm.price || 0}
                                         onChange={(e) => updateField('price', parseFloat(e.target.value))}
                                         className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-white/30 outline-none"
                                         step="0.01"
+                                        title="Product Price"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Category</label>
+                                    <label htmlFor="product-category" className="block text-xs font-bold uppercase text-gray-400 mb-2">Category</label>
                                     <select
+                                        id="product-category"
                                         value={editForm.category || 'apparel'}
                                         onChange={(e) => updateField('category', e.target.value)}
                                         className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-white/30 outline-none"
+                                        title="Product Category"
                                     >
                                         <option value="apparel">Apparel</option>
                                         <option value="accessory">Accessory</option>
@@ -275,8 +332,9 @@ const ProductManager: React.FC = () => {
                                 <div className="bg-black/30 border border-white/10 rounded-lg p-4 space-y-3">
                                     {(editForm.sizes || ['S', 'M', 'L', 'XL']).map((size) => (
                                         <div key={size} className="flex items-center gap-4">
-                                            <span className="w-12 text-sm font-bold text-gray-400">{size}</span>
+                                            <label htmlFor={`inventory-${size}`} className="w-12 text-sm font-bold text-gray-400">{size}</label>
                                             <input
+                                                id={`inventory-${size}`}
                                                 type="number"
                                                 value={editForm.sizeInventory?.[size] || 0}
                                                 onChange={(e) => {
@@ -286,6 +344,7 @@ const ProductManager: React.FC = () => {
                                                 }}
                                                 className="flex-1 bg-black/20 border border-white/10 rounded p-2 text-white text-sm focus:border-white/30 outline-none"
                                                 min="0"
+                                                title={`${size} Inventory`}
                                             />
                                         </div>
                                     ))}
@@ -334,12 +393,14 @@ const ProductManager: React.FC = () => {
                                         id="imgur-input"
                                         className="flex-1 bg-black/30 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-white/30 outline-none"
                                         placeholder="Paste Imgur URL (e.g. https://i.imgur.com/...)"
+                                        title="Paste Imgur URL"
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
                                                 e.preventDefault();
                                                 const input = e.currentTarget;
                                                 if (input.value) {
-                                                    setEditForm(prev => ({ ...prev, images: [...(prev.images || []), input.value] }));
+                                                    const cleaned = cleanImgurUrl(input.value);
+                                                    setEditForm(prev => ({ ...prev, images: [...(prev.images || []), cleaned] }));
                                                     input.value = '';
                                                 }
                                             }
@@ -349,11 +410,13 @@ const ProductManager: React.FC = () => {
                                         onClick={() => {
                                             const input = document.getElementById('imgur-input') as HTMLInputElement;
                                             if (input.value) {
-                                                setEditForm(prev => ({ ...prev, images: [...(prev.images || []), input.value] }));
+                                                const cleaned = cleanImgurUrl(input.value);
+                                                setEditForm(prev => ({ ...prev, images: [...(prev.images || []), cleaned] }));
                                                 input.value = '';
                                             }
                                         }}
                                         className="bg-white/10 text-white px-4 rounded-lg font-bold uppercase text-xs hover:bg-white/20"
+                                        title="Add Image URL"
                                     >
                                         Add
                                     </button>
@@ -364,12 +427,14 @@ const ProductManager: React.FC = () => {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Description</label>
+                                <label htmlFor="product-description" className="block text-xs font-bold uppercase text-gray-400 mb-2">Description</label>
                                 <textarea
+                                    id="product-description"
                                     value={editForm.description || ''}
                                     onChange={(e) => updateField('description', e.target.value)}
                                     className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-white/30 outline-none h-32"
                                     placeholder="Product description..."
+                                    title="Product Description"
                                 />
                             </div>
 
@@ -380,12 +445,14 @@ const ProductManager: React.FC = () => {
                                         <h4 className="font-bold text-white uppercase text-sm">Archive Product</h4>
                                         <p className="text-xs text-gray-400">Hide from shop but keep in archive</p>
                                     </div>
-                                    <label className="relative inline-flex items-center cursor-pointer">
+                                    <label htmlFor="archived-toggle" className="relative inline-flex items-center cursor-pointer">
                                         <input
+                                            id="archived-toggle"
                                             type="checkbox"
                                             className="sr-only peer"
                                             checked={editForm.archived || false}
                                             onChange={(e) => updateField('archived', e.target.checked)}
+                                            title="Archive Toggle"
                                         />
                                         <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-accent"></div>
                                     </label>

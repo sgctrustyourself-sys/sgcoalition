@@ -3,7 +3,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { validateConsent, captureConsent } from '../services/consentTracking';
 import { validateRefundRequest } from '../services/refunds';
-import { CONSENT_TEXT } from '../constants';
+import { CONSENT_TEXT, SALES_FINAL_ENABLED } from '../constants';
 
 describe('Consent Tracking', () => {
     describe('validateConsent', () => {
@@ -180,9 +180,9 @@ describe('Checkout Flow Integration', () => {
     });
 
     it('should allow checkout if policy is disabled', () => {
-        const SALES_FINAL_ENABLED = false;
+        const SALES_FINAL_ENABLED_LOCAL = false;
         const consentChecked = false;
-        const canProceed = consentChecked || !SALES_FINAL_ENABLED;
+        const canProceed = consentChecked || !SALES_FINAL_ENABLED_LOCAL;
 
         expect(canProceed).toBe(true);
     });

@@ -1,117 +1,36 @@
 # Vercel Deployment Checklist
 
-## Pre-Deployment
+To resolve the Supabase connection issues and ensure all 4 products are visible on [sgcoalition.xyz](https://sgcoalition.xyz), please follow these steps:
 
-- [ ] **Database Migration Applied**
-  - Ran `supabase_migration.sql` ✅
-  - Ran `supabase_production_security.sql` (RLS policies)
-  
-- [ ] **Environment Variables Ready**
-  - Stripe live publishable key (`pk_live_...`)
-  - Stripe live secret key (`sk_live_...`)
-  - Stripe webhook secret (`whsec_...`)
-  - Supabase URL and anon key (already set)
-  - Production app URL
+## 1. Verify Vercel Environment Variables
+Go to your Vercel Project Settings > Environment Variables and ensure the following are set for **Production**, **Preview**, and **Development**:
 
-- [ ] **Code Review**
-  - No console.logs with sensitive data
-  - No hardcoded secrets
-  - Admin password changed from default
-  - CORS configured for production domain
+- **VITE_SUPABASE_URL**: Should be your Supabase Project URL (e.g., `https://xyz.supabase.co`)
+- **VITE_SUPABASE_ANON_KEY**: Should be your Supabase Anon/Public Key.
 
-## Deployment Steps
+> [!IMPORTANT]
+> **UPDATE:** I have just committed a fix to `AppContext.tsx`. The previous version had a bug that caused the site to show "No products match your criteria" if Supabase was not connected. 
+> 
+> Once you **REDEPLOY** in Step 3, the site will correctly fall back to the 4 initial products (NF-Tee and Wallets) even if your Supabase keys are still being sorted out.
 
-### 1. Install Vercel CLI
-```bash
-npm install -g vercel
-```
+> [!IMPORTANT]
+> Ensure there are no leading/trailing spaces in the values. Use the "Plaintext" view to double-check.
 
-### 2. Login
-```bash
-vercel login
-```
+## 2. Check for "Build Time" vs "Runtime"
+In Vercel, Vite environment variables (starting with `VITE_`) must be available at **Build Time**. If you added them recently, you **MUST** trigger a new deployment for them to be embedded in the JavaScript bundle.
 
-### 3. Deploy
-```bash
-# Preview deployment
-vercel
+## 3. Trigger a Fresh Deployment
+1. Go to the **Deployments** tab in Vercel.
+2. Find the latest deployment.
+3. Click the three dots (...) and select **Redeploy**.
+4. Ensure "Use existing Build Cache" is **NOT** checked (to ensure a clean build with the latest `constants.ts`).
 
-# Production deployment
-vercel --prod
-```
-
-### 4. Configure Environment Variables
-
-Go to Vercel Dashboard → Settings → Environment Variables
-
-Add each variable from `.env.production.template`
-
-### 5. Redeploy with Environment Variables
-```bash
-vercel --prod
-```
-
-## Post-Deployment
-
-- [ ] **Test Payment Flow**
-  - Add product to cart
-  - Complete checkout with test card
-  - Verify order appears in admin
-  
-- [ ] **Verify Webhook**
-  - Check Stripe Dashboard → Webhooks
-  - Confirm events are being received
-  
-- [ ] **Test Admin Panel**
-  - Login to admin
-  - Create/update/delete product
-  - View orders
-  
-- [ ] **Monitor Logs**
-  ```bash
-  vercel logs --prod
-  ```
-
-- [ ] **Check Performance**
-  - Page load times
-  - API response times
-  - Database query performance
-
-## Quick Commands
-
-```bash
-# View deployment URL
-vercel ls
-
-# View logs
-vercel logs --prod
-
-# View environment variables
-vercel env ls
-
-# Remove deployment
-vercel rm [deployment-url]
-```
-
-## Troubleshooting
-
-### Deployment fails
-- Check build logs: `vercel logs`
-- Verify `package.json` scripts
-- Ensure all dependencies are in `dependencies`, not `devDependencies`
-
-### Environment variables not working
-- Redeploy after adding variables
-- Check variable names match exactly (case-sensitive)
-- Verify variables are set for "Production" environment
-
-### Stripe webhook not working
-- Update webhook URL in Stripe Dashboard
-- Verify endpoint is accessible
-- Check webhook secret matches
-
-## Support
-
-- Vercel Status: https://www.vercel-status.com
-- Vercel Docs: https://vercel.com/docs
-- Community: https://github.com/vercel/vercel/discussions
+## 4. Verify in Browser
+After the deployment finishes:
+1. Open [sgcoalition.xyz/#/shop](https://sgcoalition.xyz/#/shop) in an Incognito/Private window (to bypass any local cache).
+2. Check the browser console (F12) for any "Supabase connection" errors.
+3. Confirm all 4 products are visible:
+    - [ ] Coalition NF-Tee
+    - [ ] Custom Coalition x Chrome Hearts Wallet
+    - [ ] Coalition Green Camo Wallet
+    - [ ] Coalition Skyy Blue Wallet

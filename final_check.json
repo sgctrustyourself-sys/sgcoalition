@@ -1,0 +1,120 @@
+[
+  {
+    "id": "prod_002",
+    "name": "Custom Wallet (1/1)",
+    "price": 35,
+    "stock": 1,
+    "category": "Accessories",
+    "images": [
+      "https://i.imgur.com/aphcZ2t.jpg",
+      "https://i.imgur.com/e7M0POe.jpg"
+    ],
+    "description": "Exclusive 1/1 custom wallet featuring camo green aesthetic and signature Coalition branding. Hand-crafted and unique.",
+    "is_featured": false,
+    "sizes": [
+      "One Size"
+    ],
+    "nft_metadata": null,
+    "created_at": "2025-11-22T03:16:30.859647+00:00",
+    "size_inventory": {
+      "One Size": 1
+    },
+    "archived": false,
+    "archived_at": null,
+    "released_at": null,
+    "sold_at": null
+  },
+  {
+    "id": "prod_wallet_skyy",
+    "name": "Coalition Skyy Blue Wallet",
+    "price": 45,
+    "stock": 0,
+    "category": "accessory",
+    "images": [
+      "https://i.imgur.com/v5y7tPa.jpg",
+      "https://i.imgur.com/B72Iael.jpg"
+    ],
+    "description": "Premium custom Coalition wallet in a stunning Skyy Blue finish. Hand-crafted with high-quality materials and signature branding. A perfect blend of style and utility.",
+    "is_featured": true,
+    "sizes": [
+      "One Size"
+    ],
+    "nft_metadata": null,
+    "created_at": "2025-12-22T04:30:44.027258+00:00",
+    "size_inventory": {
+      "One Size": 1
+    },
+    "archived": false,
+    "archived_at": null,
+    "released_at": null,
+    "sold_at": null
+  },
+  {
+    "id": "prod_nft_001",
+    "name": "Coalition NF-Tee",
+    "price": 50,
+    "stock": 350,
+    "category": "apparel",
+    "images": [
+      "/images/coalition-nf-tee-front.png",
+      "/images/coalition-nf-tee-back.png",
+      "/images/coalition-nf-tee-lifestyle.jpg"
+    ],
+    "description": "The future of streetwear. This limited edition phygital tee serves as your access pass to the Coalition ecosystem. Features exclusive \"Trust Yourself\" puff print and embedded NFC technology linked to its digital twin on the Polygon blockchain.",
+    "is_featured": true,
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "nft_metadata": {
+      "chain": "polygon",
+      "nfcTags": {
+        "tag": "https://coalition.brand/verify/prod_nft_001",
+        "neck": "https://linktr.ee/sgcoalition"
+      },
+      "tokenId": "1",
+      "openseaUrl": "https://opensea.io/item/polygon/0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201/6915469788939700255662107688630493008422408564534094781606241966635645665283",
+      "contractAddress": "0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201"
+    },
+    "created_at": "2025-11-22T03:16:30.859647+00:00",
+    "size_inventory": {
+      "L": 5,
+      "M": 3,
+      "S": 5,
+      "XL": 5,
+      "XXL": 5
+    },
+    "archived": false,
+    "archived_at": null,
+    "released_at": null,
+    "sold_at": null
+  },
+  {
+    "id": "prod_003",
+    "name": "Custom Coalition x Chrome Hearts Wallet\n",
+    "price": 45,
+    "stock": 1,
+    "category": "Accessories\n",
+    "images": [
+      "https://i.imgur.com/SS6KbOQ.jpeg",
+      "https://i.imgur.com/NUXZizv.jpeg"
+    ],
+    "description": "Exclusive 1/1 custom Coalition x Chrome Hearts collaboration wallet. This unique piece features premium leather construction with signature Chrome Hearts detailing and Coalition branding. A rare collector's item that combines luxury craftsmanship with streetwear culture. One of a kind - once it's gone, it's gone forever.\r\n",
+    "is_featured": false,
+    "sizes": [
+      "One Size"
+    ],
+    "nft_metadata": null,
+    "created_at": "2025-11-22T16:00:53.438262+00:00",
+    "size_inventory": {
+      "One Size": 0
+    },
+    "archived": true,
+    "archived_at": null,
+    "released_at": null,
+    "sold_at": null
+  }
+]

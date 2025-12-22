@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Loader, Wallet, Copy, Check, Sparkles } from 'lucide-react';
+import { ArrowLeft, CreditCard, Loader, Wallet, Copy, Check, Sparkles, DollarSign } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { OrderStatus } from '../types';
 import { useToast } from '../context/ToastContext';
@@ -106,7 +106,7 @@ const Checkout: React.FC = () => {
     const [clientSecret, setClientSecret] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [paymentMethod, setPaymentMethod] = useState<'card' | 'crypto'>('card');
+    const [paymentMethod, setPaymentMethod] = useState<'card' | 'crypto' | 'cashapp'>('card');
     const [copied, setCopied] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -157,8 +157,8 @@ const Checkout: React.FC = () => {
         if (cart.length > 0 && paymentMethod === 'card') {
             createPaymentIntent();
         }
-        // If payment method is crypto, we don't need payment intent
-        if (paymentMethod === 'crypto') {
+        // If payment method is crypto or cashapp, we don't need payment intent
+        if (paymentMethod === 'crypto' || paymentMethod === 'cashapp') {
             setClientSecret('');
             setIsZeroAmount(false);
         }
@@ -273,6 +273,9 @@ const Checkout: React.FC = () => {
             const tax = 0;
             const isGuest = !user;
 
+            // Determine logic for manual verification payments (crypto, cashapp, etc)
+            const isManualPayment = paymentMethodUsed === 'crypto' || paymentMethodUsed === 'cashapp';
+
             const order = {
                 id: `order_${Date.now()}`,
                 orderNumber,
@@ -296,10 +299,10 @@ const Checkout: React.FC = () => {
                 discount: discount + creditToApply,
                 total: finalTotal,
                 paymentMethod: paymentMethodUsed as any,
-                paymentStatus: paymentMethodUsed === 'crypto' ? OrderStatus.PENDING : OrderStatus.PAID,
+                paymentStatus: isManualPayment ? OrderStatus.PENDING : OrderStatus.PAID,
                 orderType: 'online' as const,
                 createdAt: new Date().toISOString(),
-                paidAt: paymentMethodUsed !== 'crypto' ? new Date().toISOString() : undefined,
+                paidAt: !isManualPayment ? new Date().toISOString() : undefined,
                 shippingAddress: {
                     address1: shippingInfo.address1,
                     city: shippingInfo.city,
@@ -628,20 +631,28 @@ const Checkout: React.FC = () => {
                                 </div>
                             ) : (
                                 <>
-                                    <div className="grid grid-cols-2 gap-4 mb-6">
+                                    {/* Payment Method UI */}
+                                    <div className="grid grid-cols-3 gap-4 mb-6">
                                         <button
                                             onClick={() => setPaymentMethod('card')}
                                             className={`flex flex-col items-center justify-center p-4 rounded-lg border transition ${paymentMethod === 'card' ? 'bg-white text-black border-white' : 'border-white/20 hover:border-white text-gray-400 hover:text-white'}`}
                                         >
                                             <CreditCard className="w-6 h-6 mb-2" />
-                                            <span className="font-bold text-sm">Credit Card</span>
+                                            <span className="font-bold text-xs sm:text-sm">Card</span>
                                         </button>
                                         <button
                                             onClick={() => setPaymentMethod('crypto')}
                                             className={`flex flex-col items-center justify-center p-4 rounded-lg border transition ${paymentMethod === 'crypto' ? 'bg-white text-black border-white' : 'border-white/20 hover:border-white text-gray-400 hover:text-white'}`}
                                         >
                                             <Wallet className="w-6 h-6 mb-2" />
-                                            <span className="font-bold text-sm">Crypto (USDC)</span>
+                                            <span className="font-bold text-xs sm:text-sm">Crypto</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setPaymentMethod('cashapp')}
+                                            className={`flex flex-col items-center justify-center p-4 rounded-lg border transition ${paymentMethod === 'cashapp' ? 'bg-white text-black border-white' : 'border-white/20 hover:border-white text-gray-400 hover:text-white'}`}
+                                        >
+                                            <DollarSign className="w-6 h-6 mb-2" />
+                                            <span className="font-bold text-xs sm:text-sm">Cash App</span>
                                         </button>
                                     </div>
 
@@ -688,6 +699,62 @@ const Checkout: React.FC = () => {
                                             <button
                                                 onClick={handleCryptoConfirmation}
                                                 className="w-full bg-blue-600 text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-blue-500 transition shadow-[0_0_20px_rgba(37,99,235,0.3)]"
+                                            >
+                                                I Have Sent the Payment
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Cash App Payment */}
+                                    {paymentMethod === 'cashapp' && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                            <div className="bg-green-500/10 border border-green-500/30 p-4 rounded-lg">
+                                                <div className="flex items-start gap-3">
+                                                    <DollarSign className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <h4 className="font-bold text-green-400 text-sm uppercase tracking-wide mb-1">Pay with Cash App</h4>
+                                                        <p className="text-sm text-gray-300">
+                                                            Send payment to our Cashtag and click "I Have Sent Payment". Your order will be marked as <span className="text-yellow-400 font-bold">PENDING</span> until verified.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-black/50 p-6 rounded-lg border border-white/10 text-center">
+                                                <p className="text-sm text-gray-400 mb-4">Send <span className="text-white font-bold">${finalTotal.toFixed(2)}</span> to:</p>
+
+                                                <div className="flex flex-col items-center justify-center space-y-4">
+                                                    <div className="bg-white/10 p-4 rounded-xl border border-white/20 w-full max-w-xs">
+                                                        <span className="font-display text-2xl font-bold text-white tracking-wider">$sgscrap</span>
+                                                    </div>
+
+                                                    <button
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText('$sgscrap');
+                                                            setCopied(true);
+                                                            setTimeout(() => setCopied(false), 2000);
+                                                        }}
+                                                        className="flex items-center gap-2 text-sm text-green-400 hover:text-green-300 transition font-bold uppercase tracking-wide"
+                                                    >
+                                                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                                        {copied ? 'Copied!' : 'Copy Cashtag'}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={async () => {
+                                                    if (!validateShipping()) return;
+                                                    try {
+                                                        const orderNumber = await createOrder('cashapp');
+                                                        sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
+                                                        sessionStorage.setItem('orderNumber', orderNumber);
+                                                        navigate('/order/success?payment_method=cashapp');
+                                                    } catch (error) {
+                                                        addToast('Failed to create order. Please try again.', 'error');
+                                                    }
+                                                }}
+                                                className="w-full bg-[#00D632] text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-[#00B82b] transition shadow-[0_0_20px_rgba(0,214,50,0.3)]"
                                             >
                                                 I Have Sent the Payment
                                             </button>

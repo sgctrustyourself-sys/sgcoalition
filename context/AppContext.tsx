@@ -56,6 +56,8 @@ interface AppState {
     connectMetaMaskWallet: (address: string) => Promise<void>;
     connectManualWallet: (address: string) => Promise<void>;
     disconnectWallet: () => Promise<void>;
+    fetchProducts: () => Promise<Product[] | null>;
+    autoCommit: (options: any) => Promise<string | null>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -89,7 +91,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     const [isCartOpen, setCartOpen] = useState(false);
-    const [isAdminMode, setIsAdminMode] = useState(false);
+    const [isAdminMode, setIsAdminMode] = useState(() => {
+        return localStorage.getItem('coalition_admin_session') === 'true';
+    });
     const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(false);
     const [isConfigError, setIsConfigError] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -109,115 +113,119 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (mounted) setIsSupabaseConfigured(!!hasKeys);
 
                 if (!hasKeys) {
-                    console.error("Supabase keys missing. Cannot load products.");
-                    setProducts([]);
-                    if (mounted) setIsLoading(false);
-                    return;
+                    console.error("Supabase keys missing. Falling back to local/initial products.");
+                    // Don't setProducts([]) here, as it will overwrite the initial products state.
+                    // Instead, let it fall through to fetchProducts() which handles the fallback properly.
                 }
 
                 // Auth State Listener - Initialize BEFORE fetching data
-                const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-                    if (!mounted) return;
+                let authListener: any = { subscription: { unsubscribe: () => { } } };
+                if (hasKeys) {
+                    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+                        if (!mounted) return;
 
-                    console.log('🔐 Auth state changed:', event, session?.user?.email);
+                        console.log('🔐 Auth state changed:', event, session?.user?.email);
 
-                    if (session?.user) {
-                        // Load favorites from localStorage for now, or DB later
-                        const savedFavorites = localStorage.getItem(`coalition_favorites_${session.user.id}`);
+                        if (session?.user) {
+                            // Load favorites from localStorage for now, or DB later
+                            const savedFavorites = localStorage.getItem(`coalition_favorites_${session.user.id}`);
 
-                        // Fetch linked wallet
-                        let walletAddress = null;
-                        let sgCoinBalance = 0;
-                        let walletConnectionMethod = undefined;
-                        let walletConnectedAt = undefined;
+                            // Fetch linked wallet
+                            let walletAddress = null;
+                            let sgCoinBalance = 0;
+                            let walletConnectionMethod = undefined;
+                            let walletConnectedAt = undefined;
 
-                        try {
-                            const { data: linkedWallet } = await supabase
-                                .from('wallet_accounts')
-                                .select('wallet_address')
-                                .eq('user_id', session.user.id)
-                                .single();
+                            try {
+                                const { data: linkedWallet } = await supabase
+                                    .from('wallet_accounts')
+                                    .select('wallet_address')
+                                    .eq('user_id', session.user.id)
+                                    .single();
 
-                            if (linkedWallet?.wallet_address) {
-                                walletAddress = linkedWallet.wallet_address;
-                                walletConnectionMethod = 'metamask'; // Default to metamask for now
-                                walletConnectedAt = Date.now();
+                                if (linkedWallet?.wallet_address) {
+                                    walletAddress = linkedWallet.wallet_address;
+                                    walletConnectionMethod = 'metamask'; // Default to metamask for now
+                                    walletConnectedAt = Date.now();
 
-                                // Try to fetch balance using public provider
-                                try {
-                                    const provider = new ethers.JsonRpcProvider('https://polygon-rpc.com');
-                                    sgCoinBalance = await getSGCoinBalance(walletAddress, provider);
-                                } catch (err) {
-                                    console.warn('Failed to fetch SGCoin balance:', err);
+                                    // Try to fetch balance using public provider
+                                    try {
+                                        const provider = new ethers.JsonRpcProvider('https://polygon-rpc.com');
+                                        sgCoinBalance = await getSGCoinBalance(walletAddress, provider);
+                                    } catch (err) {
+                                        console.warn('Failed to fetch SGCoin balance:', err);
+                                    }
                                 }
+                            } catch (err) {
+                                console.error('Error fetching linked wallet:', err);
                             }
-                        } catch (err) {
-                            console.error('Error fetching linked wallet:', err);
-                        }
 
-                        // Fetch VIP Profile Data
-                        let isVIP = false;
-                        let storeCredit = 0.0;
-                        try {
-                            const { data: profile } = await supabase
-                                .from('profiles')
-                                .select('is_vip, store_credit')
-                                .eq('id', session.user.id)
-                                .single();
+                            // Fetch VIP Profile Data
+                            let isVIP = false;
+                            let storeCredit = 0.0;
+                            try {
+                                const { data: profile } = await supabase
+                                    .from('profiles')
+                                    .select('is_vip, store_credit')
+                                    .eq('id', session.user.id)
+                                    .single();
 
-                            if (profile) {
-                                isVIP = profile.is_vip || false;
-                                storeCredit = profile.store_credit || 0.0;
+                                if (profile) {
+                                    isVIP = profile.is_vip || false;
+                                    storeCredit = profile.store_credit || 0.0;
+                                }
+                            } catch (err) {
+                                console.warn('Failed to fetch profile data:', err);
                             }
-                        } catch (err) {
-                            console.warn('Failed to fetch profile data:', err);
+
+                            setUser({
+                                uid: session.user.id,
+                                displayName: session.user.user_metadata.full_name || session.user.email?.split('@')[0] || 'User',
+                                email: session.user.email || null,
+                                walletAddress: walletAddress,
+                                connectedWalletAddress: walletAddress || undefined,
+                                walletConnectionMethod: walletConnectionMethod as any,
+                                walletConnectedAt: walletConnectedAt,
+                                sgCoinBalance: sgCoinBalance,
+                                isAdmin: false, // TODO: Check role
+                                favorites: savedFavorites ? JSON.parse(savedFavorites) : [],
+                                isVIP: isVIP,
+                                storeCredit: storeCredit
+                            });
+                        } else {
+                            setUser(null);
                         }
+                    });
+                    authListener = data;
+                }
 
-                        setUser({
-                            uid: session.user.id,
-                            displayName: session.user.user_metadata.full_name || session.user.email?.split('@')[0] || 'User',
-                            email: session.user.email || null,
-                            walletAddress: walletAddress,
-                            connectedWalletAddress: walletAddress || undefined,
-                            walletConnectionMethod: walletConnectionMethod as any,
-                            walletConnectedAt: walletConnectedAt,
-                            sgCoinBalance: sgCoinBalance,
-                            isAdmin: false, // TODO: Check role
-                            favorites: savedFavorites ? JSON.parse(savedFavorites) : [],
-                            isVIP: isVIP,
-                            storeCredit: storeCredit
-                        });
-                    } else {
-                        setUser(null);
-                    }
-                });
-
-                // Always fetch fresh data from Supabase
-                // Don't await this if we want auth to settle first, but usually fine to await if auth listener is already set up
+                // Always fetch fresh data (handles fallback internally)
                 fetchProducts();
 
                 // Real-time subscription for products with debouncing
-                let refreshTimeout: NodeJS.Timeout;
-                const debouncedRefresh = () => {
-                    clearTimeout(refreshTimeout);
-                    // Wait 1 second before refreshing to allow multiple rapid changes to settle
-                    refreshTimeout = setTimeout(() => {
-                        console.log('🔄 Debounced refresh triggered by real-time update');
-                        fetchProducts();
-                    }, 1000);
-                };
+                let subscription: any = null;
+                if (hasKeys) {
+                    let refreshTimeout: NodeJS.Timeout;
+                    const debouncedRefresh = () => {
+                        clearTimeout(refreshTimeout);
+                        refreshTimeout = setTimeout(() => {
+                            console.log('🔄 Debounced refresh triggered by real-time update');
+                            fetchProducts();
+                        }, 1000);
+                    };
 
-                const subscription = supabase
-                    .channel('products_channel')
-                    .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
-                        console.log('📡 Real-time update received:', payload.eventType, (payload.new as any)?.name || (payload.old as any)?.name);
-                        debouncedRefresh();
-                    })
-                    .subscribe();
+                    subscription = supabase
+                        .channel('products_channel')
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
+                            console.log('📡 Real-time update received:', payload.eventType, (payload.new as any)?.name || (payload.old as any)?.name);
+                            debouncedRefresh();
+                        })
+                        .subscribe();
+                }
 
                 return () => {
-                    subscription.unsubscribe();
-                    authListener.subscription.unsubscribe();
+                    if (subscription) subscription.unsubscribe();
+                    if (authListener?.subscription) authListener.subscription.unsubscribe();
                 };
             } catch (error) {
                 console.error("Critical error in AppContext initialization:", error);
@@ -285,10 +293,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     archived: item.archived || false,
                     archivedAt: item.archived_at,
                     releasedAt: item.released_at,
-                    soldAt: item.sold_at
+                    soldAt: item.sold_at,
+                    updatedAt: item.updated_at
                 }));
 
-                setProducts(mappedProducts);
+                // DOMINANT PERSISTENCE: Merge with local storage
+                const saved = localStorage.getItem('coalition_products_local');
+                let mergedProducts = mappedProducts;
+
+                if (saved) {
+                    const localProducts: Product[] = JSON.parse(saved);
+                    mergedProducts = mappedProducts.map(dbProduct => {
+                        const localProduct = localProducts.find(p => p.id === dbProduct.id);
+                        if (localProduct && localProduct.updatedAt && dbProduct.updatedAt) {
+                            // If local is newer, keep local
+                            if (new Date(localProduct.updatedAt) > new Date(dbProduct.updatedAt)) {
+                                console.log(`💎 Using dominant local version for ${dbProduct.name}`);
+                                return localProduct;
+                            }
+                        }
+                        return dbProduct;
+                    });
+
+                    // Also add any local products that don't exist in DB yet (pending sync)
+                    const pendingProducts = localProducts.filter(lp => !mappedProducts.find(db => db.id === lp.id));
+                    if (pendingProducts.length > 0) {
+                        console.log(`💎 Adding ${pendingProducts.length} pending local products`);
+                        mergedProducts = [...mergedProducts, ...pendingProducts];
+                    }
+                }
+
+                setProducts(mergedProducts);
+                localStorage.setItem('coalition_products_local', JSON.stringify(mergedProducts));
                 console.log('✅ Products state updated:', mappedProducts.map(p => ({ id: p.id, name: p.name })));
                 return mappedProducts;
             }
@@ -332,6 +368,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         localStorage.setItem('coalition_products_local', JSON.stringify(newProducts));
 
         try {
+            const now = new Date().toISOString();
+            const productWithTime = { ...p, updatedAt: now };
+
             const dbProduct = {
                 id: p.id,
                 name: p.name,
@@ -346,7 +385,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 archived: p.archived || false,
                 archived_at: p.archivedAt,
                 released_at: p.releasedAt,
-                sold_at: p.soldAt
+                sold_at: p.soldAt,
+                updated_at: now
             };
 
             const { error } = await supabase.from('products').insert([dbProduct]);
@@ -400,8 +440,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Store original state for rollback
         const originalProduct = products.find(p => p.id === updated.id);
 
+        const now = new Date().toISOString();
+        const updatedWithTime = { ...updated, updatedAt: now };
+
         // OPTIMISTIC UPDATE: Update local state immediately
-        const updatedList = products.map(p => p.id === updated.id ? updated : p);
+        const updatedList = products.map(p => p.id === updated.id ? updatedWithTime : p);
         setProducts(updatedList);
         localStorage.setItem('coalition_products_local', JSON.stringify(updatedList));
 
@@ -418,7 +461,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             archived: updated.archived,
             archived_at: updated.archivedAt,
             released_at: updated.releasedAt,
-            sold_at: updated.soldAt
+            sold_at: updated.soldAt,
+            updated_at: now
         };
 
         console.log('📤 Sending update to Supabase:', dbProduct);
@@ -571,12 +615,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const loginAdmin = (password: string) => {
         if (password === 'admin123') {
             setIsAdminMode(true);
+            localStorage.setItem('coalition_admin_session', 'true');
             return true;
         }
         return false;
     };
 
-    const logoutAdmin = () => setIsAdminMode(false);
+    const logoutAdmin = () => {
+        setIsAdminMode(false);
+        localStorage.removeItem('coalition_admin_session');
+    };
 
     const cartTotal = () => cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
@@ -767,7 +815,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             pickGiveawayWinner,
             connectMetaMaskWallet,
             connectManualWallet,
-            disconnectWallet
+            disconnectWallet,
+            fetchProducts,
+            autoCommit
         }}>
             {children}
         </AppContext.Provider>

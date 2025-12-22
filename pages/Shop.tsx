@@ -111,12 +111,12 @@ const Shop = () => {
                         <Filter className="w-4 h-4 mr-2" /> Filters
                     </button>
 
-                    <div className="relative flex items-center">
+                    <div className="relative">
                         <span className="text-sm text-gray-500 mr-2">Sort by:</span>
                         <select
                             value={sortOption}
                             onChange={(e) => setSortOption(e.target.value)}
-                            className="text-sm font-bold uppercase bg-transparent border-none focus:ring-0 cursor-pointer"
+                            className="text-sm font-bold uppercase bg-white border border-gray-300 rounded px-2 py-1 focus:ring-0 cursor-pointer text-black"
                             title="Sort products"
                         >
                             <option value="newest">Newest Arrivals</option>

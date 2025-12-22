@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
-import { OrderItem, Order } from '../types';
+import { OrderItem, Order, OrderStatus } from '../types';
 import { X, Plus, Trash2 } from 'lucide-react';
 
 interface ManualOrderFormProps {
@@ -137,11 +137,9 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
                 discount,
                 total,
                 paymentMethod,
-                paymentStatus: 'paid' as const,
+                paymentStatus: OrderStatus.PAID,
                 orderType: 'manual' as const,
-                status: 'pending' as any,
                 createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
                 paidAt: new Date().toISOString(),
                 notes,
                 shippingAddress: includeShipping ? shippingAddress : undefined
