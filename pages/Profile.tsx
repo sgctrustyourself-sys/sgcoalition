@@ -24,7 +24,7 @@ interface Order {
 const Profile = () => {
     const { user, products, connectMetaMaskWallet, connectManualWallet, disconnectWallet, isLoading } = useApp();
     const [orders, setOrders] = useState<Order[]>([]);
-    const [activeTab, setActiveTab] = useState<'favorites' | 'orders' | 'referrals' | 'settings'>('orders');
+    const [activeTab, setActiveTab] = useState<'favorites' | 'orders' | 'referrals' | 'settings' | 'vip'>('orders');
     const [manualAddress, setManualAddress] = useState('');
     const [isConnecting, setIsConnecting] = useState(false);
     const [error, setError] = useState('');
@@ -172,6 +172,16 @@ const Profile = () => {
                 >
                     <DollarSign className="w-5 h-5 inline mr-2" />
                     Referrals
+                </button>
+                <button
+                    onClick={() => setActiveTab('vip')}
+                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 ${activeTab === 'vip'
+                        ? 'border-black text-black'
+                        : 'border-transparent text-gray-400 hover:text-gray-600'
+                        }`}
+                >
+                    <Star className="w-5 h-5 inline mr-2 text-purple-500" />
+                    VIP Membership
                 </button>
                 <button
                     onClick={() => setActiveTab('settings')}
@@ -337,6 +347,54 @@ const Profile = () => {
                 <div>
                     <h2 className="font-display text-2xl font-bold uppercase mb-6">Referral Program</h2>
                     <ReferralDashboard />
+                </div>
+            )}
+
+            {/* VIP Membership Tab */}
+            {activeTab === 'vip' && (
+                <div className="max-w-4xl">
+                    <h2 className="font-display text-2xl font-bold uppercase mb-6">VIP Membership Status</h2>
+                    {user.isVIP ? (
+                        <div className="bg-gradient-to-br from-purple-900/40 to-black border-2 border-purple-500/50 rounded-2xl p-8 text-white relative overflow-hidden">
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="w-16 h-16 rounded-full bg-purple-500 flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.5)]">
+                                        <Star className="w-8 h-8 text-white fill-current" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-3xl font-bold uppercase tracking-tighter">Verified VIP Member</h3>
+                                        <p className="text-purple-300 font-mono text-sm">Status: Active Lifetime Member</p>
+                                    </div>
+                                </div>
+                                <div className="grid md:grid-cols-2 gap-6 mt-8">
+                                    <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+                                        <h4 className="font-bold uppercase text-xs tracking-widest text-gray-400 mb-2">Exclusive Perk</h4>
+                                        <p className="text-xl font-bold">15% Lifetime Discount</p>
+                                        <p className="text-sm text-gray-500 mt-1">Automatically applied at checkout</p>
+                                    </div>
+                                    <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+                                        <h4 className="font-bold uppercase text-xs tracking-widest text-gray-400 mb-2">SGCoin Multiplier</h4>
+                                        <p className="text-xl font-bold">2x Rewards</p>
+                                        <p className="text-sm text-gray-500 mt-1">Earn double SGCoin on all purchases</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-12 text-center">
+                            <Star className="w-16 h-16 mx-auto text-gray-300 mb-6" />
+                            <h3 className="text-2xl font-bold text-gray-900 mb-4 uppercase">Unlock VIP Status</h3>
+                            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                                Join our inner circle to unlock lifetime discounts, early access to drops, and exclusive community rewards.
+                            </p>
+                            <a
+                                href="/#/membership"
+                                className="inline-block bg-purple-600 text-white px-8 py-4 rounded-sm font-bold uppercase tracking-widest hover:bg-purple-700 transition shadow-[0_4px_14px_0_rgba(147,51,234,0.39)]"
+                            >
+                                Learn More & Join
+                            </a>
+                        </div>
+                    )}
                 </div>
             )}
 

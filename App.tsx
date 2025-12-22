@@ -49,6 +49,12 @@ const MyReviews = React.lazy(() => import('./pages/MyReviews'));
 const SearchResults = React.lazy(() => import('./pages/SearchResults'));
 const PublicWishlist = React.lazy(() => import('./pages/PublicWishlist'));
 const Help = React.lazy(() => import('./pages/Help'));
+const SGCoinWelcome = React.lazy(() => import('./pages/tutorial/Welcome'));
+const SGCoinMetaMask = React.lazy(() => import('./pages/tutorial/MetaMask'));
+const SGCoinPolygon = React.lazy(() => import('./pages/tutorial/Polygon'));
+const SGCoinFundWallet = React.lazy(() => import('./pages/tutorial/FundWallet'));
+const SGCoinQuickSwap = React.lazy(() => import('./pages/tutorial/QuickSwap'));
+const SGCoinUsing = React.lazy(() => import('./pages/tutorial/UsingSGCoin'));
 
 // Component to handle referral code detection
 const ReferralTracker = () => {
@@ -138,6 +144,15 @@ const App = () => {
                     <Route path="/buy-sgcoin" element={<BuySGCoin />} />
                     <Route path="/membership" element={<Membership />} />
                     <Route path="/help" element={<Help />} />
+
+                    {/* SGCoin Tutorial Routes */}
+                    <Route path="/tutorial" element={<SGCoinWelcome />} />
+                    <Route path="/tutorial/welcome" element={<SGCoinWelcome />} />
+                    <Route path="/tutorial/metamask" element={<SGCoinMetaMask />} />
+                    <Route path="/tutorial/polygon" element={<SGCoinPolygon />} />
+                    <Route path="/tutorial/fund" element={<SGCoinFundWallet />} />
+                    <Route path="/tutorial/quickswap" element={<SGCoinQuickSwap />} />
+                    <Route path="/tutorial/use" element={<SGCoinUsing />} />
 
                     <Route path="*" element={<NotFound />} />
                   </Routes>
