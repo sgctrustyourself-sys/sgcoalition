@@ -70,7 +70,7 @@ export interface Address {
 
 export interface Section {
   id: string;
-  type: 'hero' | 'featured' | 'custom_inquiry_cta' | 'grid' | 'about_teaser';
+  type: 'hero' | 'featured' | 'custom_inquiry_cta' | 'grid' | 'about_teaser' | 'vip';
   title: string;
   isVisible: boolean;
   order: number;
@@ -146,6 +146,7 @@ export interface Order {
   total: number;
   paymentMethod: string;
   paymentStatus: OrderStatus;
+  status?: string; // e.g. 'processing', 'shipped'
   orderType: 'online' | 'manual';
   shippingAddress?: {
     address1: string;
@@ -237,4 +238,3 @@ export interface WishlistSettings {
   createdAt: number;
   updatedAt: number;
 }
-declare module 'ethers';

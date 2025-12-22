@@ -42,8 +42,8 @@ const OrderHistory = () => {
                         key={status}
                         onClick={() => setFilterStatus(status)}
                         className={`px-4 py-2 rounded-lg font-bold text-sm uppercase whitespace-nowrap transition ${filterStatus === status
-                                ? 'bg-white text-black'
-                                : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                            ? 'bg-white text-black'
+                            : 'bg-white/5 text-gray-400 hover:bg-white/10'
                             }`}
                     >
                         {status}
@@ -114,7 +114,7 @@ const OrderHistory = () => {
                                             <div className="flex-1">
                                                 <h4 className="font-bold text-sm">{product?.name || 'Product'}</h4>
                                                 <p className="text-xs text-gray-400">
-                                                    {item.size && `Size: ${item.size} • `}
+                                                    {item.selectedSize && `Size: ${item.selectedSize} • `}
                                                     Qty: {item.quantity}
                                                 </p>
                                             </div>

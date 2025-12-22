@@ -11,11 +11,12 @@ import ReviewManager from '../admin/ReviewManager';
 import AnalyticsDashboard from '../admin/AnalyticsDashboard';
 import SGCoinDistribution from '../admin/SGCoinDistribution';
 import ReferralAnalytics from '../admin/ReferralAnalytics';
+import CoalitionSignalManager from '../admin/CoalitionSignalManager';
 import { useApp } from '../context/AppContext';
 
 const Admin: React.FC = () => {
     const { user } = useApp();
-    const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'settings'>('products');
+    const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signal' | 'settings'>('products');
 
     const renderContent = () => {
         switch (activeTab) {
@@ -41,6 +42,8 @@ const Admin: React.FC = () => {
                 return <CustomInquiryManager />;
             case 'sgcoin-requests':
                 return <SGCoinRequestManager adminWalletAddress={user?.walletAddress || ''} />;
+            case 'signal':
+                return <CoalitionSignalManager />;
             case 'settings':
                 return (
                     <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">

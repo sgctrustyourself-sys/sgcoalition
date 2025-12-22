@@ -1,25 +1,51 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Send, CheckCircle, Loader, Ghost } from 'lucide-react';
+import { supabase } from '../services/supabase';
 
 const SmsSignup = () => {
     const [phone, setPhone] = useState('');
     const [countryCode, setCountryCode] = useState('+1');
-    const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [errorMessage, setErrorMessage] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!phone) return;
 
         setStatus('loading');
+        setErrorMessage('');
 
-        // Simulate API call
-        setTimeout(() => {
+        try {
+            const { error } = await supabase
+                .from('coalition_signal_subscribers')
+                .insert([{
+                    subscriber_type: 'sms',
+                    contact_value: phone,
+                    country_code: countryCode,
+                    source: 'website_home'
+                }]);
+
+            if (error) {
+                // Handle duplicate phone number
+                if (error.code === '23505') {
+                    setErrorMessage('This number is already subscribed to Coalition Signal!');
+                } else {
+                    throw error;
+                }
+                setStatus('error');
+                return;
+            }
+
             setStatus('success');
             setPhone('');
             // Reset success message after 5 seconds
             setTimeout(() => setStatus('idle'), 5000);
-        }, 1500);
+        } catch (err) {
+            console.error('SMS signup error:', err);
+            setErrorMessage('Failed to subscribe. Please try again.');
+            setStatus('error');
+        }
     };
 
     return (
@@ -104,6 +130,12 @@ const SmsSignup = () => {
                                 </motion.div>
                             ) : (
                                 <form onSubmit={handleSubmit} className="space-y-4">
+                                    {status === 'error' && errorMessage && (
+                                        <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-sm text-red-400">
+                                            {errorMessage}
+                                        </div>
+                                    )}
+
                                     <div className="flex gap-3">
                                         <div className="w-24">
                                             <label htmlFor="country-code" className="sr-only">Country Code</label>
@@ -136,7 +168,7 @@ const SmsSignup = () => {
                                     <button
                                         type="submit"
                                         disabled={status === 'loading'}
-                                        className="w-full bg-white text-black font-bold uppercase tracking-widest py-4 rounded-lg hover:bg-blue-50 transition-all duration-300 flex items-center justify-center gap-2 group/btn relative overflow-hidden"
+                                        className="w-full bg-white text-black font-bold uppercase tracking-widest py-4 rounded-lg hover:bg-blue-50 transition-all duration-300 flex items-center justify-center gap-2 group/btn relative overflow-hidden disabled:opacity-50"
                                     >
                                         <span className="relative z-10 flex items-center gap-2">
                                             {status === 'loading' ? (
