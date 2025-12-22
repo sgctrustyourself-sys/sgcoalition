@@ -248,10 +248,10 @@ const Membership = () => {
                                 Start Earning Now
                             </Link>
                             <Link
-                                to="/help"
+                                to="/ecosystem"
                                 className="px-8 py-3 border border-white/20 text-white font-bold uppercase tracking-widest hover:bg-white/5 transition-all rounded-sm"
                             >
-                                Learn More
+                                View Ecosystem
                             </Link>
                         </div>
                     </div>
