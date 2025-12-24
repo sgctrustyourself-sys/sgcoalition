@@ -156,9 +156,9 @@ const ReferralDashboard = () => {
                             <span>Tier {tierInfo.nextTier.tier}</span>
                         </div>
                         <div className="h-2 bg-black/30 rounded-full overflow-hidden">
-                            {/* eslint-disable-next-line react/forbid-dom-props */}
                             <div
                                 className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
+                                // @ts-ignore - Dynamic width required for progress animation
                                 style={{ width: `${Math.min(tierInfo.progress, 100)}%` }}
                             ></div>
                         </div>
