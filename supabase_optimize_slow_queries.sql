@@ -80,11 +80,9 @@ ANALYZE coalition_signal_subscribers;
 -- Check index usage
 SELECT 
     schemaname,
-    tablename,
-    indexname,
-    idx_scan as index_scans,
-    idx_tup_read as rows_read,
-    idx_tup_fetch as rows_fetched
+    relname as tablename,
+    indexrelname as indexname,
+    idx_scan as index_scans
 FROM pg_stat_user_indexes
 WHERE schemaname = 'public'
 ORDER BY idx_scan DESC
