@@ -197,7 +197,7 @@ const ReferralDashboard = () => {
                 </div>
             </div>
 
-            {/* Coupon Code - NEW */}
+            {/* Coupon Code - Double-Sided Rewards */}
             <div className="bg-gradient-to-br from-green-900 to-emerald-900 rounded-xl p-6 border border-green-500/20">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="font-bold text-white flex items-center gap-2">
@@ -205,7 +205,20 @@ const ReferralDashboard = () => {
                         Your Referral Code
                     </h3>
                     <div className="bg-green-500/20 px-3 py-1 rounded-full">
-                        <span className="text-xs font-bold text-green-300">EASY TO SHARE!</span>
+                        <span className="text-xs font-bold text-green-300">WIN-WIN!</span>
+                    </div>
+                </div>
+
+                {/* Highlight Double-Sided Value */}
+                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-4">
+                    <div className="flex items-start gap-3">
+                        <div className="text-2xl">🎁</div>
+                        <div className="flex-1">
+                            <h4 className="font-bold text-yellow-200 mb-1">Give Friends 15% Off Their First Order</h4>
+                            <p className="text-sm text-yellow-100/80">
+                                They save money, you earn {tierInfo.rate}% commission. Everyone wins!
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -228,26 +241,26 @@ const ReferralDashboard = () => {
                 <div className="space-y-2 text-sm text-green-100">
                     <p className="flex items-center gap-2">
                         <span className="text-green-400">✓</span>
-                        Share this code with friends on social media, texts, or emails
+                        Share this code anywhere: texts, DMs, stories, posts
                     </p>
                     <p className="flex items-center gap-2">
                         <span className="text-green-400">✓</span>
-                        They enter it at checkout - no special link needed!
+                        Friends enter it at checkout - no special link needed
                     </p>
                     <p className="flex items-center gap-2">
                         <span className="text-green-400">✓</span>
-                        You earn {tierInfo.rate}% commission on every purchase
+                        They get 15% off, you earn {tierInfo.rate}% commission instantly
                     </p>
                 </div>
             </div>
 
-            {/* Referral Link */}
+            {/* Referral Link + Social Sharing */}
             <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
                 <h3 className="font-bold text-white mb-4 flex items-center gap-2">
                     <ExternalLink size={18} />
                     Your Referral Link
                 </h3>
-                <div className="flex gap-2">
+                <div className="flex gap-2 mb-6">
                     <input
                         type="text"
                         value={referralLink}
@@ -263,9 +276,72 @@ const ReferralDashboard = () => {
                         {copied ? 'Copied!' : 'Copy'}
                     </button>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                    Prefer a link? Share this URL with friends. When they make a purchase, you earn {tierInfo.rate}% commission!
+
+                {/* Social Share Buttons */}
+                <div className="bg-black/30 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-gray-400 mb-3">Share on social media:</p>
+                    <div className="flex gap-2 flex-wrap">
+                        <a
+                            href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out Coalition Brand! Use my code ${stats.referral_code} for 15% off your first order 🔥`)}&url=${encodeURIComponent(referralLink)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-4 py-2 bg-[#1DA1F2] hover:bg-[#1a8cd8] text-white rounded font-bold transition text-sm"
+                        >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                            Twitter
+                        </a>
+                        <a
+                            href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralLink)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-4 py-2 bg-[#1877F2] hover:bg-[#166fe5] text-white rounded font-bold transition text-sm"
+                        >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
+                            Facebook
+                        </a>
+                        <a
+                            href={`https://wa.me/?text=${encodeURIComponent(`Use my code ${stats.referral_code} for 15% off at Coalition Brand! ${referralLink}`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-4 py-2 bg-[#25D366] hover:bg-[#22c55e] text-white rounded font-bold transition text-sm"
+                        >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" /></svg>
+                            WhatsApp
+                        </a>
+                    </div>
+                </div>
+
+                <p className="text-xs text-gray-500">
+                    Share this link with friends. When they make a purchase, you earn {tierInfo.rate}% commission AND they get 15% off! 🎁
                 </p>
+            </div>
+
+            {/* Pre-Written Share Templates */}
+            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                <h3 className="font-bold text-white mb-4">📱 Copy & Share Templates</h3>
+                <p className="text-sm text-gray-400 mb-4">Click to copy these ready-to-use messages:</p>
+                <div className="space-y-2">
+                    {[
+                        `Just found Coalition Brand - use code ${stats.referral_code} for 15% off! 🔥`,
+                        `Coalition has amazing streetwear. Get 15% off with my code: ${stats.referral_code}`,
+                        `Support my style journey! Use ${stats.referral_code} at Coalition Brand for 15% off your first order`,
+                        `🎁 Gift for you: ${stats.referral_code} = 15% off at coalitionbrand.xyz`
+                    ].map((template, i) => (
+                        <button
+                            key={i}
+                            onClick={() => {
+                                navigator.clipboard.writeText(template);
+                                addToast('Message copied to clipboard!', 'success');
+                            }}
+                            className="w-full text-left p-3 bg-black/30 rounded-lg hover:bg-black/50 transition text-sm text-gray-300 border border-gray-800 hover:border-purple-500/30"
+                        >
+                            <div className="flex items-start gap-3">
+                                <Copy size={16} className="mt-0.5 text-gray-400 flex-shrink-0" />
+                                <span>"{template}"</span>
+                            </div>
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Commission Tiers Table */}

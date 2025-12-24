@@ -59,19 +59,84 @@ export const calculateCommissionTier = (successfulReferrals: number) => {
     };
 };
 
-// Get user's referral stats
+// Helper to generate random 6-character code
+const generateRandomCode = (): string => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+};
+
+// Helper to generate unique referral code
+const generateUniqueReferralCode = async (): Promise<string> => {
+    let code = generateRandomCode();
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (attempts < maxAttempts) {
+        const { data } = await supabase
+            .from('referral_stats')
+            .select('referral_code')
+            .eq('referral_code', code)
+            .maybeSingle();
+
+        if (!data) {
+            return code; // Code is unique
+        }
+
+        code = generateRandomCode();
+        attempts++;
+    }
+
+    // Fallback: add timestamp if we can't find unique after 10 tries
+    return `${code}${Date.now().toString(36).slice(-2).toUpperCase()}`;
+};
+
+// Get user's referral stats (with auto-initialization)
 export const getReferralStats = async (userId: string): Promise<ReferralStats | null> => {
     try {
-        const { data, error } = await supabase
+        // Try to get existing stats (use maybeSingle to avoid error if not found)
+        let { data, error } = await supabase
             .from('referral_stats')
             .select('*')
             .eq('user_id', userId)
-            .single();
+            .maybeSingle();
 
-        if (error) throw error;
+        // If no data exists, create it automatically
+        if (!data && !error) {
+            console.log('No referral stats found, creating new record for user:', userId);
+
+            const newCode = await generateUniqueReferralCode();
+            const { data: newStats, error: createError } = await supabase
+                .from('referral_stats')
+                .insert({
+                    user_id: userId,
+                    referral_code: newCode,
+                    total_referrals: 0,
+                    successful_referrals: 0,
+                    current_tier: 1,
+                    current_commission_rate: 5,
+                    total_earnings: 0,
+                    pending_earnings: 0,
+                    paid_earnings: 0
+                })
+                .select()
+                .single();
+
+            if (createError) {
+                console.error('Error creating referral stats:', createError);
+                throw createError;
+            }
+
+            console.log('Successfully created referral stats:', newStats);
+            return newStats;
+        }
+
+        if (error) {
+            console.error('Error fetching referral stats:', error);
+            throw error;
+        }
+
         return data;
     } catch (error) {
-        console.error('Error fetching referral stats:', error);
+        console.error('Error in getReferralStats:', error);
         return null;
     }
 };
