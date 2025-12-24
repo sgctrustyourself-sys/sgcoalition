@@ -26,9 +26,8 @@ SELECT
     tablename,
     policyname,
     cmd,
-    roles,
-    pg_get_expr(qual, oid) as using_clause
+    roles
 FROM pg_policies 
-JOIN pg_class ON pg_policies.tablename = pg_class.relname
-WHERE tablename = 'referral_stats'
+WHERE schemaname = 'public'
+  AND tablename = 'referral_stats'
 ORDER BY cmd, policyname;
