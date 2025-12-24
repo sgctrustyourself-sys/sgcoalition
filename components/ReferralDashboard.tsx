@@ -158,7 +158,8 @@ const ReferralDashboard = () => {
                         <div className="h-2 bg-black/30 rounded-full overflow-hidden">
                             <div
                                 className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
-                                style={{ width: `${Math.min(tierInfo.progress, 100)}%` }}
+                                data-progress={Math.min(tierInfo.progress, 100)}
+                                style={{ width: `var(--progress-width, ${Math.min(tierInfo.progress, 100)}%)` } as React.CSSProperties}
                             ></div>
                         </div>
                     </div>
