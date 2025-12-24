@@ -12,6 +12,7 @@ import {
     type Referral
 } from '../utils/referralSystem';
 import { getReferrerAnalytics } from '../utils/referralAnalytics';
+import { customizeReferralCode } from '../utils/customizeReferralCode';
 
 const ReferralDashboard = () => {
     const { user } = useApp();
@@ -21,6 +22,9 @@ const ReferralDashboard = () => {
     const [analytics, setAnalytics] = useState({ clicks: 0, views: 0, signups: 0, purchases: 0, conversionRate: 0 });
     const [loading, setLoading] = useState(true);
     const [copied, setCopied] = useState(false);
+    const [isEditingCode, setIsEditingCode] = useState(false);
+    const [newCode, setNewCode] = useState('');
+    const [editError, setEditError] = useState('');
 
     useEffect(() => {
         if (user) {
@@ -53,6 +57,30 @@ const ReferralDashboard = () => {
         addToast('Referral link copied!', 'success');
 
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleEditCode = () => {
+        if (!stats) return;
+        setNewCode(stats.referral_code);
+        setEditError('');
+        setIsEditingCode(true);
+    };
+
+    const handleSaveCode = async () => {
+        if (!user || !stats) return;
+
+        setEditError('');
+
+        const result = await customizeReferralCode(user.uid, newCode);
+
+        if (result.success) {
+            addToast('Referral code updated successfully!', 'success');
+            setIsEditingCode(false);
+            // Reload data to show new code
+            await loadReferralData();
+        } else {
+            setEditError(result.error || 'Failed to update code');
+        }
     };
 
     if (!user) {
@@ -226,17 +254,88 @@ const ReferralDashboard = () => {
                     <div className="text-4xl font-bold font-mono text-white tracking-wider mb-2">
                         {stats.referral_code}
                     </div>
-                    <button
-                        onClick={() => {
-                            navigator.clipboard.writeText(stats.referral_code);
-                            addToast('Referral code copied!', 'success');
-                        }}
-                        className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-bold transition flex items-center gap-2 mx-auto mt-3"
-                    >
-                        <Copy size={16} />
-                        Copy Code
-                    </button>
+                    <div className="flex items-center justify-center gap-2 mt-3">
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(stats.referral_code);
+                                addToast('Referral code copied!', 'success');
+                            }}
+                            className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-bold transition flex items-center gap-2"
+                        >
+                            <Copy size={16} />
+                            Copy Code
+                        </button>
+                        {!stats.code_customized && (
+                            <button
+                                onClick={handleEditCode}
+                                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-bold transition flex items-center gap-2"
+                            >
+                                ✏️ Customize
+                            </button>
+                        )}
+                    </div>
+                    {stats.code_customized && (
+                        <p className="text-xs text-green-400 mt-2">✓ Customized code (no more changes allowed)</p>
+                    )}
                 </div>
+
+                {/* Edit Code Modal */}
+                {isEditingCode && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-md w-full">
+                            <h3 className="text-xl font-bold text-white mb-4">Customize Your Referral Code</h3>
+
+                            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 mb-4">
+                                <p className="text-sm text-yellow-200">
+                                    ⚠️ <strong>One-time change!</strong> Once you save, you cannot change it again.
+                                </p>
+                            </div>
+
+                            <div className="mb-4">
+                                <label className="block text-sm text-gray-400 mb-2">Your Code (4-12 characters)</label>
+                                <input
+                                    type="text"
+                                    value={newCode}
+                                    onChange={(e) => {
+                                        setNewCode(e.target.value.toUpperCase());
+                                        setEditError('');
+                                    }}
+                                    placeholder="YOURCODE123"
+                                    maxLength={12}
+                                    className="w-full bg-black/50 border border-gray-700 rounded-lg px-4 py-3 text-white font-mono text-lg focus:border-blue-500 focus:outline-none"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Letters, numbers, and hyphens only
+                                </p>
+                            </div>
+
+                            {editError && (
+                                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
+                                    <p className="text-sm text-red-300">{editError}</p>
+                                </div>
+                            )}
+
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        setIsEditingCode(false);
+                                        setEditError('');
+                                    }}
+                                    className="flex-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-bold transition"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSaveCode}
+                                    disabled={!newCode || newCode.length < 4}
+                                    className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-bold transition"
+                                >
+                                    Save Code
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="space-y-2 text-sm text-green-100">
                     <p className="flex items-center gap-2">

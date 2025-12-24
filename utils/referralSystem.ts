@@ -23,6 +23,8 @@ export interface ReferralStats {
     total_earnings: number;
     pending_earnings: number;
     paid_earnings: number;
+    code_customized?: boolean;
+    code_customized_at?: string;
     updated_at: string;
 }
 
