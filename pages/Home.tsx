@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import { Section } from '../types';
 import ProductCard from '../components/ProductCard';
 import SmsSignup from '../components/SmsSignup';
+import Seo from '../components/Seo';
 
 const Home = () => {
     const { sections, products, isAdminMode, updateSections, updateSection, isLoading } = useApp();
@@ -366,6 +367,10 @@ const Home = () => {
 
     return (
         <div className="min-h-screen pb-20">
+            <Seo
+                title="Coalition | Crafted in Baltimore"
+                description="Coalition is a premium streetwear brand born in Baltimore. Quality, community, and the hustle. Shop the latest drops and join the movement."
+            />
             {sections.map((s, i) => (
                 <React.Fragment key={s.id}>
                     {renderSection(s, i)}

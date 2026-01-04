@@ -11,6 +11,7 @@ import PageLoader from './components/ui/PageLoader';
 import MobileBottomNav from './components/MobileBottomNav';
 import ToastContainer from './components/ui/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
+import PromoBar from './components/PromoBar';
 import { TutorialProvider } from './context/TutorialContext';
 import { storeReferralCode } from './utils/referralSystem';
 
@@ -96,6 +97,7 @@ const App = () => {
             <AuthEventHandler />
             <ReferralTracker />
             <div className="min-h-screen flex flex-col font-sans text-white bg-black selection:bg-brand-accent selection:text-black">
+              <PromoBar />
               <Navbar />
               <CartDrawer />
               <Suspense fallback={null}>

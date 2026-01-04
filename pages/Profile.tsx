@@ -8,6 +8,7 @@ import ProductCardSkeleton from '../components/ProductCardSkeleton';
 import OrderSkeleton from '../components/OrderSkeleton';
 import ReferralDashboard from '../components/ReferralDashboard';
 import AccountLinking from '../components/AccountLinking';
+import Seo from '../components/Seo';
 
 interface Order {
     id: string;
@@ -75,6 +76,10 @@ const Profile = () => {
 
     return (
         <div className="pt-24 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <Seo
+                title="My Profile"
+                description="Manage your orders, view SGCoin balance, and access VIP membership settings."
+            />
             {/* Profile Header */}
             <div className="bg-black text-white rounded-2xl p-8 md:p-12 mb-12 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-brand-accent opacity-20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>

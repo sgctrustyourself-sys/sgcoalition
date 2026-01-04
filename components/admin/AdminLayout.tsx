@@ -1,11 +1,11 @@
 import React from 'react';
-import { Package, ShoppingCart, GitBranch, Gift, Settings, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3, TrendingUp, Instagram, Ghost } from 'lucide-react';
+import { Package, ShoppingCart, GitBranch, Gift, Settings, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3, TrendingUp, Instagram, Ghost, Tag } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'products' | 'orders' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signal' | 'settings';
-    onTabChange: (tab: 'products' | 'orders' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signal' | 'settings') => void;
+    activeTab: 'products' | 'orders' | 'reviews' | 'analytics' | 'referrals' | 'coupons' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signal' | 'settings';
+    onTabChange: (tab: 'products' | 'orders' | 'reviews' | 'analytics' | 'referrals' | 'coupons' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signal' | 'settings') => void;
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange }) => {
@@ -18,6 +18,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
         { id: 'reviews', label: 'Reviews', icon: Star },
         { id: 'analytics', label: 'Analytics', icon: BarChart3 },
         { id: 'referrals', label: 'Referrals', icon: TrendingUp },
+        { id: 'coupons', label: 'Coupons', icon: Tag },
         { id: 'sgcoin-distribution', label: 'SGCoin Distribution', icon: Coins },
         { id: 'sgcoin-requests', label: 'SGCoin Requests', icon: Coins },
         { id: 'instagram', label: 'Instagram Links', icon: Instagram },

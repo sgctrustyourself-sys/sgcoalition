@@ -1,4 +1,0 @@
-ID: prod_002 | NAME: Custom Wallet (1/1) | ARCHIVED: false
-ID: prod_wallet_skyy | NAME: Coalition Skyy Blue Wallet | ARCHIVED: false
-ID: prod_nft_001 | NAME: Coalition NF-Tee | ARCHIVED: false
-ID: prod_003 | NAME: Custom Coalition x Chrome Hearts Wallet | ARCHIVED: true

@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import SearchBar from '../components/SearchBar';
 import ProductCardSkeleton from '../components/ProductCardSkeleton';
+import Seo from '../components/Seo';
 
 const Shop = () => {
     const { products, isLoading, isConfigError } = useApp();
@@ -64,6 +65,10 @@ const Shop = () => {
 
     return (
         <div className="pt-12 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-screen">
+            <Seo
+                title="Shop"
+                description="Browse the latest Coalition streetwear collection. Premium hoodies, tees, and accessories."
+            />
             {/* VIP Membership Banner */}
             {showVIPBanner && (
                 <div className="mb-8 bg-gradient-to-r from-purple-900/30 via-purple-800/30 to-blue-900/30 border border-purple-500/30 rounded-lg p-6 relative overflow-hidden">

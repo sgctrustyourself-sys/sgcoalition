@@ -4,32 +4,54 @@ import { getReferralStatsByCode } from './referralSystem';
 /**
  * Validate if a coupon code exists as a referral code
  */
-export const validateCouponCode = async (code: string): Promise<{ valid: boolean; error?: string; referrerName?: string }> => {
+export const validateCouponCode = async (code: string): Promise<{ valid: boolean; error?: string; referrerName?: string; discount?: { type: string; value: number } }> => {
     try {
         if (!code || code.trim() === '') {
             return { valid: false, error: 'Please enter a coupon code' };
         }
 
-        // Check if code exists in referral_stats
-        const stats = await getReferralStatsByCode(code.toUpperCase());
+        const normalizedCode = code.toUpperCase();
 
-        if (!stats) {
-            return { valid: false, error: 'Invalid coupon code' };
+        // 1. Try Native Coupon (Priority)
+        const { data: couponData, error: couponError } = await supabase
+            .rpc('validate_coupon', { coupon_code: normalizedCode });
+
+        if (couponData && couponData.valid) {
+            return {
+                valid: true,
+                referrerName: 'Special Offer',
+                discount: {
+                    type: couponData.type,
+                    value: couponData.value
+                }
+            };
         }
 
-        // Get referrer's name for display
-        const { data: userData } = await supabase
-            .from('profiles')
-            .select('full_name, email')
-            .eq('id', stats.user_id)
-            .single();
+        // 2. Fallback to Referral System
+        const stats = await getReferralStatsByCode(normalizedCode);
 
-        const referrerName = userData?.full_name || userData?.email || 'a referrer';
+        if (stats) {
+            // Get referrer's name for display
+            const { data: userData } = await supabase
+                .from('profiles')
+                .select('full_name, email')
+                .eq('id', stats.user_id)
+                .single();
 
-        return {
-            valid: true,
-            referrerName
-        };
+            const referrerName = userData?.full_name || userData?.email || 'a referrer';
+
+            return {
+                valid: true,
+                referrerName,
+                discount: {
+                    type: 'fixed', // Standard referral is $10 fixed (hardcoded for legacy)
+                    value: 10
+                }
+            };
+        }
+
+        return { valid: false, error: 'Invalid coupon or referral code' };
+
     } catch (error) {
         console.error('Error validating coupon code:', error);
         return { valid: false, error: 'Failed to validate code' };

@@ -8,6 +8,7 @@ import { checkNftOwnership, switchToPolygon } from '../services/web3Service';
 import { Lock, Unlock, Loader } from 'lucide-react';
 import FrequentlyBoughtTogether from '../components/FrequentlyBoughtTogether';
 import FloatingHelpButton from '../components/FloatingHelpButton';
+import Seo from '../components/Seo';
 
 const ProductReviews = React.lazy(() => import('../components/ProductReviews'));
 
@@ -164,6 +165,12 @@ const ProductDetails = () => {
 
     return (
         <div className="pt-24 pb-16 min-h-screen bg-black">
+            <Seo
+                title={product.name}
+                description={product.description.substring(0, 160)}
+                image={product.images[0]}
+                type="product"
+            />
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <button onClick={() => navigate(-1)} className="flex items-center text-sm text-gray-400 hover:text-white mb-8">
                     <ArrowLeft className="w-4 h-4 mr-1" /> Back

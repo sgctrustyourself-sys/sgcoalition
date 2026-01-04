@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp, TrendingDown, Activity, DollarSign, BarChart3 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, DollarSign, BarChart3, ExternalLink } from 'lucide-react';
 import { SGCoinData } from '../types';
 import AnimatedCounter from './AnimatedCounter';
 
@@ -33,56 +33,71 @@ const SGCoinCard: React.FC<SGCoinCardProps> = ({ data, isLoading = false }) => {
                 </div>
 
                 <div className="relative z-10">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-brand-black flex items-center justify-center text-white font-bold text-xs">
+                            <div className="w-10 h-10 rounded-full bg-brand-black flex items-center justify-center text-white font-bold text-sm shadow-lg">
                                 SG
                             </div>
-                            <span className="font-bold text-gray-500 uppercase tracking-wider text-sm">SGCoin Price</span>
+                            <div>
+                                <span className="font-bold text-gray-900 block leading-tight">SGCoin / USDC</span>
+                                <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Polygon Network</span>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                            <span className="relative flex h-3 w-3">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                            </span>
-                            <span className="text-xs font-bold text-green-600 ml-1 uppercase tracking-wider">Live</span>
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-1.5 bg-green-50 px-3 py-1 rounded-full border border-green-100">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                </span>
+                                <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest">Live Metrics</span>
+                            </div>
+                            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                                <Activity size={10} /> Powered by DexScreener
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex items-baseline gap-4 mb-6">
-                        <h2 className="text-5xl md:text-6xl font-display font-bold text-brand-black tracking-tight">
+                    <div className="flex flex-col sm:flex-row sm:items-baseline gap-4 mb-8">
+                        <h2 className="text-6xl md:text-7xl font-display font-bold text-brand-black tracking-tighter">
                             $<AnimatedCounter end={data.price ?? 0} decimals={6} duration={2000} />
                         </h2>
-                        <div className={`flex items-center px-3 py-1 rounded-full text-sm font-bold ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                            {isPositive ? <TrendingUp size={16} className="mr-1" /> : <TrendingDown size={16} className="mr-1" />}
+                        <div className={`flex items-center self-start sm:self-auto px-4 py-1.5 rounded-full text-sm font-black shadow-sm ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {isPositive ? <TrendingUp size={16} className="mr-1.5" /> : <TrendingDown size={16} className="mr-1.5" />}
                             {Math.abs(data.priceChange24h ?? 0).toFixed(2)}%
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-6 border-t border-gray-100">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-8 border-t border-gray-100">
                         <div>
-                            <p className="text-xs text-gray-400 uppercase font-bold mb-1">Market Cap</p>
-                            <p className="font-bold text-gray-900 flex items-center">
-                                <DollarSign size={14} className="text-gray-400" />
-                                <AnimatedCounter end={(data.marketCap ?? 0) / 1000} decimals={1} suffix="K" duration={2000} />
+                            <p className="text-[10px] text-gray-400 uppercase font-black mb-1.5 tracking-widest">Market Cap (FDV)</p>
+                            <p className="text-xl font-bold text-gray-900 flex items-center">
+                                <DollarSign size={16} className="text-gray-300" />
+                                <AnimatedCounter end={(data.marketCap ?? 0) / 1000000} decimals={2} suffix="M" duration={2000} />
                             </p>
                         </div>
                         <div>
-                            <p className="text-xs text-gray-400 uppercase font-bold mb-1">24h Volume</p>
-                            <p className="font-bold text-gray-900 flex items-center">
-                                <BarChart3 size={14} className="text-gray-400 mr-1" />
-                                $<AnimatedCounter end={data.volume24h ?? 0} duration={2000} />
+                            <p className="text-[10px] text-gray-400 uppercase font-black mb-1.5 tracking-widest">24h Volume</p>
+                            <p className="text-xl font-bold text-gray-900 flex items-center">
+                                <BarChart3 size={16} className="text-gray-300 mr-1.5" />
+                                $<AnimatedCounter end={data.volume24h ?? 0} decimals={0} duration={2000} />
                             </p>
                         </div>
-                        <div>
-                            <p className="text-xs text-gray-400 uppercase font-bold mb-1">Liquidity</p>
-                            <p className="font-bold text-gray-900">
-                                $<AnimatedCounter end={data.liquidity ?? 0} duration={2000} />
+                        <div className="hidden md:block">
+                            <p className="text-[10px] text-gray-400 uppercase font-black mb-1.5 tracking-widest">Liquidity</p>
+                            <p className="text-xl font-bold text-gray-900">
+                                $<AnimatedCounter end={data.liquidity ?? 0} decimals={0} duration={2000} />
                             </p>
                         </div>
-                        <div>
-                            <p className="text-xs text-gray-400 uppercase font-bold mb-1">Network</p>
-                            <p className="font-bold text-purple-600">Polygon</p>
+                        <div className="flex items-center justify-end col-span-2 md:col-span-1">
+                            <a
+                                href="https://zapper.xyz/token/polygon/0x951806a2581c22c478ac613a675e6c898e2abe21/SGCOIN/details"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full md:w-auto bg-gradient-to-r from-brand-black to-gray-800 text-white text-[11px] font-black py-4 px-6 rounded-xl uppercase tracking-[0.2em] shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 group/btn"
+                            >
+                                View on Zapper
+                                <ExternalLink size={14} className="group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
+                            </a>
                         </div>
                     </div>
                 </div>

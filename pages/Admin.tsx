@@ -12,11 +12,12 @@ import AnalyticsDashboard from '../admin/AnalyticsDashboard';
 import SGCoinDistribution from '../admin/SGCoinDistribution';
 import ReferralAnalytics from '../admin/ReferralAnalytics';
 import CoalitionSignalManager from '../admin/CoalitionSignalManager';
+import CouponManager from '../components/admin/CouponManager';
 import { useApp } from '../context/AppContext';
 
 const Admin: React.FC = () => {
     const { user } = useApp();
-    const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signal' | 'settings'>('products');
+    const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'reviews' | 'analytics' | 'referrals' | 'coupons' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signal' | 'settings'>('products');
 
     const renderContent = () => {
         switch (activeTab) {
@@ -30,6 +31,8 @@ const Admin: React.FC = () => {
                 return <AnalyticsDashboard />;
             case 'referrals':
                 return <ReferralAnalytics />;
+            case 'coupons':
+                return <CouponManager />;
             case 'sgcoin-distribution':
                 return <SGCoinDistribution />;
             case 'instagram':

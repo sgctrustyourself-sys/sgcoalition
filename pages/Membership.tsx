@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Shield, CreditCard, ShoppingBag, Check, Star, Zap } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import Seo from '../components/Seo';
 
 const Membership = () => {
     const { addToast } = useToast();
@@ -43,6 +44,10 @@ const Membership = () => {
 
     return (
         <div className="min-h-screen pt-20 pb-20 bg-black text-white">
+            <Seo
+                title="VIP Membership"
+                description="Unlock exclusive benefits, early access to drops, and premium rewards with Coalition VIP Membership."
+            />
             {/* Hero Section */}
             <div className="relative py-24 px-4 overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black to-blue-900/20"></div>

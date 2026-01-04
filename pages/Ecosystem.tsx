@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Trophy, ExternalLink, Gift, Clock, Users, CheckCircle, ArrowRight, MessageCircle, UserPlus, Star, Share2, DollarSign, ShoppingBag, Wallet, ShieldCheck } from 'lucide-react';
+import { Trophy, ExternalLink, Gift, Clock, Users, CheckCircle, ArrowRight, MessageCircle, UserPlus, Star, Share2, DollarSign, ShoppingBag, Wallet, ShieldCheck, Activity, BarChart3 } from 'lucide-react';
 import SGCoinCard from '../components/SGCoinCard';
 import LiveTransactions from '../components/LiveTransactions';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { fetchSGCoinData, fetchRecentTrades } from '../utils/sgcoinApi';
 import { addGiveawayEntry } from '../utils/giveawayUtils';
+import Seo from '../components/Seo';
 
 const Ecosystem = () => {
     const { user, giveaways } = useApp();
@@ -72,6 +73,10 @@ const Ecosystem = () => {
 
     return (
         <div className="bg-black min-h-screen text-white">
+            <Seo
+                title="Ecosystem & SGCoin"
+                description="Earn points, rewards, and cash commissions. Join the Coalition Economy."
+            />
             {/* Hero Section */}
             <div className="relative h-[70vh] flex items-center justify-center overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-b from-gray-900 to-black opacity-90 z-10"></div>
@@ -89,6 +94,14 @@ const Ecosystem = () => {
                             Join Now
                         </Link>
                     </div>
+                    <div className="mt-8 flex justify-center gap-6">
+                        <a href="https://zapper.xyz/token/polygon/0x951806a2581c22c478ac613a675e6c898e2abe21/SGCOIN/details" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition text-xs font-mono flex items-center gap-2">
+                            ZAPPER.XYZ <ExternalLink size={12} />
+                        </a>
+                        <a href="https://dexscreener.com/polygon/0x951806a2581c22c478ac613a675e6c898e2abe21" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition text-xs font-mono flex items-center gap-2">
+                            DEXSCREENER.COM <ExternalLink size={12} />
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -100,7 +113,61 @@ const Ecosystem = () => {
             <div className="max-w-7xl mx-auto px-4 pb-24 grid grid-cols-1 lg:grid-cols-3 gap-12">
 
                 {/* Left Column: Main Content */}
-                <div className="lg:col-span-2 space-y-16">
+                <div className="lg:col-span-2 space-y-20">
+
+                    {/* What is SGCOIN? */}
+                    <section id="about-sgcoin">
+                        <div className="flex items-center gap-4 mb-8">
+                            <div className="w-12 h-12 rounded-xl bg-brand-accent/20 flex items-center justify-center">
+                                <ShieldCheck className="text-brand-accent" size={24} />
+                            </div>
+                            <h2 className="font-display text-4xl font-bold uppercase tracking-tight">What is <span className="text-brand-accent">SGCOIN</span>?</h2>
+                        </div>
+                        <div className="prose prose-invert max-w-none">
+                            <p className="text-xl text-gray-300 leading-relaxed">
+                                SGCOIN is the native digital currency of the SG Coalition Ecosystem. Built on the Polygon network for speed and low cost, it serves as the foundation of our decentralized rewards economy. Unlike traditional points programs, SGCOIN is a real digital asset that you truly own.
+                            </p>
+                        </div>
+                        <div className="grid md:grid-cols-3 gap-6 mt-12">
+                            <div className="bg-gray-900/30 p-6 rounded-xl border border-gray-800">
+                                <h4 className="font-bold text-white mb-2">Decentralized</h4>
+                                <p className="text-sm text-gray-400">Operates on Polygon PoS, ensuring transparency and security through blockchain technology.</p>
+                            </div>
+                            <div className="bg-gray-900/30 p-6 rounded-xl border border-gray-800">
+                                <h4 className="font-bold text-white mb-2">Liquid</h4>
+                                <p className="text-sm text-gray-400">Has real market value and active liquidity pools, allowing for trade and exchange.</p>
+                            </div>
+                            <div className="bg-gray-900/30 p-6 rounded-xl border border-gray-800">
+                                <h4 className="font-bold text-white mb-2">Community Driven</h4>
+                                <p className="text-sm text-gray-400">Total supply and distribution is designed to reward active participants and long-term supporters.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Token Utility */}
+                    <section id="utility">
+                        <h2 className="font-display text-3xl font-bold uppercase mb-8 flex items-center gap-3">
+                            <Activity className="text-brand-accent" /> Token Utility & Perks
+                        </h2>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                            {[
+                                { title: 'Product Redemptions', desc: 'Use SGCOIN to buy exclusive hoodies, tees, and digital goods.', icon: ShoppingBag },
+                                { title: 'Early Access', desc: 'SGCoin holders get 24h head start on all seasonal drops.', icon: Clock },
+                                { title: 'Governance', desc: 'Vote on upcoming designs and community initiatives.', icon: Users },
+                                { title: 'VIP Events', desc: 'Exclusive access to live pop-ups and secret community meets.', icon: Star }
+                            ].map((util, i) => (
+                                <div key={i} className="flex gap-4 p-5 bg-white/5 rounded-xl border border-white/10 hover:border-brand-accent/50 transition group">
+                                    <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
+                                        <util.icon className="text-gray-400 group-hover:text-brand-accent" size={20} />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-white">{util.title}</h4>
+                                        <p className="text-sm text-gray-400">{util.desc}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
 
                     {/* Ways to Earn */}
                     <section id="ways-to-earn">
@@ -291,6 +358,40 @@ const Ecosystem = () => {
                                 <h3 className="font-bold text-white mb-2 mt-2">Connect to Coalition</h3>
                                 <p className="text-sm text-gray-400 mb-4">Share your wallet address with us or connect directly on this site.</p>
                                 <Link to="/tutorial/welcome" className="text-xs font-bold text-brand-accent uppercase tracking-wide hover:text-white">View Setup Guide →</Link>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Detailed Liquidity Section */}
+                    <section className="bg-gradient-to-r from-gray-900 to-black rounded-2xl border border-gray-800 p-8">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                            <div>
+                                <h2 className="font-display text-2xl font-bold uppercase flex items-center gap-3 mb-2">
+                                    <BarChart3 className="text-orange-500" /> Active Liquidity Pools
+                                </h2>
+                                <p className="text-gray-400 text-sm max-w-xl">
+                                    SGCOIN maintains active liquidity pairs on decentralized exchanges to ensure users can always exchange their rewards. Primary liquidity is provided on QuickSwap.
+                                </p>
+                            </div>
+                            <div className="flex gap-3">
+                                <a href="https://quickswap.exchange/#/swap?outputCurrency=0x951806a2581c22c478ac613a675e6c898e2abe21&chain=polygon" target="_blank" rel="noopener noreferrer" className="bg-orange-500 hover:bg-orange-600 text-black font-bold py-2 px-4 rounded text-xs uppercase transition">
+                                    Trade on QuickSwap
+                                </a>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
+                            <div className="p-4 bg-black/40 rounded-lg border border-gray-800">
+                                <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Primary Pair</div>
+                                <div className="text-sm font-mono font-bold text-white">SGCOIN / MATIC</div>
+                            </div>
+                            <div className="p-4 bg-black/40 rounded-lg border border-gray-800">
+                                <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">DEX Protocol</div>
+                                <div className="text-sm font-bold text-white">QuickSwap V3 (Polygon)</div>
+                            </div>
+                            <div className="p-4 bg-black/40 rounded-lg border border-gray-800">
+                                <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Contract Address</div>
+                                <div className="text-[10px] font-mono font-bold text-brand-accent truncate">0x951806a2581c22c478ac613a675e6c898e2abe21</div>
                             </div>
                         </div>
                     </section>
