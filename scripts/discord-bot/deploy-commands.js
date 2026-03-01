@@ -16,7 +16,7 @@ const commands = [
                 type: 3,
                 required: true,
                 choices: [
-                    { name: 'Coalition Nf-tee', value: 'prod_nft_001' },
+                    { name: 'Coalition Nf-tee', value: 'Coalition_NF_Tee' },
                     { name: 'Coalition Green Camo Wallet', value: 'prod_wallet_002' },
                     { name: 'Coalition Skyy Blue Wallet', value: 'prod_wallet_003' },
                     { name: 'Custom Coalition X Chrome Hearts Wallet', value: 'prod_wallet_chrome_hearts' },

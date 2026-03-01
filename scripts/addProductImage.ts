@@ -19,7 +19,7 @@ if (!supabaseUrl || !supabaseKey) {
 // Create local Supabase client
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const PRODUCT_ID = 'prod_nft_001';
+const PRODUCT_ID = 'Coalition_NF_Tee';
 const NEW_IMAGE_URL = '/images/coalition-nf-tee-lifestyle.jpg';
 const INSERT_INDEX = 2; // 3rd position (0-indexed)
 

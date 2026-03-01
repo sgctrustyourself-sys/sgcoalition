@@ -2,7 +2,7 @@ import { Product, Section } from './types';
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
-    id: 'prod_nft_001',
+    id: 'Coalition_NF_Tee',
     name: 'COALITION NF-TEE',
     price: 50,
     images: ['/images/coalition-nf-tee-front.png'],

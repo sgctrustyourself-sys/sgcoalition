@@ -33,9 +33,9 @@ export const getFrequentlyBoughtTogether = (
 ): Product[] => {
     // Predefined bundles (productId -> related product IDs)
     const bundles: Record<string, string[]> = {
-        'prod_nft_001': ['prod_wallet_001', 'prod_keychain_001'], // Coalition NF-Tee + Wallet + Keychain
-        'prod_wallet_001': ['prod_nft_001', 'prod_keychain_001'], // Wallet + Tee + Keychain
-        'prod_keychain_001': ['prod_nft_001', 'prod_wallet_001'], // Keychain + Tee + Wallet
+        'Coalition_NF_Tee': ['prod_wallet_001', 'prod_keychain_001'], // Coalition NF-Tee + Wallet + Keychain
+        'prod_wallet_001': ['Coalition_NF_Tee', 'prod_keychain_001'], // Wallet + Tee + Keychain
+        'prod_keychain_001': ['Coalition_NF_Tee', 'prod_wallet_001'], // Keychain + Tee + Wallet
     };
 
     const relatedIds = bundles[productId] || [];

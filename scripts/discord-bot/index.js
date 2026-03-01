@@ -123,7 +123,7 @@ const commands = [
                 type: ApplicationCommandOptionType.String,
                 required: true,
                 choices: [
-                    { name: 'Coalition Nf-tee', value: 'prod_nft_001' },
+                    { name: 'Coalition Nf-tee', value: 'Coalition_NF_Tee' },
                     { name: 'Coalition Green Camo Wallet', value: 'prod_wallet_002' },
                     { name: 'Coalition Skyy Blue Wallet', value: 'prod_wallet_003' },
                     { name: 'Custom Coalition X Chrome Hearts Wallet', value: 'prod_wallet_chrome_hearts' },
@@ -224,7 +224,7 @@ const commands = [
 
 // Product data (will be synced via sync-products.js)
 const PRODUCTS = {
-    prod_nft_001: {
+    Coalition_NF_Tee: {
         name: 'COALITION NF-TEE',
         price: 50,
         category: 'APPAREL / NFT-INTEGRATED',
