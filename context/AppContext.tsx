@@ -174,15 +174,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let mounted = true;
         const initApp = async () => {
             try {
-                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL || '';
-                const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-                const hasKeys = supabaseUrl && supabaseAnonKey && supabaseUrl !== 'VITE_SUPABASE_URL';
+                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+                const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+                const hasKeys = supabaseUrl && supabaseAnonKey &&
+                    supabaseUrl !== 'VITE_SUPABASE_URL' &&
+                    !supabaseUrl.includes('placeholder');
+
                 if (mounted) setIsSupabaseConfigured(!!hasKeys);
+
                 if (!hasKeys) {
+                    console.log('⚠️ Supabase keys not found, using initial products');
                     setProducts(INITIAL_PRODUCTS);
                     if (mounted) setIsLoading(false);
                     return;
                 }
+
+                // Await initial data fetch before hiding loader to prevent race conditions
+                console.log('🔄 Fetching initial data from Supabase...');
+                await Promise.all([
+                    fetchProducts(),
+                    fetchOrders()
+                ]);
 
                 const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
                     if (!mounted) return;

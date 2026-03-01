@@ -21,7 +21,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
         <div className="group relative bg-transparent">
             <div className="aspect-[4/5] overflow-hidden bg-gray-900 relative border border-white/5">
                 <img
-                    src={product.images[0]}
+                    src={product.images && product.images.length > 0 ? product.images[0] : 'https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?q=80&w=800&auto=format&fit=crop'}
                     alt={product.name}
                     loading="lazy"
                     className="h-full w-full object-cover object-center group-hover:scale-105 group-hover:grayscale transition duration-700 ease-in-out"

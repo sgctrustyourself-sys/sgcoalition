@@ -13,7 +13,7 @@ const Shop = () => {
     // Filter States
     const [category, setCategory] = useState<string>('all');
     const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
-    const [priceRange, setPriceRange] = useState<{ min: number, max: number }>({ min: 0, max: 500 });
+    const [priceRange, setPriceRange] = useState<{ min: number, max: number }>({ min: 0, max: 1000 });
     const [sortOption, setSortOption] = useState<string>('newest');
 
     // VIP Banner State
@@ -47,7 +47,7 @@ const Shop = () => {
             return p.name.toLowerCase().includes(query) ||
                 p.description.toLowerCase().includes(query);
         })
-        .filter(p => category === 'all' || p.category.toLowerCase() === category.toLowerCase())
+        .filter(p => !category || category === 'all' || p.category?.toLowerCase() === category.toLowerCase())
         .filter(p => selectedSizes.length === 0 || (p.sizes && p.sizes.some(s => selectedSizes.includes(s))))
         .filter(p => p.price >= priceRange.min && p.price <= priceRange.max)
         .sort((a, b) => {
@@ -231,7 +231,7 @@ const Shop = () => {
 
                         <div className="pt-4 border-t border-gray-100">
                             <button
-                                onClick={() => { setCategory('all'); setSelectedSizes([]); setPriceRange({ min: 0, max: 500 }); setSearchQuery(''); }}
+                                onClick={() => { setCategory('all'); setSelectedSizes([]); setPriceRange({ min: 0, max: 1000 }); setSearchQuery(''); }}
                                 className="text-xs text-gray-500 underline hover:text-black"
                             >
                                 Clear All Filters
