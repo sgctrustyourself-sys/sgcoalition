@@ -21,6 +21,7 @@ const commands = [
                     { name: 'Coalition Skyy Blue Wallet', value: 'prod_wallet_003' },
                     { name: 'Custom Coalition X Chrome Hearts Wallet', value: 'prod_wallet_chrome_hearts' },
                     { name: 'Coalition Distortion Tee', value: 'prod_tee_distortion' },
+                    { name: 'Coalition x True Religion S1', value: 'Coalition_x_True_Religion_S1' },
                 ],
             },
         ],

@@ -21,7 +21,7 @@ async function addJeansProduct() {
     console.log('👖 Adding Coalition x True Religion 1/1 Jeans S1...');
 
     const product = {
-        id: `prod_jeans_${Date.now()}`,
+        id: 'Coalition_x_True_Religion_S1',
         name: 'Coalition x True Religion 1/1 Jeans S1',
         price: 240,
         stock: 1,

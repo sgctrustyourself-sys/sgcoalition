@@ -128,6 +128,7 @@ const commands = [
                     { name: 'Coalition Skyy Blue Wallet', value: 'prod_wallet_003' },
                     { name: 'Custom Coalition X Chrome Hearts Wallet', value: 'prod_wallet_chrome_hearts' },
                     { name: 'Coalition Distortion Tee', value: 'prod_tee_distortion' },
+                    { name: 'Coalition x True Religion S1', value: 'Coalition_x_True_Religion_S1' },
                 ],
             },
         ],
@@ -268,6 +269,15 @@ const PRODUCTS = {
         url: 'https://sgcoalition.xyz/products#/shop',
         image: 'https://i.imgur.com/VlTUzGd.jpeg',
         status: 'ACTIVE'
+    },
+    Coalition_x_True_Religion_S1: {
+        name: 'COALITION X TRUE RELIGION 1/1 JEANS S1',
+        price: 240,
+        category: 'DENIM / 1-OF-1',
+        description: 'One-of-one Coalition x True Religion collaboration jeans. Season 1 exclusive — custom distressed denim with premium detailing. Size 33. Once it\'s gone, it\'s gone.',
+        url: 'https://sgcoalition.xyz/product/Coalition_x_True_Religion_S1',
+        image: 'https://i.imgur.com/2VU7MEr.jpg',
+        status: 'LIMITED EDITION'
     }
 };
 
