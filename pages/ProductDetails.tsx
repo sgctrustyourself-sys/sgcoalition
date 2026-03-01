@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Share2, Shield, Plus, Trash2, X, Upload, ExternalLink, Smartphone, Scan, Heart } from 'lucide-react';
+import { ArrowLeft, Share2, Shield, Plus, Trash2, X, Upload, ExternalLink, Smartphone, Scan, Heart, MessageSquare } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Product, AuthProvider } from '../types';
 import ImpactMessage from '../components/ImpactMessage';
@@ -162,6 +162,29 @@ const ProductDetails = () => {
             setIsUploading(false);
         };
         reader.readAsDataURL(file);
+    };
+
+    const handleShare = async () => {
+        if (!product) return;
+        const url = window.location.href;
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: `SG Coalition - ${product.name}`,
+                    text: `Check out ${product.name} on SG Coalition!`,
+                    url: url
+                });
+            } catch (error) {
+                console.error('Error sharing:', error);
+            }
+        } else {
+            try {
+                await navigator.clipboard.writeText(url);
+                alert('Product link copied to clipboard!');
+            } catch (error) {
+                console.error('Error copying to clipboard:', error);
+            }
+        }
     };
 
     return (
@@ -412,6 +435,7 @@ const ProductDetails = () => {
 
                                         <button
                                             type="button"
+                                            onClick={handleShare}
                                             className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 hover:border-white/20 transition-all group"
                                             title="Share Product"
                                         >
@@ -424,6 +448,30 @@ const ProductDetails = () => {
 
                                     {/* Local Impact Message */}
                                     <ImpactMessage className="mt-2" />
+
+                                    {/* Reddit Community Banner */}
+                                    <div className="mt-8 bg-gradient-to-r from-[#ff4500]/20 via-[#ff4500]/10 to-brand-accent/10 border border-[#ff4500]/30 rounded-sm p-6 relative overflow-hidden group hover:border-[#ff4500]/50 transition-all">
+                                        <div className="absolute -right-10 -top-10 w-40 h-40 bg-[#ff4500]/10 rounded-full blur-3xl group-hover:bg-[#ff4500]/20 transition-all"></div>
+                                        <div className="relative flex flex-col sm:flex-row items-center justify-between gap-4">
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest text-[#ff4500] bg-[#ff4500]/10 px-2 py-1 rounded flex items-center">
+                                                        <MessageSquare className="w-3 h-3 mr-1" /> COMMUNITY HUB
+                                                    </span>
+                                                </div>
+                                                <h4 className="text-white font-bold uppercase tracking-widest text-sm mb-1">Have feedback or fit pics?</h4>
+                                                <p className="text-xs text-gray-400 font-light">Join <span className="text-[#ff4500] font-bold">r/SGCoalition</span> on Reddit to discuss this piece, share how you style it, and connect with the Coalition.</p>
+                                            </div>
+                                            <a
+                                                href="https://www.reddit.com/r/SGCoalition/"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex-shrink-0 bg-[#ff4500] hover:bg-[#ff4500]/80 text-white px-6 py-3 rounded-sm text-xs font-bold uppercase tracking-[0.2em] transition-colors flex items-center whitespace-nowrap shadow-[0_0_15px_rgba(255,69,0,0.3)] hover:shadow-[0_0_20px_rgba(255,69,0,0.5)]"
+                                            >
+                                                Join Reddit <ExternalLink className="w-3 h-3 ml-2" />
+                                            </a>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {product.nft && (

@@ -119,8 +119,7 @@ const Shop = () => {
                             <select
                                 value={category}
                                 onChange={(e) => setCategory(e.target.value)}
-                                className="text-sm font-black uppercase bg-transparent border-none focus:ring-0 cursor-pointer text-white appearance-none pr-8 relative"
-                                style={{ backgroundImage: 'none' }}
+                                className="text-sm font-black uppercase bg-transparent border-none focus:ring-0 cursor-pointer text-white appearance-none pr-8 relative bg-none"
                                 title="Filter by Category"
                             >
                                 {categories.map(cat => (
@@ -139,8 +138,7 @@ const Shop = () => {
                             <select
                                 value={sortOption}
                                 onChange={(e) => setSortOption(e.target.value)}
-                                className="text-sm font-black uppercase bg-transparent border-none focus:ring-0 cursor-pointer text-white appearance-none pr-8 relative"
-                                style={{ backgroundImage: 'none' }}
+                                className="text-sm font-black uppercase bg-transparent border-none focus:ring-0 cursor-pointer text-white appearance-none pr-8 relative bg-none"
                                 title="Sort products"
                             >
                                 <option value="newest" className="bg-black">Newest</option>
