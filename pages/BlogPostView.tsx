@@ -3,9 +3,15 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 import { BlogPost } from '../types';
 import { Calendar, User, ArrowLeft, Loader, Share2, Shield } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import VotingSystem from '../components/VotingSystem';
 import CommentsSection from '../components/CommentsSection';
+
+const safeDate = (dateStr: any) => {
+    if (!dateStr) return new Date();
+    const d = new Date(dateStr);
+    return isValid(d) ? d : new Date();
+};
 
 const BlogPostView = () => {
     const { slug } = useParams<{ slug: string }>();
@@ -29,6 +35,11 @@ const BlogPostView = () => {
             if (data) {
                 setPost({
                     ...data,
+                    coverImage: data.cover_image,
+                    isPublished: data.is_published,
+                    publishedAt: data.published_at,
+                    createdAt: data.created_at,
+                    updatedAt: data.updated_at,
                     upvotePower: data.upvote_power,
                     downvotePower: data.downvote_power,
                     score: data.upvote_power - data.downvote_power
@@ -72,7 +83,7 @@ const BlogPostView = () => {
                     <div className="flex items-center gap-3 text-brand-accent font-black uppercase tracking-widest text-[11px] mb-6">
                         <span className="px-3 py-1 bg-brand-accent/10 border border-brand-accent/20 rounded-sm">{post.category}</span>
                         <span className="text-gray-600">/</span>
-                        <span className="text-gray-400">{format(new Date(post.publishedAt || post.createdAt), 'MMMM dd, yyyy')}</span>
+                        <span className="text-gray-400">{format(safeDate(post.publishedAt || post.createdAt), 'MMMM dd, yyyy')}</span>
                     </div>
                     <h1 className="font-display text-4xl md:text-6xl font-bold uppercase tracking-tighter mb-8 leading-tight">
                         {post.title}
@@ -113,7 +124,7 @@ const BlogPostView = () => {
                 <article className="prose prose-invert prose-brand max-w-none">
                     <div
                         className="text-gray-300 text-lg leading-relaxed space-y-8 font-light"
-                        dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, '<br />') }}
+                        dangerouslySetInnerHTML={{ __html: (post.content || '').replace(/\n/g, '<br />') }}
                     />
                 </article>
 

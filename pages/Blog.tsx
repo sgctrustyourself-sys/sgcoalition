@@ -4,10 +4,16 @@ import { supabase } from '../services/supabase';
 import { BlogPost } from '../types';
 import { useApp } from '../context/AppContext';
 import { Calendar, User, Tag, ArrowBigUp, ArrowBigDown, Loader, Search, Filter } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import IdeaSubmission from '../components/IdeaSubmission';
 import VotingSystem from '../components/VotingSystem';
 import CommentsSection from '../components/CommentsSection';
+
+const safeDate = (dateStr: any) => {
+    if (!dateStr) return new Date();
+    const d = new Date(dateStr);
+    return isValid(d) ? d : new Date();
+};
 
 const Blog = () => {
     const { user } = useApp();
@@ -39,6 +45,11 @@ const Blog = () => {
             if (data) {
                 setPosts(data.map(p => ({
                     ...p,
+                    coverImage: p.cover_image,
+                    isPublished: p.is_published,
+                    publishedAt: p.published_at,
+                    createdAt: p.created_at,
+                    updatedAt: p.updated_at,
                     upvotePower: p.upvote_power,
                     downvotePower: p.downvote_power,
                     score: p.upvote_power - p.downvote_power
@@ -52,8 +63,8 @@ const Blog = () => {
     };
 
     const filteredPosts = posts.filter(post =>
-        post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        post.excerpt?.toLowerCase().includes(searchQuery.toLowerCase())
+        (post.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (post.excerpt || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const categories = ['all', 'update', 'community', 'announcement', 'drop'];
@@ -125,13 +136,13 @@ const Blog = () => {
                                 <div className="p-8 flex-grow">
                                     <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-brand-accent mb-4">
                                         <span className="px-2 py-1 bg-brand-accent/10 rounded-sm">{post.category}</span>
-                                        <span className="text-gray-500">{format(new Date(post.publishedAt || post.createdAt), 'MMM dd, yyyy')}</span>
+                                        <span className="text-gray-500">{format(safeDate(post.publishedAt || post.createdAt), 'MMM dd, yyyy')}</span>
                                     </div>
                                     <h3 className="text-2xl font-bold uppercase tracking-tight mb-4 group-hover:text-glow transition-all">
                                         {post.title}
                                     </h3>
                                     <p className="text-gray-400 text-sm leading-relaxed mb-6 line-clamp-3">
-                                        {post.excerpt || post.content.substring(0, 150) + '...'}
+                                        {post.excerpt || (post.content || '').substring(0, 150) + '...'}
                                     </p>
 
                                     {/* Stats / Governance View */}

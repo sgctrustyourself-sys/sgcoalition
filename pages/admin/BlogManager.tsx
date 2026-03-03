@@ -49,12 +49,22 @@ const BlogManager = () => {
         setIsSaving(true);
         try {
             const slug = currentPost.slug || currentPost.title.toLowerCase().replace(/ /g, '-').replace(/[^\w-]/g, '');
-            const postData = {
-                ...currentPost,
+            const postData: any = {
+                title: currentPost.title,
+                content: currentPost.content,
+                excerpt: currentPost.excerpt,
                 slug,
-                author: 'Coalition Admin',
+                author: currentPost.author || 'Coalition Admin',
+                category: currentPost.category,
+                cover_image: currentPost.coverImage,
+                tags: currentPost.tags,
+                is_published: currentPost.isPublished,
                 published_at: currentPost.isPublished ? (currentPost.publishedAt || new Date().toISOString()) : null
             };
+
+            if (currentPost.id) {
+                postData.id = currentPost.id;
+            }
 
             const { error } = await supabase
                 .from('posts')

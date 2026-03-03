@@ -4,7 +4,13 @@ import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { BlogComment } from '../types';
 import { MessageSquare, Send, User, Loader, Trash2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
+
+const safeDate = (dateStr: any) => {
+    if (!dateStr) return new Date();
+    const d = new Date(dateStr);
+    return isValid(d) ? d : new Date();
+};
 
 interface CommentsSectionProps {
     postId: string;
@@ -160,7 +166,7 @@ const CommentsSection: React.FC<CommentsSectionProps> = ({ postId }) => {
                                     <div className="flex items-center gap-3">
                                         <span className="text-sm font-black uppercase tracking-tight">{comment.userName}</span>
                                         <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
-                                            {format(new Date(comment.createdAt), 'MMM dd, HH:mm')}
+                                            {format(safeDate(comment.createdAt), 'MMM dd, HH:mm')}
                                         </span>
                                     </div>
                                     {(user?.walletAddress === comment.userId || user?.uid === comment.userId) && (
