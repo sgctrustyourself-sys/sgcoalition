@@ -450,28 +450,44 @@ const ProductDetails = () => {
                                     <ImpactMessage className="mt-2" />
 
                                     {/* Reddit Community Banner */}
-                                    <div className="mt-8 bg-gradient-to-r from-[#ff4500]/20 via-[#ff4500]/10 to-brand-accent/10 border border-[#ff4500]/30 rounded-sm p-6 relative overflow-hidden group hover:border-[#ff4500]/50 transition-all">
-                                        <div className="absolute -right-10 -top-10 w-40 h-40 bg-[#ff4500]/10 rounded-full blur-3xl group-hover:bg-[#ff4500]/20 transition-all"></div>
-                                        <div className="relative flex flex-col sm:flex-row items-center justify-between gap-4">
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <span className="text-[10px] font-bold uppercase tracking-widest text-[#ff4500] bg-[#ff4500]/10 px-2 py-1 rounded flex items-center">
-                                                        <MessageSquare className="w-3 h-3 mr-1" /> COMMUNITY HUB
-                                                    </span>
+                                    {(() => {
+                                        const redditLinks: Record<string, { url: string; label: string; description: string }> = {
+                                            'Coalition_NF_Tee': {
+                                                url: 'https://www.reddit.com/user/Complex-Discipline86/comments/1ri70fm/coalition_nftee_50/',
+                                                label: 'View on Reddit',
+                                                description: 'Check out the full Reddit listing for the Coalition NF-Tee — pricing, details, and community discussion.'
+                                            }
+                                        };
+                                        const specificLink = product ? redditLinks[product.id] : null;
+                                        const redditUrl = specificLink?.url || 'https://www.reddit.com/r/SGCoalition/';
+                                        const redditLabel = specificLink?.label || 'Join Reddit';
+                                        const redditDesc = specificLink?.description || 'Join r/SGCoalition on Reddit to discuss this piece, share how you style it, and connect with the Coalition.';
+
+                                        return (
+                                            <div className="mt-8 bg-gradient-to-r from-[#ff4500]/20 via-[#ff4500]/10 to-brand-accent/10 border border-[#ff4500]/30 rounded-sm p-6 relative overflow-hidden group hover:border-[#ff4500]/50 transition-all">
+                                                <div className="absolute -right-10 -top-10 w-40 h-40 bg-[#ff4500]/10 rounded-full blur-3xl group-hover:bg-[#ff4500]/20 transition-all"></div>
+                                                <div className="relative flex flex-col sm:flex-row items-center justify-between gap-4">
+                                                    <div>
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className="text-[10px] font-bold uppercase tracking-widest text-[#ff4500] bg-[#ff4500]/10 px-2 py-1 rounded flex items-center">
+                                                                <MessageSquare className="w-3 h-3 mr-1" /> {specificLink ? 'REDDIT LISTING' : 'COMMUNITY HUB'}
+                                                            </span>
+                                                        </div>
+                                                        <h4 className="text-white font-bold uppercase tracking-widest text-sm mb-1">{specificLink ? 'This item is listed on Reddit' : 'Have feedback or fit pics?'}</h4>
+                                                        <p className="text-xs text-gray-400 font-light">{redditDesc}</p>
+                                                    </div>
+                                                    <a
+                                                        href={redditUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex-shrink-0 bg-[#ff4500] hover:bg-[#ff4500]/80 text-white px-6 py-3 rounded-sm text-xs font-bold uppercase tracking-[0.2em] transition-colors flex items-center whitespace-nowrap shadow-[0_0_15px_rgba(255,69,0,0.3)] hover:shadow-[0_0_20px_rgba(255,69,0,0.5)]"
+                                                    >
+                                                        {redditLabel} <ExternalLink className="w-3 h-3 ml-2" />
+                                                    </a>
                                                 </div>
-                                                <h4 className="text-white font-bold uppercase tracking-widest text-sm mb-1">Have feedback or fit pics?</h4>
-                                                <p className="text-xs text-gray-400 font-light">Join <span className="text-[#ff4500] font-bold">r/SGCoalition</span> on Reddit to discuss this piece, share how you style it, and connect with the Coalition.</p>
                                             </div>
-                                            <a
-                                                href="https://www.reddit.com/r/SGCoalition/"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="flex-shrink-0 bg-[#ff4500] hover:bg-[#ff4500]/80 text-white px-6 py-3 rounded-sm text-xs font-bold uppercase tracking-[0.2em] transition-colors flex items-center whitespace-nowrap shadow-[0_0_15px_rgba(255,69,0,0.3)] hover:shadow-[0_0_20px_rgba(255,69,0,0.5)]"
-                                            >
-                                                Join Reddit <ExternalLink className="w-3 h-3 ml-2" />
-                                            </a>
-                                        </div>
-                                    </div>
+                                        );
+                                    })()}
                                 </div>
 
                                 {product.nft && (
