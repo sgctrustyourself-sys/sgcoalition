@@ -1,6 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderItem, Giveaway, GiveawayEntry, GiveawayStatus } from '../types';
-import { INITIAL_SECTIONS, INITIAL_PRODUCTS, COIN_REWARD_RATE } from '../constants';
+import { INITIAL_SECTIONS, INITIAL_PRODUCTS, COIN_REWARD_RATE, INITIAL_ORDERS } from '../constants';
 import { connectWallet, formatAddress, getSGCoinBalance } from '../services/web3Service';
 import { ethers } from 'ethers';
 import { supabase } from '../services/supabase';
@@ -82,7 +82,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     const [orders, setOrders] = useState<Order[]>(() => {
         const saved = localStorage.getItem('coalition_orders_v1');
-        return saved ? JSON.parse(saved) : [];
+        return saved ? JSON.parse(saved) : INITIAL_ORDERS;
     });
     const [cart, setCart] = useState<CartItem[]>([]);
     const [user, setUser] = useState<UserProfile | null>(null);
