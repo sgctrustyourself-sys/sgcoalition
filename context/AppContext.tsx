@@ -279,24 +279,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             if (data) {
                 console.log(`✅ Fetched ${data.length} products from Supabase`);
-                const mappedProducts: Product[] = data.map(item => ({
-                    id: item.id,
-                    name: item.name,
-                    price: item.price,
-                    stock: item.stock,
-                    category: item.category,
-                    images: item.images || [],
-                    description: item.description,
-                    isFeatured: item.is_featured,
-                    sizes: item.sizes || [],
-                    sizeInventory: item.size_inventory || {},
-                    nft: item.nft_metadata,
-                    archived: item.archived || false,
-                    archivedAt: item.archived_at,
-                    releasedAt: item.released_at,
-                    soldAt: item.sold_at,
-                    updatedAt: item.updated_at
-                }));
+                const mappedProducts: Product[] = data.map(item => {
+                    // Force latest state from constants logic:
+                    let isArchived = item.archived || false;
+                    let archiveDate = item.archived_at;
+                    let soldDate = item.sold_at;
+                    let inventory = item.size_inventory || {};
+
+                    // Hardcode True Religion Jeans to archived
+                    if (item.id === 'prod_true_relig') {
+                        isArchived = true;
+                        archiveDate = archiveDate || new Date().toISOString();
+                        soldDate = soldDate || new Date().toISOString();
+                        inventory = { ...inventory, '33': 0 };
+                    }
+
+                    return {
+                        id: item.id,
+                        name: item.name,
+                        price: item.price,
+                        stock: item.stock,
+                        category: item.category,
+                        images: item.images || [],
+                        description: item.description,
+                        isFeatured: item.is_featured,
+                        sizes: item.sizes || [],
+                        sizeInventory: inventory,
+                        nft: item.nft_metadata,
+                        archived: isArchived,
+                        archivedAt: archiveDate,
+                        releasedAt: item.released_at,
+                        soldAt: soldDate,
+                        updatedAt: item.updated_at
+                    };
+                });
 
                 // DOMINANT PERSISTENCE: Merge with local storage
                 const saved = localStorage.getItem('coalition_products_local');
