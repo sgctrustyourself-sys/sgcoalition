@@ -60,6 +60,20 @@ interface AppState {
     submitPurchaseRequest: (data: Omit<SGCoinPurchaseRequest, 'id' | 'createdAt' | 'status'>) => Promise<void>;
     unlinkSocialAccount: (platform: SocialAccount['platform']) => Promise<{ success: boolean; error?: string }>;
     refreshBalances: () => Promise<void>;
+    signals: Signal[];
+    fetchSignals: () => Promise<Signal[]>;
+}
+
+export interface Signal {
+    id: string;
+    title: string;
+    message: string;
+    type: 'info' | 'alert' | 'success' | 'process' | 'urgent';
+    is_active: boolean;
+    action_url?: string;
+    action_label?: string;
+    created_at: string;
+    metadata?: any;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -106,6 +120,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(false);
     const [isConfigError, setIsConfigError] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [signals, setSignals] = useState<Signal[]>([]);
     const [chainId, setChainId] = useState<number | null>(null);
 
     // Track network changes
@@ -189,12 +204,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     return;
                 }
 
+                // --- CLEANUP LEGACY STORAGE ---
+                // Remove potential ghost products that cause duplicates on live site
+                if (typeof window !== 'undefined') {
+                    localStorage.removeItem('coalition_products_local');
+                    localStorage.removeItem('coalition_products');
+                }
+
                 // Await initial data fetch before hiding loader to prevent race conditions
                 console.log('🔄 Fetching initial data from Supabase...');
                 await Promise.all([
                     fetchProducts(),
-                    fetchOrders()
+                    fetchOrders(),
+                    fetchSignals()
                 ]);
+
+                // Subscribe to Realtime Signals
+                const signalsSubscription = supabase
+                    .channel('coalition-signals-channel')
+                    .on(
+                        'postgres_changes',
+                        { event: '*', schema: 'public', table: 'coalition_signals' },
+                        () => {
+                            console.log('🔔 Signal change detected, refreshing...');
+                            fetchSignals();
+                        }
+                    )
+                    .subscribe();
+
+                return () => {
+                    signalsSubscription.unsubscribe();
+                };
 
                 const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
                     if (!mounted) return;
@@ -305,11 +345,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         archivedAt: item.archived_at, releasedAt: item.released_at, soldAt: item.sold_at
                     };
                 });
-                setProducts(mapped);
-                return mapped;
+                // Deduplicate by ID to prevent ghost products (like prod_nft_001 vs Coalition_NF_Tee)
+                const uniqueProducts = mapped.reduce((acc: any[], current) => {
+                    const x = acc.find(item => item.id === current.id || (item.name === current.name && item.images[0] === current.images[0]));
+                    if (!x) {
+                        return acc.concat([current]);
+                    } else {
+                        // If we have a collision, prioritize the one with the cleaner ID (usually Supabase version)
+                        return acc;
+                    }
+                }, []);
+
+                setProducts(uniqueProducts);
+                return uniqueProducts;
             }
             return [];
         } catch (err) { console.error('Error fetching products:', err); return products; }
+    };
+
+    const fetchSignals = async () => {
+        if (!isSupabaseConfigured) return [];
+        try {
+            const { data, error } = await supabase
+                .from('coalition_signals')
+                .select('*')
+                .eq('is_active', true)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            if (data) {
+                setSignals(data);
+                return data;
+            }
+            return [];
+        } catch (err) {
+            console.error('Error fetching signals:', err);
+            return [];
+        }
     };
 
     const fetchOrders = async () => {
@@ -705,7 +777,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             addGiveawayEntry, pickGiveawayWinner, connectMetaMaskWallet, connectManualWallet,
             disconnectWallet, chainId, switchToPolygon: handleSwitchToPolygon, addReview,
             linkSocialAccount, unlinkSocialAccount, submitCustomInquiry, submitPurchaseRequest,
-            refreshBalances
+            refreshBalances, signals, fetchSignals
         }}>
             {children}
         </AppContext.Provider>

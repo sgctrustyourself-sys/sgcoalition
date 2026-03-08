@@ -1,25 +1,55 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Send, CheckCircle, Loader, Ghost } from 'lucide-react';
+import { Send, CheckCircle, Loader, Ghost, AlertCircle } from 'lucide-react';
+import { supabase } from '../services/supabase';
 
 const SmsSignup = () => {
     const [phone, setPhone] = useState('');
     const [countryCode, setCountryCode] = useState('+1');
-    const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [errorMsg, setErrorMsg] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!phone) return;
 
         setStatus('loading');
+        setErrorMsg('');
 
-        // Simulate API call
-        setTimeout(() => {
-            setStatus('success');
+        try {
+            const { error } = await supabase
+                .from('coalition_signal_subscribers')
+                .insert([
+                    {
+                        phone_number: `${countryCode}${phone.replace(/\D/g, '')}`,
+                        country_code: countryCode,
+                        metadata: {
+                            source: 'sms_signup_component',
+                            enrolled_at: new Date().toISOString()
+                        }
+                    }
+                ]);
+
+            if (error) {
+                if (error.code === '23505') {
+                    // Unique constraint violation - already subscribed
+                    setStatus('success');
+                } else {
+                    throw error;
+                }
+            } else {
+                setStatus('success');
+            }
+
             setPhone('');
             // Reset success message after 5 seconds
             setTimeout(() => setStatus('idle'), 5000);
-        }, 1500);
+        } catch (err: any) {
+            console.error('Subscription error:', err);
+            setStatus('error');
+            setErrorMsg(err.message || 'Failed to subscribe. Please try again.');
+            setTimeout(() => setStatus('idle'), 5000);
+        }
     };
 
     return (
@@ -104,6 +134,16 @@ const SmsSignup = () => {
                                 </motion.div>
                             ) : (
                                 <form onSubmit={handleSubmit} className="space-y-4">
+                                    {status === 'error' && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: -10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 flex items-center gap-3 text-red-400 text-sm"
+                                        >
+                                            <AlertCircle className="w-4 h-4 shrink-0" />
+                                            <p>{errorMsg}</p>
+                                        </motion.div>
+                                    )}
                                     <div className="flex gap-3">
                                         <div className="w-24">
                                             <label htmlFor="country-code" className="sr-only">Country Code</label>
