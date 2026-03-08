@@ -1,6 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderItem, Giveaway, GiveawayEntry, GiveawayStatus } from '../types';
-import { INITIAL_SECTIONS, COIN_REWARD_RATE, INITIAL_PRODUCTS } from '../constants';
+import { INITIAL_SECTIONS, COIN_REWARD_RATE, INITIAL_PRODUCTS, INITIAL_ORDERS } from '../constants';
 import { connectWallet, formatAddress, getSGCoinBalance } from '../services/web3Service';
 import { ethers } from 'ethers';
 import { supabase } from '../services/supabase';
@@ -76,7 +76,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     const [orders, setOrders] = useState<Order[]>(() => {
         const saved = localStorage.getItem('coalition_orders_v1');
-        return saved ? JSON.parse(saved) : [];
+        return saved ? JSON.parse(saved) : INITIAL_ORDERS;
     });
     const [cart, setCart] = useState<CartItem[]>([]);
     const [user, setUser] = useState<UserProfile | null>(null);
@@ -252,23 +252,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (data) {
                 console.log(`✅ Fetched ${data.length} products from Supabase`);
                 setIsConfigError(false);
-                const mappedProducts: Product[] = data.map(item => ({
-                    id: item.id,
-                    name: item.name,
-                    price: item.price,
-                    stock: item.stock,
-                    category: item.category,
-                    images: item.images || [],
-                    description: item.description,
-                    isFeatured: item.is_featured,
-                    sizes: item.sizes || [],
-                    sizeInventory: item.size_inventory || {},
-                    nft: item.nft_metadata,
-                    archived: item.archived || false,
-                    archivedAt: item.archived_at,
-                    releasedAt: item.released_at,
-                    soldAt: item.sold_at
-                }));
+                const mappedProducts: Product[] = data.map(item => {
+                    let isArchived = item.archived || false;
+                    let archiveDate = item.archived_at;
+                    let soldDate = item.sold_at;
+                    let inventory = item.size_inventory || {};
+
+                    // Hardcode True Religion Jeans to archived
+                    if (item.id === 'prod_true_relig') {
+                        isArchived = true;
+                        archiveDate = archiveDate || new Date().toISOString();
+                        soldDate = soldDate || new Date().toISOString();
+                        inventory = { ...inventory, '33': 0 };
+                    }
+
+                    return {
+                        id: item.id,
+                        name: item.name,
+                        price: item.price,
+                        stock: item.stock,
+                        category: item.category,
+                        images: item.images || [],
+                        description: item.description,
+                        isFeatured: item.is_featured,
+                        sizes: item.sizes || [],
+                        sizeInventory: inventory,
+                        nft: item.nft_metadata,
+                        archived: isArchived,
+                        archivedAt: archiveDate,
+                        releasedAt: item.released_at,
+                        soldAt: soldDate
+                    };
+                });
 
                 setProducts(mappedProducts);
                 console.log('✅ Products state updated:', mappedProducts.map(p => ({ id: p.id, name: p.name })));

@@ -1,4 +1,34 @@
-import { Product, Section } from './types';
+import { Product, Section, Order, OrderStatus } from './types';
+
+export const INITIAL_ORDERS: Order[] = [
+  {
+    id: 'order_jeans_001',
+    orderNumber: 'ORD-SG-1001',
+    isGuest: true,
+    customerName: 'Loyal Customer',
+    customerEmail: 'customer@example.com',
+    items: [
+      {
+        productId: 'prod_true_relig',
+        productName: 'COALITION X TRUE RELIGION 1/1 JEANS S1',
+        productImage: 'https://i.imgur.com/R38pS9T.png',
+        selectedSize: '33',
+        quantity: 1,
+        price: 240,
+        total: 240
+      }
+    ],
+    subtotal: 240,
+    tax: 0,
+    discount: 0,
+    total: 240,
+    paymentMethod: 'credit_card',
+    paymentStatus: OrderStatus.PAID,
+    orderType: 'online',
+    createdAt: new Date().toISOString(),
+    paidAt: new Date().toISOString()
+  }
+];
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
@@ -96,8 +126,39 @@ export const INITIAL_PRODUCTS: Product[] = [
     isFeatured: true,
     sizes: ['One Size'],
     sizeInventory: {
-      'One Size': 1
-    }
+      'One Size': 0
+    },
+    archived: true,
+    archivedAt: new Date().toISOString(),
+    soldAt: new Date().toISOString()
+  },
+  {
+    id: 'prod_dist_tee',
+    name: 'COALITION 1/1 DISTORTION TEE',
+    price: 65,
+    images: ['https://i.imgur.com/e7UfX6s.png'],
+    description: 'Exclusive 1/1 Distortion Tee featuring custom graphics and premium fabrics.',
+    category: 'shirt',
+    isFeatured: true,
+    sizes: ['L'],
+    sizeInventory: { 'L': 1 },
+    archived: false,
+    archivedAt: null,
+    soldAt: null
+  },
+  {
+    id: 'prod_true_relig',
+    name: 'COALITION X TRUE RELIGION 1/1 JEANS S1',
+    price: 240,
+    images: ['https://i.imgur.com/R38pS9T.png'],
+    description: 'Exclusive custom Coalition x True Religion collaboration jeans. Featuring custom patches and distressing.',
+    category: 'jeans',
+    isFeatured: true,
+    sizes: ['33'],
+    sizeInventory: { '33': 0 },
+    archived: true,
+    archivedAt: new Date().toISOString(),
+    soldAt: new Date().toISOString()
   }
 ];
 

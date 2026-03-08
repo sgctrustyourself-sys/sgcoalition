@@ -4,7 +4,7 @@ export interface Product {
   price: number;
   images: string[];
   description: string;
-  category: 'apparel' | 'accessory';
+  category: 'shirt' | 'jeans' | 'accessory' | 'apparel' | 'wallet' | 'accessories' | 'headwear';
   isFeatured?: boolean;
   sizes?: string[];
   sizeInventory?: Record<string, number>; // Size-based inventory: { 'S': 10, 'M': 25, 'L': 30 }
