@@ -47,7 +47,9 @@ const SmsSignup = () => {
         } catch (err: any) {
             console.error('Subscription error:', err);
             setStatus('error');
-            setErrorMsg(err.message || 'Failed to subscribe. Please try again.');
+            // Provide more descriptive error for debugging
+            const msg = err.message || err.details || (typeof err === 'string' ? err : 'Unknown subscription failure');
+            setErrorMsg(msg);
             setTimeout(() => setStatus('idle'), 5000);
         }
     };
