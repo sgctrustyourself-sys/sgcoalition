@@ -50,6 +50,22 @@ export const INITIAL_PRODUCTS: Product[] = [
     description: 'The Coalition Distortion Tee features a high-density graphic print that warps and bends the brand logo into a digital frequency. Heavyweight cotton construction with a classic streetwear fit. Trust Yourself.',
     category: 'shirt',
     isFeatured: true
+  },
+  {
+    id: 'Coalition_x_True_Religion_S1',
+    name: 'Coalition x True Religion 1/1 Jeans S1',
+    price: 240,
+    images: [
+      'https://i.imgur.com/2VU7MEr.jpg',
+      'https://i.imgur.com/hJgvL2K.jpg',
+      'https://i.imgur.com/EsvBcv4.jpg',
+      'https://i.imgur.com/J9EmRZq.jpg'
+    ],
+    description: "One-of-one Coalition x True Religion collaboration jeans. Season 1 exclusive \u2014 custom distressed denim with premium detailing. Size 33. Once it's gone, it's gone.",
+    category: 'jeans',
+    isFeatured: true,
+    sizes: ['33'],
+    sizeInventory: { '33': 0 }
   }
 ];
 

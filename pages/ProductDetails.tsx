@@ -427,10 +427,10 @@ const ProductDetails = () => {
                                     <div className="flex gap-4">
                                         <button
                                             onClick={() => addToCart(product, selectedSize || (product.sizes?.length === 1 ? product.sizes[0] : ''))}
-                                            disabled={!selectedSize && (product.sizes?.length || 0) > 1}
+                                            disabled={(!selectedSize && (product.sizes?.length || 0) > 1) || Object.values(product.sizeInventory || {}).reduce((a, b) => a + b, 0) === 0}
                                             className="flex-1 bg-white text-black py-4 px-8 flex items-center justify-center text-sm font-bold uppercase tracking-[0.2em] hover:bg-brand-accent hover:text-white transition-all focus:outline-none focus:ring-2 focus:ring-brand-accent focus:ring-offset-2 focus:ring-offset-black disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed box-glow"
                                         >
-                                            {selectedSize || (product.sizes?.length === 1) ? 'Add to bag' : 'Select a size'}
+                                            {Object.values(product.sizeInventory || {}).reduce((a, b) => a + b, 0) === 0 ? 'SOLD OUT' : (selectedSize || (product.sizes?.length === 1) ? 'Add to bag' : 'Select a size')}
                                         </button>
 
                                         <button

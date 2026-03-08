@@ -14,11 +14,11 @@ const UrgencyBadge: React.FC<UrgencyBadgeProps> = ({ type, count, text, classNam
             case 'low-stock':
                 return {
                     icon: AlertCircle,
-                    bgColor: count && count <= 3 ? 'bg-red-500/20' : 'bg-orange-500/20',
-                    textColor: count && count <= 3 ? 'text-red-400' : 'text-orange-400',
-                    borderColor: count && count <= 3 ? 'border-red-500/30' : 'border-orange-500/30',
-                    label: text || `Only ${count} left!`,
-                    pulse: count && count <= 3
+                    bgColor: count === 0 ? 'bg-red-900/40' : count && count <= 3 ? 'bg-red-500/20' : 'bg-orange-500/20',
+                    textColor: count === 0 ? 'text-red-300' : count && count <= 3 ? 'text-red-400' : 'text-orange-400',
+                    borderColor: count === 0 ? 'border-red-500/50' : count && count <= 3 ? 'border-red-500/30' : 'border-orange-500/30',
+                    label: text || (count === 0 ? 'SOLD OUT' : `Only ${count} left!`),
+                    pulse: count && count <= 3 && count > 0
                 };
             case 'limited-edition':
                 return {
