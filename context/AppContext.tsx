@@ -314,40 +314,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     };
                 });
 
-                // DOMINANT PERSISTENCE: Merge with local storage
-                const saved = localStorage.getItem('coalition_products_local');
-                let mergedProducts = mappedProducts;
+                // MERGE STRATEGY: Combine Supabase DB with Codebase Constants
+                // This ensures all hardcoded new drops (Shark Tee) and archives (Jeans)
+                // render perfectly for all visitors, even if DB is out of sync.
+                let mergedProducts = [...mappedProducts];
 
-                if (saved) {
-                    const localProducts: Product[] = JSON.parse(saved);
-                    mergedProducts = mappedProducts.map(dbProduct => {
-                        // ROBUST ID COMPARISON: Ensure both are strings
-                        const localProduct = localProducts.find(p => String(p.id) === String(dbProduct.id));
-
-                        if (localProduct && localProduct.updatedAt) {
-                            // CASE 1: DB has no timestamp (schema error or legacy) -> Local wins
-                            if (!dbProduct.updatedAt) {
-                                console.log(`💎 Dominance: Local wins (DB has no timestamp) for ${dbProduct.name}`);
-                                return localProduct;
-                            }
-
-                            // CASE 2: Compare timestamps
-                            const dbTime = new Date(dbProduct.updatedAt).getTime();
-                            const localTime = new Date(localProduct.updatedAt).getTime();
-
-                            if (localTime > dbTime) {
-                                console.log(`💎 Dominance: Local wins (Newer) for ${dbProduct.name}`);
-                                return localProduct;
-                            }
+                for (const codeProd of INITIAL_PRODUCTS) {
+                    const existingIndex = mergedProducts.findIndex(p => String(p.id) === String(codeProd.id));
+                    if (existingIndex >= 0) {
+                        // Inherit latest stats from the codebase for specific products like True Religion
+                        if (codeProd.id === 'prod_true_relig') {
+                            mergedProducts[existingIndex] = codeProd;
                         }
-                        return dbProduct;
-                    });
-
-                    // Also add any local products that don't exist in DB yet (pending sync)
-                    const pendingProducts = localProducts.filter(lp => !mappedProducts.find(db => db.id === lp.id));
-                    if (pendingProducts.length > 0) {
-                        console.log(`💎 Adding ${pendingProducts.length} pending local products`);
-                        mergedProducts = [...mergedProducts, ...pendingProducts];
+                    } else {
+                         // Add new items (Shark Tee, Distortion Tee) that aren't in Supabase yet
+                        mergedProducts.push(codeProd);
                     }
                 }
 
