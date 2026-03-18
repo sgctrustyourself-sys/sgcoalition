@@ -43,6 +43,12 @@ const UpdatePassword = React.lazy(() => import('./pages/UpdatePassword'));
 const GiveawayEntry = React.lazy(() => import('./pages/GiveawayEntry'));
 const CustomInquiry = React.lazy(() => import('./pages/CustomInquiry'));
 const BuySGCoin = React.lazy(() => import('./pages/BuySGCoin'));
+const SGCoinWelcome = React.lazy(() => import('./pages/tutorial/Welcome'));
+const SGCoinMetaMask = React.lazy(() => import('./pages/tutorial/MetaMask'));
+const SGCoinPolygon = React.lazy(() => import('./pages/tutorial/Polygon'));
+const SGCoinFundWallet = React.lazy(() => import('./pages/tutorial/FundWallet'));
+const SGCoinQuickSwap = React.lazy(() => import('./pages/tutorial/QuickSwap'));
+const SGCoinUsing = React.lazy(() => import('./pages/tutorial/UsingSGCoin'));
 const Favorites = React.lazy(() => import('./pages/Favorites'));
 const OrderHistory = React.lazy(() => import('./pages/OrderHistory'));
 const SavedAddresses = React.lazy(() => import('./pages/SavedAddresses'));
@@ -140,6 +146,15 @@ const App = () => {
                     <Route path="/buy-sgcoin" element={<BuySGCoin />} />
                     <Route path="/membership" element={<Membership />} />
                     <Route path="/help" element={<Help />} />
+
+                    {/* SGCoin Tutorial Routes */}
+                    <Route path="/tutorial" element={<SGCoinWelcome />} />
+                    <Route path="/tutorial/welcome" element={<SGCoinWelcome />} />
+                    <Route path="/tutorial/metamask" element={<SGCoinMetaMask />} />
+                    <Route path="/tutorial/polygon" element={<SGCoinPolygon />} />
+                    <Route path="/tutorial/fund" element={<SGCoinFundWallet />} />
+                    <Route path="/tutorial/quickswap" element={<SGCoinQuickSwap />} />
+                    <Route path="/tutorial/use" element={<SGCoinUsing />} />
 
                     <Route path="*" element={<NotFound />} />
                   </Routes>
