@@ -159,6 +159,25 @@ export const INITIAL_PRODUCTS: Product[] = [
     archived: true,
     archivedAt: new Date().toISOString(),
     soldAt: new Date().toISOString()
+  },
+  {
+    id: 'prod_shark_tee',
+    name: '“TRUST YOURSELF” SHARK TEE – 1/1 EXCLUSIVE',
+    price: 65,
+    images: [
+      'https://i.imgur.com/cYmL6GQ.jpeg',
+      'https://i.imgur.com/evsuOt6.jpeg',
+      'https://i.imgur.com/IVmfRGx.jpeg',
+      'https://i.imgur.com/gaA93ug.jpeg'
+    ],
+    description: 'Unique SGCoalition tie-dye "Trust Yourself" tee with a striking blue spiral pattern and the iconic crowned-bird graphic. This one-of-a-kind piece features premium print details and the ferocious "Shark" design, delivering a motivational streetwear vibe. Size Small, in excellent condition with no flaws—ideal for collectors or anyone looking to add a standout Coalition piece to their wardrobe.',
+    category: 'shirt',
+    isFeatured: true,
+    sizes: ['S'],
+    sizeInventory: { 'S': 1 },
+    archived: false,
+    archivedAt: null,
+    soldAt: null
   }
 ];
 
