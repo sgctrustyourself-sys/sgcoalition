@@ -24,7 +24,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
                     src={product.images[0]}
                     alt={product.name}
                     loading="lazy"
-                    className="h-full w-full object-cover object-center group-hover:scale-105 group-hover:grayscale transition duration-700 ease-in-out"
+                    className="h-full w-full object-contain object-center group-hover:scale-105 group-hover:grayscale transition duration-700 ease-in-out"
                 />
                 {product.nft && (
                     <div className="absolute top-2 left-2 bg-black/80 backdrop-blur border border-white/20 text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 uppercase tracking-wider">

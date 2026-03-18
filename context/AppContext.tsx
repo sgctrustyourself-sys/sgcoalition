@@ -315,20 +315,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 });
 
                 // MERGE STRATEGY: Combine Supabase DB with Codebase Constants
-                // This ensures all hardcoded new drops (Shark Tee) and archives (Jeans)
-                // render perfectly for all visitors, even if DB is out of sync.
-                let mergedProducts = [...mappedProducts];
+                // We use INITIAL_PRODUCTS as the absolute source of truth for images, names, and descriptions.
+                // We extract real-time stock/inventory from the Supabase DB if it matches.
+                // We use fuzzy name matching to prevent duplicate DB entries (e.g. differently named wallets).
+                const normalizeName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                let mergedProducts: Product[] = [];
 
                 for (const codeProd of INITIAL_PRODUCTS) {
-                    const existingIndex = mergedProducts.findIndex(p => String(p.id) === String(codeProd.id));
-                    if (existingIndex >= 0) {
-                        // Inherit latest stats from the codebase for specific products like True Religion
-                        if (codeProd.id === 'prod_true_relig') {
-                            mergedProducts[existingIndex] = codeProd;
-                        }
+                    // Find if the local product exists in the DB (by ID or fuzzy name match)
+                    const dbMatch = mappedProducts.find(p => 
+                        String(p.id) === String(codeProd.id) || 
+                        normalizeName(p.name).includes(normalizeName(codeProd.name)) ||
+                        normalizeName(codeProd.name).includes(normalizeName(p.name))
+                    );
+
+                    if (dbMatch) {
+                        // Product exists in DB! Use the local UI/images but keep DB inventory
+                        mergedProducts.push({
+                            ...codeProd,
+                            sizeInventory: Object.keys(dbMatch.sizeInventory || {}).length > 0 ? dbMatch.sizeInventory : codeProd.sizeInventory,
+                            soldAt: dbMatch.soldAt || codeProd.soldAt,
+                            archived: codeProd.id === 'prod_true_relig' ? true : (dbMatch.archived || codeProd.archived)
+                        });
                     } else {
                          // Add new items (Shark Tee, Distortion Tee) that aren't in Supabase yet
                         mergedProducts.push(codeProd);
+                    }
+                }
+
+                // Append any purely DB-only products that didn't fuzzy-match the codebase
+                for (const dbProd of mappedProducts) {
+                    const matchedToLocal = INITIAL_PRODUCTS.some(codeProd => 
+                        String(dbProd.id) === String(codeProd.id) || 
+                        normalizeName(dbProd.name).includes(normalizeName(codeProd.name)) ||
+                        normalizeName(codeProd.name).includes(normalizeName(dbProd.name))
+                    );
+                    if (!matchedToLocal) {
+                        mergedProducts.push(dbProd);
                     }
                 }
 
