@@ -1,12 +1,12 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { Calendar, Package, Clock } from 'lucide-react';
+import { Calendar, Package, Clock, ArrowUpRight } from 'lucide-react';
 
 const Archive: React.FC = () => {
     const { products, isLoading } = useApp();
 
     // Filter for archived products and sort by soldAt (newest first)
-    console.log('Archive Page - All Products:', products);
     const archivedProducts = products
         .filter(p => p.archived)
         .sort((a, b) => {
@@ -14,7 +14,6 @@ const Archive: React.FC = () => {
             const dateB = new Date(b.soldAt || b.archivedAt || 0).getTime();
             return dateB - dateA;
         });
-    console.log('Archive Page - Archived Products:', archivedProducts);
 
     const formatDate = (dateString?: string) => {
         if (!dateString) return 'N/A';
@@ -52,7 +51,11 @@ const Archive: React.FC = () => {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {archivedProducts.map((product) => (
-                            <div key={product.id} className="group relative bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-white/30 transition-all duration-300">
+                            <Link
+                                key={product.id}
+                                to={`/product/${product.id}`}
+                                className="group relative block bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-white/30 focus-visible:border-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 transition-all duration-300"
+                            >
                                 {/* Image */}
                                 <div className="aspect-square overflow-hidden relative">
                                     <img
@@ -62,7 +65,7 @@ const Archive: React.FC = () => {
                                     />
                                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                         <span className="bg-white text-black px-4 py-2 font-bold uppercase tracking-widest text-sm">
-                                            Sold Out
+                                            View Details
                                         </span>
                                     </div>
                                 </div>
@@ -100,8 +103,13 @@ const Archive: React.FC = () => {
                                             </div>
                                         )}
                                     </div>
+
+                                    <div className="pt-2 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-gray-500 group-hover:text-white transition-colors">
+                                        <span>Open Product Page</span>
+                                        <ArrowUpRight className="w-4 h-4" />
+                                    </div>
                                 </div>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 )}
