@@ -2,17 +2,19 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 import { Order } from '../../types';
-import { Download, Search, Eye, Trash2, FileText, Plus, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { Search, Filter, Eye, Download, Trash2, X, Plus, ChevronLeft, ChevronRight, FileText, Gift, User, Mail, Phone, Calendar, Hash, DollarSign, CreditCard, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import ManualOrderForm from '../ManualOrderForm';
 import Invoice from '../Invoice';
 
 const OrderManager: React.FC = () => {
-    const { orders, deleteOrder } = useApp();
+    const { orders, updateOrderStatus, deleteOrder } = useApp();
     const { addToast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [filterType, setFilterType] = useState<string>('all');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+    const [pendingStatus, setPendingStatus] = useState<string>('');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
     const [showManualOrderForm, setShowManualOrderForm] = useState(false);
     const [showInvoice, setShowInvoice] = useState<Order | null>(null);
@@ -71,11 +73,29 @@ const OrderManager: React.FC = () => {
     };
 
     const getStatusColor = (status: string) => {
-        switch (status) {
+        switch (status.toLowerCase()) {
             case 'paid': return 'text-green-400 bg-green-500/10 border-green-500/20';
             case 'pending': return 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';
+            case 'processing': return 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+            case 'shipped': return 'text-purple-400 bg-purple-500/10 border-purple-500/20';
+            case 'delivered': return 'text-teal-400 bg-teal-500/10 border-teal-500/20';
             case 'refunded': return 'text-red-400 bg-red-500/10 border-red-500/20';
+            case 'cancelled':
+            case 'failed': return 'text-gray-400 bg-gray-500/10 border-gray-500/20';
             default: return 'text-gray-400 bg-gray-500/10 border-gray-500/20';
+        }
+    };
+
+    const handleUpdateStatus = async (orderId: string) => {
+        if (!pendingStatus) return;
+        setIsUpdatingStatus(true);
+        try {
+            await updateOrderStatus(orderId, pendingStatus);
+            setSelectedOrder(prev => prev ? { ...prev, paymentStatus: pendingStatus as any } : null);
+        } catch (error) {
+            console.error('Failed to update status:', error);
+        } finally {
+            setIsUpdatingStatus(false);
         }
     };
 
@@ -146,7 +166,8 @@ const OrderManager: React.FC = () => {
                 <select
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
-                    className="bg-black/30 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:border-white/30 outline-none"
+                    className="bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:border-white/30 outline-none"
+                    aria-label="Filter by Status"
                 >
                     <option value="all">All Status</option>
                     <option value="pending">Pending</option>
@@ -156,7 +177,8 @@ const OrderManager: React.FC = () => {
                 <select
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value)}
-                    className="bg-black/30 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:border-white/30 outline-none"
+                    className="bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:border-white/30 outline-none"
+                    aria-label="Filter by Order Type"
                 >
                     <option value="all">All Types</option>
                     <option value="online">Online</option>
@@ -205,7 +227,10 @@ const OrderManager: React.FC = () => {
                                         <td className="p-4">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
-                                                    onClick={() => setSelectedOrder(order)}
+                                                    onClick={() => {
+                                                        setSelectedOrder(order);
+                                                        setPendingStatus(order.paymentStatus);
+                                                    }}
                                                     className="p-2 text-blue-400 hover:bg-blue-500/10 rounded transition"
                                                     title="View Details"
                                                 >
@@ -241,8 +266,12 @@ const OrderManager: React.FC = () => {
                     <div className="bg-gray-900 border border-white/10 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                         <div className="p-6 border-b border-white/10 flex justify-between items-center">
                             <h2 className="text-xl font-bold text-white uppercase">Order Details</h2>
-                            <button onClick={() => setSelectedOrder(null)} className="text-gray-400 hover:text-white">
-                                <XCircle size={24} />
+                            <button
+                                onClick={() => setSelectedOrder(null)}
+                                className="text-gray-400 hover:text-white transition"
+                                aria-label="Close modal"
+                            >
+                                <X size={24} />
                             </button>
                         </div>
                         <div className="p-6 space-y-6">
@@ -261,11 +290,39 @@ const OrderManager: React.FC = () => {
                                     <p className="text-gray-400 text-sm">{selectedOrder.customerEmail}</p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-gray-500 uppercase font-bold mb-1">Payment</p>
-                                    <p className="text-white capitalize">{selectedOrder.paymentMethod}</p>
-                                    <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded border ${getStatusColor(selectedOrder.paymentStatus)}`}>
-                                        {selectedOrder.paymentStatus}
-                                    </span>
+                                    <p className="text-xs text-gray-500 uppercase font-bold mb-1">Status Management</p>
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={pendingStatus}
+                                            onChange={(e) => setPendingStatus(e.target.value)}
+                                            className="bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-xs text-white focus:border-white/30 outline-none flex-1"
+                                            disabled={isUpdatingStatus}
+                                            aria-label="Change order status"
+                                        >
+                                            <option value="pending">Pending</option>
+                                            <option value="paid">Paid</option>
+                                            <option value="processing">Processing</option>
+                                            <option value="shipped">Shipped</option>
+                                            <option value="delivered">Delivered</option>
+                                            <option value="refunded">Refunded</option>
+                                            <option value="cancelled">Cancelled</option>
+                                        </select>
+                                        <button
+                                            onClick={() => handleUpdateStatus(selectedOrder.id)}
+                                            disabled={isUpdatingStatus || pendingStatus === selectedOrder.paymentStatus}
+                                            className={`px-3 py-1 rounded text-xs font-bold uppercase transition ${pendingStatus === selectedOrder.paymentStatus
+                                                ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                                                : 'bg-green-500 text-white hover:bg-green-600'
+                                                }`}
+                                        >
+                                            {isUpdatingStatus ? '...' : 'Save'}
+                                        </button>
+                                    </div>
+                                    <div className="mt-2">
+                                        <span className={`inline-block text-[10px] px-2 py-0.5 rounded border ${getStatusColor(selectedOrder.paymentStatus)}`}>
+                                            Current: {selectedOrder.paymentStatus}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
 

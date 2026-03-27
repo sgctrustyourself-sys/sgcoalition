@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
-import { Hexagon, Package, Truck, CheckCircle, Clock, Settings, Wallet, Link as LinkIcon, AlertCircle, CheckCircle2, Copy, DollarSign, Star } from 'lucide-react';
+import { Link, Navigate } from 'react-router-dom';
+import { Hexagon, Package, Truck, CheckCircle, Clock, Settings, Wallet, Link as LinkIcon, AlertCircle, CheckCircle2, Copy, DollarSign, Star, Ticket } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import Skeleton from '../components/ui/Skeleton';
@@ -8,7 +8,7 @@ import ProductCardSkeleton from '../components/ProductCardSkeleton';
 import OrderSkeleton from '../components/OrderSkeleton';
 import ReferralDashboard from '../components/ReferralDashboard';
 import AccountLinking from '../components/AccountLinking';
-import Seo from '../components/Seo';
+import PurchaseRequestsTab from '../components/profile/PurchaseRequestsTab';
 
 interface Order {
     id: string;
@@ -25,7 +25,7 @@ interface Order {
 const Profile = () => {
     const { user, products, connectMetaMaskWallet, connectManualWallet, disconnectWallet, isLoading } = useApp();
     const [orders, setOrders] = useState<Order[]>([]);
-    const [activeTab, setActiveTab] = useState<'favorites' | 'orders' | 'referrals' | 'settings'>('orders');
+    const [activeTab, setActiveTab] = useState<'favorites' | 'orders' | 'referrals' | 'settings' | 'vip' | 'requests'>('orders');
     const [manualAddress, setManualAddress] = useState('');
     const [isConnecting, setIsConnecting] = useState(false);
     const [error, setError] = useState('');
@@ -45,6 +45,7 @@ const Profile = () => {
     if (!user) return <Navigate to="/" />;
 
     const favorites = products.filter(p => user.favorites.includes(p.id));
+    const isVipMember = Boolean(user.isVIP || user.subscriptionStatus === 'active');
 
     const getStatusIcon = (status: string) => {
         switch (status) {
@@ -76,10 +77,6 @@ const Profile = () => {
 
     return (
         <div className="pt-24 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <Seo
-                title="My Profile"
-                description="Manage your orders, view SGCoin balance, and access VIP membership settings."
-            />
             {/* Profile Header */}
             <div className="bg-black text-white rounded-2xl p-8 md:p-12 mb-12 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-brand-accent opacity-20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
@@ -104,19 +101,38 @@ const Profile = () => {
                                 </p>
                             </div>
                             <div className="flex gap-4">
-                                {user.isVIP && (
-                                    <div className="bg-gradient-to-br from-purple-900/50 to-blue-900/50 backdrop-blur-md p-6 rounded-xl border border-purple-500/30 min-w-[200px] relative overflow-hidden group">
-                                        <div className="absolute inset-0 bg-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                        <div className="text-xs text-purple-300 uppercase tracking-widest mb-1 font-bold">Membership</div>
-                                        <div className="text-xl font-bold text-white flex items-center gap-2">
-                                            <Star className="w-5 h-5 text-purple-400 fill-current" />
-                                            Coalition VIP
-                                        </div>
-                                        <div className="text-xs text-gray-400 mt-2 flex items-center gap-1">
-                                            Active <CheckCircle2 className="w-3 h-3 text-green-500" />
-                                        </div>
+                                <div className={`backdrop-blur-md p-6 rounded-xl border min-w-[220px] relative overflow-hidden group ${isVipMember ? 'bg-gradient-to-br from-purple-900/50 to-blue-900/50 border-purple-500/30' : 'bg-white/10 border-white/10'}`}>
+                                    <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity ${isVipMember ? 'bg-purple-500/10' : 'bg-white/5'}`}></div>
+                                    <div className={`text-xs uppercase tracking-widest mb-1 font-bold ${isVipMember ? 'text-purple-300' : 'text-gray-400'}`}>Membership</div>
+                                    <div className="text-xl font-bold text-white flex items-center gap-2">
+                                        <Star className={`w-5 h-5 fill-current ${isVipMember ? 'text-purple-400' : 'text-gray-400'}`} />
+                                        {isVipMember ? 'Coalition VIP' : 'Unlock VIP'}
                                     </div>
-                                )}
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ${isVipMember ? 'border-purple-400/30 bg-purple-500/10 text-purple-200' : 'border-white/10 bg-white/5 text-gray-300'}`}>
+                                            <Ticket className="h-3 w-3" />
+                                            15 giveaway tickets
+                                        </span>
+                                        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ${isVipMember ? 'border-green-500/20 bg-green-500/10 text-green-300' : 'border-white/10 bg-white/5 text-gray-300'}`}>
+                                            {isVipMember ? 'Auto-entered' : 'Every giveaway'}
+                                        </span>
+                                    </div>
+                                    <div className={`mt-3 text-xs flex items-center gap-1 ${isVipMember ? 'text-gray-400' : 'text-gray-500'}`}>
+                                        {isVipMember ? (
+                                            <>Active <CheckCircle2 className="w-3 h-3 text-green-500" /></>
+                                        ) : (
+                                            <>VIP members are auto-entered with 15 tickets.</>
+                                        )}
+                                    </div>
+                                    {!isVipMember && (
+                                        <Link
+                                            to="/membership"
+                                            className="mt-4 inline-flex items-center justify-center rounded-full border border-purple-500/30 bg-purple-500/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-purple-200 transition hover:bg-purple-500/20"
+                                        >
+                                            Join VIP
+                                        </Link>
+                                    )}
+                                </div>
 
                                 {user.storeCredit && user.storeCredit > 0 && (
                                     <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl border border-white/10 min-w-[200px]">
@@ -148,7 +164,7 @@ const Profile = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-4 mb-8 border-b border-gray-200">
+            <div className="flex gap-4 mb-8 border-b border-gray-200 overflow-x-auto pb-2">
                 <button
                     onClick={() => setActiveTab('orders')}
                     className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 ${activeTab === 'orders'
@@ -179,6 +195,26 @@ const Profile = () => {
                     Referrals
                 </button>
                 <button
+                    onClick={() => setActiveTab('vip')}
+                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 ${activeTab === 'vip'
+                        ? 'border-black text-black'
+                        : 'border-transparent text-gray-400 hover:text-gray-600'
+                        }`}
+                >
+                    <Star className="w-5 h-5 inline mr-2 text-purple-500" />
+                    VIP Membership
+                </button>
+                <button
+                    onClick={() => setActiveTab('requests')}
+                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 whitespace-nowrap ${activeTab === 'requests'
+                        ? 'border-black text-black'
+                        : 'border-transparent text-gray-400 hover:text-gray-600'
+                        }`}
+                >
+                    <DollarSign className="w-5 h-5 inline mr-2" />
+                    SGCoin Requests
+                </button>
+                <button
                     onClick={() => setActiveTab('settings')}
                     className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 ${activeTab === 'settings'
                         ? 'border-black text-black'
@@ -205,7 +241,7 @@ const Profile = () => {
                             <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
                             <p className="text-gray-500 mb-4">No orders yet</p>
                             <a
-                                href="/#/shop"
+                                href="/shop"
                                 className="inline-block bg-black text-white px-6 py-3 rounded-sm font-bold uppercase tracking-widest hover:bg-gray-800 transition"
                             >
                                 Start Shopping
@@ -323,7 +359,7 @@ const Profile = () => {
                         <div className="text-center py-12 bg-gray-50 rounded-lg">
                             <p className="text-gray-500 mb-4">No favorites yet. Go shop!</p>
                             <a
-                                href="/#/shop"
+                                href="/shop"
                                 className="inline-block bg-black text-white px-6 py-3 rounded-sm font-bold uppercase tracking-widest hover:bg-gray-800 transition"
                             >
                                 Browse Products
@@ -343,6 +379,67 @@ const Profile = () => {
                     <h2 className="font-display text-2xl font-bold uppercase mb-6">Referral Program</h2>
                     <ReferralDashboard />
                 </div>
+            )}
+
+            {/* VIP Membership Tab */}
+            {activeTab === 'vip' && (
+                <div className="max-w-4xl">
+                    <h2 className="font-display text-2xl font-bold uppercase mb-6">VIP Membership Status</h2>
+                    {isVipMember ? (
+                        <div className="bg-gradient-to-br from-purple-900/40 to-black border-2 border-purple-500/50 rounded-2xl p-8 text-white relative overflow-hidden">
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="w-16 h-16 rounded-full bg-purple-500 flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.5)]">
+                                        <Star className="w-8 h-8 text-white fill-current" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-3xl font-bold uppercase tracking-tighter">Verified VIP Member</h3>
+                                        <p className="text-purple-300 font-mono text-sm">Status: Active Lifetime Member</p>
+                                    </div>
+                                </div>
+                                <div className="grid md:grid-cols-3 gap-6 mt-8">
+                                    <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+                                        <h4 className="font-bold uppercase text-xs tracking-widest text-gray-400 mb-2">Monthly Credit</h4>
+                                        <p className="text-xl font-bold">$15 Store Credit</p>
+                                        <p className="text-sm text-gray-500 mt-1">Automatically added every month</p>
+                                    </div>
+                                    <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+                                        <h4 className="font-bold uppercase text-xs tracking-widest text-gray-400 mb-2">Shipping</h4>
+                                        <p className="text-xl font-bold">Free Standard</p>
+                                        <p className="text-sm text-gray-500 mt-1">VIP members pay no shipping on standard orders</p>
+                                    </div>
+                                    <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+                                        <h4 className="font-bold uppercase text-xs tracking-widest text-gray-400 mb-2">Giveaway Boost</h4>
+                                        <p className="text-xl font-bold flex items-center gap-2">
+                                            <Ticket className="h-5 w-5 text-purple-400" />
+                                            15 Tickets
+                                        </p>
+                                        <p className="text-sm text-gray-500 mt-1">Auto-entered into every active giveaway</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-12 text-center">
+                            <Star className="w-16 h-16 mx-auto text-gray-300 mb-6" />
+                            <h3 className="text-2xl font-bold text-gray-900 mb-4 uppercase">Unlock VIP Status</h3>
+                            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                                Join our inner circle to unlock $15 monthly credit, free shipping, and auto-entry into every giveaway with 15 tickets.
+                            </p>
+                            <Link
+                                to="/membership"
+                                className="inline-block bg-purple-600 text-white px-8 py-4 rounded-sm font-bold uppercase tracking-widest hover:bg-purple-700 transition shadow-[0_4px_14px_0_rgba(147,51,234,0.39)]"
+                            >
+                                Learn More & Join
+                            </Link>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Purchase Requests Tab */}
+            {activeTab === 'requests' && (
+                <PurchaseRequestsTab userId={user.uid} />
             )}
 
             {/* Settings Tab */}

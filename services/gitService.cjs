@@ -1,6 +1,5 @@
 const { exec } = require('child_process');
 const { promisify } = require('util');
-const fs = require('fs');
 const path = require('path');
 
 const execAsync = promisify(exec);
@@ -8,41 +7,14 @@ const execAsync = promisify(exec);
 // Project root directory
 const PROJECT_ROOT = process.cwd();
 
-// Find Git executable
-const GIT_PATHS = [
-    'C:\\Program Files\\Git\\cmd\\git.exe',
-    'C:\\Program Files (x86)\\Git\\cmd\\git.exe',
-    path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Git', 'cmd', 'git.exe')
-];
-
-let GIT_EXECUTABLE = 'git'; // fallback
-
-for (const gitPath of GIT_PATHS) {
-    try {
-        if (fs.existsSync(gitPath)) {
-            GIT_EXECUTABLE = `"${gitPath}"`;
-            console.log(`✓ Found Git at: ${gitPath}`);
-            break;
-        }
-    } catch (e) {
-        // continue checking
-    }
-}
-
 /**
  * Execute a Git command safely
  */
 async function executeGitCommand(command) {
     try {
-        // Replace 'git' with full path (match git followed by space or end of string)
-        const fullCommand = command.replace(/^git(\s|$)/, `${GIT_EXECUTABLE}$1`);
-
-        const { stdout, stderr } = await execAsync(fullCommand, {
+        const { stdout, stderr } = await execAsync(command, {
             cwd: PROJECT_ROOT,
-            env: {
-                ...process.env,
-                GIT_TERMINAL_PROMPT: '0'
-            }
+            env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
         });
 
         if (stderr && !stderr.includes('warning')) {
@@ -51,7 +23,7 @@ async function executeGitCommand(command) {
 
         return stdout.trim();
     } catch (error) {
-        console.error('Git command failed:', error.message);
+        console.error('Git command failed:', error);
         throw new Error(`Git operation failed: ${error.message}`);
     }
 }
@@ -75,7 +47,7 @@ async function createCommit(message, author) {
 
         // Create commit
         const authorFlag = author ? `--author="${author}"` : '';
-        await executeGitCommand(
+        const result = await executeGitCommand(
             `git commit -m "${sanitizedMessage}" ${authorFlag}`
         );
 
@@ -104,25 +76,11 @@ async function getCommitHistory(limit = 50) {
 
         const commits = log.split('\n').map(line => {
             const [hash, message, author, date, refs] = line.split('|');
-
-            // Extract branch name from refs
-            let branch = 'master';
-            if (refs) {
-                const branchMatch = refs.match(/HEAD -> ([^,]+)/);
-                if (branchMatch) {
-                    branch = branchMatch[1].trim();
-                } else {
-                    const firstBranch = refs.split(',')[0].trim();
-                    branch = firstBranch || 'master';
-                }
-            }
-
             return {
                 hash: hash.trim(),
                 message: message.trim(),
                 author: author.trim(),
-                date: date.trim(),
-                branch: branch
+                date: date.trim()
             };
         });
 
@@ -158,16 +116,6 @@ async function switchBranch(branchName) {
     try {
         // Sanitize branch name
         const sanitizedBranch = branchName.replace(/[^a-zA-Z0-9_\-\/]/g, '');
-
-        // Check if branch exists
-        const branches = await getBranches();
-        const branchExists = branches.some(b => b.name === sanitizedBranch);
-
-        if (!branchExists) {
-            throw new Error(`Branch "${sanitizedBranch}" does not exist`);
-        }
-
-        // Switch branch
         await executeGitCommand(`git checkout ${sanitizedBranch}`);
     } catch (error) {
         throw new Error(`Failed to switch branch: ${error.message}`);
@@ -179,15 +127,8 @@ async function switchBranch(branchName) {
  */
 async function resetToCommit(commitHash, hard = false) {
     try {
-        // Sanitize commit hash
-        const sanitizedHash = commitHash.replace(/[^a-f0-9]/g, '');
-
-        // Verify commit exists
-        await executeGitCommand(`git cat-file -e ${sanitizedHash}`);
-
-        // Reset to commit
         const resetType = hard ? '--hard' : '--soft';
-        await executeGitCommand(`git reset ${resetType} ${sanitizedHash}`);
+        await executeGitCommand(`git reset ${resetType} ${commitHash}`);
     } catch (error) {
         throw new Error(`Failed to reset to commit: ${error.message}`);
     }
@@ -198,12 +139,7 @@ async function resetToCommit(commitHash, hard = false) {
  */
 async function getCommitDiff(commitHash) {
     try {
-        // Sanitize commit hash
-        const sanitizedHash = commitHash.replace(/[^a-f0-9]/g, '');
-
-        // Get diff
-        const diff = await executeGitCommand(`git show ${sanitizedHash}`);
-
+        const diff = await executeGitCommand(`git show ${commitHash}`);
         return diff;
     } catch (error) {
         throw new Error(`Failed to get commit diff: ${error.message}`);
@@ -247,6 +183,7 @@ async function getStatus() {
 }
 
 module.exports = {
+    executeGitCommand,
     createCommit,
     getCommitHistory,
     getBranches,

@@ -1,11 +1,10 @@
-import * as React from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { GripVertical, Eye, EyeOff, ChevronUp, ChevronDown, Plus } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Section } from '../types';
 import ProductCard from '../components/ProductCard';
 import SmsSignup from '../components/SmsSignup';
-import Seo from '../components/Seo';
 
 const Home = () => {
     const { sections, products, isAdminMode, updateSections, updateSection, isLoading } = useApp();
@@ -42,8 +41,8 @@ const Home = () => {
                             <p className="text-lg md:text-2xl text-gray-300 font-light mb-10 tracking-wide max-w-2xl mx-auto">
                                 {section.content}
                             </p>
-                            <Link to="/shop" className="inline-block bg-white text-black px-10 py-4 text-sm font-bold uppercase tracking-[0.2em] hover:bg-gray-200 hover:scale-105 transition-all duration-300 box-glow">
-                                Shop Collection
+                            <Link to="/shop" className="inline-block bg-white text-black px-10 py-4 text-sm font-bold uppercase tracking-[0.2em] hover:bg-gray-200 hover:scale-105 transition-all duration-300 box-glow text-center">
+                                SHOP COLLECTION
                             </Link>
                         </div>
                     </div>
@@ -285,7 +284,7 @@ const Home = () => {
             case 'about_teaser':
                 content = (
                     <section className="relative py-32 px-4 text-center overflow-hidden">
-                        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1492633423870-43d1cd2775eb?q=80&w=2940&auto=format&fit=crop')] bg-cover bg-center opacity-20 fixed-bg"></div>
+                        <div className="absolute inset-0 bg-[url('/story-mission.png')] bg-cover bg-center opacity-20 fixed-bg"></div>
                         <div className="absolute inset-0 bg-gradient-to-b from-black via-black/80 to-black"></div>
 
                         <div className="relative z-10 max-w-3xl mx-auto">
@@ -367,10 +366,6 @@ const Home = () => {
 
     return (
         <div className="min-h-screen pb-20">
-            <Seo
-                title="Coalition | Crafted in Baltimore"
-                description="Coalition is a premium streetwear brand born in Baltimore. Quality, community, and the hustle. Shop the latest drops and join the movement."
-            />
             {sections.map((s, i) => (
                 <React.Fragment key={s.id}>
                     {renderSection(s, i)}

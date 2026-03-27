@@ -1,0 +1,13 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="carbon" width="32" height="32" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="32" height="32" fill="#050505"/>
+      <path d="M0 0H16L32 16V32H16L0 16V0Z" fill="#0E0E0E"/>
+      <path d="M16 0H32V16L16 32H0V16L16 0Z" fill="#111111" opacity="0.9"/>
+      <path d="M0 0H32" stroke="white" stroke-opacity="0.04" stroke-width="1"/>
+      <path d="M0 16H32" stroke="white" stroke-opacity="0.025" stroke-width="1"/>
+      <path d="M0 32H32" stroke="white" stroke-opacity="0.04" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="512" height="512" fill="url(#carbon)"/>
+</svg>

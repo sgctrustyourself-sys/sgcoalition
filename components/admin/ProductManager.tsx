@@ -1,32 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
-import { Plus, Edit2, Trash2, Save, X, Image as ImageIcon, Copy, Search, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Copy, Search, AlertCircle, CheckCircle, RefreshCw, Loader2, Upload, ChevronLeft, ChevronRight, GripVertical, Star } from 'lucide-react';
+import { syncProductsToCode } from '../../services/imgurService';
+import { uploadProductImage } from '../../services/productUpload';
+import ImageCropperModal from '../ui/ImageCropperModal';
+import { moveArrayItem } from '../../utils/arrayMove';
+import { getProductEditableSizes, normalizeProductSizeData } from '../../utils/productSizes';
 
 const ProductManager: React.FC = () => {
-    const { products, addProduct, updateProduct, deleteProduct, fetchProducts, autoCommit } = useApp();
+    const { products, addProduct, updateProduct, deleteProduct } = useApp();
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isAdding, setIsAdding] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [editForm, setEditForm] = useState<Partial<Product>>({});
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-
-    // Helper to clean Imgur URLs (convert gallery/album links to direct links)
-    const cleanImgurUrl = (url: string): string => {
-        if (!url) return url;
-        let cleaned = url.trim();
-
-        // Convert imgur.com/a/abc or imgur.com/gallery/abc to i.imgur.com/abc.png
-        if (cleaned.includes('imgur.com/') && !cleaned.includes('i.imgur.com/')) {
-            const parts = cleaned.split('/');
-            const id = parts[parts.length - 1].split('.')[0];
-            cleaned = `https://i.imgur.com/${id}.png`;
-        }
-        return cleaned;
-    };
+    const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
+    const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
+    const [dragOverImageIndex, setDragOverImageIndex] = useState<number | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Initialize new product form
     const initNewProduct = () => {
@@ -37,12 +33,12 @@ const ProductManager: React.FC = () => {
             id: `prod_${Date.now()}`,
             name: '',
             price: 0,
-            images: [''],
+            images: [],
             description: '',
             category: 'apparel',
             isFeatured: false,
-            sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-            sizeInventory: { 'S': 0, 'M': 0, 'L': 0, 'XL': 0, 'XXL': 0 },
+            sizes: ['S', 'M', 'L', 'XL'],
+            sizeInventory: { 'S': 0, 'M': 0, 'L': 0, 'XL': 0 },
         });
     };
 
@@ -53,6 +49,9 @@ const ProductManager: React.FC = () => {
         setIsAdding(false);
         setError(null);
         setSuccess(null);
+        setPendingCropFile(null);
+        setDraggedImageIndex(null);
+        setDragOverImageIndex(null);
     };
 
     // Cancel editing
@@ -61,6 +60,9 @@ const ProductManager: React.FC = () => {
         setIsAdding(false);
         setEditForm({});
         setError(null);
+        setPendingCropFile(null);
+        setDraggedImageIndex(null);
+        setDragOverImageIndex(null);
     };
 
     // Save product (add or update)
@@ -69,38 +71,33 @@ const ProductManager: React.FC = () => {
         setSuccess(null);
 
         if (!editForm.name || !editForm.price || !editForm.images?.[0]) {
-            setError('Please fill in all required fields (Name, Price, Image URL)');
+            setError('Please fill in all required fields (Name, Price, Image)');
             return;
         }
 
         setIsSaving(true);
         try {
+            const normalizedSizes = normalizeProductSizeData(editForm.sizes, editForm.sizeInventory);
             const productData: Product = {
                 id: editForm.id || `prod_${Date.now()}`,
                 name: editForm.name,
                 price: Number(editForm.price),
-                images: editForm.images || [''],
+                images: editForm.images || [],
                 description: editForm.description || '',
                 category: editForm.category || 'apparel',
                 isFeatured: editForm.isFeatured || false,
-                sizes: editForm.sizes || ['S', 'M', 'L', 'XL'],
-                sizeInventory: editForm.sizeInventory || {},
+                sizes: normalizedSizes.sizes,
+                sizeInventory: normalizedSizes.sizeInventory,
                 nft: editForm.nft,
                 archived: editForm.archived || false,
             };
 
-            console.log('💾 SAVING PRODUCT:', productData);
-
             if (isAdding) {
-                console.log('➕ Adding new product...');
                 await addProduct(productData);
-                console.log('✅ Product added successfully');
-                setSuccess('Product added successfully! Check console for details.');
+                setSuccess('Product added successfully!');
             } else {
-                console.log('✏️ Updating existing product...');
                 await updateProduct(productData);
-                console.log('✅ Product updated successfully');
-                setSuccess('Product updated successfully! Check console for verification.');
+                setSuccess('Product updated successfully!');
             }
 
             setTimeout(() => {
@@ -109,10 +106,74 @@ const ProductManager: React.FC = () => {
             }, 2000);
         } catch (err) {
             console.error("❌ SAVE FAILED:", err);
-            setError(`Failed to save product: ${err instanceof Error ? err.message : 'Unknown error'}. Check console for details.`);
+            setError(`Failed to save product: ${err instanceof Error ? err.message : 'Unknown error'}.`);
         } finally {
             setIsSaving(false);
         }
+    };
+
+    // Sync to Codebase
+    const handleSync = async () => {
+        if (!window.confirm('This will update constants.ts with all current database products and create a Git commit. Proceed?')) return;
+
+        setIsSyncing(true);
+        setError(null);
+        setSuccess(null);
+        try {
+            const hash = await syncProductsToCode();
+            setSuccess(`Sync Complete! Constants updated and committed (${hash})`);
+            setTimeout(() => setSuccess(null), 5000);
+        } catch (err) {
+            console.error('Core sync failed:', err);
+            setError('Failed to sync products to codebase. Make sure the local server is running.');
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    // Handle Direct File Upload
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setError(null);
+        setSuccess(null);
+
+        if (!file.type.startsWith('image/')) {
+            setError('Please choose an image file before opening the cropper.');
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
+
+        setPendingCropFile(file);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const handleCroppedUpload = async (croppedFile: File) => {
+        setIsUploading(true);
+        setError(null);
+        try {
+            const url = await uploadProductImage(croppedFile, editForm.name || 'new-product');
+            setEditForm(prev => ({
+                ...prev,
+                images: [...(prev.images || []), url]
+            }));
+            setSuccess('Cropped image uploaded successfully!');
+            setTimeout(() => setSuccess(null), 3000);
+            setPendingCropFile(null);
+        } catch (err: any) {
+            console.error('Upload failed:', err);
+            setError(`Upload failed: ${err.message || 'Unknown error'}`);
+            throw err;
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const cancelCrop = () => {
+        setPendingCropFile(null);
+        setError(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     // Delete product with confirmation
@@ -150,66 +211,62 @@ const ProductManager: React.FC = () => {
 
     // Update form field
     const updateField = (field: keyof Product, value: any) => {
+        setEditForm(prev => ({ ...prev, [field]: value }));
+    };
+
+    const updateImages = (updater: (images: string[]) => string[]) => {
         setEditForm(prev => {
-            const updated = { ...prev, [field]: value };
-
-            // Dynamic defaults based on category change
-            if (field === 'category') {
-                if (value === 'accessory') {
-                    updated.sizes = ['One Size'];
-                    updated.sizeInventory = { 'One Size': 0 };
-                } else if (value === 'apparel') {
-                    updated.sizes = ['S', 'M', 'L', 'XL', 'XXL'];
-                    updated.sizeInventory = { 'S': 0, 'M': 0, 'L': 0, 'XL': 0, 'XXL': 0 };
-                }
-            }
-
-            return updated;
+            const currentImages = prev.images || [];
+            return {
+                ...prev,
+                images: updater(currentImages),
+            };
         });
     };
 
-    // Update image URL
-    const updateImage = (index: number, value: string) => {
-        const newImages = [...(editForm.images || [''])];
-        newImages[index] = cleanImgurUrl(value);
-        setEditForm(prev => ({ ...prev, images: newImages }));
+    const moveImage = (fromIndex: number, toIndex: number) => {
+        updateImages(images => moveArrayItem(images, fromIndex, toIndex));
     };
 
-    // Add image field
-    const addImageField = () => {
-        setEditForm(prev => ({ ...prev, images: [...(prev.images || ['']), ''] }));
+    const promoteImage = (index: number) => {
+        moveImage(index, 0);
+    };
+
+    const handleImageDragStart = (index: number) => {
+        setDraggedImageIndex(index);
+    };
+
+    const handleImageDragOver = (event: React.DragEvent<HTMLDivElement>, index: number) => {
+        if (draggedImageIndex === null || draggedImageIndex === index) return;
+        event.preventDefault();
+        setDragOverImageIndex(index);
+    };
+
+    const handleImageDrop = (index: number) => {
+        if (draggedImageIndex === null || draggedImageIndex === index) {
+            setDraggedImageIndex(null);
+            setDragOverImageIndex(null);
+            return;
+        }
+
+        moveImage(draggedImageIndex, index);
+        setDraggedImageIndex(null);
+        setDragOverImageIndex(null);
+    };
+
+    const handleImageDragEnd = () => {
+        setDraggedImageIndex(null);
+        setDragOverImageIndex(null);
     };
 
     // Remove image field
     const removeImageField = (index: number) => {
-        const newImages = (editForm.images || ['']).filter((_, i) => i !== index);
-        setEditForm(prev => ({ ...prev, images: newImages.length > 0 ? newImages : [''] }));
-    };
-
-    // Handle manual sync/save
-    const handleManualSync = async () => {
-        setIsSyncing(true);
-        setSuccess(null);
-        setError(null);
-
-        try {
-            console.log('🔄 Manual sync triggered...');
-            const latest = await fetchProducts();
-            if (latest) {
-                // Trigger a global "Save" commit
-                await autoCommit({
-                    message: `Manual catalog sync & lock-in (${latest.length} products)`,
-                    author: 'Coalition Admin'
-                });
-                setSuccess('Catalog successfully saved and locked in!');
-                setTimeout(() => setSuccess(null), 3000);
-            }
-        } catch (err) {
-            console.error('Manual sync failed:', err);
-            setError('Failed to sync and lock in changes. Please try again.');
-        } finally {
-            setIsSyncing(false);
+        const newImages = (editForm.images || []).filter((_, i) => i !== index);
+        setEditForm(prev => ({ ...prev, images: newImages }));
+        if (draggedImageIndex !== null && draggedImageIndex === index) {
+            setDraggedImageIndex(null);
         }
+        setDragOverImageIndex(null);
     };
 
     // Filter products
@@ -217,6 +274,8 @@ const ProductManager: React.FC = () => {
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.id.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const editableSizes = getProductEditableSizes(editForm.sizes, editForm.sizeInventory);
 
     return (
         <div className="space-y-6">
@@ -226,7 +285,7 @@ const ProductManager: React.FC = () => {
                     <h2 className="font-display text-2xl font-bold uppercase text-white">Products</h2>
                     <p className="text-gray-400 text-sm">Manage your catalog and inventory</p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
                         <input
@@ -235,21 +294,22 @@ const ProductManager: React.FC = () => {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:border-white/30 focus:outline-none w-full md:w-64"
+                            title="Search Products"
+                            aria-label="Search Products"
                         />
                     </div>
                     <button
-                        onClick={handleManualSync}
+                        onClick={handleSync}
                         disabled={isSyncing}
-                        className="flex items-center gap-2 bg-brand-accent text-white px-4 py-2 rounded-lg font-bold uppercase text-sm hover:bg-brand-accent/80 transition disabled:opacity-50"
-                        title="Save and lock in all changes"
+                        className="flex items-center gap-2 bg-purple-500/20 border border-purple-500/30 text-purple-300 px-4 py-2 rounded-lg font-bold uppercase text-sm hover:bg-purple-500/30 transition disabled:opacity-50"
+                        title="Sync Supabase products to constants.ts"
                     >
-                        {isSyncing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        {isSyncing ? 'Syncing...' : 'Save & Lock'}
+                        {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                        Sync Code
                     </button>
                     <button
                         onClick={initNewProduct}
                         className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-lg font-bold uppercase text-sm hover:bg-gray-200 transition"
-                        title="Add New Product"
                     >
                         <Plus className="w-4 h-4" />
                         Add Product
@@ -273,12 +333,12 @@ const ProductManager: React.FC = () => {
 
             {/* Edit Form */}
             {(isAdding || editingId) && (
-                <div className="bg-white/5 border border-white/10 rounded-xl p-6 backdrop-blur-sm">
+                <div className="bg-white/5 border border-white/10 rounded-xl p-6 backdrop-blur-sm shadow-2xl">
                     <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
                         <h3 className="font-display text-xl font-bold uppercase text-white">
                             {isAdding ? 'Add New Product' : 'Edit Product'}
                         </h3>
-                        <button onClick={cancelEdit} className="text-gray-400 hover:text-white transition" title="Close editor">
+                        <button onClick={cancelEdit} className="text-gray-400 hover:text-white transition" title="Cancel Edit">
                             <X className="w-6 h-6" />
                         </button>
                     </div>
@@ -287,54 +347,55 @@ const ProductManager: React.FC = () => {
                         {/* Left Column: Basic Info */}
                         <div className="space-y-5">
                             <div>
-                                <label htmlFor="product-name" className="block text-xs font-bold uppercase text-gray-400 mb-2">Product Name</label>
+                                <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Product Name</label>
                                 <input
-                                    id="product-name"
                                     type="text"
                                     value={editForm.name || ''}
                                     onChange={(e) => updateField('name', e.target.value)}
                                     className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-white/30 outline-none"
                                     placeholder="e.g. Coalition Classic Tee"
-                                    title="Product Name"
                                 />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label htmlFor="product-price" className="block text-xs font-bold uppercase text-gray-400 mb-2">Price ($)</label>
+                                    <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Price ($)</label>
                                     <input
-                                        id="product-price"
                                         type="number"
                                         value={editForm.price || 0}
                                         onChange={(e) => updateField('price', parseFloat(e.target.value))}
                                         className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-white/30 outline-none"
                                         step="0.01"
                                         title="Product Price"
+                                        aria-label="Product Price"
                                     />
                                 </div>
                                 <div>
-                                    <label htmlFor="product-category" className="block text-xs font-bold uppercase text-gray-400 mb-2">Category</label>
+                                    <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Category</label>
                                     <select
-                                        id="product-category"
                                         value={editForm.category || 'apparel'}
                                         onChange={(e) => updateField('category', e.target.value)}
                                         className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-white/30 outline-none"
                                         title="Product Category"
+                                        aria-label="Product Category"
                                     >
                                         <option value="apparel">Apparel</option>
                                         <option value="accessory">Accessory</option>
+                                        <option value="shirt">Shirt</option>
+                                        <option value="hoodie">Hoodie</option>
+                                        <option value="hat">Hat</option>
+                                        <option value="jeans">Jeans</option>
                                     </select>
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Inventory</label>
+                                <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Inventory (Sizes & Qty)</label>
                                 <div className="bg-black/30 border border-white/10 rounded-lg p-4 space-y-3">
-                                    {(editForm.sizes || ['S', 'M', 'L', 'XL']).map((size) => (
+                                    {editableSizes.map((size) => (
                                         <div key={size} className="flex items-center gap-4">
-                                            <label htmlFor={`inventory-${size}`} className="w-12 text-sm font-bold text-gray-400">{size}</label>
+                                            <span className="w-12 text-sm font-bold text-gray-400">{size}</span>
                                             <input
-                                                id={`inventory-${size}`}
                                                 type="number"
                                                 value={editForm.sizeInventory?.[size] || 0}
                                                 onChange={(e) => {
@@ -344,7 +405,8 @@ const ProductManager: React.FC = () => {
                                                 }}
                                                 className="flex-1 bg-black/20 border border-white/10 rounded p-2 text-white text-sm focus:border-white/30 outline-none"
                                                 min="0"
-                                                title={`${size} Inventory`}
+                                                title={`Inventory for size ${size}`}
+                                                aria-label={`Inventory for size ${size}`}
                                             />
                                         </div>
                                     ))}
@@ -358,6 +420,8 @@ const ProductManager: React.FC = () => {
                                     checked={editForm.isFeatured || false}
                                     onChange={(e) => updateField('isFeatured', e.target.checked)}
                                     className="w-5 h-5 rounded border-white/10 bg-black/30 text-white focus:ring-0"
+                                    title="Mark as Featured Product"
+                                    aria-label="Mark as Featured Product"
                                 />
                                 <label htmlFor="featured" className="text-sm font-bold uppercase text-gray-300 cursor-pointer">
                                     Featured Product
@@ -368,39 +432,130 @@ const ProductManager: React.FC = () => {
                         {/* Right Column: Images & Details */}
                         <div className="space-y-5">
                             <div>
-                                <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Images (Imgur URLs)</label>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="block text-xs font-bold uppercase text-gray-400">Media Assets</label>
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isUploading || !!pendingCropFile}
+                                        type="button"
+                                        className="flex items-center gap-1 text-xs font-bold uppercase text-brand-accent hover:text-white transition disabled:opacity-50"
+                                    >
+                                        {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                                        Crop & Upload
+                                    </button>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileUpload}
+                                        className="hidden"
+                                        accept="image/*"
+                                        title="Upload Product Image"
+                                    />
+                                </div>
 
                                 {/* Image Preview Grid */}
                                 <div className="grid grid-cols-3 gap-2 mb-3">
-                                    {(editForm.images || []).map((img, index) => (
-                                        <div key={index} className="relative aspect-square bg-black/30 rounded-lg overflow-hidden border border-white/10 group">
-                                            <img src={img} alt={`Product ${index}`} className="w-full h-full object-cover" />
-                                            <button
-                                                onClick={() => removeImageField(index)}
-                                                className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
-                                                title="Remove Image"
+                                    {(editForm.images || []).map((img, index) => {
+                                        const isPrimary = index === 0;
+                                        const isDragged = draggedImageIndex === index;
+                                        const isDropTarget = dragOverImageIndex === index;
+
+                                        return (
+                                            <div
+                                                key={`${img}-${index}`}
+                                                draggable
+                                                onDragStart={() => handleImageDragStart(index)}
+                                                onDragOver={(event) => handleImageDragOver(event, index)}
+                                                onDrop={() => handleImageDrop(index)}
+                                                onDragEnd={handleImageDragEnd}
+                                                className={`relative aspect-square bg-black/30 rounded-lg overflow-hidden border transition group ${isDropTarget
+                                                    ? 'border-brand-accent ring-2 ring-brand-accent/40'
+                                                    : 'border-white/10'
+                                                    } ${isDragged ? 'opacity-50 scale-[0.98]' : ''}`}
+                                                title="Drag to reorder"
                                             >
-                                                <X className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                    ))}
+                                                <img src={img} alt={`Product ${index}`} className="w-full h-full object-cover" />
+
+                                                <div className="absolute left-1 top-1 flex items-center gap-1">
+                                                    <span className="rounded-full border border-white/10 bg-black/70 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white">
+                                                        #{index + 1}
+                                                    </span>
+                                                    {isPrimary && (
+                                                        <span className="rounded-full border border-brand-accent/30 bg-brand-accent/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent">
+                                                            Primary
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <button
+                                                    onClick={() => removeImageField(index)}
+                                                    className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
+                                                    title="Remove Image"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+
+                                                <div className="absolute inset-x-1 bottom-1 flex items-center justify-between gap-1 opacity-0 transition group-hover:opacity-100">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => moveImage(index, index - 1)}
+                                                        disabled={index === 0}
+                                                        className="flex h-7 flex-1 items-center justify-center rounded-md border border-white/10 bg-black/80 text-white/80 transition hover:border-white/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                                                        title="Move earlier"
+                                                    >
+                                                        <ChevronLeft className="h-3 w-3" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => promoteImage(index)}
+                                                        disabled={index === 0}
+                                                        className="flex h-7 flex-1 items-center justify-center rounded-md border border-white/10 bg-black/80 text-white/80 transition hover:border-white/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                                                        title="Set as primary"
+                                                    >
+                                                        <Star className={`h-3 w-3 ${isPrimary ? 'fill-brand-accent text-brand-accent' : ''}`} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => moveImage(index, index + 1)}
+                                                        disabled={index === (editForm.images?.length || 0) - 1}
+                                                        className="flex h-7 flex-1 items-center justify-center rounded-md border border-white/10 bg-black/80 text-white/80 transition hover:border-white/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                                                        title="Move later"
+                                                    >
+                                                        <ChevronRight className="h-3 w-3" />
+                                                    </button>
+                                                </div>
+
+                                                <div className="absolute bottom-1 left-1 rounded-full border border-white/10 bg-black/70 p-1 text-gray-300 opacity-0 transition group-hover:opacity-100">
+                                                    <GripVertical className="h-3 w-3" />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {/* Upload Placeholder */}
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isUploading}
+                                        className="aspect-square bg-white/5 border border-dashed border-white/20 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 hover:border-white/40 transition gap-1 disabled:opacity-50"
+                                    >
+                                        {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                                        <span className="text-[10px] uppercase font-bold">{isUploading ? 'Uploading...' : 'New Asset'}</span>
+                                    </button>
                                 </div>
 
-                                {/* Add Image Input */}
+                                {/* Manual URL Input */}
                                 <div className="flex gap-2">
                                     <input
                                         type="text"
                                         id="imgur-input"
                                         className="flex-1 bg-black/30 border border-white/10 rounded-lg p-3 text-white text-sm focus:border-white/30 outline-none"
-                                        placeholder="Paste Imgur URL (e.g. https://i.imgur.com/...)"
-                                        title="Paste Imgur URL"
+                                        placeholder="Paste image link manually..."
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
                                                 e.preventDefault();
                                                 const input = e.currentTarget;
                                                 if (input.value) {
-                                                    const cleaned = cleanImgurUrl(input.value);
-                                                    setEditForm(prev => ({ ...prev, images: [...(prev.images || []), cleaned] }));
+                                                    setEditForm(prev => ({ ...prev, images: [...(prev.images || []), input.value] }));
                                                     input.value = '';
                                                 }
                                             }
@@ -410,31 +565,27 @@ const ProductManager: React.FC = () => {
                                         onClick={() => {
                                             const input = document.getElementById('imgur-input') as HTMLInputElement;
                                             if (input.value) {
-                                                const cleaned = cleanImgurUrl(input.value);
-                                                setEditForm(prev => ({ ...prev, images: [...(prev.images || []), cleaned] }));
+                                                setEditForm(prev => ({ ...prev, images: [...(prev.images || []), input.value] }));
                                                 input.value = '';
                                             }
                                         }}
-                                        className="bg-white/10 text-white px-4 rounded-lg font-bold uppercase text-xs hover:bg-white/20"
-                                        title="Add Image URL"
+                                        className="bg-white/10 text-white px-4 rounded-lg font-bold uppercase text-xs hover:bg-white/20 transition"
                                     >
                                         Add
                                     </button>
                                 </div>
-                                <p className="text-xs text-gray-500 mt-2">
-                                    Supported: Direct Imgur links (.jpg, .png) or hosted links.
+                                <p className="text-[10px] text-gray-500 mt-2 italic font-mono uppercase tracking-tighter">
+                                    First image is the storefront cover. Drag tiles or use the arrows to reorder before saving.
                                 </p>
                             </div>
 
                             <div>
-                                <label htmlFor="product-description" className="block text-xs font-bold uppercase text-gray-400 mb-2">Description</label>
+                                <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Description</label>
                                 <textarea
-                                    id="product-description"
                                     value={editForm.description || ''}
                                     onChange={(e) => updateField('description', e.target.value)}
                                     className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-white/30 outline-none h-32"
-                                    placeholder="Product description..."
-                                    title="Product Description"
+                                    placeholder="Product description... (Markdown supported)"
                                 />
                             </div>
 
@@ -442,19 +593,18 @@ const ProductManager: React.FC = () => {
                             <div className="bg-white/5 border border-white/10 rounded-lg p-4">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <h4 className="font-bold text-white uppercase text-sm">Archive Product</h4>
-                                        <p className="text-xs text-gray-400">Hide from shop but keep in archive</p>
+                                        <h4 className="font-bold text-white uppercase text-sm">Deployment Status</h4>
+                                        <p className="text-xs text-gray-400">Archived products are hidden from public shop</p>
                                     </div>
-                                    <label htmlFor="archived-toggle" className="relative inline-flex items-center cursor-pointer">
+                                    <label className="relative inline-flex items-center cursor-pointer">
                                         <input
-                                            id="archived-toggle"
                                             type="checkbox"
                                             className="sr-only peer"
                                             checked={editForm.archived || false}
                                             onChange={(e) => updateField('archived', e.target.checked)}
-                                            title="Archive Toggle"
+                                            title="Archive Product"
                                         />
-                                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-accent"></div>
+                                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-accent shadow-inner"></div>
                                     </label>
                                 </div>
                             </div>
@@ -465,10 +615,10 @@ const ProductManager: React.FC = () => {
                         <button
                             onClick={saveProduct}
                             disabled={isSaving}
-                            className={`flex items-center gap-2 bg-white text-black px-6 py-3 rounded-lg font-bold uppercase tracking-widest hover:bg-gray-200 transition ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`flex items-center gap-2 bg-white text-black px-6 py-3 rounded-lg font-bold uppercase tracking-widest hover:bg-gray-200 transition ${isSaving ? 'opacity-50 cursor-not-allowed shadow-none' : 'shadow-[0_0_20px_rgba(255,255,255,0.3)]'}`}
                         >
-                            <Save className="w-5 h-5" />
-                            {isSaving ? 'Saving...' : (isAdding ? 'Add Product' : 'Save Changes')}
+                            {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                            {isSaving ? 'Deploying...' : (isAdding ? 'Deploy Product' : 'Apply Changes')}
                         </button>
                         <button
                             onClick={cancelEdit}
@@ -480,11 +630,21 @@ const ProductManager: React.FC = () => {
                 </div>
             )}
 
+            <ImageCropperModal
+                open={!!pendingCropFile}
+                file={pendingCropFile}
+                title="Crop Product Image"
+                description="Frame the image before it uploads. Drag to align the subject, zoom to fill the frame, and choose the best crop ratio for the storefront."
+                confirmLabel="Upload Cropped Image"
+                onCancel={cancelCrop}
+                onConfirm={handleCroppedUpload}
+            />
+
             {/* Product List */}
             <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden backdrop-blur-sm">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
-                        <thead className="bg-black/40 text-gray-400 uppercase text-xs font-bold tracking-wider">
+                        <thead className="bg-black/40 text-gray-400 uppercase text-xs font-bold tracking-wider border-b border-white/10">
                             <tr>
                                 <th className="p-4">Product</th>
                                 <th className="p-4">Price</th>
@@ -496,40 +656,40 @@ const ProductManager: React.FC = () => {
                         <tbody className="divide-y divide-white/5">
                             {filteredProducts.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-12 text-center text-gray-500">
-                                        No products found
+                                    <td colSpan={5} className="p-12 text-center text-gray-500 italic">
+                                        No products found matching your search.
                                     </td>
                                 </tr>
                             ) : (
                                 filteredProducts.map(product => (
-                                    <tr key={product.id} className="hover:bg-white/5 transition">
+                                    <tr key={product.id} className="hover:bg-white/5 transition group">
                                         <td className="p-4">
                                             <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded bg-white/10 overflow-hidden flex-shrink-0">
+                                                <div className="w-12 h-12 rounded bg-black/40 overflow-hidden flex-shrink-0 border border-white/10 group-hover:border-white/30 transition">
                                                     <img
                                                         src={product.images[0]}
                                                         alt={product.name}
-                                                        className="w-full h-full object-cover"
+                                                        className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500"
                                                         onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/100?text=No+Img')}
                                                     />
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-white">{product.name}</p>
-                                                    <p className="text-xs text-gray-500 font-mono">{product.id}</p>
+                                                    <p className="font-bold text-white group-hover:text-brand-accent transition">{product.name}</p>
+                                                    <p className="text-[10px] text-gray-500 font-mono uppercase tracking-widest">{product.id}</p>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="p-4 font-bold text-white">
-                                            ${product.price.toFixed(2)}
+                                            ${product.price ? product.price.toFixed(2) : '0.00'}
                                         </td>
                                         <td className="p-4">
                                             <div className="flex flex-wrap gap-2">
                                                 {product.sizeInventory && Object.entries(product.sizeInventory).map(([size, qty]) => (
                                                     <span
                                                         key={size}
-                                                        className={`text-xs px-2 py-1 rounded border ${(qty as number) > 0
+                                                        className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-tighter ${(qty as number) > 0
                                                             ? 'border-green-500/30 text-green-400 bg-green-500/10'
-                                                            : 'border-red-500/30 text-red-400 bg-red-500/10'
+                                                            : 'border-red-500/30 text-red-400 bg-red-500/10 opacity-50'
                                                             }`}
                                                     >
                                                         {size}: {qty}
@@ -538,12 +698,12 @@ const ProductManager: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="p-4">
-                                            <span className="text-xs font-bold uppercase tracking-wide text-gray-400 bg-white/5 px-2 py-1 rounded">
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 bg-white/5 px-2 py-1 rounded border border-white/5">
                                                 {product.category}
                                             </span>
                                         </td>
-                                        <td className="p-4">
-                                            <div className="flex items-center justify-end gap-2">
+                                        <td className="p-4 text-right">
+                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition">
                                                 <button
                                                     onClick={() => duplicateProduct(product)}
                                                     className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition"

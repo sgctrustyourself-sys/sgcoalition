@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { Filter, Check } from 'lucide-react';
+import { Filter, Check, Zap, TrendingUp } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import SearchBar from '../components/SearchBar';
 import ProductCardSkeleton from '../components/ProductCardSkeleton';
-import Seo from '../components/Seo';
 
 const Shop = () => {
     const { products, isLoading, isConfigError } = useApp();
@@ -14,7 +13,7 @@ const Shop = () => {
     // Filter States
     const [category, setCategory] = useState<string>('all');
     const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
-    const [priceRange, setPriceRange] = useState<{ min: number, max: number }>({ min: 0, max: 500 });
+    const [priceRange, setPriceRange] = useState<{ min: number, max: number }>({ min: 0, max: 1000 });
     const [sortOption, setSortOption] = useState<string>('newest');
 
     // VIP Banner State
@@ -27,8 +26,20 @@ const Shop = () => {
         localStorage.setItem('coalition_vip_banner_dismissed', 'true');
     };
 
-    // Derived Data
-    const categories = ['all', ...Array.from(new Set(products.map(p => p.category)))];
+    // Category structure: top-level and sub-categories
+    const categoryGroups = [
+        { value: 'all', label: 'ALL' },
+        {
+            value: 'apparel', label: 'APPAREL', children: [
+                { value: 'shirts', label: 'SHIRTS' },
+                { value: 'jeans', label: 'JEANS' },
+            ]
+        },
+        { value: 'wallets', label: 'WALLETS' },
+        { value: 'hats', label: 'HATS' },
+    ];
+    // Flat list for the top dropdown
+    const categories = ['all', 'apparel', 'shirts', 'jeans', 'wallets', 'hats'];
     const allSizes = Array.from(new Set(products.flatMap(p => p.sizes || []))) as string[];
 
     const toggleSize = (size: string) => {
@@ -38,7 +49,6 @@ const Shop = () => {
     };
 
     const filteredProducts = React.useMemo(() => products
-        .filter(p => !p.archived) // Exclude archived products from shop
         .filter(p => {
             // Search filter
             if (!searchQuery) return true;
@@ -46,7 +56,15 @@ const Shop = () => {
             return p.name.toLowerCase().includes(query) ||
                 p.description.toLowerCase().includes(query);
         })
-        .filter(p => category === 'all' || p.category === category)
+        .filter(p => {
+            if (!category || category === 'all') return true;
+            const cat = p.category?.toLowerCase();
+            if (category === 'wallets') return cat === 'wallet' || cat === 'accessory' || cat === 'accessories';
+            if (category === 'shirts') return cat === 'shirt';
+            if (category === 'hats') return cat === 'hat' || cat === 'headwear';
+            if (category === 'apparel') return cat === 'shirt' || cat === 'jeans' || cat === 'apparel';
+            return cat === category.toLowerCase();
+        })
         .filter(p => selectedSizes.length === 0 || (p.sizes && p.sizes.some(s => selectedSizes.includes(s))))
         .filter(p => p.price >= priceRange.min && p.price <= priceRange.max)
         .sort((a, b) => {
@@ -61,14 +79,16 @@ const Shop = () => {
             if (sortOption === 'newest') return String(b.id).localeCompare(String(a.id));
 
             return 0;
+        })
+        // Always push archived/sold items to the end
+        .sort((a, b) => {
+            const aSold = a.archived && !!a.soldAt ? 1 : 0;
+            const bSold = b.archived && !!b.soldAt ? 1 : 0;
+            return aSold - bSold;
         }), [products, searchQuery, category, selectedSizes, priceRange, sortOption]);
 
     return (
         <div className="pt-12 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-screen">
-            <Seo
-                title="Shop"
-                description="Browse the latest Coalition streetwear collection. Premium hoodies, tees, and accessories."
-            />
             {/* VIP Membership Banner */}
             {showVIPBanner && (
                 <div className="mb-8 bg-gradient-to-r from-purple-900/30 via-purple-800/30 to-blue-900/30 border border-purple-500/30 rounded-lg p-6 relative overflow-hidden">
@@ -88,7 +108,7 @@ const Shop = () => {
                         </div>
                         <div className="flex flex-col sm:flex-row items-center gap-3">
                             <a
-                                href="#/membership"
+                                href="/membership"
                                 className="px-6 py-3 bg-white text-black font-bold text-sm uppercase tracking-widest hover:bg-gray-200 transition-all whitespace-nowrap"
                             >
                                 Learn More
@@ -108,7 +128,7 @@ const Shop = () => {
             <div className="flex flex-col md:flex-row justify-between items-baseline border-b border-gray-200 pb-6 mb-8">
                 <h1 className="text-4xl font-display font-bold uppercase">Shop All</h1>
 
-                <div className="flex items-center gap-4 mt-4 md:mt-0">
+                <div className="flex flex-wrap items-center gap-6 mt-4 md:mt-0">
                     <button
                         className="md:hidden flex items-center text-sm font-bold uppercase"
                         onClick={() => setFiltersOpen(!isFiltersOpen)}
@@ -116,21 +136,45 @@ const Shop = () => {
                         <Filter className="w-4 h-4 mr-2" /> Filters
                     </button>
 
-                    <div className="relative">
-                        <span className="text-sm text-gray-500 mr-2">Sort by:</span>
-                        <select
-                            value={sortOption}
-                            onChange={(e) => setSortOption(e.target.value)}
-                            className="text-sm font-bold uppercase bg-white border border-gray-300 rounded px-2 py-1 focus:ring-0 cursor-pointer text-black"
-                            title="Sort products"
-                        >
-                            <option value="newest">Newest Arrivals</option>
-                            <option value="popularity">Popularity</option>
-                            <option value="name-asc">Name (A-Z)</option>
-                            <option value="name-desc">Name (Z-A)</option>
-                            <option value="price-asc">Price: Low to High</option>
-                            <option value="price-desc">Price: High to Low</option>
-                        </select>
+                    <div className="flex items-center gap-4">
+                        <div className="relative flex items-center">
+                            <span className="text-[10px] uppercase tracking-widest text-gray-500 mr-2">Category:</span>
+                            <select
+                                value={category}
+                                onChange={(e) => setCategory(e.target.value)}
+                                className="text-sm font-black uppercase bg-transparent border-none focus:ring-0 cursor-pointer text-white appearance-none pr-8 relative bg-none"
+                                title="Filter by Category"
+                            >
+                                {categories.map(cat => (
+                                    <option key={cat} value={cat} className="bg-black text-white">
+                                        {cat === 'shirts' || cat === 'jeans' ? `  ↳ ${cat.toUpperCase()}` : cat.toUpperCase()}
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="absolute right-0 pointer-events-none text-purple-400">
+                                <Zap className="w-3 h-3" />
+                            </div>
+                        </div>
+
+                        <div className="h-4 w-[1px] bg-white/10 hidden sm:block"></div>
+
+                        <div className="relative flex items-center">
+                            <span className="text-[10px] uppercase tracking-widest text-gray-500 mr-2">Sort by:</span>
+                            <select
+                                value={sortOption}
+                                onChange={(e) => setSortOption(e.target.value)}
+                                className="text-sm font-black uppercase bg-transparent border-none focus:ring-0 cursor-pointer text-white appearance-none pr-8 relative bg-none"
+                                title="Sort products"
+                            >
+                                <option value="newest" className="bg-black">Newest</option>
+                                <option value="popularity" className="bg-black">Popular</option>
+                                <option value="price-asc" className="bg-black">Price: Low</option>
+                                <option value="price-desc" className="bg-black">Price: High</option>
+                            </select>
+                            <div className="absolute right-0 pointer-events-none text-blue-400">
+                                <TrendingUp className="w-3 h-3" />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -148,24 +192,46 @@ const Shop = () => {
                 {/* Sidebar Filters */}
                 <div className={`w-full md:w-64 flex-shrink-0 ${isFiltersOpen ? 'block' : 'hidden md:block'}`}>
                     <div className="space-y-8 sticky top-24">
-                        {/* Categories */}
                         <div>
                             <h3 className="text-sm font-bold uppercase mb-4">Category</h3>
-                            <div className="space-y-2">
-                                {categories.map(cat => (
-                                    <label key={cat} className="flex items-center cursor-pointer group">
-                                        <input
-                                            type="radio"
-                                            name="category"
-                                            checked={category === cat}
-                                            onChange={() => setCategory(cat)}
-                                            className="sr-only"
-                                        />
-                                        <span className={`w-4 h-4 border mr-3 flex items-center justify-center ${category === cat ? 'bg-black border-black' : 'border-gray-300 group-hover:border-gray-500'}`}>
-                                            {category === cat && <Check className="w-3 h-3 text-white" />}
-                                        </span>
-                                        <span className={`text-sm uppercase ${category === cat ? 'font-bold' : 'text-gray-600'}`}>{cat}</span>
-                                    </label>
+                            <div className="space-y-1">
+                                {categoryGroups.map(group => (
+                                    <div key={group.value}>
+                                        {/* Parent Category */}
+                                        <label className="flex items-center cursor-pointer group py-1">
+                                            <input
+                                                type="radio"
+                                                name="category"
+                                                checked={category === group.value}
+                                                onChange={() => setCategory(group.value)}
+                                                className="sr-only"
+                                            />
+                                            <span className={`w-4 h-4 border mr-3 flex items-center justify-center flex-shrink-0 ${category === group.value ? 'bg-black border-black' : 'border-gray-300 group-hover:border-gray-500'}`}>
+                                                {category === group.value && <Check className="w-3 h-3 text-white" />}
+                                            </span>
+                                            <span className={`text-sm uppercase ${category === group.value ? 'font-bold' : 'text-gray-600'}`}>{group.label}</span>
+                                        </label>
+                                        {/* Sub-categories (indented) */}
+                                        {group.children && (
+                                            <div className="ml-7 space-y-1 mt-1">
+                                                {group.children.map(child => (
+                                                    <label key={child.value} className="flex items-center cursor-pointer group py-0.5">
+                                                        <input
+                                                            type="radio"
+                                                            name="category"
+                                                            checked={category === child.value}
+                                                            onChange={() => setCategory(child.value)}
+                                                            className="sr-only"
+                                                        />
+                                                        <span className={`w-3 h-3 border mr-3 flex items-center justify-center flex-shrink-0 ${category === child.value ? 'bg-black border-black' : 'border-gray-400 group-hover:border-gray-600'}`}>
+                                                            {category === child.value && <Check className="w-2 h-2 text-white" />}
+                                                        </span>
+                                                        <span className={`text-xs uppercase ${category === child.value ? 'font-bold text-white' : 'text-gray-500'}`}>{child.label}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
                         </div>
@@ -212,7 +278,7 @@ const Shop = () => {
 
                         <div className="pt-4 border-t border-gray-100">
                             <button
-                                onClick={() => { setCategory('all'); setSelectedSizes([]); setPriceRange({ min: 0, max: 500 }); setSearchQuery(''); }}
+                                onClick={() => { setCategory('all'); setSelectedSizes([]); setPriceRange({ min: 0, max: 1000 }); setSearchQuery(''); }}
                                 className="text-xs text-gray-500 underline hover:text-black"
                             >
                                 Clear All Filters
@@ -243,15 +309,9 @@ const Shop = () => {
                                 <p className="text-red-300 mb-2">// Diagnostic Info:</p>
                                 <p>Error: Invalid API Key (PGRST301)</p>
                                 <p>Variable Status:</p>
-                                <p>- VITE_SUPABASE_URL: {import.meta.env.VITE_SUPABASE_URL ? (import.meta.env.VITE_SUPABASE_URL === 'VITE_SUPABASE_URL' ? 'PLACEHOLDER' : 'SET') : 'MISSING'}</p>
-                                <p>- VITE_SUPABASE_ANON_KEY: {import.meta.env.VITE_SUPABASE_ANON_KEY ? (import.meta.env.VITE_SUPABASE_ANON_KEY === 'VITE_SUPABASE_ANON_KEY' ? 'PLACEHOLDER' : 'SET') : 'MISSING'}</p>
+                                <p>- VITE_SUPABASE_URL: {import.meta.env.VITE_SUPABASE_URL ? 'SET' : 'MISSING'}</p>
+                                <p>- VITE_SUPABASE_ANON_KEY: {import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'MISSING'}</p>
                                 <p className="mt-2 text-yellow-300/70">Tip: Ensure these are set in Vercel Project Settings &gt; Environment Variables and that you have triggered a new deployment.</p>
-                            </div>
-                            <div className="mt-10 border-t border-white/5 pt-10">
-                                <p className="text-gray-500 text-sm mb-4">Displaying fallback products catalog:</p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10 text-left">
-                                    {products.map(p => <ProductCard key={p.id} product={p} />)}
-                                </div>
                             </div>
                         </div>
                     ) : (

@@ -1,9 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import ImageCropperModal from './ImageCropperModal';
+import { PRODUCT_CROP_ASPECT_OPTIONS } from '../../utils/imageCropper';
 
 interface ReviewPhotoUploadProps {
     photos: string[];
-    onPhotosChange: (photos: string[]) => void;
+    onPhotosChange: React.Dispatch<React.SetStateAction<string[]>>;
     maxPhotos?: number;
 }
 
@@ -13,7 +15,23 @@ const ReviewPhotoUpload: React.FC<ReviewPhotoUploadProps> = ({
     maxPhotos = 3
 }) => {
     const [isDragging, setIsDragging] = useState(false);
+    const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
+    const [cropQueue, setCropQueue] = useState<File[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const fileToDataUrl = (file: File) =>
+        new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => resolve(event.target?.result as string);
+            reader.onerror = () => reject(new Error('Unable to prepare the cropped photo preview.'));
+            reader.readAsDataURL(file);
+        });
+
+    const resetFileInput = () => {
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
 
     const handleFileSelect = (files: FileList | null) => {
         if (!files) return;
@@ -24,35 +42,48 @@ const ReviewPhotoUpload: React.FC<ReviewPhotoUploadProps> = ({
             return;
         }
 
-        const newPhotos: string[] = [];
-        let filesProcessed = 0;
-
-        Array.from(files).slice(0, remainingSlots).forEach((file) => {
-            // Validate file type
+        const selectedFiles = Array.from(files).slice(0, remainingSlots);
+        const validFiles = selectedFiles.filter((file) => {
             if (!file.type.startsWith('image/')) {
                 alert('Please select only image files');
-                return;
+                return false;
             }
 
-            // Validate file size (2MB max)
             if (file.size > 2 * 1024 * 1024) {
                 alert(`${file.name} is too large. Maximum size is 2MB.`);
-                return;
+                return false;
             }
 
-            // Convert to base64
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const base64 = e.target?.result as string;
-                newPhotos.push(base64);
-                filesProcessed++;
-
-                if (filesProcessed === Math.min(files.length, remainingSlots)) {
-                    onPhotosChange([...photos, ...newPhotos]);
-                }
-            };
-            reader.readAsDataURL(file);
+            return true;
         });
+
+        if (validFiles.length === 0) {
+            resetFileInput();
+            return;
+        }
+
+        setCropQueue(validFiles);
+        setPendingCropFile(validFiles[0]);
+        setIsDragging(false);
+        resetFileInput();
+    };
+
+    const handleCroppedPhoto = async (croppedFile: File) => {
+        const preview = await fileToDataUrl(croppedFile);
+        onPhotosChange(prev => [...prev, preview]);
+
+        setCropQueue(prev => {
+            const nextQueue = prev.slice(1);
+            setPendingCropFile(nextQueue[0] || null);
+            return nextQueue;
+        });
+    };
+
+    const cancelCrop = () => {
+        setPendingCropFile(null);
+        setCropQueue([]);
+        setIsDragging(false);
+        resetFileInput();
     };
 
     const handleDrop = (e: React.DragEvent) => {
@@ -71,8 +102,7 @@ const ReviewPhotoUpload: React.FC<ReviewPhotoUploadProps> = ({
     };
 
     const removePhoto = (index: number) => {
-        const newPhotos = photos.filter((_, i) => i !== index);
-        onPhotosChange(newPhotos);
+        onPhotosChange(prev => prev.filter((_, i) => i !== index));
     };
 
     return (
@@ -105,7 +135,7 @@ const ReviewPhotoUpload: React.FC<ReviewPhotoUploadProps> = ({
                         Up to {maxPhotos} photos, 2MB each (JPG, PNG, GIF)
                     </p>
                     <p className="text-xs text-green-400 mt-2">
-                        +50 SGCoins bonus for photo reviews!
+                        Photos open in the cropper before they are added to the review.
                     </p>
                 </div>
             )}
@@ -139,6 +169,26 @@ const ReviewPhotoUpload: React.FC<ReviewPhotoUploadProps> = ({
                     {photos.length} / {maxPhotos} photos uploaded
                 </p>
             )}
+
+            {cropQueue.length > 0 && (
+                <p className="text-xs text-brand-accent flex items-center gap-1">
+                    <ImageIcon className="w-3 h-3" />
+                    Cropping {cropQueue.length} photo{cropQueue.length === 1 ? '' : 's'}...
+                </p>
+            )}
+
+            <ImageCropperModal
+                file={pendingCropFile}
+                open={Boolean(pendingCropFile)}
+                title="Crop Review Photo"
+                description="Drag the image into place before we add it to your review gallery."
+                confirmLabel="Add Photo"
+                cancelLabel="Cancel"
+                defaultAspectRatio={1}
+                aspectOptions={PRODUCT_CROP_ASPECT_OPTIONS}
+                onCancel={cancelCrop}
+                onConfirm={handleCroppedPhoto}
+            />
         </div>
     );
 };

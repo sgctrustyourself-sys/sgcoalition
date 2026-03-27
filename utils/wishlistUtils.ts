@@ -18,7 +18,7 @@ export const generateShareId = (userId: string): string => {
  */
 export const getPublicWishlistUrl = (shareId: string): string => {
     const baseUrl = window.location.origin;
-    return `${baseUrl}/#/wishlist/${shareId}`;
+    return `${baseUrl}/wishlist/${shareId}`;
 };
 
 /**

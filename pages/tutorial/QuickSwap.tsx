@@ -2,15 +2,15 @@ import React from 'react';
 import TutorialLayout from '../../components/tutorial/TutorialLayout';
 import StepCard from '../../components/tutorial/StepCard';
 import { ExternalLink, Wallet, ArrowDownUp, CheckCircle, AlertCircle } from 'lucide-react';
-import { QUICKSWAP_SWAP_URL, SGCOIN_CONTRACT_ADDRESS } from '../../constants';
+import { QUICKSWAP_SWAP_URL, SGCOIN_V2_CONTRACT_ADDRESS } from '../../constants';
 
 const QuickSwap: React.FC = () => {
     return (
         <TutorialLayout
             title="Swap on QuickSwap"
             stepIndex={4}
-            nextRoute="/tutorial/use-sgcoin"
-            prevRoute="/tutorial/fund-wallet"
+            nextRoute="/tutorial/use"
+            prevRoute="/tutorial/fund"
         >
             <div className="space-y-6">
                 {/* Introduction */}
@@ -85,7 +85,7 @@ const QuickSwap: React.FC = () => {
                         <p>QuickSwap will show a warning that this is a custom token. This is normal!</p>
                         <div className="bg-white/5 border border-white/10 rounded-lg p-4">
                             <p className="text-xs text-gray-400 mb-2">SGCoin Contract Address:</p>
-                            <code className="text-sm font-mono text-green-400 break-all">{SGCOIN_CONTRACT_ADDRESS}</code>
+                            <code className="text-sm font-mono text-green-400 break-all">{SGCOIN_V2_CONTRACT_ADDRESS}</code>
                         </div>
                         <p className="mt-3">Click <strong>"I understand"</strong> and <strong>"Import"</strong>.</p>
                     </div>
@@ -174,7 +174,7 @@ const QuickSwap: React.FC = () => {
                     <ol className="text-gray-300 text-sm space-y-2 list-decimal list-inside">
                         <li>Open MetaMask</li>
                         <li>Scroll down and click "Import tokens"</li>
-                        <li>Paste the contract address: <code className="text-green-400 text-xs">{SGCOIN_CONTRACT_ADDRESS}</code></li>
+                        <li>Paste the contract address: <code className="text-green-400 text-xs">{SGCOIN_V2_CONTRACT_ADDRESS}</code></li>
                         <li>Click "Add Custom Token"</li>
                     </ol>
                 </div>

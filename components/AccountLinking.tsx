@@ -9,10 +9,10 @@ import {
     unlinkWallet,
     type LinkedAccount
 } from '../services/accountLinking';
-import { linkSocialAccount, getSocialAccount, unlinkSocialAccount, type SocialAccount } from '../services/socialLinking';
+
 
 const AccountLinking: React.FC = () => {
-    const { user } = useApp();
+    const { user, linkSocialAccount, unlinkSocialAccount } = useApp();
     const { addToast } = useToast();
     const [linkedAccount, setLinkedAccount] = useState<LinkedAccount | null>(null);
     const [loading, setLoading] = useState(true);
@@ -28,8 +28,9 @@ const AccountLinking: React.FC = () => {
     const [instagramUsername, setInstagramUsername] = useState('');
     const [walletAddressForReward, setWalletAddressForReward] = useState('');
     const [confirmFollow, setConfirmFollow] = useState(false);
-    const [linkedInstagram, setLinkedInstagram] = useState<SocialAccount | null>(null);
-    const [loadingInstagram, setLoadingInstagram] = useState(true);
+
+    // Derived state from user context
+    const linkedInstagram = user?.socialAccounts?.find(acc => acc.platform === 'instagram') || null;
 
     const isWalletUser = user?.uid.startsWith('user_eth_');
     const walletAddress = user?.walletAddress;
@@ -49,17 +50,6 @@ const AccountLinking: React.FC = () => {
         setLinkedAccount(account);
         setLoading(false);
     };
-
-    const loadInstagramAccount = async () => {
-        setLoadingInstagram(true);
-        const account = await getSocialAccount('instagram');
-        setLinkedInstagram(account);
-        setLoadingInstagram(false);
-    };
-
-    useEffect(() => {
-        loadInstagramAccount();
-    }, [user]);
 
     const handleLinkExisting = async () => {
         if (!email || !password || !walletAddress) {
@@ -100,16 +90,16 @@ const AccountLinking: React.FC = () => {
         }
 
         setSubmitting(true);
-        const result = await createAccountAndLinkWallet(email, password, walletAddress);
+        const createResult = await createAccountAndLinkWallet(email, password, walletAddress);
 
-        if (result.success) {
+        if (createResult.success) {
             addToast('Account created and linked! Check your email to verify.', 'success');
             setShowLinkModal(false);
             loadLinkedAccount();
             // Reload page to update user context
             setTimeout(() => window.location.reload(), 1500);
         } else {
-            addToast(result.error || 'Failed to create account', 'error');
+            addToast(createResult.error || 'Failed to create account', 'error');
         }
 
         setSubmitting(false);
@@ -121,13 +111,9 @@ const AccountLinking: React.FC = () => {
             return;
         }
 
-        if (!walletAddressForReward.trim()) {
-            addToast('Please enter your wallet address to receive rewards', 'error');
-            return;
-        }
-
-        // Basic wallet validation
-        if (!walletAddressForReward.startsWith('0x') || walletAddressForReward.length !== 42) {
+        if (walletAddressForReward && (!walletAddressForReward.startsWith('0x') || walletAddressForReward.length !== 42)) {
+            // Optional check if they provided it manually, but usually it comes from user context for wallet users
+            // If manual entry is allowed:
             addToast('Please enter a valid Ethereum wallet address', 'error');
             return;
         }
@@ -138,19 +124,14 @@ const AccountLinking: React.FC = () => {
         }
 
         setSubmitting(true);
-        const result = await linkSocialAccount('instagram', instagramUsername, walletAddressForReward);
+        // Using context method
+        await linkSocialAccount('instagram', instagramUsername);
 
-        if (result.success) {
-            addToast('Instagram linked successfully! Admin will send your reward soon.', 'success');
-            setShowInstagramModal(false);
-            setInstagramUsername('');
-            setWalletAddressForReward('');
-            setConfirmFollow(false);
-            loadInstagramAccount();
-        } else {
-            addToast(result.error || 'Failed to link Instagram', 'error');
-        }
-
+        // Context handles toast and state update
+        setShowInstagramModal(false);
+        setInstagramUsername('');
+        setWalletAddressForReward('');
+        setConfirmFollow(false);
         setSubmitting(false);
     };
 
@@ -163,7 +144,7 @@ const AccountLinking: React.FC = () => {
 
         if (result.success) {
             addToast('Instagram unlinked successfully', 'success');
-            loadInstagramAccount();
+            // State updates automatically via context
         } else {
             addToast(result.error || 'Failed to unlink Instagram', 'error');
         }

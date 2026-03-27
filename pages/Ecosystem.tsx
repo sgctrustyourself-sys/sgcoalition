@@ -1,32 +1,56 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Trophy, ExternalLink, Gift, Clock, Users, CheckCircle, ArrowRight, MessageCircle, UserPlus, Star, Share2, DollarSign, ShoppingBag, Wallet, ShieldCheck, Activity, BarChart3 } from 'lucide-react';
+import { Trophy, ExternalLink, Gift, Clock, Users, CheckCircle, ArrowRight, MessageCircle, Star, Share2, DollarSign, ShoppingBag, Wallet, Flame, Zap, Shield, Sparkles, Activity } from 'lucide-react';
 import SGCoinCard from '../components/SGCoinCard';
 import LiveTransactions from '../components/LiveTransactions';
+import BurnTracker from '../components/BurnTracker';
+import FeeTransparency from '../components/FeeTransparency';
+import FeedbackLoop from '../components/FeedbackLoop';
 import { useApp } from '../context/AppContext';
-import { useToast } from '../context/ToastContext';
 import { fetchSGCoinData, fetchRecentTrades } from '../utils/sgcoinApi';
-import { addGiveawayEntry } from '../utils/giveawayUtils';
-import Seo from '../components/Seo';
+import { getGiveawayTicketCount, isSubscriberEligible } from '../utils/giveawayUtils';
+
+import { V2_REWARD_RATE, POLYGON_RPC_URL, POLYGON_RPC_URLS } from '../constants';
+import { getBurnedSGCoinV1 } from '../services/web3Service';
+import { ethers } from 'ethers';
 
 const Ecosystem = () => {
     const { user, giveaways } = useApp();
-    const { addToast } = useToast();
     const [coinData, setCoinData] = useState<any>(null);
     const [trades, setTrades] = useState<any[]>([]);
+    const [totalBurned, setTotalBurned] = useState<string>('1,777,161');
     const [activeGiveaway, setActiveGiveaway] = useState<any>(null);
-    const [email, setEmail] = useState('');
     const [hasEntered, setHasEntered] = useState(false);
     const [isLoadingCoinData, setIsLoadingCoinData] = useState(true);
 
     useEffect(() => {
         const loadData = async () => {
             setIsLoadingCoinData(true);
-            const data = await fetchSGCoinData();
-            setCoinData(data);
-            const recentTrades = await fetchRecentTrades(data?.price || 0);
-            setTrades(recentTrades);
-            setIsLoadingCoinData(false);
+            try {
+                // Try multiple RPCs for the burn stats
+                let provider = new ethers.JsonRpcProvider(POLYGON_RPC_URLS[0]);
+                try {
+                    await provider.getNetwork();
+                } catch (e) {
+                    provider = new ethers.JsonRpcProvider(POLYGON_RPC_URLS[1]);
+                }
+
+                const [data, burned] = await Promise.all([
+                    fetchSGCoinData(),
+                    getBurnedSGCoinV1(provider)
+                ]);
+
+                setCoinData(data);
+                setTotalBurned(burned);
+
+                const recentTrades = await fetchRecentTrades(data?.price || 0);
+                setTrades(recentTrades);
+            } catch (error) {
+                console.error('Error loading ecosystem data:', error);
+            } finally {
+                setIsLoadingCoinData(false);
+            }
         };
 
         loadData();
@@ -38,446 +62,355 @@ const Ecosystem = () => {
     useEffect(() => {
         const active = giveaways.find(g => g.status === 'active');
         setActiveGiveaway(active || null);
-
-        // Check if user has already entered
-        if (active && user) {
-            const entered = active.entries.some(e => e.email === user.email || e.userId === user.uid);
-            setHasEntered(entered);
-        }
+        setHasEntered(Boolean(active && user && (isSubscriberEligible(user) || active.entries.some(e => e.email === user.email || e.userId === user.uid))));
     }, [giveaways, user]);
 
-    const handleEnterGiveaway = async () => {
-        if (!activeGiveaway) return;
-        if (!email && !user) {
-            addToast('Please enter your email to join.', 'warning');
-            return;
-        }
-
-        try {
-            await addGiveawayEntry({
-                id: `entry_${Date.now()}`,
-                giveawayId: activeGiveaway.id,
-                userId: user?.uid,
-                name: user?.displayName || email.split('@')[0],
-                email: user?.email || email,
-                entryCount: 1,
-                timestamp: Date.now(),
-                source: 'form'
-            });
-            setHasEntered(true);
-            addToast('You have successfully entered the giveaway!', 'success');
-        } catch (error: any) {
-            addToast('Failed to enter giveaway: ' + error.message, 'error');
-        }
-    };
-
     return (
-        <div className="bg-black min-h-screen text-white">
-            <Seo
-                title="Ecosystem & SGCoin"
-                description="Earn points, rewards, and cash commissions. Join the Coalition Economy."
-            />
-            {/* Hero Section */}
-            <div className="relative h-[70vh] flex items-center justify-center overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-b from-gray-900 to-black opacity-90 z-10"></div>
-                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1639762681485-074b7f938ba0?q=80&w=2832&auto=format&fit=crop')] bg-cover bg-center opacity-40"></div>
+        <div className="bg-[#050505] text-white min-h-screen font-sans selection:bg-orange-500/30 overflow-x-hidden">
 
-                <div className="relative z-20 text-center px-4 max-w-5xl mx-auto">
-                    <h1 className="font-display text-5xl md:text-7xl font-bold uppercase tracking-tighter mb-6">
-                        SG Coalition <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">Rewards System</span>
-                    </h1>
-                    <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed mb-8">
-                        Welcome to the SG Coalition Rewards Program! Earn points, rewards, and even cash commissions for supporting the community, sharing feedback, and helping spread the word.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <Link to="/signup" className="bg-white text-black font-bold uppercase tracking-widest py-4 px-8 rounded hover:bg-gray-200 transition-all">
-                            Join Now
-                        </Link>
-                    </div>
-                    <div className="mt-8 flex justify-center gap-6">
-                        <a href="https://zapper.xyz/token/polygon/0x951806a2581c22c478ac613a675e6c898e2abe21/SGCOIN/details" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition text-xs font-mono flex items-center gap-2">
-                            ZAPPER.XYZ <ExternalLink size={12} />
-                        </a>
-                        <a href="https://dexscreener.com/polygon/0x951806a2581c22c478ac613a675e6c898e2abe21" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition text-xs font-mono flex items-center gap-2">
-                            DEXSCREENER.COM <ExternalLink size={12} />
-                        </a>
-                    </div>
-                </div>
+            {/* Ambient Background Layers */}
+            <div className="fixed inset-0 pointer-events-none z-0">
+                <div className="absolute top-0 left-0 w-[100%] h-[100%] bg-gradient-to-br from-orange-600/5 via-transparent to-purple-600/5 blur-[120px]" />
+                <div className="absolute top-[20%] right-[10%] w-96 h-96 bg-orange-500/10 blur-[150px] rounded-full animate-pulse" />
+                <div className="absolute bottom-[20%] left-[10%] w-96 h-96 bg-purple-500/10 blur-[150px] rounded-full animate-pulse" />
             </div>
 
-            {/* Live SGCoin Data */}
-            <div className="max-w-7xl mx-auto px-4 -mt-24 relative z-30 mb-20">
-                <SGCoinCard data={coinData} isLoading={isLoadingCoinData} />
-            </div>
+            <main className="relative z-10">
+                {/* Hero Section: Cyber-Luxe Welcome */}
+                <section className="relative h-[80vh] flex items-center justify-center px-6 overflow-hidden">
+                    {/* ... (Hero Content) ... */}
+                    <div className="max-w-7xl mx-auto text-center">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.8 }}
+                            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-orange-500/20 bg-orange-500/10 text-orange-400 text-[10px] mb-10 uppercase tracking-[0.3em] font-bold"
+                        >
+                            <Zap className="w-3 h-3" /> System Synchronized
+                        </motion.div>
+                        <motion.h1
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.8, delay: 0.2 }}
+                            className="text-7xl md:text-[11.5rem] font-black uppercase tracking-tighter leading-[0.7] mb-12 font-display"
+                        >
+                            Ecosystem<br />
+                            <span className="bg-gradient-to-r from-orange-400 via-purple-400 to-orange-500 bg-clip-text text-transparent italic">Dynamics</span>
+                        </motion.h1>
+                        <motion.p
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.8, delay: 0.4 }}
+                            className="text-xl md:text-2xl text-gray-400 font-light max-w-2xl mx-auto mb-16 leading-relaxed"
+                        >
+                            Welcome to the <span className="text-white font-medium">high-velocity rewards layer</span> of SG Coalition. Earn, burn, and optimize your equity in the digital-physical synthesis.
+                        </motion.p>
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.8, delay: 0.6 }}
+                            className="flex flex-wrap gap-6 justify-center"
+                        >
+                            <Link to="/sgminiwizards">
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    className="relative group px-14 py-6 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black uppercase tracking-widest text-xs flex items-center gap-3 rounded-full shadow-[0_0_30px_rgba(147,51,234,0.3)] hover:shadow-[0_0_50px_rgba(147,51,234,0.5)] transition-all overflow-hidden"
+                                >
+                                    <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+                                    <Sparkles size={16} className="animate-pulse" />
+                                    Wizard Dashboard
+                                </motion.button>
+                            </Link>
+                            <Link to="/migrate">
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    className="px-14 py-6 bg-white text-black font-black uppercase tracking-widest text-xs flex items-center gap-3 rounded-full shadow-[0_20px_40px_rgba(255,255,255,0.1)] hover:bg-orange-500 hover:text-white transition-all"
+                                >
+                                    Access Migration <ArrowRight size={16} />
+                                </motion.button>
+                            </Link>
+                            <Link to="/tutorial/welcome">
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    className="px-14 py-6 border border-white/10 text-white font-black uppercase tracking-widest text-xs flex items-center gap-3 backdrop-blur-xl rounded-full bg-white/5 hover:bg-white/10 transition-all font-bold"
+                                >
+                                    Ecosystem Guide
+                                </motion.button>
+                            </Link>
+                        </motion.div>
+                    </div>
+                </section>
 
-            <div className="max-w-7xl mx-auto px-4 pb-24 grid grid-cols-1 lg:grid-cols-3 gap-12">
+                {/* SGCoin Stats: The Core Data Module */}
+                <section className="max-w-7xl mx-auto px-6 -mt-32 mb-40 relative z-30">
+                    <motion.div
+                        initial={{ opacity: 0, y: 50 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, margin: "-100px" }}
+                        transition={{ duration: 0.8 }}
+                    >
+                        <SGCoinCard data={coinData} isLoading={isLoadingCoinData} />
+                    </motion.div>
+                </section>
 
-                {/* Left Column: Main Content */}
-                <div className="lg:col-span-2 space-y-20">
+                <section className="max-w-7xl mx-auto px-6 mb-24 relative z-30">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        viewport={{ once: true, margin: "-100px" }}
+                        transition={{ duration: 0.8 }}
+                    >
+                        <BurnTracker initialBurn={totalBurned} />
+                    </motion.div>
+                </section>
 
-                    {/* What is SGCOIN? */}
-                    <section id="about-sgcoin">
-                        <div className="flex items-center gap-4 mb-8">
-                            <div className="w-12 h-12 rounded-xl bg-brand-accent/20 flex items-center justify-center">
-                                <ShieldCheck className="text-brand-accent" size={24} />
-                            </div>
-                            <h2 className="font-display text-4xl font-bold uppercase tracking-tight">What is <span className="text-brand-accent">SGCOIN</span>?</h2>
-                        </div>
-                        <div className="prose prose-invert max-w-none">
-                            <p className="text-xl text-gray-300 leading-relaxed">
-                                SGCOIN is the native digital currency of the SG Coalition Ecosystem. Built on the Polygon network for speed and low cost, it serves as the foundation of our decentralized rewards economy. Unlike traditional points programs, SGCOIN is a real digital asset that you truly own.
-                            </p>
-                        </div>
-                        <div className="grid md:grid-cols-3 gap-6 mt-12">
-                            <div className="bg-gray-900/30 p-6 rounded-xl border border-gray-800">
-                                <h4 className="font-bold text-white mb-2">Decentralized</h4>
-                                <p className="text-sm text-gray-400">Operates on Polygon PoS, ensuring transparency and security through blockchain technology.</p>
-                            </div>
-                            <div className="bg-gray-900/30 p-6 rounded-xl border border-gray-800">
-                                <h4 className="font-bold text-white mb-2">Liquid</h4>
-                                <p className="text-sm text-gray-400">Has real market value and active liquidity pools, allowing for trade and exchange.</p>
-                            </div>
-                            <div className="bg-gray-900/30 p-6 rounded-xl border border-gray-800">
-                                <h4 className="font-bold text-white mb-2">Community Driven</h4>
-                                <p className="text-sm text-gray-400">Total supply and distribution is designed to reward active participants and long-term supporters.</p>
-                            </div>
-                        </div>
-                    </section>
+                <div className="max-w-7xl mx-auto px-6 pb-40 grid grid-cols-1 lg:grid-cols-12 gap-16 font-bold">
+                    {/* Left Column: Utility Infrastructure */}
+                    <div className="lg:col-span-8 space-y-24">
 
-                    {/* Token Utility */}
-                    <section id="utility">
-                        <h2 className="font-display text-3xl font-bold uppercase mb-8 flex items-center gap-3">
-                            <Activity className="text-brand-accent" /> Token Utility & Perks
-                        </h2>
-                        <div className="grid sm:grid-cols-2 gap-4">
-                            {[
-                                { title: 'Product Redemptions', desc: 'Use SGCOIN to buy exclusive hoodies, tees, and digital goods.', icon: ShoppingBag },
-                                { title: 'Early Access', desc: 'SGCoin holders get 24h head start on all seasonal drops.', icon: Clock },
-                                { title: 'Governance', desc: 'Vote on upcoming designs and community initiatives.', icon: Users },
-                                { title: 'VIP Events', desc: 'Exclusive access to live pop-ups and secret community meets.', icon: Star }
-                            ].map((util, i) => (
-                                <div key={i} className="flex gap-4 p-5 bg-white/5 rounded-xl border border-white/10 hover:border-brand-accent/50 transition group">
-                                    <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center shrink-0 group-hover:scale-110 transition">
-                                        <util.icon className="text-gray-400 group-hover:text-brand-accent" size={20} />
+                        {/* Ways to Earn: Functional Blocks */}
+                        <motion.section
+                            initial={{ opacity: 0 }}
+                            whileInView={{ opacity: 1 }}
+                            viewport={{ once: true }}
+                            transition={{ duration: 0.8 }}
+                            id="ways-to-earn"
+                        >
+                            <div className="flex items-center gap-4 mb-16">
+                                <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+                                    <Trophy className="text-orange-400" />
+                                </div>
+                                <div>
+                                    <h2 className="font-display text-4xl font-black uppercase tracking-tighter">Utility Acquisition</h2>
+                                    <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1 font-bold">Multiple Stream Integration</p>
+                                </div>
+                            </div>
+
+                            <div className="grid md:grid-cols-2 gap-8">
+                                {[
+                                    { icon: <MessageCircle />, title: 'Community Pulse', desc: 'Participate in governance & discourse to build brand social weight.', color: 'blue' },
+                                    { icon: <Star />, title: 'Signal Feedback', desc: 'Direct feedback loops on physical product R&D earn deep equity.', color: 'purple' },
+                                    { icon: <Share2 />, title: 'Digital Amplification', desc: 'High-quality content creation integrated with SGC Oracle verification.', color: 'pink' },
+                                    { icon: <DollarSign />, title: 'Referral Synthesis', desc: 'Up to 40% commissions on physical-digital hybrid bridge sales.', color: 'orange' }
+                                ].map((way, idx) => (
+                                    <motion.div
+                                        key={idx}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        whileInView={{ opacity: 1, y: 0 }}
+                                        viewport={{ once: true }}
+                                        transition={{ delay: idx * 0.1, duration: 0.5 }}
+                                        className="p-8 rounded-[2rem] border border-white/5 bg-white/[0.03] backdrop-blur-3xl group hover:border-orange-500/20 transition-all"
+                                    >
+                                        <div className="bg-white/5 w-14 h-14 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform border border-white/5 font-bold">
+                                            {React.cloneElement(way.icon as React.ReactElement<any>, { className: 'w-6 h-6 text-white' })}
+                                        </div>
+                                        <h3 className="font-display text-2xl font-black uppercase tracking-tight mb-4">{way.title}</h3>
+                                        <p className="text-gray-400 text-sm leading-relaxed font-light">{way.desc}</p>
+                                    </motion.div>
+                                ))}
+                            </div>
+                        </motion.section>
+
+                        {/* Value & Redemption Layer */}
+                        <section className="grid md:grid-cols-2 gap-12">
+                            <motion.div
+                                initial={{ opacity: 0, x: -20 }}
+                                whileInView={{ opacity: 1, x: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ duration: 0.8 }}
+                                className="bg-gradient-to-br from-white/[0.05] to-transparent p-12 rounded-[3rem] border border-white/10 backdrop-blur-xl"
+                            >
+                                <h2 className="font-display text-3xl font-black uppercase tracking-tighter mb-10 flex items-center gap-4">
+                                    <Sparkles className="text-orange-500" /> Redemption Loop
+                                </h2>
+                                <div className="space-y-6">
+                                    {[
+                                        { icon: <ShoppingBag />, title: 'Asset Packs', desc: 'Redeem for limited physical metadata.', color: 'purple' },
+                                        { icon: <Clock />, title: 'Temporal Priority', desc: 'Early access to high-velocity drops.', color: 'orange' },
+                                        { icon: <ArrowRight />, title: 'Protocol Conversion', desc: 'Trade for extended community access.', color: 'blue' }
+                                    ].map((item, idx) => (
+                                        <div key={idx} className="flex items-center gap-6 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all font-bold">
+                                            <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
+                                                {React.cloneElement(item.icon as React.ReactElement<any>, { className: 'w-5 h-5 text-white' })}
+                                            </div>
+                                            <div>
+                                                <h4 className="font-display text-lg font-black uppercase tracking-tight">{item.title}</h4>
+                                                <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1 font-bold">{item.desc}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </motion.div>
+
+                            {/* Calculator Module */}
+                            <motion.div
+                                initial={{ opacity: 0, x: 20 }}
+                                whileInView={{ opacity: 1, x: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ duration: 0.8 }}
+                                className="bg-black p-12 rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden font-bold"
+                            >
+                                <div className="absolute top-0 right-0 p-8 opacity-[0.03]">
+                                    <Activity className="w-32 h-32" />
+                                </div>
+                                <h2 className="font-display text-3xl font-black uppercase tracking-tighter mb-10 flex items-center gap-4 relative z-10">
+                                    <DollarSign className="text-orange-500" /> Value Matrix
+                                </h2>
+                                <div className="space-y-8 relative z-10">
+                                    <div className="bg-white/5 p-6 rounded-2xl border border-white/5 text-center">
+                                        <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3">Core Exchange rate</div>
+                                        <div className="text-3xl font-black font-display tracking-tight text-white">1 SGC V2 = $0.045</div>
                                     </div>
-                                    <div>
-                                        <h4 className="font-bold text-white">{util.title}</h4>
-                                        <p className="text-sm text-gray-400">{util.desc}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
 
-                    {/* Ways to Earn */}
-                    <section id="ways-to-earn">
-                        <h2 className="font-display text-3xl font-bold uppercase mb-8 flex items-center gap-3">
-                            <Trophy className="text-yellow-500" /> Ways to Earn SGCOIN Points
-                        </h2>
-                        <div className="grid md:grid-cols-2 gap-6">
-                            {/* Community Engagement */}
-                            <div className="bg-gray-900/50 p-6 rounded-xl border border-gray-800 hover:border-blue-500/50 transition duration-300 group">
-                                <div className="bg-blue-500/10 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:bg-blue-500/20 transition">
-                                    <MessageCircle className="text-blue-400" />
-                                </div>
-                                <h3 className="font-bold text-xl mb-3 text-white">Community Engagement</h3>
-                                <ul className="space-y-2 text-gray-400 text-sm">
-                                    <li className="flex items-start gap-2">
-                                        <span className="text-blue-500 mt-1">•</span>
-                                        <span><strong>Join the Conversation:</strong> Participate in discussions and share your style.</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <span className="text-blue-500 mt-1">•</span>
-                                        <span><strong>Invite Friends:</strong> Get bonus points for every member who joins Discord using your link.</span>
-                                    </li>
-                                </ul>
-                            </div>
-
-                            {/* Support & Feedback */}
-                            <div className="bg-gray-900/50 p-6 rounded-xl border border-gray-800 hover:border-purple-500/50 transition duration-300 group">
-                                <div className="bg-purple-500/10 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:bg-purple-500/20 transition">
-                                    <Star className="text-purple-400" />
-                                </div>
-                                <h3 className="font-bold text-xl mb-3 text-white">Support & Feedback</h3>
-                                <ul className="space-y-2 text-gray-400 text-sm">
-                                    <li className="flex items-start gap-2">
-                                        <span className="text-purple-500 mt-1">•</span>
-                                        <span><strong>Product Feedback:</strong> Each meaningful review earns you points!</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <span className="text-purple-500 mt-1">•</span>
-                                        <span><strong>Complete Surveys:</strong> Help us improve and receive points as a thank-you.</span>
-                                    </li>
-                                </ul>
-                            </div>
-
-                            {/* Social Media */}
-                            <div className="bg-gray-900/50 p-6 rounded-xl border border-gray-800 hover:border-pink-500/50 transition duration-300 group">
-                                <div className="bg-pink-500/10 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:bg-pink-500/20 transition">
-                                    <Share2 className="text-pink-400" />
-                                </div>
-                                <h3 className="font-bold text-xl mb-3 text-white">Social Media Support</h3>
-                                <ul className="space-y-2 text-gray-400 text-sm">
-                                    <li className="flex items-start gap-2">
-                                        <span className="text-pink-500 mt-1">•</span>
-                                        <span><strong>Tag Us:</strong> Post on Instagram, Twitter, or TikTok and tag us.</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <span className="text-pink-500 mt-1">•</span>
-                                        <span><strong>Create Content:</strong> Exceptional posts earn extra points and exclusive rewards!</span>
-                                    </li>
-                                </ul>
-                            </div>
-
-                            {/* Sales & Referrals */}
-                            <div className="bg-gray-900/50 p-6 rounded-xl border border-gray-800 hover:border-green-500/50 transition duration-300 group">
-                                <div className="bg-green-500/10 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:bg-green-500/20 transition">
-                                    <DollarSign className="text-green-400" />
-                                </div>
-                                <h3 className="font-bold text-xl mb-3 text-white">Sales & Referrals</h3>
-                                <p className="text-gray-400 text-sm leading-relaxed">
-                                    Refer friends or customers to purchase items, and earn <strong className="text-green-400">cash commissions of up to 40%</strong> on each sale made through your referral link.
-                                </p>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Value & Redemption */}
-                    <section className="grid md:grid-cols-2 gap-8">
-                        <div className="bg-gradient-to-br from-gray-900 to-black p-8 rounded-2xl border border-gray-800">
-                            <h2 className="font-display text-2xl font-bold uppercase mb-6 flex items-center gap-2">
-                                <DollarSign className="text-green-500" /> SGCOIN Value
-                            </h2>
-                            <div className="bg-black/40 p-4 rounded-lg border border-gray-700 mb-6 text-center">
-                                <p className="text-sm text-gray-400 uppercase tracking-widest mb-1">Current Exchange Rate</p>
-                                <p className="text-2xl font-mono font-bold text-white">30,000 SGCOIN = $1 USD</p>
-                            </div>
-
-                            {/* Interactive Calculator */}
-                            <div className="bg-gray-800/30 p-4 rounded-lg border border-gray-700 mb-4">
-                                <label className="text-xs font-bold uppercase text-gray-400 mb-3 block">Rewards Calculator</label>
-                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                                    <div className="flex-1">
-                                        <div className="text-xs text-gray-500 mb-2">If you spend:</div>
+                                    <div className="space-y-4 font-bold">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Reward Projection</label>
                                         <div className="relative">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">$</span>
+                                            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 font-mono">$</span>
                                             <input
                                                 type="number"
-                                                placeholder="100"
-                                                className="w-full bg-black/50 border border-gray-600 rounded py-3 pl-10 pr-4 text-white text-lg focus:border-brand-accent focus:outline-none"
+                                                placeholder="100.00"
+                                                className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 pl-12 pr-6 text-white text-xl font-mono focus:border-orange-500/50 focus:outline-none transition-all"
                                                 onChange={(e) => {
                                                     const val = parseFloat(e.target.value) || 0;
-                                                    const rewards = val * 0.25 * 30000;
+                                                    const rewardsInUsd = val * V2_REWARD_RATE;
+                                                    const sgV2Tokens = (rewardsInUsd / 0.045);
                                                     const el = document.getElementById('calc-output');
-                                                    if (el) el.innerText = Math.floor(rewards).toLocaleString();
+                                                    if (el) el.innerText = sgV2Tokens.toFixed(1).toLocaleString();
                                                 }}
                                             />
                                         </div>
-                                    </div>
-                                    <div className="text-center sm:text-left flex justify-center sm:block">
-                                        <ArrowRight className="text-gray-600 rotate-90 sm:rotate-0" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="text-xs text-gray-500 mb-2">You earn:</div>
-                                        <div className="font-mono font-bold text-brand-accent text-2xl sm:text-lg">
-                                            <span id="calc-output">750,000</span> SG
+                                        <div className="flex items-center justify-between px-2 pt-2">
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-widest">Projected SGC V2</span>
+                                            <div className="text-2xl font-black font-display text-orange-500 tracking-tighter">
+                                                <span id="calc-output">25.0</span> SGC
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                                <p className="text-[10px] text-gray-500 mt-3 text-center">*Estimated at max 25% reward tier</p>
-                            </div>
+                            </motion.div>
+                        </section>
 
-                            <div className="flex items-center gap-3 bg-blue-900/20 p-3 rounded border border-blue-500/20">
-                                <ShoppingBag className="text-blue-400 w-5 h-5 flex-shrink-0" />
-                                <p className="text-sm text-blue-200">
-                                    <strong>Purchase Rewards:</strong> Earn 10% to 25% back in SGCOIN on every dollar spent!
-                                </p>
-                            </div>
-                        </div>
+                        {/* Integration Transmissions */}
+                        <LiveTransactions />
 
-                        <div className="bg-gradient-to-br from-gray-900 to-black p-8 rounded-2xl border border-gray-800">
-                            <h2 className="font-display text-2xl font-bold uppercase mb-6 flex items-center gap-2">
-                                <Gift className="text-purple-500" /> How to Redeem
-                            </h2>
-                            <ul className="space-y-4">
-                                <li className="flex items-center gap-4 bg-white/5 p-3 rounded hover:bg-white/10 transition">
-                                    <div className="bg-purple-500/20 p-2 rounded">
-                                        <ShoppingBag className="w-5 h-5 text-purple-400" />
+                        {/* Concept Feedback Loop */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 50 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ duration: 0.8 }}
+                        >
+                            <FeedbackLoop />
+                        </motion.div>
+                    </div>
+
+                    {/* Right Column: Giveaways & Authority */}
+                    <div className="lg:col-span-4">
+                        <div className="sticky top-32 space-y-12">
+                            {/* Giveaway Card */}
+                            <motion.div
+                                initial={{ opacity: 0, x: 20 }}
+                                whileInView={{ opacity: 1, x: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ duration: 0.8, delay: 0.2 }}
+                                className="relative group"
+                            >
+                                <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-purple-600 rounded-[2.5rem] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+                                <div className="relative bg-black rounded-[2.5rem] border border-white/10 p-10 overflow-hidden font-bold">
+                                    <div className="flex items-center justify-between mb-10">
+                                        <div className="bg-orange-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse">
+                                            In Transit
+                                        </div>
+                                        <Gift className="text-white/20 w-8 h-8" />
                                     </div>
-                                    <div>
-                                        <h4 className="font-bold text-white text-sm">Exclusive Packs</h4>
-                                        <p className="text-xs text-gray-400">Redeem for merch packs & digital content.</p>
-                                    </div>
-                                </li>
-                                <li className="flex items-center gap-4 bg-white/5 p-3 rounded hover:bg-white/10 transition">
-                                    <div className="bg-yellow-500/20 p-2 rounded">
-                                        <Clock className="w-5 h-5 text-yellow-400" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-white text-sm">Early Access</h4>
-                                        <p className="text-xs text-gray-400">Get first dibs on new product drops.</p>
-                                    </div>
-                                </li>
-                                <li className="flex items-center gap-4 bg-white/5 p-3 rounded hover:bg-white/10 transition">
-                                    <div className="bg-green-500/20 p-2 rounded">
-                                        <ArrowRight className="w-5 h-5 text-green-400" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-white text-sm">Conversions (Coming Soon)</h4>
-                                        <p className="text-xs text-gray-400">Convert points for exclusive community perks.</p>
-                                    </div>
-                                </li>
-                            </ul>
-                        </div>
-                    </section>
 
-                    {/* Setup Guide */}
-                    <section className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
-                        <div className="p-8 border-b border-gray-800">
-                            <h2 className="font-display text-2xl font-bold uppercase flex items-center gap-3">
-                                <Wallet className="text-brand-accent" /> Setting Up for SGCOIN Rewards
-                            </h2>
-                            <p className="text-gray-400 text-sm mt-2">
-                                To receive SGCOIN rewards, make sure you have a MetaMask wallet.
-                            </p>
-                        </div>
-                        <div className="p-8 grid md:grid-cols-3 gap-8">
-                            <div className="relative">
-                                <div className="absolute -left-4 -top-4 w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center font-bold text-gray-500 border border-gray-700">1</div>
-                                <h3 className="font-bold text-white mb-2 mt-2">Download MetaMask</h3>
-                                <p className="text-sm text-gray-400 mb-4">Visit MetaMask.io and download the wallet for your browser or phone.</p>
-                                <a href="https://metamask.io" target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-brand-accent uppercase tracking-wide hover:text-white">Download Now →</a>
-                            </div>
-                            <div className="relative">
-                                <div className="absolute -left-4 -top-4 w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center font-bold text-gray-500 border border-gray-700">2</div>
-                                <h3 className="font-bold text-white mb-2 mt-2">Create Your Wallet</h3>
-                                <p className="text-sm text-gray-400">Follow the prompts to set up your account. <span className="text-red-400">Important:</span> Keep your recovery phrase safe!</p>
-                            </div>
-                            <div className="relative">
-                                <div className="absolute -left-4 -top-4 w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center font-bold text-gray-500 border border-gray-700">3</div>
-                                <h3 className="font-bold text-white mb-2 mt-2">Connect to Coalition</h3>
-                                <p className="text-sm text-gray-400 mb-4">Share your wallet address with us or connect directly on this site.</p>
-                                <Link to="/tutorial/welcome" className="text-xs font-bold text-brand-accent uppercase tracking-wide hover:text-white">View Setup Guide →</Link>
-                            </div>
-                        </div>
-                    </section>
+                                    {activeGiveaway ? (
+                                        <>
+                                            <h3 className="font-display text-4xl font-black uppercase tracking-tighter leading-none mb-4">
+                                                {activeGiveaway.title}
+                                            </h3>
+                                            <p className="text-gray-400 text-sm font-light leading-relaxed mb-10">
+                                                {activeGiveaway.description || "Secure your allocation in the upcoming reward cycle."}
+                                            </p>
 
-                    {/* Detailed Liquidity Section */}
-                    <section className="bg-gradient-to-r from-gray-900 to-black rounded-2xl border border-gray-800 p-8">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                            <div>
-                                <h2 className="font-display text-2xl font-bold uppercase flex items-center gap-3 mb-2">
-                                    <BarChart3 className="text-orange-500" /> Active Liquidity Pools
-                                </h2>
-                                <p className="text-gray-400 text-sm max-w-xl">
-                                    SGCOIN maintains active liquidity pairs on decentralized exchanges to ensure users can always exchange their rewards. Primary liquidity is provided on QuickSwap.
-                                </p>
-                            </div>
-                            <div className="flex gap-3">
-                                <a href="https://quickswap.exchange/#/swap?outputCurrency=0x951806a2581c22c478ac613a675e6c898e2abe21&chain=polygon" target="_blank" rel="noopener noreferrer" className="bg-orange-500 hover:bg-orange-600 text-black font-bold py-2 px-4 rounded text-xs uppercase transition">
-                                    Trade on QuickSwap
-                                </a>
-                            </div>
-                        </div>
+                                            <div className="space-y-6 mb-12">
+                                                <div className="p-6 rounded-2xl bg-white/5 border border-white/5">
+                                                    <div className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-2">Target Asset</div>
+                                                    <div className="text-3xl font-black font-display text-white italic">{activeGiveaway.prize}</div>
+                                                </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
-                            <div className="p-4 bg-black/40 rounded-lg border border-gray-800">
-                                <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Primary Pair</div>
-                                <div className="text-sm font-mono font-bold text-white">SGCOIN / MATIC</div>
-                            </div>
-                            <div className="p-4 bg-black/40 rounded-lg border border-gray-800">
-                                <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">DEX Protocol</div>
-                                <div className="text-sm font-bold text-white">QuickSwap V3 (Polygon)</div>
-                            </div>
-                            <div className="p-4 bg-black/40 rounded-lg border border-gray-800">
-                                <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Contract Address</div>
-                                <div className="text-[10px] font-mono font-bold text-brand-accent truncate">0x951806a2581c22c478ac613a675e6c898e2abe21</div>
-                            </div>
-                        </div>
-                    </section>
+                                                <div className="flex justify-between items-center text-[10px] uppercase tracking-widest font-black text-gray-500 px-2">
+                                                    <div className="flex items-center gap-2"><Clock size={12} /> Cycle Reset: <span className="text-white">5D</span></div>
+                                                    <div className="flex items-center gap-2"><Users size={12} /> Tickets: <span className="text-white">{getGiveawayTicketCount(activeGiveaway.entries)}</span></div>
+                                                </div>
+                                            </div>
 
-                    {/* Live Transactions */}
-                    <LiveTransactions />
-                </div>
-
-                {/* Right Column: Giveaway Widget */}
-                <div className="lg:col-span-1">
-                    <div className="sticky top-24">
-                        <div className="bg-gradient-to-b from-gray-900 to-black rounded-2xl border border-gray-800 p-1 shadow-2xl overflow-hidden">
-                            {/* Gradient Border Effect */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-20 animate-pulse"></div>
-
-                            <div className="relative bg-gray-900 rounded-xl p-6 h-full flex flex-col">
-                                <div className="flex items-center justify-between mb-6">
-                                    <div className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded uppercase animate-pulse">
-                                        Live Now
-                                    </div>
-                                    <Gift className="text-purple-400 w-6 h-6" />
-                                </div>
-
-                                {activeGiveaway ? (
-                                    <>
-                                        <h3 className="font-display text-3xl font-bold uppercase mb-2 leading-none">
-                                            {activeGiveaway.title}
-                                        </h3>
-                                        <p className="text-gray-400 text-sm mb-6">
-                                            {activeGiveaway.description || "Enter now for a chance to win exclusive rewards!"}
-                                        </p>
-
-                                        <div className="bg-black/50 rounded-lg p-4 mb-6 border border-gray-800">
-                                            <div className="text-xs text-gray-500 uppercase font-bold mb-1">Current Prize</div>
-                                            <div className="text-xl font-bold text-white">{activeGiveaway.prize}</div>
-                                            {activeGiveaway.prizeImage && (
-                                                <img src={activeGiveaway.prizeImage} alt="Prize" className="mt-3 rounded w-full h-32 object-cover" />
+                                            {hasEntered ? (
+                                                <div className="p-8 rounded-3xl bg-orange-500/10 border border-orange-500/20 text-center">
+                                                    <CheckCircle className="w-10 h-10 text-orange-500 mx-auto mb-4" />
+                                                    <div className="font-display text-xl font-black uppercase text-orange-400">Signal Logged</div>
+                                                    <p className="text-[10px] text-orange-500/60 uppercase tracking-widest mt-1 font-bold">Awaiting oracle confirmation</p>
+                                                </div>
+                                            ) : (
+                                                <Link to={`/giveaway/${activeGiveaway.id}`}>
+                                                    <motion.button
+                                                        whileHover={{ scale: 1.02 }}
+                                                        className="w-full bg-white text-black font-black uppercase py-6 rounded-full text-xs tracking-widest hover:bg-orange-500 hover:text-white transition-all shadow-2xl"
+                                                    >
+                                                        Log Signal <ArrowRight size={16} className="inline ml-2" />
+                                                    </motion.button>
+                                                </Link>
                                             )}
+                                        </>
+                                    ) : (
+                                        <div className="text-center py-24">
+                                            <Sparkles className="w-16 h-16 text-gray-800 mx-auto mb-6 opacity-20" />
+                                            <div className="font-display text-2xl font-black uppercase text-gray-700">Awaiting Signal</div>
                                         </div>
+                                    )}
+                                </div>
+                            </motion.div>
 
-                                        <div className="space-y-3 mb-6">
-                                            <div className="flex items-center justify-between text-sm">
-                                                <span className="text-gray-500 flex items-center gap-2"><Clock size={14} /> Ends In</span>
-                                                <span className="font-mono font-bold text-yellow-500">
-                                                    {Math.max(0, Math.ceil((new Date(activeGiveaway.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} Days
-                                                </span>
-                                            </div>
-                                            <div className="flex items-center justify-between text-sm">
-                                                <span className="text-gray-500 flex items-center gap-2"><Users size={14} /> Entries</span>
-                                                <span className="font-mono font-bold text-blue-400">{activeGiveaway.entries.length}</span>
-                                            </div>
-                                        </div>
+                            {/* Fee Transparency */}
+                            <motion.div
+                                initial={{ opacity: 0, x: 20 }}
+                                whileInView={{ opacity: 1, x: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ duration: 0.8, delay: 0.4 }}
+                            >
+                                <FeeTransparency />
+                            </motion.div>
 
-                                        {hasEntered ? (
-                                            <div className="bg-green-900/30 border border-green-800 p-4 rounded-lg text-center">
-                                                <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                                                <h4 className="font-bold text-green-400">You're In!</h4>
-                                                <p className="text-xs text-green-300">Good luck! Winner announced soon.</p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-3">
-                                                <a
-                                                    href={`/#/giveaway/${activeGiveaway.id}`}
-                                                    className="block w-full bg-white text-black font-bold uppercase py-3 rounded hover:bg-gray-200 transition text-center flex items-center justify-center gap-2"
-                                                >
-                                                    Enter Giveaway <ArrowRight size={16} />
-                                                </a>
-                                                <p className="text-xs text-center text-gray-600">
-                                                    Follow @sgcoalition, like a post, and share to your story to enter!
-                                                </p>
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <div className="text-center py-12">
-                                        <Trophy className="w-12 h-12 text-gray-700 mx-auto mb-4" />
-                                        <h3 className="font-bold text-xl text-gray-500">No Active Giveaways</h3>
-                                        <p className="text-gray-600 text-sm mt-2">Check back soon for new rewards!</p>
-                                    </div>
-                                )}
-                            </div>
+                            {/* Authority Box */}
+                            <motion.div
+                                initial={{ opacity: 0, x: 20 }}
+                                whileInView={{ opacity: 1, x: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ duration: 0.8, delay: 0.6 }}
+                                className="p-10 rounded-[2.5rem] bg-white/[0.02] border border-white/5 backdrop-blur-3xl font-bold"
+                            >
+                                <h4 className="font-display text-xl font-black uppercase tracking-tight mb-8 flex items-center gap-3">
+                                    <Shield className="w-5 h-5 text-gray-500" /> SGC Architecture
+                                </h4>
+                                <ul className="space-y-6">
+                                    <li className="flex items-start gap-4">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1.5" />
+                                        <p className="text-xs text-gray-400 leading-relaxed"><span className="text-white font-black">MetaMask Core</span>: Wallet infrastructure required for reward receipt.</p>
+                                    </li>
+                                    <li className="flex items-start gap-4">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1.5" />
+                                        <p className="text-xs text-gray-400 leading-relaxed"><span className="text-white font-black">Polygon Mainnet</span>: Low-latency, high-precision execution.</p>
+                                    </li>
+                                </ul>
+                                <Link to="/signup" className="mt-8 block w-full py-4 text-center border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all font-bold">
+                                    Initialize Identity →
+                                </Link>
+                            </motion.div>
                         </div>
                     </div>
                 </div>
-            </div >
-        </div >
+            </main>
+        </div>
     );
 };
 

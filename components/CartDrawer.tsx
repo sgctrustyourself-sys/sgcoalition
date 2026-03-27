@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, ShoppingBag, Trash2, Hexagon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import NoRefundsBanner from './NoRefundsBanner';
 import FreeShippingBar from './ui/FreeShippingBar';
@@ -7,6 +8,7 @@ import CartUpsells from './CartUpsells';
 import { SALES_FINAL_ENABLED } from '../constants';
 
 const CartDrawer = () => {
+    const navigate = useNavigate();
     const { isCartOpen, setCartOpen, cart, removeFromCart, cartTotal, calculateReward } = useApp();
 
     if (!isCartOpen) return null;
@@ -91,7 +93,7 @@ const CartDrawer = () => {
                         <button
                             onClick={() => {
                                 setCartOpen(false);
-                                window.location.hash = '/checkout';
+                                navigate('/checkout');
                             }}
                             className="w-full bg-white text-black py-4 font-bold uppercase tracking-widest hover:bg-gray-200 transition shadow-[0_0_15px_rgba(255,255,255,0.2)]"
                         >

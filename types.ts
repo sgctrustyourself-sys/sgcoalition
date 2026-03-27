@@ -4,10 +4,11 @@ export interface Product {
   price: number;
   images: string[];
   description: string;
-  category: 'apparel' | 'accessory' | 'headwear' | 'shirt' | 'jeans' | 'wallet' | 'accessories';
+  category: 'apparel' | 'accessory' | 'shirt' | 'wallet' | 'jeans' | 'hat';
   isFeatured?: boolean;
   sizes?: string[];
   sizeInventory?: Record<string, number>; // Size-based inventory: { 'S': 10, 'M': 25, 'L': 30 }
+  reviews?: Review[];
   nft?: {
     contractAddress: string;
     tokenId: string;
@@ -23,10 +24,10 @@ export interface Product {
   archivedAt?: string; // ISO timestamp
   releasedAt?: string; // ISO timestamp
   soldAt?: string;     // ISO timestamp
+  archiveNote?: string; // Context shown when a sold/archive piece has a story behind it
   // Urgency & Scarcity Fields
   isLimitedEdition?: boolean; // Limited edition badge
   saleEndDate?: string; // ISO timestamp for flash sales
-  updatedAt?: string;   // ISO timestamp for dominance tracking
 }
 
 export interface CartItem extends Product {
@@ -44,6 +45,8 @@ export interface UserProfile {
   walletConnectionMethod?: 'metamask' | 'manual'; // How wallet was connected
   walletConnectedAt?: number; // Timestamp of connection
   sgCoinBalance: number;
+  v2Balance?: number; // V2 SGCoin balance (new token)
+  totalMigrated?: number; // Total amount migrated from V1 to V2
   isAdmin: boolean;
   favorites: string[]; // Product IDs
   addresses?: Address[];
@@ -54,6 +57,7 @@ export interface UserProfile {
   storeCredit?: number; // Accumulated store credit from subscription
   subscriptionId?: string;
   subscriptionStatus?: 'active' | 'canceled' | 'past_due';
+  socialAccounts?: SocialAccount[];
 }
 
 export interface Address {
@@ -104,6 +108,9 @@ export interface Trade {
 
 export enum OrderStatus {
   PENDING = 'pending',
+  PROCESSING = 'processing',
+  SHIPPED = 'shipped',
+  DELIVERED = 'delivered',
   PAID = 'paid',
   CANCELLED = 'cancelled',
   FAILED = 'failed',
@@ -146,7 +153,6 @@ export interface Order {
   total: number;
   paymentMethod: string;
   paymentStatus: OrderStatus;
-  status?: string; // e.g. 'processing', 'shipped'
   orderType: 'online' | 'manual';
   shippingAddress?: {
     address1: string;
@@ -158,6 +164,7 @@ export interface Order {
   notes?: string;
   createdAt: string;
   paidAt?: string;
+  sgCoinReward?: number;
 }
 
 export enum GiveawayStatus {
@@ -174,7 +181,7 @@ export interface GiveawayEntry {
   email: string;
   entryCount: number;
   timestamp: number;
-  source: 'manual' | 'purchase' | 'form' | 'social';
+  source: 'manual' | 'purchase' | 'form' | 'social' | 'subscriber';
 }
 
 export interface Giveaway {
@@ -237,4 +244,82 @@ export interface WishlistSettings {
   shareCount: number;
   createdAt: number;
   updatedAt: number;
+}
+
+// ==========================================
+// SUPABASE INTEGRATION TYPES
+// ==========================================
+
+export interface SocialAccount {
+  id: string;
+  userId: string;
+  platform: 'instagram' | 'twitter' | 'tiktok';
+  username: string;
+  verified: boolean;
+  linkedAt: string;
+  rewardSent: boolean;
+  rewardSentAt?: string;
+  notes?: string;
+}
+
+export interface CustomInquiry {
+  id: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  productType: 'apparel-pants' | 'apparel-shirt' | '3d-printed' | 'other';
+  title: string;
+  description: string;
+  referenceImages: string[];
+  budgetRange: 'under-100' | '100-250' | '250-500' | '500+' | 'flexible';
+  timeline: 'no-rush' | '1-2-weeks' | '2-4-weeks' | 'asap';
+  status: 'new' | 'reviewing' | 'quoted' | 'accepted' | 'declined' | 'completed';
+  adminNotes?: string;
+  quoteAmount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SGCoinPurchaseRequest {
+  id: string;
+  userId?: string;
+  email: string;
+  walletAddress: string;
+  amount: number;
+  paymentMethod: string;
+  proofUrl?: string;
+  notes?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+  createdAt: string;
+  processedAt?: string;
+}
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  content: string; // Markdown or HTML
+  excerpt?: string;
+  author: string;
+  authorId?: string;
+  category: 'update' | 'community' | 'announcement' | 'drop' | 'idea';
+  coverImage?: string;
+  tags?: string[];
+  isPublished: boolean;
+  upvotePower: number; // Sum of SGCoin weight
+  downvotePower: number; // Sum of SGCoin weight
+  score: number; // upvotePower - downvotePower
+  publishedAt?: string; // ISO timestamp
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BlogComment {
+  id: string;
+  postId: string;
+  userId: string;
+  userName: string;
+  content: string;
+  createdAt: string;
 }

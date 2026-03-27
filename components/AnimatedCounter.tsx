@@ -9,7 +9,7 @@ interface AnimatedCounterProps {
     className?: string;
 }
 
-const AnimatedCounter = ({
+export const AnimatedCounter = ({
     end,
     duration = 2000,
     prefix = '',
@@ -19,8 +19,8 @@ const AnimatedCounter = ({
 }: AnimatedCounterProps) => {
     const [count, setCount] = useState(0);
     const countRef = useRef(0);
-    const requestRef = useRef<number | undefined>(undefined);
-    const startTimeRef = useRef<number | undefined>(undefined);
+    const requestRef = useRef<number>();
+    const startTimeRef = useRef<number>();
 
     useEffect(() => {
         const animate = (timestamp: number) => {

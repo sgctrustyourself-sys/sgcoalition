@@ -12,7 +12,10 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, clas
     return (
         <div className={`min-h-screen w-full flex items-center justify-center bg-black relative overflow-hidden ${className}`}>
             {/* Background Effects */}
-            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
+            <div
+                className="absolute inset-0 bg-repeat opacity-20 pointer-events-none"
+                style={{ backgroundImage: "url('/images/patterns/noise.svg')" }}
+            />
             <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-900/20 rounded-full blur-[120px] animate-pulse"></div>
             <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-900/20 rounded-full blur-[120px] animate-pulse delay-1000"></div>
 

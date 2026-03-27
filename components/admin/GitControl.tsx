@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GitBranch, GitCommit, History, RotateCcw, FileText, Clock, User, AlertCircle, CheckCircle } from 'lucide-react';
+import { buildGitOperationsUrl } from '../../services/apiBase';
 
 interface GitCommit {
     hash: string;
@@ -32,14 +33,14 @@ const GitControl: React.FC = () => {
         setIsLoading(true);
         try {
             // Fetch commit history
-            const logResponse = await fetch('http://localhost:3001/api/git-operations?action=log&limit=50');
+            const logResponse = await fetch(buildGitOperationsUrl('log', { limit: 50 }));
             if (logResponse.ok) {
                 const logData = await logResponse.json();
                 setCommits(logData.commits || []);
             }
 
             // Fetch branches
-            const branchesResponse = await fetch('http://localhost:3001/api/git-operations?action=branches');
+            const branchesResponse = await fetch(buildGitOperationsUrl('branches'));
             if (branchesResponse.ok) {
                 const branchesData = await branchesResponse.json();
                 setBranches(branchesData.branches || []);
@@ -68,7 +69,7 @@ const GitControl: React.FC = () => {
         if (window.confirm(`Switch to branch "${branchName}"? Any uncommitted changes will be lost.`)) {
             setIsLoading(true);
             try {
-                const response = await fetch('http://localhost:3001/api/git-operations?action=checkout', {
+                const response = await fetch(buildGitOperationsUrl('checkout'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ branch: branchName })
@@ -95,7 +96,7 @@ const GitControl: React.FC = () => {
         if (message) {
             setIsLoading(true);
             try {
-                const response = await fetch('http://localhost:3001/api/git-operations?action=commit', {
+                const response = await fetch(buildGitOperationsUrl('commit'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message })

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
-import { OrderItem, Order, OrderStatus } from '../types';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { OrderItem, OrderStatus } from '../types';
+import { X, Plus, Trash2, Package } from 'lucide-react';
 
 interface ManualOrderFormProps {
     onClose: () => void;
@@ -10,7 +10,7 @@ interface ManualOrderFormProps {
 }
 
 const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess }) => {
-    const { products, addOrder, generateOrderNumber, deductInventory } = useApp();
+    const { products, addOrder, generateOrderNumber, calculateReward } = useApp();
     const { addToast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -31,6 +31,7 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
     const [discount, setDiscount] = useState(0);
     const [tax, setTax] = useState(0);
     const [notes, setNotes] = useState('');
+    const [createdAt, setCreatedAt] = useState(new Date().toISOString().split('T')[0]); // Default to today
 
     // Shipping (optional for manual orders)
     const [includeShipping, setIncludeShipping] = useState(false);
@@ -128,8 +129,6 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
             const order = {
                 id: `order_${Date.now()}`,
                 orderNumber,
-                userId: 'admin_manual',
-                isGuest: false,
                 customerName,
                 customerEmail,
                 customerPhone,
@@ -139,16 +138,19 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
                 discount,
                 total,
                 paymentMethod,
-                paymentStatus: OrderStatus.PAID as OrderStatus,
+                paymentStatus: OrderStatus.PAID,
                 orderType: 'manual' as const,
-                createdAt: new Date().toISOString(),
+                status: 'pending' as any,
+                createdAt: new Date(createdAt).toISOString(),
+                updatedAt: new Date().toISOString(),
                 paidAt: new Date().toISOString(),
                 notes,
-                shippingAddress: includeShipping ? shippingAddress : undefined
+                isGuest: true, // Manual orders are guest orders by default
+                shippingAddress: includeShipping ? shippingAddress : undefined,
+                sgCoinReward: calculateReward(total)
             };
 
             await addOrder(order);
-            await deductInventory(items);
             addToast(`Order ${orderNumber} created successfully!`, 'success');
             onSuccess();
             onClose();
@@ -454,9 +456,22 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
                         )}
                     </div>
 
+                    {/* Order Date */}
+                    <div>
+                        <label htmlFor="orderDate" className="block text-sm font-medium mb-1 text-gray-900">Order Date</label>
+                        <input
+                            id="orderDate"
+                            type="date"
+                            value={createdAt}
+                            onChange={(e) => setCreatedAt(e.target.value)}
+                            max={new Date().toISOString().split('T')[0]}
+                            className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
+                        />
+                    </div>
+
                     {/* Notes */}
                     <div>
-                        <label htmlFor="notes" className="block text-sm font-medium mb-1">Notes</label>
+                        <label htmlFor="notes" className="block text-sm font-medium mb-1 text-gray-900">Notes</label>
                         <textarea
                             id="notes"
                             value={notes}

@@ -1,214 +1,124 @@
-import { Product, Section, Order, OrderStatus } from './types';
-
-export const INITIAL_ORDERS: Order[] = [
-  {
-    id: 'order_jeans_001',
-    orderNumber: 'ORD-SG-1001',
-    isGuest: true,
-    customerName: 'Loyal Customer',
-    customerEmail: 'customer@example.com',
-    items: [
-      {
-        productId: 'prod_true_relig',
-        productName: 'COALITION X TRUE RELIGION 1/1 JEANS S1',
-        productImage: 'https://i.imgur.com/R38pS9T.png',
-        selectedSize: '33',
-        quantity: 1,
-        price: 240,
-        total: 240
-      }
-    ],
-    subtotal: 240,
-    tax: 0,
-    discount: 0,
-    total: 240,
-    paymentMethod: 'credit_card',
-    paymentStatus: OrderStatus.PAID,
-    orderType: 'online',
-    createdAt: new Date().toISOString(),
-    paidAt: new Date().toISOString()
-  },
-  {
-    id: 'order_shark_001',
-    orderNumber: 'ORD-SG-1002',
-    isGuest: true,
-    customerName: 'Loyal VIP',
-    customerEmail: 'vip@example.com',
-    items: [
-      {
-        productId: 'prod_shark_tee',
-        productName: "Coalition 'Trust Yourself' Shark Tee 1/1",
-        productImage: 'https://i.imgur.com/cYmL6GQ.jpeg',
-        selectedSize: 'S',
-        quantity: 1,
-        price: 65,
-        total: 65
-      }
-    ],
-    subtotal: 65,
-    tax: 0,
-    discount: 0,
-    total: 65,
-    paymentMethod: 'credit_card',
-    paymentStatus: OrderStatus.PAID,
-    orderType: 'online',
-    createdAt: new Date().toISOString(),
-    paidAt: new Date().toISOString()
-  }
-];
+import { Product, Section } from './types';
+import { LOCAL_IMAGE_URLS } from './utils/localImageAssets';
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
-    id: 'prod_001',
-    name: 'Coalition Classic Tee',
-    price: 45,
-    images: ['/images/tee-front.png', '/images/tee-back.png'],
-    description: 'The staple piece. Heavyweight cotton, boxy fit. Crafted in Baltimore, Maryland. Each tee includes dual NFC tags for digital verification.',
-    category: 'apparel',
+    id: 'Coalition_NF_Tee',
+    name: 'COALITION NF-TEE',
+    price: 50,
+    images: [
+      LOCAL_IMAGE_URLS.nfTee.model1,
+      LOCAL_IMAGE_URLS.nfTee.model2,
+      LOCAL_IMAGE_URLS.nfTee.model3,
+      LOCAL_IMAGE_URLS.nfTee.model4
+    ],
+    description: 'The future of streetwear. This limited edition phy-gital tee serves as your access pass to the Coalition ecosystem. Features exclusive "Trust Yourself" puff print and embedded NFC technology linked to its digital twin on the Polygon blockchain.',
+    category: 'shirt',
     isFeatured: true,
-    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-    sizeInventory: {
-      'S': 15,
-      'M': 25,
-      'L': 30,
-      'XL': 20,
-      'XXL': 10
-    },
+    isLimitedEdition: true,
     nft: {
-      contractAddress: '0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201',
-      tokenId: '6915469788939700255662107688630493008422408564534094781606241966635645665283',
+      contractAddress: '0x951806a2581c22C478aC613a675e6c898E2aBe21',
+      tokenId: '1',
       chain: 'polygon',
-      openseaUrl: 'https://opensea.io/assets/polygon/0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201/6915469788939700255662107688630493008422408564534094781606241966635645665283',
-      nfcTags: {
-        neck: 'https://linktr.ee/sgcoalition',
-        tag: 'https://opensea.io/assets/polygon/0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201/6915469788939700255662107688630493008422408564534094781606241966635645665283'
-      }
+      openseaUrl: 'https://opensea.io/collection/sg-coalition'
     }
   },
   {
-    id: 'prod_nft_001',
-    name: 'Coalition NF-Tee',
-    price: 65,
-    images: ['/images/coalition-nf-tee-front.png', '/images/coalition-nf-tee-back.png'],
-    description: 'The future of streetwear. This limited edition phygital tee serves as your access pass to the Coalition ecosystem. Features exclusive "Trust Yourself" puff print and embedded NFC technology linked to its digital twin on the Polygon blockchain.',
-    category: 'apparel',
-    isFeatured: true,
-    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-    sizeInventory: {
-      'S': 50,
-      'M': 100,
-      'L': 100,
-      'XL': 75,
-      'XXL': 25
-    },
-    nft: {
-      contractAddress: '0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201',
-      tokenId: '6915469788939700255662107688630493008422408564534094781606241966635645665283',
-      chain: 'polygon',
-      openseaUrl: 'https://opensea.io/item/polygon/0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201/6915469788939700255662107688630493008422408564534094781606241966635645665283',
-      nfcTags: {
-        neck: 'https://linktr.ee/sgcoalition',
-        tag: 'https://coalition.brand/verify/prod_nft_001'
-      }
-    }
+    id: 'GreenCamoWallet',
+    name: 'COALITION GREEN CAMO WALLET',
+    price: 35,
+    images: [LOCAL_IMAGE_URLS.walletGreen.front, LOCAL_IMAGE_URLS.walletGreen.back],
+    description: 'Tactical accessory designed for the modern collector. Spec-camo pattern with multiple card slots and RFID protection.',
+    category: 'wallet'
   },
   {
-    id: 'prod_002',
-    name: 'Baltimore Hoodie',
+    id: 'SKYYBLUEWALLET1_2',
+    name: 'COALITION SKYY BLUE WALLET 1/2',
+    price: 35,
+    images: [LOCAL_IMAGE_URLS.walletSkyyBlue.front, LOCAL_IMAGE_URLS.walletSkyyBlue.back],
+    description: 'Electric blue variant of our signature tactical wallet. Sleek, durable, and ready for any mission.',
+    category: 'wallet'
+  },
+  {
+    id: 'prod_wallet_004',
+    name: 'COALITION SKYY BLUE WALLET 2/2',
+    price: 35,
+    images: [LOCAL_IMAGE_URLS.walletSkyyBlueArchive.front, LOCAL_IMAGE_URLS.walletSkyyBlueArchive.back],
+    description: 'Second piece of the Skyy Blue collection. Hand-crafted tie-dye wallet with silver stitched border. Each piece unique — no two alike.',
+    category: 'wallet'
+  },
+  {
+    id: 'prod_wallet_chrome_hearts',
+    name: 'CUSTOM COALITION X CHROME HEARTS WALLET',
+    price: 450,
+    images: [LOCAL_IMAGE_URLS.chromeHeartsWallet.front, LOCAL_IMAGE_URLS.chromeHeartsWallet.back],
+    description: 'Exclusive 1/1 custom Coalition x Chrome Hearts collaboration wallet. Premium leather construction with signature Chrome Hearts detailing and Coalition branding. Rare collector item.',
+    category: 'wallet',
+    isFeatured: false,
+    archived: true,
+    soldAt: '2025-01-01T00:00:00Z'
+  },
+  {
+    id: 'prod_trust_yourself_hat_01',
+    name: 'TRUST YOURSELF CUSTOM TRUCKER (1/1)',
     price: 85,
-    images: ['https://images.unsplash.com/photo-1556905055-8f358a7a47b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'],
-    description: 'Ultra-soft french terry. Perfect for city nights.',
-    category: 'apparel',
-    isFeatured: false,
-    sizes: ['M', 'L', 'XL'],
-    sizeInventory: {
-      'M': 15,
-      'L': 20,
-      'XL': 15
-    }
-  },
-  {
-    id: 'prod_003',
-    name: 'Logo Cap',
-    price: 30,
-    images: ['https://images.unsplash.com/photo-1588850561407-ed78c282e89b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'],
-    description: '6-panel structured cap with embroidered Coalition logo.',
-    category: 'accessory',
-    isFeatured: false,
-    sizes: ['One Size'],
-    sizeInventory: {
-      'One Size': 200
-    }
-  },
-  {
-    id: 'prod_wallet_001',
-    name: 'Custom Coalition x Chrome Hearts Wallet',
-    description: 'Exclusive 1/1 custom Coalition x Chrome Hearts collaboration wallet. This unique piece features premium leather construction with signature Chrome Hearts detailing and Coalition branding. A rare collector\'s item that combines luxury craftsmanship with streetwear culture. One of a kind - once it\'s gone, it\'s gone forever.',
-    price: 45.00,
     images: [
-      'https://i.imgur.com/SS6KbOQ.jpeg',
-      'https://i.imgur.com/NUXZizv.jpeg'
+      LOCAL_IMAGE_URLS.trustYourselfHat.cover,
+      LOCAL_IMAGE_URLS.trustYourselfHat.detail,
+      LOCAL_IMAGE_URLS.trustYourselfHat.side,
+      LOCAL_IMAGE_URLS.trustYourselfHat.back,
+      LOCAL_IMAGE_URLS.trustYourselfHat.full
     ],
-    category: 'accessory',
-    isFeatured: true,
-    sizes: ['One Size'],
-    sizeInventory: {
-      'One Size': 0
-    },
+    description: 'One-of-one custom Coalition trucker hat. Hand-crafted with signature Trust Yourself embroidery. Rare collector piece — this exact hat will never be made again.',
+    category: 'hat',
+    isFeatured: false,
     archived: true,
-    archivedAt: new Date().toISOString(),
-    soldAt: new Date().toISOString()
+    soldAt: '2025-01-01T00:00:00Z'
   },
+    {
+      id: 'prod_tee_distortion',
+      name: 'COALITION DISTORTION TEE',
+      price: 65,
+      images: [
+        LOCAL_IMAGE_URLS.distortionTee.main,
+        LOCAL_IMAGE_URLS.distortionTee.frontFlat,
+        LOCAL_IMAGE_URLS.distortionTee.backModel,
+        LOCAL_IMAGE_URLS.distortionTee.backFlat,
+      ],
+      description: 'The Coalition Distortion Tee features a high-density graphic print that warps and bends the brand logo into a digital frequency. Heavyweight cotton construction with a classic streetwear fit. Trust Yourself.',
+      category: 'shirt',
+      isFeatured: true
+    },
   {
-    id: 'prod_dist_tee',
-    name: 'COALITION 1/1 DISTORTION TEE',
-    price: 65,
-    images: ['https://i.imgur.com/e7UfX6s.png'],
-    description: 'Exclusive 1/1 Distortion Tee featuring custom graphics and premium fabrics.',
-    category: 'shirt',
-    isFeatured: true,
-    sizes: ['L'],
-    sizeInventory: { 'L': 1 },
-    archived: false,
-    archivedAt: null,
-    soldAt: null
-  },
-  {
-    id: 'prod_true_relig',
-    name: 'COALITION X TRUE RELIGION 1/1 JEANS S1',
+    id: 'Coalition_x_True_Religion_S1',
+    name: 'Coalition x True Religion 1/1 Jeans S1',
     price: 240,
-    images: ['https://i.imgur.com/R38pS9T.png'],
-    description: 'Exclusive custom Coalition x True Religion collaboration jeans. Featuring custom patches and distressing.',
-    category: 'jeans',
-    isFeatured: true,
-    sizes: ['33'],
-    sizeInventory: { '33': 0 },
-    archived: true,
-    archivedAt: new Date().toISOString(),
-    soldAt: new Date().toISOString()
-  },
-  {
-    id: 'prod_shark_tee',
-    name: "Coalition 'Trust Yourself' Shark Tee 1/1",
-    price: 65,
     images: [
-      'https://i.imgur.com/cYmL6GQ.jpeg',
-      'https://i.imgur.com/evsuOt6.jpeg',
-      'https://i.imgur.com/IVmfRGx.jpeg',
-      'https://i.imgur.com/gaA93ug.jpeg'
+      LOCAL_IMAGE_URLS.trueReligionJeans.front1,
+      LOCAL_IMAGE_URLS.trueReligionJeans.front2,
+      LOCAL_IMAGE_URLS.trueReligionJeans.front3,
+      LOCAL_IMAGE_URLS.trueReligionJeans.front4
     ],
-    description: 'Exclusive Shark Tee. Hand-distressed with custom Coalition branding. A true collector\'s piece to add to your wardrobe.',
-    category: 'shirt',
-    isFeatured: true,
-    sizes: ['S'],
-    sizeInventory: {
-      'S': 1
-    },
-    archived: false,
-    archivedAt: null,
-    soldAt: null
+    description: "One-of-one Coalition x True Religion collaboration jeans. Season 1 exclusive \u2014 custom distressed denim with premium detailing. Size 33. Once it's gone, it's gone.",
+    category: 'jeans',
+    isFeatured: false,
+    archived: true,
+    soldAt: '2026-03-06T00:00:00Z',
+    sizes: ['33'],
+    sizeInventory: { '33': 0 }
   }
 ];
+
+export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
+  SKYYBLUEWALLET1_2: {
+    archived: true,
+    archivedAt: '2026-03-26T00:00:00Z',
+    soldAt: '2026-03-26T00:00:00Z',
+    sizes: ['One Size'],
+    sizeInventory: { 'One Size': 0 },
+    archiveNote: 'This exact wallet was given to an unhoused veteran after a chance encounter on a dirt bike ride. Seeing someone who served the country still left outside stayed with us. Coalition is built on action, dignity, and showing up for people when the moment calls for it, so this piece was given away instead of sold.'
+  }
+};
 
 export const ABOUT_TEXT = `Coalition is more than a brand; it is a movement born on the streets of Baltimore. We believe in the power of unity and the strength of the collective. Every stitch represents our commitment to quality, community, and the hustle that defines our city. Join the Coalition.`;
 
@@ -216,7 +126,7 @@ export const INITIAL_SECTIONS: Section[] = [
   {
     id: 'sec_hero',
     type: 'hero',
-    title: 'Crafted in Baltimore',
+    title: 'CRAFTED IN BALTIMORE',
     isVisible: true,
     order: 0,
     content: 'Premium streetwear designed for the city that built us.'
@@ -252,7 +162,8 @@ export const INITIAL_SECTIONS: Section[] = [
   },
 ];
 
-export const COIN_REWARD_RATE = 1500; // 30,000 coins per $20 = 1500 per $1
+export const COIN_REWARD_RATE = 1; // V2: 1 SGC per $1 spent (~4.5% rewards at $0.045/SGC)
+export const V2_REWARD_RATE = 0.25; // Legacy reference, can be deprecated or used for calculations
 
 // ============================================
 // NO REFUNDS POLICY CONFIGURATION
@@ -286,9 +197,49 @@ export type SGCoinPaymentMethod = typeof SGCOIN_PAYMENT_METHODS[number];
 // TUTORIAL CONFIGURATION
 // ============================================
 
-export const SGCOIN_CONTRACT_ADDRESS = '0x951806a2581c22C478aC613a675e6c898E2aBe21';
-export const QUICKSWAP_SWAP_URL = 'https://dapp.quickswap.exchange/swap/best/ETH/0x951806a2581c22C478aC613a675e6c898E2aBe21?chainId=137';
-export const POLYGON_RPC_URL = 'https://polygon-rpc.com';
+// ============================================
+// SGCOIN V2 MIGRATION CONFIGURATION
+// ============================================
+// FAIR FLAT-RATIO MIGRATION SYSTEM
+// Every holder receives the same migration ratio regardless of wallet size
+// This ensures fairness, transparency, and rewards loyalty equally
+// Ratio set to 1M:1 (matching the old "Whale" tier worst-case scenario)
+
+export const V1_TOTAL_SUPPLY = 10_000_000_000_000; // 10 Trillion V1
+export const V2_TOTAL_SUPPLY = 10_000_000; // 10 Million V2
+export const MIGRATION_RATIO = 1_000_000; // 1M V1 = 1 V2 (flat for everyone)
+
+// Migration ratio calculation helper
+export const calculateV2Amount = (v1Amount: number): number => {
+  return v1Amount / MIGRATION_RATIO;
+};
+
+// Migration ratio display helper
+export const getMigrationRatioDisplay = (): string => {
+  return `${MIGRATION_RATIO.toLocaleString()}:1`;
+};
+
+export const SGCOIN_V1_CONTRACT_ADDRESS = '0x951806a2581c22C478aC613a675e6c898E2aBe21';
+export const SGCOIN_V2_CONTRACT_ADDRESS = '0xd53e417107d0e01bbe74a704bb90fe7a6916ee1e'; // Official V2 Contract
+export const SGCOIN_MIGRATOR_ADDRESS = '0xc6c1EB54E5Ed966C0B48154d6e22eaA8a4c4C536'; // SafeMigration Contract (Flat 1M:1 Logic)
+export const SGCOIN_BURN_ADDRESS = '0x20756b2667D575Ddde2383f3841D2CD855D5fb6d'; // Migration Burn Wallet
+export const SGCOIN_LIQUIDITY_PROVIDER = '0xd4d7691f062614ae6905d7bef62638b42c33df9f'; // SGCoin V2 Source Wallet
+
+// Strategic Liquidity Tracking
+export const QUICKSWAP_LP_ADDRESS = '0x43a974142b297D2f09a39ACd838a66452789ba32'; // SGC/WPOL Pair (V2)
+export const QUICKSWAP_V3_LP_ADDRESS = '0x95194a754b6f768ed08ef5d695dabee349b7bf72'; // SGC/WPOL Pair (V3)
+export const WPOL_ADDRESS = '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270'; // Wrapped POL
+export const TREASURY_WALLET_ADDRESS = '0x39451d0ee9Fc5dd861C985d2a3e227F6Ac7387f4'; // SGC Treasury / Founder Wallet
+export const LIQUIDITY_TARGET_POL = 500;
+export const FALLBACK_LIQUIDITY_POL = 27.6; // Last known good value
+
+export const QUICKSWAP_SWAP_URL = `https://dapp.quickswap.exchange/swap/best/ETH/${SGCOIN_V2_CONTRACT_ADDRESS}?chainId=137`;
+export const POLYGON_RPC_URLS = [
+  'https://polygon-bor.publicnode.com',
+  'https://polygon-rpc.com',
+  'https://rpc-mainnet.maticvigil.com'
+];
+export const POLYGON_RPC_URL = POLYGON_RPC_URLS[0];
 export const POLYGON_CHAIN_ID = 137;
 export const POLYGON_CURRENCY_SYMBOL = 'MATIC';
 export const POLYGON_BLOCK_EXPLORER = 'https://polygonscan.com';
@@ -306,3 +257,18 @@ export const TUTORIAL_STEP_NAMES = [
   'Swap on QuickSwap',
   'Use SGCoin'
 ];
+
+export const MINI_WIZARDS_CONTRACT_ADDRESS = '0x653b07c58669bc335fc9cfe2f9afa68f7fe94fc2';
+
+// ============================================
+// ADMIN CONFIGURATION
+// ============================================
+// ============================================
+// ADMIN CONFIGURATION
+// ============================================
+export const ADMIN_WALLETS = [
+  '0x0f4a0466c2a1d3fa6ed55a20994617f0533fbf74', // Founder
+  '0x39451d0ee9Fc5dd861C985d2a3e227F6Ac7387f4', // Founder Secondary / Treasury
+];
+
+export const INITIAL_ORDERS: any[] = [];

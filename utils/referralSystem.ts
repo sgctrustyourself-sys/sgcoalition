@@ -23,8 +23,6 @@ export interface ReferralStats {
     total_earnings: number;
     pending_earnings: number;
     paid_earnings: number;
-    code_customized?: boolean;
-    code_customized_at?: string;
     updated_at: string;
 }
 
@@ -61,84 +59,19 @@ export const calculateCommissionTier = (successfulReferrals: number) => {
     };
 };
 
-// Helper to generate random 6-character code
-const generateRandomCode = (): string => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-};
-
-// Helper to generate unique referral code
-const generateUniqueReferralCode = async (): Promise<string> => {
-    let code = generateRandomCode();
-    let attempts = 0;
-    const maxAttempts = 10;
-
-    while (attempts < maxAttempts) {
-        const { data } = await supabase
-            .from('referral_stats')
-            .select('referral_code')
-            .eq('referral_code', code)
-            .maybeSingle();
-
-        if (!data) {
-            return code; // Code is unique
-        }
-
-        code = generateRandomCode();
-        attempts++;
-    }
-
-    // Fallback: add timestamp if we can't find unique after 10 tries
-    return `${code}${Date.now().toString(36).slice(-2).toUpperCase()}`;
-};
-
-// Get user's referral stats (with auto-initialization)
+// Get user's referral stats
 export const getReferralStats = async (userId: string): Promise<ReferralStats | null> => {
     try {
-        // Try to get existing stats (use maybeSingle to avoid error if not found)
-        let { data, error } = await supabase
+        const { data, error } = await supabase
             .from('referral_stats')
             .select('*')
             .eq('user_id', userId)
-            .maybeSingle();
+            .single();
 
-        // If no data exists, create it automatically
-        if (!data && !error) {
-            console.log('No referral stats found, creating new record for user:', userId);
-
-            const newCode = await generateUniqueReferralCode();
-            const { data: newStats, error: createError } = await supabase
-                .from('referral_stats')
-                .insert({
-                    user_id: userId,
-                    referral_code: newCode,
-                    total_referrals: 0,
-                    successful_referrals: 0,
-                    current_tier: 1,
-                    current_commission_rate: 5,
-                    total_earnings: 0,
-                    pending_earnings: 0,
-                    paid_earnings: 0
-                })
-                .select()
-                .single();
-
-            if (createError) {
-                console.error('Error creating referral stats:', createError);
-                throw createError;
-            }
-
-            console.log('Successfully created referral stats:', newStats);
-            return newStats;
-        }
-
-        if (error) {
-            console.error('Error fetching referral stats:', error);
-            throw error;
-        }
-
+        if (error) throw error;
         return data;
     } catch (error) {
-        console.error('Error in getReferralStats:', error);
+        console.error('Error fetching referral stats:', error);
         return null;
     }
 };
@@ -321,7 +254,7 @@ export const updateReferralStats = async (userId: string): Promise<void> => {
 // Generate shareable referral link
 export const generateReferralLink = (referralCode: string): string => {
     const baseUrl = window.location.origin;
-    return `${baseUrl}/#/?ref=${referralCode}`;
+    return `${baseUrl}/?ref=${referralCode}`;
 };
 
 // Store referral code in localStorage (from URL parameter)

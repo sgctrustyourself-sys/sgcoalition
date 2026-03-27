@@ -1,50 +1,56 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Send, CheckCircle, Loader, Ghost } from 'lucide-react';
+import { Send, CheckCircle, Loader, Ghost, AlertCircle } from 'lucide-react';
 import { supabase } from '../services/supabase';
 
 const SmsSignup = () => {
     const [phone, setPhone] = useState('');
     const [countryCode, setCountryCode] = useState('+1');
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-    const [errorMessage, setErrorMessage] = useState('');
+    const [errorMsg, setErrorMsg] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!phone) return;
 
         setStatus('loading');
-        setErrorMessage('');
+        setErrorMsg('');
 
         try {
             const { error } = await supabase
                 .from('coalition_signal_subscribers')
-                .insert([{
-                    subscriber_type: 'sms',
-                    contact_value: phone,
-                    country_code: countryCode,
-                    source: 'website_home'
-                }]);
+                .insert([
+                    {
+                        phone_number: `${countryCode}${phone.replace(/\D/g, '')}`,
+                        country_code: countryCode,
+                        metadata: {
+                            source: 'sms_signup_component',
+                            enrolled_at: new Date().toISOString()
+                        }
+                    }
+                ]);
 
             if (error) {
-                // Handle duplicate phone number
                 if (error.code === '23505') {
-                    setErrorMessage('This number is already subscribed to Coalition Signal!');
+                    // Unique constraint violation - already subscribed
+                    setStatus('success');
                 } else {
                     throw error;
                 }
-                setStatus('error');
-                return;
+            } else {
+                setStatus('success');
             }
 
-            setStatus('success');
             setPhone('');
             // Reset success message after 5 seconds
             setTimeout(() => setStatus('idle'), 5000);
-        } catch (err) {
-            console.error('SMS signup error:', err);
-            setErrorMessage('Failed to subscribe. Please try again.');
+        } catch (err: any) {
+            console.error('Subscription error:', err);
             setStatus('error');
+            // Provide more descriptive error for debugging
+            const msg = err.message || err.details || (typeof err === 'string' ? err : 'Unknown subscription failure');
+            setErrorMsg(msg);
+            setTimeout(() => setStatus('idle'), 5000);
         }
     };
 
@@ -130,12 +136,16 @@ const SmsSignup = () => {
                                 </motion.div>
                             ) : (
                                 <form onSubmit={handleSubmit} className="space-y-4">
-                                    {status === 'error' && errorMessage && (
-                                        <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-sm text-red-400">
-                                            {errorMessage}
-                                        </div>
+                                    {status === 'error' && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: -10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 flex items-center gap-3 text-red-400 text-sm"
+                                        >
+                                            <AlertCircle className="w-4 h-4 shrink-0" />
+                                            <p>{errorMsg}</p>
+                                        </motion.div>
                                     )}
-
                                     <div className="flex gap-3">
                                         <div className="w-24">
                                             <label htmlFor="country-code" className="sr-only">Country Code</label>
@@ -168,7 +178,7 @@ const SmsSignup = () => {
                                     <button
                                         type="submit"
                                         disabled={status === 'loading'}
-                                        className="w-full bg-white text-black font-bold uppercase tracking-widest py-4 rounded-lg hover:bg-blue-50 transition-all duration-300 flex items-center justify-center gap-2 group/btn relative overflow-hidden disabled:opacity-50"
+                                        className="w-full bg-white text-black font-bold uppercase tracking-widest py-4 rounded-lg hover:bg-blue-50 transition-all duration-300 flex items-center justify-center gap-2 group/btn relative overflow-hidden"
                                     >
                                         <span className="relative z-10 flex items-center gap-2">
                                             {status === 'loading' ? (

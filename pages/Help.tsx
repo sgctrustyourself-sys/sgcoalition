@@ -1,6 +1,18 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronUp, HelpCircle, Wallet, CreditCard, Star, Package, Shield } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+    ChevronDown,
+    HelpCircle,
+    ShoppingBag,
+    Star,
+    CreditCard,
+    Wallet,
+    Package,
+    Shield,
+    MessageCircle,
+    Mail,
+    ExternalLink
+} from 'lucide-react';
 
 interface FAQItem {
     question: string;
@@ -8,219 +20,188 @@ interface FAQItem {
     icon: any;
 }
 
+const FAQAccordion = ({ item, isOpen, onClick }: { item: FAQItem, isOpen: boolean, onClick: () => void }) => {
+    const Icon = item.icon;
+
+    return (
+        <div className="border border-white/10 rounded-xl overflow-hidden mb-4 bg-[#0A0A0A] hover:border-white/20 transition-all duration-300">
+            <button
+                onClick={onClick}
+                className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors"
+            >
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
+                        <Icon className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <span className="font-bold text-white tracking-wide">{item.question}</span>
+                </div>
+                <motion.div
+                    animate={{ rotate: isOpen ? 180 : 0 }}
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                >
+                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                </motion.div>
+            </button>
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                    >
+                        <div className="px-6 pb-6 pt-0 text-gray-400 text-sm leading-relaxed border-t border-white/5 bg-white/[0.01]">
+                            <div className="pt-4">
+                                {typeof item.answer === 'string' ? <p>{item.answer}</p> : item.answer}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
 const Help = () => {
     const [openIndex, setOpenIndex] = useState<number | null>(0);
 
-    const toggleFAQ = (index: number) => {
-        setOpenIndex(openIndex === index ? null : index);
-    };
-
     const faqs: FAQItem[] = [
         {
-            icon: Package,
+            icon: ShoppingBag,
             question: "How do I place an order?",
             answer: "Browse our shop, select your size, and click 'Add to Cart'. When ready, click the cart icon in the header and proceed to checkout. We accept card payments, crypto, and store credit."
         },
         {
             icon: Star,
             question: "What is Coalition VIP?",
-            answer: (
-                <>
-                    <p className="mb-3">Coalition VIP is our premium membership ($15/month) with incredible benefits:</p>
-                    <ul className="list-disc list-inside space-y-2 text-gray-300">
-                        <li><strong>$15 Monthly Store Credit</strong> - The membership pays for itself!</li>
-                        <li><strong>Free Shipping</strong> on all orders</li>
-                        <li><strong>Build Credit</strong> - Works with credit-building cards like Ava</li>
-                        <li><strong>VIP Badge</strong> on your profile</li>
-                    </ul>
-                    <Link to="/membership" className="inline-block mt-4 text-purple-400 hover:text-purple-300 font-bold underline">
-                        Learn more about VIP →
-                    </Link>
-                </>
-            )
+            answer: "Coalition VIP is our premium membership that offers exclusive benefits including monthly store credit, free shipping, and early access to drops. You can manage your membership in your profile or the dedicated VIP page."
         },
         {
             icon: CreditCard,
             question: "What payment methods do you accept?",
-            answer: (
-                <>
-                    <p className="mb-3">We accept multiple payment options:</p>
-                    <ul className="list-disc list-inside space-y-2 text-gray-300">
-                        <li><strong>Credit/Debit Cards</strong> via Stripe (most common)</li>
-                        <li><strong>Cryptocurrency</strong> (MATIC on Polygon network)</li>
-                        <li><strong>Store Credit</strong> (VIP members get $15/month)</li>
-                    </ul>
-                </>
-            )
+            answer: "We accept all major credit cards, Apple Pay, Google Pay, and cryptocurrency via the Polygon network. Store credit can also be applied at checkout for VIP members."
         },
         {
             icon: Wallet,
             question: "What is SGCoin and how do I earn it?",
-            answer: (
-                <>
-                    <p className="mb-3">SGCoin is our loyalty reward token on the Polygon blockchain. You earn SGCoin automatically on every purchase:</p>
-                    <ul className="list-disc list-inside space-y-2 text-gray-300">
-                        <li>Earn <strong>1000 SGCoin per $1 spent</strong></li>
-                        <li>SGCoin balance shows in your profile</li>
-                        <li>Use SGCoin for exclusive perks and future rewards</li>
-                    </ul>
-                    <p className="mt-3 text-gray-400 text-sm">
-                        <strong>💡 Pro tip:</strong> Linking a crypto wallet is optional. You can shop and earn SGCoin without one!
-                    </p>
-                    <p className="mt-2 text-yellow-400 text-xs">
-                        ⚠️ Starting rate: 1000 SGCoin per $1. Rate will be adjusted to a more stable price soon.
-                    </p>
-                </>
-            )
+            answer: "SGCoin is our digital currency used within the Coalition ecosystem. You can earn it through purchases, participation in community events, and by holding select physical items with digital twins."
         },
         {
-            icon: Wallet,
+            icon: Package,
             question: "How do I link my crypto wallet? (Optional)",
-            answer: (
-                <>
-                    <p className="mb-3">Linking a wallet lets you view your SGCoin balance on-chain and enables crypto payments:</p>
-                    <ol className="list-decimal list-inside space-y-2 text-gray-300">
-                        <li>Go to your <Link to="/profile" className="text-purple-400 hover:text-purple-300 underline">Profile page</Link></li>
-                        <li>Click the "Wallet & SGCoin" tab</li>
-                        <li>Click "Link Wallet" and connect MetaMask</li>
-                        <li>Make sure you're on the <strong>Polygon Network</strong></li>
-                    </ol>
-                    <p className="mt-3 text-gray-400 text-sm">
-                        <strong>Note:</strong> This is completely optional! You don't need a wallet to shop.
-                    </p>
-                </>
-            )
+            answer: "Visit your settings or the wallet connect modal in the header. We support MetaMask and other WalletConnect-compatible wallets. This is optional but unlocks Web3-exclusive perks."
         },
         {
             icon: Package,
             question: "What is your shipping policy?",
-            answer: (
-                <>
-                    <p className="mb-3">Shipping details:</p>
-                    <ul className="list-disc list-inside space-y-2 text-gray-300">
-                        <li><strong>VIP Members:</strong> FREE standard shipping on all orders</li>
-                        <li><strong>Standard Shipping:</strong> $5.99 (5-7 business days)</li>
-                        <li><strong>Express Shipping:</strong> $12.99 (2-3 business days)</li>
-                        <li><strong>Free Shipping:</strong> Orders over $200</li>
-                    </ul>
-                    <p className="mt-3">We ship to all US addresses. International shipping coming soon!</p>
-                </>
-            )
+            answer: "We ship worldwide. US orders typically arrive in 3-5 business days. International shipping times vary by location. VIP members receive complimentary express shipping on all orders."
         },
         {
             icon: Shield,
             question: "What is your return policy?",
-            answer: "We accept returns within 30 days of delivery for unworn, unwashed items with original tags. Email sgctrustyourself@gmail.com to initiate a return. Note: Items marked as 'Final Sale' or purchased with full store credit are not eligible for return."
+            answer: "Returns are accepted within 14 days of receipt for unused items in original packaging. Some limited releases may be final sale. Please check the product description for specific terms."
         },
         {
-            icon: HelpCircle,
+            icon: MessageCircle,
             question: "How can I track my order?",
-            answer: (
-                <>
-                    <p className="mb-2">After your order ships, you'll receive a tracking number via email.</p>
-                    <p>You can also view all your orders in your <Link to="/profile" className="text-purple-400 hover:text-purple-300 underline">Profile page</Link> under the "Orders" tab.</p>
-                </>
-            )
+            answer: "Once your order ships, you'll receive a confirmation email with a tracking link. You can also view your order history and status in your profile dashboard."
         },
         {
             icon: HelpCircle,
             question: "I have another question. How do I contact support?",
-            answer: (
-                <>
-                    <p className="mb-3">We're here to help! Reach us at:</p>
-                    <ul className="list-disc list-inside space-y-2 text-gray-300">
-                        <li>Email: <a href="mailto:sgctrustyourself@gmail.com" className="text-purple-400 hover:text-purple-300 underline">sgctrustyourself@gmail.com</a></li>
-                        <li>Join our <a href="https://discord.gg/bByqsC5f5V" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 underline">Discord community</a></li>
-                    </ul>
-                </>
-            )
+            answer: "Our support team is available 24/7. You can reach us via email at support@coalitionbrand.com or through our community Discord channel."
         }
     ];
 
     return (
-        <div className="min-h-screen pt-20 pb-20 bg-black text-white">
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-                {/* Header */}
+        <div className="min-h-screen bg-black text-white selection:bg-purple-500 selection:text-white pt-32 pb-24 relative overflow-hidden">
+            {/* Background Glows */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-purple-900/10 blur-[120px] pointer-events-none" />
+
+            <div className="max-w-3xl mx-auto px-6 relative z-10">
+                {/* Header Section */}
                 <div className="text-center mb-16">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-6 backdrop-blur-md">
-                        <HelpCircle className="w-4 h-4 text-purple-400" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-purple-200">Help Center</span>
-                    </div>
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 mb-8 backdrop-blur-sm"
+                    >
+                        <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-200">HELP CENTER</span>
+                    </motion.div>
 
-                    <h1 className="font-display text-4xl md:text-5xl font-bold uppercase tracking-tight mb-4">
-                        How Can We Help?
-                    </h1>
-                    <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+                    <motion.h1
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="font-display text-5xl md:text-6xl font-bold uppercase tracking-tight mb-6"
+                    >
+                        HOW CAN WE HELP?
+                    </motion.h1>
+
+                    <motion.p
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="text-gray-400 text-lg leading-relaxed max-w-xl mx-auto"
+                    >
                         Find answers to common questions about shopping, VIP membership, payments, and more.
-                    </p>
+                    </motion.p>
                 </div>
 
-                {/* FAQ Accordion */}
-                <div className="space-y-4">
-                    {faqs.map((faq, index) => {
-                        const Icon = faq.icon;
-                        const isOpen = openIndex === index;
+                {/* FAQ List */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3 }}
+                >
+                    {faqs.map((faq, index) => (
+                        <FAQAccordion
+                            key={index}
+                            item={faq}
+                            isOpen={openIndex === index}
+                            onClick={() => setOpenIndex(openIndex === index ? null : index)}
+                        />
+                    ))}
+                </motion.div>
 
-                        return (
-                            <div
-                                key={index}
-                                className="bg-white/5 border border-white/10 rounded-lg overflow-hidden hover:border-purple-500/30 transition-colors"
-                            >
-                                <button
-                                    onClick={() => toggleFAQ(index)}
-                                    className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
-                                >
-                                    <div className="flex items-center gap-4 flex-1">
-                                        <div className="bg-purple-500/20 w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0">
-                                            <Icon className="w-5 h-5 text-purple-400" />
-                                        </div>
-                                        <span className="font-bold text-white text-lg">{faq.question}</span>
-                                    </div>
-                                    {isOpen ? (
-                                        <ChevronUp className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                                    ) : (
-                                        <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                                    )}
-                                </button>
+                {/* Bottom CTA */}
+                <motion.div
+                    initial={{ opacity: 0, y: 40 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="mt-20 p-10 rounded-2xl bg-gradient-to-br from-[#0F0A1F] to-[#0A0A0A] border border-purple-500/20 text-center relative overflow-hidden group"
+                >
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/5 blur-[80px] group-hover:bg-purple-600/10 transition-colors duration-500" />
 
-                                {isOpen && (
-                                    <div className="px-6 pb-6 pt-2 text-gray-300 leading-relaxed border-t border-white/5">
-                                        {typeof faq.answer === 'string' ? (
-                                            <p>{faq.answer}</p>
-                                        ) : (
-                                            faq.answer
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-
-                {/* CTA Section */}
-                <div className="mt-16 bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/30 rounded-lg p-8 text-center">
-                    <h3 className="font-display text-2xl font-bold uppercase mb-4">Still Have Questions?</h3>
-                    <p className="text-gray-400 mb-6">
+                    <h2 className="font-display text-3xl font-bold uppercase mb-4 relative z-10 tracking-wide">
+                        STILL HAVE QUESTIONS?
+                    </h2>
+                    <p className="text-gray-400 text-sm mb-8 relative z-10">
                         Our team is here to help. Get in touch and we'll respond as soon as possible.
                     </p>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
                         <a
-                            href="mailto:sgctrustyourself@gmail.com"
-                            className="px-8 py-3 bg-white text-black font-bold uppercase tracking-widest hover:bg-gray-200 transition-all"
+                            href="mailto:support@coalitionbrand.com"
+                            className="w-full sm:w-auto px-8 py-3.5 bg-white text-black font-bold uppercase tracking-widest text-xs hover:bg-gray-200 transition-all active:scale-95"
                         >
-                            Email Support
+                            EMAIL SUPPORT
                         </a>
                         <a
-                            href="https://discord.gg/bByqsC5f5V"
+                            href="https://discord.gg/coalition"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-8 py-3 border border-white/20 text-white font-bold uppercase tracking-widest hover:bg-white/5 transition-all"
+                            className="w-full sm:w-auto px-8 py-3.5 border border-white/20 text-white font-bold uppercase tracking-widest text-xs hover:bg-white/5 transition-all active:scale-95 flex items-center justify-center gap-2"
                         >
-                            Join Discord
+                            JOIN DISCORD
                         </a>
                     </div>
-                </div>
+                </motion.div>
             </div>
+
+            {/* Subtle Gradient Overlay */}
+            <div className="fixed inset-0 bg-gradient-to-t from-black via-transparent to-transparent h-32 bottom-0 pointer-events-none" />
         </div>
     );
 };

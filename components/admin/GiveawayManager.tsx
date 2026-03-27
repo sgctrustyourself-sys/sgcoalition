@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { Giveaway, GiveawayStatus } from '../../types';
 import { Plus, Gift, Calendar, Users, Trophy, Trash2, Copy, AlertCircle, CheckCircle, Instagram } from 'lucide-react';
 import InstagramEntriesTab from './InstagramEntriesTab';
+import { getGiveawayTicketCount } from '../../utils/giveawayUtils';
 
 const GiveawayManager: React.FC = () => {
     const { giveaways, addGiveaway, deleteGiveaway, pickGiveawayWinner, products } = useApp();
@@ -100,7 +101,7 @@ const GiveawayManager: React.FC = () => {
     };
 
     const copyLink = (id: string) => {
-        const link = `${window.location.origin}/#/ecosystem?giveaway=${id}`;
+        const link = `${window.location.origin}/ecosystem?giveaway=${id}`;
         navigator.clipboard.writeText(link);
         setSuccess('Link copied to clipboard');
         setTimeout(() => setSuccess(null), 3000);
@@ -185,7 +186,7 @@ const GiveawayManager: React.FC = () => {
                                     <div className="flex items-center gap-4 text-xs text-gray-500">
                                         <span className="flex items-center gap-1">
                                             <Users className="w-3 h-3" />
-                                            {g.entries.length}
+                                            {getGiveawayTicketCount(g.entries)}
                                         </span>
                                         <span className="flex items-center gap-1">
                                             <Calendar className="w-3 h-3" />
@@ -319,8 +320,8 @@ const GiveawayManager: React.FC = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                                 <div className="bg-black/30 border border-white/10 p-4 rounded-lg">
-                                    <div className="text-gray-500 text-xs font-bold uppercase mb-1">Total Entries</div>
-                                    <div className="text-2xl font-bold text-white">{selectedGiveaway.entries.length}</div>
+                                    <div className="text-gray-500 text-xs font-bold uppercase mb-1">Total Tickets</div>
+                                    <div className="text-2xl font-bold text-white">{getGiveawayTicketCount(selectedGiveaway.entries)}</div>
                                 </div>
                                 <div className="bg-black/30 border border-white/10 p-4 rounded-lg">
                                     <div className="text-gray-500 text-xs font-bold uppercase mb-1">Status</div>
@@ -379,13 +380,14 @@ const GiveawayManager: React.FC = () => {
                                                 <th className="p-3 text-left">Name</th>
                                                 <th className="p-3 text-left">Email</th>
                                                 <th className="p-3 text-left">Source</th>
+                                                <th className="p-3 text-center">Tickets</th>
                                                 <th className="p-3 text-right">Date</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-white/5">
                                             {selectedGiveaway.entries.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={4} className="p-4 text-center text-gray-500">No entries yet.</td>
+                                                    <td colSpan={5} className="p-4 text-center text-gray-500">No entries yet.</td>
                                                 </tr>
                                             ) : (
                                                 selectedGiveaway.entries.slice(0, 10).map(entry => (
@@ -397,6 +399,7 @@ const GiveawayManager: React.FC = () => {
                                                                 {entry.source}
                                                             </span>
                                                         </td>
+                                                        <td className="p-3 text-center font-bold text-white">{entry.entryCount}</td>
                                                         <td className="p-3 text-right text-gray-500">
                                                             {new Date(entry.timestamp).toLocaleDateString()}
                                                         </td>

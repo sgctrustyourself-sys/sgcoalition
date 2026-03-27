@@ -23,6 +23,16 @@ const OrderSuccess = () => {
     const total = cartTotal();
     const reward = calculateReward(total);
 
+    console.log('🎯 OrderSuccess: Search Params:', {
+        paymentMethod,
+        paymentIntentId,
+        txHash,
+        shippingMethod,
+        shippingCost,
+        sessionId,
+        type
+    });
+
     useEffect(() => {
         const verifySubscription = async () => {
             if (sessionId && type === 'membership') {
@@ -37,7 +47,7 @@ const OrderSuccess = () => {
                         setIsLoading(false);
                         // Redirect to profile after short delay
                         setTimeout(() => {
-                            window.location.href = '/#/profile';
+                            window.location.href = '/profile';
                         }, 3000);
                         return true;
                     }
@@ -120,7 +130,8 @@ const OrderSuccess = () => {
 
                 // Award SGCoin reward
                 if (user) {
-                    updateUser({ sgCoinBalance: user.sgCoinBalance + reward });
+                    await updateUser({ sgCoinBalance: (user.sgCoinBalance || 0) + reward });
+                    console.log(`✅ Awarded ${reward} SGCoin to user ${user.uid}`);
                 }
 
                 // Send order confirmation email

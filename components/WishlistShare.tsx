@@ -2,41 +2,17 @@ import React, { useState } from 'react';
 import { Share2, Link as LinkIcon, Check, X as XIcon } from 'lucide-react';
 
 interface WishlistShareProps {
-    favoriteIds?: string[];
-    shareId?: string;
-    userName?: string;
-    itemCount?: number;
-    isOpen?: boolean;
-    onClose?: () => void;
+    favoriteIds: string[];
 }
 
-const WishlistShare: React.FC<WishlistShareProps> = ({
-    favoriteIds = [],
-    shareId,
-    userName,
-    itemCount,
-    isOpen: controlledIsOpen,
-    onClose
-}) => {
-    const [internalIsOpen, setInternalIsOpen] = useState(false);
+const WishlistShare: React.FC<WishlistShareProps> = ({ favoriteIds }) => {
+    const [isOpen, setIsOpen] = useState(false);
     const [copied, setCopied] = useState(false);
 
-    const isModalOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
-
-    // Logic for closing: if controlled, call onClose; else toggle internal state
-    const handleClose = () => {
-        if (onClose) onClose();
-        else setInternalIsOpen(false);
-    };
-
-    // If no data to share, return null (unless we are in a mode that implies readiness, but safe safety check)
-    if (!shareId && (!favoriteIds || favoriteIds.length === 0)) return null;
+    if (favoriteIds.length === 0) return null;
 
     const generateShareUrl = () => {
         const baseUrl = window.location.origin;
-        if (shareId) {
-            return `${baseUrl}/wishlist/${shareId}`;
-        }
         const params = new URLSearchParams({ items: favoriteIds.join(',') });
         return `${baseUrl}/favorites?${params.toString()}`;
     };
@@ -54,14 +30,13 @@ const WishlistShare: React.FC<WishlistShareProps> = ({
 
     const shareToTwitter = () => {
         const url = generateShareUrl();
-        const text = `Check out ${userName ? `${userName}'s ` : 'my '}${itemCount ? `${itemCount}-item ` : ''}wishlist from Coalition!`;
+        const text = `Check out my wishlist from Coalition!`;
         window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
     };
 
     const shareToPinterest = () => {
         const url = generateShareUrl();
-        const description = userName ? `${userName}'s Coalition Wishlist` : 'My Coalition Wishlist';
-        window.open(`https://pinterest.com/pin/create/button/?url=${encodeURIComponent(url)}&description=${encodeURIComponent(description)}`, '_blank');
+        window.open(`https://pinterest.com/pin/create/button/?url=${encodeURIComponent(url)}&description=${encodeURIComponent('My Coalition Wishlist')}`, '_blank');
     };
 
     const shareToFacebook = () => {
@@ -71,23 +46,20 @@ const WishlistShare: React.FC<WishlistShareProps> = ({
 
     return (
         <div className="relative">
-            {/* Show button only if NOT controlled (modal mode) */}
-            {controlledIsOpen === undefined && (
-                <button
-                    onClick={() => setInternalIsOpen(!internalIsOpen)}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition"
-                >
-                    <Share2 className="w-5 h-5" />
-                    <span className="font-bold">Share Wishlist</span>
-                </button>
-            )}
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition"
+            >
+                <Share2 className="w-5 h-5" />
+                <span className="font-bold">Share Wishlist</span>
+            </button>
 
-            {isModalOpen && (
+            {isOpen && (
                 <>
                     {/* Backdrop */}
                     <div
                         className="fixed inset-0 bg-black/50 z-40"
-                        onClick={handleClose}
+                        onClick={() => setIsOpen(false)}
                     />
 
                     {/* Modal */}
@@ -95,9 +67,8 @@ const WishlistShare: React.FC<WishlistShareProps> = ({
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-bold">Share Your Wishlist</h3>
                             <button
-                                onClick={handleClose}
+                                onClick={() => setIsOpen(false)}
                                 className="text-gray-400 hover:text-white transition"
-                                aria-label="Close modal"
                             >
                                 <XIcon className="w-6 h-6" />
                             </button>

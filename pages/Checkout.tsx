@@ -1,114 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Loader, Wallet, Copy, Check, Sparkles, DollarSign } from 'lucide-react';
+import { ArrowLeft, CreditCard, Loader, Wallet, Copy, Check, Sparkles, Heart, Info, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { OrderStatus } from '../types';
 import { useToast } from '../context/ToastContext';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import FloatingHelpButton from '../components/FloatingHelpButton';
 import { calculateCartDiscount, isSGCoinDiscountEnabled, getDiscountPercentageText } from '../utils/pricing';
 import { trackReferralEvent } from '../utils/referralAnalytics';
 import { validateCouponCode, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
 
-// Load Stripe with publishable key
-const stripePromise = loadStripe(
-    (import.meta as any).env?.VITE_STRIPE_PUBLISHABLE_KEY || ''
-);
-
-// Payment Form Component (Inner)
-interface PaymentFormProps {
-    total: number;
-    shippingInfo: any;
-    shippingMethod: string;
-    shippingCost: number;
-    validateShipping: () => boolean;
-    onSuccess: () => Promise<string>;
-}
-
-const PaymentForm: React.FC<PaymentFormProps> = ({ total, shippingInfo, shippingMethod, shippingCost, validateShipping, onSuccess }) => {
-    const stripe = useStripe();
-    const elements = useElements();
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!validateShipping()) {
-            return; // Validation error handled by parent or we can trigger shake here
-        }
-
-        if (!stripe || !elements) return;
-
-        setIsProcessing(true);
-        setError(null);
-
-        // Store shipping info temporarily for the success page
-        sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
-
-        const { error: submitError } = await stripe.confirmPayment({
-            elements,
-            confirmParams: {
-                return_url: `${window.location.origin}/#/order/success?shippingMethod=${shippingMethod}&shippingCost=${shippingCost}`,
-                payment_method_data: {
-                    billing_details: {
-                        email: shippingInfo.email,
-                        name: shippingInfo.name,
-                        address: {
-                            line1: shippingInfo.address1,
-                            city: shippingInfo.city,
-                            state: shippingInfo.state,
-                            postal_code: shippingInfo.zip,
-                            country: shippingInfo.country,
-                        },
-                    },
-                },
-            },
-            redirect: 'if_required',
+const reportErrorToAdmin = async (error: string, context: string, metadata: any = {}) => {
+    try {
+        console.log(`⚠️ Reporting ${context} error to admin...`);
+        fetch('/api/report-error', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ error, context, metadata })
         });
-
-        if (submitError) {
-            setError(submitError.message || 'Payment failed');
-            setIsProcessing(false);
-        } else {
-            // Payment successful - create order
-            try {
-                const orderNumber = await onSuccess();
-                sessionStorage.setItem('orderNumber', orderNumber);
-                window.location.href = `${window.location.origin}/#/order/success?payment_method=card&shippingMethod=${shippingMethod}&shippingCost=${shippingCost}`;
-            } catch (error) {
-                setError('Payment succeeded but order creation failed. Please contact support.');
-                setIsProcessing(false);
-            }
-        }
-    };
-
-    return (
-        <form onSubmit={handleSubmit} className="space-y-4 mt-6 border-t pt-6">
-            <h3 className="font-bold mb-4">Payment Details</h3>
-            <PaymentElement />
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-            <button
-                disabled={isProcessing || !stripe}
-                className="w-full bg-black text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                {isProcessing ? 'Processing...' : `Pay $${(total + shippingCost).toFixed(2)}`}
-            </button>
-        </form>
-    );
+    } catch (err) {
+        console.error('Failed to trigger error report:', err);
+    }
 };
 
 const Checkout: React.FC = () => {
     const navigate = useNavigate();
     const { cart, cartTotal, calculateReward, clearCart, addOrder, generateOrderNumber, user } = useApp();
     const { addToast } = useToast();
-    const [clientSecret, setClientSecret] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [paymentMethod, setPaymentMethod] = useState<'card' | 'crypto' | 'cashapp'>('card');
+    const [paymentMethod, setPaymentMethod] = useState<'paypal' | 'crypto' | 'card'>('paypal');
     const [copied, setCopied] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
+    const [clientSecret, setClientSecret] = useState<string>('');
 
     // Coupon code state
     const [couponCode, setCouponCode] = useState('');
@@ -116,6 +39,7 @@ const Checkout: React.FC = () => {
     const [couponReferrerName, setCouponReferrerName] = useState<string | null>(null);
     const [couponError, setCouponError] = useState<string | null>(null);
     const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+    const [isValidatingZip, setIsValidatingZip] = useState(false);
 
     // Shipping information state - Lifted up
     const [shippingInfo, setShippingInfo] = useState({
@@ -157,8 +81,8 @@ const Checkout: React.FC = () => {
         if (cart.length > 0 && paymentMethod === 'card') {
             createPaymentIntent();
         }
-        // If payment method is crypto or cashapp, we don't need payment intent
-        if (paymentMethod === 'crypto' || paymentMethod === 'cashapp') {
+        // If payment method is crypto, we don't need payment intent
+        if (paymentMethod === 'crypto') {
             setClientSecret('');
             setIsZeroAmount(false);
         }
@@ -243,6 +167,30 @@ const Checkout: React.FC = () => {
         if (validationError) setValidationError(null); // Clear error on edit
     };
 
+    const handleZipBlur = async () => {
+        const zip = shippingInfo.zip.replace(/\D/g, ''); // Remove non-digits
+        if (zip.length !== 5) return;
+
+        setIsValidatingZip(true);
+        try {
+            const response = await fetch(`https://api.zippopotam.us/us/${zip}`);
+            if (response.ok) {
+                const data = await response.json();
+                const place = data.places[0];
+                setShippingInfo(prev => ({
+                    ...prev,
+                    city: place['place name'],
+                    state: place['state abbreviation'],
+                    country: 'United States' // Default to US since API is US-specific
+                }));
+            }
+        } catch (error) {
+            console.error('Error fetching zip data:', error);
+        } finally {
+            setIsValidatingZip(false);
+        }
+    };
+
     const validateShipping = (): boolean => {
         const missingFields = Object.entries(shippingInfo).filter(([_, value]) => (value as string).trim() === '');
         if (missingFields.length > 0) {
@@ -273,9 +221,6 @@ const Checkout: React.FC = () => {
             const tax = 0;
             const isGuest = !user;
 
-            // Determine logic for manual verification payments (crypto, cashapp, etc)
-            const isManualPayment = paymentMethodUsed === 'crypto' || paymentMethodUsed === 'cashapp';
-
             const order = {
                 id: `order_${Date.now()}`,
                 orderNumber,
@@ -299,10 +244,11 @@ const Checkout: React.FC = () => {
                 discount: discount + creditToApply,
                 total: finalTotal,
                 paymentMethod: paymentMethodUsed as any,
-                paymentStatus: isManualPayment ? OrderStatus.PENDING : OrderStatus.PAID,
+                paymentStatus: paymentMethodUsed === 'crypto' ? OrderStatus.PENDING : OrderStatus.PAID,
                 orderType: 'online' as const,
                 createdAt: new Date().toISOString(),
-                paidAt: !isManualPayment ? new Date().toISOString() : undefined,
+                paidAt: paymentMethodUsed !== 'crypto' ? new Date().toISOString() : undefined,
+                sgCoinReward: reward,
                 shippingAddress: {
                     address1: shippingInfo.address1,
                     city: shippingInfo.city,
@@ -327,6 +273,11 @@ const Checkout: React.FC = () => {
             return orderNumber;
         } catch (error) {
             console.error('Error creating order:', error);
+            reportErrorToAdmin(error instanceof Error ? error.message : String(error), 'Local Order Creation', {
+                orderNumber: 'PRE-CAPTURE',
+                customerEmail: shippingInfo.email,
+                total: finalTotal
+            });
             throw error;
         }
     };
@@ -354,8 +305,9 @@ const Checkout: React.FC = () => {
 
             const orderNumber = await createOrder('store_credit');
             sessionStorage.setItem('orderNumber', orderNumber);
+            console.log('✅ Store credit order created, redirecting...');
 
-            window.location.href = `${window.location.origin}/#/order/success?payment_method=store_credit&shippingMethod=${shippingMethod}&shippingCost=${shippingCost}`;
+            window.location.href = `/order/success?payment_method=store_credit&shippingMethod=${shippingMethod}&shippingCost=${shippingCost}`;
 
         } catch (e: any) {
             console.error(e);
@@ -371,7 +323,8 @@ const Checkout: React.FC = () => {
             const orderNumber = await createOrder('crypto');
             sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
             sessionStorage.setItem('orderNumber', orderNumber);
-            navigate('/order/success?payment_method=crypto');
+            console.log('✅ Crypto order created, redirecting...');
+            window.location.href = '/order/success?payment_method=crypto';
         } catch (error) {
             addToast('Failed to create order. Please try again.', 'error');
         }
@@ -469,15 +422,23 @@ const Checkout: React.FC = () => {
                                         className="bg-black/30 border border-white/10 p-3 rounded-lg w-full text-white placeholder-gray-500 focus:border-white/30 focus:outline-none transition"
                                         required
                                     />
-                                    <input
-                                        name="zip"
-                                        type="text"
-                                        placeholder="ZIP / Postal Code"
-                                        value={shippingInfo.zip}
-                                        onChange={handleInputChange}
-                                        className="bg-black/30 border border-white/10 p-3 rounded-lg w-full text-white placeholder-gray-500 focus:border-white/30 focus:outline-none transition"
-                                        required
-                                    />
+                                    <div className="relative">
+                                        <input
+                                            name="zip"
+                                            type="text"
+                                            placeholder="ZIP / Postal Code"
+                                            value={shippingInfo.zip}
+                                            onChange={handleInputChange}
+                                            onBlur={handleZipBlur}
+                                            className="bg-black/30 border border-white/10 p-3 rounded-lg w-full text-white placeholder-gray-500 focus:border-white/30 focus:outline-none transition"
+                                            required
+                                        />
+                                        {isValidatingZip && (
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                <Loader className="w-4 h-4 text-white animate-spin" />
+                                            </div>
+                                        )}
+                                    </div>
                                     <input
                                         name="country"
                                         type="text"
@@ -631,44 +592,192 @@ const Checkout: React.FC = () => {
                                 </div>
                             ) : (
                                 <>
-                                    {/* Payment Method UI */}
-                                    <div className="grid grid-cols-3 gap-4 mb-6">
-                                        <button
-                                            onClick={() => setPaymentMethod('card')}
-                                            className={`flex flex-col items-center justify-center p-4 rounded-lg border transition ${paymentMethod === 'card' ? 'bg-white text-black border-white' : 'border-white/20 hover:border-white text-gray-400 hover:text-white'}`}
-                                        >
-                                            <CreditCard className="w-6 h-6 mb-2" />
-                                            <span className="font-bold text-xs sm:text-sm">Card</span>
-                                        </button>
-                                        <button
-                                            onClick={() => setPaymentMethod('crypto')}
-                                            className={`flex flex-col items-center justify-center p-4 rounded-lg border transition ${paymentMethod === 'crypto' ? 'bg-white text-black border-white' : 'border-white/20 hover:border-white text-gray-400 hover:text-white'}`}
-                                        >
-                                            <Wallet className="w-6 h-6 mb-2" />
-                                            <span className="font-bold text-xs sm:text-sm">Crypto</span>
-                                        </button>
-                                        <button
-                                            onClick={() => setPaymentMethod('cashapp')}
-                                            className={`flex flex-col items-center justify-center p-4 rounded-lg border transition ${paymentMethod === 'cashapp' ? 'bg-white text-black border-white' : 'border-white/20 hover:border-white text-gray-400 hover:text-white'}`}
-                                        >
-                                            <DollarSign className="w-6 h-6 mb-2" />
-                                            <span className="font-bold text-xs sm:text-sm">Cash App</span>
-                                        </button>
+                                    <div className="space-y-3 mb-6">
+                                        {/* PayPal / Card / Apple Pay Option - PRIMARY */}
+                                        <label className={`flex items-center justify-between p-5 rounded-xl border-2 cursor-pointer transition group relative overflow-hidden ${paymentMethod === 'paypal' ? 'bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-purple-500 shadow-lg shadow-purple-500/20' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30'}`}>
+                                            {paymentMethod === 'paypal' && (
+                                                <div className="absolute top-2 right-2">
+                                                    <span className="text-[9px] bg-green-500 text-white px-2 py-0.5 rounded-full font-black tracking-wider">RECOMMENDED</span>
+                                                </div>
+                                            )}
+                                            <div className="flex items-center gap-4">
+                                                <input
+                                                    type="radio"
+                                                    name="paymentMethod"
+                                                    checked={paymentMethod === 'paypal'}
+                                                    onChange={() => setPaymentMethod('paypal')}
+                                                    className="w-5 h-5 border-gray-500 text-purple-600 focus:ring-purple-500"
+                                                />
+                                                <div className="flex flex-col">
+                                                    <span className="font-black text-base text-white">PayPal, Cards & Apple Pay</span>
+                                                    <span className="text-xs text-gray-400">Pay securely with PayPal, Credit/Debit Card, or Apple Pay</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 opacity-80">
+                                                <svg className="h-6" viewBox="0 0 100 32" fill="currentColor">
+                                                    <path d="M12 4.917v.583c0 1.78-1.4 3.5-3.5 3.5h-2C5.67 9 5 9.67 5 10.5v.583c0 .83.67 1.5 1.5 1.5h2c3.59 0 6.5-2.91 6.5-6.5V4.917c0-.83-.67-1.5-1.5-1.5h-2c-.83 0-1.5.67-1.5 1.5z" fill="#003087" />
+                                                    <path d="M35 4h-5c-.55 0-1 .45-1 1v14c0 .55.45 1 1 1h5c2.76 0 5-2.24 5-5v-6c0-2.76-2.24-5-5-5zm2 11c0 1.1-.9 2-2 2h-2V7h2c1.1 0 2 .9 2 2v6z" fill="#0070BA" />
+                                                </svg>
+                                                <CreditCard className="w-5 h-5 text-white" />
+                                            </div>
+                                        </label>
+
+                                        {/* Crypto Option - SECONDARY */}
+                                        <label className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition group ${paymentMethod === 'crypto' ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30 text-gray-400'}`}>
+                                            <div className="flex items-center gap-4">
+                                                <input
+                                                    type="radio"
+                                                    name="paymentMethod"
+                                                    checked={paymentMethod === 'crypto'}
+                                                    onChange={() => setPaymentMethod('crypto')}
+                                                    className="w-5 h-5 border-gray-500 text-blue-500 focus:ring-blue-500"
+                                                />
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-sm text-white">Pay with Crypto</span>
+                                                        <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded font-bold tracking-wider">SAVE {getDiscountPercentageText()}</span>
+                                                    </div>
+                                                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                                                        USDC on Polygon Network <Info className="w-3 h-3" />
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <Wallet className={`w-5 h-5 ${paymentMethod === 'crypto' ? 'text-blue-400' : 'text-gray-500'}`} />
+                                        </label>
                                     </div>
 
-                                    {/* Card Payment */}
-                                    {paymentMethod === 'card' && clientSecret && (
-                                        <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night', labels: 'floating' } }}>
-                                            <PaymentForm
-                                                total={finalTotal}
-                                                shippingInfo={shippingInfo}
-                                                shippingMethod={shippingMethod}
-                                                shippingCost={shippingCost}
-                                                validateShipping={validateShipping}
-                                                onSuccess={() => createOrder('card')}
-                                            />
-                                        </Elements>
+                                    {/* PayPal Payment */}
+                                    {paymentMethod === 'paypal' && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                            <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30 p-4 rounded-lg">
+                                                <div className="flex items-start gap-3">
+                                                    <Sparkles className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <h4 className="font-bold text-purple-400 text-sm uppercase tracking-wide mb-1">Fast & Secure Checkout</h4>
+                                                        <p className="text-sm text-gray-300">
+                                                            Pay with <span className="text-white font-bold">PayPal, Apple Pay, or Card</span>. All payments accepted via PayPal secure checkout. Buyer protection included.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* PayPal Button Container */}
+                                            <div id="paypal-button-container-checkout" className="min-h-[50px]"></div>
+
+                                            <button
+                                                onClick={async () => {
+                                                    if (!validateShipping()) return;
+
+                                                    setIsLoading(true);
+                                                    setError(null);
+
+                                                    try {
+                                                        if (typeof window.paypal === 'undefined') {
+                                                            throw new Error('PayPal SDK not loaded. Please refresh the page.');
+                                                        }
+
+                                                        const paypalButtonContainer = document.getElementById('paypal-button-container-checkout');
+                                                        if (!paypalButtonContainer) return;
+
+                                                        paypalButtonContainer.innerHTML = '';
+
+                                                        window.paypal.Buttons({
+                                                            createOrder: (data: any, actions: any) => {
+                                                                return actions.order.create({
+                                                                    purchase_units: [{
+                                                                        description: `Coalition Order - ${cart.length} item(s)`,
+                                                                        amount: {
+                                                                            currency_code: 'USD',
+                                                                            value: finalTotal.toFixed(2),
+                                                                            breakdown: {
+                                                                                item_total: { currency_code: 'USD', value: total.toFixed(2) },
+                                                                                shipping: { currency_code: 'USD', value: shippingCost.toFixed(2) },
+                                                                                discount: { currency_code: 'USD', value: (discount + creditToApply).toFixed(2) }
+                                                                            }
+                                                                        },
+                                                                        items: cart.map(item => ({
+                                                                            name: item.name,
+                                                                            quantity: item.quantity.toString(),
+                                                                            unit_amount: {
+                                                                                currency_code: 'USD',
+                                                                                value: item.price.toFixed(2)
+                                                                            }
+                                                                        }))
+                                                                    }]
+                                                                });
+                                                            },
+                                                            onApprove: async (data: any, actions: any) => {
+                                                                try {
+                                                                    const order = await actions.order.capture();
+                                                                    const transactionId = order.purchase_units[0].payments.captures[0].id;
+
+                                                                    // Create order in database
+                                                                    const orderNumber = await createOrder('paypal', transactionId);
+
+                                                                    // Store for success page
+                                                                    sessionStorage.setItem('orderNumber', orderNumber);
+                                                                    sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
+
+                                                                    // Redirect to success page
+                                                                    console.log('✅ PayPal payment approved, redirecting...');
+                                                                    window.location.href = `/order/success?payment_method=paypal&shippingMethod=${shippingMethod}&shippingCost=${shippingCost}`;
+                                                                } catch (err: any) {
+                                                                    console.error('Order creation error:', err);
+                                                                    reportErrorToAdmin(err.message || 'Capture Success but API Failure', 'PayPal onApprove Process', {
+                                                                        customerEmail: shippingInfo.email,
+                                                                        total: finalTotal
+                                                                    });
+                                                                    setError('Payment succeeded but order creation failed. Please contact support.');
+                                                                    setIsLoading(false);
+                                                                }
+                                                            },
+                                                            onError: (err: any) => {
+                                                                console.error('PayPal error:', err);
+                                                                reportErrorToAdmin(err?.message || 'Unknown PayPal SDK Error', 'PayPal onError', {
+                                                                    customerEmail: shippingInfo.email,
+                                                                    total: finalTotal
+                                                                });
+                                                                setError('Payment failed. Please try again or contact support.');
+                                                                setIsLoading(false);
+                                                            },
+                                                            onCancel: () => {
+                                                                reportErrorToAdmin('User cancelled PayPal checkout', 'PayPal onCancel', {
+                                                                    customerEmail: shippingInfo.email,
+                                                                    total: finalTotal
+                                                                });
+                                                                setError('Payment was cancelled.');
+                                                                setIsLoading(false);
+                                                            }
+                                                        }).render('#paypal-button-container-checkout');
+
+                                                    } catch (err: any) {
+                                                        console.error('PayPal initialization error:', err);
+                                                        setError(err.message || 'Failed to initialize PayPal. Please try again.');
+                                                        setIsLoading(false);
+                                                    }
+                                                }}
+                                                disabled={isLoading}
+                                                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-widest hover:from-purple-700 hover:to-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20"
+                                            >
+                                                {isLoading ? (
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <Loader className="w-5 h-5 animate-spin" />
+                                                        Loading PayPal...
+                                                    </div>
+                                                ) : (
+                                                    'Continue to PayPal'
+                                                )}
+                                            </button>
+
+                                            {error && (
+                                                <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-lg text-red-400 text-sm">
+                                                    {error}
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
+
+
 
                                     {/* Crypto Payment */}
                                     {paymentMethod === 'crypto' && (
@@ -699,62 +808,6 @@ const Checkout: React.FC = () => {
                                             <button
                                                 onClick={handleCryptoConfirmation}
                                                 className="w-full bg-blue-600 text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-blue-500 transition shadow-[0_0_20px_rgba(37,99,235,0.3)]"
-                                            >
-                                                I Have Sent the Payment
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {/* Cash App Payment */}
-                                    {paymentMethod === 'cashapp' && (
-                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                            <div className="bg-green-500/10 border border-green-500/30 p-4 rounded-lg">
-                                                <div className="flex items-start gap-3">
-                                                    <DollarSign className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                                                    <div>
-                                                        <h4 className="font-bold text-green-400 text-sm uppercase tracking-wide mb-1">Pay with Cash App</h4>
-                                                        <p className="text-sm text-gray-300">
-                                                            Send payment to our Cashtag and click "I Have Sent Payment". Your order will be marked as <span className="text-yellow-400 font-bold">PENDING</span> until verified.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="bg-black/50 p-6 rounded-lg border border-white/10 text-center">
-                                                <p className="text-sm text-gray-400 mb-4">Send <span className="text-white font-bold">${finalTotal.toFixed(2)}</span> to:</p>
-
-                                                <div className="flex flex-col items-center justify-center space-y-4">
-                                                    <div className="bg-white/10 p-4 rounded-xl border border-white/20 w-full max-w-xs">
-                                                        <span className="font-display text-2xl font-bold text-white tracking-wider">$sgscrap</span>
-                                                    </div>
-
-                                                    <button
-                                                        onClick={() => {
-                                                            navigator.clipboard.writeText('$sgscrap');
-                                                            setCopied(true);
-                                                            setTimeout(() => setCopied(false), 2000);
-                                                        }}
-                                                        className="flex items-center gap-2 text-sm text-green-400 hover:text-green-300 transition font-bold uppercase tracking-wide"
-                                                    >
-                                                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                                                        {copied ? 'Copied!' : 'Copy Cashtag'}
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <button
-                                                onClick={async () => {
-                                                    if (!validateShipping()) return;
-                                                    try {
-                                                        const orderNumber = await createOrder('cashapp');
-                                                        sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
-                                                        sessionStorage.setItem('orderNumber', orderNumber);
-                                                        navigate('/order/success?payment_method=cashapp');
-                                                    } catch (error) {
-                                                        addToast('Failed to create order. Please try again.', 'error');
-                                                    }
-                                                }}
-                                                className="w-full bg-[#00D632] text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-[#00B82b] transition shadow-[0_0_20px_rgba(0,214,50,0.3)]"
                                             >
                                                 I Have Sent the Payment
                                             </button>
@@ -812,9 +865,27 @@ const Checkout: React.FC = () => {
                                     <span>Total</span>
                                     <span>${finalTotal.toFixed(2)}</span>
                                 </div>
-                                <div className="flex justify-between text-brand-accent text-xs pt-2">
-                                    <span>Estimated Rewards</span>
-                                    <span>+{reward} SGCoin</span>
+
+                                {/* Estimated Rewards - Priority 5 */}
+                                <div className="group relative flex justify-between items-center text-xs pt-2 cursor-help select-none">
+                                    <div className="flex items-center gap-1 text-brand-accent/80 hover:text-brand-accent transition border-b border-dashed border-brand-accent/30 hover:border-brand-accent">
+                                        <span>Estimated Rewards</span>
+                                        <Info className="w-3 h-3" />
+                                    </div>
+                                    <span className="font-mono text-brand-accent">+{reward} SGCoin</span>
+
+                                    {/* Tooltip */}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-gray-900 border border-white/10 text-white text-xs p-3 rounded shadow-xl opacity-0 group-hover:opacity-100 transition pointer-events-none z-10 backdrop-blur-md">
+                                        Rewards are credited to your wallet after order fulfillment.
+                                    </div>
+                                </div>
+
+                                {/* Donation Impact - Priority 1 */}
+                                <div className="mt-4 p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2">
+                                    <Heart className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                                    <p className="text-xs text-purple-200 leading-relaxed font-medium">
+                                        This order contributes one clothing item to a local shelter this month.
+                                    </p>
                                 </div>
                             </div>
                         </div>

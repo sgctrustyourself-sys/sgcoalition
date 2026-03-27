@@ -170,43 +170,41 @@ async function sendEmail(data: EmailData): Promise<void> {
  * Send new request notification to admin
  */
 export async function sendAdminNotification(
-    amount: number,
     email: string,
-    walletAddress: string
+    subject: string,
+    message: string
 ): Promise<void> {
-    const subject = 'New SGCoin Purchase Request';
-
     const html = `
         <!DOCTYPE html>
         <html>
         <head>
             <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background: #1f2937; color: white; padding: 20px; text-align: center; }
-                .content { background: #f9f9f9; padding: 20px; }
-                .info { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+                body { font-family: 'Courier New', monospace; line-height: 1.6; color: #333; background: #f5f5f5; }
+                .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+                .content { padding: 30px; }
+                .message { background: #f9f9f9; padding: 20px; border-radius: 5px; border-left: 4px solid #667eea; white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 13px; }
+                .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
             </style>
         </head>
         <body>
             <div class="container">
                 <div class="header">
-                    <h2>🔔 New Purchase Request</h2>
+                    <h2>🔔 ${subject}</h2>
                 </div>
                 <div class="content">
-                    <div class="info">
-                        <strong>Amount:</strong> ${amount.toLocaleString()} SGCoin<br>
-                        <strong>Email:</strong> ${email}<br>
-                        <strong>Wallet:</strong> ${walletAddress}
-                    </div>
-                    <p><a href="https://sgcoalition.xyz/#/admin">Review in Admin Dashboard</a></p>
+                    <div class="message">${message}</div>
+                    <p style="margin-top: 20px;"><a href="https://sgcoalition.xyz/#/admin" style="background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Review in Admin Dashboard</a></p>
+                </div>
+                <div class="footer">
+                    <p>SG Coalition | <a href="https://sgcoalition.xyz">sgcoalition.xyz</a></p>
                 </div>
             </div>
         </body>
         </html>
     `;
 
-    // Send to admin email (configure this)
-    const adminEmail = 'admin@sgcoalition.xyz'; // TODO: Configure admin email
+    // Send to admin email
+    const adminEmail = 'sgctrustyourself@gmail.com';
     await sendEmail({ to: adminEmail, subject, html });
 }

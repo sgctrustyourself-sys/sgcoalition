@@ -33,7 +33,10 @@ const IntroScreen: React.FC = () => {
                     exit={{ opacity: 0, transition: { duration: 0.8, ease: "easeInOut" } }}
                 >
                     {/* Background Effects */}
-                    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20" />
+                    <div
+                        className="absolute inset-0 bg-repeat opacity-20"
+                        style={{ backgroundImage: "url('/images/patterns/noise.svg')" }}
+                    />
                     <div className="absolute inset-0 bg-radial-gradient from-blue-900/10 via-black to-black" />
 
                     {/* Logo Container */}

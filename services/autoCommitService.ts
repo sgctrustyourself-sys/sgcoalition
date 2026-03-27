@@ -2,7 +2,7 @@
  * Auto-commit service for tracking data changes
  */
 
-const API_BASE = 'http://localhost:3001/api';
+import { buildGitOperationsUrl } from './apiBase';
 
 export interface AutoCommitOptions {
     message: string;
@@ -15,7 +15,7 @@ export interface AutoCommitOptions {
  */
 export async function autoCommit(options: AutoCommitOptions): Promise<string | null> {
     try {
-        const response = await fetch(`${API_BASE}/git-operations?action=commit`, {
+        const response = await fetch(buildGitOperationsUrl('commit'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

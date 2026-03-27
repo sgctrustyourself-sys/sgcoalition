@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ExternalLink, ArrowDownUp, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
+import { ExternalLink, ArrowDownUp, TrendingUp, TrendingDown, RefreshCw, Activity, Layers } from 'lucide-react';
 import { fetchRecentTransactions, formatAddress, getTimeAgo, Transaction } from '../utils/polygonScanApi';
+import { SGCOIN_V2_CONTRACT_ADDRESS } from '../constants';
 
 const LiveTransactions = () => {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -22,112 +23,117 @@ const LiveTransactions = () => {
 
     const getTypeColor = (type: string) => {
         switch (type) {
-            case 'buy': return 'text-green-400 bg-green-500/10';
-            case 'sell': return 'text-red-400 bg-red-500/10';
-            default: return 'text-blue-400 bg-blue-500/10';
+            case 'buy': return 'text-green-400 bg-green-500/5 border-green-500/20';
+            case 'sell': return 'text-red-400 bg-red-500/5 border-red-500/20';
+            case 'liquidity': return 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.2)]';
+            default: return 'text-purple-400 bg-purple-500/5 border-purple-500/20';
         }
     };
 
     const getTypeIcon = (type: string) => {
         switch (type) {
-            case 'buy': return <TrendingUp size={14} />;
-            case 'sell': return <TrendingDown size={14} />;
-            default: return <ArrowDownUp size={14} />;
+            case 'buy': return <TrendingUp size={12} />;
+            case 'sell': return <TrendingDown size={12} />;
+            case 'liquidity': return <Layers size={12} />;
+            default: return <ArrowDownUp size={12} />;
         }
     };
 
     const renderTransaction = (tx: Transaction, index: number) => (
         <div
             key={tx.hash + index}
-            className="p-4 hover:bg-gray-800/30 transition group"
+            className="p-6 hover:bg-white/[0.03] transition-all group border-b border-white/5 last:border-0"
         >
-            <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                    <span className={`px-2 py-1 rounded text-xs font-bold uppercase flex items-center gap-1 ${getTypeColor(tx.type)}`}>
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 border ${getTypeColor(tx.type)}`}>
                         {getTypeIcon(tx.type)}
-                        {tx.type}
+                        {tx.type === 'liquidity' ? 'Liquidity Added' : tx.type}
                     </span>
-                    <span className="text-gray-500 text-xs">{getTimeAgo(tx.timestamp)}</span>
+                    <span className="text-gray-500 text-[10px] uppercase font-bold tracking-widest">{getTimeAgo(tx.timestamp)}</span>
                 </div>
                 <a
                     href={`https://polygonscan.com/tx/${tx.hash}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-brand-accent hover:text-white transition text-xs flex items-center gap-1 opacity-0 group-hover:opacity-100"
+                    className="text-orange-500 hover:text-white transition-all text-[10px] flex items-center gap-1 opacity-0 group-hover:opacity-100 uppercase font-black tracking-widest"
                 >
-                    View <ExternalLink size={12} />
+                    Oracle Link <ExternalLink size={10} />
                 </a>
             </div>
-            <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-gray-400">
-                    <span className="font-mono">{formatAddress(tx.from)}</span>
-                    <span>→</span>
-                    <span className="font-mono">{formatAddress(tx.to)}</span>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4 text-gray-400 text-xs">
+                    <span className="font-mono bg-white/5 px-2 py-1 rounded border border-white/5">{formatAddress(tx.from)}</span>
+                    <ArrowDownUp size={12} className="text-gray-600 rotate-90" />
+                    <span className="font-mono bg-white/5 px-2 py-1 rounded border border-white/5">{formatAddress(tx.to)}</span>
                 </div>
-                <span className="font-mono font-bold text-white">
-                    {parseFloat(tx.value).toLocaleString()} SG
+                <span className="font-display font-black text-xl text-white tracking-widest uppercase">
+                    {parseFloat(tx.value).toLocaleString()} <span className="text-gray-600">SGC</span>
                 </span>
             </div>
         </div>
     );
 
     return (
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+        <div className="bg-black rounded-[2.5rem] border border-white/10 overflow-hidden shadow-2xl relative">
+
+            {/* Ambient Background */}
+            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-purple-500/5 via-transparent to-orange-500/5 pointer-events-none" />
+
             {/* Header */}
             <div
-                className="p-6 border-b border-gray-800 cursor-pointer hover:bg-gray-800/50 transition flex items-center justify-between"
+                className="p-10 border-b border-white/10 cursor-pointer hover:bg-white/2 transition-all flex items-center justify-between relative z-10"
                 onClick={() => setIsExpanded(!isExpanded)}
             >
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                        <ArrowDownUp className="text-purple-400" size={20} />
+                <div className="flex items-center gap-5">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/10 to-orange-500/10 border border-white/10 flex items-center justify-center">
+                        <Activity className="text-orange-500" size={24} />
                     </div>
                     <div>
-                        <h3 className="font-display text-xl font-bold uppercase">Live Transactions</h3>
-                        <p className="text-xs text-gray-500">Real-time SGCOIN activity on Polygon</p>
+                        <h3 className="font-display text-2xl font-black uppercase tracking-tighter">Live Transmission</h3>
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-[0.3em]">Synched with Polygon Mainnet</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-5">
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
                             loadTransactions();
                         }}
-                        className="p-2 hover:bg-gray-700 rounded-lg transition"
+                        className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-full border border-white/10 transition-all font-bold"
                         disabled={isLoading}
-                        aria-label="Refresh transactions"
+                        title="Refresh Transmission"
                     >
                         <RefreshCw className={`text-gray-400 ${isLoading ? 'animate-spin' : ''}`} size={16} />
                     </button>
-                    <div className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-gray-400">
-                            <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <div className={`w-8 h-8 flex items-center justify-center rounded-full border border-white/10 transition-transform ${isExpanded ? 'rotate-180 bg-white/5' : ''}`}>
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-gray-400">
+                            <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
                         </svg>
                     </div>
                 </div>
             </div>
 
-            {/* Always Show Last 4 Transactions */}
-            <div>
+            {/* Transaction List */}
+            <div className="relative z-10">
                 {transactions.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">
-                        <ArrowDownUp className="w-12 h-12 mx-auto mb-3 text-gray-700" />
-                        <p>No recent transactions</p>
+                    <div className="p-20 text-center text-gray-600">
+                        <Activity className="w-12 h-12 mx-auto mb-6 opacity-20" />
+                        <p className="text-[10px] uppercase font-black tracking-widest">No Signals Detected</p>
                     </div>
                 ) : (
                     <>
-                        <div className="divide-y divide-gray-800">
+                        <div className="divide-y divide-white/5">
                             {transactions.slice(0, 4).map(renderTransaction)}
                         </div>
 
-                        {/* Show More Button */}
                         {transactions.length > 4 && !isExpanded && (
-                            <div className="p-4 bg-gray-800/30 border-t border-gray-800 text-center">
+                            <div className="p-8 bg-white/[0.02] border-t border-white/5 text-center">
                                 <button
                                     onClick={() => setIsExpanded(true)}
-                                    className="text-sm text-brand-accent hover:text-white transition font-bold uppercase tracking-wide"
+                                    className="text-[10px] text-orange-500 hover:text-white transition-all font-black uppercase tracking-[0.4em]"
                                 >
-                                    Show All {transactions.length} Transactions →
+                                    Decrypt Extended Activity ({transactions.length}) →
                                 </button>
                             </div>
                         )}
@@ -135,24 +141,24 @@ const LiveTransactions = () => {
                 )}
             </div>
 
-            {/* Expanded View - Show Remaining Transactions */}
+            {/* Expanded Content */}
             {isExpanded && transactions.length > 4 && (
-                <div className="max-h-96 overflow-y-auto border-t border-gray-800">
-                    <div className="divide-y divide-gray-800">
+                <div className="max-h-[500px] overflow-y-auto border-t border-white/10 relative z-10 custom-scrollbar">
+                    <div className="divide-y divide-white/5">
                         {transactions.slice(4).map(renderTransaction)}
                     </div>
                 </div>
             )}
 
-            {/* Footer Link */}
-            <div className="p-4 bg-gray-800/30 border-t border-gray-800">
+            {/* Footer */}
+            <div className="p-8 bg-black border-t border-white/10 relative z-10">
                 <a
-                    href="https://polygonscan.com/token/0x951806a2581c22C478aC613a675e6c898E2aBe21"
+                    href={`https://polygonscan.com/token/${SGCOIN_V2_CONTRACT_ADDRESS}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-brand-accent hover:text-white transition flex items-center justify-center gap-2"
+                    className="text-[10px] text-gray-500 hover:text-white transition-all flex items-center justify-center gap-3 uppercase font-black tracking-[0.3em]"
                 >
-                    View All Transactions on PolygonScan <ExternalLink size={14} />
+                    View Verified Source on PolygonScan <ExternalLink size={12} />
                 </a>
             </div>
         </div>

@@ -62,7 +62,7 @@ const PurchaseRequestsTab: React.FC<PurchaseRequestsTabProps> = ({ userId }) => 
                 <h3 className="text-xl font-bold text-white mb-2">No Purchase Requests</h3>
                 <p className="text-gray-400 mb-6">You haven't submitted any SGCoin purchase requests yet.</p>
                 <a
-                    href="/#/buy-sgcoin"
+                    href="/sgcoin"
                     className="inline-block bg-white text-black px-6 py-3 rounded-lg font-bold uppercase tracking-widest hover:bg-gray-200 transition"
                 >
                     Buy SGCoin
@@ -76,7 +76,7 @@ const PurchaseRequestsTab: React.FC<PurchaseRequestsTabProps> = ({ userId }) => 
             <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-white">Purchase Requests</h2>
                 <a
-                    href="/#/buy-sgcoin"
+                    href="/sgcoin"
                     className="bg-white text-black px-4 py-2 rounded-lg font-bold text-sm uppercase tracking-wider hover:bg-gray-200 transition"
                 >
                     New Request

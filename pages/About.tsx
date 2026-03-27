@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { PenTool, Shirt, Package, Building, SprayCan, Music, TrendingUp, ArrowRight } from 'lucide-react';
 
 const Story = () => {
@@ -183,9 +184,9 @@ const Story = () => {
                     <p className="text-xl text-gray-400 mb-12">
                         Unity. Creativity. Rising from the struggle.
                     </p>
-                    <a href="#/shop" className="inline-flex items-center bg-white text-black px-8 py-4 font-bold uppercase tracking-widest hover:bg-brand-accent hover:text-white transition-all duration-300">
+                    <Link to="/shop" className="inline-flex items-center bg-white text-black px-8 py-4 font-bold uppercase tracking-widest hover:bg-brand-accent hover:text-white transition-all duration-300">
                         Join The Movement <ArrowRight className="ml-2 w-5 h-5" />
-                    </a>
+                    </Link>
                 </div>
             </section>
         </div>

@@ -1,38 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import AdminLayout from '../components/admin/AdminLayout';
-import ProductManager from '../components/admin/ProductManager';
-import OrderManager from '../components/admin/OrderManager';
-import GitControl from '../components/admin/GitControl';
-import GiveawayManager from '../components/admin/GiveawayManager';
-import CustomInquiryManager from '../components/admin/CustomInquiryManager';
-import SGCoinRequestManager from '../components/admin/SGCoinRequestManager';
-import InstagramLinksManager from '../admin/InstagramLinksManager';
-import ReviewManager from '../admin/ReviewManager';
-import AnalyticsDashboard from '../admin/AnalyticsDashboard';
-import SGCoinDistribution from '../admin/SGCoinDistribution';
-import ReferralAnalytics from '../admin/ReferralAnalytics';
-import CoalitionSignalManager from '../admin/CoalitionSignalManager';
-import CouponManager from '../components/admin/CouponManager';
 import { useApp } from '../context/AppContext';
+
+// Lazy load all admin components for code-splitting
+const EcosystemCommandCenter = lazy(() => import('../components/admin/EcosystemCommandCenter'));
+const ProductManager = lazy(() => import('../components/admin/ProductManager'));
+const OrderManager = lazy(() => import('../components/admin/OrderManager'));
+const GitControl = lazy(() => import('../components/admin/GitControl'));
+const GiveawayManager = lazy(() => import('../components/admin/GiveawayManager'));
+const CustomInquiryManager = lazy(() => import('../components/admin/CustomInquiryManager'));
+const SGCoinRequestManager = lazy(() => import('../components/admin/SGCoinRequestManager'));
+const InstagramLinksManager = lazy(() => import('../admin/InstagramLinksManager'));
+const ReviewManager = lazy(() => import('../admin/ReviewManager'));
+const AnalyticsDashboard = lazy(() => import('../admin/AnalyticsDashboard'));
+const SGCoinDistribution = lazy(() => import('../admin/SGCoinDistribution'));
+const ReferralAnalytics = lazy(() => import('../admin/ReferralAnalytics'));
+const BlogManager = lazy(() => import('./admin/BlogManager'));
+const SignalManager = lazy(() => import('../components/admin/SignalManager'));
+const UserManager = lazy(() => import('../components/admin/UserManager'));
+
+// Loading component for Suspense fallback
+const LoadingSpinner = () => (
+    <div className="flex items-center justify-center min-h-[400px]">
+        <div className="relative">
+            <div className="w-16 h-16 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-8 h-8 bg-purple-500/10 rounded-full animate-pulse"></div>
+            </div>
+        </div>
+    </div>
+);
 
 const Admin: React.FC = () => {
     const { user } = useApp();
-    const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'reviews' | 'analytics' | 'referrals' | 'coupons' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signal' | 'settings'>('products');
+    const [activeTab, setActiveTab] = useState<'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'users' | 'settings'>('command-center');
 
     const renderContent = () => {
         switch (activeTab) {
+            case 'command-center':
+                return <EcosystemCommandCenter />;
             case 'products':
                 return <ProductManager />;
             case 'orders':
                 return <OrderManager />;
+            case 'blog':
+                return <BlogManager />;
             case 'reviews':
                 return <ReviewManager />;
             case 'analytics':
                 return <AnalyticsDashboard />;
             case 'referrals':
                 return <ReferralAnalytics />;
-            case 'coupons':
-                return <CouponManager />;
             case 'sgcoin-distribution':
                 return <SGCoinDistribution />;
             case 'instagram':
@@ -45,8 +63,10 @@ const Admin: React.FC = () => {
                 return <CustomInquiryManager />;
             case 'sgcoin-requests':
                 return <SGCoinRequestManager adminWalletAddress={user?.walletAddress || ''} />;
-            case 'signal':
-                return <CoalitionSignalManager />;
+            case 'signals':
+                return <SignalManager />;
+            case 'users':
+                return <UserManager />;
             case 'settings':
                 return (
                     <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
@@ -60,7 +80,9 @@ const Admin: React.FC = () => {
 
     return (
         <AdminLayout activeTab={activeTab} onTabChange={setActiveTab}>
-            {renderContent()}
+            <Suspense fallback={<LoadingSpinner />}>
+                {renderContent()}
+            </Suspense>
         </AdminLayout>
     );
 };

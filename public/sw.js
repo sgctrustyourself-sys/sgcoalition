@@ -1,4 +1,4 @@
-const CACHE_NAME = 'coalition-ai-v1';
+const CACHE_NAME = 'coalition-ai-v3';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
@@ -8,6 +8,9 @@ const URLS_TO_CACHE = [
 
 // Install event - cache core assets
 self.addEventListener('install', (event) => {
+    // Force new service worker to activate immediately
+    self.skipWaiting();
+
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
@@ -17,7 +20,7 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// Fetch event - network first, then cache
+// Fetch event - handle SPA navigation
 self.addEventListener('fetch', (event) => {
     // Skip cross-origin requests
     if (!event.request.url.startsWith(self.location.origin)) {
@@ -29,16 +32,60 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    // Handle Navigation Requests (SPA Support)
+    // If it's a navigation request (user visiting a page), return index.html
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request)
+                .then(response => {
+                    // Check if we received a valid response
+                    if (!response || response.status === 404) {
+                        return caches.match('/index.html');
+                    }
+                    return response;
+                })
+                .catch(() => {
+                    return caches.match('/index.html');
+                })
+        );
+        return;
+    }
+
+    // Stale-while-revalidate strategy for other assets
     event.respondWith(
-        fetch(event.request)
-            .catch(() => {
-                return caches.match(event.request);
+        caches.match(event.request)
+            .then((response) => {
+                // Cache hit - return response
+                if (response) {
+                    return response;
+                }
+                return fetch(event.request).then(
+                    (response) => {
+                        // Check if we received a valid response
+                        if (!response || response.status !== 200 || response.type !== 'basic') {
+                            return response;
+                        }
+
+                        // Clone the response
+                        const responseToCache = response.clone();
+
+                        caches.open(CACHE_NAME)
+                            .then((cache) => {
+                                cache.put(event.request, responseToCache);
+                            });
+
+                        return response;
+                    }
+                );
             })
     );
 });
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
+    // Claim clients immediately so the new SW controls the page
+    event.waitUntil(clients.claim());
+
     const cacheWhitelist = [CACHE_NAME];
     event.waitUntil(
         caches.keys().then((cacheNames) => {

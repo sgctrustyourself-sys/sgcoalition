@@ -16,7 +16,7 @@ Block Explorer: ${POLYGON_BLOCK_EXPLORER}`;
         <TutorialLayout
             title="Switch to Polygon Network"
             stepIndex={2}
-            nextRoute="/tutorial/fund-wallet"
+            nextRoute="/tutorial/fund"
             prevRoute="/tutorial/metamask"
         >
             <div className="space-y-6">
