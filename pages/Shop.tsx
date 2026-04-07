@@ -48,7 +48,25 @@ const Shop = () => {
         );
     };
 
-    const filteredProducts = React.useMemo(() => products
+    const filteredProducts = React.useMemo(() => {
+        const originalOrder = new Map(products.map((product, index) => [product.id, index]));
+        const getNewestTimestamp = (product: typeof products[number]) => {
+            const candidateDates = [
+                product.createdAt,
+                product.releasedAt,
+                product.archivedAt,
+                product.soldAt
+            ];
+
+            for (const value of candidateDates) {
+                const timestamp = Date.parse(value || '');
+                if (Number.isFinite(timestamp)) return timestamp;
+            }
+
+            return 0;
+        };
+
+        return products
         .filter(p => {
             // Search filter
             if (!searchQuery) return true;
@@ -75,8 +93,12 @@ const Shop = () => {
             if (sortOption === 'name-desc') return b.name.localeCompare(a.name);
             // Popularity Proxy: Featured items first
             if (sortOption === 'popularity') return (a.isFeatured === b.isFeatured) ? 0 : a.isFeatured ? -1 : 1;
-            // Newest Proxy: Compare IDs (assuming ascending ID string = newer) and reverse
-            if (sortOption === 'newest') return String(b.id).localeCompare(String(a.id));
+            // Newest sort: use actual added/release timestamps, then preserve original sequence for ties
+            if (sortOption === 'newest') {
+                const timestampDiff = getNewestTimestamp(b) - getNewestTimestamp(a);
+                if (timestampDiff !== 0) return timestampDiff;
+                return (originalOrder.get(a.id) ?? 0) - (originalOrder.get(b.id) ?? 0);
+            }
 
             return 0;
         })
@@ -85,7 +107,8 @@ const Shop = () => {
             const aSold = a.archived && !!a.soldAt ? 1 : 0;
             const bSold = b.archived && !!b.soldAt ? 1 : 0;
             return aSold - bSold;
-        }), [products, searchQuery, category, selectedSizes, priceRange, sortOption]);
+        });
+    }, [products, searchQuery, category, selectedSizes, priceRange, sortOption]);
 
     return (
         <div className="pt-12 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-screen">

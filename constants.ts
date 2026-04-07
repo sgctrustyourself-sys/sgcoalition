@@ -51,6 +51,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'Coalition_Racing_Team_Wallet_1_4',
     name: "Coalition 'Racing Team' Wallet 1/4",
     price: 35,
+    createdAt: '2026-04-07T00:00:00Z',
     images: [
       'https://i.imgur.com/3UUmYQa.jpg',
       'https://i.imgur.com/vRqjRG4.jpg'

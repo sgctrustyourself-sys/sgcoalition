@@ -363,13 +363,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return localProducts;
         }
         try {
-            const { data, error } = await supabase.from('products').select('*');
+            const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
             if (error) throw error;
             if (data) {
                 const mapped = data.map(item => {
                     const savedReviews = safeJsonParse(`coalition_reviews_${item.id}`, []);
                     return {
                         id: item.id, name: item.name, price: Number(item.price), stock: item.stock, category: item.category,
+                        createdAt: item.created_at || item.createdAt,
                         images: resolveLocalImageUrls(item.images || []), description: item.description, isFeatured: item.is_featured,
                         sizes: item.sizes || [], sizeInventory: item.size_inventory || {}, nft: item.nft_metadata,
                         reviews: savedReviews, archived: item.archived || false,
@@ -570,6 +571,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const normalizedSizes = normalizeProductSizeData(p.sizes, p.sizeInventory);
         const normalizedProduct = {
             ...p,
+            createdAt: p.createdAt || new Date().toISOString(),
             isFeatured: !!p.isFeatured,
             sizes: normalizedSizes.sizes,
             sizeInventory: normalizedSizes.sizeInventory,

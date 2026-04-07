@@ -4,6 +4,7 @@ export interface Product {
   price: number;
   images: string[];
   description: string;
+  createdAt?: string; // ISO timestamp for when the product was added
   category: 'apparel' | 'accessory' | 'shirt' | 'wallet' | 'jeans' | 'hat';
   isFeatured?: boolean;
   sizes?: string[];
