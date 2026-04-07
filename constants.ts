@@ -90,6 +90,20 @@ export const INITIAL_PRODUCTS: Product[] = [
     sizeInventory: { 'One Size': 1 }
   },
   {
+    id: 'Coalition_Racing_Team_Wallet_4_4',
+    name: "Coalition 'Racing Team' Wallet 4/4",
+    price: 35,
+    createdAt: '2026-04-07T07:25:00Z',
+    images: [
+      'https://i.imgur.com/EylCpDU.jpg',
+      'https://i.imgur.com/w8dahYm.jpg'
+    ],
+    description: "Final release in the Coalition 'Racing Team' wallet run. Built as a limited 4/4 collectible with custom team graphics and everyday-carry function.",
+    category: 'wallet',
+    sizes: ['One Size'],
+    sizeInventory: { 'One Size': 1 }
+  },
+  {
     id: 'prod_wallet_chrome_hearts',
     name: 'CUSTOM COALITION X CHROME HEARTS WALLET',
     price: 450,

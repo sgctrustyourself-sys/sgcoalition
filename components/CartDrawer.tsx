@@ -6,6 +6,7 @@ import NoRefundsBanner from './NoRefundsBanner';
 import FreeShippingBar from './ui/FreeShippingBar';
 import CartUpsells from './CartUpsells';
 import { SALES_FINAL_ENABLED } from '../constants';
+import { getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 
 const CartDrawer = () => {
     const navigate = useNavigate();
@@ -43,11 +44,14 @@ const CartDrawer = () => {
                                 <div className="flex-1">
                                     <div className="flex justify-between">
                                         <h3 className="font-medium text-sm text-white">{item.name}</h3>
-                                        <p className="font-bold text-sm text-white">${item.price}</p>
+                                        <p className="font-bold text-sm text-white">${getCartItemLineTotal(item).toFixed(2)}</p>
                                     </div>
                                     <p className="text-xs text-gray-400 mt-1">Size: {item.selectedSize}</p>
+                                    {item.keychainClipOn && (
+                                        <p className="text-xs text-gray-400 mt-1">{WALLET_KEYCHAIN_CLIP_LABEL} (+$10)</p>
+                                    )}
                                     <div className="flex items-center justify-between mt-4">
-                                        <span className="text-xs text-gray-400">Qty: {item.quantity}</span>
+                                        <span className="text-xs text-gray-400">Qty: {item.quantity} • ${getCartItemUnitPrice(item).toFixed(2)} each</span>
                                         <button onClick={() => removeFromCart(item.cartId)} className="text-red-400 hover:text-red-300" aria-label="Remove item">
                                             <Trash2 className="w-4 h-4" />
                                         </button>

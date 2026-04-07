@@ -8,6 +8,7 @@ import { useToast } from './ToastContext';
 import { ensureSubscriberGiveawayEntries, pickWeightedGiveawayWinners } from '../utils/giveawayUtils';
 import { resolveLocalImageUrls } from '../utils/localImageAssets';
 import { normalizeProductSizeData } from '../utils/productSizes';
+import { getCartItemLineTotal, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
 
 interface AppState {
     products: Product[];
@@ -23,7 +24,7 @@ interface AppState {
     addProduct: (p: Product) => Promise<void>;
     updateProduct: (p: Product) => Promise<void>;
     deleteProduct: (id: string) => Promise<void>;
-    addToCart: (p: Product, size: string) => void;
+    addToCart: (p: Product, size: string, options?: { keychainClipOn?: boolean }) => void;
     removeFromCart: (cartId: string) => void;
     clearCart: () => void;
     toggleFavorite: (pid: string) => void;
@@ -502,7 +503,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const items = Array.isArray(o.items) ? o.items : Array.isArray(o.line_items) ? o.line_items : [];
             const normalizedItems = items.map((item: any, index: number) => {
                 const quantity = Math.max(1, Number(item.quantity || item.qty || 1));
-                const price = Number(item.price || item.unit_price || 0);
+                const keychainClipOn = Boolean(item.keychainClipOn ?? item.keychain_clip_on);
+                const basePrice = Number(item.basePrice || item.base_price || item.unit_price || item.price || 0);
+                const addOnPrice = Number(item.addOnPrice || item.add_on_price || 0) || (keychainClipOn ? WALLET_KEYCHAIN_CLIP_PRICE : 0);
+                const price = Number(item.price || item.unit_price || (basePrice + addOnPrice) || 0);
                 const total = Number(item.total || item.line_total || price * quantity || 0);
 
                 return {
@@ -513,6 +517,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     quantity,
                     price,
                     total,
+                    basePrice,
+                    addOnPrice,
+                    keychainClipOn,
+                    addOnLabel: item.addOnLabel || item.add_on_label || (keychainClipOn ? WALLET_KEYCHAIN_CLIP_LABEL : undefined),
                     name: item.name || item.productName || 'Product',
                     image: item.image || item.productImage || item.thumbnail || '',
                     size: item.size || item.selectedSize || 'One Size'
@@ -659,11 +667,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
-    const addToCart = (product: Product, size: string) => {
+    const addToCart = (product: Product, size: string, options?: { keychainClipOn?: boolean }) => {
         setCart(prev => {
-            const existing = prev.find(item => item.id === product.id && item.selectedSize === size);
+            const keychainClipOn = Boolean(options?.keychainClipOn && product.category === 'wallet');
+            const existing = prev.find(item =>
+                item.id === product.id &&
+                item.selectedSize === size &&
+                Boolean(item.keychainClipOn) === keychainClipOn
+            );
             if (existing) return prev.map(item => item.cartId === existing.cartId ? { ...item, quantity: item.quantity + 1 } : item);
-            return [...prev, { ...product, selectedSize: size, quantity: 1, cartId: Math.random().toString(36).substr(2, 9) }];
+            return [...prev, {
+                ...product,
+                selectedSize: size,
+                quantity: 1,
+                cartId: Math.random().toString(36).substr(2, 9),
+                keychainClipOn
+            }];
         });
         setCartOpen(true);
     };
@@ -762,7 +781,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSections(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
     };
 
-    const cartTotal = () => cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const cartTotal = () => cart.reduce((sum, item) => sum + getCartItemLineTotal(item), 0);
     const calculateReward = (total: number) => Math.floor(total * COIN_REWARD_RATE);
 
     const addOrder = async (order: Order) => {

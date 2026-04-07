@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Package, Hexagon, Home, Loader } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 
 const OrderSuccess = () => {
     const [searchParams] = useSearchParams();
@@ -100,9 +101,10 @@ const OrderSuccess = () => {
                     items: cart.map(item => ({
                         id: item.id,
                         name: item.name,
-                        price: item.price,
+                        price: getCartItemUnitPrice(item),
                         quantity: item.quantity,
                         size: item.selectedSize,
+                        addOnLabel: item.keychainClipOn ? WALLET_KEYCHAIN_CLIP_LABEL : undefined,
                         image: item.images[0],
                     })),
                     total,
@@ -254,10 +256,14 @@ const OrderSuccess = () => {
                         <div className="space-y-3">
                             {orderDetails.items.map((item: any, index: number) => (
                                 <div key={index} className="flex items-center gap-3 text-left">
-                                    <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded bg-gray-100" />
+                                    <img src={item.image || item.productImage} alt={item.name || item.productName} className="w-16 h-16 object-cover rounded bg-gray-100" />
                                     <div className="flex-1">
-                                        <p className="font-medium text-sm">{item.name}</p>
-                                        <p className="text-xs text-gray-500">Size: {item.size} • Qty: {item.quantity}</p>
+                                        <p className="font-medium text-sm">{item.name || item.productName}</p>
+                                        <p className="text-xs text-gray-500">
+                                            Size: {item.size || item.selectedSize}
+                                            {item.addOnLabel ? ` • ${item.addOnLabel}` : ''}
+                                            {' • '}Qty: {item.quantity}
+                                        </p>
                                     </div>
                                     <p className="font-bold">${item.price}</p>
                                 </div>

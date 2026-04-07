@@ -35,6 +35,7 @@ export interface CartItem extends Product {
   cartId: string;
   selectedSize: string;
   quantity: number;
+  keychainClipOn?: boolean;
 }
 
 export interface UserProfile {
@@ -136,6 +137,10 @@ export interface OrderItem {
   quantity: number;
   price: number;
   total: number;
+  basePrice?: number;
+  addOnPrice?: number;
+  keychainClipOn?: boolean;
+  addOnLabel?: string;
 }
 
 export interface Order {

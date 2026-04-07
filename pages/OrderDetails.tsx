@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { ArrowLeft, Calendar, Package, CreditCard, MapPin, Truck, Clock3, AlertTriangle, ShoppingBag } from 'lucide-react';
+import { getOrderItemAddOnLabel } from '../utils/walletAddOns';
 
 const OrderDetails = () => {
     const { orderId } = useParams<{ orderId: string }>();
@@ -139,6 +140,7 @@ const OrderDetails = () => {
                             <div className="space-y-3">
                                 {order.items.map((item) => {
                                     const product = getProduct(item.productId);
+                                    const addOnLabel = getOrderItemAddOnLabel(item);
 
                                     return (
                                         <div key={`${item.productId}-${item.selectedSize}`} className="flex items-center gap-4 rounded-2xl border border-white/10 bg-black/30 p-3">
@@ -154,7 +156,9 @@ const OrderDetails = () => {
                                                     {item.productName || product?.name || 'Product'}
                                                 </h3>
                                                 <p className="mt-1 text-xs text-gray-400">
-                                                    Size: {item.selectedSize} • Qty: {item.quantity}
+                                                    Size: {item.selectedSize}
+                                                    {addOnLabel ? ` • ${addOnLabel}` : ''}
+                                                    {' • '}Qty: {item.quantity}
                                                 </p>
                                             </div>
                                             <div className="shrink-0 text-right">

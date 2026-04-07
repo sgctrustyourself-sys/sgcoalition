@@ -89,10 +89,10 @@ export default async function handler(req: any, res: any) {
                         currency: 'usd',
                         product_data: {
                             name: item.name,
-                            description: `Size: ${item.selectedSize}`,
+                            description: `Size: ${item.selectedSize}${item.keychainClipOn ? ' • Keychain clip-on' : ''}`,
                             images: itemImages,
                         },
-                        unit_amount: Math.round(item.price * 100), // Convert to cents
+                        unit_amount: Math.round((item.price + (item.keychainClipOn ? 10 : 0)) * 100), // Convert to cents
                     },
                     quantity: item.quantity,
                 };

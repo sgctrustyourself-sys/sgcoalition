@@ -4,12 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Trash2, ArrowRight } from 'lucide-react';
 import { COIN_REWARD_RATE } from '../constants';
+import { getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 
 export const Cart: React.FC = () => {
     const navigate = useNavigate();
     const { cart, removeFromCart, clearCart, user } = useApp();
 
-    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const total = cart.reduce((sum, item) => sum + getCartItemLineTotal(item), 0);
     const potentialCoins = Math.floor(total * COIN_REWARD_RATE);
 
     if (cart.length === 0) {
@@ -23,17 +24,21 @@ export const Cart: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
                 <div className="lg:col-span-8 space-y-8">
                     {cart.map((item) => (
-                        <div key={`${item.id}-${item.selectedSize}`} className="flex gap-6 py-6 border-b border-gray-100">
+                        <div key={item.cartId} className="flex gap-6 py-6 border-b border-gray-100">
                             <div className="w-24 h-32 bg-gray-100 flex-shrink-0">
                                 <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover" />
                             </div>
                             <div className="flex-1">
                                 <div className="flex justify-between">
                                     <h3 className="text-lg font-medium">{item.name}</h3>
-                                    <p className="font-medium">${item.price}</p>
+                                    <p className="font-medium">${getCartItemLineTotal(item).toFixed(2)}</p>
                                 </div>
                                 <p className="text-gray-500 mt-1">Size: {item.selectedSize}</p>
+                                {item.keychainClipOn && (
+                                    <p className="text-gray-500">{WALLET_KEYCHAIN_CLIP_LABEL} (+$10)</p>
+                                )}
                                 <p className="text-gray-500">Qty: {item.quantity}</p>
+                                <p className="text-gray-500 text-sm">Unit Price: ${getCartItemUnitPrice(item).toFixed(2)}</p>
                                 <button
                                     onClick={() => removeFromCart(item.cartId)}
                                     className="text-sm text-red-500 mt-4 flex items-center hover:underline"

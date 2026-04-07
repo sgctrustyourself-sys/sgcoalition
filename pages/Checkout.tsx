@@ -8,6 +8,7 @@ import FloatingHelpButton from '../components/FloatingHelpButton';
 import { calculateCartDiscount, isSGCoinDiscountEnabled, getDiscountPercentageText } from '../utils/pricing';
 import { trackReferralEvent } from '../utils/referralAnalytics';
 import { validateCouponCode, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
+import { getCartItemAddOnPrice, getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 
 const reportErrorToAdmin = async (error: string, context: string, metadata: any = {}) => {
     try {
@@ -236,8 +237,12 @@ const Checkout: React.FC = () => {
                     productImage: item.images[0],
                     selectedSize: item.selectedSize || 'One Size',
                     quantity: item.quantity,
-                    price: item.price,
-                    total: item.price * item.quantity
+                    price: getCartItemUnitPrice(item),
+                    basePrice: item.price,
+                    addOnPrice: getCartItemAddOnPrice(item),
+                    keychainClipOn: Boolean(item.keychainClipOn),
+                    addOnLabel: item.keychainClipOn ? WALLET_KEYCHAIN_CLIP_LABEL : undefined,
+                    total: getCartItemLineTotal(item)
                 })),
                 subtotal,
                 tax,
@@ -700,7 +705,7 @@ const Checkout: React.FC = () => {
                                                                             quantity: item.quantity.toString(),
                                                                             unit_amount: {
                                                                                 currency_code: 'USD',
-                                                                                value: item.price.toFixed(2)
+                                                                                value: getCartItemUnitPrice(item).toFixed(2)
                                                                             }
                                                                         }))
                                                                     }]
@@ -824,17 +829,20 @@ const Checkout: React.FC = () => {
                             <h3 className="font-bold mb-6 text-white uppercase text-sm tracking-wide">Order Summary</h3>
                             <div className="space-y-4 mb-6">
                                 {cart.map((item) => (
-                                    <div key={`${item.id}-${item.selectedSize}`} className="flex gap-4">
+                                    <div key={item.cartId} className="flex gap-4">
                                         <div className="w-16 h-20 bg-gray-800 rounded overflow-hidden flex-shrink-0">
                                             <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover" />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <h4 className="font-medium text-sm text-white truncate">{item.name}</h4>
                                             <p className="text-xs text-gray-400">Size: {item.selectedSize}</p>
+                                            {item.keychainClipOn && (
+                                                <p className="text-xs text-gray-400">{WALLET_KEYCHAIN_CLIP_LABEL} (+$10)</p>
+                                            )}
                                             <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
                                         </div>
                                         <div className="text-sm font-medium text-white">
-                                            ${(item.price * item.quantity).toFixed(2)}
+                                            ${getCartItemLineTotal(item).toFixed(2)}
                                         </div>
                                     </div>
                                 ))}

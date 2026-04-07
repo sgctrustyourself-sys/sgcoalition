@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Share2, Shield, Plus, Trash2, X, Upload, ExternalLink, Smartphone, Scan, Heart, MessageSquare, ChevronLeft, ChevronRight, GripVertical, Star } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -11,6 +11,8 @@ import { checkNftOwnership, switchToPolygon } from '../services/web3Service';
 import { uploadProductImage } from '../services/productUpload';
 import { moveArrayItem, remapIndexAfterMove } from '../utils/arrayMove';
 import { getProductEditableSizes, normalizeProductSizeData } from '../utils/productSizes';
+import { getReferralStats, generateProductReferralLink } from '../utils/referralSystem';
+import { isWalletProduct, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
 import { Lock, Unlock, Loader } from 'lucide-react';
 
 const ProductDetails = () => {
@@ -21,6 +23,7 @@ const ProductDetails = () => {
     const [product, setProduct] = useState<Product | undefined>(undefined);
     const [selectedSize, setSelectedSize] = useState<string>('');
     const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const [includeKeychainClipOn, setIncludeKeychainClipOn] = useState(false);
 
     // Admin Edit State
     const [isEditing, setIsEditing] = useState(false);
@@ -100,6 +103,7 @@ const ProductDetails = () => {
         if (found) {
             setProduct(found);
             setSelectedSize(found.sizes?.[0] || '');
+            setIncludeKeychainClipOn(false);
             setEditForm(found);
             setDraggedImageIndex(null);
             setDragOverImageIndex(null);
@@ -111,6 +115,9 @@ const ProductDetails = () => {
     if (!product) return null;
 
     const isFav = user?.favorites.includes(product.id);
+    const walletProduct = isWalletProduct(product);
+    const resolvedSize = selectedSize || (product.sizes?.length === 1 ? product.sizes[0] : '');
+    const displayPrice = product.price + (walletProduct && includeKeychainClipOn ? WALLET_KEYCHAIN_CLIP_PRICE : 0);
     const editableSizes = getProductEditableSizes(editForm.sizes, editForm.sizeInventory);
 
     const handleSave = () => {
@@ -540,7 +547,14 @@ const ProductDetails = () => {
                                             </button>
                                         )}
                                     </div>
-                                    <p className="text-3xl text-brand-accent font-bold font-mono tracking-tighter">${product.price}</p>
+                                    <div className="space-y-1">
+                                        <p className="text-3xl text-brand-accent font-bold font-mono tracking-tighter">${displayPrice}</p>
+                                        {walletProduct && includeKeychainClipOn && (
+                                            <p className="text-xs uppercase tracking-[0.2em] text-gray-400">
+                                                Base ${product.price} + {WALLET_KEYCHAIN_CLIP_LABEL} ${WALLET_KEYCHAIN_CLIP_PRICE}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="pt-8 border-t border-white/10">
@@ -593,6 +607,42 @@ const ProductDetails = () => {
                                     )}
                                 </div>
 
+                                {walletProduct && !product.archived && (
+                                    <div className="pt-8 space-y-4 border-t border-white/10">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">Optional Add-On</h3>
+                                            <span className="text-xs font-bold uppercase tracking-widest text-brand-accent">+${WALLET_KEYCHAIN_CLIP_PRICE}</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIncludeKeychainClipOn(prev => !prev)}
+                                            className={`w-full border p-4 text-left transition-all ${
+                                                includeKeychainClipOn
+                                                    ? 'border-brand-accent bg-brand-accent/10'
+                                                    : 'border-white/10 bg-white/5 hover:border-white/30 hover:bg-white/10'
+                                            }`}
+                                        >
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div>
+                                                    <p className="text-sm font-bold uppercase tracking-widest text-white">
+                                                        Add {WALLET_KEYCHAIN_CLIP_LABEL}
+                                                    </p>
+                                                    <p className="mt-2 text-sm leading-relaxed text-gray-400">
+                                                        Add a hardware clip-on so the wallet can hang from keys, belt loops, or everyday carry setups.
+                                                    </p>
+                                                </div>
+                                                <span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ${
+                                                    includeKeychainClipOn
+                                                        ? 'border-brand-accent/40 bg-brand-accent text-white'
+                                                        : 'border-white/10 bg-black/40 text-gray-400'
+                                                }`}>
+                                                    {includeKeychainClipOn ? 'Added' : 'Available'}
+                                                </span>
+                                            </div>
+                                        </button>
+                                    </div>
+                                )}
+
                                 <div className="pt-10 flex flex-col gap-4">
                                     {product.archived && product.soldAt ? (
                                         /* Sold / Archived State */
@@ -626,11 +676,11 @@ const ProductDetails = () => {
                                     ) : (
                                         <div className="flex gap-4">
                                             <button
-                                                onClick={() => addToCart(product, selectedSize || (product.sizes?.length === 1 ? product.sizes[0] : ''))}
+                                                onClick={() => addToCart(product, resolvedSize, { keychainClipOn: includeKeychainClipOn })}
                                                 disabled={(!selectedSize && (product.sizes?.length || 0) > 1) || Object.values(product.sizeInventory || {}).reduce((a, b) => a + b, 0) === 0}
                                                 className="flex-1 bg-white text-black py-4 px-8 flex items-center justify-center text-sm font-bold uppercase tracking-[0.2em] hover:bg-brand-accent hover:text-white transition-all focus:outline-none focus:ring-2 focus:ring-brand-accent focus:ring-offset-2 focus:ring-offset-black disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed box-glow"
                                             >
-                                                {Object.values(product.sizeInventory || {}).reduce((a, b) => a + b, 0) === 0 ? 'SOLD OUT' : (selectedSize || (product.sizes?.length === 1) ? 'Add to bag' : 'Select a size')}
+                                                {Object.values(product.sizeInventory || {}).reduce((a, b) => a + b, 0) === 0 ? 'SOLD OUT' : (selectedSize || (product.sizes?.length === 1) ? `Add to bag${walletProduct && includeKeychainClipOn ? ' + clip-on' : ''}` : 'Select a size')}
                                             </button>
 
                                             <button

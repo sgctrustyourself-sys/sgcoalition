@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { Package, Calendar, ChevronRight, Clock3, CheckCircle2, Truck, CircleX, RotateCcw, DollarSign, ShoppingBag } from 'lucide-react';
 import { OrderStatus } from '../types';
+import { getOrderItemAddOnLabel } from '../utils/walletAddOns';
 
 const FILTERS = ['all', 'pending', 'processing', 'paid', 'shipped', 'delivered', 'cancelled', 'failed', 'refunded'] as const;
 
@@ -195,7 +196,9 @@ const OrderHistory = () => {
                                                     {item.productName || topProduct?.name || 'Product'}
                                                 </h4>
                                                 <p className="text-xs text-gray-400">
-                                                    Size: {item.selectedSize} • Qty: {item.quantity}
+                                                    Size: {item.selectedSize}
+                                                    {getOrderItemAddOnLabel(item) ? ` • ${getOrderItemAddOnLabel(item)}` : ''}
+                                                    {' • '}Qty: {item.quantity}
                                                 </p>
                                             </div>
                                             <p className="shrink-0 font-bold text-white">
