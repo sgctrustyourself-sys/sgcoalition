@@ -13,6 +13,9 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     const isFav = user?.favorites.includes(product.id);
     const isSold = product.archived && !!product.soldAt;
     const [showRequestModal, setShowRequestModal] = useState(false);
+    const primaryImage = product.images && product.images.length > 0 ? product.images[0] : '/images/logo.png';
+    const hoverImage = product.images && product.images.length > 1 ? product.images[1] : primaryImage;
+    const hasHoverImage = hoverImage !== primaryImage;
 
     // Calculate urgency metrics
     const stockUrgency = getStockUrgency(product);
@@ -27,11 +30,21 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
             <div className={`group relative bg-transparent ${isSold ? 'opacity-60' : ''}`}>
                 <div className="aspect-[4/5] overflow-hidden bg-gray-900 relative border border-white/5">
                     <img
-                        src={product.images && product.images.length > 0 ? product.images[0] : '/images/logo.png'}
+                        src={primaryImage}
                         alt={product.name}
                         loading="lazy"
-                        className="h-full w-full object-cover object-center group-hover:scale-105 group-hover:grayscale transition duration-700 ease-in-out"
+                        className={`absolute inset-0 h-full w-full object-cover object-center transition duration-700 ease-in-out ${
+                            hasHoverImage ? 'opacity-100 group-hover:opacity-0' : 'group-hover:scale-105 group-hover:grayscale'
+                        }`}
                     />
+                    {hasHoverImage && (
+                        <img
+                            src={hoverImage}
+                            alt={`${product.name} alternate view`}
+                            loading="lazy"
+                            className="absolute inset-0 h-full w-full object-cover object-center opacity-0 group-hover:opacity-100 group-hover:scale-105 transition duration-700 ease-in-out"
+                        />
+                    )}
                     {isSold && (
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
                             <span className="bg-black border border-white/30 text-white text-[10px] font-bold px-4 py-1.5 uppercase tracking-widest">
