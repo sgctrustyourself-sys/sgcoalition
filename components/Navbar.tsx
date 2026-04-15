@@ -40,29 +40,29 @@ const Navbar = () => {
                         </div>
 
                         {/* Desktop Nav */}
-                        <div className="hidden md:flex items-center space-x-10">
-                            <Link to="/" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Home</Link>
-                            <Link to="/shop" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Shop</Link>
-                            <Link to="/ecosystem" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Ecosystem</Link>
-                            <Link to="/about" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Story</Link>
-
-                            {/* Universe Dropdown */}
+                        <div className="hidden md:flex items-center space-x-8">
+                            <Link to="/" className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Home</Link>
+                            <Link to="/shop" className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Shop</Link>
+                            <Link to="/blog" className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Blog</Link>
+                            <Link to="/membership" className="text-[10px] font-bold uppercase tracking-widest text-purple-400 hover:text-purple-300 hover:text-glow transition-all flex items-center gap-1"><Star className="w-3 h-3" />VIP</Link>
+                            
+                            {/* Resources Dropdown */}
                             <div className="relative group">
-                                <button className="text-xs font-bold uppercase tracking-widest text-purple-400 hover:text-purple-300 hover:text-glow transition-all flex items-center gap-1">
-                                    <Star className="w-3 h-3" /> Universe
+                                <button className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all flex items-center gap-1">
+                                    Resources
                                 </button>
                                 <div className="absolute top-full left-0 mt-2 w-48 bg-black/90 backdrop-blur-md border border-white/10 rounded-lg shadow-xl py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-left">
-                                    <Link to="/tutorial" className="block px-4 py-3 text-xs font-bold uppercase tracking-widest text-purple-400 hover:bg-white/5 hover:text-purple-300 transition-colors">
-                                        SGCoin Setup
-                                    </Link>
-                                    <Link to="/buy-sgcoin" className="block px-4 py-3 text-xs font-bold uppercase tracking-widest text-brand-accent hover:bg-white/5 hover:text-blue-300 transition-colors">
-                                        Buy SGCoin
-                                    </Link>
+                                    <Link to="/help" className="block px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:bg-white/5 hover:text-white transition-colors">Help Center</Link>
+                                    <Link to="/migrate" className="block px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:bg-white/5 hover:text-white transition-colors">Migrate to V2</Link>
+                                    <Link to="/guide" className="block px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:bg-white/5 hover:text-white transition-colors">Guide</Link>
+                                    <Link to="/inquire" className="block px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:bg-white/5 hover:text-white transition-colors">Custom Inquiry</Link>
+                                    <Link to="/order-history" className="block px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:bg-white/5 hover:text-white transition-colors">Recently Ordered</Link>
                                 </div>
                             </div>
 
-                            <Link to="/help" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Help</Link>
-                            {user && <Link to="/profile" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Profile</Link>}
+                            <Link to="/ecosystem" className="text-[10px] font-bold uppercase tracking-widest text-brand-accent hover:text-blue-300 hover:text-glow transition-all">Ecosystem</Link>
+
+                            {user && <Link to="/profile" className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:text-glow transition-all">Profile</Link>}
 
                             {/* Admin Dashboard Link (only show when in admin mode) */}
                             {isAdminMode && (
@@ -86,7 +86,7 @@ const Navbar = () => {
 
                             {!user ? (
                                 <div className="flex items-center pl-4 border-l border-white/10">
-                                    <Link to="/login" className="text-xs font-bold uppercase tracking-widest text-white hover:text-glow transition-all">
+                                    <Link to="/login" className="text-[10px] font-bold uppercase tracking-widest text-white hover:text-glow transition-all">
                                         Login
                                     </Link>
                                 </div>
@@ -96,7 +96,7 @@ const Navbar = () => {
                                         <Hexagon className="w-4 h-4 mr-2 fill-current" />
                                         <span className="text-sm font-bold font-mono">{user.sgCoinBalance.toLocaleString()}</span>
                                     </div>
-                                    <button onClick={logout} className="text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-red-500 transition-colors" title="Logout">Logout</button>
+                                    <button onClick={logout} className="text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-red-500 transition-colors" title="Logout">Logout</button>
                                 </div>
                             )}
 

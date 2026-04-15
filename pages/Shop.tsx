@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Filter, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
@@ -82,12 +83,12 @@ const Shop = () => {
                             </p>
                         </div>
                         <div className="flex flex-col sm:flex-row items-center gap-3">
-                            <a
-                                href="#/membership"
+                            <Link
+                                to="/membership"
                                 className="px-6 py-3 bg-white text-black font-bold text-sm uppercase tracking-widest hover:bg-gray-200 transition-all whitespace-nowrap"
                             >
                                 Learn More
-                            </a>
+                            </Link>
                             <button
                                 onClick={dismissVIPBanner}
                                 className="text-gray-400 hover:text-white transition-colors text-sm whitespace-nowrap"

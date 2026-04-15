@@ -7,7 +7,13 @@
     "lint": "eslint . --ext ts,tsx --max-warnings 0",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:staging": "bash deploy.sh staging",
+    "deploy:prod": "bash deploy.sh prod",
+    "deploy:prod:minor": "bash deploy.sh prod minor",
+    "deploy:prod:major": "bash deploy.sh prod major",
+    "rollback": "bash rollback.sh",
+    "rollback:list": "bash rollback.sh list"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

@@ -203,7 +203,7 @@ const Home = () => {
                                     </p>
                                     <div className="flex flex-col sm:flex-row gap-4 pt-4">
                                         <Link
-                                            to="/custom-inquiry"
+                                            to="/inquire"
                                             className="inline-flex items-center justify-center bg-white text-black px-8 py-4 rounded-lg font-bold uppercase tracking-wider hover:bg-gray-200 transition-all hover:scale-105 shadow-lg"
                                         >
                                             Request Custom Design

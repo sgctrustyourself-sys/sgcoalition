@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Instagram, MessageCircle, Twitter } from 'lucide-react';
+import { Instagram, MessageCircle } from 'lucide-react';
 import Newsletter from './Newsletter';
 
 const Footer = () => {
@@ -20,7 +20,7 @@ const Footer = () => {
                         <h4 className="font-bold uppercase mb-3 text-xs tracking-[0.2em] text-gray-400">Newsletter</h4>
                         <Newsletter />
                     </div>
-                    <p className="text-gray-600 text-xs mt-6">© 2024 Coalition Brand. v1.2</p>
+                    <p className="text-gray-600 text-xs mt-6">© {new Date().getFullYear()} Coalition Brand. v1.2</p>
                 </div>
 
                 <div>
@@ -32,6 +32,8 @@ const Footer = () => {
                         <li><Link to="/help" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Help</Link></li>
                         <li><Link to="/archive" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Archive</Link></li>
                         <li><a href="mailto:support@coalitionbrand.com" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Contact Us</a></li>
+                        <li><Link to="/privacy" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Privacy Policy</Link></li>
+                        <li><Link to="/terms" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Terms of Service</Link></li>
                     </ul>
                 </div>
                 <div>

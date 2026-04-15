@@ -140,7 +140,7 @@ const App = () => {
                     <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/update-password" element={<UpdatePassword />} />
                     <Route path="/giveaway/:id" element={<GiveawayEntry />} />
-                    <Route path="/custom-inquiry" element={<CustomInquiry />} />
+                    <Route path="/inquire" element={<CustomInquiry />} />
                     <Route path="/buy-sgcoin" element={<BuySGCoin />} />
                     <Route path="/membership" element={<Membership />} />
                     <Route path="/help" element={<Help />} />
