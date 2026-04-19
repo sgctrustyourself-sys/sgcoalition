@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Youtube, Instagram, Upload, CheckCircle, AlertCircle, Loader2, Info } from 'lucide-react';
+import { Upload, CheckCircle, AlertCircle, Loader2, Info } from 'lucide-react';
 import { uploadScreenshot, validateImage } from '../../services/giveawayUpload';
 import { supabase } from '../../services/supabase';
 import { YoutubeGiveawayEntry } from '../../types';

@@ -44,7 +44,7 @@ const YoutubeGiveaway = () => {
             document.querySelectorAll('[id*="gleam"], [class*="gleam"]').forEach(el => el.remove());
         };
         cleanup();
-        const interval = setInterval(cleanup, 2000); // Periodic check for injected scripts
+        const interval = setInterval(cleanup, 2000); 
         return () => clearInterval(interval);
     }, []);
 
@@ -89,7 +89,6 @@ const YoutubeGiveaway = () => {
                 </button>
 
                 <div className="grid lg:grid-cols-2 gap-16 items-start mb-20">
-                    {/* Visual / Prize Section */}
                     <div className="space-y-8">
                         <div className="flex items-center gap-3">
                             <div className="h-[2px] w-8 bg-white/20" />
@@ -131,7 +130,6 @@ const YoutubeGiveaway = () => {
                         )}
                     </div>
 
-                    {/* Rules & Points Section */}
                     <div className="space-y-12 py-4">
                         <section>
                             <h2 className="font-display text-xs font-black uppercase tracking-[0.4em] text-white/40 mb-8 flex items-center gap-4">
@@ -173,14 +171,13 @@ const YoutubeGiveaway = () => {
                                 <Youtube className="w-20 h-20 text-white" />
                             </div>
                             <h3 className="font-black uppercase text-sm mb-2 font-display italic text-glow">Strategy Note</h3>
-                            <p className="text-[10px] text-gray-500 leading-relaxed uppercase font-bold tracking-widest">
-                                Proof screenshots are verified manually. Multiple comments on older videos stack entries up to 10 points. 
+                            <p className="text-[10px] text-gray-500 leading-relaxed uppercase font-bold tracking-widest text-balance">
+                                Proof screenshots are verified manually. Multiple engagement on older videos stack entries up to 10 points. 
                             </p>
                         </section>
                     </div>
                 </div>
 
-                {/* ACCESS PORTAL EMBED AREA */}
                 <div id="enter" className="mb-24 pt-12 border-t border-white/5">
                     <div className="flex flex-col items-center mb-12 text-center">
                         <h2 className="font-display text-4xl font-black uppercase tracking-[0.05em] mb-4 italic">Access Portal</h2>
@@ -198,7 +195,6 @@ const YoutubeGiveaway = () => {
                     </div>
                 </div>
 
-                {/* THE VISION / BRAND GALLERY */}
                 <div className="mb-24">
                     <h2 className="font-display text-xs font-black uppercase tracking-[0.4em] text-white/40 mb-12 flex items-center gap-4 text-center justify-center">
                         <div className="h-px w-24 bg-white/10" />
