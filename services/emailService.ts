@@ -123,6 +123,66 @@ export async function sendRejectionEmail(
 }
 
 /**
+ * Send giveaway entry validation confirmation
+ */
+export async function sendGiveawayValidationEmail(
+    email: string,
+    name: string,
+    giveawayTitle: string
+): Promise<void> {
+    const subject = `Confirmed! You're in the Drawing: ${giveawayTitle} 🎉`;
+
+    const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                .container { max-width: 600px; margin: 0 auto; background: #000; color: #fff; }
+                .header { background: #111; padding: 40px; text-align: center; border-bottom: 1px solid #333; }
+                .content { padding: 40px; background: #000; }
+                .status-box { border: 1px solid rgba(255,255,255,0.1); padding: 25px; border-radius: 12px; margin: 30px 0; background: rgba(255,255,255,0.03); text-align: center; }
+                .highlight { color: #fff; font-weight: 800; font-size: 24px; letter-spacing: -0.02em; text-transform: uppercase; }
+                .footer { text-align: center; padding: 30px; color: #666; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; }
+                .button { display: inline-block; background: #fff; color: #000; padding: 15px 35px; text-decoration: none; border-radius: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 25px 0; font-size: 14px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <img src="https://sgcoalition.xyz/logo-white.png" alt="Coalition" style="height: 30px; margin-bottom: 20px;">
+                    <h1 style="font-family: 'Helvetica', sans-serif; font-weight: 900; margin: 0; letter-spacing: -2px; font-style: italic;">ACCESS CONFIRMED</h1>
+                </div>
+                <div class="content">
+                    <p style="color: #888; text-transform: uppercase; font-weight: bold; font-size: 12px; letter-spacing: 2px;">Attention: ${name}</p>
+                    <p>Your proof of entry has been reviewed and manually verified by the Coalition team. You are officially entered into the drawing for:</p>
+                    
+                    <div class="status-box">
+                        <span class="highlight">${giveawayTitle}</span>
+                        <div style="margin-top: 10px; color: #4ade80; font-weight: 900; font-size: 12px; letter-spacing: 4px;">ENTRY STATUS: VERIFIED</div>
+                    </div>
+                    
+                    <p>We're tracking your engagement. The winner will be selected via weighted raffle and announced on the official SGCoalition YouTube channel.</p>
+                    
+                    <div style="text-align: center;">
+                        <a href="https://sgcoalition.xyz/#/ecosystem" class="button">Visit the Ecosystem</a>
+                    </div>
+                    
+                    <p style="color: #666; font-size: 14px; line-height: 1.8;">Stay focused. Trust Yourself.</p>
+                </div>
+                <div class="footer">
+                    <p>Coalition Access Protocol • Private Secure Cloud</p>
+                    <p>sgcoalition.xyz</p>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+
+    await sendEmail({ to: email, subject, html });
+}
+
+/**
  * Send email using Resend API
  */
 async function sendEmail(data: EmailData): Promise<void> {

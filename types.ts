@@ -234,6 +234,7 @@ export interface YoutubeGiveawayEntry {
   screenshotBonusUrls?: string[];
   claimedPoints: number;
   verified: boolean;
+  emailSent?: boolean;
   createdAt: number;
 }
 
