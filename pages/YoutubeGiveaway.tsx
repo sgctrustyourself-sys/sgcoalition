@@ -1,23 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Youtube, Instagram, Share2, MessageCircle, Heart, Bell } from 'lucide-react';
+import { ArrowLeft, Youtube, Instagram, MessageCircle, Bell, CheckCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Product } from '../types';
-
-const YoutubeGiveaway = () => {
-    const navigate = useNavigate();
-    const { products } = useApp();
-    const [prizeProduct, setPrizeProduct] = useState<Product | null>(null);
-
-    // Look up the actual prize product (Coalition NF-Tee)
-    useEffect(() => {
-        if (products && products.length > 0) {
-            const tee = products.find(p => p.id === 'prod_nft_001');
-            if (tee) setPrizeProduct(tee);
-        }
-    }, [products]);
-
 import YoutubeGiveawayForm from '../components/giveaway/YoutubeGiveawayForm';
+
+// Helper component for point list
+const PointAction = ({ icon, title, points, desc }: { icon: React.ReactNode, title: string, points: string, desc: string }) => (
+    <div className="flex items-center justify-between group cursor-default">
+        <div className="flex gap-5 items-center">
+            <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:text-black transition-all duration-500">
+                {icon}
+            </div>
+            <div>
+                <h4 className="font-black uppercase text-sm tracking-tight">{title}</h4>
+                <p className="text-gray-500 text-[11px] font-bold uppercase tracking-wider">{desc}</p>
+            </div>
+        </div>
+        <div className="flex items-center gap-4">
+            <div className="h-px w-8 bg-white/5 group-hover:w-12 transition-all duration-500" />
+            <span className="font-mono font-bold text-white text-sm">{points}</span>
+        </div>
+    </div>
+);
 
 const YoutubeGiveaway = () => {
     const navigate = useNavigate();
@@ -33,6 +38,16 @@ const YoutubeGiveaway = () => {
         }
     }, [products]);
 
+    // Force Purge Gleam Script Remnants (just in case)
+    useEffect(() => {
+        const cleanup = () => {
+            document.querySelectorAll('[id*="gleam"], [class*="gleam"]').forEach(el => el.remove());
+        };
+        cleanup();
+        const interval = setInterval(cleanup, 2000); // Periodic check for injected scripts
+        return () => clearInterval(interval);
+    }, []);
+
     if (submitted) {
         return (
             <div className="min-h-screen bg-black text-white flex items-center justify-center p-6 text-center">
@@ -41,7 +56,7 @@ const YoutubeGiveaway = () => {
                         <CheckCircle className="w-12 h-12 text-black" />
                     </div>
                     <h1 className="font-display text-4xl font-black uppercase mb-4 tracking-tighter">ACCESS GRANTED</h1>
-                    <p className="text-gray-500 mb-10 text-sm leading-relaxed uppercase font-bold tracking-widest">
+                    <p className="text-gray-500 mb-10 text-sm leading-relaxed uppercase font-bold tracking-widest text-balance">
                         Your entry proof has been uploaded to the Coalition server. 
                         We will verify your actions and announce the winner on YouTube.
                     </p>
@@ -157,7 +172,7 @@ const YoutubeGiveaway = () => {
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
                                 <Youtube className="w-20 h-20 text-white" />
                             </div>
-                            <h3 className="font-black uppercase text-sm mb-2 font-display italic">Strategy Note</h3>
+                            <h3 className="font-black uppercase text-sm mb-2 font-display italic text-glow">Strategy Note</h3>
                             <p className="text-[10px] text-gray-500 leading-relaxed uppercase font-bold tracking-widest">
                                 Proof screenshots are verified manually. Multiple comments on older videos stack entries up to 10 points. 
                             </p>
@@ -165,7 +180,7 @@ const YoutubeGiveaway = () => {
                     </div>
                 </div>
 
-                {/* GLEAM / ACCESS PORTAL EMBED AREA */}
+                {/* ACCESS PORTAL EMBED AREA */}
                 <div id="enter" className="mb-24 pt-12 border-t border-white/5">
                     <div className="flex flex-col items-center mb-12 text-center">
                         <h2 className="font-display text-4xl font-black uppercase tracking-[0.05em] mb-4 italic">Access Portal</h2>
@@ -193,14 +208,14 @@ const YoutubeGiveaway = () => {
                     
                     <div className="grid md:grid-cols-2 gap-8">
                         <div className="group relative rounded-2xl overflow-hidden aspect-[16/10] border border-white/5 bg-gray-950">
-                            <img src="/story-hero.png" alt="Coalition Story Hero" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 grayscale group-hover:grayscale-0 opacity-60 group-hover:opacity-100" />
+                            <img src="/story-hero.png" alt="Coalition Story Hero" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 grayscale group-hover:grayscale-0 opacity-40 group-hover:opacity-100" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                             <div className="absolute bottom-6 left-6">
                                 <p className="font-display font-black uppercase text-xl italic tracking-tighter">Crafted in Baltimore</p>
                             </div>
                         </div>
                         <div className="group relative rounded-2xl overflow-hidden aspect-[16/10] border border-white/5 bg-gray-950">
-                            <img src="/story-mission.png" alt="Coalition Mission" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 grayscale group-hover:grayscale-0 opacity-60 group-hover:opacity-100" />
+                            <img src="/story-mission.png" alt="Coalition Mission" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 grayscale group-hover:grayscale-0 opacity-40 group-hover:opacity-100" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                             <div className="absolute bottom-6 left-6">
                                 <p className="font-display font-black uppercase text-xl italic tracking-tighter">The Movement</p>
@@ -216,24 +231,5 @@ const YoutubeGiveaway = () => {
         </div>
     );
 };
-
-// Helper component for point list
-const PointAction = ({ icon, title, points, desc }: { icon: React.ReactNode, title: string, points: string, desc: string }) => (
-    <div className="flex items-center justify-between group cursor-default">
-        <div className="flex gap-5 items-center">
-            <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:text-black transition-all duration-500">
-                {icon}
-            </div>
-            <div>
-                <h4 className="font-black uppercase text-sm tracking-tight">{title}</h4>
-                <p className="text-gray-500 text-[11px] font-bold uppercase tracking-wider">{desc}</p>
-            </div>
-        </div>
-        <div className="flex items-center gap-4">
-            <div className="h-px w-8 bg-white/5 group-hover:w-12 transition-all duration-500" />
-            <span className="font-mono font-bold text-white text-sm">{points}</span>
-        </div>
-    </div>
-);
 
 export default YoutubeGiveaway;
