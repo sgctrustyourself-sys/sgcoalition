@@ -220,6 +220,23 @@ export interface InstagramGiveawayEntry {
   ipAddress?: string;
 }
 
+export interface YoutubeGiveawayEntry {
+  id: string;
+  giveawayId: string;
+  name: string;
+  email: string;
+  instagramUsername?: string;
+  youtubeHandle: string;
+  shirtSize: string;
+  screenshotSubUrl: string;
+  screenshotCommentUrl: string;
+  screenshotStoryUrl?: string;
+  screenshotBonusUrls?: string[];
+  claimedPoints: number;
+  verified: boolean;
+  createdAt: number;
+}
+
 export interface Review {
   id: string;
   productId: string;

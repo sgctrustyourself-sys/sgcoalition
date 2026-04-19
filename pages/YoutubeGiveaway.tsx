@@ -17,20 +17,44 @@ const YoutubeGiveaway = () => {
         }
     }, [products]);
 
-    // Load Gleam Script
-    useEffect(() => {
-        const script = document.createElement('script');
-        script.src = "https://widget.gleamjs.io/e.js";
-        script.async = true;
-        document.body.appendChild(script);
+import YoutubeGiveawayForm from '../components/giveaway/YoutubeGiveawayForm';
 
-        return () => {
-            // Clean up if necessary (though Gleam usually stays once loaded)
-            if (document.body.contains(script)) {
-                document.body.removeChild(script);
-            }
-        };
-    }, []);
+const YoutubeGiveaway = () => {
+    const navigate = useNavigate();
+    const { products } = useApp();
+    const [prizeProduct, setPrizeProduct] = useState<Product | null>(null);
+    const [submitted, setSubmitted] = useState(false);
+
+    // Look up the actual prize product (Coalition NF-Tee)
+    useEffect(() => {
+        if (products && products.length > 0) {
+            const tee = products.find(p => p.id === 'Coalition_NF_Tee');
+            if (tee) setPrizeProduct(tee);
+        }
+    }, [products]);
+
+    if (submitted) {
+        return (
+            <div className="min-h-screen bg-black text-white flex items-center justify-center p-6 text-center">
+                <div className="max-w-md animate-in zoom-in duration-500">
+                    <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-white/20">
+                        <CheckCircle className="w-12 h-12 text-black" />
+                    </div>
+                    <h1 className="font-display text-4xl font-black uppercase mb-4 tracking-tighter">ACCESS GRANTED</h1>
+                    <p className="text-gray-500 mb-10 text-sm leading-relaxed uppercase font-bold tracking-widest">
+                        Your entry proof has been uploaded to the Coalition server. 
+                        We will verify your actions and announce the winner on YouTube.
+                    </p>
+                    <button 
+                        onClick={() => navigate('/ecosystem')}
+                        className="bg-white/10 hover:bg-white/20 border border-white/10 px-8 py-4 rounded-xl font-black uppercase text-xs tracking-[0.3em] transition-all"
+                    >
+                        Return to Ecosystem
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-black text-white py-12 px-4 font-sans selection:bg-white selection:text-black">
@@ -77,7 +101,7 @@ const YoutubeGiveaway = () => {
                                         alt={prizeProduct.name}
                                         className="w-full aspect-[4/5] object-cover object-center group-hover:scale-110 transition duration-1000 ease-in-out saturate-[0.8] group-hover:saturate-100"
                                     />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/99 via-transparent to-transparent opacity-80" />
                                     <div className="absolute bottom-8 left-8">
                                         <p className="text-[10px] uppercase font-bold tracking-[0.3em] text-white/50 mb-1">Active Prize</p>
                                         <h3 className="font-display font-black uppercase tracking-tight text-3xl">{prizeProduct.name}</h3>
@@ -133,42 +157,33 @@ const YoutubeGiveaway = () => {
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
                                 <Youtube className="w-20 h-20 text-white" />
                             </div>
-                            <h3 className="font-black uppercase text-sm mb-2">Strategy Note</h3>
-                            <p className="text-xs text-gray-400 leading-relaxed">
-                                Points are calculated automatically via our secure data link. Multiple comments on older videos stack your entry count up to 10 additional points.
+                            <h3 className="font-black uppercase text-sm mb-2 font-display italic">Strategy Note</h3>
+                            <p className="text-[10px] text-gray-500 leading-relaxed uppercase font-bold tracking-widest">
+                                Proof screenshots are verified manually. Multiple comments on older videos stack entries up to 10 points. 
                             </p>
                         </section>
                     </div>
                 </div>
 
-                {/* GLEAM / WIDGET EMBED AREA */}
-                <div id="enter" className="mb-24">
+                {/* ACCESS PORTAL EMBED AREA */}
+                <div id="enter" className="mb-24 pt-12 border-t border-white/5">
                     <div className="flex flex-col items-center mb-12 text-center">
-                        <div className="h-12 w-[1px] bg-gradient-to-b from-transparent to-white/20 mb-6" />
-                        <h2 className="font-display text-4xl font-black uppercase tracking-[0.05em] mb-4">Official Submission</h2>
-                        <p className="text-gray-500 text-sm max-w-sm font-medium">Verify your actions and confirm your shirt size below to complete your entry.</p>
+                        <h2 className="font-display text-4xl font-black uppercase tracking-[0.05em] mb-4 italic">Access Portal</h2>
+                        <p className="text-gray-500 text-xs max-w-sm font-bold uppercase tracking-widest">Verify your actions and confirm your shirt size below.</p>
                     </div>
                     
-                    <div className="relative group max-w-2xl mx-auto">
-                        {/* Decorative glow behind widget */}
-                        <div className="absolute -inset-4 bg-white/5 blur-2xl rounded-[3rem] opacity-50 group-hover:opacity-100 transition duration-1000" />
-                        
-                        <div className="relative bg-zinc-900/40 border border-white/5 rounded-3xl overflow-hidden backdrop-blur-xl min-h-[680px]">
-                            {/* Gleam Widget Embed */}
-                            <div className="gleam-container p-1 md:p-4">
-                                <a 
-                                    className="e-widget no-button" 
-                                    href="https://gleam.io/OunEo/coalition-nf-tee-giveaway" 
-                                    rel="nofollow"
-                                >
-                                    Coalition NF-Tee Giveaway
-                                </a>
-                            </div>
-                        </div>
+                    <div className="max-w-2xl mx-auto">
+                        <YoutubeGiveawayForm 
+                            giveawayId="giveaway_nf_tee_01" 
+                            onSuccess={() => {
+                                setSubmitted(true);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }} 
+                        />
                     </div>
                     
-                    <div className="mt-12 text-center italic text-gray-600 text-[10px] uppercase font-bold tracking-[0.2em]">
-                        Powered by Gleam Access Protocol • Secure Cloud Verification
+                    <div className="mt-12 text-center text-gray-600 text-[10px] uppercase font-bold tracking-[0.3em]">
+                        Coalition Access Protocol • Private Secure Cloud
                     </div>
                 </div>
             </div>

@@ -9,7 +9,7 @@ import { supabase } from './supabase';
  */
 export async function uploadScreenshot(
     file: File,
-    type: 'follow' | 'like' | 'story',
+    type: string,
     giveawayId: string
 ): Promise<string> {
     // Validate file
