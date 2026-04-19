@@ -50,6 +50,7 @@ const ForgotPassword = React.lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
 const UpdatePassword = React.lazy(() => import('./pages/UpdatePassword'));
 const GiveawayEntry = React.lazy(() => import('./pages/GiveawayEntry'));
+const YoutubeGiveaway = React.lazy(() => import('./pages/YoutubeGiveaway'));
 const CustomInquiry = React.lazy(() => import('./pages/CustomInquiry'));
 const BuySGCoin = React.lazy(() => import('./pages/BuySGCoin'));
 const Favorites = React.lazy(() => import('./pages/Favorites'));
@@ -194,6 +195,7 @@ const App = () => {
                     <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/update-password" element={<UpdatePassword />} />
                     <Route path="/giveaway/:id" element={<GiveawayEntry />} />
+                    <Route path="/giveaway/nf-tee" element={<YoutubeGiveaway />} />
                     <Route path="/inquire" element={<CustomInquiry />} />
                     <Route path="/sgcoin" element={<BuySGCoin />} />
                     <Route path="/membership" element={<Membership />} />
