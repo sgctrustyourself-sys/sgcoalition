@@ -165,7 +165,7 @@ const YoutubeGiveaway = () => {
                     </div>
                 </div>
 
-                {/* ACCESS PORTAL EMBED AREA */}
+                {/* GLEAM / ACCESS PORTAL EMBED AREA */}
                 <div id="enter" className="mb-24 pt-12 border-t border-white/5">
                     <div className="flex flex-col items-center mb-12 text-center">
                         <h2 className="font-display text-4xl font-black uppercase tracking-[0.05em] mb-4 italic">Access Portal</h2>
@@ -181,10 +181,36 @@ const YoutubeGiveaway = () => {
                             }} 
                         />
                     </div>
+                </div>
+
+                {/* THE VISION / BRAND GALLERY */}
+                <div className="mb-24">
+                    <h2 className="font-display text-xs font-black uppercase tracking-[0.4em] text-white/40 mb-12 flex items-center gap-4 text-center justify-center">
+                        <div className="h-px w-24 bg-white/10" />
+                        <span>The Vision</span>
+                        <div className="h-px w-24 bg-white/10" />
+                    </h2>
                     
-                    <div className="mt-12 text-center text-gray-600 text-[10px] uppercase font-bold tracking-[0.3em]">
-                        Coalition Access Protocol • Private Secure Cloud
+                    <div className="grid md:grid-cols-2 gap-8">
+                        <div className="group relative rounded-2xl overflow-hidden aspect-[16/10] border border-white/5 bg-gray-950">
+                            <img src="/story-hero.png" alt="Coalition Story Hero" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 grayscale group-hover:grayscale-0 opacity-60 group-hover:opacity-100" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                            <div className="absolute bottom-6 left-6">
+                                <p className="font-display font-black uppercase text-xl italic tracking-tighter">Crafted in Baltimore</p>
+                            </div>
+                        </div>
+                        <div className="group relative rounded-2xl overflow-hidden aspect-[16/10] border border-white/5 bg-gray-950">
+                            <img src="/story-mission.png" alt="Coalition Mission" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 grayscale group-hover:grayscale-0 opacity-60 group-hover:opacity-100" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                            <div className="absolute bottom-6 left-6">
+                                <p className="font-display font-black uppercase text-xl italic tracking-tighter">The Movement</p>
+                            </div>
+                        </div>
                     </div>
+                </div>
+                    
+                <div className="mt-12 text-center text-gray-600 text-[10px] uppercase font-bold tracking-[0.3em]">
+                    Coalition Access Protocol • Private Secure Cloud
                 </div>
             </div>
         </div>
