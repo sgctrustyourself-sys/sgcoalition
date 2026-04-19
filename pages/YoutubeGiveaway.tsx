@@ -19,23 +19,34 @@ import YoutubeGiveawayForm from '../components/giveaway/YoutubeGiveawayForm';
 import GiveawayCountdown from '../components/giveaway/GiveawayCountdown';
 
 // Helper component for point list
-const PointAction = ({ icon, title, points, desc }: { icon: React.ReactNode, title: string, points: string, desc: string }) => (
-    <div className="flex items-center justify-between group cursor-default">
-        <div className="flex gap-5 items-center">
-            <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:text-black transition-all duration-500">
-                {icon}
+const PointAction = ({ icon, title, points, desc, href }: { icon: React.ReactNode, title: string, points: string, desc: string, href?: string }) => {
+    const content = (
+        <div className="flex items-center justify-between group cursor-pointer">
+            <div className="flex gap-5 items-center">
+                <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:text-black transition-all duration-500 shadow-lg shadow-white/0 group-hover:shadow-white/10">
+                    {icon}
+                </div>
+                <div>
+                    <h4 className="font-black uppercase text-sm tracking-tight group-hover:translate-x-1 transition-transform">{title}</h4>
+                    <p className="text-gray-500 text-[11px] font-bold uppercase tracking-wider">{desc}</p>
+                </div>
             </div>
-            <div>
-                <h4 className="font-black uppercase text-sm tracking-tight">{title}</h4>
-                <p className="text-gray-500 text-[11px] font-bold uppercase tracking-wider">{desc}</p>
+            <div className="flex items-center gap-4">
+                <div className="h-px w-8 bg-white/5 group-hover:w-12 transition-all duration-500" />
+                <span className="font-mono font-bold text-white text-sm group-hover:text-glow">{points}</span>
             </div>
         </div>
-        <div className="flex items-center gap-4">
-            <div className="h-px w-8 bg-white/5 group-hover:w-12 transition-all duration-500" />
-            <span className="font-mono font-bold text-white text-sm">{points}</span>
-        </div>
-    </div>
-);
+    );
+
+    if (href) {
+        return (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="block outline-none">
+                {content}
+            </a>
+        );
+    }
+    return content;
+};
 
 const YoutubeGiveaway = () => {
     const navigate = useNavigate();
@@ -202,24 +213,28 @@ const YoutubeGiveaway = () => {
                                     title="YouTube Subscription" 
                                     points="+3" 
                                     desc="Official SGCoalition Channel"
+                                    href="https://www.youtube.com/@sgctrustyourself"
                                 />
                                 <PointAction 
                                     icon={<MessageCircle className="w-5 h-5 text-blue-400" />} 
                                     title="Recent Engagement" 
                                     points="+2" 
                                     desc="Comment & Like on Latest Drop"
+                                    href="https://www.youtube.com/@sgctrustyourself"
                                 />
                                 <PointAction 
                                     icon={<Instagram className="w-5 h-5 text-pink-500" />} 
                                     title="Social Amplification" 
                                     points="+2" 
                                     desc="Share to Story & Tag @sgcoalition"
+                                    href="https://www.instagram.com/sgcoalition"
                                 />
                                 <PointAction 
                                     icon={<Bell className="w-5 h-5 text-white" />} 
                                     title="Archive Mastery" 
                                     points="+1 EA" 
                                     desc="Engage on older videos for bonus"
+                                    href="https://www.youtube.com/@sgctrustyourself"
                                 />
                             </div>
                         </section>
