@@ -1,9 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Youtube, Instagram, MessageCircle, Bell, CheckCircle } from 'lucide-react';
+import { 
+    ArrowLeft, 
+    Youtube, 
+    Instagram, 
+    MessageCircle, 
+    Bell, 
+    CheckCircle, 
+    Lock, 
+    Clock, 
+    Trophy,
+    Loader2 
+} from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Product } from '../types';
+import { Product, Giveaway } from '../types';
+import { supabase } from '../services/supabase';
 import YoutubeGiveawayForm from '../components/giveaway/YoutubeGiveawayForm';
+import GiveawayCountdown from '../components/giveaway/GiveawayCountdown';
 
 // Helper component for point list
 const PointAction = ({ icon, title, points, desc }: { icon: React.ReactNode, title: string, points: string, desc: string }) => (
@@ -29,6 +42,51 @@ const YoutubeGiveaway = () => {
     const { products } = useApp();
     const [prizeProduct, setPrizeProduct] = useState<Product | null>(null);
     const [submitted, setSubmitted] = useState(false);
+    const [giveawayData, setGiveawayData] = useState<Giveaway | null>(null);
+    const [portalStatus, setPortalStatus] = useState<'upcoming' | 'active' | 'ended'>('active');
+    const [loading, setLoading] = useState(true);
+
+    // Fetch Giveaway Details for Timing
+    useEffect(() => {
+        const fetchGiveaway = async () => {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('giveaways')
+                .select('*')
+                .eq('id', 'giveaway_nf_tee_01')
+                .maybeSingle();
+
+            if (!error && data) {
+                setGiveawayData({
+                    ...data,
+                    startDate: data.start_date,
+                    endDate: data.end_date
+                });
+            } else {
+                // Fallback for demo/safety: Start now, end in 7 days
+                const now = new Date();
+                const end = new Date();
+                end.setDate(now.getDate() + 7);
+                
+                setGiveawayData({
+                    id: 'giveaway_nf_tee_01',
+                    title: 'NF-TEE Access Portal',
+                    prize: 'Coalition NF-Tee',
+                    description: '',
+                    startDate: now.toISOString(),
+                    endDate: end.toISOString(),
+                    status: 'active',
+                    requirements: [],
+                    maxEntriesPerUser: 1,
+                    entries: [],
+                    createdAt: Date.now()
+                });
+            }
+            setLoading(false);
+        };
+
+        fetchGiveaway();
+    }, []);
 
     // Look up the actual prize product (Coalition NF-Tee)
     useEffect(() => {
@@ -178,20 +236,46 @@ const YoutubeGiveaway = () => {
                     </div>
                 </div>
 
+                {giveawayData && (
+                    <div className="mb-20">
+                        <GiveawayCountdown 
+                            startDate={giveawayData.startDate} 
+                            endDate={giveawayData.endDate} 
+                            onStatusChange={setPortalStatus}
+                        />
+                    </div>
+                )}
+
                 <div id="enter" className="mb-24 pt-12 border-t border-white/5">
                     <div className="flex flex-col items-center mb-12 text-center">
                         <h2 className="font-display text-4xl font-black uppercase tracking-[0.05em] mb-4 italic">Access Portal</h2>
                         <p className="text-gray-500 text-xs max-w-sm font-bold uppercase tracking-widest">Verify your actions and confirm your shirt size below.</p>
                     </div>
                     
-                    <div className="max-w-2xl mx-auto">
-                        <YoutubeGiveawayForm 
-                            giveawayId="giveaway_nf_tee_01" 
-                            onSuccess={() => {
-                                setSubmitted(true);
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }} 
-                        />
+                    <div className="max-w-2xl mx-auto relative">
+                        {portalStatus === 'active' ? (
+                            <YoutubeGiveawayForm 
+                                giveawayId="giveaway_nf_tee_01" 
+                                onSuccess={() => {
+                                    setSubmitted(true);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }} 
+                            />
+                        ) : (
+                            <div className="bg-white/5 border border-white/10 rounded-3xl p-12 text-center backdrop-blur-md">
+                                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 border border-white/10">
+                                    <Lock className="w-8 h-8 text-gray-700" />
+                                </div>
+                                <h3 className="font-display font-black uppercase text-xl mb-3 tracking-tighter">
+                                    {portalStatus === 'upcoming' ? 'Access Pending' : 'Access Revoked'}
+                                </h3>
+                                <p className="text-gray-500 text-xs font-bold uppercase tracking-widest leading-relaxed">
+                                    {portalStatus === 'upcoming' 
+                                        ? 'The submission portal is currently locked. Check the timer above for opening time.' 
+                                        : 'This giveaway has concluded. Submissions are no longer being accepted.'}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
 

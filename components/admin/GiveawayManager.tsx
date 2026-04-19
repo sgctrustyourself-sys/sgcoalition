@@ -254,18 +254,18 @@ const GiveawayManager: React.FC = () => {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Start Date</label>
+                                        <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Start Date & Time</label>
                                         <input
-                                            type="date"
+                                            type="datetime-local"
                                             className="w-full bg-black/30 border border-white/10 p-3 rounded-lg text-white focus:border-white/30 outline-none"
                                             value={formData.startDate}
                                             onChange={e => setFormData({ ...formData, startDate: e.target.value })}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold uppercase mb-2 text-gray-400">End Date</label>
+                                        <label className="block text-xs font-bold uppercase mb-2 text-gray-400">End Date & Time</label>
                                         <input
-                                            type="date"
+                                            type="datetime-local"
                                             className="w-full bg-black/30 border border-white/10 p-3 rounded-lg text-white focus:border-white/30 outline-none"
                                             value={formData.endDate}
                                             onChange={e => setFormData({ ...formData, endDate: e.target.value })}
