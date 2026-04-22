@@ -106,7 +106,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [user, setUser] = useState<UserProfile | null>(null);
-    const [giveaways, setGiveaways] = useState<Giveaway[]>(() => safeJsonParse('coalition_giveaways_v1', []));
+    const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
     const [isCartOpen, setCartOpen] = useState(false);
     const [isAdminMode, setIsAdminMode] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -238,7 +238,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 await Promise.all([
                     fetchProducts(),
                     fetchOrders(),
-                    fetchSignals()
+                    fetchSignals(),
+                    fetchGiveaways()
                 ]);
 
                 // Subscribe to Realtime Signals
@@ -250,6 +251,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         () => {
                             console.log('🔔 Signal change detected, refreshing...');
                             fetchSignals();
+                        }
+                    )
+                    .subscribe();
+
+                // Subscribe to Realtime Giveaways
+                supabase
+                    .channel('coalition-giveaways-channel')
+                    .on(
+                        'postgres_changes',
+                        { event: '*', schema: 'public', table: 'giveaways' },
+                        () => {
+                            console.log('🎁 Giveaway change detected, refreshing...');
+                            fetchGiveaways();
                         }
                     )
                     .subscribe();
@@ -437,6 +451,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return [];
         } catch (err) {
             console.error('Error fetching signals:', err);
+            return [];
+        }
+    };
+
+    const fetchGiveaways = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('giveaways')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                const mapped: Giveaway[] = data.map((row: any) => ({
+                    id: row.id,
+                    title: row.title,
+                    prize: row.prize,
+                    description: row.description || '',
+                    prizeImage: row.prize_image || '',
+                    startDate: row.start_date,
+                    endDate: row.end_date,
+                    status: row.status as GiveawayStatus,
+                    requirements: row.requirements || [],
+                    maxEntriesPerUser: row.max_entries_per_user || 1,
+                    entries: [],
+                    createdAt: new Date(row.created_at).getTime()
+                }));
+                setGiveaways(mapped);
+                return mapped;
+            }
+            return [];
+        } catch (err) {
+            console.error('Error fetching giveaways:', err);
             return [];
         }
     };
