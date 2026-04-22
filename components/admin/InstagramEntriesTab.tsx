@@ -31,7 +31,21 @@ const InstagramEntriesTab: React.FC<InstagramEntriesTabProps> = ({ giveawayId })
         if (error) {
             console.error('Error fetching entries:', error);
         } else {
-            setEntries(data || []);
+            // Map Supabase snake_case to camelCase
+            const mappedEntries: InstagramGiveawayEntry[] = (data || []).map((row: any) => ({
+                id: row.id,
+                giveawayId: row.giveaway_id,
+                name: row.name,
+                email: row.email,
+                instagramUsername: row.instagram_username,
+                screenshotFollowUrl: row.screenshot_follow_url,
+                screenshotLikeUrl: row.screenshot_like_url,
+                screenshotStoryUrl: row.screenshot_story_url,
+                verified: row.verified,
+                createdAt: new Date(row.created_at).getTime(),
+                ipAddress: row.ip_address
+            }));
+            setEntries(mappedEntries);
         }
         setLoading(false);
     };

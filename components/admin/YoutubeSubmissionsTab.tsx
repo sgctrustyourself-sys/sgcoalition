@@ -52,9 +52,26 @@ const YoutubeSubmissionsTab: React.FC<YoutubeSubmissionsTabProps> = ({ giveawayI
             console.error('Error fetching entries:', error);
             addToast('Failed to load entries', 'error');
         } else {
-            // Note: Map Supabase snake_case back to camelCase manually if needed
-            // But we already assume our DB supports the types or Supabase handles it
-            setEntries(data || []);
+            // Map Supabase snake_case to camelCase
+            const mappedEntries: YoutubeGiveawayEntry[] = (data || []).map((row: any) => ({
+                id: row.id,
+                giveawayId: row.giveaway_id,
+                name: row.name,
+                email: row.email,
+                instagramUsername: row.instagram_username,
+                youtubeHandle: row.youtube_handle,
+                shirtSize: row.shirt_size,
+                screenshotSubUrl: row.screenshot_sub_url,
+                screenshotCommentUrl: row.screenshot_comment_url,
+                screenshotStoryUrl: row.screenshot_story_url,
+                screenshotBonusUrls: row.screenshot_bonus_urls || [],
+                claimedPoints: row.claimed_points,
+                verified: row.verified,
+                emailSent: row.email_sent,
+                createdAt: new Date(row.created_at).getTime(),
+                ipAddress: row.ip_address
+            }));
+            setEntries(mappedEntries);
         }
         setLoading(false);
     };

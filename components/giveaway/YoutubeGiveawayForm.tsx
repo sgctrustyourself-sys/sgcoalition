@@ -136,24 +136,24 @@ const YoutubeGiveawayForm: React.FC<YoutubeGiveawayFormProps> = ({ giveawayId, o
                 bonusUrls.push(url);
             }
 
-            // Create entry in database
-            const entry: Omit<YoutubeGiveawayEntry, 'id' | 'createdAt' | 'verified'> = {
-                giveawayId,
+            // Create entry in database matching snake_case Supabase columns
+            const dbEntry = {
+                giveaway_id: giveawayId,
                 name: formData.name,
                 email: formData.email,
-                instagramUsername: formData.instagramUsername.replace('@', ''),
-                youtubeHandle: formData.youtubeHandle,
-                shirtSize: formData.shirtSize,
-                screenshotSubUrl: subUrl,
-                screenshotCommentUrl: commentUrl,
-                screenshotStoryUrl: storyUrl,
-                screenshotBonusUrls: bonusUrls,
-                claimedPoints: points
+                instagram_username: formData.instagramUsername.replace('@', ''),
+                youtube_handle: formData.youtubeHandle,
+                shirt_size: formData.shirtSize,
+                screenshot_sub_url: subUrl,
+                screenshot_comment_url: commentUrl,
+                screenshot_story_url: storyUrl,
+                screenshot_bonus_urls: bonusUrls,
+                claimed_points: points
             };
 
             const { error: dbError } = await supabase
                 .from('giveaway_entries')
-                .insert([entry]);
+                .insert([dbEntry]);
 
             if (dbError) throw dbError;
 
