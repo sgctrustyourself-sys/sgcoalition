@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Clock, Lock, ShieldCheck, Trophy } from 'lucide-react';
 
 interface GiveawayCountdownProps {
@@ -16,6 +16,14 @@ const GiveawayCountdown: React.FC<GiveawayCountdownProps> = ({ startDate, endDat
     });
     const [status, setStatus] = useState<'upcoming' | 'active' | 'ended'>('upcoming');
 
+    // Use a ref so the interval closure always has the latest callback
+    // without needing it as a dependency (which would reset the interval every tick)
+    const onStatusChangeRef = useRef(onStatusChange);
+    useEffect(() => { onStatusChangeRef.current = onStatusChange; }, [onStatusChange]);
+
+    const statusRef = useRef(status);
+    useEffect(() => { statusRef.current = status; }, [status]);
+
     useEffect(() => {
         const calculateTimeLeft = () => {
             const now = new Date().getTime();
@@ -32,9 +40,9 @@ const GiveawayCountdown: React.FC<GiveawayCountdownProps> = ({ startDate, endDat
                 currentStatus = 'ended';
             }
 
-            if (status !== currentStatus) {
+            if (statusRef.current !== currentStatus) {
                 setStatus(currentStatus);
-                onStatusChange?.(currentStatus);
+                onStatusChangeRef.current?.(currentStatus);
             }
 
             const difference = target - now;
@@ -51,11 +59,10 @@ const GiveawayCountdown: React.FC<GiveawayCountdownProps> = ({ startDate, endDat
             }
         };
 
+        calculateTimeLeft(); // Run immediately
         const timer = setInterval(calculateTimeLeft, 1000);
-        calculateTimeLeft(); // Initial call
-
         return () => clearInterval(timer);
-    }, [startDate, endDate, status, onStatusChange]);
+    }, [startDate, endDate]); // Only re-run if the actual dates change
 
     if (status === 'ended') {
         return (
