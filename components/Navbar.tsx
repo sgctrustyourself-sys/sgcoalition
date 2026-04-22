@@ -74,6 +74,7 @@ const Navbar = () => {
                                         <Link to="/help" className={`block px-4 py-3 text-[10px] font-bold uppercase tracking-widest transition-all ${isActive('/help') ? 'text-white bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>HELP CENTER</Link>
                                         <Link to="/migrate" className={`block px-4 py-3 text-[10px] font-bold uppercase tracking-widest transition-all ${isActive('/migrate') ? 'text-yellow-500 bg-white/5' : 'text-yellow-600/80 hover:text-yellow-500 hover:bg-white/5'}`}>MIGRATE TO V2</Link>
                                         <Link to="/tutorial" className={`block px-4 py-3 text-[10px] font-bold uppercase tracking-widest transition-all ${isActive('/tutorial') ? 'text-white bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>GUIDE</Link>
+                                        <Link to="/giveaway/nf-tee" className={`block px-4 py-3 text-[10px] font-bold uppercase tracking-widest transition-all ${isActive('/giveaway') ? 'text-white bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>GIVEAWAY</Link>
                                         <Link to="/inquire" className={`block px-4 py-3 text-[10px] font-bold uppercase tracking-widest transition-all ${isActive('/inquire') ? 'text-white bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>CUSTOM INQUIRY</Link>
                                         <Link to="/live-orders" className={`block px-4 py-3 text-[10px] font-bold uppercase tracking-widest transition-all ${isActive('/live-orders') ? 'text-white bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>RECENTLY ORDERED</Link>
                                     </div>
@@ -191,6 +192,7 @@ const Navbar = () => {
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Resources</p>
                             <Link to="/migrate" className="block text-md font-bold uppercase tracking-widest text-yellow-500" onClick={() => setMobileMenuOpen(false)}>Migrate to V2</Link>
                             <Link to="/help" className="block text-md font-bold uppercase tracking-widest text-gray-400" onClick={() => setMobileMenuOpen(false)}>Help Center</Link>
+                            <Link to="/giveaway/nf-tee" className="block text-md font-bold uppercase tracking-widest text-white" onClick={() => setMobileMenuOpen(false)}>Giveaway Portal</Link>
                             <Link to="/inquire" className="block text-md font-bold uppercase tracking-widest text-gray-400" onClick={() => setMobileMenuOpen(false)}>Custom Inquiry</Link>
                         </div>
 

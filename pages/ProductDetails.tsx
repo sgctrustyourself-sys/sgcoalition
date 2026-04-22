@@ -11,7 +11,7 @@ import { checkNftOwnership, switchToPolygon } from '../services/web3Service';
 import { uploadProductImage } from '../services/productUpload';
 import { moveArrayItem, remapIndexAfterMove } from '../utils/arrayMove';
 import { getProductEditableSizes, normalizeProductSizeData } from '../utils/productSizes';
-import { getReferralStats, generateProductReferralLink } from '../utils/referralSystem';
+import { getReferralStats, generateReferralLink } from '../utils/referralSystem';
 import { isWalletProduct, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
 import { Lock, Unlock, Loader } from 'lucide-react';
 

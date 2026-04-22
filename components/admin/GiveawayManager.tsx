@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Giveaway, GiveawayStatus } from '../../types';
-import { Plus, Gift, Calendar, Users, Trophy, Trash2, Copy, AlertCircle, CheckCircle, Instagram } from 'lucide-react';
+import { Plus, Gift, Calendar, Users, Trophy, Trash2, Copy, AlertCircle, CheckCircle, Instagram, Youtube } from 'lucide-react';
 import InstagramEntriesTab from './InstagramEntriesTab';
 import YoutubeSubmissionsTab from './YoutubeSubmissionsTab';
 import { getGiveawayTicketCount } from '../../utils/giveawayUtils';
@@ -254,18 +254,24 @@ const GiveawayManager: React.FC = () => {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Start Date & Time</label>
+                                        <label htmlFor="giveaway-start" className="block text-xs font-bold uppercase mb-2 text-gray-400">Start Date & Time</label>
                                         <input
+                                            id="giveaway-start"
                                             type="datetime-local"
+                                            title="Giveaway Start Date"
+                                            aria-label="Giveaway Start Date"
                                             className="w-full bg-black/30 border border-white/10 p-3 rounded-lg text-white focus:border-white/30 outline-none"
                                             value={formData.startDate}
                                             onChange={e => setFormData({ ...formData, startDate: e.target.value })}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold uppercase mb-2 text-gray-400">End Date & Time</label>
+                                        <label htmlFor="giveaway-end" className="block text-xs font-bold uppercase mb-2 text-gray-400">End Date & Time</label>
                                         <input
+                                            id="giveaway-end"
                                             type="datetime-local"
+                                            title="Giveaway End Date"
+                                            aria-label="Giveaway End Date"
                                             className="w-full bg-black/30 border border-white/10 p-3 rounded-lg text-white focus:border-white/30 outline-none"
                                             value={formData.endDate}
                                             onChange={e => setFormData({ ...formData, endDate: e.target.value })}
@@ -274,12 +280,16 @@ const GiveawayManager: React.FC = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Description</label>
+                                    <label htmlFor="giveaway-desc" className="block text-xs font-bold uppercase mb-2 text-gray-400">Description</label>
                                     <textarea
+                                        id="giveaway-desc"
+                                        title="Giveaway Description"
+                                        aria-label="Giveaway Description"
                                         className="w-full bg-black/30 border border-white/10 p-3 rounded-lg text-white focus:border-white/30 outline-none"
                                         rows={3}
                                         value={formData.description}
                                         onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                        placeholder="Enter giveaway details..."
                                     />
                                 </div>
 

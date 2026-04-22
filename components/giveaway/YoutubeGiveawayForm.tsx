@@ -322,7 +322,14 @@ const Uploader = ({ label, preview, onChange }: { label: string, preview: string
                     <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Select Image</span>
                 </label>
             )}
-            <input type="file" accept="image/*" className="hidden" onChange={onChange} />
+            <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={onChange} 
+                title={`Upload ${label} Screenshot`}
+                aria-label={`Upload ${label} Screenshot`}
+            />
         </div>
     </div>
 );

@@ -333,6 +333,8 @@ const YoutubeSubmissionsTab: React.FC<YoutubeSubmissionsTabProps> = ({ giveawayI
                                 <button
                                     onClick={() => deleteEntry(selectedEntry.id)}
                                     className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"
+                                    title="Delete Entry"
+                                    aria-label="Delete Entry"
                                 >
                                     <Trash2 className="w-5 h-5" />
                                 </button>
@@ -397,7 +399,14 @@ const ProofCard = ({ title, url, isOptional = false }: { title: string, url?: st
         <div className="space-y-4 group">
             <div className="flex justify-between items-center ml-1">
                 <p className="text-[9px] font-black uppercase tracking-widest text-white/40">{title}</p>
-                <a href={url} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-white transition-colors">
+                <a 
+                    href={url} 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    className="text-blue-500 hover:text-white transition-colors"
+                    title="View Full Size Screenshot"
+                    aria-label="View Full Size Screenshot"
+                >
                     <ExternalLink className="w-3 h-3" />
                 </a>
             </div>

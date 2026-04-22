@@ -10,10 +10,11 @@ import {
     Lock, 
     Clock, 
     Trophy,
-    Loader2 
+    Loader2,
+    UserPlus
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Product, Giveaway } from '../types';
+import { Product, Giveaway, GiveawayStatus } from '../types';
 import { supabase } from '../services/supabase';
 import YoutubeGiveawayForm from '../components/giveaway/YoutubeGiveawayForm';
 import GiveawayCountdown from '../components/giveaway/GiveawayCountdown';
@@ -86,7 +87,7 @@ const YoutubeGiveaway = () => {
                     description: '',
                     startDate: now.toISOString(),
                     endDate: end.toISOString(),
-                    status: 'active',
+                    status: GiveawayStatus.ACTIVE,
                     requirements: [],
                     maxEntriesPerUser: 1,
                     entries: [],
@@ -208,6 +209,13 @@ const YoutubeGiveaway = () => {
                             </h2>
 
                             <div className="space-y-8">
+                                <PointAction 
+                                    icon={<UserPlus className="w-5 h-5 text-emerald-400" />} 
+                                    title="Profile & Newsletter" 
+                                    points="+5" 
+                                    desc="Create Account on sgcoalition.xyz"
+                                    href="/login"
+                                />
                                 <PointAction 
                                     icon={<Youtube className="w-5 h-5 text-red-500" />} 
                                     title="YouTube Subscription" 
