@@ -353,6 +353,8 @@ const ScreenshotView: React.FC<{ title: string; url: string }> = ({ title, url }
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
+                    title={`View ${title} in new tab`}
+                    aria-label={`View ${title} in new tab`}
                     className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-lg"
                 >
                     <ExternalLink className="w-8 h-8 text-white" />
