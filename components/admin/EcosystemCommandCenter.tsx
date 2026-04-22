@@ -12,7 +12,10 @@ import {
     ArrowUpRight,
     Activity,
     Flame,
-    Zap
+    Zap,
+    Droplets,
+    CheckCircle2,
+    ExternalLink
 } from 'lucide-react';
 import {
     calculateSalesMetrics,
@@ -102,10 +105,37 @@ const EcosystemCommandCenter: React.FC = () => {
                 <StatusCard
                     label="V2 Liquidity"
                     value={isLoadingStats ? "Loading..." : ecosystemStats.v2Liquidity.toLocaleString()}
-                    change="Founder Funded"
+                    change="Zapper Listed"
                     icon={<Coins className="w-5 h-5" />}
                     color="emerald"
                 />
+            </div>
+
+            {/* SGCoin Update Banner */}
+            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-5 flex flex-col md:flex-row md:items-center gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-500/20 rounded-xl text-emerald-400 flex-shrink-0">
+                        <Droplets className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <h4 className="text-xs font-black uppercase tracking-widest text-emerald-400">🚀 SGCoin Update — Liquidity Added on Zapper</h4>
+                            <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30">NEW</span>
+                        </div>
+                        <p className="text-[11px] text-gray-300 leading-relaxed">
+                            <span className="text-white font-bold">SGCOIN V2 liquidity has been successfully added on Zapper.</span>{' '}
+                            The token is now discoverable, tradeable, and trackable via Zapper's ecosystem dashboard. This marks a major milestone for the SGCoalition ecosystem — liquidity depth is growing and the token is officially live on-chain infrastructure.
+                        </p>
+                    </div>
+                </div>
+                <a
+                    href="https://zapper.xyz"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 rounded-xl hover:bg-emerald-500/20 transition flex-shrink-0"
+                >
+                    View on Zapper <ExternalLink className="w-3 h-3" />
+                </a>
             </div>
 
             {/* Funding Disclosure */}
@@ -116,8 +146,7 @@ const EcosystemCommandCenter: React.FC = () => {
                 <div>
                     <h4 className="text-xs font-black uppercase tracking-widest text-white mb-1">Treasury & Liquidity Disclosure</h4>
                     <p className="text-[11px] text-gray-400 leading-relaxed">
-                        Currently, <span className="text-brand-accent font-bold">100% of SGCOIN V2 liquidity</span> and ecosystem rewards are personally funded by the founder.
-                        As community sales from the shop and NFT collection grow, a fixed percentage of revenue will be automatically allocated to supplement this treasury, ensuring long-term sustainability.
+                        SGCOIN V2 liquidity is now live on <span className="text-emerald-400 font-bold">Zapper</span> — founder-funded and growing. As community sales from the shop and NFT collection scale, a fixed percentage of revenue will be automatically allocated to deepen this liquidity pool, ensuring long-term sustainability.
                     </p>
                 </div>
             </div>
@@ -197,8 +226,36 @@ const EcosystemCommandCenter: React.FC = () => {
                             time="15s ago"
                             color="text-blue-400"
                         />
-                        <div className="pt-6 border-t border-white/10 mt-6">
-                            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4">Quick Governance</h4>
+
+                        <div className="pt-4 border-t border-white/10 mt-2">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">SGCoin Milestones</h4>
+                            <div className="space-y-2">
+                                <div className="flex items-start gap-3 p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-[10px] font-black text-white uppercase tracking-wide">Zapper Liquidity Added</p>
+                                        <p className="text-[9px] text-emerald-400 font-bold mt-0.5">V2 now live on Zapper · Apr 2026</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3 p-3 bg-white/5 border border-white/10 rounded-xl">
+                                    <CheckCircle2 className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-[10px] font-black text-white uppercase tracking-wide">V2 Contract Deployed</p>
+                                        <p className="text-[9px] text-blue-400 font-bold mt-0.5">Polygon Mainnet · Verified</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3 p-3 bg-white/5 border border-white/10 rounded-xl">
+                                    <Flame className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-[10px] font-black text-white uppercase tracking-wide">V1 Burn Ongoing</p>
+                                        <p className="text-[9px] text-orange-400 font-bold mt-0.5">{isLoadingStats ? 'Fetching...' : `${parseFloat(realBurned).toLocaleString()} SGC burned`}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-white/10">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Quick Governance</h4>
                             <div className="grid grid-cols-2 gap-2">
                                 <button className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition text-left group">
                                     <p className="text-[10px] text-gray-500 font-bold group-hover:text-white transition">Pause Minting</p>
