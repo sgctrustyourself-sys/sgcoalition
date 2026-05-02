@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Giveaway, GiveawayStatus } from '../../types';
 import { Plus, Gift, Calendar, Users, Trophy, Trash2, Copy, AlertCircle, CheckCircle, Instagram, Youtube } from 'lucide-react';
-import InstagramEntriesTab from './InstagramEntriesTab';
+import GiveawayEntriesTab from './GiveawayEntriesTab';
 import YoutubeSubmissionsTab from './YoutubeSubmissionsTab';
 import { getGiveawayTicketCount } from '../../utils/giveawayUtils';
 
@@ -10,7 +10,7 @@ const GiveawayManager: React.FC = () => {
     const { giveaways, addGiveaway, deleteGiveaway, pickGiveawayWinner, products } = useApp();
     const [activeTab, setActiveTab] = useState<'active' | 'past' | 'create'>('active');
     const [selectedGiveaway, setSelectedGiveaway] = useState<Giveaway | null>(null);
-    const [detailTab, setDetailTab] = useState<'overview' | 'instagram-entries' | 'youtube-submissions'>('overview');
+    const [detailTab, setDetailTab] = useState<'overview' | 'entries' | 'youtube-submissions'>('overview');
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
@@ -319,10 +319,10 @@ const GiveawayManager: React.FC = () => {
                                         Overview
                                     </button>
                                     <button
-                                        onClick={() => setDetailTab('instagram-entries')}
-                                        className={`px-4 py-2 rounded font-bold text-xs uppercase transition ${detailTab === 'instagram-entries' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
+                                        onClick={() => setDetailTab('entries')}
+                                        className={`px-4 py-2 rounded font-bold text-xs uppercase transition ${detailTab === 'entries' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
                                     >
-                                        Instagram
+                                        Entries
                                     </button>
                                     <button
                                         onClick={() => setDetailTab('youtube-submissions')}
@@ -380,14 +380,10 @@ const GiveawayManager: React.FC = () => {
                                 </div>
                             )}
 
-                            {/* Instagram Entries Section */}
-                            {detailTab === 'instagram-entries' && (
+                            {/* Giveaway Entries Section */}
+                            {detailTab === 'entries' && (
                                 <div className="mt-8 pt-8 border-t border-white/10">
-                                    <h3 className="font-bold uppercase text-lg mb-4 text-white flex items-center gap-2">
-                                        <Instagram className="w-5 h-5 text-pink-400" />
-                                        Instagram Giveaway Entries
-                                    </h3>
-                                    <InstagramEntriesTab giveawayId={selectedGiveaway.id} />
+                                    <GiveawayEntriesTab giveawayId={selectedGiveaway.id} />
                                 </div>
                             )}
 
