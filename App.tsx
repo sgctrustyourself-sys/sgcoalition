@@ -195,7 +195,6 @@ const App = () => {
                     <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/update-password" element={<UpdatePassword />} />
                     <Route path="/giveaway/:id" element={<GiveawayEntry />} />
-                    <Route path="/giveaway/nf-tee" element={<YoutubeGiveaway />} />
                     <Route path="/inquire" element={<CustomInquiry />} />
                     <Route path="/sgcoin" element={<BuySGCoin />} />
                     <Route path="/membership" element={<Membership />} />
