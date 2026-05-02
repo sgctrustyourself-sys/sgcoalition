@@ -102,8 +102,6 @@ const RequirementRow: React.FC<{ icon: React.ReactNode; label: string; sub: stri
 const SHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
 const SHIRT_GALLERY = [
-    { src: '/images/coalition-nf-tee-front.png', label: 'Front' },
-    { src: '/images/coalition-nf-tee-back.png',  label: 'Back'  },
     { src: '/images/products/nf-tee/model-1.jpg', label: 'Look 1' },
     { src: '/images/products/nf-tee/model-2.jpg', label: 'Look 2' },
     { src: '/images/products/nf-tee/model-3.jpg', label: 'Look 3' },
