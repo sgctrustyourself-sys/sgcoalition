@@ -268,7 +268,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     )
                     .subscribe();
 
-                const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+                // IMPORTANT: onAuthStateChange callback must NOT be async to avoid infinite loops.
+                // Async work is moved into a separate fire-and-forget function.
+                const handleAuthChange = async (event: string, session: any) => {
                     if (!mounted) return;
                     console.log('🔔 Auth Event:', event);
 
@@ -351,6 +353,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             }
                         } else if (mounted) setUser(null);
                     }
+                };
+
+                // Sync callback — fires async handler without awaiting (prevents infinite loop)
+                const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+                    void handleAuthChange(event, session);
                 });
 
                 authSubscription = authListener.subscription;
