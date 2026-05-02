@@ -98,6 +98,18 @@ const RequirementRow: React.FC<{ icon: React.ReactNode; label: string; sub: stri
     </div>
 );
 
+// ─── Static constants ────────────────────────────────────────────
+const SHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+
+const SHIRT_GALLERY = [
+    { src: '/images/coalition-nf-tee-front.png', label: 'Front' },
+    { src: '/images/coalition-nf-tee-back.png',  label: 'Back'  },
+    { src: '/images/products/nf-tee/model-1.jpg', label: 'Look 1' },
+    { src: '/images/products/nf-tee/model-2.jpg', label: 'Look 2' },
+    { src: '/images/products/nf-tee/model-3.jpg', label: 'Look 3' },
+    { src: '/images/products/nf-tee/model-4.jpg', label: 'Look 4' },
+];
+
 // ─── Main Page ───────────────────────────────────────────────────
 
 const GiveawayEntry = () => {
@@ -133,6 +145,11 @@ const GiveawayEntry = () => {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const [submittedPoints, setSubmittedPoints] = useState(0);
+
+    // Gallery state — MUST be declared at top level (Rules of Hooks)
+    const [activeImg, setActiveImg] = useState(0);
+    const prevImg = () => setActiveImg(i => (i - 1 + SHIRT_GALLERY.length) % SHIRT_GALLERY.length);
+    const nextImg = () => setActiveImg(i => (i + 1) % SHIRT_GALLERY.length);
 
     useEffect(() => {
         if (!giveawayId) {
@@ -343,19 +360,6 @@ const GiveawayEntry = () => {
     const isEnded = giveawayStatus === 'ended';
     const isUpcoming = giveawayStatus === 'upcoming';
     const canEnter = giveawayStatus === 'active';
-    const SHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-
-    const SHIRT_GALLERY = [
-        { src: '/images/coalition-nf-tee-front.png', label: 'Front' },
-        { src: '/images/coalition-nf-tee-back.png',  label: 'Back'  },
-        { src: '/images/products/nf-tee/model-1.jpg', label: 'Look 1' },
-        { src: '/images/products/nf-tee/model-2.jpg', label: 'Look 2' },
-        { src: '/images/products/nf-tee/model-3.jpg', label: 'Look 3' },
-        { src: '/images/products/nf-tee/model-4.jpg', label: 'Look 4' },
-    ];
-    const [activeImg, setActiveImg] = useState(0);
-    const prevImg = () => setActiveImg(i => (i - 1 + SHIRT_GALLERY.length) % SHIRT_GALLERY.length);
-    const nextImg = () => setActiveImg(i => (i + 1) % SHIRT_GALLERY.length);
 
     return (
         <div className="min-h-screen bg-black text-white">
