@@ -149,6 +149,10 @@ const GiveawayEntry = () => {
     const prevImg = () => setActiveImg(i => (i - 1 + SHIRT_GALLERY.length) % SHIRT_GALLERY.length);
     const nextImg = () => setActiveImg(i => (i + 1) % SHIRT_GALLERY.length);
 
+    // Instagram follow screenshot
+    const [igFollowFile, setIgFollowFile] = useState<File | null>(null);
+    const [igFollowPreview, setIgFollowPreview] = useState('');
+
     useEffect(() => {
         if (!giveawayId) {
             setGiveawayError('Invalid giveaway link.');
@@ -196,6 +200,7 @@ const GiveawayEntry = () => {
             const preview = reader.result as string;
             if (type === 'sub') { setSubFile(file); setSubPreview(preview); }
             else if (type === 'comment') { setCommentFile(file); setCommentPreview(preview); }
+            else if (type === 'igfollow') { setIgFollowFile(file); setIgFollowPreview(preview); }
             else { setStoryFile(file); setStoryPreview(preview); }
         };
         reader.readAsDataURL(file);
@@ -206,6 +211,7 @@ const GiveawayEntry = () => {
         let pts = 0;
         if (subFile) pts += 1;
         if (commentFile) pts += 1;
+        if (igFollowFile) pts += 1;
         if (storyFile) pts += 1;
         return pts;
     };
@@ -214,12 +220,12 @@ const GiveawayEntry = () => {
         e.preventDefault();
         setError(null);
 
-        if (!formData.name || !formData.email || !formData.youtubeHandle || !formData.shirtSize) {
-            setError('Please fill in all required fields.');
+        if (!formData.name || !formData.email || !formData.youtubeHandle || !formData.instagramUsername || !formData.shirtSize) {
+            setError('Please fill in all required fields including your Instagram username.');
             return;
         }
-        if (!subFile || !commentFile) {
-            setError('Please upload the required screenshots (Subscribe & Comment).');
+        if (!subFile || !commentFile || !igFollowFile) {
+            setError('Please upload all required screenshots (Subscribe, Comment & Instagram Follow).');
             return;
         }
 
@@ -241,9 +247,10 @@ const GiveawayEntry = () => {
             }
 
             // Upload required screenshots
-            const [subUrl, commentUrl] = await Promise.all([
+            const [subUrl, commentUrl, igFollowUrl] = await Promise.all([
                 uploadScreenshot(subFile, 'sub', giveawayId),
                 uploadScreenshot(commentFile, 'comment', giveawayId),
+                uploadScreenshot(igFollowFile, 'igfollow', giveawayId),
             ]);
 
             // Upload optional story screenshot
@@ -280,6 +287,7 @@ const GiveawayEntry = () => {
                     shirt_size: entry.shirtSize,
                     screenshot_sub_url: entry.screenshotSubUrl,
                     screenshot_comment_url: entry.screenshotCommentUrl,
+                    screenshot_ig_follow_url: igFollowUrl,
                     screenshot_story_url: entry.screenshotStoryUrl || null,
                     claimed_points: entry.claimedPoints,
                     verified: false,
@@ -478,13 +486,19 @@ const GiveawayEntry = () => {
                     />
                     <RequirementRow
                         icon={<Instagram className="w-4 h-4" />}
+                        label="Follow @sgcoalition on Instagram"
+                        sub="Screenshot showing you follow our Instagram page"
+                        points={1}
+                    />
+                    <RequirementRow
+                        icon={<Instagram className="w-4 h-4" />}
                         label="Share to your Instagram Story (Bonus)"
                         sub="Optional — share a post and screenshot your story"
                         points={1}
                     />
                     <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between text-sm">
                         <span className="text-gray-500 font-bold uppercase tracking-wider text-xs">Max Points</span>
-                        <span className="font-black text-amber-400">3 pts</span>
+                        <span className="font-black text-amber-400">4 pts</span>
                     </div>
                 </div>
 
@@ -564,7 +578,7 @@ const GiveawayEntry = () => {
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
-                                        Instagram (Optional)
+                                        Instagram <span className="text-red-400">*</span>
                                     </label>
                                     <input
                                         type="text"
@@ -572,6 +586,7 @@ const GiveawayEntry = () => {
                                         onChange={e => setFormData({ ...formData, instagramUsername: e.target.value })}
                                         className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:border-white/30 outline-none transition"
                                         placeholder="@yourusername"
+                                        required
                                     />
                                 </div>
                             </div>
@@ -607,7 +622,7 @@ const GiveawayEntry = () => {
                                 <h3 className="font-display font-black uppercase italic tracking-tighter">Upload Screenshots</h3>
                                 {calcPoints() > 0 && (
                                     <span className="text-sm font-black text-amber-400">
-                                        {calcPoints()} / 3 pts
+                                        {calcPoints()} / 4 pts
                                     </span>
                                 )}
                             </div>
@@ -629,6 +644,15 @@ const GiveawayEntry = () => {
                                 points={1}
                                 required
                                 onChange={e => handleFileChange(e, 'comment')}
+                            />
+                            <ScreenshotUpload
+                                label="Follow @sgcoalition on Instagram"
+                                sublabel="Screenshot showing you follow our Instagram page"
+                                file={igFollowFile}
+                                preview={igFollowPreview}
+                                points={1}
+                                required
+                                onChange={e => handleFileChange(e, 'igfollow')}
                             />
                             <ScreenshotUpload
                                 label="Instagram Story (Bonus)"
@@ -654,7 +678,7 @@ const GiveawayEntry = () => {
                             ) : (
                                 <>
                                     <Trophy className="w-5 h-5" />
-                                    Submit Entry — {calcPoints()} pt{calcPoints() !== 1 ? 's' : ''}
+                                    Submit Entry — {calcPoints()} pt{calcPoints() !== 1 ? 's' : ''} / 4
                                 </>
                             )}
                         </button>
