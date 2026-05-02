@@ -141,13 +141,19 @@ const GiveawayEntry = () => {
             return;
         }
         const fetchGiveaway = async () => {
+            console.log('[GiveawayEntry] Fetching giveaway:', giveawayId);
             const { data, error } = await supabase
                 .from('giveaways')
                 .select('*')
                 .eq('id', giveawayId)
                 .single();
 
-            if (error || !data) {
+            console.log('[GiveawayEntry] Result:', { data, error });
+
+            if (error) {
+                console.error('[GiveawayEntry] Supabase error:', error.code, error.message, error.details);
+                setGiveawayError(`Error: ${error.message || error.code || 'Failed to load giveaway.'}`);
+            } else if (!data) {
                 setGiveawayError('Giveaway not found.');
             } else {
                 setGiveaway(data as GiveawayData);
