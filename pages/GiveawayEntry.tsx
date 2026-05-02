@@ -185,7 +185,7 @@ const GiveawayEntry = () => {
 
     const handleFileChange = async (
         e: React.ChangeEvent<HTMLInputElement>,
-        type: 'sub' | 'comment' | 'story'
+        type: 'sub' | 'comment' | 'story' | 'igfollow'
     ) => {
         const file = e.target.files?.[0];
         if (!file) return;
