@@ -39,3 +39,4 @@ yarn-error.log*
 # Deploy artifacts
 .deploy-log
 .last-deploy-url
+.env*.local

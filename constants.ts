@@ -2,6 +2,33 @@ import { Product, Section, Order, OrderStatus } from './types';
 
 export const INITIAL_ORDERS: Order[] = [
   {
+    id: 'order_wholesale_wallets_2026_05_22',
+    orderNumber: 'ORD-SG-WHOLESALE-1002',
+    isGuest: true,
+    customerName: 'Wholesale Customer',
+    customerEmail: 'wholesale@example.com',
+    items: [
+      {
+        productId: 'prod_wallet_skyy_2',
+        productName: 'COALITION WALLETS WHOLESALE (7x)',
+        productImage: 'https://i.imgur.com/v5y7tPa.jpg',
+        selectedSize: 'One Size',
+        quantity: 7,
+        price: 25,
+        total: 175
+      }
+    ],
+    subtotal: 175,
+    tax: 0,
+    discount: 0,
+    total: 175,
+    paymentMethod: 'cash',
+    paymentStatus: OrderStatus.PAID,
+    orderType: 'manual',
+    createdAt: '2026-05-22T18:33:38-04:00',
+    paidAt: '2026-05-22T18:33:38-04:00'
+  },
+  {
     id: 'order_jeans_001',
     orderNumber: 'ORD-SG-1001',
     isGuest: true,
@@ -32,152 +59,108 @@ export const INITIAL_ORDERS: Order[] = [
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
-    id: 'prod_001',
-    name: 'Coalition Classic Tee',
-    price: 45,
-    images: ['/images/tee-front.png', '/images/tee-back.png'],
-    description: 'The staple piece. Heavyweight cotton, boxy fit. Crafted in Baltimore, Maryland. Each tee includes dual NFC tags for digital verification.',
-    category: 'apparel',
-    isFeatured: true,
-    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-    sizeInventory: {
-      'S': 15,
-      'M': 25,
-      'L': 30,
-      'XL': 20,
-      'XXL': 10
+    "id": "prod_wallet_skyy_1",
+    "name": "COALITION SKYY BLUE WALLET 1/2",
+    "price": 35,
+    "images": ["https://i.imgur.com/v5y7tPa.jpg"],
+    "description": "Premium custom Coalition wallet in a stunning Skyy Blue finish. Piece 1 of 2.",
+    "category": "wallet",
+    "sizes": ["One Size"],
+    "sizeInventory": { "One Size": 0 },
+    "archived": true,
+    "archivedAt": "2026-05-22T18:33:38-04:00",
+    "soldAt": "2026-05-22T18:33:38-04:00"
+  },
+  {
+    "id": "prod_wallet_skyy_2",
+    "name": "COALITION SKYY BLUE WALLET 2/2",
+    "price": 35,
+    "images": ["https://i.imgur.com/v5y7tPa.jpg"],
+    "description": "Premium custom Coalition wallet in a stunning Skyy Blue finish. Piece 2 of 2.",
+    "category": "wallet",
+    "sizes": ["One Size"],
+    "sizeInventory": { "One Size": 0 },
+    "archived": true,
+    "archivedAt": "2026-05-22T18:33:38-04:00",
+    "soldAt": "2026-05-22T18:33:38-04:00"
+  },
+  {
+    "id": "prod_dist_tee",
+    "name": "COALITION DISTORTION TEE",
+    "price": 65,
+    "images": ["https://i.imgur.com/pZ8v3tS.jpeg"],
+    "description": "Exclusive distortion print tee. Only 1 left!",
+    "category": "shirt",
+    "sizes": ["L"],
+    "sizeInventory": { "L": 1 },
+    "isFeatured": true,
+    "archived": false
+  },
+  {
+    "id": "prod_wallet_002",
+    "name": "COALITION GREEN CAMO WALLET",
+    "price": 35,
+    "images": ["https://i.imgur.com/aphcZ2t.jpg"],
+    "description": "Exclusive 1/1 custom wallet featuring camo green aesthetic. Only 1 left!",
+    "category": "wallet",
+    "sizes": ["One Size"],
+    "sizeInventory": { "One Size": 0 },
+    "archived": true,
+    "archivedAt": "2026-05-22T18:33:38-04:00",
+    "soldAt": "2026-05-22T18:33:38-04:00"
+  },
+  {
+    "id": "prod_nft_001",
+    "name": "COALITION NF-TEE",
+    "price": 50,
+    "images": ["/images/coalition-nf-tee-front.png"],
+    "description": "The future of streetwear. Limited edition phygital tee.",
+    "category": "apparel",
+    "sizes": ["S", "M", "L", "XL", "XXL"],
+    "sizeInventory": { "S": 0, "M": 0, "L": 0, "XL": 0, "XXL": 0 },
+    "nft": {
+      "chain": "polygon",
+      "nfcTags": { "tag": "https://coalition.brand/verify/prod_nft_001" },
+      "tokenId": "1",
+      "openseaUrl": "https://opensea.io/...",
+      "contractAddress": "0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201"
     },
-    nft: {
-      contractAddress: '0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201',
-      tokenId: '6915469788939700255662107688630493008422408564534094781606241966635645665283',
-      chain: 'polygon',
-      openseaUrl: 'https://opensea.io/assets/polygon/0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201/6915469788939700255662107688630493008422408564534094781606241966635645665283',
-      nfcTags: {
-        neck: 'https://linktr.ee/sgcoalition',
-        tag: 'https://opensea.io/assets/polygon/0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201/6915469788939700255662107688630493008422408564534094781606241966635645665283'
-      }
-    }
+    "archived": false
   },
   {
-    id: 'prod_nft_001',
-    name: 'Coalition NF-Tee',
-    price: 65,
-    images: ['/images/coalition-nf-tee-front.png', '/images/coalition-nf-tee-back.png'],
-    description: 'The future of streetwear. This limited edition phygital tee serves as your access pass to the Coalition ecosystem. Features exclusive "Trust Yourself" puff print and embedded NFC technology linked to its digital twin on the Polygon blockchain.',
-    category: 'apparel',
-    isFeatured: true,
-    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-    sizeInventory: {
-      'S': 50,
-      'M': 100,
-      'L': 100,
-      'XL': 75,
-      'XXL': 25
-    },
-    nft: {
-      contractAddress: '0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201',
-      tokenId: '6915469788939700255662107688630493008422408564534094781606241966635645665283',
-      chain: 'polygon',
-      openseaUrl: 'https://opensea.io/item/polygon/0x7b9cfeb2af83f6b4b5fe87b6a71edf5346543201/6915469788939700255662107688630493008422408564534094781606241966635645665283',
-      nfcTags: {
-        neck: 'https://linktr.ee/sgcoalition',
-        tag: 'https://coalition.brand/verify/prod_nft_001'
-      }
-    }
+    "id": "prod_wallet_001",
+    "name": "CUSTOM COALITION X CHROME HEARTS WALLET",
+    "price": 450,
+    "images": ["https://i.imgur.com/SS6KbOQ.jpeg"],
+    "description": "Exclusive 1/1 custom Coalition x Chrome Hearts collaboration wallet.",
+    "category": "wallet",
+    "sizes": ["One Size"],
+    "sizeInventory": { "One Size": 0 },
+    "archived": true,
+    "archivedAt": "2026-05-22T18:33:38-04:00",
+    "soldAt": "2026-05-22T18:33:38-04:00"
   },
   {
-    id: 'prod_002',
-    name: 'Baltimore Hoodie',
-    price: 85,
-    images: ['https://images.unsplash.com/photo-1556905055-8f358a7a47b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'],
-    description: 'Ultra-soft french terry. Perfect for city nights.',
-    category: 'apparel',
-    isFeatured: false,
-    sizes: ['M', 'L', 'XL'],
-    sizeInventory: {
-      'M': 15,
-      'L': 20,
-      'XL': 15
-    }
+    "id": "prod_trucker",
+    "name": "TRUST YOURSELF CUSTOM TRUCKER (1/1)",
+    "price": 85,
+    "images": ["https://i.imgur.com/B72Iael.jpg"],
+    "description": "1/1 Custom Trucker Hat with signature branding.",
+    "category": "headwear",
+    "sizes": ["One Size"],
+    "sizeInventory": { "One Size": 0 },
+    "archived": false
   },
   {
-    id: 'prod_003',
-    name: 'Logo Cap',
-    price: 30,
-    images: ['https://images.unsplash.com/photo-1588850561407-ed78c282e89b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'],
-    description: '6-panel structured cap with embroidered Coalition logo.',
-    category: 'accessory',
-    isFeatured: false,
-    sizes: ['One Size'],
-    sizeInventory: {
-      'One Size': 200
-    }
-  },
-  {
-    id: 'prod_wallet_001',
-    name: 'Custom Coalition x Chrome Hearts Wallet',
-    description: 'Exclusive 1/1 custom Coalition x Chrome Hearts collaboration wallet. This unique piece features premium leather construction with signature Chrome Hearts detailing and Coalition branding. A rare collector\'s item that combines luxury craftsmanship with streetwear culture. One of a kind - once it\'s gone, it\'s gone forever.',
-    price: 45.00,
-    images: [
-      'https://i.imgur.com/SS6KbOQ.jpeg',
-      'https://i.imgur.com/NUXZizv.jpeg'
-    ],
-    category: 'accessory',
-    isFeatured: true,
-    sizes: ['One Size'],
-    sizeInventory: {
-      'One Size': 0
-    },
-    archived: true,
-    archivedAt: new Date().toISOString(),
-    soldAt: new Date().toISOString()
-  },
-  {
-    id: 'prod_dist_tee',
-    name: 'COALITION 1/1 DISTORTION TEE',
-    price: 65,
-    images: ['https://i.imgur.com/e7UfX6s.png'],
-    description: 'Exclusive 1/1 Distortion Tee featuring custom graphics and premium fabrics.',
-    category: 'shirt',
-    isFeatured: true,
-    sizes: ['L'],
-    sizeInventory: { 'L': 1 },
-    archived: false,
-    archivedAt: null,
-    soldAt: null
-  },
-  {
-    id: 'prod_true_relig',
-    name: 'COALITION X TRUE RELIGION 1/1 JEANS S1',
-    price: 240,
-    images: ['https://i.imgur.com/R38pS9T.png'],
-    description: 'Exclusive custom Coalition x True Religion collaboration jeans. Featuring custom patches and distressing.',
-    category: 'jeans',
-    isFeatured: true,
-    sizes: ['33'],
-    sizeInventory: { '33': 0 },
-    archived: true,
-    archivedAt: new Date().toISOString(),
-    soldAt: new Date().toISOString()
-  },
-  {
-    id: 'prod_shark_tee',
-    name: '“TRUST YOURSELF” SHARK TEE – 1/1 EXCLUSIVE',
-    price: 65,
-    images: [
-      'https://i.imgur.com/cYmL6GQ.jpeg',
-      'https://i.imgur.com/evsuOt6.jpeg',
-      'https://i.imgur.com/IVmfRGx.jpeg',
-      'https://i.imgur.com/gaA93ug.jpeg'
-    ],
-    description: 'Unique SGCoalition tie-dye "Trust Yourself" tee with a striking blue spiral pattern and the iconic crowned-bird graphic. This one-of-a-kind piece features premium print details and the ferocious "Shark" design, delivering a motivational streetwear vibe. Size Small, in excellent condition with no flaws—ideal for collectors or anyone looking to add a standout Coalition piece to their wardrobe.',
-    category: 'shirt',
-    isFeatured: true,
-    sizes: ['S'],
-    sizeInventory: { 'S': 1 },
-    archived: false,
-    archivedAt: null,
-    soldAt: null
+    "id": "prod_jeans",
+    "name": "Coalition x True Religion 1/1 Jeans S1",
+    "price": 240,
+    "images": ["https://i.imgur.com/NUXZizv.jpeg"],
+    "description": "Rare 1/1 custom Coalition x True Religion jeans.",
+    "category": "jeans",
+    "sizes": ["32"],
+    "sizeInventory": { "32": 0 },
+    "archived": false
   }
 ];
 
