@@ -29,7 +29,12 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 35,
     images: [LOCAL_IMAGE_URLS.walletGreen.front, LOCAL_IMAGE_URLS.walletGreen.back],
     description: 'Tactical accessory designed for the modern collector. Spec-camo pattern with multiple card slots and RFID protection.',
-    category: 'wallet'
+    category: 'wallet',
+    archived: true,
+    archivedAt: '2026-05-22T22:48:11-04:00',
+    soldAt: '2026-05-22T22:48:11-04:00',
+    sizes: ['One Size'],
+    sizeInventory: { 'One Size': 0 }
   },
   {
     id: 'SKYYBLUEWALLET1_2',
@@ -37,7 +42,12 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 35,
     images: [LOCAL_IMAGE_URLS.walletSkyyBlue.front, LOCAL_IMAGE_URLS.walletSkyyBlue.back],
     description: 'Electric blue variant of our signature tactical wallet. Sleek, durable, and ready for any mission.',
-    category: 'wallet'
+    category: 'wallet',
+    archived: true,
+    archivedAt: '2026-05-22T22:48:11-04:00',
+    soldAt: '2026-05-22T22:48:11-04:00',
+    sizes: ['One Size'],
+    sizeInventory: { 'One Size': 0 }
   },
   {
     id: 'prod_wallet_004',
@@ -45,7 +55,12 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 35,
     images: [LOCAL_IMAGE_URLS.walletSkyyBlueArchive.front, LOCAL_IMAGE_URLS.walletSkyyBlueArchive.back],
     description: 'Second piece of the Skyy Blue collection. Hand-crafted tie-dye wallet with silver stitched border. Each piece unique — no two alike.',
-    category: 'wallet'
+    category: 'wallet',
+    archived: true,
+    archivedAt: '2026-05-22T22:48:11-04:00',
+    soldAt: '2026-05-22T22:48:11-04:00',
+    sizes: ['One Size'],
+    sizeInventory: { 'One Size': 0 }
   },
   {
     id: 'Coalition_Racing_Team_Wallet_1_4',
@@ -58,8 +73,11 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     description: "First release in the Coalition 'Racing Team' wallet run. Built as a limited 1/4 collectible with custom team graphics and everyday-carry function.",
     category: 'wallet',
+    archived: true,
+    archivedAt: '2026-05-22T22:48:11-04:00',
+    soldAt: '2026-05-22T22:48:11-04:00',
     sizes: ['One Size'],
-    sizeInventory: { 'One Size': 1 }
+    sizeInventory: { 'One Size': 0 }
   },
   {
     id: 'Coalition_Racing_Team_Wallet_2_4',
@@ -72,8 +90,11 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     description: "Second release in the Coalition 'Racing Team' wallet run. Built as a limited 2/4 collectible with custom team graphics and everyday-carry function.",
     category: 'wallet',
+    archived: true,
+    archivedAt: '2026-05-22T22:48:11-04:00',
+    soldAt: '2026-05-22T22:48:11-04:00',
     sizes: ['One Size'],
-    sizeInventory: { 'One Size': 1 }
+    sizeInventory: { 'One Size': 0 }
   },
   {
     id: 'Coalition_Racing_Team_Wallet_3_4',
@@ -86,8 +107,11 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     description: "Third release in the Coalition 'Racing Team' wallet run. Built as a limited 3/4 collectible with custom team graphics and everyday-carry function.",
     category: 'wallet',
+    archived: true,
+    archivedAt: '2026-05-22T22:48:11-04:00',
+    soldAt: '2026-05-22T22:48:11-04:00',
     sizes: ['One Size'],
-    sizeInventory: { 'One Size': 1 }
+    sizeInventory: { 'One Size': 0 }
   },
   {
     id: 'Coalition_Racing_Team_Wallet_4_4',
@@ -100,8 +124,11 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     description: "Final release in the Coalition 'Racing Team' wallet run. Built as a limited 4/4 collectible with custom team graphics and everyday-carry function.",
     category: 'wallet',
+    archived: true,
+    archivedAt: '2026-05-22T22:48:11-04:00',
+    soldAt: '2026-05-22T22:48:11-04:00',
     sizes: ['One Size'],
-    sizeInventory: { 'One Size': 1 }
+    sizeInventory: { 'One Size': 0 }
   },
   {
     id: 'prod_wallet_chrome_hearts',
@@ -346,4 +373,32 @@ export const ADMIN_WALLETS = [
   '0x39451d0ee9Fc5dd861C985d2a3e227F6Ac7387f4', // Founder Secondary / Treasury
 ];
 
-export const INITIAL_ORDERS: any[] = [];
+export const INITIAL_ORDERS: any[] = [
+  {
+    id: 'order_wholesale_wallets_2026_05_22',
+    orderNumber: 'ORD-SG-WHOLESALE-1002',
+    isGuest: true,
+    customerName: 'Wholesale Customer',
+    customerEmail: 'wholesale@example.com',
+    items: [
+      {
+        productId: 'prod_wallet_004',
+        productName: 'COALITION WALLETS WHOLESALE (7x)',
+        productImage: 'https://i.imgur.com/v5y7tPa.jpg',
+        selectedSize: 'One Size',
+        quantity: 7,
+        price: 25,
+        total: 175
+      }
+    ],
+    subtotal: 175,
+    tax: 0,
+    discount: 0,
+    total: 175,
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    orderType: 'manual',
+    createdAt: '2026-05-22T22:48:11-04:00',
+    paidAt: '2026-05-22T22:48:11-04:00'
+  }
+];
