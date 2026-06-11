@@ -246,11 +246,12 @@ export const INITIAL_SECTIONS: Section[] = [
 ];
 
 export const COIN_REWARD_RATE = 1; // V2: 1 SGC per $1 spent (~4.5% rewards at $0.045/SGC)
+export const SG_COIN_RATE = COIN_REWARD_RATE; // Legacy alias for ProductPage compatibility
 export const V2_REWARD_RATE = 0.25; // Legacy reference, can be deprecated or used for calculations
 
-// ============================================
+// =====================================
 // NO REFUNDS POLICY CONFIGURATION
-// ============================================
+// =====================================
 
 export const SALES_FINAL_ENABLED = import.meta.env.VITE_SALES_FINAL === 'true';
 
@@ -266,9 +267,9 @@ By completing your purchase, you acknowledge and agree to this policy.
 If you have questions about a product before purchasing, please contact us at support@sgcoalition.xyz.
 `.trim();
 
-// ============================================
+// =====================================
 // SGCOIN DISCOUNT CONFIGURATION
-// ============================================
+// =====================================
 
 export const SGCOIN_DISCOUNT_ENABLED = import.meta.env.VITE_SGCOIN_DISCOUNT_ENABLED === 'true';
 export const SGCOIN_DISCOUNT_PERCENTAGE = parseFloat(import.meta.env.VITE_SGCOIN_DISCOUNT_PERCENTAGE || '10');
@@ -276,13 +277,13 @@ export const SGCOIN_DISCOUNT_PERCENTAGE = parseFloat(import.meta.env.VITE_SGCOIN
 export const SGCOIN_PAYMENT_METHODS = ['sgcoin', 'gmoney'] as const;
 export type SGCoinPaymentMethod = typeof SGCOIN_PAYMENT_METHODS[number];
 
-// ============================================
+// =====================================
 // TUTORIAL CONFIGURATION
-// ============================================
+// =====================================
 
-// ============================================
+// =====================================
 // SGCOIN V2 MIGRATION CONFIGURATION
-// ============================================
+// =====================================
 // FAIR FLAT-RATIO MIGRATION SYSTEM
 // Every holder receives the same migration ratio regardless of wallet size
 // This ensures fairness, transparency, and rewards loyalty equally
@@ -343,16 +344,17 @@ export const TUTORIAL_STEP_NAMES = [
 
 export const MINI_WIZARDS_CONTRACT_ADDRESS = '0x653b07c58669bc335fc9cfe2f9afa68f7fe94fc2';
 
-// ============================================
+// =====================================
 // ADMIN CONFIGURATION
-// ============================================
-// ============================================
+// =====================================
+// =====================================
 // ADMIN CONFIGURATION
-// ============================================
+// =====================================
 export const ADMIN_WALLETS = [
   '0x0f4a0466c2a1d3fa6ed55a20994617f0533fbf74', // Founder
   '0x39451d0ee9Fc5dd861C985d2a3e227F6Ac7387f4', // Founder Secondary / Treasury
 ];
+
 
 export const INITIAL_ORDERS: any[] = [
   {
@@ -383,3 +385,14 @@ export const INITIAL_ORDERS: any[] = [
     paidAt: '2026-05-22T22:48:11-04:00'
   }
 ];
+
+export const ADMIN_USER = {
+  uid: 'admin',
+  displayName: 'Admin',
+  email: 'admin@sgcoalition.xyz',
+  walletAddress: null,
+  sgCoinBalance: 0,
+  isAdmin: true,
+  favorites: []
+};
+

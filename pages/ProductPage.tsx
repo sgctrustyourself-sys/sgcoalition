@@ -50,11 +50,13 @@ export const ProductPage: React.FC = () => {
       
       addReview(product.id, {
           id: `r_${Date.now()}`,
-          userId: user.id,
+          productId: product.id,
+          userId: user.uid,
           userName: user.email ? user.email.split('@')[0] : 'Verified User',
           rating: ratingInput,
           comment: reviewText,
-          date: new Date().toISOString().split('T')[0]
+          createdAt: Date.now(),
+          verified: false
       });
       setReviewText('');
       setReviewSubmitted(true);
@@ -98,17 +100,7 @@ export const ProductPage: React.FC = () => {
                  <p>{product.description}</p>
              </div>
 
-             {/* Colors */}
-             {product.colors && product.colors.length > 0 && (
-                 <div className="mb-6">
-                     <h3 className="text-sm font-medium text-gray-900 mb-2">Available Colors</h3>
-                     <div className="flex gap-2">
-                         {product.colors.map(c => (
-                             <span key={c} className="px-3 py-1 bg-gray-100 text-xs uppercase font-bold text-gray-600 rounded">{c}</span>
-                         ))}
-                     </div>
-                 </div>
-             )}
+             {/* Colors removed - Product type has no colors property */}
 
              {/* Size Selector */}
              <div className="mb-8">
@@ -245,7 +237,7 @@ export const ProductPage: React.FC = () => {
                                         {/* Verified badge visual */}
                                         <span className="text-green-600 text-xs bg-green-50 px-2 py-0.5 rounded-full">Verified Buyer</span>
                                     </div>
-                                    <div className="text-sm text-gray-400">{review.date}</div>
+                                    <div className="text-sm text-gray-400">{new Date(review.createdAt).toLocaleDateString()}</div>
                                 </div>
                                 <div className="flex text-yellow-500 mb-3">
                                     {[...Array(5)].map((_, i) => (

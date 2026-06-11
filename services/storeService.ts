@@ -54,8 +54,9 @@ export const StoreService = {
     if (!user || (method === 'google' && user.email !== identifier) || (method === 'metamask' && user.walletAddress !== identifier)) {
         // Create new session user if mismatch or doesn't exist
         user = {
-            id: `user_${Math.random().toString(36).substring(7)}`,
-            role: UserType.USER,
+            uid: `user_${Math.random().toString(36).substring(7)}`,
+            displayName: null,
+            isAdmin: false,
             sgCoinBalance: 0,
             favorites: [],
             email: method === 'google' ? identifier : undefined,

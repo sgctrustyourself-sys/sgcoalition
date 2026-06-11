@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, X, Zap, Wallet } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { AuthProvider } from '../types';
 
 const RewardActivation = () => {
     const { user, login } = useApp();
@@ -22,7 +23,7 @@ const RewardActivation = () => {
     };
 
     const handleConnect = async () => {
-        await login();
+        await login(AuthProvider.METAMASK);
         setIsVisible(false);
     };
 

@@ -335,7 +335,7 @@ export function buildLiveOrdersFeed(orders: Order[], timeRange: LiveOrdersTimeRa
     const states = Array.from(stateTotals.entries())
         .map(([stateCode, details]) => ({
             id: stateCode,
-            name: STATE_CODE_TO_NAME.get(stateCode) ?? stateCode,
+            name: STATE_CODE_TO_NAME.get(stateCode as (typeof STATE_PAIRS)[number][0]) ?? stateCode,
             count: details.count,
             lastActive: formatRelativeTime(details.latestTimestamp, now),
         }))

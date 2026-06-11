@@ -9,32 +9,16 @@ import WishlistShare from '../components/WishlistShare';
 const PublicWishlist = () => {
     const { shareId } = useParams<{ shareId: string }>();
     const navigate = useNavigate();
-    const { products, users, user, addToCart } = useApp();
+    const { products, user, addToCart } = useApp();
     const [wishlistOwner, setWishlistOwner] = useState<UserProfile | null>(null);
     const [wishlistProducts, setWishlistProducts] = useState<Product[]>([]);
     const [showShareModal, setShowShareModal] = useState(false);
 
     useEffect(() => {
-        // Find the user who owns this wishlist
-        const owner = users?.find(u => u.wishlistSettings?.shareId === shareId);
-
-        if (owner) {
-            setWishlistOwner(owner);
-
-            // Check if wishlist is public
-            if (!owner.wishlistSettings?.isPublic) {
-                // Redirect if wishlist is private
-                navigate('/');
-                return;
-            }
-
-            // Get wishlist products
-            const favoriteProducts = products.filter(p =>
-                owner.favorites.includes(p.id) && !p.archived
-            );
-            setWishlistProducts(favoriteProducts);
-        }
-    }, [shareId, users, products, navigate]);
+        // Users lookup not available in current AppState — wishlist search disabled
+        // Future: query Supabase for user by wishlistSettings.shareId
+        setWishlistOwner(null);
+    }, [shareId]);
 
     if (!wishlistOwner) {
         return (
@@ -150,10 +134,7 @@ const PublicWishlist = () => {
             {/* Share Modal */}
             {showShareModal && shareId && (
                 <WishlistShare
-                    shareId={shareId}
-                    userName={wishlistOwner.displayName || 'Anonymous'}
-                    itemCount={wishlistProducts.length}
-                    onClose={() => setShowShareModal(false)}
+                    favoriteIds={wishlistProducts.map(p => p.id)}
                 />
             )}
         </div>

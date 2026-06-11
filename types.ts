@@ -260,6 +260,14 @@ export interface Review {
   };
 }
 
+// Type alias for storeService compatibility
+export type PageSection = Section;
+
+export enum UserType {
+  USER = 'user',
+  ADMIN = 'admin'
+}
+
 export interface WishlistSettings {
   isPublic: boolean;
   name: string;

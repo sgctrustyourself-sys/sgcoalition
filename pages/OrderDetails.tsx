@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { ArrowLeft, Calendar, Package, CreditCard, MapPin, Truck, Clock3, AlertTriangle, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Calendar, Package, CreditCard, MapPin, Truck, Clock3, AlertTriangle, ShoppingBag, RotateCcw } from 'lucide-react';
 import { getOrderItemAddOnLabel } from '../utils/walletAddOns';
 
 const OrderDetails = () => {

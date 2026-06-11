@@ -27,7 +27,7 @@ const createPolygonProvider = () =>
         { staticNetwork: true }
     );
 
-export const getSGCoinBalance = async (address: string, provider: ethers.Provider): Promise<string> => {
+export const getSGCoinBalance = async (address: string, provider: any): Promise<string> => {
     try {
         const network = await provider.getNetwork();
 
@@ -46,7 +46,7 @@ export const getSGCoinBalance = async (address: string, provider: ethers.Provide
     }
 };
 
-export const getSGCoinV2Balance = async (address: string, provider: ethers.Provider): Promise<string> => {
+export const getSGCoinV2Balance = async (address: string, provider: any): Promise<string> => {
     try {
         const network = await provider.getNetwork();
 
@@ -65,7 +65,7 @@ export const getSGCoinV2Balance = async (address: string, provider: ethers.Provi
     }
 };
 
-export const getBurnedSGCoinV1 = async (provider: ethers.Provider): Promise<string> => {
+export const getBurnedSGCoinV1 = async (provider: any): Promise<string> => {
     try {
         const network = await provider.getNetwork();
         if (Number(network.chainId) !== POLYGON_CHAIN_ID) return AUDITED_BURN;

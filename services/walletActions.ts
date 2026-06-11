@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { ethers, BrowserProvider } from 'ethers';
 import { fetchWalletBalanceSnapshot } from './walletBalances';
 
 export interface WalletData {
@@ -8,12 +8,6 @@ export interface WalletData {
     sgCoinBalance?: string;
     v2Balance?: string;
     totalMigratedV1?: string;
-}
-
-declare global {
-    interface Window {
-        ethereum?: any;
-    }
 }
 
 export const formatAddress = (address: string): string => {
@@ -28,7 +22,7 @@ export const connectWallet = async (): Promise<WalletData | null> => {
     }
 
     try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        const provider = new BrowserProvider(window.ethereum);
         const accounts = await provider.send('eth_requestAccounts', []);
 
         if (accounts.length === 0) {

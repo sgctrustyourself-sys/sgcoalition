@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { ethers, BrowserProvider } from 'ethers';
 import {
     SGCOIN_V1_CONTRACT_ADDRESS,
     SGCOIN_V2_CONTRACT_ADDRESS,
@@ -26,7 +26,7 @@ export const getStaticProvider = () => {
 /**
  * Attempts to get a working provider from a list of RPCs
  */
-export const getRobustProvider = async (): Promise<ethers.JsonRpcProvider> => {
+export const getRobustProvider = async (): Promise<any> => {
     for (const url of POLYGON_RPC_URLS) {
         try {
             const provider = new ethers.JsonRpcProvider(url, { chainId: 137, name: 'polygon' }, { staticNetwork: true });
@@ -48,12 +48,6 @@ export interface WalletData {
     totalMigratedV1?: string;
 }
 
-declare global {
-    interface Window {
-        ethereum?: any;
-    }
-}
-
 // ERC-20 ABI (minimal - just what we need for balanceOf)
 const ERC20_ABI = [
     'function balanceOf(address owner) view returns (uint256)',
@@ -72,7 +66,7 @@ const ERC1155_ABI = [
     'function balanceOf(address account, uint256 id) view returns (uint256)'
 ];
 
-export const getSGCoinBalance = async (address: string, provider: ethers.Provider): Promise<string> => {
+export const getSGCoinBalance = async (address: string, provider: any): Promise<string> => {
     try {
         const network = await provider.getNetwork();
 
@@ -94,7 +88,7 @@ export const getSGCoinBalance = async (address: string, provider: ethers.Provide
     }
 };
 
-export const getSGCoinV2Balance = async (address: string, provider: ethers.Provider): Promise<string> => {
+export const getSGCoinV2Balance = async (address: string, provider: any): Promise<string> => {
     try {
         const network = await provider.getNetwork();
 
@@ -115,7 +109,7 @@ export const getSGCoinV2Balance = async (address: string, provider: ethers.Provi
     }
 };
 
-export const getBurnedSGCoinV1 = async (provider: ethers.Provider): Promise<string> => {
+export const getBurnedSGCoinV1 = async (provider: any): Promise<string> => {
     // Audit-verified fallback if live data fails
     const AUDITED_BURN = '1,777,161';
 
@@ -147,7 +141,7 @@ export const getBurnedSGCoinV1 = async (provider: ethers.Provider): Promise<stri
     }
 };
 
-export const getNativeBalance = async (address: string, provider: ethers.Provider): Promise<string> => {
+export const getNativeBalance = async (address: string, provider: any): Promise<string> => {
     try {
         const balance = await provider.getBalance(address);
         return ethers.formatEther(balance);
@@ -157,7 +151,7 @@ export const getNativeBalance = async (address: string, provider: ethers.Provide
     }
 };
 
-export const getLiquidityProviderV2Balance = async (provider: ethers.Provider): Promise<string> => {
+export const getLiquidityProviderV2Balance = async (provider: any): Promise<string> => {
     try {
         const contract = new ethers.Contract(SGCOIN_V2_CONTRACT_ADDRESS, ERC20_ABI, provider);
         const balance = await contract.balanceOf(SGCOIN_LIQUIDITY_PROVIDER);
@@ -177,7 +171,7 @@ export interface BurnActivity {
     blockNumber?: number;
 }
 
-export const getRecentBurnActivity = async (provider: ethers.Provider): Promise<BurnActivity[]> => {
+export const getRecentBurnActivity = async (provider: any): Promise<BurnActivity[]> => {
     try {
         // First try PolygonScan API for a richer history
         const apiActivities = await fetchBurnActivity(20);
@@ -218,7 +212,7 @@ export const checkNftOwnership = async (
     contractAddress: string,
     tokenId: string,
     walletAddress: string,
-    existingProvider?: ethers.BrowserProvider
+    existingProvider?: any
 ): Promise<boolean> => {
     try {
         if (!window.ethereum) return false;
@@ -341,7 +335,7 @@ export const switchToPolygon = async (): Promise<boolean> => {
     }
 };
 
-export const getAllowance = async (tokenAddress: string, owner: string, spender: string, provider: ethers.Provider): Promise<bigint> => {
+export const getAllowance = async (tokenAddress: string, owner: string, spender: string, provider: any): Promise<bigint> => {
     try {
         const abi = ['function allowance(address owner, address spender) view returns (uint256)'];
         const contract = new ethers.Contract(tokenAddress, abi, provider);
@@ -352,7 +346,7 @@ export const getAllowance = async (tokenAddress: string, owner: string, spender:
     }
 };
 
-export const approveTokens = async (tokenAddress: string, spender: string, amount: bigint, signer: ethers.Signer): Promise<string | null> => {
+export const approveTokens = async (tokenAddress: string, spender: string, amount: bigint, signer: any): Promise<string | null> => {
     try {
         const abi = ['function approve(address spender, uint256 amount) returns (bool)'];
         const contract = new ethers.Contract(tokenAddress, abi, signer);
@@ -397,7 +391,7 @@ const MINIWIZARD_ABI = [
     'function tokenURI(uint256 tokenId) view returns (string)'
 ];
 
-export const fetchUserMiniWizards = async (ownerAddress: string, provider: ethers.Provider): Promise<any[]> => {
+export const fetchUserMiniWizards = async (ownerAddress: string, provider: any): Promise<any[]> => {
     try {
         const network = await provider.getNetwork();
         if (Number(network.chainId) !== POLYGON_CHAIN_ID) {
