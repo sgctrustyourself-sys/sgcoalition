@@ -42,6 +42,35 @@ export const LOCAL_IMAGE_URLS = {
     },
 } as const;
 
+// Maps old local paths to canonical Imgur/Supabase URLs (for Supabase-stored data)
+const LOCAL_TO_REMOTE_IMAGE_URLS: Record<string, string> = {
+    '/images/products/nf-tee/model-1.jpg': LOCAL_IMAGE_URLS.nfTee.model1,
+    '/images/products/nf-tee/model-2.jpg': LOCAL_IMAGE_URLS.nfTee.model2,
+    '/images/products/nf-tee/model-3.jpg': LOCAL_IMAGE_URLS.nfTee.model3,
+    '/images/products/nf-tee/model-4.jpg': LOCAL_IMAGE_URLS.nfTee.model4,
+    '/images/products/wallet-green/front.jpg': LOCAL_IMAGE_URLS.walletGreen.front,
+    '/images/products/wallet-green/back.jpg': LOCAL_IMAGE_URLS.walletGreen.back,
+    '/images/products/wallet-skyy-blue/front.jpg': LOCAL_IMAGE_URLS.walletSkyyBlue.front,
+    '/images/products/wallet-skyy-blue/back.jpg': LOCAL_IMAGE_URLS.walletSkyyBlue.back,
+    '/images/products/wallet-skyy-blue-archive/front.png': LOCAL_IMAGE_URLS.walletSkyyBlueArchive.front,
+    '/images/products/wallet-skyy-blue-archive/back.png': LOCAL_IMAGE_URLS.walletSkyyBlueArchive.back,
+    '/images/products/chrome-hearts-wallet/front.jpeg': LOCAL_IMAGE_URLS.chromeHeartsWallet.front,
+    '/images/products/chrome-hearts-wallet/back.jpeg': LOCAL_IMAGE_URLS.chromeHeartsWallet.back,
+    '/images/products/trust-yourself-hat/front.png': LOCAL_IMAGE_URLS.trustYourselfHat.cover,
+    '/images/products/trust-yourself-hat/detail-closeup.png': LOCAL_IMAGE_URLS.trustYourselfHat.detail,
+    '/images/products/trust-yourself-hat/side-profile.png': LOCAL_IMAGE_URLS.trustYourselfHat.side,
+    '/images/products/trust-yourself-hat/back-detail.png': LOCAL_IMAGE_URLS.trustYourselfHat.back,
+    '/images/products/trust-yourself-hat/full-display.png': LOCAL_IMAGE_URLS.trustYourselfHat.full,
+    '/images/products/distortion-tee/main.jpeg': LOCAL_IMAGE_URLS.distortionTee.main,
+    '/images/products/distortion-tee/front-flat.jpg': LOCAL_IMAGE_URLS.distortionTee.frontFlat,
+    '/images/products/distortion-tee/back-model.jpg': LOCAL_IMAGE_URLS.distortionTee.backModel,
+    '/images/products/distortion-tee/back-flat.jpg': LOCAL_IMAGE_URLS.distortionTee.backFlat,
+    '/images/products/true-religion-s1/front-1.jpg': LOCAL_IMAGE_URLS.trueReligionJeans.front1,
+    '/images/products/true-religion-s1/front-2.jpg': LOCAL_IMAGE_URLS.trueReligionJeans.front2,
+    '/images/products/true-religion-s1/front-3.jpg': LOCAL_IMAGE_URLS.trueReligionJeans.front3,
+    '/images/products/true-religion-s1/front-4.jpg': LOCAL_IMAGE_URLS.trueReligionJeans.front4,
+};
+
 const REMOTE_TO_LOCAL_IMAGE_URLS: Record<string, string> = {
     'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-nf-tee_1771429266435_jht8v.jpg': LOCAL_IMAGE_URLS.nfTee.model1,
     'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-nf-tee_1771429279310_rd1ac.jpg': LOCAL_IMAGE_URLS.nfTee.model2,
@@ -78,6 +107,10 @@ const REMOTE_TO_LOCAL_IMAGE_URLS: Record<string, string> = {
 
 export const resolveLocalImageUrl = (url?: string | null) => {
     if (!url) return '';
+    // First try: convert old local path to canonical URL
+    const localToRemote = LOCAL_TO_REMOTE_IMAGE_URLS[url];
+    if (localToRemote) return localToRemote;
+    // Second try: Imgur → canonical URL (identity mapping, retained for compatibility)
     return REMOTE_TO_LOCAL_IMAGE_URLS[url] || url;
 };
 

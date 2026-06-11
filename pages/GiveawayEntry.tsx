@@ -102,10 +102,10 @@ const RequirementRow: React.FC<{ icon: React.ReactNode; label: string; sub: stri
 const SHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
 const SHIRT_GALLERY = [
-    { src: '/images/products/nf-tee/model-1.jpg', label: 'Look 1' },
-    { src: '/images/products/nf-tee/model-2.jpg', label: 'Look 2' },
-    { src: '/images/products/nf-tee/model-3.jpg', label: 'Look 3' },
-    { src: '/images/products/nf-tee/model-4.jpg', label: 'Look 4' },
+    { src: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-nf-tee_1771429266435_jht8v.jpg', label: 'Look 1' },
+    { src: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-nf-tee_1771429279310_rd1ac.jpg', label: 'Look 2' },
+    { src: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-nf-tee_1771429293246_pypxs.jpg', label: 'Look 3' },
+    { src: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-nf-tee_1771429303205_8do7t.jpg', label: 'Look 4' },
 ];
 
 // ─── Main Page ───────────────────────────────────────────────────
