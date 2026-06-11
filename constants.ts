@@ -1,5 +1,5 @@
 import { Product, Section } from './types';
-import { LOCAL_IMAGE_URLS } from './utils/localImageAssets';
+import { PRODUCT_IMAGE_URLS } from './utils/localImageAssets';
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
@@ -7,10 +7,10 @@ export const INITIAL_PRODUCTS: Product[] = [
     name: 'COALITION NF-TEE',
     price: 50,
     images: [
-      LOCAL_IMAGE_URLS.nfTee.model1,
-      LOCAL_IMAGE_URLS.nfTee.model2,
-      LOCAL_IMAGE_URLS.nfTee.model3,
-      LOCAL_IMAGE_URLS.nfTee.model4
+      PRODUCT_IMAGE_URLS.nfTee.model1,
+      PRODUCT_IMAGE_URLS.nfTee.model2,
+      PRODUCT_IMAGE_URLS.nfTee.model3,
+      PRODUCT_IMAGE_URLS.nfTee.model4
     ],
     description: 'The future of streetwear. This limited edition phy-gital tee serves as your access pass to the Coalition ecosystem. Features exclusive "Trust Yourself" puff print and embedded NFC technology linked to its digital twin on the Polygon blockchain.',
     category: 'shirt',
@@ -27,7 +27,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'GreenCamoWallet',
     name: 'COALITION GREEN CAMO WALLET',
     price: 35,
-    images: [LOCAL_IMAGE_URLS.walletGreen.front, LOCAL_IMAGE_URLS.walletGreen.back],
+    images: [PRODUCT_IMAGE_URLS.walletGreen.front, PRODUCT_IMAGE_URLS.walletGreen.back],
     description: 'Tactical accessory designed for the modern collector. Spec-camo pattern with multiple card slots and RFID protection.',
     category: 'wallet',
     archived: true,
@@ -40,7 +40,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'SKYYBLUEWALLET1_2',
     name: 'COALITION SKYY BLUE WALLET 1/2',
     price: 35,
-    images: [LOCAL_IMAGE_URLS.walletSkyyBlue.front, LOCAL_IMAGE_URLS.walletSkyyBlue.back],
+    images: [PRODUCT_IMAGE_URLS.walletSkyyBlue.front, PRODUCT_IMAGE_URLS.walletSkyyBlue.back],
     description: 'Electric blue variant of our signature tactical wallet. Sleek, durable, and ready for any mission.',
     category: 'wallet',
     archived: true,
@@ -53,7 +53,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'prod_wallet_004',
     name: 'COALITION SKYY BLUE WALLET 2/2',
     price: 35,
-    images: [LOCAL_IMAGE_URLS.walletSkyyBlueArchive.front, LOCAL_IMAGE_URLS.walletSkyyBlueArchive.back],
+    images: [PRODUCT_IMAGE_URLS.walletSkyyBlueArchive.front, PRODUCT_IMAGE_URLS.walletSkyyBlueArchive.back],
     description: 'Second piece of the Skyy Blue collection. Hand-crafted tie-dye wallet with silver stitched border. Each piece unique — no two alike.',
     category: 'wallet',
     archived: true,
@@ -134,7 +134,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'prod_wallet_chrome_hearts',
     name: 'CUSTOM COALITION X CHROME HEARTS WALLET',
     price: 450,
-    images: [LOCAL_IMAGE_URLS.chromeHeartsWallet.front, LOCAL_IMAGE_URLS.chromeHeartsWallet.back],
+    images: [PRODUCT_IMAGE_URLS.chromeHeartsWallet.front, PRODUCT_IMAGE_URLS.chromeHeartsWallet.back],
     description: 'Exclusive 1/1 custom Coalition x Chrome Hearts collaboration wallet. Premium leather construction with signature Chrome Hearts detailing and Coalition branding. Rare collector item.',
     category: 'wallet',
     isFeatured: false,
@@ -146,11 +146,11 @@ export const INITIAL_PRODUCTS: Product[] = [
     name: 'TRUST YOURSELF CUSTOM TRUCKER (1/1)',
     price: 85,
     images: [
-      LOCAL_IMAGE_URLS.trustYourselfHat.cover,
-      LOCAL_IMAGE_URLS.trustYourselfHat.detail,
-      LOCAL_IMAGE_URLS.trustYourselfHat.side,
-      LOCAL_IMAGE_URLS.trustYourselfHat.back,
-      LOCAL_IMAGE_URLS.trustYourselfHat.full
+      PRODUCT_IMAGE_URLS.trustYourselfHat.cover,
+      PRODUCT_IMAGE_URLS.trustYourselfHat.detail,
+      PRODUCT_IMAGE_URLS.trustYourselfHat.side,
+      PRODUCT_IMAGE_URLS.trustYourselfHat.back,
+      PRODUCT_IMAGE_URLS.trustYourselfHat.full
     ],
     description: 'One-of-one custom Coalition trucker hat. Hand-crafted with signature Trust Yourself embroidery. Rare collector piece — this exact hat will never be made again.',
     category: 'hat',
@@ -163,10 +163,10 @@ export const INITIAL_PRODUCTS: Product[] = [
       name: 'COALITION DISTORTION TEE',
       price: 65,
       images: [
-        LOCAL_IMAGE_URLS.distortionTee.main,
-        LOCAL_IMAGE_URLS.distortionTee.frontFlat,
-        LOCAL_IMAGE_URLS.distortionTee.backModel,
-        LOCAL_IMAGE_URLS.distortionTee.backFlat,
+        PRODUCT_IMAGE_URLS.distortionTee.main,
+        PRODUCT_IMAGE_URLS.distortionTee.frontFlat,
+        PRODUCT_IMAGE_URLS.distortionTee.backModel,
+        PRODUCT_IMAGE_URLS.distortionTee.backFlat,
       ],
       description: 'The Coalition Distortion Tee features a high-density graphic print that warps and bends the brand logo into a digital frequency. Heavyweight cotton construction with a classic streetwear fit. Trust Yourself.',
       category: 'shirt',
@@ -177,10 +177,10 @@ export const INITIAL_PRODUCTS: Product[] = [
     name: 'Coalition x True Religion 1/1 Jeans S1',
     price: 240,
     images: [
-      LOCAL_IMAGE_URLS.trueReligionJeans.front1,
-      LOCAL_IMAGE_URLS.trueReligionJeans.front2,
-      LOCAL_IMAGE_URLS.trueReligionJeans.front3,
-      LOCAL_IMAGE_URLS.trueReligionJeans.front4
+      PRODUCT_IMAGE_URLS.trueReligionJeans.front1,
+      PRODUCT_IMAGE_URLS.trueReligionJeans.front2,
+      PRODUCT_IMAGE_URLS.trueReligionJeans.front3,
+      PRODUCT_IMAGE_URLS.trueReligionJeans.front4
     ],
     description: "One-of-one Coalition x True Religion collaboration jeans. Season 1 exclusive \u2014 custom distressed denim with premium detailing. Size 33. Once it's gone, it's gone.",
     category: 'jeans',

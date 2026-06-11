@@ -1,4 +1,4 @@
-import { LOCAL_IMAGE_URLS } from '../utils/localImageAssets';
+import { PRODUCT_IMAGE_URLS } from '../utils/localImageAssets';
 
 export const mockLiveOrders = [
     { id: 'CA', name: 'California', count: 18, lastActive: '2m ago' },
@@ -16,10 +16,10 @@ export const mockLiveOrders = [
 ];
 
 export const mockRecentTicker = [
-    { text: "Hoodie purchased in Los Angeles, CA", time: "2m ago", image: LOCAL_IMAGE_URLS.distortionTee.main },
-    { text: "3D Print Service ordered in Austin, TX", time: "12m ago", image: LOCAL_IMAGE_URLS.walletGreen.front },
-    { text: "Vintage Tee purchased in Brooklyn, NY", time: "45m ago", image: LOCAL_IMAGE_URLS.nfTee.model1 },
-    { text: "Cargo Pants purchased in Miami, FL", time: "1h ago", image: LOCAL_IMAGE_URLS.trueReligionJeans.front1 },
-    { text: "Full Stack Wizard Kit ordered in Seattle, WA", time: "3h ago", image: LOCAL_IMAGE_URLS.trustYourselfHat.cover },
-    { text: "Custom Inquiry from Chicago, IL", time: "5h ago", image: LOCAL_IMAGE_URLS.chromeHeartsWallet.front },
+    { text: "Hoodie purchased in Los Angeles, CA", time: "2m ago", image: PRODUCT_IMAGE_URLS.distortionTee.main },
+    { text: "3D Print Service ordered in Austin, TX", time: "12m ago", image: PRODUCT_IMAGE_URLS.walletGreen.front },
+    { text: "Vintage Tee purchased in Brooklyn, NY", time: "45m ago", image: PRODUCT_IMAGE_URLS.nfTee.model1 },
+    { text: "Cargo Pants purchased in Miami, FL", time: "1h ago", image: PRODUCT_IMAGE_URLS.trueReligionJeans.front1 },
+    { text: "Full Stack Wizard Kit ordered in Seattle, WA", time: "3h ago", image: PRODUCT_IMAGE_URLS.trustYourselfHat.cover },
+    { text: "Custom Inquiry from Chicago, IL", time: "5h ago", image: PRODUCT_IMAGE_URLS.chromeHeartsWallet.front },
 ];
