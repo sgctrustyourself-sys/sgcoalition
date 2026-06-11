@@ -106,12 +106,16 @@ const SearchBar: React.FC<SearchBarProps> = ({
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 <input
                     ref={inputRef}
+                    id="search-bar"
+                    name="search"
                     type="text"
                     value={query}
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
                     onFocus={() => showSuggestions && query.trim() && setIsOpen(true)}
                     placeholder={placeholder}
+                    autoComplete="off"
+                    aria-label="Search products"
                     className="w-full bg-gray-900 border border-gray-800 rounded-lg pl-12 pr-12 py-3 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
                 />
                 {query && (

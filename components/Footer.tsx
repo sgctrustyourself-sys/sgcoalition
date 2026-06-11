@@ -20,7 +20,7 @@ const Footer = () => {
                         <h4 className="font-bold uppercase mb-3 text-xs tracking-[0.2em] text-gray-400">Newsletter</h4>
                         <Newsletter />
                     </div>
-                    <p className="text-gray-600 text-xs mt-6">© 2024 Coalition Brand. v1.2</p>
+                    <p className="text-gray-600 text-xs mt-6">© {new Date().getFullYear()} Coalition Brand. v1.3</p>
                 </div>
 
                 <div>
@@ -32,8 +32,9 @@ const Footer = () => {
                         <li><Link to="/inquire" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Custom Inquiry</Link></li>
                         <li><Link to="/about" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">About Us</Link></li>
                         <li><Link to="/help" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Help</Link></li>
+                        <li><Link to="/brain" className="hover:text-purple-400 text-purple-500 hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Coalition Brain</Link></li>
                         <li><Link to="/archive" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Archive</Link></li>
-                        <li><a href="mailto:support@coalitionbrand.com" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Contact Us</a></li>
+                        <li><a href="mailto:support@sgcoalition.xyz" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Contact Us</a></li>
                     </ul>
                 </div>
                 <div>

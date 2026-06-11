@@ -3,7 +3,7 @@
 
 import { SGCOIN_V1_CONTRACT_ADDRESS, SGCOIN_V2_CONTRACT_ADDRESS, QUICKSWAP_LP_ADDRESS, QUICKSWAP_V3_LP_ADDRESS, SGCOIN_BURN_ADDRESS } from '../constants';
 
-const POLYGONSCAN_API_KEY = import.meta.env.VITE_POLYGONSCAN_API_KEY || 'I4WCIAFNGZWXSKX8NQV87ZF4IC43KJ4YVD';
+const POLYGONSCAN_API_KEY = import.meta.env.VITE_POLYGONSCAN_API_KEY || '';
 const SGCOIN_CONTRACT = SGCOIN_V2_CONTRACT_ADDRESS;
 const POLYGONSCAN_API = 'https://api.etherscan.io/v2/api';
 
@@ -19,6 +19,11 @@ export interface Transaction {
 // Fetch recent token transfers
 export const fetchRecentTransactions = async (limit = 20): Promise<Transaction[]> => {
     try {
+        if (!POLYGONSCAN_API_KEY) {
+            console.warn('[PolygonScan API] No API key configured, using mock data');
+            return getMockTransactions();
+        }
+
         const url = `${POLYGONSCAN_API}?chainid=137&module=account&action=tokentx&contractaddress=${SGCOIN_CONTRACT}&page=1&offset=${limit}&sort=desc&apikey=${POLYGONSCAN_API_KEY}`;
 
         console.log('[PolygonScan API] Fetching transactions...');
@@ -61,6 +66,11 @@ export const fetchBurnActivity = async (limit = 10): Promise<any[]> => {
     const DEAD_ADDRESS = '0x000000000000000000000000000000000000dEaD';
 
     try {
+        if (!POLYGONSCAN_API_KEY) {
+            console.warn('[PolygonScan API] No API key configured, cannot fetch burn activity');
+            return [];
+        }
+
         // Fetch V1 transfers to Burn Address or DEAD address
         // Using action=tokentx for V1
         const v1BurnUrl = `${POLYGONSCAN_API}?chainid=137&module=account&action=tokentx&contractaddress=${SGCOIN_V1_CONTRACT_ADDRESS}&offset=50&sort=desc&apikey=${POLYGONSCAN_API_KEY}`;

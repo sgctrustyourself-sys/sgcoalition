@@ -14,22 +14,26 @@ export interface CustomInquiryData {
 
 /**
  * Submit a custom product inquiry
+ * @param userId - Optional authenticated user ID to link the inquiry
  */
-export async function submitCustomInquiry(data: CustomInquiryData): Promise<string> {
+export async function submitCustomInquiry(data: CustomInquiryData, userId?: string): Promise<string> {
+    const insertData: Record<string, any> = {
+        customer_name: data.customerName,
+        customer_email: data.customerEmail,
+        customer_phone: data.customerPhone || null,
+        product_type: data.productType,
+        title: data.title,
+        description: data.description,
+        reference_images: data.referenceImages,
+        budget_range: data.budgetRange,
+        timeline: data.timeline,
+        status: 'new'
+    };
+    if (userId) insertData.user_id = userId;
+
     const { data: inquiry, error } = await supabase
         .from('custom_inquiries')
-        .insert([{
-            customer_name: data.customerName,
-            customer_email: data.customerEmail,
-            customer_phone: data.customerPhone || null,
-            product_type: data.productType,
-            title: data.title,
-            description: data.description,
-            reference_images: data.referenceImages,
-            budget_range: data.budgetRange,
-            timeline: data.timeline,
-            status: 'new'
-        }])
+        .insert([insertData])
         .select()
         .single();
 

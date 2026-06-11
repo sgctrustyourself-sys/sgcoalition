@@ -970,8 +970,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const submitCustomInquiry = async (data: any) => {
-        try { await supabase.from('custom_inquiries').insert([{ ...data, status: 'new' }]); addToast('Submitted!', 'success'); }
-        catch (err) { addToast('Failed.', 'error'); }
+        try {
+            const insertData: any = { ...data, status: 'new' };
+            if (user?.uid && !user.uid.startsWith('user_eth_')) insertData.user_id = user.uid;
+            await supabase.from('custom_inquiries').insert([insertData]);
+            addToast('Submitted!', 'success');
+        } catch (err) { addToast('Failed.', 'error'); }
     };
 
     const submitPurchaseRequest = async (data: any) => {

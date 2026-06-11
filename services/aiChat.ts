@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { getRelevantBrainEntries, saveChatInsight } from './brainService';
 
 // Try multiple ways to get API key (for different deployment environments)
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY ||
@@ -69,6 +70,23 @@ export const sendChatMessage = async (
         console.log('[AI Chat] Sending message:', message.substring(0, 50) + '...');
         if (image) console.log('[AI Chat] Image attached');
 
+        // Recall relevant brain context for this topic
+        let brainContext = '';
+        try {
+            const ctx = await recallBrainContext(message);
+            if (ctx) {
+                brainContext = ctx;
+                console.log('[AI Chat] Brain context recalled:', brainContext.substring(0, 100) + '...');
+            }
+        } catch (err) {
+            console.error('[AI Chat] Failed to recall brain context:', err);
+        }
+
+        // Build the effective message: brain context + user message
+        const effectiveMessage = brainContext
+            ? `RELEVANT COALITION BRAIN KNOWLEDGE (use this context when applicable):\n${brainContext}\n\n---\n\nUSER MESSAGE:\n${message}`
+            : message;
+
         const model = genAI.getGenerativeModel({
             model: 'gemini-2.0-flash-exp', // Supports vision
             generationConfig: {
@@ -130,8 +148,8 @@ export const sendChatMessage = async (
 
         console.log('[AI Chat] Sending to Gemini API...');
 
-        // Prepare current message parts
-        const currentParts: any[] = [{ text: message }];
+        // Prepare current message parts (use effective message with brain context)
+        const currentParts: any[] = [{ text: effectiveMessage }];
         if (image) {
             currentParts.push({
                 inlineData: {
@@ -212,6 +230,133 @@ export const generateImage = async (prompt: string): Promise<{ success: boolean;
     }
 };
 
+// ============================================
+// COALITION SHIRT DESIGNER
+// ============================================
+
+/**
+ * The definitive Coalition brand style guide for AI image generation.
+ * This prompt is appended to every shirt design generation request to ensure
+ * consistent Coalition aesthetic: Baltimore streetwear, Trust Yourself ethos,
+ * dark/industrial palette, distortion/glitch effects, crowned-bird motifs.
+ */
+export const COALITION_SHIRT_DESIGN_STYLE = `
+COALITION BRAND STYLE GUIDE (SG Coalition / Trust Yourself):
+
+- AESTHETIC: Dark streetwear with high-end tactical/industrial edge. Baltimore grit meets digital futurism.
+- COLOR PALETTE: Black base, charcoal grays, dark navy, electric blue accents, neon purple/pink highlights, white hits for contrast. Avoid bright warm colors (no neons, no pastels).
+- LOGO/TYPOGRAPHY: "COALITION" in bold condensed uppercase, often with glitch/distortion effects. "TRUST YOURSELF" tagline. Crowned-bird emblem (phoenix/eagle silhouette with a crown).
+- GRAPHIC STYLE: High-density prints, distortion/glitch effects, frequency/wave patterns, digital noise, double-exposure overlays, tactical grid lines, binary/data-moshing elements.
+- SHIRT BASE: Heavyweight cotton, boxy/oversized fit, drop shoulders. Typically black or charcoal base tee.
+- PRINT PLACEMENT: Large back print (centered, full-coverage), front left chest logo, sleeve hits optional.
+- VIBE: Mysterious, confident, anti-establishment luxury. "Built in Baltimore, trusted everywhere."
+- INSPIRATION: Balenciaga, Vetements, Rick Owens, Brain Dead, Off-White industrial era, Chrome Hearts gothic.
+- NO: Cartoonish elements, clip-art, Comic Sans, corporate aesthetic, pastels, overly bright/cheerful designs, AI watermarks.
+
+Make the design feel like it belongs in a premium streetwear lookbook. Dark, moody, architectural.
+`;
+
+/**
+ * Analyze a reference image and generate a Coalition-styled shirt design prompt.
+ * Uses Gemini Vision to understand the reference, then crafts a detailed
+ * image generation prompt that fuses reference elements with Coalition branding.
+ */
+export const analyzeShirtReference = async (
+    referenceImage: string, // Base64 data URL
+    userInstructions: string = ''
+): Promise<string> => {
+    if (!API_KEY) throw new Error('API Key missing');
+
+    const model = genAI.getGenerativeModel({
+        model: 'gemini-2.0-flash-exp',
+        generationConfig: { temperature: 0.8, maxOutputTokens: 1000 },
+        safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ],
+    });
+
+    const analysisPrompt = `You are a streetwear design director for "Coalition" (SG Coalition) — a premium dark streetwear brand. 
+
+Analyze the attached reference image. Extract these design elements:
+- Overall vibe and aesthetic
+- Key visual motifs (shapes, symbols, patterns)
+- Color palette observed
+- Composition style (centered, scattered, geometric)
+- Any text/typography style
+- What makes it visually striking
+
+${COALITION_SHIRT_DESIGN_STYLE}
+
+${userInstructions ? `ADDITIONAL INSTRUCTIONS FROM USER: "${userInstructions}"` : ''}
+
+TASK: Write a SINGLE detailed image generation prompt (for an AI image generator like Imagen/DALL-E) that creates a NEW Coalition-branded t-shirt design. The design must:
+1. Preserve the ESSENCE/VIBE of the reference image (its core aesthetic DNA)
+2. Transform it through the Coalition style guide above (dark, industrial, glitch, "Trust Yourself")
+3. Look like a flat-lay t-shirt product photo — high-end e-commerce style
+4. Include "COALITION" branding and/or "TRUST YOURSELF" in the design naturally
+
+OUTPUT FORMAT: Write ONLY the image generation prompt, nothing else. No preamble, no explanation. Just the prompt.
+
+The prompt should be 2-4 sentences, highly descriptive, using professional art-direction language.`;
+
+    const mimeType = referenceImage.split(';')[0].split(':')[1];
+    const base64Data = referenceImage.split(',')[1];
+
+    const parts: any[] = [
+        { text: analysisPrompt },
+        { inlineData: { data: base64Data, mimeType } }
+    ];
+
+    const result = await model.generateContent(parts);
+    const response = await result.response;
+    const text = response.text();
+
+    console.log('[Shirt Designer] Analysis result:', text.substring(0, 200) + '...');
+    return text.trim();
+};
+
+/**
+ * Generate a Coalition shirt design image from a refined prompt.
+ * Uses the same Imagen endpoint as generateImage, but with the
+ * Coalition brand style already baked into the prompt.
+ */
+export const generateShirtDesign = async (
+    designPrompt: string,
+    baseGarment: string = 'heavyweight cotton t-shirt'
+): Promise<{ success: boolean; imageUrl?: string; error?: string }> => {
+    // Only add photography direction, let the AI-analyzed prompt dictate the design
+    const fullPrompt = `Flat-lay product photo of a ${baseGarment} on a dark surface, featuring a streetwear design: ${designPrompt}. Premium e-commerce product photography, studio lighting, 8K detail, dark moody aesthetic.`;
+
+    return generateImage(fullPrompt);
+};
+
+/**
+ * Complete shirt design pipeline: analyze reference + generate design
+ */
+export const designShirtFromReference = async (
+    referenceImage: string,
+    userInstructions: string = ''
+): Promise<{ success: boolean; imageUrl?: string; designPrompt?: string; error?: string }> => {
+    try {
+        console.log('[Shirt Designer] Step 1: Analyzing reference image...');
+        const designPrompt = await analyzeShirtReference(referenceImage, userInstructions);
+
+        console.log('[Shirt Designer] Step 2: Generating shirt design...');
+        const result = await generateShirtDesign(designPrompt);
+
+        return {
+            ...result,
+            designPrompt,
+        };
+    } catch (error: any) {
+        console.error('[Shirt Designer] Pipeline error:', error);
+        return { success: false, error: error.message };
+    }
+};
+
 /**
  * Check if password is correct for Full AI Mode
  */
@@ -224,8 +369,31 @@ export const verifyFullAIPassword = (password: string): boolean => {
  */
 export const getWelcomeMessage = (mode: ChatMode): string => {
     if (mode === 'brand') {
-        return 'Hi! 👋 I\'m your Coalition AI Assistant. I can help you with questions about our products, SGCoin rewards, NFTs, orders, and more. How can I assist you today?';
+        return 'Hi! 👋 I\'m your Coalition AI Assistant. I can help you with questions about our products, SGCoin rewards, NFTs, orders, and more. I have access to the Coalition Brain — our persistent knowledge base of product designs, brand guidelines, and creative direction. How can I assist you today?';
     } else {
         return '🚀 Full AI Mode Activated! I\'m now your Coalition-themed AI assistant with unrestricted capabilities. I can help you with anything - from coding to creative writing to problem-solving. What would you like to explore?';
     }
+};
+
+/**
+ * Recall relevant brain entries for a given topic to enhance AI responses
+ */
+export const recallBrainContext = async (topic: string): Promise<string | null> => {
+    try {
+        const entries = await getRelevantBrainEntries(topic, 3);
+        if (entries.length === 0) return null;
+
+        return entries.map(e => `[BRAIN: ${e.title}] ${e.content.substring(0, 500)}`).join('\n\n');
+    } catch (err) {
+        console.error('Error recalling brain context:', err);
+        return null;
+    }
+};
+
+/**
+ * Save an important insight to the Coalition Brain from a chat conversation
+ */
+export const saveToBrain = async (title: string, content: string, tags: string[] = []): Promise<boolean> => {
+    const result = await saveChatInsight(title, content, tags, 3);
+    return result !== null;
 };

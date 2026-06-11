@@ -70,6 +70,7 @@ const MigrationPage = React.lazy(() => import('./pages/MigrationPage'));
 const SGCoalitionPortal = React.lazy(() => import('./pages/SGCoalitionPortal'));
 const WizardsPortal = React.lazy(() => import('./pages/WizardsPortal'));
 const LiveOrdersMap = React.lazy(() => import('./pages/LiveOrdersMap'));
+const Brain = React.lazy(() => import('./pages/Brain'));
 
 // Component to handle referral code detection
 const ReferralTracker = () => {
@@ -223,6 +224,7 @@ const App = () => {
                     <Route path="/tutorial/use-sgcoin" element={<Navigate to="/tutorial/use" replace />} />
                     <Route path="/migrate" element={<MigrationPage />} />
                     <Route path="/live-orders" element={<LiveOrdersMap />} />
+                    <Route path="/brain" element={<Brain />} />
 
                     <Route path="*" element={<NotFound />} />
                   </Routes>

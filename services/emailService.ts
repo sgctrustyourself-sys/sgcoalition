@@ -183,29 +183,14 @@ export async function sendGiveawayValidationEmail(
 }
 
 /**
- * Send email using Resend API
+ * Send email via secure server-side API route (RESEND_API_KEY never exposed to frontend)
  */
 async function sendEmail(data: EmailData): Promise<void> {
-    const RESEND_API_KEY = import.meta.env.VITE_RESEND_API_KEY;
-
-    // If no API key, log to console (development mode)
-    if (!RESEND_API_KEY) {
-        console.log('📧 Email would be sent (no API key configured):', {
-            to: data.to,
-            subject: data.subject
-        });
-        return;
-    }
-
     try {
-        const response = await fetch('https://api.resend.com/emails', {
+        const response = await fetch('/api/send-email', {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${RESEND_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                from: 'SG Coalition <noreply@sgcoalition.xyz>',
                 to: data.to,
                 subject: data.subject,
                 html: data.html
@@ -214,12 +199,12 @@ async function sendEmail(data: EmailData): Promise<void> {
 
         if (!response.ok) {
             const error = await response.text();
-            console.error('Resend API error:', error);
+            console.error('Send email API error:', error);
             throw new Error(`Failed to send email: ${response.statusText}`);
         }
 
         const result = await response.json();
-        console.log('✅ Email sent successfully:', result.id);
+        console.log('✅ Email sent successfully:', result.data?.id);
     } catch (error) {
         console.error('Error sending email:', error);
         throw error;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Sparkles, ArrowLeft, Zap, Copy, Check, MessageSquare, Plus, Trash2, Menu, X as XIcon, Paperclip, Image as ImageIcon, X, Bot, LogOut } from 'lucide-react';
+import { Send, Sparkles, ArrowLeft, Zap, Copy, Check, MessageSquare, Plus, Trash2, Menu, X as XIcon, Paperclip, Image as ImageIcon, X, Bot, LogOut, Shirt } from 'lucide-react';
 import { sendChatMessage, generateImage, type ChatMessage } from '../services/aiChat';
 import {
     createChatSession,
@@ -17,6 +17,7 @@ import ReactMarkdown from 'react-markdown';
 import { supabase } from '../services/supabase';
 import { useToast } from '../context/ToastContext';
 import ImageGenModal from '../components/ImageGenModal';
+import ShirtGeneratorModal from '../components/ShirtGeneratorModal';
 
 const AIPortal = () => {
     const navigate = useNavigate();
@@ -41,6 +42,7 @@ const AIPortal = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [showImageGenModal, setShowImageGenModal] = useState(false);
+    const [showShirtGenModal, setShowShirtGenModal] = useState(false);
 
     const scrollToBottom = () => {
         if (messagesEndRef.current) {
@@ -384,11 +386,24 @@ const AIPortal = () => {
 
                     <div className="flex items-center gap-2">
                         <button
+                            onClick={() => setShowShirtGenModal(true)}
+                            className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-brand-accent/10 hover:bg-brand-accent/20 border border-brand-accent/30 rounded-lg transition text-xs font-bold text-white mr-2"
+                        >
+                            <Shirt className="w-4 h-4" />
+                            Shirt Designer
+                        </button>
+                        <button
                             onClick={() => setShowImageGenModal(true)}
                             className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-lg transition text-xs font-bold text-purple-300"
                         >
                             <ImageIcon className="w-4 h-4" />
                             Generate Image
+                        </button>
+                        <button
+                            onClick={() => setShowShirtGenModal(true)}
+                            className="md:hidden p-2 hover:bg-white/10 rounded-lg text-brand-accent mr-1"
+                        >
+                            <Shirt className="w-5 h-5" />
                         </button>
                         <button
                             onClick={() => setShowImageGenModal(true)}
@@ -553,6 +568,21 @@ const AIPortal = () => {
                     </div>
                 </div>
             </div>
+            {/* Shirt Generator Modal */}
+            <ShirtGeneratorModal
+                isOpen={showShirtGenModal}
+                onClose={() => setShowShirtGenModal(false)}
+                onDesignGenerated={(url, prompt) => {
+                    const aiMsg: ChatMessage = {
+                        role: 'assistant',
+                        content: `**Shirt Design Generated** 🎨\n\nDesign Concept: ${prompt.substring(0, 200)}...\n\n*This is a Coalition-styled shirt design fused from your reference image.*`,
+                        image: url,
+                        timestamp: Date.now()
+                    };
+                    setMessages(prev => [...prev, aiMsg]);
+                    setShowShirtGenModal(false);
+                }}
+            />
             {/* Image Gen Modal */}
             <ImageGenModal
                 isOpen={showImageGenModal}

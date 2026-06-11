@@ -107,9 +107,17 @@ const ProductDetails = () => {
             setEditForm(found);
             setDraggedImageIndex(null);
             setDragOverImageIndex(null);
+            
+            // Update document title for SEO and "own page" feel
+            document.title = `${found.name} | SG Coalition`;
         } else {
             navigate('/shop');
         }
+
+        // Cleanup on unmount
+        return () => {
+            document.title = 'Coalition | Crafted in Baltimore';
+        };
     }, [id, products, navigate]);
 
     if (!product) return null;
