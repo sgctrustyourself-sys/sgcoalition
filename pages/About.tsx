@@ -89,6 +89,31 @@ const Story = () => {
                 </div>
             </section>
 
+            {/* What Gets Made Here */}
+            <section className="py-24 px-4 max-w-5xl mx-auto">
+                <h2 className="font-display text-4xl font-bold uppercase mb-12 text-center">What Gets Made Here</h2>
+                <div className="grid md:grid-cols-3 gap-10">
+                    <div>
+                        <h3 className="text-2xl font-display font-bold uppercase mb-3">By Hand, Every Time</h3>
+                        <p className="text-lg text-gray-700 leading-loose">
+                            Every piece from our drops is hand-crafted, start to finish. Production runs are kept small on purpose — the labor lives in the build, not the marketing.
+                        </p>
+                    </div>
+                    <div>
+                        <h3 className="text-2xl font-display font-bold uppercase mb-3">Limited Means Limited</h3>
+                        <p className="text-lg text-gray-700 leading-loose">
+                            When a run sells out, it doesn't quietly restock. The limited-edition tag is a promise — once it's claimed, it's claimed for good.
+                        </p>
+                    </div>
+                    <div>
+                        <h3 className="text-2xl font-display font-bold uppercase mb-3">The Ladder</h3>
+                        <p className="text-lg text-gray-700 leading-loose">
+                            Handcrafted standard drops start at $75. The Above as Below Set runs $120 — that's $30 less than the sum of its parts. The Chrome Hearts Wallet sits at $450 as the collection's ceiling.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
             {/* Timeline Section */}
             <section className="py-24 px-4 max-w-5xl mx-auto">
                 <h2 className="font-display text-4xl font-bold uppercase mb-16 text-center">The Journey</h2>
@@ -159,16 +184,25 @@ const Story = () => {
                             <div className="font-bold text-gray-900 uppercase tracking-wide mb-1">Soundtrack</div>
                             <div className="text-gray-700 text-sm">Music dropping. The culture expands beyond clothes.</div>
                         </div>
-                    </div>
-
-                     {/* Timeline Item 7 */}
-                     <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    </div>                    {/* Timeline Item 7 */}
+                    <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                         <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-black text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
                             <TrendingUp className="w-5 h-5" />
                         </div>
                         <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-6 rounded border border-gray-100 shadow-sm">
                             <div className="font-bold text-gray-900 uppercase tracking-wide mb-1">Comeback</div>
                             <div className="text-gray-700 text-sm">Rebuilds and resilience. Stronger than ever.</div>
+                        </div>
+                    </div>
+
+                    {/* Timeline Item 8 */}
+                    <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-brand-accent text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+                            <Shirt className="w-5 h-5" />
+                        </div>
+                        <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-6 rounded border border-gray-100 shadow-sm">
+                            <div className="font-bold text-gray-900 uppercase tracking-wide mb-1">Above as Below</div>
+                            <div className="text-gray-700 text-sm">The matching tee and shorts land as a coordinated drop. $75 per piece, $120 for the set, never restocked.</div>
                         </div>
                     </div>
 
