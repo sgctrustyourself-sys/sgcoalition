@@ -38,7 +38,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     freeShipping: true,
     isLimitedEdition: true,
     sizes: ['S', 'M', 'L', 'XL', '2XL'],
-    sizeInventory: { S: 10, M: 10, L: 10, XL: 10, '2XL': 10 }
+    // Live Supabase row sums to 44. Local fallback kept honest so the storefront
+    // never oversells when Supabase hasn't been hit yet.
+    sizeInventory: { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 }
   },
   {
     id: 'GreenCamoWallet',
