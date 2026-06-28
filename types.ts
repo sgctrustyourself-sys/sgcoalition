@@ -30,6 +30,18 @@ export interface Product {
   archiveNote?: string; // Context shown when a sold/archive piece has a story behind it
   founderNote?: string; // Personal note from the founder shown below the buy button on the PDP
   // Urgency & Scarcity Fields
+  // Numbered Edition Tie-down Pricing & Mint Tracker
+  // When editionSize is set, the first editionSize units ship as a numbered
+  // edition (1/editionSize, 2/editionSize, ...). pricingTiers describes the
+  // step-up: each tier says "until this sold-count, use this price". A tier
+  // with untilCount=null is the catch-all (every unit beyond the previous tier
+  // uses its price).
+  pricingTiers?: PricingTier[];
+  editionSize?: number | null;
+  // Live count of PAID units (across sizes), used by ProductCard / PDP to
+  // render "X/44 minted at $75".
+  editionSoldCount?: number | null;
+
   isLimitedEdition?: boolean; // Limited edition badge
   stock?: number; // Current available stock as mirrored from the products DB row (set by AppContext.fetchProducts from public.products.stock)
   saleEndDate?: string; // ISO timestamp for flash sales
@@ -363,4 +375,58 @@ export interface BlogComment {
   userName: string;
   content: string;
   createdAt: string;
+}
+
+// ==========================================
+// NUMBERED-EDITION (TIER-PRICING + 1/N MARKER)
+// Mirrors supabase/migrations/20261101_add_tier_pricing_and_numbered_pieces.sql.
+// Server-side tier price re-verified at order-paid time using
+// public.get_product_paid_count(product_id). Pieces auto-bind to orders on
+// a lowest-available-first policy; refunds do NOT release a piece.
+// ==========================================
+
+// One row of products.pricing_tiers JSONB. untilCount null means
+// "open-ended remainder" (the catch-all price). Stored as dollars.
+export interface PricingTier {
+  untilCount: number | null;
+  price: number;
+}
+
+// One row of public.numbered_pieces. pieceIndex is 1..editionSize of the
+// parent product; orderId is bound by the server on order-paid
+// (lowest-available-first) and stays bound on refund. nftTokenId / nfcTagUrl
+// are operator-edited via the admin OrderDetails panel.
+export interface NumberedPiece {
+  id: string;
+  productId: string;
+  pieceIndex: number;
+  orderId: string | null;
+  nftTokenId: string | null;
+  nfcTagUrl: string | null;
+  assignedAt: string | null;
+  createdAt: string;
+}
+
+// Resolves the active tier price for a product given how many units have
+// already sold (across PAID orders). Walks pricingTiers in JSONB-saved order.
+export function getActiveTierPrice(product: Product, currentSold: number): number {
+  if (!product.pricingTiers || product.pricingTiers.length === 0) {
+    return product.price;
+  }
+  for (const tier of product.pricingTiers) {
+    if (tier.untilCount === null || currentSold < tier.untilCount) {
+      return tier.price;
+    }
+  }
+  // Past every defined + open-ended tier shouldn't happen if the last tier
+  // uses untilCount=null, but be safe against bad operator input.
+  const last = product.pricingTiers[product.pricingTiers.length - 1];
+  return last.price;
+}
+
+// True iff this product opts into the numbered-edition UI (X/N badge, tier
+// pricing). editionSize must be a positive int AND pricingTiers must have
+// at least one row.
+export function isNumberedEdition(product: Product): boolean {
+  return !!product.editionSize && (product.pricingTiers?.length ?? 0) > 0;
 }
