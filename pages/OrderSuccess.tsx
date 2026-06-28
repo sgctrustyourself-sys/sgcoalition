@@ -3,14 +3,41 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Package, Hexagon, Home, Loader } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
+import { fetchPiecesByOrder } from '../services/numberedPieces';
+import type { NumberedPiece } from '../types';
 
 const OrderSuccess = () => {
     const [searchParams] = useSearchParams();
     const { cart, cartTotal, calculateReward, clearCart, user, updateUser } = useApp();
     const [orderDetails, setOrderDetails] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
+    // Numbered-edition: per-product pieces bound to this order by the
+    // auto-binding step (lowest piece_index available wins).
+    const [pieces, setPieces] = useState<Record<string, NumberedPiece>>({});
     const [shippingInfo, setShippingInfo] = useState<any>(null);
     const [isMembershipSuccess, setIsMembershipSuccess] = useState(false);
+
+    // Resolve the numbered-edition pieces assigned to this order once the
+    // order id is known. Conveyor only re-fetches when orderDetails.id
+    // changes, so realtime piece reassignments won't double-trigger.
+    useEffect(() => {
+        if (!orderDetails?.id) {
+            setPieces({});
+            return;
+        }
+        let mounted = true;
+        fetchPiecesByOrder(orderDetails.id).then((pcs) => {
+            if (!mounted) return;
+            const byProduct: Record<string, NumberedPiece> = {};
+            pcs.forEach((piece) => {
+                byProduct[piece.productId] = piece;
+            });
+            setPieces(byProduct);
+        });
+        return () => {
+            mounted = false;
+        };
+    }, [orderDetails?.id]);
 
     const sessionId = searchParams.get('session_id');
     const type = searchParams.get('type');
@@ -254,20 +281,33 @@ const OrderSuccess = () => {
                     <div className="mb-6 pb-6 border-b border-gray-200">
                         <h3 className="font-display text-lg font-bold mb-3 text-left">Order Items</h3>
                         <div className="space-y-3">
-                            {orderDetails.items.map((item: any, index: number) => (
-                                <div key={index} className="flex items-center gap-3 text-left">
-                                    <img src={item.image || item.productImage} alt={item.name || item.productName} className="w-16 h-16 object-cover rounded bg-gray-100" />
-                                    <div className="flex-1">
-                                        <p className="font-medium text-sm">{item.name || item.productName}</p>
-                                        <p className="text-xs text-gray-500">
-                                            Size: {item.size || item.selectedSize}
-                                            {item.addOnLabel ? ` • ${item.addOnLabel}` : ''}
-                                            {' • '}Qty: {item.quantity}
-                                        </p>
+                            {orderDetails.items.map((item: any, index: number) => {
+                                const piece = pieces[item.id];
+                                return (
+                                    <div key={index} className="flex items-center gap-3 text-left">
+                                        <img src={item.image || item.productImage} alt={item.name || item.productName} className="w-16 h-16 object-cover rounded bg-gray-100" />
+                                        <div className="flex-1">
+                                            <p className="font-medium text-sm">{item.name || item.productName}</p>
+                                            <p className="text-xs text-gray-500">
+                                                Size: {item.size || item.selectedSize}
+                                                {item.addOnLabel ? ` • ${item.addOnLabel}` : ''}
+                                                {' • '}Qty: {item.quantity}
+                                            </p>
+                                            {piece && (
+                                                <p className="mt-1 inline-flex items-center gap-1.5 border border-yellow-500/40 bg-yellow-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-yellow-800">
+                                                    <span>Numbered Piece {piece.pieceIndex}</span>
+                                                    {piece.nftTokenId && (
+                                                        <span className="text-yellow-800">
+                                                            · NFT #{piece.nftTokenId}
+                                                        </span>
+                                                    )}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <p className="font-bold">${item.price}</p>
                                     </div>
-                                    <p className="font-bold">${item.price}</p>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
 

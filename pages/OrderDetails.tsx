@@ -1,15 +1,97 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 import { ArrowLeft, Calendar, Package, CreditCard, MapPin, Truck, Clock3, AlertTriangle, ShoppingBag, RotateCcw } from 'lucide-react';
 import { getOrderItemAddOnLabel } from '../utils/walletAddOns';
+import { fetchPiecesByOrder, updatePieceMetadata } from '../services/numberedPieces';
+import type { NumberedPiece } from '../types';
 
 const OrderDetails = () => {
     const { orderId } = useParams<{ orderId: string }>();
     const navigate = useNavigate();
     const { orders, products, user, isLoading } = useApp();
+    const { addToast } = useToast();
+    // Numbered-edition piece-binding state per product in this order.
+    const [piecesByProduct, setPiecesByProduct] = useState<Record<string, NumberedPiece[]>>({});
+    // Inline NFT/NFC metadata editor state (admin-only).
+    const [editingPieceId, setEditingPieceId] = useState<string | null>(null);
+    const [editNft, setEditNft] = useState('');
+    const [editNfc, setEditNfc] = useState('');
+    const [isSavingPiece, setIsSavingPiece] = useState(false);
 
     const order = useMemo(() => orders.find(item => item.id === orderId), [orders, orderId]);
+
+    useEffect(() => {
+        if (!order?.id) {
+            setPiecesByProduct({});
+            return;
+        }
+        let mounted = true;
+        fetchPiecesByOrder(order.id).then((pcs) => {
+            if (!mounted) return;
+            const map: Record<string, NumberedPiece[]> = {};
+            pcs.forEach((p) => {
+                if (!map[p.productId]) map[p.productId] = [];
+                map[p.productId].push(p);
+            });
+            setPiecesByProduct(map);
+        });
+        return () => {
+            mounted = false;
+        };
+    }, [order?.id]);
+
+    const startEditPiece = (piece: NumberedPiece) => {
+        setEditingPieceId(piece.id);
+        setEditNft(piece.nftTokenId ?? '');
+        setEditNfc(piece.nfcTagUrl ?? '');
+    };
+
+    const cancelEditPiece = () => {
+        setEditingPieceId(null);
+        setEditNft('');
+        setEditNfc('');
+    };
+
+    // Strip a row's stale Hero state when the row underneath it changes mid-edit
+    // (e.g., realtime piece reassignment). Defensive: prevents leftover
+    // inputs from bleeding into the next row the admin opens.
+    useEffect(() => {
+        if (editingPieceId === null) {
+            setEditNft('');
+            setEditNfc('');
+        }
+    }, [editingPieceId, piecesByProduct]);
+
+    const savePieceMetadata = async (pieceId: string) => {
+        setIsSavingPiece(true);
+        const nft = editNft.trim();
+        const nfc = editNfc.trim();
+        const result = await updatePieceMetadata(pieceId, {
+            nftTokenId: nft ? nft : null,
+            nfcTagUrl: nfc ? nfc : null,
+        });
+        setIsSavingPiece(false);
+        if (!result.ok) {
+            addToast(result.error || 'Failed to save piece metadata', 'error');
+            return;
+        }
+        addToast('Piece metadata saved', 'success');
+        setEditingPieceId(null);
+        setEditNft('');
+        setEditNfc('');
+        // Refresh local state so the readout reflects the saved values.
+        if (order?.id) {
+            const pcs = await fetchPiecesByOrder(order.id);
+            const map: Record<string, NumberedPiece[]> = {};
+            pcs.forEach((p) => {
+                if (!map[p.productId]) map[p.productId] = [];
+                map[p.productId].push(p);
+            });
+            setPiecesByProduct(map);
+        }
+    };
 
     const canViewPrivateDetails = !!order && (
         user?.isAdmin ||
@@ -141,31 +223,131 @@ const OrderDetails = () => {
                                 {order.items.map((item) => {
                                     const product = getProduct(item.productId);
                                     const addOnLabel = getOrderItemAddOnLabel(item);
+                                    const productPieces = piecesByProduct[item.productId] ?? [];
+                                    const isNumbered = !!product?.editionSize && productPieces.length > 0;
 
                                     return (
-                                        <div key={`${item.productId}-${item.selectedSize}`} className="flex items-center gap-4 rounded-2xl border border-white/10 bg-black/30 p-3">
-                                            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black">
-                                                <img
-                                                    src={item.productImage || product?.images?.[0] || ''}
-                                                    alt={item.productName}
-                                                    className="h-full w-full object-cover"
-                                                />
+                                        <React.Fragment key={`${item.productId}-${item.selectedSize}`}>
+                                            <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-black/30 p-3">
+                                                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black">
+                                                    <img
+                                                        src={item.productImage || product?.images?.[0] || ''}
+                                                        alt={item.productName}
+                                                        className="h-full w-full object-cover"
+                                                    />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <h3 className="truncate font-bold text-white">
+                                                        {item.productName || product?.name || 'Product'}
+                                                    </h3>
+                                                    <p className="mt-1 text-xs text-gray-400">
+                                                        Size: {item.selectedSize}
+                                                        {addOnLabel ? ` • ${addOnLabel}` : ''}
+                                                        {' • '}Qty: {item.quantity}
+                                                    </p>
+                                                </div>
+                                                <div className="shrink-0 text-right">
+                                                    <p className="font-bold text-white">${item.total.toFixed(2)}</p>
+                                                    <p className="text-xs text-gray-500">${item.price.toFixed(2)} each</p>
+                                                </div>
                                             </div>
-                                            <div className="min-w-0 flex-1">
-                                                <h3 className="truncate font-bold text-white">
-                                                    {item.productName || product?.name || 'Product'}
-                                                </h3>
-                                                <p className="mt-1 text-xs text-gray-400">
-                                                    Size: {item.selectedSize}
-                                                    {addOnLabel ? ` • ${addOnLabel}` : ''}
-                                                    {' • '}Qty: {item.quantity}
-                                                </p>
-                                            </div>
-                                            <div className="shrink-0 text-right">
-                                                <p className="font-bold text-white">${item.total.toFixed(2)}</p>
-                                                <p className="text-xs text-gray-500">${item.price.toFixed(2)} each</p>
-                                            </div>
-                                        </div>
+                                            {isNumbered && (
+                                                <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/5 p-4 pl-[4.75rem] space-y-3">
+                                                    <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-yellow-400">
+                                                        Numbered Edition Pieces · {product?.editionSize} total
+                                                    </p>
+                                                    {productPieces.map((piece) => {
+                                                        const isEditingThis = editingPieceId === piece.id;
+                                                        return (
+                                                            <div key={piece.id} className="rounded-xl border border-white/5 bg-black/40 p-3 flex flex-col gap-2">
+                                                                <div className="flex items-start justify-between gap-2 flex-wrap">
+                                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                                        <span className="border border-yellow-500/40 bg-yellow-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-yellow-300">
+                                                                            Piece {piece.pieceIndex} / {product?.editionSize}
+                                                                        </span>
+                                                                        {piece.nftTokenId ? (
+                                                                            <span className="text-xs text-gray-300">
+                                                                                NFT #{piece.nftTokenId}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="text-xs text-gray-500 italic">NFT not minted</span>
+                                                                        )}
+                                                                        {piece.nfcTagUrl ? (
+                                                                            <a
+                                                                                href={piece.nfcTagUrl}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                className="text-xs text-brand-accent underline"
+                                                                            >
+                                                                                NFC link
+                                                                            </a>
+                                                                        ) : (
+                                                                            <span className="text-xs text-gray-500 italic">no NFC URL</span>
+                                                                        )}
+                                                                    </div>
+                                                                    {/* Edit button is gated while another row's edit is in flight so a stray click
+                                                                        doesn't silently clobber an unsaved change. The currently-editing row shows
+                                                                        the editor inline (no edit button next to its row). */}
+                                                                    {!isEditingThis && user?.isAdmin && editingPieceId === null && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => startEditPiece(piece)}
+                                                                            className="text-[10px] font-bold uppercase tracking-widest text-brand-accent hover:text-white border border-brand-accent/30 hover:border-white px-2 py-1 rounded"
+                                                                        >
+                                                                            Edit NFT/NFC
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                                {isEditingThis && (
+                                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/5">
+                                                                        <div>
+                                                                            <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 mb-1">
+                                                                                NFT Token ID
+                                                                            </label>
+                                                                            <input
+                                                                                value={editNft}
+                                                                                onChange={(e) => setEditNft(e.target.value)}
+                                                                                placeholder="e.g. 8"
+                                                                                className="w-full bg-black border border-white/10 rounded p-2 text-sm text-white focus:border-brand-accent outline-none"
+                                                                            />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 mb-1">
+                                                                                NFC Tag URL
+                                                                            </label>
+                                                                            <input
+                                                                                value={editNfc}
+                                                                                onChange={(e) => setEditNfc(e.target.value)}
+                                                                                placeholder="https://opensea.io/..."
+                                                                                className="w-full bg-black border border-white/10 rounded p-2 text-sm text-white focus:border-brand-accent outline-none"
+                                                                            />
+                                                                        </div>
+                                                                        <div className="flex gap-2 sm:col-span-2">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => savePieceMetadata(piece.id)}
+                                                                                disabled={isSavingPiece}
+                                                                                className="bg-white text-black px-4 py-2 rounded text-xs font-bold uppercase tracking-widest hover:bg-gray-200 disabled:opacity-50"
+                                                                            >
+                                                                                {isSavingPiece ? 'Saving…' : 'Save'}
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={cancelEditPiece}
+                                                                                disabled={isSavingPiece}
+                                                                                className="border border-white/10 px-4 py-2 rounded text-xs font-bold uppercase tracking-widest text-gray-300 hover:border-white hover:text-white disabled:opacity-50"
+                                                                            >
+                                                                                Cancel
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </React.Fragment>
                                     );
                                 })}
                             </div>
