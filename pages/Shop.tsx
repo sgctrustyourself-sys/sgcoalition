@@ -36,13 +36,15 @@ const Shop = () => {
             value: 'apparel', label: 'APPAREL', children: [
                 { value: 'shirts', label: 'SHIRTS' },
                 { value: 'jeans', label: 'JEANS' },
+                { value: 'shorts', label: 'SHORTS' },
+                { value: 'sweatshirt', label: 'SWEATSHIRTS' },
             ]
         },
         { value: 'wallets', label: 'WALLETS' },
         { value: 'hats', label: 'HATS' },
     ];
     // Flat list for the top dropdown
-    const categories = ['all', 'apparel', 'shirts', 'jeans', 'wallets', 'hats'];
+    const categories = ['all', 'apparel', 'shirts', 'jeans', 'shorts', 'sweatshirt', 'wallets', 'hats'];
     const allSizes = Array.from(new Set(products.flatMap(p => p.sizes || []))) as string[];
     const shopJsonLd = React.useMemo(
         () => buildItemListJsonLd(
@@ -91,7 +93,7 @@ const Shop = () => {
             if (category === 'wallets') return cat === 'wallet' || cat === 'accessory' || cat === 'accessories';
             if (category === 'shirts') return cat === 'shirt';
             if (category === 'hats') return cat === 'hat' || cat === 'headwear';
-            if (category === 'apparel') return cat === 'shirt' || cat === 'jeans' || cat === 'apparel';
+            if (category === 'apparel') return cat === 'shirt' || cat === 'jeans' || cat === 'shorts' || cat === 'sweatshirt' || cat === 'apparel';
             return cat === category.toLowerCase();
         })
         .filter(p => selectedSizes.length === 0 || (p.sizes && p.sizes.some(s => selectedSizes.includes(s))))
@@ -188,7 +190,7 @@ const Shop = () => {
                             >
                                 {categories.map(cat => (
                                     <option key={cat} value={cat} className="bg-black text-white">
-                                        {cat === 'shirts' || cat === 'jeans' ? `  ↳ ${cat.toUpperCase()}` : cat.toUpperCase()}
+                                        {cat === 'shirts' || cat === 'jeans' || cat === 'shorts' || cat === 'sweatshirt' ? `  ↳ ${cat.toUpperCase()}` : cat.toUpperCase()}
                                     </option>
                                 ))}
                             </select>

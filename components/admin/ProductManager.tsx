@@ -383,6 +383,8 @@ const ProductManager: React.FC = () => {
                                         <option value="apparel">Apparel</option>
                                         <option value="accessory">Accessory</option>
                                         <option value="shirt">Shirt</option>
+                                        <option value="shorts">Shorts</option>
+                                        <option value="sweatshirt">Sweatshirt</option>
                                         <option value="hoodie">Hoodie</option>
                                         <option value="hat">Hat</option>
                                         <option value="jeans">Jeans</option>
