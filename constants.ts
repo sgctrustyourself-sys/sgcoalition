@@ -260,6 +260,34 @@ export const INITIAL_PRODUCTS: Product[] = [
     freeShipping: true,
     sizes: ['One Size'],
     sizeInventory: { 'One Size': 1 }
+  },
+  {
+    id: 'prod_shorts_above_as_below',
+    name: 'COALITION ABOVE AS BELOW SHORTS',
+    price: 75,
+    createdAt: '2026-06-28T00:00:00-04:00',
+    images: ['/images/logo.png'],
+    description: "The matching Above as Below shorts. Same hand-crafted red-and-white Coalition lineage as the tee - heavyweight cotton, deep set pocket, raw-hem finished. Sold at $75 individually, or grab the set with the tee for $120 and save $30.",
+    category: 'apparel',
+    isFeatured: false,
+    isLimitedEdition: true,
+    freeShipping: true,
+    sizes: ['S', 'M', 'L', 'XL', '2XL'],
+    sizeInventory: { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 }
+  },
+  {
+    id: 'prod_set_above_as_below',
+    name: 'COALITION ABOVE AS BELOW SET (TEE + SHORTS)',
+    price: 120,
+    createdAt: '2026-06-28T00:00:00-04:00',
+    images: ['/images/logo.png'],
+    description: "Above as Below tee and shorts together in one bundle. Each piece is $75 on its own ($150 total); the set is $120, saving you $30 off the combined price. Hand-crafted in small batches. Once this drop is sold, it won't be restocked.",
+    category: 'apparel',
+    isFeatured: true,
+    isLimitedEdition: true,
+    freeShipping: true,
+    sizes: ['S', 'M', 'L', 'XL', '2XL'],
+    sizeInventory: { S: 4, M: 4, L: 4, XL: 4, '2XL': 4 }
   }
 ];
 
