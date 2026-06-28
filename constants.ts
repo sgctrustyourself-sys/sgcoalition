@@ -45,7 +45,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'GreenCamoWallet',
     name: 'COALITION GREEN CAMO WALLET',
-    price: 35,
+    price: 75,
     images: [PRODUCT_IMAGE_URLS.walletGreen.front, PRODUCT_IMAGE_URLS.walletGreen.back],
     description: 'Tactical accessory designed for the modern collector. Spec-camo pattern with multiple card slots and RFID protection.',
     category: 'wallet',
@@ -58,7 +58,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'SKYYBLUEWALLET1_2',
     name: 'COALITION SKYY BLUE WALLET 1/2',
-    price: 35,
+    price: 75,
     images: [PRODUCT_IMAGE_URLS.walletSkyyBlue.front, PRODUCT_IMAGE_URLS.walletSkyyBlue.back],
     description: 'Electric blue variant of our signature tactical wallet. Sleek, durable, and ready for any mission.',
     category: 'wallet',
@@ -71,7 +71,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'prod_wallet_004',
     name: 'COALITION SKYY BLUE WALLET 2/2',
-    price: 35,
+    price: 75,
     images: [PRODUCT_IMAGE_URLS.walletSkyyBlueArchive.front, PRODUCT_IMAGE_URLS.walletSkyyBlueArchive.back],
     description: 'Second piece of the Skyy Blue collection. Hand-crafted tie-dye wallet with silver stitched border. Each piece unique — no two alike.',
     category: 'wallet',
@@ -84,7 +84,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'Coalition_Racing_Team_Wallet_1_4',
     name: "Coalition 'Racing Team' Wallet 1/4",
-    price: 35,
+    price: 75,
     createdAt: '2026-04-07T00:00:00Z',
     images: [
       'https://i.imgur.com/3UUmYQa.jpg',
@@ -101,7 +101,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'Coalition_Racing_Team_Wallet_2_4',
     name: "Coalition 'Racing Team' Wallet 2/4",
-    price: 35,
+    price: 75,
     createdAt: '2026-04-07T06:57:00Z',
     images: [
       'https://i.imgur.com/IRhVbhN.jpg',
@@ -118,7 +118,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'Coalition_Racing_Team_Wallet_3_4',
     name: "Coalition 'Racing Team' Wallet 3/4",
-    price: 35,
+    price: 75,
     createdAt: '2026-04-07T07:08:00Z',
     images: [
       'https://i.imgur.com/dcw5qLQ.jpg',
@@ -135,7 +135,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'Coalition_Racing_Team_Wallet_4_4',
     name: "Coalition 'Racing Team' Wallet 4/4",
-    price: 35,
+    price: 75,
     createdAt: '2026-04-07T07:25:00Z',
     images: [
       'https://i.imgur.com/EylCpDU.jpg',
@@ -212,7 +212,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'Coalition_Grey_Wave_Wallet_1_2',
     name: "Coalition 'Grey Wave' Wallet 1/2",
-    price: 35,
+    price: 75,
     createdAt: '2026-06-20T00:00:00-04:00',
     images: [
       PRODUCT_IMAGE_URLS.greyWaveWallet.front,
@@ -231,7 +231,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'Coalition_Grey_Wave_Wallet_2_2',
     name: "Coalition 'Grey Wave' Wallet 2/2",
-    price: 35,
+    price: 75,
     createdAt: '2026-06-28T00:00:00-04:00',
     images: [
       PRODUCT_IMAGE_URLS.greyWaveWallet22.front,
@@ -247,7 +247,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'Coalition_Above_As_Below_Wallet_1_1',
     name: 'COALITION ABOVE AS BELOW 1/1 WALLET',
-    price: 35,
+    price: 75,
     createdAt: '2026-06-28T00:00:00-04:00',
     images: [
       'https://i.imgur.com/9NF3LzM.jpg',
