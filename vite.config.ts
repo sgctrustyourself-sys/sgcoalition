@@ -21,17 +21,11 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       }
     },
-    build: {
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            vendor: ['react', 'react-dom', 'react-router-dom'],
-            supabase: ['@supabase/supabase-js'],
-            ui: ['lucide-react', 'framer-motion'],
-            utils: ['ethers', 'date-fns']
-          }
-        }
-      }
-    }
+    // Note: the previous `manualChunks` literal-array config disabled
+    // Rollup tree-shaking for `lucide-react` (1,500+ icons), `ethers`,
+    // `framer-motion`, and `date-fns`, forcing the full AST of every export
+    // through esbuild's transform pipeline. On Vercel's tighter build-worker
+    // RAM ceiling this OOM-kills mid-`transforming...`. Rollup's default
+    // chunker tree-shakes per export, so we intentionally omit manualChunks.
   };
 });
