@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import NoRefundsBanner from './NoRefundsBanner';
 import FreeShippingBar from './ui/FreeShippingBar';
 import CartUpsells from './CartUpsells';
+import CompleteTheFitCart from './CompleteTheFitCart';
 import { SALES_FINAL_ENABLED } from '../constants';
 import { getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
@@ -77,6 +78,11 @@ const CartDrawer = () => {
                         ))
                     )}
 
+                    {/* Above-as-Below complete-the-outfit upsell. Renders when exactly */}
+                    {/* one of (tee, shorts) is in cart; stays silent when both are */}
+                    {/* present so the existing set-bonus card isn't doubled up. */}
+                    <CompleteTheFitCart variant="drawer" />
+
                     {/* Above-as-Below Set Bonus Announcement */}
                     {setBonusCents > 0 && (
                         <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4 flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2">
@@ -94,7 +100,17 @@ const CartDrawer = () => {
 
                     {/* Free Shipping Progress */}
                     {cart.length > 0 && (
-                        <FreeShippingBar cartTotal={total} className="mt-6" />
+                        <FreeShippingBar
+                            cartTotal={total}
+                            // hasFreeShippingItems mirrors how CompleteTheFitCart
+                            // already reassures the shopper that the present
+                            // line ships free — without it, the bar would
+                            // still plead "add $X more for free shipping" on
+                            // every cart that contains a wallet, tee, shorts,
+                            // or hoodie (all flagged freeShipping: true).
+                            hasFreeShippingItems={cart.some((item) => item.freeShipping)}
+                            className="mt-6"
+                        />
                     )}
 
                     {/* Cart Upsells */}

@@ -6,6 +6,7 @@ import { Trash2, ArrowRight, Sparkles } from 'lucide-react';
 import { COIN_REWARD_RATE } from '../constants';
 import { getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
+import CompleteTheFitCart from '../components/CompleteTheFitCart';
 
 // Named export keeps symbol-search by `Cart` working; default export lets
 // App.tsx register the /cart route via React.lazy(() => import('./pages/Cart')).
@@ -63,6 +64,11 @@ export const Cart: React.FC = () => {
                 </div>
 
                 <div className="lg:col-span-4">
+                    {/* Complete-the-outfit upsell above the order summary so it
+                        sits high in the visual hierarchy on the /cart page.
+                        Renders only when exactly one of (tee, shorts) is in cart. */}
+                    <CompleteTheFitCart variant="page" />
+
                     <div className="bg-gray-50 p-8 rounded-sm sticky top-24">
                         <h2 className="text-lg font-bold mb-6">Order Summary</h2>
 
