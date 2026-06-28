@@ -17,6 +17,8 @@ import { getProductEditableSizes, normalizeProductSizeData } from '../utils/prod
 import { getReferralStats, generateProductReferralLink } from '../utils/referralSystem';
 import { isWalletProduct, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
 import { buildProductJsonLd, getProductSeo } from '../utils/seo';
+import { isNumberedEdition, getActiveTierPrice } from '../types';
+import { formatTierCalloutCopy } from '../services/numberedPieces';
 import { Lock, Unlock, Loader } from 'lucide-react';
 
 const formatProductDate = (value?: string) => {
@@ -176,10 +178,21 @@ const ProductDetails = () => {
     const isFav = user?.favorites.includes(product.id);
     const walletProduct = isWalletProduct(product);
     const resolvedSize = selectedSize || (product.sizes?.length === 1 ? product.sizes[0] : '');
-    const displayPrice = product.price + (walletProduct && includeKeychainClipOn ? WALLET_KEYCHAIN_CLIP_PRICE : 0);
+    // Numbered-edition tier pricing (supabase/migrations/20261101): compute
+    // the live tier price from products.pricing_tiers crossed with
+    // editionSoldCount (enriched by AppContext.fetchProducts via
+    // get_product_paid_count). Server re-verifies at order-paid time in
+    // api/complete-order.ts so a tampered client price can't bypass the gate.
+    const isNumbered = isNumberedEdition(product);
+    const soldCount = product.editionSoldCount ?? 0;
+    const tierActivePrice = isNumbered ? getActiveTierPrice(product, soldCount) : null;
+    const basePrice = tierActivePrice ?? product.price;
+    const displayPrice = basePrice + (walletProduct && includeKeychainClipOn ? WALLET_KEYCHAIN_CLIP_PRICE : 0);
+    const tierInfo = isNumbered ? formatTierCalloutCopy(product, soldCount) : null;
     const editableSizes = getProductEditableSizes(editForm.sizes, editForm.sizeInventory);
     const galleryImages = isEditing && editForm.images ? editForm.images : product.images;
     const shouldFitFullImage = product.id === 'prod_tee_above_as_below'
+        || product.id === 'prod_shorts_above_as_below'
         || product.id === 'Coalition_Grey_Wave_Wallet_1_2'
         || product.id === 'Coalition_Grey_Wave_Wallet_2_2';
     const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-dark';
@@ -701,7 +714,22 @@ const ProductDetails = () => {
                                                 Archive Piece
                                             </span>
                                         )}
+                                        {isNumbered && (
+                                            <span className="inline-flex items-center border border-yellow-500/40 bg-yellow-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-yellow-300">
+                                                Numbered Edition
+                                            </span>
+                                        )}
                                     </div>
+                                    {tierInfo && (
+                                        <div className="border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-yellow-200 space-y-1">
+                                            <div className="text-yellow-300">{tierInfo.headline}</div>
+                                            {tierInfo.subline && (
+                                                <div className="text-[10px] text-yellow-200/80 font-bold uppercase tracking-[0.18em]">
+                                                    {tierInfo.subline}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                     <div className="space-y-1">
                                         <p className="text-3xl text-brand-accent font-bold font-mono tracking-tighter">${displayPrice}</p>
                                         {product.freeShipping && (

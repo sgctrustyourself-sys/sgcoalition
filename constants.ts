@@ -304,11 +304,18 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'prod_shorts_above_as_below',
-    founderNote: `[PLACEHOLDER · prod_shorts_above_as_below] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
+    founderNote: `Built as the matching anchor to the Above as Below tee. The raw hem and heavyweight drape carry the exact same red-and-white Coalition lineage — same fabric run, same dye lot, same hand-finished pocket stitch.
+
+$75 on its own. But we built these to be worn with the tee: grab both and the cart drops the total to $120 — $30 off, no code needed.
+
+Hand-cut, raw-hem, deep-set pocket. Sized S through 2XL.`,
     name: 'COALITION ABOVE AS BELOW SHORTS',
     price: 75,
     createdAt: '2026-06-28T00:00:00-04:00',
-    images: ['/images/logo.png'],
+    images: [
+      '/images/above-as-below-tee+shorts-front.png',
+      '/images/above-as-below-tee+shorts-back.png'
+    ],
     description: "The matching Above as Below shorts. Same hand-crafted red-and-white Coalition lineage as the tee - heavyweight cotton, deep set pocket, raw-hem finished. Sold at $75 individually, or grab the set with the tee for $120 and save $30.",
     category: 'apparel',
     isFeatured: false,

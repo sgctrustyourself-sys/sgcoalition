@@ -26,7 +26,10 @@ async function addAboveAsBelowShorts() {
         name: 'COALITION ABOVE AS BELOW SHORTS',
         price: 75,
         stock: Object.values(sizeInventory).reduce((sum, count) => sum + count, 0),
-        images: ['/images/logo.png'],
+        images: [
+            '/images/above-as-below-tee+shorts-front.png',
+            '/images/above-as-below-tee+shorts-back.png'
+        ],
         description: "The matching Above as Below shorts. Same hand-crafted red-and-white Coalition lineage as the tee - heavyweight cotton, deep set pocket, raw-hem finished. Sold at $75 individually, or grab the set with the tee for $120 and save $30.",
         category: 'apparel',
         is_featured: false,

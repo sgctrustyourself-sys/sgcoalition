@@ -16,7 +16,8 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     const primaryImage = product.images && product.images.length > 0 ? product.images[0] : '/images/logo.png';
     const hoverImage = product.images && product.images.length > 1 ? product.images[1] : primaryImage;
     const hasHoverImage = hoverImage !== primaryImage;
-    const shouldFitFullImage = product.id === 'prod_tee_above_as_below';
+    const shouldFitFullImage = product.id === 'prod_tee_above_as_below'
+        || product.id === 'prod_shorts_above_as_below';
     const keepImageClear = product.id === 'Coalition_NF_Tee';
     const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-gray-900';
     const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';
@@ -58,7 +59,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
                             </span>
                         </div>
                     )}
-                    {!keepImageClear && (product.nft || product.isLimitedEdition || showLowStock) && (
+                    {!keepImageClear && (product.nft || product.isLimitedEdition || product.editionSize || showLowStock) && (
                         <div className="absolute top-2 left-2 z-20 flex flex-col items-start gap-1.5">
                             {product.nft && !isSold && (
                                 <div className="bg-black/80 backdrop-blur border border-white/20 text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 uppercase tracking-wider">
@@ -66,6 +67,22 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
                                     Digital Twin
                                 </div>
                             )}
+                            {/* Numbered-edition tier badge (X/44 minted). Pulls the edition
+                                sold count from product.editionSoldCount when set, otherwise
+                                renders the cap as a static 'X/N' badge so unhydrated listings
+                                still carry the marker before the first paid order lands. */}
+                            {!isSold && product.editionSize ? (
+                                <div className="bg-black/80 backdrop-blur border border-yellow-500/40 text-yellow-300 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                                    {product.editionSoldCount != null
+                                        ? `${Math.min(product.editionSoldCount, product.editionSize)}/${product.editionSize}`
+                                        : `${product.editionSize}/${product.editionSize} EDITION`}
+                                    {product.pricingTiers?.length ? (
+                                        <span className="ml-2 text-yellow-400/80">
+                                            ${product.pricingTiers[0]?.price ?? product.price}
+                                        </span>
+                                    ) : null}
+                                </div>
+                            ) : null}
                             {product.isLimitedEdition && mintFraction?.remaining !== 0 && (
                                 <UrgencyBadge
                                     type="limited-edition"
