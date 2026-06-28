@@ -17,6 +17,14 @@ export const INITIAL_PRODUCTS: Product[] = [
     category: 'shirt',
     isFeatured: true,
     isLimitedEdition: true,
+    // Local safety net: mirrors the live Supabase row so the storefront
+    // never renders Coalition_NF_Tee as "Sold Out" if AppContext falls
+    // back to INITIAL_PRODUCTS (e.g. transient Supabase fetch failure
+    // or RLS anon-key returning empty). Live DB still wins on success:
+    // AppContext.fetchProducts uses {...local, ...sp} spread order so
+    // sp.sizeInventory overrides these values on the merged product.
+    sizes: ['S', 'M', 'L', 'XL'],
+    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 },
     nft: {
       contractAddress: '0x951806a2581c22C478aC613a675e6c898E2aBe21',
       tokenId: '1',
