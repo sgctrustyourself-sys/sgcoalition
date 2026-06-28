@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet';
 
 interface HttpError extends Error {
     status?: number;
@@ -322,11 +323,17 @@ async function validatePayPalOrderRecord(supabase: any, record: any) {
     });
 
     const shippingCents = parseMoneyCents(record.shipping_address?.shippingCost || 0, 'Shipping');
-    const discountCents = parseMoneyCents(record.discount || 0, 'Discount');
-
-    if (discountCents > 0) {
+    const requestedDiscountCents = parseMoneyCents(record.discount || 0, 'Discount');
+    // Same logic as paypal-order: server owns the set bonus, anything else
+    // implies store credit abuse (since PayPal orders can't redeem SGCoin).
+    const setBonusCents = calculateAboveAsBelowSetBonusCents(
+        items.map(item => ({ productId: item.productId, quantity: item.quantity })),
+    );
+    const otherDiscountCents = Math.max(0, requestedDiscountCents - setBonusCents);
+    if (otherDiscountCents > 0) {
         throw createHttpError(400, 'Store credit cannot be combined with PayPal yet. Turn off store credit or use it to cover the full order.');
     }
+    const discountCents = setBonusCents;
 
     if (shippingCents !== 0 && shippingCents !== 1000) {
         throw createHttpError(400, 'Invalid PayPal shipping amount.');

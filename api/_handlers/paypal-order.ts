@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet';
 
 interface HttpError extends Error {
     status?: number;
@@ -221,11 +222,18 @@ async function createPaypalOrder(body: any) {
     const lineItems = await buildPayPalItems(normalizedItems);
     const itemTotalCents = lineItems.reduce((sum, item) => sum + item.lineTotalCents, 0);
     const shippingCents = parseMoneyCents(body.shipping || 0, 'Shipping');
-    const discountCents = parseMoneyCents(body.discount || 0, 'Discount');
-
-    if (discountCents > 0) {
+    const requestedDiscountCents = parseMoneyCents(body.discount || 0, 'Discount');
+    // Server is the source of truth for the set bonus: re-derive it from the
+    // cart contents regardless of what the client sent. Anything beyond the
+    // legitimate bonus is treated as store-credit abuse and rejected.
+    const setBonusCents = calculateAboveAsBelowSetBonusCents(
+        normalizedItems.map(item => ({ productId: item.productId, quantity: item.quantity })),
+    );
+    const otherDiscountCents = Math.max(0, requestedDiscountCents - setBonusCents);
+    if (otherDiscountCents > 0) {
         throw createHttpError(400, 'Store credit cannot be combined with PayPal yet. Turn off store credit or use it to cover the full order.');
     }
+    const discountCents = setBonusCents;
 
     if (shippingCents !== 0 && shippingCents !== 1000) {
         throw createHttpError(400, 'Invalid PayPal shipping amount.');

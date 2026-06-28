@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, ShoppingBag, Trash2, Hexagon } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { X, ShoppingBag, Trash2, Hexagon, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import NoRefundsBanner from './NoRefundsBanner';
@@ -7,6 +7,7 @@ import FreeShippingBar from './ui/FreeShippingBar';
 import CartUpsells from './CartUpsells';
 import { SALES_FINAL_ENABLED } from '../constants';
 import { getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
+import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
 
 const CartDrawer = () => {
     const navigate = useNavigate();
@@ -16,6 +17,15 @@ const CartDrawer = () => {
 
     const total = cartTotal();
     const reward = calculateReward(total);
+    // Above-as-Below tee + shorts bundle auto-bonus. Shown in the drawer so it
+    // sticks in the shopper's head before they reach Checkout.
+    const setBonusCents = useMemo(
+        () => calculateAboveAsBelowSetBonusCents(cart.map(item => ({ productId: item.id, quantity: item.quantity }))),
+        [cart],
+    );
+    const setBonusDollars = setBonusCents / 100;
+    const displayTotal = Math.max(0, total - setBonusDollars);
+    // setCount removed: bonus is one-shot $30, no quantity multiplier.
 
     return (
         <div className="fixed inset-0 z-[70] flex justify-end">
@@ -61,6 +71,21 @@ const CartDrawer = () => {
                         ))
                     )}
 
+                    {/* Above-as-Below Set Bonus Announcement */}
+                    {setBonusCents > 0 && (
+                        <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4 flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2">
+                            <Sparkles className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <p className="text-sm font-bold text-green-300 uppercase tracking-wide">
+                                    Save ${setBonusDollars.toFixed(2)} with the set!
+                                </p>
+                                <p className="mt-1 text-xs text-green-200/80 leading-relaxed">
+                                    Above-as-Below tee + shorts matched — $30 set bonus auto-applied.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Free Shipping Progress */}
                     {cart.length > 0 && (
                         <FreeShippingBar cartTotal={total} className="mt-6" />
@@ -76,14 +101,24 @@ const CartDrawer = () => {
                     <div className="border-t border-white/10 p-4 bg-white/5">
                         <div className="space-y-2 mb-4">
                             <div className="flex justify-between text-xs text-gray-400">
+                                <span>Subtotal</span>
+                                <span>${total.toFixed(2)}</span>
+                            </div>
+                            {setBonusCents > 0 && (
+                                <div className="flex justify-between text-xs text-green-400">
+                                    <span>Above as Below set bonus</span>
+                                    <span>-${setBonusDollars.toFixed(2)}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-between text-xs text-gray-400">
                                 <span>Est. SGCoin Reward</span>
                                 <span className="flex items-center text-brand-accent font-bold">
                                     <Hexagon className="w-3 h-3 mr-1 fill-current" /> +{reward.toLocaleString()}
                                 </span>
                             </div>
-                            <div className="flex justify-between text-xl font-display font-bold text-white">
+                            <div className="flex justify-between text-xl font-display font-bold text-white pt-2 border-t border-white/10">
                                 <span>Total</span>
-                                <span>${total.toFixed(2)}</span>
+                                <span>${displayTotal.toFixed(2)}</span>
                             </div>
                         </div>
 

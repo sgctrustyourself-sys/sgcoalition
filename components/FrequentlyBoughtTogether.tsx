@@ -5,6 +5,7 @@ import { getFrequentlyBoughtTogether } from '../utils/recommendationEngine';
 import { applyBundleDiscount } from '../utils/upsellUtils';
 import { ShoppingBag, Plus } from 'lucide-react';
 import BundleDiscount from './ui/BundleDiscount';
+import { ABOVE_AS_BELOW_TEE_ID, ABOVE_AS_BELOW_SHORTS_ID, ABOVE_AS_BELOW_SET_BONUS_CENTS } from '../utils/aboveAsBelowSet';
 
 interface FrequentlyBoughtTogetherProps {
     currentProduct: Product;
@@ -34,7 +35,23 @@ const FrequentlyBoughtTogether: React.FC<FrequentlyBoughtTogetherProps> = ({ cur
 
     const selectedItems = allBundleProducts.filter(p => selectedProducts.has(p.id));
     const totalPrice = selectedItems.reduce((sum, p) => sum + p.price, 0);
-    const bundleInfo = applyBundleDiscount(totalPrice, selectedItems.length);
+    // Auto-applied $30 set bonus replaces the retired prod_set_above_as_below
+    // bundle SKU. Detect the specific tee+shorts pair so the PDP shows the
+    // real $30 saved (not the generic 5% off that applyBundleDiscount returns
+    // on two items). Falls back to the generic bundle math for any other pair.
+    const isAboveAsBelowPair = (
+        (currentProduct.id === ABOVE_AS_BELOW_TEE_ID && bundleProducts.some(p => p.id === ABOVE_AS_BELOW_SHORTS_ID)) ||
+        (currentProduct.id === ABOVE_AS_BELOW_SHORTS_ID && bundleProducts.some(p => p.id === ABOVE_AS_BELOW_TEE_ID))
+    ) && selectedItems.some(p => p.id === ABOVE_AS_BELOW_TEE_ID) && selectedItems.some(p => p.id === ABOVE_AS_BELOW_SHORTS_ID);
+    const aboveAsBelowSetPrice = totalPrice; // selectedItems already includes both pieces
+    const bundleInfo = isAboveAsBelowPair
+        ? {
+            originalPrice: aboveAsBelowSetPrice,
+            discountedPrice: Math.max(0, aboveAsBelowSetPrice - ABOVE_AS_BELOW_SET_BONUS_CENTS / 100),
+            savings: ABOVE_AS_BELOW_SET_BONUS_CENTS / 100,
+            discountPercentage: Math.round((ABOVE_AS_BELOW_SET_BONUS_CENTS / 100) / Math.max(aboveAsBelowSetPrice, 1) * 100),
+        }
+        : applyBundleDiscount(totalPrice, selectedItems.length);
 
     const handleAddToCart = () => {
         selectedItems.forEach(p => addToCart(p, p.sizes?.[0] || ''));
@@ -118,7 +135,9 @@ const FrequentlyBoughtTogether: React.FC<FrequentlyBoughtTogetherProps> = ({ cur
                 >
                     <ShoppingBag className="w-5 h-5" />
                     {bundleInfo.savings > 0
-                        ? `Add Bundle - Save $${bundleInfo.savings.toFixed(2)}!`
+                        ? isAboveAsBelowPair
+                            ? `Add Set - Save $${bundleInfo.savings.toFixed(2)} (set bonus)!`
+                            : `Add Bundle - Save $${bundleInfo.savings.toFixed(2)}!`
                         : 'Add Selected to Cart'
                     }
                 </button>

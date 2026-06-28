@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CreditCard, Loader, Wallet, Copy, Check, Sparkles, Heart, Info, ShieldCheck, Truck, RefreshCw, Mail, Headphones } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -9,6 +9,7 @@ import { calculateCartDiscount, isSGCoinDiscountEnabled, getDiscountPercentageTe
 import { trackReferralEvent } from '../utils/referralAnalytics';
 import { validateCouponCode, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
 import { getCartItemAddOnPrice, getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
+import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
 
 const reportErrorToAdmin = async (error: string, context: string, metadata: any = {}) => {
     try {
@@ -76,18 +77,32 @@ const Checkout: React.FC = () => {
     const total = cartTotal();
     const reward = calculateReward(total);
 
+    // Above-as-Below set bonus: $30 off per matched tee+shorts pair. Multi-set
+    // carts earn proportional credit (e.g. 2 pairs = $60 off). Auto-applied
+    // locally AND re-derived on the server so PayPal / Stripe capture the
+    // discounted amount.
+    const cartBonusCents = useMemo(
+        () => calculateAboveAsBelowSetBonusCents(cart.map(item => ({ productId: item.id, quantity: item.quantity }))),
+        [cart],
+    );
+    const cartBonusDollars = cartBonusCents / 100;
+
     // Store Credit Logic
     const [useStoreCredit, setUseStoreCredit] = useState(false);
     const availableCredit = user?.storeCredit || 0;
     const creditToApply = useStoreCredit ? Math.min(availableCredit, total + shippingCost) : 0;
     const [isZeroAmount, setIsZeroAmount] = useState(false);
 
-    // Calculate SGCoin discount if crypto payment is selected
+    // Calculate SGCoin discount if crypto payment is selected. Apply the
+    // percentage AFTER the set bonus so a tee+shorts shopper with USDC still
+    // sees the $30 stacked underneath the 10%, not 10% off the un-discounted
+    // $150 subtotal.
     const discountEnabled = isSGCoinDiscountEnabled();
-    const discount = (paymentMethod === 'crypto' && discountEnabled) ? calculateCartDiscount(total) : 0;
+    const cryptoBase = Math.max(0, total - cartBonusDollars);
+    const discount = (paymentMethod === 'crypto' && discountEnabled) ? calculateCartDiscount(cryptoBase) : 0;
 
     // Final Total Calculation
-    const finalTotal = Math.max(0, total - discount + shippingCost - creditToApply);
+    const finalTotal = Math.max(0, total - discount - cartBonusDollars + shippingCost - creditToApply);
     const requiresNoExternalPayment = isZeroAmount || finalTotal <= 0;
     const paymentLabel = paymentMethod === 'paypal'
         ? 'PayPal, card, or Apple Pay'
@@ -304,7 +319,7 @@ const Checkout: React.FC = () => {
                 })),
                 subtotal,
                 tax,
-                discount: discount + creditToApply,
+                discount: discount + creditToApply + cartBonusDollars,
                 total: finalTotal,
                 paymentMethod: paymentMethodUsed as any,
                 paymentStatus: paymentMethodUsed === 'crypto' ? OrderStatus.PENDING : OrderStatus.PAID,
@@ -813,7 +828,7 @@ const Checkout: React.FC = () => {
                                                                         description: `Coalition ${paypalOrderSeed.orderNumber} - ${cart.length} item(s)`,
                                                                         expectedTotal: finalTotal,
                                                                         shipping: shippingCost,
-                                                                        discount: discount + creditToApply,
+                                                                        discount: discount + creditToApply + cartBonusDollars,
                                                                         items: cart.map(item => ({
                                                                             productId: item.id,
                                                                             name: item.name,
@@ -981,6 +996,19 @@ const Checkout: React.FC = () => {
                             </div>
 
                             <div className="space-y-3 pt-6 border-t border-white/10 text-sm">
+                                {cartBonusCents > 0 && (
+                                    <div className="rounded-lg bg-green-500/10 border border-green-500/30 p-3 flex items-start gap-2 animate-in fade-in slide-in-from-bottom-2">
+                                        <Sparkles className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                                        <div className="flex-1">
+                                            <p className="text-xs font-bold text-green-300 uppercase tracking-wide">
+                                                Above as Below set bonus auto-applied
+                                            </p>
+                                            <p className="mt-1 text-xs text-green-200/80 leading-relaxed">
+                                                Tee + shorts matched — $30 set bonus auto-applied to your cart.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="flex justify-between text-gray-400">
                                     <span>Subtotal</span>
                                     <span>${total.toFixed(2)}</span>
@@ -989,6 +1017,12 @@ const Checkout: React.FC = () => {
                                     <span>Shipping</span>
                                     <span>{shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`}</span>
                                 </div>
+                                {cartBonusCents > 0 && (
+                                    <div className="flex justify-between text-green-400">
+                                        <span>Above as Below set bonus</span>
+                                        <span>-${cartBonusDollars.toFixed(2)}</span>
+                                    </div>
+                                )}
                                 {discount > 0 && (
                                     <div className="flex justify-between text-green-400">
                                         <span>Crypto Discount</span>

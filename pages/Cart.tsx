@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
-import { Trash2, ArrowRight } from 'lucide-react';
+import { Trash2, ArrowRight, Sparkles } from 'lucide-react';
 import { COIN_REWARD_RATE } from '../constants';
 import { getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
+import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
 
 export const Cart: React.FC = () => {
     const navigate = useNavigate();
@@ -12,6 +13,14 @@ export const Cart: React.FC = () => {
 
     const total = cart.reduce((sum, item) => sum + getCartItemLineTotal(item), 0);
     const potentialCoins = Math.floor(total * COIN_REWARD_RATE);
+    // Same set-bonus logic that powers Checkout/CartDrawer — kept inline so the
+    // standalone /cart page matches the rest of the storefront.
+    const setBonusCents = useMemo(
+        () => calculateAboveAsBelowSetBonusCents(cart.map(item => ({ productId: item.id, quantity: item.quantity }))),
+        [cart],
+    );
+    const setBonusDollars = setBonusCents / 100;
+    const displayTotal = Math.max(0, total - setBonusDollars);
 
     if (cart.length === 0) {
         return <div className="min-h-[60vh] flex items-center justify-center text-gray-500">Your cart is empty.</div>;
@@ -58,6 +67,20 @@ export const Cart: React.FC = () => {
                             <span>Subtotal</span>
                             <span>${total.toFixed(2)}</span>
                         </div>
+                        {setBonusCents > 0 && (
+                            <div className="flex items-start gap-2 p-3 mb-4 rounded-md bg-green-50 border border-green-200 text-green-800 text-sm">
+                                <Sparkles className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                    <p className="font-bold">
+                                        Above as Below set bonus
+                                    </p>
+                                    <p>
+                                        Tee + shorts matched — saving you $30 at checkout.
+                                    </p>
+                                </div>
+                                <span className="font-bold whitespace-nowrap">-${setBonusDollars.toFixed(2)}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between mb-4 text-gray-600">
                             <span>Shipping</span>
                             <span>Calculated at checkout</span>
@@ -65,7 +88,7 @@ export const Cart: React.FC = () => {
 
                         <div className="border-t border-gray-200 pt-4 flex justify-between text-xl font-bold mb-6">
                             <span>Total</span>
-                            <span>${total.toFixed(2)}</span>
+                            <span>${displayTotal.toFixed(2)}</span>
                         </div>
 
                         {user && (
