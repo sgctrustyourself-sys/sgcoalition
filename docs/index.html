@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coalition Grey Wave · Asset Preview</title>
+<link rel="canonical" href="preview-grey-wave-assets.html">
+<meta http-equiv="refresh" content="0; url=preview-grey-wave-assets.html">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: #050505; }
+  body {
+    background: #050505; color: #E5E5E5;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    margin: 0; padding: 32px 24px 64px;
+    position: relative; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+  }
+  /* global SVG fractalNoise overlay (3.5% opacity, identical recipe to index.html body::before + the rest of docs/) */
+  body::before {
+    content: ""; position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999;
+  }
+
+  .splash {
+    position: relative; z-index: 1;
+    max-width: 560px; width: 100%;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    padding: 36px 32px;
+    text-align: center;
+  }
+  .eyebrow {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.3em;
+    color: #E5E5E5; text-transform: uppercase;
+    margin: 0 0 14px;
+  }
+  h1.h-display {
+    font-family: 'Oswald', sans-serif;
+    font-size: clamp(40px, 7vw, 80px);
+    font-weight: 700; line-height: 0.95;
+    letter-spacing: -0.005em;
+    text-transform: uppercase; color: #fff;
+    margin: 0 0 18px;
+  }
+  h1.h-display .dim { color: #888; }
+  .lead {
+    font-family: 'Inter', sans-serif; font-weight: 300;
+    font-size: 16px; line-height: 1.65; color: #aaa;
+    margin: 0 0 22px;
+  }
+  .cta {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(59, 130, 246, 0.50);
+    color: #fff;
+    padding: 14px 22px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    text-decoration: none;
+    border-radius: 2px;
+    transition: all 200ms ease;
+  }
+  .cta:hover {
+    background: rgba(59, 130, 246, 0.18);
+    border-color: rgba(59, 130, 246, 0.85);
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.18);
+  }
+  .chips {
+    margin-top: 24px;
+    display: flex; justify-content: center; flex-wrap: wrap; gap: 8px;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: #aaa;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 2px;
+  }
+  .chip code { background: transparent; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .fallback-note {
+    margin-top: 24px;
+    font-size: 11px;
+    color: #555;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+    line-height: 1.6;
+  }
+  /* tiny inline progress indicator */
+  .pulse {
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: #3B82F6;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #3B82F6;
+    margin: 0 8px;
+    animation: pulse 1.4s ease-in-out infinite;
+    vertical-align: middle;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; transform: scale(0.85); }
+    50%      { opacity: 1;   transform: scale(1.15); }
+  }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #111; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #555; }
+</style>
+</head>
+<body>
+
+<main class="splash" role="main" aria-label="Asset preview redirect">
+  <span class="eyebrow">Coalition · Drop 2026-06-20</span>
+  <h1 class="h-display">GREY <span class="dim">WAVE</span></h1>
+  <p class="lead">Redirecting to the asset preview hub<span class="pulse" aria-hidden="true"></span></p>
+
+  <a class="cta" href="preview-grey-wave-assets.html">Open Asset Preview →</a>
+
+  <div class="chips" aria-label="Hub-and-spoke shortcuts">
+    <span class="chip">3 formats</span>
+    <span class="chip">14 variants</span>
+    <span class="chip">16 PNGs · 1024&times;1024 source</span>
+    <span class="chip">via <code>preview-grey-wave-assets.html</code></span>
+  </div>
+
+  <p class="fallback-note">
+    file:// bypassers: click the button above or paste<br>
+    <code style="color:#fff;">preview-grey-wave-assets.html</code> into the URL bar.
+  </p>
+</main>
+
+<script>
+  // Belt-and-suspenders: also redirect via window.location.replace so any browser
+  // that disables <meta http-equiv="refresh"> on file:// URLs still lands on the trio hub.
+  (function () {
+    try {
+      window.location.replace('preview-grey-wave-assets.html');
+    } catch (e) {
+      // last-resort: do nothing — the visible "Open Asset Preview →" link is the user's fallback path.
+    }
+  })();
+</script>
+
+</body>
+</html>

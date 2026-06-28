@@ -8,7 +8,7 @@ import { sendAdminNotification } from '../services/emailService';
 // Declare PayPal SDK types
 declare global {
     interface Window {
-        paypal: any;
+        paypal?: any;
     }
 }
 

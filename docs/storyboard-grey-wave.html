@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coalition Grey Wave — Story Storyboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* === Reset === */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* === Page shell — matches sgcoalition.xyz index.html (deep-black + global noise overlay). === */
+  :root {
+    --doc-accent: #F59E0B;  /* amber-500 — IG Stories scrollytelling frequency */
+    --safe:         #6b6b6b; /* mid-grey — IG safe-zone shading */
+    --sticker:      #ff7a59; /* orange    — IG sticker marks */
+    --display:      #ffffff;
+    --body:         #c8c8c8;
+    --eyebrow:      #6b6b6b;
+    --img-area:     #555555;
+  }
+  html { background: #050505; }
+  body {
+    --brand-accent:        #3B82F6;
+    --format-story-accent: #F59E0B;
+    --format-grid-accent:  #A855F7;
+    --format-x-accent:     #3B82F6;
+    background: #050505;
+    color: #E5E5E5;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    margin: 0; padding: 32px 24px 64px;
+    position: relative;
+    min-height: 100vh;
+  }
+  /* global SVG fractalNoise overlay (3.5% opacity, identical recipe to index.html body::before) */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999;
+  }
+
+  /* scrollbar — match live site */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #111; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 36px 28px 80px; position: relative; z-index: 1; }
+
+  /* === Header === */
+  header {
+    padding: 0 0 32px;
+    margin-bottom: 44px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .eyebrow {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.3em;
+    color: #E5E5E5;
+    text-transform: uppercase;
+    margin: 0 0 14px;
+  }
+  h1.h-display {
+    font-family: 'Oswald', sans-serif;
+    font-size: clamp(48px, 8vw, 96px);
+    font-weight: 700; line-height: 0.95;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    color: #fff;
+    margin: 0 0 18px;
+  }
+  h1.h-display .dim { color: #888; }
+  .lead {
+    font-family: 'Inter', sans-serif;
+    font-weight: 300;
+    font-size: 16px;
+    line-height: 1.65;
+    color: #aaa;
+    max-width: 76ch;
+    margin: 0 0 14px;
+  }
+
+  /* === Pair-with blockquote === */
+  .pair-with {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    padding: 16px 20px;
+    margin: 18px 0 0;
+    font-size: 13px; line-height: 1.7;
+    border-radius: 4px;
+  }
+  .pair-with p { margin: 6px 0; }
+  .pair-with strong { color: #fff; }
+  .pair-with a { color: #fff; text-decoration: none; font-weight: 700; border-bottom: 1px solid rgba(255, 255, 255, 0.20); transition: border-color 200ms; }
+  .pair-with a:hover { border-bottom-color: var(--brand-accent); }
+  .pair-with code { background: rgba(0, 0, 0, 0.6); padding: 1px 6px; border-radius: 2px; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .pair-with .editor-note { display: block; margin-top: 6px; color: #888; font-size: 12px; font-style: italic; }
+  .pair-with .source-md { color: #888; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+
+  /* === Legend (color-coded ASCII legend) === */
+  .legend {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 3px solid var(--doc-accent);
+    padding: 12px 16px;
+    margin: 24px 0 28px;
+    font-size: 12px; color: #aaa; line-height: 1.7;
+    border-radius: 4px;
+  }
+  .legend b { color: #fff; }
+  .legend .swatch { display: inline-block; min-width: 18px; text-align: center; padding: 0 4px; font-family: 'JetBrains Mono', monospace; }
+
+  /* === Section heading === */
+  h2.section-h {
+    font-family: 'Oswald', sans-serif;
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 700; line-height: 1.0;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    margin: 48px 0 4px;
+  }
+  h2.section-h.fmt-story { color: var(--doc-accent); }
+
+  /* === Meta chip row === */
+  .section-meta {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin: 8px 0 20px;
+  }
+  .section-meta .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: #aaa;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 2px;
+  }
+  .section-meta .chip code { background: transparent; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+  /* === 5-thumb grid === */
+  .storyboard {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    margin: 20px 0 28px;
+  }
+  @media (max-width: 1180px) { .storyboard { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 760px)  { .storyboard { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px)  { .storyboard { grid-template-columns: 1fr; } }
+
+  /* === Antigravity-card pattern (replaces bare box-shadow thumb) === */
+  .card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    border-radius: 4px; overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: all 300ms ease;
+    position: relative;
+  }
+  .card:hover {
+    border-color: rgba(255, 255, 255, 0.20);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.10), 0 0 30px rgba(255, 255, 255, 0.04);
+  }
+  .card.fmt-story { border-color: rgba(245, 158, 11, 0.20); }
+  .card.fmt-story:hover { border-color: var(--doc-accent); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), inset 0 0 0 1px rgba(245, 158, 11, 0.20), 0 0 30px rgba(245, 158, 11, 0.10); }
+
+  .card-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.30);
+  }
+  .card-label {
+    padding: 2px 10px; border-radius: 2px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 10px; letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #000;
+    background: var(--doc-accent);
+  }
+  .card-title {
+    font-family: 'Inter', sans-serif;
+    color: #fff; font-weight: 600; font-size: 13px;
+    letter-spacing: 0.02em;
+    flex: 1; padding: 0 10px;
+    line-height: 1.35;
+  }
+  .card-subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    color: #888; font-size: 10px;
+    letter-spacing: 0.05em;
+  }
+
+  /* === Frame (preserves ASCII art with mono font) === */
+  .frame {
+    padding: 10px 12px;
+    font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+    font-size: 9.5px; line-height: 1.0;
+    white-space: pre; overflow: auto;
+    margin: 0;
+    color: var(--ink, #e6e6e6);
+    background: #000;
+    flex-grow: 1;
+    max-height: 380px;
+  }
+  .thumb-note {
+    padding: 8px 12px;
+    font-size: 11px; color: #aaa;
+    background: rgba(0, 0, 0, 0.40);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    line-height: 1.45;
+  }
+
+  /* === ASCII color word classes (storyboard legacy) — kept 1:1 to preserve the rendered legend. === */
+  .safe { color: var(--safe); }
+  .sticker { color: var(--sticker); }
+  .display { color: var(--display); font-weight: 700; }
+  .body { color: var(--body); }
+  .eyebrow { color: var(--eyebrow); letter-spacing: 0.2em; }
+  .img-area { color: var(--img-area); }
+  .hot { color: var(--sticker); font-weight: 700; }
+
+  /* === Per-frame detail (full size) === */
+  .detail-grid { display: grid; grid-template-columns: minmax(360px, auto) 1fr; gap: 24px; margin: 12px 0 36px; align-items: start; }
+  @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
+  .detail-frame {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    padding: 16px 18px;
+    overflow: auto;
+  }
+  .detail-frame .frame {
+    font-size: 11.5px; line-height: 1.1;
+    padding: 0; margin: 0;
+    background: none;
+    max-height: none;
+  }
+  .detail-meta {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    padding: 16px 22px;
+    font-size: 13px; color: #E5E5E5; line-height: 1.6;
+  }
+  .detail-meta .badge {
+    display: inline-block; padding: 2px 8px;
+    background: var(--doc-accent); color: #000;
+    border-radius: 2px; font-weight: 700;
+    font-size: 10px; letter-spacing: 0.18em;
+    text-transform: uppercase; margin-right: 6px;
+  }
+  .detail-meta .sticker-line { color: var(--sticker); display: block; padding: 2px 0; }
+  .detail-meta .copy-line { display: block; padding: 2px 0; }
+  .detail-meta .copy-label {
+    color: #888; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    margin-right: 6px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .detail-meta ul { padding-left: 20px; margin: 8px 0; }
+  .detail-meta li { margin: 4px 0; }
+  .detail-meta b { color: #fff; }
+  .detail-meta p { margin: 8px 0; }
+
+  /* === Reviewer checklist === */
+  .checklist {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 18px 22px;
+    margin: 24px 0 0;
+    border-radius: 4px;
+  }
+  .checklist h3 {
+    font-family: 'Oswald', sans-serif;
+    font-size: 22px; font-weight: 700;
+    letter-spacing: -0.005em; text-transform: uppercase;
+    color: #fff;
+    margin: 0 0 12px;
+  }
+  .checklist ol { padding-left: 20px; margin: 0; }
+  .checklist li {
+    padding: 6px 0; font-size: 13px;
+    color: #E5E5E5; line-height: 1.6;
+  }
+  .checklist li b { color: #fff; }
+  .checklist code {
+    background: rgba(0, 0, 0, 0.6);
+    padding: 1px 6px; border-radius: 2px;
+    color: #fff; font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* === Footer === */
+  footer {
+    margin: 60px 0 0;
+    padding: 24px 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    color: #888;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  footer p { margin: 4px 0; }
+  footer a { color: #fff; text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, 0.20); transition: border-color 200ms; }
+  footer a:hover { border-bottom-color: var(--brand-accent); }
+  footer code { background: rgba(0, 0, 0, 0.6); padding: 1px 6px; border-radius: 2px; color: #fff; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+
+  /* === Print === */
+  @media print {
+    body { background: #fff; color: #000; }
+    body::before { display: none; }
+    .card { box-shadow: none; border: 1px solid #ccc; }
+    .frame { color: #000; }
+    .safe { color: #555; }
+    .sticker, .hot { color: #c0392b; }
+    .display { color: #000; }
+    .body { color: #222; }
+    .eyebrow { color: #555; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">Coalition · Story Storyboard · drop 2026-06-20</span>
+  <h1 class="h-display">STORY <span class="dim">STORYBOARD</span></h1>
+  <p class="lead">9:16 ASCII wireframes for the Grey Wave IG Story thread — 5 slides, IG safe zones, sticker slots, and copy stack per slide. Pair with the drop-kit for the visual spec and drop-copy for the text counterpart.</p>
+
+  <blockquote class="pair-with">
+    <p><strong>Visual spec — <a href="drop-kit-grey-wave.html">docs/drop-kit-grey-wave.html</a></strong> : this storyboard's slide layouts (1080×1350 / 1080×1920 variants + Canva/Figma recipes). <span class="source-md">md source · <a href="drop-kit-grey-wave.md">drop-kit-grey-wave.md</a></span></p>
+    <p><strong>Text counterpart — <a href="drop-copy-grey-wave.html">docs/drop-copy-grey-wave.html</a></strong> : the actual captions + hashtags + X thread copy that lives on these slides. <span class="source-md">md source · <a href="drop-copy-grey-wave.md">drop-copy-grey-wave.md</a></span></p>
+    <p><strong>Trio hub — <a href="preview-grey-wave-assets.html">docs/preview-grey-wave-assets.html</a></strong> : 16 postable PNGs (source + Story + Grid + X) for visual review.</p>
+    <p><strong>Template inspo — <a href="storyboard-inspo-kittl-frame-canva.html">docs/storyboard-inspo-kittl-frame-canva.html</a></strong> : concrete Kittl / Canva / Motion Array template themes + re-skin recipes + ship-tonight workflow for these Story slides.<span class="source-md">md source · <a href="storyboard-inspo-kittl-frame-canva.md">storyboard-inspo-kittl-frame-canva.md</a></span></p>
+    <span class="editor-note">Always edit kit + deck + storyboard together. .html previews stay in lockstep with their .md sources.</span>
+  </blockquote>
+</header>
+
+<div class="legend">
+  <b>Legend</b><br>
+  <span class="swatch safe">▒▒▒</span> top safe (250 px · IG profile / handle UI) ·
+  <span class="swatch safe">▒▒▒</span> bottom safe (320 px · IG sticker tray / CTA UI)<br>
+  useable canvas 1080×1350 in the middle.
+  <span class="swatch" style="color:var(--display);"><b>DISPLAY</b></span> 88–140 px Bebas-style ·
+  <span class="swatch body">body</span> 24–32 px ·
+  <span class="swatch eyebrow">EYEBROW</span> tracked-out small caps ·
+  <span class="swatch sticker">[stkr]</span> float OVER copy (added AFTER canvas).
+</div>
+
+<h2 id="five-slide-flow" class="section-h fmt-story">5-SLIDE FLOW · SIDE-BY-SIDE THUMBS</h2>
+<div class="section-meta">
+  <span class="chip">1080×1920</span>
+  <span class="chip">9:16 IG STORY</span>
+  <span class="chip">5-slide thread</span>
+  <span class="chip">via <code>npm run story:reveal -- --slug grey-wave</code></span>
+</div>
+
+<div class="storyboard">
+
+  <!-- ─── STORY 1 · HERO ─── -->
+  <div class="card fmt-story">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">1</span>
+        <span class="card-title">HERO</span>
+      </div>
+      <span class="card-subtitle">hero · countdown + mention</span>
+    </div>
+<pre class="frame"><span class="safe">┌──────────────────────┐
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+│▒┌─[COALITION]─┐▒┌[⏱]┐▒│
+│▒│              ▒│   ▒│
+│▒│     </span><span class="display">GREY WAVE</span><span class="safe">     ▒│
+│▒│ </span><span class="body">Coalition 'Grey Wave'</span><span class="safe">▒│
+│▒│ </span><span class="body">Wallet 1/2 · $35</span><span class="safe">  ▒│
+│▒│              ▒│   ▒│
+│▒└──────────────┘▒└───┘▒│
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+├──────────────────────┤
+│       </span><span class="img-area">┌────────┐</span><span class="safe">      │
+│       </span><span class="img-area">│FRONT ◧ │</span><span class="safe">      │
+│       </span><span class="img-area">│  IMG   │</span><span class="safe">      │
+│       </span><span class="img-area">└────────┘</span><span class="safe">      │
+│                      │
+│      </span><span class="sticker">┌─[@sgcoalition]─┐</span><span class="safe"> │
+│      </span><span class="sticker">│ MENTION STKR  │</span><span class="safe"> │
+│      </span><span class="sticker">└───────────────┘</span><span class="safe"> │
+├──────────────────────┤
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+└──────────────────────┘</span></pre>
+    <div class="thumb-note">Front.jpeg full-bleed. Title at top safe. Countdown sticker on the right pinches to launch time.</div>
+  </div>
+
+  <!-- ─── STORY 2 · DETAIL ─── -->
+  <div class="card fmt-story">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">2</span>
+        <span class="card-title">DETAIL</span>
+      </div>
+      <span class="card-subtitle">detail · poll bait</span>
+    </div>
+<pre class="frame"><span class="safe">┌──────────────────────┐
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+│▒                     ▒│
+│▒                     ▒│
+│▒                     ▒│
+│▒       </span><span class="img-area">┌────────┐</span><span class="safe">     ▒│
+│▒       </span><span class="img-area">│BACK ◨ │</span><span class="safe">     ▒│
+│▒       </span><span class="img-area">│  IMG   │</span><span class="safe">     ▒│
+│▒       </span><span class="img-area">└────────┘</span><span class="safe">     ▒│
+│▒                     ▒│
+│▒   ░░░░░░░░░░░░░░░  ▒│
+│▒   </span><span class="display">Hand-finished</span><span class="safe">  ▒│
+│▒   </span><span class="display">charcoal dye.</span><span class="safe">  ▒│
+│▒   </span><span class="body">Inspired by Balti-</span><span class="safe">▒│
+│▒   </span><span class="body">more harbor at dawn.</span><span class="safe">▒│
+│▒                  </span><span class="sticker">[poll]</span><span class="safe">▒│
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+└──────────────────────┘</span></pre>
+    <div class="thumb-note">Back.jpeg full-bleed, black overlay at bottom 35%. Poll sticker for engagement.</div>
+  </div>
+
+  <!-- ─── STORY 3 · SCARCITY ─── -->
+  <div class="card fmt-story">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">3</span>
+        <span class="card-title">SCARCITY</span>
+      </div>
+      <span class="card-subtitle">scarcity · countdown + poll</span>
+    </div>
+<pre class="frame"><span class="safe">┌──────────────────────┐
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+│▒       </span><span class="img-area">┌────────┐</span><span class="safe"> </span><span class="sticker">┌⏱┐</span><span class="safe"> ▒│
+│▒       </span><span class="img-area">│FRONT  │</span><span class="safe"> </span><span class="sticker">└─┘</span><span class="safe"> ▒│
+│▒       </span><span class="img-area">│  IMG  │</span><span class="safe">       ▒│
+│▒       </span><span class="img-area">└────────┘</span><span class="safe">       ▒│
+├──────────────────────┤
+│                      │
+│      </span><span class="eyebrow">LIMITED EDITION</span><span class="safe">      │
+│      </span><span class="display">1 OF 2</span><span class="safe">             │
+│        </span><span class="body">$35</span><span class="safe">                  │
+│                      │
+│                  </span><span class="sticker">┌──┐</span><span class="safe">      │
+│                  </span><span class="sticker">│POLL</span><span class="safe">      │
+│       </span><span class="sticker">┌──┐</span><span class="safe">         </span><span class="sticker">└──┘</span><span class="safe">      │
+│       </span><span class="sticker">│POLL</span><span class="safe">                  │
+│       </span><span class="sticker">└──┘</span><span class="safe">                  │
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+└──────────────────────┘</span></pre>
+    <div class="thumb-note">50/50 split. Countdown on top half, poll on bottom — primary urgency driver.</div>
+  </div>
+
+  <!-- ─── STORY 4 · MANIFESTO ─── -->
+  <div class="card fmt-story">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">4</span>
+        <span class="card-title">MANIFESTO</span>
+      </div>
+      <span class="card-subtitle">manifesto · brand beat</span>
+    </div>
+<pre class="frame"><span class="safe">┌──────────────────────┐
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+│▒                     ▒│
+│▒   </span><span class="img-area">░░░wal░░░</span><span class="safe">       ▒│
+│▒   </span><span class="img-area">░░let ░░</span><span class="safe">       ▒│
+│▒   </span><span class="img-area">░bg░░░░</span><span class="safe">       ▒│
+│▒                     ▒│
+│▒   </span><span class="display">TRUST</span><span class="safe">             ▒│
+│▒   </span><span class="display">YOURSELF.</span><span class="safe">          ▒│
+│▒   </span><span class="body">Coalition is</span><span class="safe">      ▒│
+│▒   </span><span class="body">action. Show up.</span><span class="safe">  ▒│
+│▒                     ▒│
+│▒            </span><span class="sticker">[@sgcoalition]</span><span class="safe"> ▒│
+│▒                     ▒│
+│▒                     ▒│
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+└──────────────────────┘</span></pre>
+    <div class="thumb-note">Pure #000 bg w/ wallet texture 10% opacity. Mention sticker for grid cross-pollination.</div>
+  </div>
+
+  <!-- ─── STORY 5 · CTA ─── -->
+  <div class="card fmt-story">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">5</span>
+        <span class="card-title">CTA</span>
+      </div>
+      <span class="card-subtitle">cta · link sticker</span>
+    </div>
+<pre class="frame"><span class="safe">┌──────────────────────┐
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+│▒                     ▒│
+│▒    </span><span class="img-area">┌────────┐</span><span class="safe">         ▒│
+│▒    </span><span class="img-area">│FRONT  │</span><span class="safe">         ▒│
+│▒    </span><span class="img-area">│  IMG  │</span><span class="safe">         ▒│
+│▒    </span><span class="img-area">└────────┘</span><span class="safe">         ▒│
+├──────────────────────┤
+│                      │
+│   </span><span class="eyebrow">GREY WAVE / WALLET 1/2</span><span class="safe">│
+│                      │
+│   </span><span class="display">SHOP NOW </span><span class="sticker">[↗ link]</span><span class="safe">  │
+│                      │
+│   </span><span class="body">sgcoalition.xyz/shop</span><span class="safe">│
+│                      │
+│   </span><span class="sticker">┌[@sgcoalition]┐</span><span class="safe">    │
+│                      │
+├──────────────────────┤
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+└──────────────────────┘</span></pre>
+    <div class="thumb-note">Top 60% front cropped, bottom 40% black panel. Link sticker is the conversion path.</div>
+  </div>
+
+</div>
+
+<h2 id="per-frame-detail" class="section-h fmt-story">PER-FRAME DETAIL</h2>
+<div class="section-meta">
+  <span class="chip">Side-by-side frame + annotation</span>
+  <span class="chip">Tick each frame's box on the right before publishing</span>
+</div>
+
+<p class="lead" style="margin: 8px 0 22px;">Reviewers: tick each frame's box on the right before publishing.</p>
+
+<!-- ─── DETAIL 1 ─── -->
+<div class="detail-grid">
+  <div class="detail-frame">
+<pre class="frame"><span class="safe">┌──────────────────────┐
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+│▒┌─[COALITION]─┐▒┌[⏱]┐▒│
+│▒│              ▒│   ▒│
+│▒│     </span><span class="display">GREY WAVE</span><span class="safe">     ▒│
+│▒│ </span><span class="body">Coalition 'Grey Wave'</span><span class="safe">▒│
+│▒│ </span><span class="body">Wallet 1/2 · $35</span><span class="safe">  ▒│
+│▒│              ▒│   ▒│
+│▒└──────────────┘▒└───┘▒│
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+├──────────────────────┤
+│       </span><span class="img-area">┌────────┐</span><span class="safe">      │
+│       </span><span class="img-area">│FRONT   │</span><span class="safe">      │
+│       </span><span class="img-area">│  IMG   │</span><span class="safe">      │
+│       </span><span class="img-area">└────────┘</span><span class="safe">      │
+│                      │
+│      </span><span class="sticker">┌─[@sgcoalition]─┐</span><span class="safe"> │
+│      </span><span class="sticker">│ MENTION STKR  │</span><span class="safe"> │
+│      </span><span class="sticker">└───────────────┘</span><span class="safe"> │
+├──────────────────────┤
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+└──────────────────────┘</span></pre>
+  </div>
+  <div class="detail-meta">
+    <span class="badge">Story 1 · HERO</span>
+    <p><b>Goal:</b> set the scene + drive reminder-curve traffic toward launch time.</p>
+    <span class="copy-line"><span class="copy-label">disp 88px</span>"GREY WAVE"</span>
+    <span class="copy-line"><span class="copy-label">body 26px</span>"Coalition 'Grey Wave' Wallet 1/2"</span>
+    <span class="copy-line"><span class="copy-label">body 26px</span>"$35"</span>
+    <span class="copy-line"><span class="copy-label">wd 80px</span>"COALITION" — top-left of safe zone</span>
+    <span class="sticker-line">⏱ <b>Countdown</b> sticker top-right · end = launch time · "ends_at" already passed pre-publish? Re-set.</span>
+    <span class="sticker-line"><b>Mention</b> sticker bottom-left · @sgcoalition</span>
+    <ul>
+      <li>✅ Wordmark inside top safe (≤ 250 px from top).</li>
+      <li>✅ Countdown end-time matches launch time exactly.</li>
+      <li>✅ Mention @sgcoalition resolves to active handle.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ─── DETAIL 2 ─── -->
+<div class="detail-grid">
+  <div class="detail-frame">
+<pre class="frame"><span class="safe">┌──────────────────────┐
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+│▒                     ▒│
+│▒                     ▒│
+│▒       </span><span class="img-area">┌────────┐</span><span class="safe">     ▒│
+│▒       </span><span class="img-area">│BACK    │</span><span class="safe">     ▒│
+│▒       </span><span class="img-area">│  IMG   │</span><span class="safe">     ▒│
+│▒       </span><span class="img-area">└────────┘</span><span class="safe">     ▒│
+│▒                     ▒│
+│▒   ░░░░░░░░░░░░░░░  ▒│
+│▒   </span><span class="display">Hand-finished</span><span class="safe">  ▒│
+│▒   </span><span class="display">charcoal dye.</span><span class="safe">  ▒│
+│▒   </span><span class="body">Inspired by Balti-</span><span class="safe">▒│
+│▒   </span><span class="body">more harbor at dawn.</span><span class="safe">▒│
+│▒   </span><span class="body">the moment before</span><span class="safe"> ▒│
+│▒   </span><span class="body">anything moves.</span><span class="safe">     ▒│
+│▒                  </span><span class="sticker">[poll]</span><span class="safe">▒│
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+└──────────────────────┘</span></pre>
+  </div>
+  <div class="detail-meta">
+    <span class="badge">Story 2 · DETAIL</span>
+    <p><b>Goal:</b> tell the origin story + get a quick engagement data-point via poll.</p>
+    <span class="copy-line"><span class="copy-label">disp 56</span>"Hand-finished charcoal dye."</span>
+    <span class="copy-line"><span class="copy-label">body 24</span>"Inspired by Baltimore harbor at dawn — the moment before anything moves."</span>
+    <span class="sticker-line"><b>Poll</b> sticker right-side: "Harbor at dawn? / Yes / No"</span>
+    <ul>
+      <li>✅ Black overlay covers bottom 35% — copy sits on solid black, not on the wallet.</li>
+      <li>✅ Poll options ≤ 24 chars, mutually exclusive.</li>
+      <li>✅ Back.jpeg rendered with alpha-free #000 base.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ─── DETAIL 3 ─── -->
+<div class="detail-grid">
+  <div class="detail-frame">
+<pre class="frame"><span class="safe">┌──────────────────────┐
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+│▒       </span><span class="img-area">┌────────┐</span><span class="safe"> </span><span class="sticker">┌─⏱┐</span><span class="safe"> ▒│
+│▒       </span><span class="img-area">│FRONT   │</span><span class="safe"> </span><span class="sticker">└──┘</span><span class="safe"> ▒│
+│▒       </span><span class="img-area">│  IMG   │</span><span class="safe">       ▒│
+│▒       </span><span class="img-area">└────────┘</span><span class="safe">       ▒│
+├──────────────────────┤
+│                      │
+│      </span><span class="eyebrow">LIMITED EDITION</span><span class="safe">      │
+│      </span><span class="display">1 OF 2</span><span class="safe">             │
+│        </span><span class="body">$35</span><span class="safe">                  │
+│                      │
+│      </span><span class="sticker">[poll Y/W]</span><span class="safe">           │
+│                      │
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+└──────────────────────┘</span></pre>
+  </div>
+  <div class="detail-meta">
+    <span class="badge">Story 3 · SCARCITY</span>
+    <p><b>Goal:</b> force urgency + capture demand signal for the 2/2 release decision.</p>
+    <span class="copy-line"><span class="copy-label">eye 16</span>"LIMITED EDITION" (tracked 0.3em)</span>
+    <span class="copy-line"><span class="copy-label">disp 140</span>"1 OF 2"</span>
+    <span class="copy-line"><span class="copy-label">disp 60</span>"$35"</span>
+    <span class="sticker-line">⏱ <b>Countdown</b> sticker top-right · end = launch time</span>
+    <span class="sticker-line"><b>Poll</b> sticker bottom-left: "Should we run 2/2? / Yes / Wait" → 2/2 demand signal</span>
+    <ul>
+      <li>✅ Eyebrow track sits ABOVE the giant number — read order goes edition → count → price.</li>
+      <li>✅ Countdown end-time in IG-recognised timezone (defaults local).</li>
+      <li>✅ Poll data is the primary GO/NO-GO signal for the trailing release.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ─── DETAIL 4 ─── -->
+<div class="detail-grid">
+  <div class="detail-frame">
+<pre class="frame"><span class="safe">┌──────────────────────┐
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+│▒                     ▒│
+│▒    </span><span class="img-area">░wal░</span><span class="safe">           ▒│
+│▒    </span><span class="img-area">░let ░</span><span class="safe">           ▒│
+│▒    </span><span class="img-area">░bg ░░</span><span class="safe">           ▒│
+│▒                     ▒│
+│▒   </span><span class="display">TRUST</span><span class="safe">             ▒│
+│▒   </span><span class="display">YOURSELF.</span><span class="safe">          ▒│
+│▒                     ▒│
+│▒   </span><span class="body">Coalition is</span><span class="safe">      ▒│
+│▒   </span><span class="body">action. Show up.</span><span class="safe">  ▒│
+│▒                     ▒│
+│▒            </span><span class="sticker">[@sgcoalition]</span><span class="safe"> ▒│
+│▒                     ▒│
+│▒                     ▒│
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+└──────────────────────┘</span></pre>
+  </div>
+  <div class="detail-meta">
+    <span class="badge">Story 4 · MANIFESTO</span>
+    <p><b>Goal:</b> brand affirmation + grid cross-pollination via mention sticker.</p>
+    <span class="copy-line"><span class="copy-label">disp 130</span>"TRUST YOURSELF."</span>
+    <span class="copy-line"><span class="copy-label">body 32</span>"Coalition is action. Show up."</span>
+    <span class="copy-line"><span class="copy-label">bg</span>pure #000, + 10% opacity front.jpeg texture centered</span>
+    <span class="sticker-line"><b>Mention</b> sticker bottom-right · @sgcoalition</span>
+    <span class="sticker-line">(optional) 🔥 <b>Emoji slider</b>: "🔥 Trust Yourself"</span>
+    <ul>
+      <li>✅ Brand line in ALL CAPS, centered, intentionally quiet (no price, no scarcity).</li>
+      <li>✅ Subtle wallet texture never competes with the manifesto's legibility.</li>
+      <li>✅ Mention is the only KPI-driver on this slide — engagement via cross-channel pull.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ─── DETAIL 5 ─── -->
+<div class="detail-grid">
+  <div class="detail-frame">
+<pre class="frame"><span class="safe">┌──────────────────────┐
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+│▒    </span><span class="img-area">┌────────┐</span><span class="safe">         ▒│
+│▒    </span><span class="img-area">│FRONT   │</span><span class="safe">         ▒│
+│▒    </span><span class="img-area">│  IMG   │</span><span class="safe">         ▒│
+│▒    </span><span class="img-area">└────────┘</span><span class="safe">         ▒│
+├──────────────────────┤
+│                      │
+│   </span><span class="eyebrow">GREY WAVE / WALLET 1/2</span><span class="safe">│
+│                      │
+│   </span><span class="display">SHOP NOW </span><span class="sticker">[↗link]</span><span class="safe">   │
+│                      │
+│   </span><span class="body">sgcoalition.xyz/shop</span><span class="safe">│
+│                      │
+│   </span><span class="sticker">┌─[@sgcoalition]─┐</span><span class="safe">  │
+│                      │
+├──────────────────────┤
+│▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+└──────────────────────┘</span></pre>
+  </div>
+  <div class="detail-meta">
+    <span class="badge">Story 5 · CTA</span>
+    <p><b>Goal:</b> drive conversion. The only slide that converts.</p>
+    <span class="copy-line"><span class="copy-label">eye 26</span>"GREY WAVE / WALLET 1/2"</span>
+    <span class="copy-line"><span class="copy-label">disp 70</span>"SHOP NOW →"</span>
+    <span class="copy-line"><span class="copy-label">body 28</span>"sgcoalition.xyz/shop"</span>
+    <span class="sticker-line"><b>Link</b> sticker on the "→" mark · URL = sgcoalition.xyz/shop</span>
+    <span class="sticker-line"><b>Mention</b> sticker bottom-left · @sgcoalition</span>
+    <ul>
+      <li>✅ Top 60% is the front image, bottom 40% is solid #000 panel — clean split.</li>
+      <li>✅ Link sticker URL matches PDP URL exactly (no trailing slash, no redirect).</li>
+      <li>✅ Mention + Link in compatible slots — IG sometimes refuses overlapping stickers.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ─── Reviewer checklist ─── -->
+<div class="checklist">
+  <h3>Reviewer checklist · pre-publish</h3>
+  <ol>
+    <li><b>Story 1 · Hero</b> — countdown end-time matches launch time exactly; @sgcoalition mention resolves.</li>
+    <li><b>Story 1 · Hero</b> — "GREY WAVE" / "Coalition 'Grey Wave' Wallet 1/2" / "$35" all fit inside top safe zone.</li>
+    <li><b>Story 2 · Detail</b> — back.jpeg has #000 black overlay at bottom 35% before any copy is placed.</li>
+    <li><b>Story 2 · Detail</b> — poll options ≤ 24 chars, mutually exclusive, on-brand.</li>
+    <li><b>Story 3 · Scarcity</b> — countdown end-time in IG-recognized timezone; poll "Should we run 2/2? / Yes / Wait" pulling demand signal.</li>
+    <li><b>Story 3 · Scarcity</b> — "1 OF 2" reads BEFORE "$35" in the visual order.</li>
+    <li><b>Story 4 · Manifesto</b> — wallet texture at 10% opacity never competes with "TRUST YOURSELF." copy.</li>
+    <li><b>Story 5 · CTA</b> — link sticker URL == PDP URL (no trailing slash, no redirect typo).</li>
+    <li><b>Story 5 · CTA</b> — "SHOP NOW →" + Link sticker + Mention sticker do not overlap.</li>
+    <li><b>All slides</b> — copy stack has safe-zone clearance: nothing crosses into the top 250 px or bottom 320 px.</li>
+    <li><b>All slides</b> — live preview on actual Android/iOS IG account before publishing (treat Canva preview as soft only).</li>
+    <li><b>All slides</b> — thread publishes in this exact order: Hero → Detail → Scarcity → Manifesto → CTA.</li>
+  </ol>
+</div>
+
+<footer>
+  <p>Pair with <a href="drop-kit-grey-wave.html">drop-kit-grey-wave.html</a> · <a href="drop-copy-grey-wave.html">drop-copy-grey-wave.html</a> · <a href="preview-grey-wave-assets.html">preview-grey-wave-assets.html</a>.</p>
+  <p>Markdown sources: <a href="drop-kit-grey-wave.md">drop-kit-grey-wave.md</a> · <a href="drop-copy-grey-wave.md">drop-copy-grey-wave.md</a>. Keep .html previews in lockstep with their .md sources.</p>
+  <p>This storyboard is just a review aid. Open in any browser (offline OK) · print-friendly styles included.</p>
+  <p style="color:#555;margin-top:20px;">Drop date · 2026-06-20 · Coalition brand tokens shared with <code>docs/{preview,storyboard,drop-kit,drop-copy}-grey-wave-assets.html</code>.</p>
+</footer>
+
+</div>
+</body>
+</html>

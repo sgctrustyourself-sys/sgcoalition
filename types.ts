@@ -4,9 +4,11 @@ export interface Product {
   price: number;
   images: string[];
   description: string;
+  makingVideoUrl?: string;
   createdAt?: string; // ISO timestamp for when the product was added
   category: 'apparel' | 'accessory' | 'shirt' | 'wallet' | 'jeans' | 'hat';
   isFeatured?: boolean;
+  freeShipping?: boolean;
   sizes?: string[];
   sizeInventory?: Record<string, number>; // Size-based inventory: { 'S': 10, 'M': 25, 'L': 30 }
   reviews?: Review[];
@@ -159,6 +161,9 @@ export interface Order {
   total: number;
   paymentMethod: string;
   paymentStatus: OrderStatus;
+  paymentReference?: string;
+  paypalOrderId?: string;
+  paypalCaptureId?: string;
   orderType: 'online' | 'manual';
   shippingAddress?: {
     address1: string;
@@ -166,6 +171,8 @@ export interface Order {
     state: string;
     zip: string;
     country: string;
+    shippingMethod?: string;
+    shippingCost?: number;
   };
   notes?: string;
   createdAt: string;

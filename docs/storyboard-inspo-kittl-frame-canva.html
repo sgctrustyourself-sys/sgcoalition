@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coalition · IG Story Template Inspiration · Kittl / Canva / Motion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --doc-accent: #EC4899;  /* pink-500 — inspo / editorial magazine feel */
+  }
+  html { background: #050505; }
+  body {
+    --brand-accent: #3B82F6;
+    --format-story-accent: #F59E0B;
+    --format-grid-accent: #A855F7;
+    --format-x-accent: #3B82F6;
+    background: #050505; color: #E5E5E5;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    margin: 0; padding: 32px 24px 64px;
+    position: relative; min-height: 100vh;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999;
+  }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #111; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 36px 28px 80px; position: relative; z-index: 1; }
+
+  header {
+    padding: 0 0 32px;
+    margin-bottom: 44px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .eyebrow {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.3em;
+    color: #E5E5E5; text-transform: uppercase;
+    margin: 0 0 14px;
+  }
+  h1.h-display {
+    font-family: 'Oswald', sans-serif;
+    font-size: clamp(40px, 7vw, 80px);
+    font-weight: 700; line-height: 0.95;
+    letter-spacing: -0.005em;
+    text-transform: uppercase; color: #fff;
+    margin: 0 0 18px;
+  }
+  h1.h-display .dim { color: var(--doc-accent); }
+  .lead {
+    font-family: 'Inter', sans-serif; font-weight: 300;
+    font-size: 16px; line-height: 1.65; color: #aaa;
+    max-width: 76ch; margin: 0 0 14px;
+  }
+  p code, li code, td code { background: rgba(0, 0, 0, 0.6); padding: 1px 6px; border-radius: 2px; color: #fff; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+
+  .pair-with {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-left: 3px solid var(--doc-accent);
+    padding: 16px 20px; margin: 18px 0 0;
+    font-size: 13px; line-height: 1.7;
+    border-radius: 4px;
+  }
+  .pair-with p { margin: 6px 0; }
+  .pair-with strong { color: #fff; }
+  .pair-with a { color: #fff; text-decoration: none; font-weight: 700; border-bottom: 1px solid rgba(255, 255, 255, 0.20); transition: border-color 200ms; }
+  .pair-with a:hover { border-bottom-color: var(--doc-accent); }
+  .pair-with .source-md { display: block; margin-top: 4px; color: #888; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+  .pair-with .source-md a { color: #aaa; border-bottom-color: rgba(255, 255, 255, 0.10); }
+  .pair-with .editor-note { display: block; margin-top: 6px; color: #888; font-size: 12px; font-style: italic; }
+
+  h2.section-h {
+    font-family: 'Oswald', sans-serif;
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 700; line-height: 1.0;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    margin: 60px 0 4px;
+    color: var(--doc-accent);
+  }
+  h3.sub-h {
+    font-family: 'Oswald', sans-serif;
+    font-size: 20px; font-weight: 600;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    color: #fff;
+    margin: 24px 0 8px;
+  }
+
+  .section-meta {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin: 8px 0 22px;
+  }
+  .section-meta .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: #aaa; border: 1px solid rgba(255, 255, 255, 0.10); background: rgba(255, 255, 255, 0.03);
+    border-radius: 2px;
+  }
+  .section-meta .chip code { background: transparent; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+  /* Platform card — antigravity-glass block (one per marketplace) */
+  .platform-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 3px solid var(--doc-accent);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    padding: 22px 26px;
+    margin: 0 0 18px;
+    transition: all 300ms ease;
+  }
+  .platform-card:hover {
+    border-color: rgba(255, 255, 255, 0.20);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 36px rgba(0, 0, 0, 0.2), inset 0 0 0 1px rgba(236, 72, 153, 0.20);
+  }
+  .platform-card h3.sub-h { margin-top: 0; }
+
+  /* Template card grid */
+  .template-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: 14px 0;
+  }
+  @media (max-width: 1000px) { .template-row { grid-template-columns: 1fr; } }
+  .template-card {
+    background: rgba(0, 0, 0, 0.40);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 4px;
+    padding: 14px 16px;
+    transition: all 300ms ease;
+  }
+  .template-card:hover {
+    border-color: rgba(236, 72, 153, 0.40);
+    background: rgba(236, 72, 153, 0.04);
+  }
+  .template-card .t-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--doc-accent);
+    margin-bottom: 6px;
+  }
+  .template-card .t-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 17px; font-weight: 700;
+    text-transform: uppercase;
+    color: #fff;
+    margin: 4px 0 6px;
+    letter-spacing: -0.005em;
+    line-height: 1.1;
+  }
+  .template-card .t-url {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #aaa;
+    word-break: break-all;
+    margin: 6px 0;
+  }
+  .template-card .t-url a { color: #C4B5FD; text-decoration: none; border-bottom: 1px solid rgba(196, 181, 253, 0.30); }
+  .template-card .t-url a:hover { border-bottom-color: #C4B5FD; }
+  .template-card .t-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: #888;
+    letter-spacing: 0.05em;
+    line-height: 1.6;
+  }
+  .template-card .t-roles {
+    margin-top: 8px;
+    display: flex; flex-wrap: wrap; gap: 4px;
+  }
+  .template-card .role {
+    display: inline-flex;
+    padding: 2px 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: #000;
+    background: var(--doc-accent);
+    border-radius: 2px;
+  }
+  .template-card .t-fit {
+    margin-top: 8px;
+    color: #aaa;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  /* Search-queries code block */
+  pre.code-block {
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 3px solid var(--doc-accent);
+    border-radius: 4px;
+    padding: 14px 16px;
+    margin: 10px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #E5E5E5;
+    overflow-x: auto;
+    white-space: pre;
+    line-height: 1.5;
+  }
+  pre.code-block strong { color: #fff; }
+  pre.code-block .q { color: var(--doc-accent); }
+
+  /* Grouped-recommendation rows */
+  .group-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: 14px 0;
+  }
+  @media (max-width: 1000px) { .group-row { grid-template-columns: 1fr; } }
+  .group-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 3px solid var(--doc-accent);
+    border-radius: 4px;
+    padding: 16px 18px;
+  }
+  .group-card .g-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--doc-accent);
+    margin-bottom: 4px;
+  }
+  .group-card .g-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 18px; font-weight: 700;
+    text-transform: uppercase;
+    color: #fff;
+    margin: 4px 0 8px;
+    letter-spacing: -0.005em;
+  }
+  .group-card ul { padding-left: 16px; margin: 6px 0; }
+  .group-card li { font-size: 12px; margin: 3px 0; line-height: 1.5; }
+
+  /* Ship-it step list */
+  ol.ship-steps {
+    list-style: none;
+    padding: 0; margin: 14px 0 0;
+    counter-reset: ship-counter;
+  }
+  ol.ship-steps li {
+    padding: 16px 0 16px 60px;
+    position: relative;
+    font-size: 13px;
+    color: #E5E5E5;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    line-height: 1.55;
+  }
+  ol.ship-steps li:last-child { border-bottom: 0; }
+  ol.ship-steps li::before {
+    counter-increment: ship-counter;
+    content: counter(ship-counter);
+    position: absolute; left: 0; top: 16px;
+    width: 44px; height: 44px;
+    background: rgba(236, 72, 153, 0.10);
+    border: 1px solid var(--doc-accent);
+    border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Oswald', sans-serif;
+    font-size: 20px; font-weight: 700;
+    color: var(--doc-accent);
+  }
+  ol.ship-steps li b { color: #fff; }
+  ol.ship-steps li code { background: rgba(0, 0, 0, 0.6); padding: 2px 8px; border-radius: 2px; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+  /* Tips callout */
+  blockquote.tip {
+    background: rgba(236, 72, 153, 0.06);
+    border-left: 3px solid var(--doc-accent);
+    padding: 10px 16px;
+    margin: 10px 0;
+    color: #E5E5E5;
+    font-size: 13px;
+    border-radius: 0 4px 4px 0;
+  }
+  blockquote.tip strong { color: var(--doc-accent); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; margin-right: 6px; }
+
+  /* Index table — direct links */
+  table.idx-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 10px 0 0;
+  }
+  table.idx-table th, table.idx-table td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    vertical-align: top;
+  }
+  table.idx-table th {
+    color: #888;
+    font-weight: 400;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    font-size: 10px;
+    width: 25%;
+    background: rgba(0, 0, 0, 0.30);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  table.idx-table td { color: #E5E5E5; }
+  table.idx-table a { color: #C4B5FD; text-decoration: none; border-bottom: 1px solid rgba(196, 181, 253, 0.30); }
+  table.idx-table a:hover { border-bottom-color: #C4B5FD; }
+
+  footer {
+    margin: 60px 0 0;
+    padding: 24px 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    color: #888; font-size: 12px; line-height: 1.7;
+  }
+  footer p { margin: 4px 0; }
+  footer a { color: #fff; text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, 0.20); transition: border-color 200ms; }
+  footer a:hover { border-bottom-color: var(--doc-accent); }
+  footer code { background: rgba(0, 0, 0, 0.6); padding: 1px 6px; border-radius: 2px; color: #fff; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+
+  @media print {
+    body { background: #fff; color: #000; }
+    body::before { display: none; }
+    .platform-card, .template-card { box-shadow: none; border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">Coalition · Storyboard Inspiration · Drop 2026-06-20</span>
+  <h1 class="h-display">TEMPLATE <span class="dim">INSPO</span></h1>
+  <p class="lead">Curated Story template themes pulled from Kittl + Canva + the motion platforms (Motion Array / Envato / Jitter), each mapped to the Coalition 5-slide scrollytelling thread — Hero / Detail / Scarcity / Manifesto / CTA. Use this doc when you need to ship a slide tonight and the abstract drop-kit spec isn't concrete enough. Pairs with <a href="storyboard-grey-wave.html">storyboard-grey-wave.html</a> (ASCII wireframes) and <a href="drop-kit-grey-wave.html">drop-kit-grey-wave.html</a> (designer spec).</p>
+
+  <blockquote class="pair-with">
+    <p><strong>Trio hub — <a href="preview-grey-wave-assets.html">docs/preview-grey-wave-assets.html</a></strong> : 16 postable PNGs (source + Story + Grid + X) for visual review.</p>
+    <p><strong>ASCII wireframes — <a href="storyboard-grey-wave.html">docs/storyboard-grey-wave.html</a></strong> : 9:16 frame-by-frame review aids + reviewer checklist.<span class="source-md">md source · <a href="storyboard-grey-wave.md">storyboard-grey-wave.md</a></span></p>
+    <p><strong>Visual spec — <a href="drop-kit-grey-wave.html">docs/drop-kit-grey-wave.html</a></strong> : 5-slide layout specs + Canva/Figma recipes + IG Story variants.<span class="source-md">md source · <a href="drop-kit-grey-wave.md">drop-kit-grey-wave.md</a></span></p>
+    <p><strong>Copy deck — <a href="drop-copy-grey-wave.html">docs/drop-copy-grey-wave.html</a></strong> : IG caption long/short, X single, X 3-tweet thread, Story per-slide copy, A/B variants, Slack one-liner.<span class="source-md">md source · <a href="drop-copy-grey-wave.md">drop-copy-grey-wave.md</a></span></p>
+    <span class="editor-note">5th doc in the docs/ hub-and-spoke. Concrete marketplace templates sit alongside the abstract specs — use this doc when you need an actual artifact tonight.</span>
+  </blockquote>
+</header>
+
+<h2 id="when-to-use" class="section-h">WHEN TO USE THIS DOC</h2>
+<div class="section-meta">
+  <span class="chip">Ship-tonight cases</span>
+  <span class="chip">Re-skin from base template</span>
+  <span class="chip">Brand-restraint filter</span>
+</div>
+<div class="platform-card">
+  <p>The abstract specs (<a href="drop-kit-grey-wave.html">drop-kit</a>, <a href="storyboard-grey-wave.html">storyboard</a>) describe what a Coalition slide <em>is</em>. This doc shows what one <em>looks like</em> — actual template themes you can pick from Kittl/Canva/Motion arrays today, with the work to re-skin them into the Coalition brand surface spelled out in 5 minutes.</p>
+  <blockquote class="tip"><strong>Use case:</strong> a reviewer says "this storyboard feels like a doc, not a Story" and you need a real template to anchor against. Pick 3 Lookbook-style templates from one platform in this doc, re-skin in 40 minutes, ship.</blockquote>
+</div>
+
+<h2 id="kittl" class="section-h">KITTL · PRIMARY PICK · STILL IG STORY ART</h2>
+<div class="section-meta">
+  <span class="chip">Still Story templates</span>
+  <span class="chip">Best typography</span>
+  <span class="chip">Designer-grade</span>
+  <span class="chip"><a href="https://www.kittl.com/templates/instagram-stories" target="_blank" rel="noopener">kittl.com/templates/instagram-stories →</a></span>
+</div>
+<div class="platform-card">
+  <p>Kittl is the right call when you want typography + texture control that Canva can't match. Re-skin workflow is one click per layer: drop the background to <code>#050505</code>, swap fonts to <code>Bebas Neue</code> (display) + <code>Inter</code> (body) — both available in the Kittl font library. Save the 5 slides as one project + use <code>Kittl Flows</code> to lock the brand kit for future drops.</p>
+
+  <h3 class="sub-h">Direct-fit templates · Kittl</h3>
+  <div class="template-row">
+
+    <div class="template-card">
+      <div class="t-tag">Slide 1 · Hero · Slide 5 · CTA</div>
+      <div class="t-title">Minimalist Editorial</div>
+      <div class="t-url"><a href="https://www.kittl.com/templates/instagram-stories" target="_blank" rel="noopener">kittl.com/templates/instagram-stories</a> · filter <strong>Minimalist</strong></div>
+      <div class="t-meta">Mostly free · Kittl Pro · 9:16</div>
+      <div class="t-roles"><span class="role">HERO</span><span class="role">CTA</span></div>
+      <div class="t-fit">Clean negative space; lets the Oswald display headline breathe on the deep-black surface. Best slide-1 hero + slide-5 CTA pair.</div>
+    </div>
+
+    <div class="template-card">
+      <div class="t-tag">Slide 2 · Detail · Slide 3 · Scarcity</div>
+      <div class="t-title">Rough / Grunge Collage</div>
+      <div class="t-url"><a href="https://www.kittl.com/templates/instagram-stories/collage" target="_blank" rel="noopener">kittl.com/templates/instagram-stories/collage</a></div>
+      <div class="t-meta">Pro · 9:16</div>
+      <div class="t-roles"><span class="role">DETAIL</span><span class="role">SCARCITY</span></div>
+      <div class="t-fit">Texture-friendly: add a 10% opacity charcoal-dye overlay; modular boxes for the detail crop + the "1 OF 2" stamp. Pairs well with the layer specs in drop-kit Slide 3.</div>
+    </div>
+
+    <div class="template-card">
+      <div class="t-tag">Slide 4 · Manifesto</div>
+      <div class="t-title">Modern Streetwear</div>
+      <div class="t-url"><a href="https://www.kittl.com/templates/instagram-stories" target="_blank" rel="noopener">kittl.com/templates/instagram-stories</a> · filter <strong>Streetwear</strong></div>
+      <div class="t-meta">Free / Pro · 9:16</div>
+      <div class="t-roles"><span class="role">MANIFESTO</span></div>
+      <div class="t-fit">High-contrast B&amp;W frames designed for fashion. Strip the rounded corners + condense line-height, and it lands as a <code>TRUST YOURSELF.</code> brand beat. Quiet + confident.</div>
+    </div>
+
+  </div>
+
+  <h3 class="sub-h">Search queries to copy-paste</h3>
+  <pre class="code-block"><strong>Kittl search bar:</strong>
+<span class="q">Editorial</span>           → 10\\+\\* matches · filter \"Story\"
+<span class="q">Minimalist</span>          → 30\\+\\* matches · filter \"Story\"
+<span class="q">Lookbook</span>            → 5\\+\\* curated fashion packs · 5–10 slides per set
+<span class="q">Product Launch</span>      → 8\\+\\* packs with countdown slots built-in
+
+<span class="q">DO NOT search</span>: <span class="q">streetwear</span>              // over-styled OR neon — clashes with deep-black restraint
+            <span class="q">playful</span>               // rounded corners + drop shadows
+            <span class="q">pop</span> / <span class="q">bright</span>             // violates limited-edition tension</pre>
+
+  <blockquote class="tip"><strong>Kittl re-skin recipe · 5 minutes per slide:</strong> ① background layer → set to <code>#050505</code>. ② display text → swap to <code>Bebas Neue</code> 88–140px white. ③ body text → swap to <code>Inter</code> 24–32px <code>#C8C8C8</code>. ④ add overlay gradient rectangle (top-left black 30% → transparent) for wordmark safe-zone. ⑤ export PNG @2x for IG.</blockquote>
+</div>
+
+<h2 id="canva" class="section-h">CANVA · FALLBACK · NON-DESIGNER PATH</h2>
+<div class="section-meta">
+  <span class="chip">Browser-based · no install</span>
+  <span class="chip">Most accessible</span>
+  <span class="chip"><a href="https://www.canva.com/templates/?query=minimalist-dark-fashion" target="_blank" rel="noopener">canva.com → minimalist-dark-fashion →</a></span>
+</div>
+<div class="platform-card">
+  <p>Canva is the right call when you don't have a designer + need to ship today. Search the Lookbook family and filter by <strong>Story</strong>. Each pack typically gives you 5–10 slides already — Hero → Detail → Scarcity → Manifesto → CTA is essentially what lookbooks do.</p>
+
+  <h3 class="sub-h">Direct-fit templates · Canva</h3>
+  <div class="template-row">
+
+    <div class="template-card">
+      <div class="t-tag">Story · Editorial</div>
+      <div class="t-title">Minimal Editorial Lookbook</div>
+      <div class="t-url"><a href="https://www.canva.com/templates/?query=minimal-editorial-lookbook" target="_blank" rel="noopener">canva.com · query: <em>minimal-editorial-lookbook</em></a></div>
+      <div class="t-meta">Pro · 9:16 / 4:5</div>
+      <div class="t-roles"><span class="role">DETAIL</span><span class="role">MANIFESTO</span></div>
+      <div class="t-fit">Matches the harbor-at-dawn / charcoal mood. Drops in cleanly with drop-kit Slide 4 (manifesto) and Slide 2 (detail).</div>
+    </div>
+
+    <div class="template-card">
+      <div class="t-tag">Story · Editorial</div>
+      <div class="t-title">Dark Luxury Fashion</div>
+      <div class="t-url"><a href="https://www.canva.com/templates/?query=dark-luxury-fashion" target="_blank" rel="noopener">canva.com · query: <em>dark-luxury-fashion</em></a></div>
+      <div class="t-meta">Pro · 9:16</div>
+      <div class="t-roles"><span class="role">HERO</span><span class="role">SCARCITY</span></div>
+      <div class="t-fit">High-end, moody. The "X OF Y" scarcity slide already lives in this family — pair with the copy in drop-kit Slide 3.</div>
+    </div>
+
+    <div class="template-card">
+      <div class="t-tag">Story · Free</div>
+      <div class="t-title">Black Minimalist Business</div>
+      <div class="t-url"><a href="https://www.canva.com/templates/?query=black-minimalist-business" target="_blank" rel="noopener">canva.com · query: <em>black-minimalist-business</em></a></div>
+      <div class="t-meta">Free · 9:16 / 1.91:1</div>
+      <div class="t-roles"><span class="role">CTA</span><span class="role">MANIFESTO</span></div>
+      <div class="t-fit">No-signature corporate B&amp;W — best as a base for the CTA + manifesto slides. Strip serif flourishes + condense.</div>
+    </div>
+
+  </div>
+
+  <h3 class="sub-h">Canva-specific gotcha · IG stickers</h3>
+  <blockquote class="tip">Canva does <strong>NOT</strong> host native IG interactive stickers (countdown / poll / link / mention). In your layout, drop a low-opacity rectangle ghost box labeled <code>[Sticker landing zone]</code> where the IG sticker will go — then place the live sticker in IG at publish time. This isn't a bug, it's IG behavior. The ghost box is your visual contract with the sticker tray.</blockquote>
+
+  <h3 class="sub-h">Search queries to copy-paste</h3>
+  <pre class="code-block"><strong>Canva search bar:</strong>
+<span class="q">minimalist dark fashion</span>  → best starting point · 5–10 slide packs
+<span class="q">minimal editorial lookbook</span> → editorial-grade restraint
+<span class="q">dark luxury fashion</span>      → high-end moody base
+<span class="q">black minimalist business</span>  → free B&amp;W generic → strip + condense
+
+<span class="q">DO NOT search</span>: <span class="q">streetwear</span> / <span class="q">urban</span>          // neon OR paint splatter
+            <span class="q">playful</span> / <span class="q">bright</span>          // clashes with 1-of-2 tension</pre>
+</div>
+
+<h2 id="motion" class="section-h">MOTION · FOR ANIMATED STORIES / REELS</h2>
+<div class="section-meta">
+  <span class="chip">After Effects / Premiere</span>
+  <span class="chip">Browser-based motion</span>
+  <span class="chip">1080×1920 · 30 / 60 fps</span>
+  <span class="chip">Use when static feels dead</span>
+</div>
+<div class="platform-card">
+  <p>If your Story needs kinetic typography, slow-zoom product reveals, or vignette transitions — Kittl and Canva aren't enough. Use these motion platforms. All three let you set the global hex color to <code>#050505</code> across all slides so the brand surface stays unified.</p>
+
+  <h3 class="sub-h">Direct-fit motion platforms</h3>
+  <div class="template-row">
+
+    <div class="template-card">
+      <div class="t-tag">After Effects · Premiere</div>
+      <div class="t-title">Motion Array</div>
+      <div class="t-url"><a href="https://motionarray.com" target="_blank" rel="noopener">motionarray.com</a> · search: <em>dark-fashion-story</em></div>
+      <div class="t-meta">Subscription · AE + Premiere project files</div>
+      <div class="t-roles"><span class="role">HERO</span><span class="role">MANIFESTO</span></div>
+      <div class="t-fit">Best for scrollytelling. Pick <strong>Premiere Pro project files</strong> over Lottie — you get global color control via Lumetri. Slow-zoom, kinetic-type, vignette transitions all live here.</div>
+    </div>
+
+    <div class="template-card">
+      <div class="t-tag">All-asset subscription</div>
+      <div class="t-title">Envato Elements</div>
+      <div class="t-url"><a href="https://elements.envato.com" target="_blank" rel="noopener">elements.envato.com</a> · search: <em>dark-luxury-fashion-story-vertical</em></div>
+      <div class="t-meta">Subscription · AE + video + photo graphics</div>
+      <div class="t-roles"><span class="role">DETAIL</span><span class="role">CTA</span></div>
+      <div class="t-fit">Filter for AE or Premiere (not Lottie or GIF — these don't carry through to IG Story well). Highest variety of curated packs.</div>
+    </div>
+
+    <div class="template-card">
+      <div class="t-tag">Browser motion</div>
+      <div class="t-title">Jitter.video</div>
+      <div class="t-url"><a href="https://jitter.video" target="_blank" rel="noopener">jitter.video</a> · search: <em>dark fashion story</em></div>
+      <div class="t-meta">Browser-based · rapid iteration</div>
+      <div class="t-roles"><span class="role">HERO</span><span class="role">SCARCITY</span></div>
+      <div class="t-fit">Fastest path to a subtle-motion Story if you don't run Premiere. Drop the rendered MP4 into a Story — best for quick drop-night posts.</div>
+    </div>
+
+  </div>
+
+  <h3 class="sub-h">5-slide motion mapping (rough spec)</h3>
+  <div class="template-row">
+    <div class="template-card"><div class="t-tag">Hero · slow-zoom</div><div class="t-title">Front.jpeg 1.0 → 1.08 scale over 3s</div><div class="t-meta">Easing: ease-out · audio: optional sub-bass swell</div></div>
+    <div class="template-card"><div class="t-tag">Detail · film-strip</div><div class="t-title">Back.jpeg + charcoal gradient fade-up</div><div class="t-meta">Bottom 35% #000 0 → 70% opacity sweep · 2s</div></div>
+    <div class="template-card"><div class="t-tag">Scarcity · glitch</div><div class="t-title">Top half front + countdown ticks</div><div class="t-meta">IG native sticker handles the countdown — let it</div></div>
+    <div class="template-card"><div class="t-tag">Manifesto · kinetic type</div><div class="t-title">"TRUST YOURSELF." fade-in letter-by-letter</div><div class="t-meta">Each letter 0.05s delay · final letter holds 4s</div></div>
+    <div class="template-card"><div class="t-tag">CTA · click-pulse</div><div class="t-title">Front 60% + arrow pulse + link sticker</div><div class="t-meta">Arrow brand mark `→` opacity pulse 1.0 → 0.7 → 1.0 × 3 loops</div></div>
+    <div class="template-card"></div>
+  </div>
+
+  <blockquote class="tip"><strong>When to use motion vs still:</strong> motion is essential for Reels + Sponsored Story ads. For organic Story drops, a still slide is usually enough — motion on every slide reads as over-produced. Use motion for the Hero (slide 1) + the CTA (slide 5); keep Detail + Scarcity + Manifesto still.</blockquote>
+</div>
+
+<h2 id="groups" class="section-h">GROUPED RECOMMENDATION · DIRECT-FIT / INSPIRATION / SKIP</h2>
+<div class="section-meta">
+  <span class="chip">Filter by tonight</span>
+  <span class="chip">Brand-restraint discipline</span>
+</div>
+<div class="group-row">
+
+  <div class="group-card">
+    <div class="g-tag">Group A</div>
+    <div class="g-title">Direct-Fit</div>
+    <p>1:1 with our 5-slide thread or adaptable in 10 minutes.</p>
+    <ul>
+      <li>Kittl · Minimalist Editorial → slides 1, 5</li>
+      <li>Kittl · Rough / Grunge Collage → slides 2, 3</li>
+      <li>Kittl · Modern Streetwear → slide 4</li>
+      <li>Canva · Minimal Editorial Lookbook → slides 2, 4</li>
+      <li>Canva · Dark Luxury Fashion → slides 1, 3</li>
+      <li>Motion Array · dark-fashion-story → hero motion</li>
+    </ul>
+  </div>
+
+  <div class="group-card">
+    <div class="g-tag">Group B</div>
+    <div class="g-title">Inspiration-only</div>
+    <p>Similar restraint, different execution. Steal one motion idea.</p>
+    <ul>
+      <li>Kittl &#x2022; collage range for manifesto scenes</li>
+      <li>Canva &#x2022; Editorial Lookbook for portfolio-grade bulk</li>
+      <li>Envato Elements &#x2022; dark-luxury-fashion-story-vertical</li>
+      <li>Jitter.video &#x2022; dark fashion (subtle text-reveals)</li>
+    </ul>
+  </div>
+
+  <div class="group-card">
+    <div class="g-tag">Group C</div>
+    <div class="g-title">Skip</div>
+    <p>Over-decorated OR wrong vibe. Clashes with the brand surface.</p>
+    <ul>
+      <li>Anything tagged <code>Playful</code>, <code>Bright</code>, <code>Pop</code></li>
+      <li>Neon paint splatter / rounded drop-shadow heavy</li>
+      <li>Anything labeled <code>Streetwear</code> OR <code>Urban</code> on Kittl/Canva</li>
+      <li>Bright accent color baked into the template (can't fully re-skin)</li>
+      <li>Lottie-only (doesn't survive IG Story's MP4 transcode well)</li>
+    </ul>
+  </div>
+
+</div>
+
+<h2 id="ship-tonight" class="section-h">SHIP TONIGHT · 5-STEP WORKFLOW</h2>
+<div class="section-meta">
+  <span class="chip">40 min total</span>
+  <span class="chip">One platform · 5 slides</span>
+  <span class="chip">League-wide reproducible</span>
+</div>
+<ol class="ship-steps">
+  <li><b>Pick one platform.</b> Kittl if you have a designer-block budget. Canva if you don't. Motion Array only if you're shipping a Reel/Sponsored ad — not for organic Story drops.</li>
+  <li><b>Find or build a 5-slide template.</b> Either pick from <em>Group A</em> above, or build one in the platform using the layer specs from <a href="drop-kit-grey-wave.html">drop-kit-grey-wave.html</a> Slides 1–5.</li>
+  <li><b>Re-skin globally.</b> Background → <code>#050505</code>. Display fonts → <code>Bebas Neue</code> or <code>Oswald</code>. Body → <code>Inter</code>. Outline / hairline accents → <code>rgba(255,255,255,0.08)</code>.</li>
+  <li><b>Drop the copy.</b> Pull from <a href="drop-copy-grey-wave.html">drop-copy-grey-wave.html</a>: IG caption long for slide 1, IG Story sequence copy for slides 1–5, Slack one-liner for the bio link.</li>
+  <li><b>Export PNG &#x2192; publish to IG.</b> Export each slide as PNG @2x. In IG, drop each PNG into a Story, then add live stickers (countdown / poll / mention / link) over the ghost zones for slides 1, 2, 3, 5.</li>
+</ol>
+
+<blockquote class="tip"><strong>Total time:</strong> 40 minutes if the wallet PNGs are already on disk (<code>public/images/grey-wave-wallet-1-2-{front,back}.png</code>). 90 minutes if you also need to re-scan sizes via <code>python docs/tmp/make-per-format-previews.py --scan-sizes</code>.</blockquote>
+
+<h2 id="index" class="section-h">DIRECT-LINK INDEX · COPY-PASTE BOOKMARKS</h2>
+<div class="section-meta">
+  <span class="chip">All major entry points</span>
+</div>
+<table class="idx-table">
+  <tr><th>Trio hub</th>           <td><a href="preview-grey-wave-assets.html">preview-grey-wave-assets.html</a> · 16 postable PNGs (source + 5 Story + 5 Grid + 4 X)</td></tr>
+  <tr><th>ASCII wireframes</th>    <td><a href="storyboard-grey-wave.html">storyboard-grey-wave.html</a> · 9:16 frame-by-frame + reviewer checklist</td></tr>
+  <tr><th>Visual spec</th>        <td><a href="drop-kit-grey-wave.html">drop-kit-grey-wave.html</a> · 5-slide layouts + IG Story variants + Canva/Figma recipes</td></tr>
+  <tr><th>Copy deck</th>          <td><a href="drop-copy-grey-wave.html">drop-copy-grey-wave.html</a> · IG caption + X thread + Story copy + A/B variants</td></tr>
+  <tr><th>Kittl · stories</th>     <td><a href="https://www.kittl.com/templates/instagram-stories" target="_blank" rel="noopener">kittl.com/templates/instagram-stories</a></td></tr>
+  <tr><th>Kittl · collage</th>     <td><a href="https://www.kittl.com/templates/instagram-stories/collage" target="_blank" rel="noopener">kittl.com/templates/instagram-stories/collage</a></td></tr>
+  <tr><th>Canva · dark fashion</th> <td><a href="https://www.canva.com/templates/?query=minimalist-dark-fashion" target="_blank" rel="noopener">canva.com · query: minimalist-dark-fashion</a></td></tr>
+  <tr><th>Canva · lookbook</th>    <td><a href="https://www.canva.com/templates/?query=minimal-editorial-lookbook" target="_blank" rel="noopener">canva.com · query: minimal-editorial-lookbook</a></td></tr>
+  <tr><th>Motion Array</th>        <td><a href="https://motionarray.com" target="_blank" rel="noopener">motionarray.com</a> · search: <em>dark fashion story</em></td></tr>
+  <tr><th>Envato Elements</th>     <td><a href="https://elements.envato.com" target="_blank" rel="noopener">elements.envato.com</a> · search: <em>dark-luxury-fashion-story-vertical</em></td></tr>
+  <tr><th>Jitter.video</th>        <td><a href="https://jitter.video" target="_blank" rel="noopener">jitter.video</a> · search: <em>dark fashion story</em></td></tr>
+  <tr><th>Regenerate previews</th> <td><code>python docs/tmp/make-per-format-previews.py [--scan-sizes]</code> · rebuilds trio hub + per-format pages from on-disk PNGs</td></tr>
+</table>
+
+<footer>
+  <p>Pair with <a href="preview-grey-wave-assets.html">preview-grey-wave-assets.html</a> · <a href="storyboard-grey-wave.html">storyboard-grey-wave.html</a> · <a href="drop-kit-grey-wave.html">drop-kit-grey-wave.html</a> · <a href="drop-copy-grey-wave.html">drop-copy-grey-wave.html</a>.</p>
+  <p>Markdown source · <a href="storyboard-inspo-kittl-frame-canva.md">storyboard-inspo-kittl-frame-canva.md</a> — keep the .html preview in lockstep with the .md source on every edit.</p>
+  <p>5th doc in the docs/ hub-and-spoke. Use when the abstract specs aren't concrete enough — pick 3 templates from Group A above, re-skin in 40 min, ship.</p>
+  <p style="color:#555;margin-top:20px;">Storyboard-inspo · Coalition brand tokens shared with <code>docs/{index,preview,storyboard,drop-kit,drop-copy}-grey-wave-assets.html</code>.</p>
+</footer>
+
+</div>
+</body>
+</html>

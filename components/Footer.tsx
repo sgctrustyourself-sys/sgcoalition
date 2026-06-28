@@ -2,8 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Instagram, MessageCircle, Twitter } from 'lucide-react';
 import Newsletter from './Newsletter';
+import { useApp } from '../context/AppContext';
 
 const Footer = () => {
+    const { isAdminMode } = useApp();
+
     return (
         <footer className="bg-black text-white py-20 border-t border-white/10 relative overflow-hidden">
             {/* Background Glow */}
@@ -32,7 +35,9 @@ const Footer = () => {
                         <li><Link to="/inquire" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Custom Inquiry</Link></li>
                         <li><Link to="/about" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">About Us</Link></li>
                         <li><Link to="/help" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Help</Link></li>
-                        <li><Link to="/brain" className="hover:text-purple-400 text-purple-500 hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Coalition Brain</Link></li>
+                        {isAdminMode && (
+                            <li><Link to="/brain" className="hover:text-purple-400 text-purple-500 hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Coalition Brain</Link></li>
+                        )}
                         <li><Link to="/archive" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Archive</Link></li>
                         <li><a href="mailto:support@sgcoalition.xyz" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Contact Us</a></li>
                     </ul>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Loader, Wallet, Copy, Check, Sparkles, Heart, Info, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
+import { ArrowLeft, CreditCard, Loader, Wallet, Copy, Check, Sparkles, Heart, Info, ShieldCheck, Truck, RefreshCw, Mail, Headphones } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { OrderStatus } from '../types';
 import { useToast } from '../context/ToastContext';
@@ -22,6 +22,18 @@ const reportErrorToAdmin = async (error: string, context: string, metadata: any 
         console.error('Failed to trigger error report:', err);
     }
 };
+
+type PaymentVerification = {
+    paypalOrderId?: string;
+    paypalCaptureId?: string;
+};
+
+type OrderSeed = {
+    orderId: string;
+    orderNumber: string;
+};
+
+const SUPPORT_EMAIL = 'support@sgcoalition.xyz';
 
 const Checkout: React.FC = () => {
     const navigate = useNavigate();
@@ -55,10 +67,11 @@ const Checkout: React.FC = () => {
 
     const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>('standard');
 
-    // VIP Free Shipping Logic
+    // VIP / Product Free Shipping Logic
     const isVIP = user?.isVIP || false;
+    const hasFreeShippingProduct = cart.some(item => item.freeShipping);
     const baseShippingCost = shippingMethod === 'express' ? 10 : 0;
-    const shippingCost = (isVIP && shippingMethod === 'standard') ? 0 : baseShippingCost;
+    const shippingCost = hasFreeShippingProduct || (isVIP && shippingMethod === 'standard') ? 0 : baseShippingCost;
 
     const total = cartTotal();
     const reward = calculateReward(total);
@@ -75,6 +88,46 @@ const Checkout: React.FC = () => {
 
     // Final Total Calculation
     const finalTotal = Math.max(0, total - discount + shippingCost - creditToApply);
+    const requiresNoExternalPayment = isZeroAmount || finalTotal <= 0;
+    const paymentLabel = paymentMethod === 'paypal'
+        ? 'PayPal, card, or Apple Pay'
+        : paymentMethod === 'crypto'
+            ? 'USDC on Polygon'
+            : 'Card';
+    const shippingCostLabel = shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`;
+    const shippingMethodLabel = shippingMethod === 'express' ? 'Express' : 'Standard';
+    const fulfillmentExpectation = shippingMethod === 'express'
+        ? 'Priority packing after payment verification. Tracking follows by email.'
+        : 'Packed after payment verification. Tracking follows by email.';
+    const contactEmailLabel = shippingInfo.email.trim() || 'your checkout email';
+    const paymentAvailability = [
+        'PayPal secure checkout',
+        'Credit and debit cards via PayPal',
+        'Apple Pay when available',
+        discountEnabled ? `USDC on Polygon saves ${getDiscountPercentageText()}` : 'USDC on Polygon available'
+    ];
+    const checkoutTrustItems = [
+        {
+            icon: ShieldCheck,
+            title: 'Secure PayPal payment',
+            detail: 'PayPal handles payment details before capture.'
+        },
+        {
+            icon: Mail,
+            title: 'Confirmation email',
+            detail: `Order details are sent to ${contactEmailLabel}.`
+        },
+        {
+            icon: Headphones,
+            title: 'Support contact',
+            detail: SUPPORT_EMAIL
+        },
+        {
+            icon: RefreshCw,
+            title: 'No surprise fees',
+            detail: `Shipping is ${shippingCostLabel}; total is $${finalTotal.toFixed(2)}.`
+        }
+    ];
 
     const WALLET_ADDRESS = '0x0F4A0466C2a1d3FA6Ed55a20994617F0533fbf74';
 
@@ -215,15 +268,20 @@ const Checkout: React.FC = () => {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const createOrder = async (paymentMethodUsed: string, stripeSessionId?: string) => {
+    const createOrderSeed = (): OrderSeed => ({
+        orderId: `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        orderNumber: generateOrderNumber(),
+    });
+
+    const createOrder = async (paymentMethodUsed: string, paymentReference?: string, paymentVerification?: PaymentVerification, orderSeed?: OrderSeed) => {
         try {
-            const orderNumber = generateOrderNumber();
+            const orderNumber = orderSeed?.orderNumber || generateOrderNumber();
             const subtotal = total;
             const tax = 0;
             const isGuest = !user;
 
             const order = {
-                id: `order_${Date.now()}`,
+                id: orderSeed?.orderId || `order_${Date.now()}`,
                 orderNumber,
                 userId: user?.uid,
                 isGuest,
@@ -250,6 +308,9 @@ const Checkout: React.FC = () => {
                 total: finalTotal,
                 paymentMethod: paymentMethodUsed as any,
                 paymentStatus: paymentMethodUsed === 'crypto' ? OrderStatus.PENDING : OrderStatus.PAID,
+                paymentReference,
+                paypalOrderId: paymentVerification?.paypalOrderId,
+                paypalCaptureId: paymentVerification?.paypalCaptureId,
                 orderType: 'online' as const,
                 createdAt: new Date().toISOString(),
                 paidAt: paymentMethodUsed !== 'crypto' ? new Date().toISOString() : undefined,
@@ -259,11 +320,13 @@ const Checkout: React.FC = () => {
                     city: shippingInfo.city,
                     state: shippingInfo.state,
                     zip: shippingInfo.zip,
-                    country: shippingInfo.country
+                    country: shippingInfo.country,
+                    shippingMethod,
+                    shippingCost
                 }
             };
 
-            await addOrder(order);
+            await addOrder(order, paymentVerification);
 
             // Save order to sessionStorage so OrderSuccess can display it even if cart is cleared
             sessionStorage.setItem('pendingOrder', JSON.stringify(order));
@@ -473,8 +536,9 @@ const Checkout: React.FC = () => {
                                             <span>Standard Shipping</span>
                                         </div>
                                         <div className="text-right">
-                                            <span className={isVIP ? "line-through text-gray-400 text-xs mr-2" : ""}>{isVIP ? "$5.00" : "Free"}</span>
-                                            {isVIP && <span className="text-brand-accent font-bold">VIP FREE</span>}
+                                            <span className={(isVIP || hasFreeShippingProduct) ? "line-through text-gray-400 text-xs mr-2" : ""}>{(isVIP || hasFreeShippingProduct) ? "$5.00" : "Free"}</span>
+                                            {hasFreeShippingProduct && <span className="text-brand-accent font-bold">ITEM FREE</span>}
+                                            {!hasFreeShippingProduct && isVIP && <span className="text-brand-accent font-bold">VIP FREE</span>}
                                         </div>
                                     </label>
                                     <label className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition ${shippingMethod === 'express' ? 'border-white bg-white/10' : 'border-white/10 hover:border-white/30'}`}>
@@ -489,7 +553,16 @@ const Checkout: React.FC = () => {
                                             />
                                             <span>Express Shipping</span>
                                         </div>
-                                        <span>$10.00</span>
+                                        <div className="text-right">
+                                            {hasFreeShippingProduct ? (
+                                                <>
+                                                    <span className="line-through text-gray-400 text-xs mr-2">$10.00</span>
+                                                    <span className="text-brand-accent font-bold">FREE</span>
+                                                </>
+                                            ) : (
+                                                <span>$10.00</span>
+                                            )}
+                                        </div>
                                     </label>
                                 </div>
                             </div>
@@ -579,8 +652,16 @@ const Checkout: React.FC = () => {
                         {/* Payment Method Selection */}
                         <div className="bg-white/5 border border-white/10 rounded-xl p-6 backdrop-blur-sm">
                             <h3 className="font-bold mb-4 text-white uppercase text-sm tracking-wide">Payment Method</h3>
+                            <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {paymentAvailability.map((label) => (
+                                    <div key={label} className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-xs text-gray-300">
+                                        <Check className="h-3.5 w-3.5 flex-shrink-0 text-green-400" />
+                                        <span>{label}</span>
+                                    </div>
+                                ))}
+                            </div>
 
-                            {isZeroAmount ? (
+                            {requiresNoExternalPayment ? (
                                 <div className="text-center py-6">
                                     <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/20 rounded-full mb-4">
                                         <Check className="w-8 h-8 text-green-400" />
@@ -651,6 +732,34 @@ const Checkout: React.FC = () => {
                                         </label>
                                     </div>
 
+                                    <div className="mb-6 rounded-xl border border-white/10 bg-black/30 p-4">
+                                        <div className="mb-4 flex items-center justify-between gap-3">
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-500">Review Before Payment</p>
+                                                <p className="mt-1 text-sm text-gray-300">These details are shown before the final payment step.</p>
+                                            </div>
+                                            <ShieldCheck className="h-5 w-5 flex-shrink-0 text-green-400" />
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                            <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Payment</p>
+                                                <p className="mt-1 text-sm font-bold text-white">{paymentLabel}</p>
+                                            </div>
+                                            <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Shipping</p>
+                                                <p className="mt-1 text-sm font-bold text-white">{shippingCostLabel} - {shippingMethodLabel}</p>
+                                            </div>
+                                            <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Total</p>
+                                                <p className="mt-1 text-sm font-bold text-white">${finalTotal.toFixed(2)}</p>
+                                            </div>
+                                            <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Fulfillment</p>
+                                                <p className="mt-1 text-sm font-bold leading-relaxed text-white">{fulfillmentExpectation}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     {/* PayPal Payment */}
                                     {paymentMethod === 'paypal' && (
                                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -660,7 +769,7 @@ const Checkout: React.FC = () => {
                                                     <div>
                                                         <h4 className="font-bold text-purple-400 text-sm uppercase tracking-wide mb-1">Fast & Secure Checkout</h4>
                                                         <p className="text-sm text-gray-300">
-                                                            Pay with <span className="text-white font-bold">PayPal, Apple Pay, or Card</span>. All payments accepted via PayPal secure checkout. Buyer protection included.
+                                                            Pay with <span className="text-white font-bold">PayPal, Apple Pay, or Card</span>. PayPal shows the available wallet and card options for your device before any capture.
                                                         </p>
                                                     </div>
                                                 </div>
@@ -677,47 +786,69 @@ const Checkout: React.FC = () => {
                                                     setError(null);
 
                                                     try {
+                                                        if (creditToApply > 0) {
+                                                            throw new Error('Store credit cannot be combined with PayPal yet. Turn off store credit or use it to cover the full order.');
+                                                        }
+
                                                         if (typeof window.paypal === 'undefined') {
                                                             throw new Error('PayPal SDK not loaded. Please refresh the page.');
                                                         }
 
                                                         const paypalButtonContainer = document.getElementById('paypal-button-container-checkout');
-                                                        if (!paypalButtonContainer) return;
+                                                        if (!paypalButtonContainer) {
+                                                            throw new Error('PayPal checkout container was not found.');
+                                                        }
 
                                                         paypalButtonContainer.innerHTML = '';
+                                                        const paypalOrderSeed = createOrderSeed();
 
-                                                        window.paypal.Buttons({
-                                                            createOrder: (data: any, actions: any) => {
-                                                                return actions.order.create({
-                                                                    purchase_units: [{
-                                                                        description: `Coalition Order - ${cart.length} item(s)`,
-                                                                        amount: {
-                                                                            currency_code: 'USD',
-                                                                            value: finalTotal.toFixed(2),
-                                                                            breakdown: {
-                                                                                item_total: { currency_code: 'USD', value: total.toFixed(2) },
-                                                                                shipping: { currency_code: 'USD', value: shippingCost.toFixed(2) },
-                                                                                discount: { currency_code: 'USD', value: (discount + creditToApply).toFixed(2) }
-                                                                            }
-                                                                        },
+                                                        await window.paypal.Buttons({
+                                                            createOrder: async () => {
+                                                                const response = await fetch('/api/paypal-order', {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({
+                                                                        action: 'create',
+                                                                        referenceId: paypalOrderSeed.orderId,
+                                                                        description: `Coalition ${paypalOrderSeed.orderNumber} - ${cart.length} item(s)`,
+                                                                        expectedTotal: finalTotal,
+                                                                        shipping: shippingCost,
+                                                                        discount: discount + creditToApply,
                                                                         items: cart.map(item => ({
+                                                                            productId: item.id,
                                                                             name: item.name,
-                                                                            quantity: item.quantity.toString(),
-                                                                            unit_amount: {
-                                                                                currency_code: 'USD',
-                                                                                value: getCartItemUnitPrice(item).toFixed(2)
-                                                                            }
-                                                                        }))
-                                                                    }]
+                                                                            selectedSize: item.selectedSize || 'One Size',
+                                                                            keychainClipOn: Boolean(item.keychainClipOn),
+                                                                            quantity: item.quantity,
+                                                                        })),
+                                                                    }),
                                                                 });
+                                                                const paypalOrder = await response.json().catch(() => ({}));
+                                                                if (!response.ok || !paypalOrder.id) {
+                                                                    throw new Error(paypalOrder.error || 'Failed to create PayPal order.');
+                                                                }
+                                                                return paypalOrder.id;
                                                             },
-                                                            onApprove: async (data: any, actions: any) => {
+                                                            onApprove: async (data: any) => {
                                                                 try {
-                                                                    const order = await actions.order.capture();
-                                                                    const transactionId = order.purchase_units[0].payments.captures[0].id;
+                                                                    const captureResponse = await fetch('/api/paypal-order', {
+                                                                        method: 'POST',
+                                                                        headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify({
+                                                                            action: 'capture',
+                                                                            orderId: data.orderID,
+                                                                        }),
+                                                                    });
+                                                                    const capture = await captureResponse.json().catch(() => ({}));
+                                                                    if (!captureResponse.ok || capture.captureStatus !== 'COMPLETED' || !capture.captureId) {
+                                                                        throw new Error(capture.error || 'PayPal payment was not completed.');
+                                                                    }
 
                                                                     // Create order in database
-                                                                    const orderNumber = await createOrder('paypal', transactionId);
+                                                                    const orderNumber = await createOrder('paypal', capture.captureId, {
+                                                                        paypalOrderId: capture.orderId || data.orderID,
+                                                                        paypalCaptureId: capture.captureId,
+                                                                    }, paypalOrderSeed);
 
                                                                     // Store for success page
                                                                     sessionStorage.setItem('orderNumber', orderNumber);
@@ -754,6 +885,7 @@ const Checkout: React.FC = () => {
                                                                 setIsLoading(false);
                                                             }
                                                         }).render('#paypal-button-container-checkout');
+                                                        setIsLoading(false);
 
                                                     } catch (err: any) {
                                                         console.error('PayPal initialization error:', err);
@@ -855,7 +987,7 @@ const Checkout: React.FC = () => {
                                 </div>
                                 <div className="flex justify-between text-gray-400">
                                     <span>Shipping</span>
-                                    <span>${shippingCost.toFixed(2)}</span>
+                                    <span>{shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`}</span>
                                 </div>
                                 {discount > 0 && (
                                     <div className="flex justify-between text-green-400">
@@ -885,6 +1017,33 @@ const Checkout: React.FC = () => {
                                     {/* Tooltip */}
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-gray-900 border border-white/10 text-white text-xs p-3 rounded shadow-xl opacity-0 group-hover:opacity-100 transition pointer-events-none z-10 backdrop-blur-md">
                                         Rewards are credited to your wallet after order fulfillment.
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 rounded-lg border border-white/10 bg-black/30 p-4">
+                                    <div className="mb-3 flex items-center justify-between gap-3">
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white">Checkout Trust</p>
+                                        <ShieldCheck className="h-4 w-4 text-green-400" />
+                                    </div>
+                                    <div className="space-y-3">
+                                        {checkoutTrustItems.map((item) => {
+                                            const Icon = item.icon;
+                                            return (
+                                                <div key={item.title} className="flex gap-3">
+                                                    <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-brand-accent" />
+                                                    <div>
+                                                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-white">{item.title}</p>
+                                                        {item.detail === SUPPORT_EMAIL ? (
+                                                            <a href={`mailto:${SUPPORT_EMAIL}`} className="mt-1 block text-xs text-gray-400 underline decoration-white/20 underline-offset-4 transition hover:text-white">
+                                                                {item.detail}
+                                                            </a>
+                                                        ) : (
+                                                            <p className="mt-1 text-xs leading-relaxed text-gray-400">{item.detail}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 

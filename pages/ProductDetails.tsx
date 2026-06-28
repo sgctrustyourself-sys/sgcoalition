@@ -1,26 +1,42 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Share2, Shield, Plus, Trash2, X, Upload, ExternalLink, Smartphone, Scan, Heart, MessageSquare, ChevronLeft, ChevronRight, GripVertical, Star } from 'lucide-react';
+import { ArrowLeft, Share2, Shield, Plus, Trash2, X, Upload, ExternalLink, Smartphone, Scan, Heart, MessageSquare, ChevronLeft, ChevronRight, GripVertical, Star, CheckCircle2, Clock3, Ruler, Truck, Instagram } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 import { Product, AuthProvider } from '../types';
 import ImpactMessage from '../components/ImpactMessage';
 import RequestSimilarModal from '../components/RequestSimilarModal';
 import ImageCropperModal from '../components/ui/ImageCropperModal';
+import PageLoader from '../components/ui/PageLoader';
+import Seo from '../components/Seo';
 import { ethers } from 'ethers';
 import { checkNftOwnership, switchToPolygon } from '../services/web3Service';
 import { uploadProductImage } from '../services/productUpload';
 import { moveArrayItem, remapIndexAfterMove } from '../utils/arrayMove';
 import { getProductEditableSizes, normalizeProductSizeData } from '../utils/productSizes';
-import { getReferralStats, generateReferralLink } from '../utils/referralSystem';
+import { getReferralStats, generateProductReferralLink } from '../utils/referralSystem';
 import { isWalletProduct, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
+import { buildProductJsonLd, getProductSeo } from '../utils/seo';
 import { Lock, Unlock, Loader } from 'lucide-react';
+
+const formatProductDate = (value?: string) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
+};
 
 const ProductDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { products, addToCart, isAdminMode, updateProduct, deleteProduct, user, toggleFavorite, loginUser } = useApp();
+    const { products, addToCart, isAdminMode, updateProduct, deleteProduct, user, toggleFavorite, loginUser, isLoading } = useApp();
+    const { addToast } = useToast();
 
-    const [product, setProduct] = useState<Product | undefined>(undefined);
+    // Derive the resolved product directly from context on every render.
+    // No local copy = no risk of drift between context.products and a stale
+    // local snapshot, and no `if (!product) return null` while products=[] on
+    // the cold-load tick before AppContext finishes fetching.
+    const product = React.useMemo(() => products.find(p => p.id === id), [products, id]);
     const [selectedSize, setSelectedSize] = useState<string>('');
     const [activeImageIndex, setActiveImageIndex] = useState(0);
     const [includeKeychainClipOn, setIncludeKeychainClipOn] = useState(false);
@@ -42,6 +58,7 @@ const ProductDetails = () => {
     const [unlockMessage, setUnlockMessage] = useState('');
 
     const [showRequestModal, setShowRequestModal] = useState(false);
+    const [referralCode, setReferralCode] = useState<string | null>(null);
 
     const handleUnlockPerks = async () => {
         if (!product?.nft) return;
@@ -98,35 +115,113 @@ const ProductDetails = () => {
         }
     };
 
+    // Reset transient browse state only when the resolved product id
+    // changes. Keying on product?.id (rather than the full reference)
+    // preserves the user's selected size / clip / drag indices across
+    // realtime product refreshes emitted by AppContext.fetchProducts,
+    // because those calls mint a new Product object reference for the
+    // same id.
+    useLayoutEffect(() => {
+        if (!product) return;
+        setSelectedSize(product.sizes?.[0] || '');
+        setIncludeKeychainClipOn(false);
+        setDraggedImageIndex(null);
+        setDragOverImageIndex(null);
+    }, [product?.id]);
+
+    // Mirror the resolved product into the admin edit form whenever the
+    // product reference changes. Kept separate from the browse-state
+    // reset above so a realtime refresh only re-syncs the edit form and
+    // does not stomp the shopper's in-progress selection.
+    useLayoutEffect(() => {
+        if (!product) return;
+        setEditForm(product);
+    }, [product]);
+
+    // Redirect to /shop ONLY after initial loading finishes with no match.
+    // Gating on `isLoading` keeps the cold-load race (products=[] while
+    // AppContext still fetching) from bouncing the user off the page.
     useEffect(() => {
-        const found = products.find(p => p.id === id);
-        if (found) {
-            setProduct(found);
-            setSelectedSize(found.sizes?.[0] || '');
-            setIncludeKeychainClipOn(false);
-            setEditForm(found);
-            setDraggedImageIndex(null);
-            setDragOverImageIndex(null);
-            
-            // Update document title for SEO and "own page" feel
-            document.title = `${found.name} | SG Coalition`;
-        } else {
-            navigate('/shop');
-        }
+        if (isLoading) return;
+        if (product) return;
+        navigate('/shop', { replace: true });
+    }, [isLoading, product, navigate]);
 
-        // Cleanup on unmount
-        return () => {
-            document.title = 'Coalition | Crafted in Baltimore';
+    useEffect(() => {
+        let active = true;
+
+        const loadReferralCode = async () => {
+            if (!user?.uid) {
+                if (active) {
+                    setReferralCode(null);
+                }
+                return;
+            }
+
+            const stats = await getReferralStats(user.uid);
+            if (!active) return;
+
+            setReferralCode(stats?.referral_code ?? null);
         };
-    }, [id, products, navigate]);
 
-    if (!product) return null;
+        loadReferralCode();
+
+        return () => {
+            active = false;
+        };
+    }, [user?.uid]);
+
+    if (!product) return isLoading ? <PageLoader /> : null;
 
     const isFav = user?.favorites.includes(product.id);
     const walletProduct = isWalletProduct(product);
     const resolvedSize = selectedSize || (product.sizes?.length === 1 ? product.sizes[0] : '');
     const displayPrice = product.price + (walletProduct && includeKeychainClipOn ? WALLET_KEYCHAIN_CLIP_PRICE : 0);
     const editableSizes = getProductEditableSizes(editForm.sizes, editForm.sizeInventory);
+    const galleryImages = isEditing && editForm.images ? editForm.images : product.images;
+    const shouldFitFullImage = product.id === 'prod_tee_above_as_below'
+        || product.id === 'Coalition_Grey_Wave_Wallet_1_2'
+        || product.id === 'Coalition_Grey_Wave_Wallet_2_2';
+    const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-dark';
+    const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';
+    const totalStock = Object.values(product.sizeInventory || {}).reduce((sum, count) => sum + Number(count || 0), 0);
+    const isArchived = Boolean(product.archived);
+    const isSold = isArchived && !!product.soldAt;
+    const isSoldOut = !isSold && totalStock === 0;
+    const isUnavailable = isArchived || isSoldOut;
+    const selectedSizeStock = resolvedSize ? product.sizeInventory?.[resolvedSize] ?? totalStock : totalStock;
+    const soldDate = formatProductDate(product.soldAt);
+    const availabilityLabel = isSold
+        ? 'Sold'
+        : isArchived
+            ? 'Archived'
+            : isSoldOut
+            ? 'Sold Out'
+            : product.isLimitedEdition
+                ? 'Limited Run Available'
+                : 'Available Now';
+    const availabilityDetail = isSold
+        ? soldDate ? `Sold ${soldDate}` : 'Archived piece'
+        : isArchived
+            ? 'Archived piece'
+            : isSoldOut
+            ? 'Request a similar custom'
+            : totalStock <= 3
+                ? `${totalStock} left total`
+                : `${totalStock} available`;
+    const selectedSizeDetail = isUnavailable
+        ? product.sizes?.join(', ') || 'One Size'
+        : `${selectedSize || resolvedSize || 'Select size'}${resolvedSize ? ` - ${selectedSizeStock} left` : ''}`;
+    const shippingDetail = isArchived
+        ? 'This exact piece is archived'
+        : product.freeShipping
+            ? 'Free shipping on this item'
+            : displayPrice >= 200
+                ? 'Free shipping unlocked'
+                : 'Ships in 1-2 business days';
+    const makingVideoUrl = product.makingVideoUrl?.trim();
+    const productSeo = getProductSeo(product);
+    const productJsonLd = buildProductJsonLd(product);
 
     const handleSave = () => {
         if (editForm.id) {
@@ -281,12 +376,17 @@ const ProductDetails = () => {
 
     const handleShare = async () => {
         if (!product) return;
-        const url = window.location.href;
+        const url = referralCode
+            ? generateProductReferralLink(referralCode, product.id)
+            : window.location.href;
+        const shareText = referralCode
+            ? `Check out ${product.name} on SG Coalition. This link includes my Coalition referral code if you decide to pick it up.`
+            : `Check out ${product.name} on SG Coalition!`;
         if (navigator.share) {
             try {
                 await navigator.share({
                     title: `SG Coalition - ${product.name}`,
-                    text: `Check out ${product.name} on SG Coalition!`,
+                    text: shareText,
                     url: url
                 });
             } catch (error) {
@@ -295,15 +395,25 @@ const ProductDetails = () => {
         } else {
             try {
                 await navigator.clipboard.writeText(url);
-                alert('Product link copied to clipboard!');
+                addToast(referralCode ? 'Referral product link copied!' : 'Product link copied!', 'success');
             } catch (error) {
                 console.error('Error copying to clipboard:', error);
+                addToast('Unable to copy the product link right now.', 'error');
             }
         }
     };
 
     return (
-        <div className="pt-24 pb-16 min-h-screen bg-black text-chrome">
+        <>
+            <Seo
+                title={productSeo.title}
+                description={productSeo.description}
+                image={productSeo.image}
+                type="product"
+                canonicalPath={productSeo.path}
+                jsonLd={productJsonLd}
+            />
+            <div className="pt-24 pb-16 min-h-screen bg-black text-chrome">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <button onClick={() => navigate(-1)} className="flex items-center text-sm text-gray-500 hover:text-white mb-8 transition-colors">
                     <ArrowLeft className="w-4 h-4 mr-1" /> Back
@@ -312,12 +422,29 @@ const ProductDetails = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                     {/* Image Gallery */}
                     <div className="space-y-4">
-                        <div className="aspect-[4/5] bg-dark overflow-hidden rounded-sm relative border border-white/5 box-glow">
+                        <div className={`aspect-[4/5] ${imageFrameClass} overflow-hidden rounded-sm relative border border-white/5 box-glow`}>
                             <img
-                                src={(isEditing && editForm.images ? editForm.images : product.images)[activeImageIndex]}
+                                src={galleryImages[activeImageIndex]}
                                 alt={product.name}
-                                className="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity"
+                                className={`w-full h-full ${imageObjectClass} opacity-90 hover:opacity-100 transition-opacity`}
                             />
+                            <div className="absolute left-4 top-4 flex max-w-[calc(100%-2rem)] flex-wrap gap-2">
+                                <span className={`border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] backdrop-blur-md ${
+                                    isUnavailable
+                                        ? 'border-red-500/40 bg-red-500/20 text-red-200'
+                                        : 'border-green-500/30 bg-green-500/15 text-green-300'
+                                }`}>
+                                    {availabilityLabel}
+                                </span>
+                                {product.isLimitedEdition && (
+                                    <span className="border border-brand-accent/40 bg-brand-accent/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent backdrop-blur-md">
+                                        Limited
+                                    </span>
+                                )}
+                            </div>
+                            <div className="absolute bottom-4 left-4 border border-white/10 bg-black/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white backdrop-blur-md">
+                                Image {activeImageIndex + 1} / {galleryImages.length}
+                            </div>
                             {user && (
                                 <button
                                     onClick={() => toggleFavorite(product.id)}
@@ -330,13 +457,13 @@ const ProductDetails = () => {
                         </div>
                         {/* Thumbnails */}
                         <div className="flex space-x-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-800">
-                            {(isEditing && editForm.images ? editForm.images : product.images).map((img, idx) => (
+                            {galleryImages.map((img, idx) => (
                                 <button
                                     key={idx}
                                     onClick={() => setActiveImageIndex(idx)}
-                                    className={`relative w-24 h-28 flex-shrink-0 overflow-hidden rounded-sm border-2 transition-all ${activeImageIndex === idx ? 'border-brand-accent' : 'border-white/10 opacity-50 hover:opacity-100'}`}
+                                    className={`relative w-24 h-28 flex-shrink-0 overflow-hidden rounded-sm border-2 transition-all ${shouldFitFullImage ? 'bg-white' : ''} ${activeImageIndex === idx ? 'border-brand-accent' : 'border-white/10 opacity-50 hover:opacity-100'}`}
                                 >
-                                    <img src={img} alt={`View ${idx + 1}`} className="w-full h-full object-cover" />
+                                    <img src={img} alt={`View ${idx + 1}`} className={`w-full h-full ${imageObjectClass}`} />
                                 </button>
                             ))}
                         </div>
@@ -555,8 +682,33 @@ const ProductDetails = () => {
                                             </button>
                                         )}
                                     </div>
+                                    <div className="flex flex-wrap gap-2 pt-2">
+                                        <span className={`inline-flex items-center border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ${
+                                            isUnavailable
+                                                ? 'border-red-500/40 bg-red-500/10 text-red-300'
+                                                : 'border-green-500/30 bg-green-500/10 text-green-300'
+                                        }`}>
+                                            <CheckCircle2 className="mr-1.5 h-3 w-3" />
+                                            {availabilityLabel}
+                                        </span>
+                                        {product.isLimitedEdition && (
+                                            <span className="inline-flex items-center border border-brand-accent/30 bg-brand-accent/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent">
+                                                Limited Edition
+                                            </span>
+                                        )}
+                                        {product.archived && (
+                                            <span className="inline-flex items-center border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-300">
+                                                Archive Piece
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="space-y-1">
                                         <p className="text-3xl text-brand-accent font-bold font-mono tracking-tighter">${displayPrice}</p>
+                                        {product.freeShipping && (
+                                            <p className="inline-flex border border-brand-accent/30 bg-brand-accent/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent">
+                                                Free Shipping
+                                            </p>
+                                        )}
                                         {walletProduct && includeKeychainClipOn && (
                                             <p className="text-xs uppercase tracking-[0.2em] text-gray-400">
                                                 Base ${product.price} + {WALLET_KEYCHAIN_CLIP_LABEL} ${WALLET_KEYCHAIN_CLIP_PRICE}
@@ -565,57 +717,107 @@ const ProductDetails = () => {
                                     </div>
                                 </div>
 
+                                <div className="grid grid-cols-1 gap-3 border-y border-white/10 py-5 sm:grid-cols-3">
+                                    <div className="flex gap-3">
+                                        <CheckCircle2 className={`mt-0.5 h-4 w-4 ${isUnavailable ? 'text-red-300' : 'text-green-300'}`} />
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Status</p>
+                                            <p className="mt-1 text-sm font-bold uppercase tracking-widest text-white">{availabilityDetail}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <Ruler className="mt-0.5 h-4 w-4 text-brand-accent" />
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Size / Stock</p>
+                                            <p className="mt-1 text-sm font-bold uppercase tracking-widest text-white">{selectedSizeDetail}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <Truck className="mt-0.5 h-4 w-4 text-brand-accent" />
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Fulfillment</p>
+                                            <p className="mt-1 text-sm font-bold uppercase tracking-widest text-white">{shippingDetail}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="pt-8 border-t border-white/10">
                                     <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Description</h3>
                                     <div className="prose prose-invert prose-sm text-gray-400 leading-relaxed font-light">
                                         <p className="text-base">{product.description}</p>
                                     </div>
-                                </div>
-
-                                <div className="pt-8 space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">Select Size</h3>
-                                        <a href="#" className="text-xs font-bold uppercase tracking-widest text-brand-accent hover:text-white transition-colors border-b border-brand-accent/30 hover:border-white">Size guide</a>
-                                    </div>
-
-                                    {product.sizes && product.sizes.length === 1 && product.sizes[0].toLowerCase().includes('one') ? (
-                                        <div className="bg-white/5 border border-brand-accent/30 p-4 rounded-sm flex items-center justify-between">
-                                            <span className="text-sm font-bold uppercase tracking-widest text-white">ORDERING {product.sizes[0]}</span>
-                                            <span className="text-[10px] font-bold uppercase tracking-widest py-1 px-2 bg-green-500/10 text-green-500 rounded">
-                                                {product.sizeInventory?.[product.sizes[0]] || 0} LEFT
-                                            </span>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-4 gap-3">
-                                            {product.sizes?.map((size) => {
-                                                const sizeStock = product.sizeInventory?.[size] || 0;
-                                                const isOutOfStock = sizeStock === 0;
-                                                const isSelected = selectedSize === size;
-                                                return (
-                                                    <button
-                                                        key={size}
-                                                        onClick={() => !isOutOfStock && setSelectedSize(size)}
-                                                        disabled={isOutOfStock}
-                                                        className={`group relative border py-4 flex flex-col items-center justify-center text-xs font-bold uppercase tracking-widest transition-all duration-200 ${isSelected
-                                                            ? 'bg-white text-black border-white ring-2 ring-white/20'
-                                                            : isOutOfStock
-                                                                ? 'border-white/5 bg-white/5 text-gray-600 cursor-not-allowed'
-                                                                : 'border-white/10 text-white hover:border-white hover:bg-white/5'
-                                                            }`}
-                                                        title={isOutOfStock ? 'Out of stock' : `${sizeStock} in stock`}
-                                                    >
-                                                        <span>{size}</span>
-                                                        <span className={`text-[9px] mt-1 ${isSelected ? 'text-black/60' : isOutOfStock ? 'text-red-500/50' : sizeStock < 5 ? 'text-yellow-500' : 'text-brand-accent'}`}>
-                                                            {isOutOfStock ? 'OUT' : `${sizeStock} left`}
-                                                        </span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
+                                    {makingVideoUrl && (
+                                        <a
+                                            href={makingVideoUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="mt-5 inline-flex max-w-full items-center gap-3 border border-brand-accent/30 bg-brand-accent/10 px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] text-brand-accent transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
+                                        >
+                                            <Instagram className="h-4 w-4 shrink-0" />
+                                            <span className="min-w-0 break-words">Watch It Being Made</span>
+                                            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                                        </a>
                                     )}
                                 </div>
 
-                                {walletProduct && !product.archived && (
+                                {isSold ? (
+                                    <div className="pt-8 space-y-4 border-t border-white/10">
+                                        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">Archived Size</h3>
+                                        <div className="border border-white/10 bg-white/5 p-4">
+                                            <p className="text-sm font-bold uppercase tracking-widest text-white">
+                                                {product.sizes?.join(', ') || 'One Size'}
+                                            </p>
+                                            <p className="mt-2 text-sm leading-relaxed text-gray-400">
+                                                This exact piece is sold. Use request similar to start a new version based on the same direction.
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="pt-8 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">Select Size</h3>
+                                            <a href="#" className="text-xs font-bold uppercase tracking-widest text-brand-accent hover:text-white transition-colors border-b border-brand-accent/30 hover:border-white">Size guide</a>
+                                        </div>
+
+                                        {product.sizes && product.sizes.length === 1 && product.sizes[0].toLowerCase().includes('one') ? (
+                                            <div className="bg-white/5 border border-brand-accent/30 p-4 rounded-sm flex items-center justify-between">
+                                                <span className="text-sm font-bold uppercase tracking-widest text-white">ORDERING {product.sizes[0]}</span>
+                                                <span className={`text-[10px] font-bold uppercase tracking-widest py-1 px-2 rounded ${isSoldOut ? 'bg-red-500/10 text-red-300' : 'bg-green-500/10 text-green-500'}`}>
+                                                    {isSoldOut ? 'SOLD OUT' : `${product.sizeInventory?.[product.sizes[0]] || 0} LEFT`}
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-4 gap-3">
+                                                {product.sizes?.map((size) => {
+                                                    const sizeStock = product.sizeInventory?.[size] || 0;
+                                                    const isOutOfStock = sizeStock === 0;
+                                                    const isSelected = selectedSize === size;
+                                                    return (
+                                                        <button
+                                                            key={size}
+                                                            onClick={() => !isOutOfStock && setSelectedSize(size)}
+                                                            disabled={isOutOfStock}
+                                                            className={`group relative border py-4 flex flex-col items-center justify-center text-xs font-bold uppercase tracking-widest transition-all duration-200 ${isSelected
+                                                                ? 'bg-white text-black border-white ring-2 ring-white/20'
+                                                                : isOutOfStock
+                                                                    ? 'border-white/5 bg-white/5 text-gray-600 cursor-not-allowed'
+                                                                    : 'border-white/10 text-white hover:border-white hover:bg-white/5'
+                                                                }`}
+                                                            title={isOutOfStock ? 'Out of stock' : `${sizeStock} in stock`}
+                                                        >
+                                                            <span>{size}</span>
+                                                            <span className={`text-[9px] mt-1 ${isSelected ? 'text-black/60' : isOutOfStock ? 'text-red-500/50' : sizeStock < 5 ? 'text-yellow-500' : 'text-brand-accent'}`}>
+                                                                {isOutOfStock ? 'OUT' : `${sizeStock} left`}
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {walletProduct && !isUnavailable && (
                                     <div className="pt-8 space-y-4 border-t border-white/10">
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">Optional Add-On</h3>
@@ -652,11 +854,21 @@ const ProductDetails = () => {
                                 )}
 
                                 <div className="pt-10 flex flex-col gap-4">
-                                    {product.archived && product.soldAt ? (
+                                    {isUnavailable ? (
                                         /* Sold / Archived State */
                                         <div className="flex flex-col gap-3">
-                                            <div className="flex items-center gap-3 py-3 px-4 bg-white/5 border border-white/10">
-                                                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">⊘ SOLD — This item is no longer available</span>
+                                            <div className="flex items-start gap-3 border border-red-500/30 bg-red-500/10 px-4 py-4">
+                                                <Clock3 className="mt-0.5 h-4 w-4 text-red-300" />
+                                                <div>
+                                                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-200">
+                                                        {isSold ? 'Sold - This exact item is no longer available' : 'Sold out - Request the next version'}
+                                                    </p>
+                                                    <p className="mt-2 text-sm leading-relaxed text-gray-300">
+                                                        {isSold
+                                                            ? 'The original piece stays visible as part of the Coalition archive.'
+                                                            : 'This drop has no remaining inventory, but a similar custom can be requested.'}
+                                                    </p>
+                                                </div>
                                             </div>
                                             {product.archiveNote && (
                                                 <div className="border border-white/10 bg-white/5 px-4 py-5">
@@ -670,39 +882,49 @@ const ProductDetails = () => {
                                             )}
                                             <button
                                                 onClick={() => setShowRequestModal(true)}
-                                                className="w-full bg-white text-black py-4 px-8 flex items-center justify-center text-sm font-bold uppercase tracking-[0.2em] hover:bg-brand-accent hover:text-white transition-all"
+                                                aria-label="Request similar style"
+                                                className="group relative w-full bg-white text-transparent py-4 px-8 flex items-center justify-center text-sm font-bold uppercase tracking-[0.2em] hover:bg-brand-accent transition-all"
                                             >
-                                                ✉ Request Similar Style
+                                                <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-black transition-colors group-hover:text-white">
+                                                    Request Similar Style
+                                                </span>
                                             </button>
                                             <a
                                                 href="/archive"
-                                                className="text-center text-xs text-gray-500 hover:text-white uppercase tracking-widest transition-colors py-2"
+                                                aria-label="View all archive"
+                                                className={`relative py-2 text-center text-xs text-transparent uppercase tracking-widest transition-colors ${isSold ? '' : 'hidden'}`}
                                             >
-                                                View All Archive →
+                                                <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-gray-500 transition-colors hover:text-white">
+                                                    View All Archive
+                                                </span>
                                             </a>
                                         </div>
                                     ) : (
                                         <div className="flex gap-4">
                                             <button
                                                 onClick={() => addToCart(product, resolvedSize, { keychainClipOn: includeKeychainClipOn })}
-                                                disabled={(!selectedSize && (product.sizes?.length || 0) > 1) || Object.values(product.sizeInventory || {}).reduce((a, b) => a + b, 0) === 0}
+                                                disabled={(!selectedSize && (product.sizes?.length || 0) > 1) || totalStock === 0}
                                                 className="flex-1 bg-white text-black py-4 px-8 flex items-center justify-center text-sm font-bold uppercase tracking-[0.2em] hover:bg-brand-accent hover:text-white transition-all focus:outline-none focus:ring-2 focus:ring-brand-accent focus:ring-offset-2 focus:ring-offset-black disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed box-glow"
                                             >
-                                                {Object.values(product.sizeInventory || {}).reduce((a, b) => a + b, 0) === 0 ? 'SOLD OUT' : (selectedSize || (product.sizes?.length === 1) ? `Add to bag${walletProduct && includeKeychainClipOn ? ' + clip-on' : ''}` : 'Select a size')}
+                                                {totalStock === 0 ? 'SOLD OUT' : (selectedSize || (product.sizes?.length === 1) ? `Add to bag${walletProduct && includeKeychainClipOn ? ' + clip-on' : ''}` : 'Select a size')}
                                             </button>
 
                                             <button
                                                 type="button"
                                                 onClick={handleShare}
                                                 className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 hover:border-white/20 transition-all group"
-                                                title="Share Product"
+                                                title={referralCode ? 'Share referral product link' : 'Share Product'}
                                             >
                                                 <Share2 className="h-5 w-5 text-white opacity-60 group-hover:opacity-100 transition-opacity" />
                                             </button>
                                         </div>
                                     )}
                                     <p className="text-[10px] text-gray-500 text-center uppercase tracking-[0.2em] font-bold py-2">
-                                        <span className="text-white">FREE SHIPPING</span> ON ALL ORDERS OVER $200
+                                        {isUnavailable ? (
+                                            <span>Request similar pieces with preferred timeline and budget</span>
+                                        ) : (
+                                            <><span className="text-white">FREE SHIPPING</span> ON ALL ORDERS OVER $200</>
+                                        )}
                                     </p>
 
                                     {/* Local Impact Message */}
@@ -856,7 +1078,8 @@ const ProductDetails = () => {
             {showRequestModal && product && (
                 <RequestSimilarModal product={product} onClose={() => setShowRequestModal(false)} />
             )}
-        </div>
+            </div>
+        </>
     );
 };
 

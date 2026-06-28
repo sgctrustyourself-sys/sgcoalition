@@ -2,18 +2,27 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Calendar, Package, Clock, ArrowUpRight } from 'lucide-react';
+import Seo from '../components/Seo';
+import { buildItemListJsonLd } from '../utils/seo';
 
 const Archive: React.FC = () => {
     const { products, isLoading } = useApp();
 
     // Filter for archived products and sort by soldAt (newest first)
-    const archivedProducts = products
-        .filter(p => p.archived)
-        .sort((a, b) => {
-            const dateA = new Date(a.soldAt || a.archivedAt || 0).getTime();
-            const dateB = new Date(b.soldAt || b.archivedAt || 0).getTime();
-            return dateB - dateA;
-        });
+    const archivedProducts = React.useMemo(
+        () => products
+            .filter(p => p.archived)
+            .sort((a, b) => {
+                const dateA = new Date(a.soldAt || a.archivedAt || 0).getTime();
+                const dateB = new Date(b.soldAt || b.archivedAt || 0).getTime();
+                return dateB - dateA;
+            }),
+        [products]
+    );
+    const archiveJsonLd = React.useMemo(
+        () => buildItemListJsonLd(archivedProducts, 'Coalition Archive', '/archive'),
+        [archivedProducts]
+    );
 
     const formatDate = (dateString?: string) => {
         if (!dateString) return 'N/A';
@@ -25,7 +34,14 @@ const Archive: React.FC = () => {
     };
 
     return (
-        <div className="pt-24 pb-16 min-h-screen bg-black">
+        <>
+            <Seo
+                title="Archive"
+                description="Explore the Coalition archive of sold-out drops, 1/1 customs, limited wallets, and past releases."
+                canonicalPath="/archive"
+                jsonLd={archiveJsonLd}
+            />
+            <div className="pt-24 pb-16 min-h-screen bg-black">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-16">
                     <h1 className="text-4xl md:text-6xl font-display font-bold text-white mb-4 uppercase tracking-tighter">
@@ -114,7 +130,8 @@ const Archive: React.FC = () => {
                     </div>
                 )}
             </div>
-        </div>
+            </div>
+        </>
     );
 };
 

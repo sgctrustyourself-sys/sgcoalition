@@ -3,6 +3,7 @@
 declare global {
     interface Window {
         ethereum?: any; // MetaMask / Web3 provider
+        paypal?: any; // PayPal JavaScript SDK
     }
 }
 

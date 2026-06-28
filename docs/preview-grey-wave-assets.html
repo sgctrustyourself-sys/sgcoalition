@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coalition Grey Wave — Asset Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* === Reset === */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* === Page shell — matches sgcoalition.xyz index.html (deep-black + global noise overlay). === */
+  html { background: #050505; }
+  body {
+    --brand-accent:        #3B82F6;   /* web3-blue — used for hub-level accents */
+    --format-story-accent: #F59E0B;   /* amber-500  — IG Stories scarcity/urgency */
+    --format-grid-accent:  #A855F7;   /* purple-500 — IG Grid carousel */
+    --format-x-accent:     #3B82F6;   /* brand web3-blue — X feed */
+    background: #050505;
+    color: #E5E5E5;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    margin: 0; padding: 0;
+    position: relative;
+    min-height: 100vh;
+  }
+  /* global SVG fractalNoise overlay (3.5% opacity, identical recipe to index.html body::before) */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999;
+  }
+
+  /* scrollbar — match live site */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #111; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 36px 28px 80px; position: relative; z-index: 1; }
+
+  /* === Header === */
+  header {
+    padding: 0 0 32px;
+    margin-bottom: 44px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .eyebrow {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.3em;
+    color: #E5E5E5;
+    text-transform: uppercase;
+    margin: 0 0 14px;
+  }
+  h1.h-display {
+    font-family: 'Oswald', sans-serif;
+    font-size: clamp(48px, 8vw, 96px);
+    font-weight: 700; line-height: 0.95;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    color: #fff;
+    margin: 0 0 18px;
+  }
+  h1.h-display .dim { color: #888; }
+  .lead {
+    font-family: 'Inter', sans-serif;
+    font-weight: 300;
+    font-size: 16px;
+    line-height: 1.65;
+    color: #aaa;
+    max-width: 76ch;
+    margin: 0 0 14px;
+  }
+
+  /* === Format-jumps chip row (the "landing-page gateway") === */
+  .format-jumps {
+    display: flex; align-items: center; flex-wrap: wrap;
+    gap: 8px;
+    margin: 28px 0 0;
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+  }
+  .format-jumps .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: #888;
+    margin-right: 8px;
+  }
+  .format-jumps a {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: #fff; text-decoration: none;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 2px;
+    transition: all 200ms ease;
+  }
+  .format-jumps a .dot { width: 6px; height: 6px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+  .format-jumps a.fmt-source:hover { border-color: #fff; background: rgba(255, 255, 255, 0.10); }
+  .format-jumps a.fmt-story, .format-jumps a.fmt-story .dot { color: var(--format-story-accent); }
+  .format-jumps a.fmt-story:hover { border-color: var(--format-story-accent); background: color-mix(in srgb, var(--format-story-accent) 10%, transparent); color: var(--format-story-accent); }
+  .format-jumps a.fmt-grid, .format-jumps a.fmt-grid .dot { color: var(--format-grid-accent); }
+  .format-jumps a.fmt-grid:hover { border-color: var(--format-grid-accent); background: color-mix(in srgb, var(--format-grid-accent) 10%, transparent); color: var(--format-grid-accent); }
+  .format-jumps a.fmt-x, .format-jumps a.fmt-x .dot { color: var(--format-x-accent); }
+  .format-jumps a.fmt-x:hover { border-color: var(--format-x-accent); background: color-mix(in srgb, var(--format-x-accent) 10%, transparent); color: var(--format-x-accent); }
+  .format-jumps .reviewer-hint {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: #888;
+    letter-spacing: 0.05em;
+  }
+  .format-jumps .reviewer-hint code { background: transparent; color: #fff; font-family: inherit; padding: 0; font-size: 10px; }
+
+  /* === Pair-with notice === */
+  .pair-with {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    padding: 16px 20px;
+    margin: 18px 0 0;
+    font-size: 13px; line-height: 1.7;
+    border-radius: 4px;
+  }
+  .pair-with p { margin: 6px 0; }
+  .pair-with strong { color: #fff; }
+  .pair-with a { color: #fff; text-decoration: none; font-weight: 700; border-bottom: 1px solid rgba(255, 255, 255, 0.20); transition: border-color 200ms; }
+  .pair-with a:hover { border-bottom-color: var(--brand-accent); }
+  .pair-with code { background: rgba(0, 0, 0, 0.6); padding: 1px 6px; border-radius: 2px; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .pair-with .editor-note { display: block; margin-top: 6px; color: #888; font-size: 12px; font-style: italic; }
+
+  /* === Toolbar === */
+  .toolbar {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 10px 14px; border-radius: 4px;
+    margin: 0 0 28px;
+    font-size: 12px;
+  }
+  .toolbar b {
+    color: #fff;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-size: 10px;
+    margin-right: 4px;
+  }
+  .toolbar .btn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    color: #aaa;
+    padding: 6px 12px; border-radius: 2px; cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    transition: all 200ms ease;
+  }
+  .toolbar .btn:hover { color: #fff; border-color: rgba(255, 255, 255, 0.25); }
+  .toolbar .btn.active { color: #fff; background: rgba(255, 255, 255, 0.10); border-color: rgba(255, 255, 255, 0.30); }
+  .toolbar .spacer { flex: 1; }
+  .toolbar .hint { color: #888; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+
+  /* === Section heading === */
+  h2.section-h {
+    font-family: 'Oswald', sans-serif;
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 700; line-height: 1.0;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    margin: 60px 0 4px;
+  }
+  h2.section-h.fmt-source { color: #fff; }
+  h2.section-h.fmt-story { color: var(--format-story-accent); }
+  h2.section-h.fmt-grid  { color: var(--format-grid-accent); }
+  h2.section-h.fmt-x     { color: var(--format-x-accent); }
+
+  /* === Section meta chip row (under each section h2) === */
+  .section-meta {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin: 8px 0 24px;
+  }
+  .section-meta .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: #aaa;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 2px;
+  }
+  .section-meta .chip code { background: transparent; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+  /* === Per-card / grid layout === */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 24px;
+    margin: 0 0 36px;
+  }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 1100px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    border-radius: 4px; overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: all 300ms ease;
+    position: relative;
+  }
+  .card:hover {
+    border-color: rgba(255, 255, 255, 0.20);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.10), 0 0 30px rgba(255, 255, 255, 0.04);
+  }
+  .card-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.30);
+  }
+  .card-label {
+    padding: 2px 10px; border-radius: 2px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 10px; letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #000;
+  }
+  .card.fmt-source .card-label { background: #fff; }
+  .card.fmt-story .card-label { background: var(--format-story-accent); }
+  .card.fmt-grid  .card-label { background: var(--format-grid-accent); }
+  .card.fmt-x     .card-label { background: var(--format-x-accent); }
+
+  .card-title {
+    font-family: 'Inter', sans-serif;
+    color: #fff; font-weight: 600; font-size: 13px;
+    letter-spacing: 0.02em;
+  }
+  .card-subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    color: #aaa; font-size: 11px;
+  }
+
+  /* === Image frame === */
+  .img-frame {
+    background: #050505;
+    position: relative;
+    padding: 0;
+    display: flex; justify-content: center; align-items: center;
+    min-height: 460px;
+  }
+  .img-frame.fit img { width: 100%; height: auto; max-height: 720px; object-fit: contain; }
+  .img-frame.actual { overflow: auto; min-height: 600px; align-items: flex-start; justify-content: flex-start; }
+  .img-frame.actual img { width: 1024px; height: 1024px; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
+  /* POSTABLE corner badge — proves no reviewer aids baked in */
+  .img-frame::after {
+    content: "POSTABLE"; position: absolute; top: 10px; right: 10px;
+    padding: 3px 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; font-weight: 700;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.78);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.20);
+    border-radius: 2px;
+  }
+
+  /* === Metadata table === */
+  .meta-table {
+    width: 100%; border-collapse: collapse;
+    font-size: 12px;
+  }
+  .meta-table th, .meta-table td {
+    padding: 10px 16px; text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    vertical-align: top;
+  }
+  .meta-table th {
+    color: #888; font-weight: 400;
+    text-transform: uppercase; letter-spacing: 0.18em; font-size: 10px;
+    width: 32%; background: rgba(0, 0, 0, 0.30);
+  }
+  .meta-table td {
+    color: #E5E5E5;
+    font-family: 'Inter', sans-serif;
+  }
+  .meta-table tr:last-child th, .meta-table tr:last-child td { border-bottom: 0; }
+  .meta-table code {
+    background: rgba(0, 0, 0, 0.6);
+    padding: 1px 6px; border-radius: 2px;
+    color: #fff;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .meta-table .yes { color: #34d399; }
+  .meta-table .no  { color: #f87171; }
+  .meta-table .accent { color: #fff; font-weight: 600; }
+  .meta-table a { color: #fff; text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, 0.20); transition: border-color 200ms; }
+  .meta-table a:hover { border-bottom-color: var(--brand-accent); }
+
+  /* === Comparison summary block === */
+  .comparison {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 18px 22px;
+    margin: 0 0 36px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .comparison h3 {
+    font-family: 'Oswald', sans-serif;
+    font-size: 18px; font-weight: 700;
+    letter-spacing: -0.005em; text-transform: uppercase;
+    color: #fff;
+    margin: 0 0 12px;
+  }
+  .comparison table { width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif; }
+  .comparison th, .comparison td {
+    padding: 8px 12px; text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 12px;
+  }
+  .comparison th {
+    color: #888;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    font-size: 10px; font-weight: 400;
+  }
+  .comparison td { color: #E5E5E5; }
+  .comparison .accent { color: var(--brand-accent); }
+  .comparison code {
+    background: rgba(0, 0, 0, 0.6);
+    padding: 1px 6px; border-radius: 2px;
+    color: #fff; font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .comparison a { color: #fff; text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, 0.20); }
+  .comparison a:hover { border-bottom-color: var(--brand-accent); }
+
+  /* === Reviewer checklist === */
+  .checklist {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 18px 22px;
+    margin: 24px 0 0;
+    border-radius: 4px;
+  }
+  .checklist h3 {
+    font-family: 'Oswald', sans-serif;
+    font-size: 22px; font-weight: 700;
+    letter-spacing: -0.005em; text-transform: uppercase;
+    color: #fff;
+    margin: 0 0 12px;
+  }
+  .checklist ol { padding-left: 20px; margin: 0; }
+  .checklist li {
+    padding: 6px 0; font-size: 13px;
+    color: #E5E5E5; line-height: 1.6;
+  }
+  .checklist li b { color: #fff; }
+  .checklist code {
+    background: rgba(0, 0, 0, 0.6);
+    padding: 1px 6px; border-radius: 2px;
+    color: #fff; font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* === Footer === */
+  footer {
+    margin: 60px 0 0;
+    padding: 24px 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    color: #888;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  footer p { margin: 4px 0; }
+  footer a { color: #fff; text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, 0.20); transition: border-color 200ms; }
+  footer a:hover { border-bottom-color: var(--brand-accent); }
+  footer code { background: rgba(0, 0, 0, 0.6); padding: 1px 6px; border-radius: 2px; color: #fff; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+
+  /* === Print === */
+  @media print {
+    body { background: #fff; color: #000; }
+    body::before { display: none; }
+    .card { box-shadow: none; border: 1px solid #ccc; }
+    .toolbar .btn { display: none; }
+    .meta-table th { background: #f5f5f5; color: #000; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">Coalition · Asset Preview · drop 2026-06-20</span>
+  <h1 class="h-display">Grey <span class="dim">Wave</span></h1>
+  <p class="lead">Self-contained review hub for every postable PNG + reviewer aid in the Coalition 'Grey Wave' Wallet 1/2 drop. Three formats · 14 variants · 1024×1024 source assets inspected at actual pixel resolution.</p>
+
+  <div class="format-jumps" aria-label="Per-format preview jumps">
+    <span class="label">Format jumps</span>
+    <a href="#source-section" class="fmt-source"><span class="dot" style="background:#fff;"></span>Source (2)</a>
+    <a href="#stories-section" class="fmt-story"><span class="dot" style="background:#F59E0B;"></span>Stories (5)</a>
+    <a href="#grid-section" class="fmt-grid"><span class="dot" style="background:#A855F7;"></span>Grid (5)</a>
+    <a href="#x-section" class="fmt-x"><span class="dot" style="background:#3B82F6;"></span>X (4)</a>
+    <span class="reviewer-hint">16 PNGs · all gitignored output · re-emit via <code>npm run story:reveal && grid:reveal && x:reveal -- --slug grey-wave</code></span>
+  </div>
+
+  <blockquote class="pair-with">
+    <p><strong>Visual spec — <a href="drop-kit-grey-wave.html">docs/drop-kit-grey-wave.html</a></strong> : designer spec for slide assembly (Canva/Figma recipes + per-asset placement). <span class="editor-note">Markdown source: <a href="drop-kit-grey-wave.md">drop-kit-grey-wave.md</a>.</span></p>
+    <p><strong>Copy deck — <a href="drop-copy-grey-wave.html">docs/drop-copy-grey-wave.html</a></strong> : captions + hashtags + X thread + Story sequence copy + Slack one-liner. <span class="editor-note">Markdown source: <a href="drop-copy-grey-wave.md">drop-copy-grey-wave.md</a>.</span></p>
+    <p><strong>Storyboard — <a href="storyboard-grey-wave.html">docs/storyboard-grey-wave.html</a></strong> : 9:16 ASCII frames showing where these PNGs live in the Story sequence.</p>
+    <p><strong>Template inspo — <a href="storyboard-inspo-kittl-frame-canva.html">docs/storyboard-inspo-kittl-frame-canva.html</a></strong> : concrete Kittl / Canva / Motion Array template themes + re-skin recipes + ship-tonight workflow.<span class="editor-note">Markdown source: <a href="storyboard-inspo-kittl-frame-canva.md">storyboard-inspo-kittl-frame-canva.md</a>.</span></p>
+  </blockquote>
+</header>
+
+<!-- ─── Source Assets section ─── -->
+<h2 id="source-section" class="section-h fmt-source">SOURCE · 1024×1024 · 2 IMAGES</h2>
+<div class="section-meta">
+  <span class="chip">front.jpeg + back.jpeg</span>
+  <span class="chip">alpha-free · RGB</span>
+  <span class="chip">via <code>Pillow optimize=True, compress_level=9</code></span>
+</div>
+
+<div class="toolbar">
+  <b>View</b>
+  <button type="button" class="btn active" data-mode="fit" onclick="setMode('fit')">Fit</button>
+  <button type="button" class="btn" data-mode="actual" onclick="setMode('actual')">Actual (1024×1024)</button>
+  <span class="spacer"></span>
+  <span class="hint">Click ACTUAL to scroll-inspect. Toolbar dims out in print.</span>
+</div>
+
+<div class="grid grid-2">
+
+  <div class="card fmt-source">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">FRONT</span>
+        <span class="card-title">Coalition 'Grey Wave' Wallet 1/2 — face</span>
+      </div>
+      <span class="card-subtitle">602.7 KB · 1024×1024 · RGB</span>
+    </div>
+    <div class="img-frame fit" id="img-front" data-mode="fit">
+      <img src="../public/images/grey-wave-wallet-1-2-front.png" alt="Grey Wave wallet — front face" draggable="false" onload="announceSize('front', this.naturalWidth, this.naturalHeight)">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>      <td><code>public/images/grey-wave-wallet-1-2-front.png</code></td></tr>
+      <tr><th>Width</th>     <td>1024 px</td></tr>
+      <tr><th>Height</th>    <td>1024 px</td></tr>
+      <tr><th>Mode</th>      <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>     <td><span class="no">no</span> · fully opaque · flattened onto pure #000 black</td></tr>
+      <tr><th>File size</th> <td>602.7 KB · Pillow <code>optimize=True, compress_level=9</code></td></tr>
+      <tr><th>Source</th>    <td><a href="https://i.imgur.com/7z2h8u6.jpeg" target="_blank" rel="noopener">https://i.imgur.com/7z2h8u6.jpeg</a> · 204 KB JPEG</td></tr>
+      <tr><th>Used in</th>   <td>Hero slide (full-bleed), Scarcity slide (top half), Detail slide, CTA slide (left 60% crop)</td></tr>
+      <tr><th>Used as</th>   <td><code>product.images[0]</code> — <code>{ id: 'Coalition_Grey_Wave_Wallet_1_2' }</code></td></tr>
+    </table>
+  </div>
+
+  <div class="card fmt-source">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">BACK</span>
+        <span class="card-title">Coalition 'Grey Wave' Wallet 1/2 — reverse</span>
+      </div>
+      <span class="card-subtitle">776.5 KB · 1024×1024 · RGB</span>
+    </div>
+    <div class="img-frame fit" id="img-back" data-mode="fit">
+      <img src="../public/images/grey-wave-wallet-1-2-back.png" alt="Grey Wave wallet — back face" draggable="false" onload="announceSize('back', this.naturalWidth, this.naturalHeight)">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>      <td><code>public/images/grey-wave-wallet-1-2-back.png</code></td></tr>
+      <tr><th>Width</th>     <td>1024 px</td></tr>
+      <tr><th>Height</th>    <td>1024 px</td></tr>
+      <tr><th>Mode</th>      <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>     <td><span class="no">no</span> · fully opaque · flattened onto pure #000 black</td></tr>
+      <tr><th>File size</th> <td>776.5 KB · Pillow <code>optimize=True, compress_level=9</code></td></tr>
+      <tr><th>Source</th>    <td><a href="https://i.imgur.com/UqtbJCq.jpeg" target="_blank" rel="noopener">https://i.imgur.com/UqtbJCq.jpeg</a> · 261 KB JPEG</td></tr>
+      <tr><th>Used in</th>   <td>Detail slide (full-bleed with #000 bottom gradient)</td></tr>
+      <tr><th>Used as</th>   <td><code>product.images[1]</code> — hover-swap on grid card; alt view on PDP</td></tr>
+    </table>
+  </div>
+
+</div>
+
+<!-- ─── Comparison summary ─── -->
+<div class="comparison">
+  <h3>Comparison summary</h3>
+  <table>
+    <thead>
+      <tr><th></th><th>FRONT</th><th>BACK</th><th>Delta</th></tr>
+    </thead>
+    <tbody>
+      <tr><th>Dimensions</th><td>1024×1024</td><td>1024×1024</td><td>—</td></tr>
+      <tr><th>Orientation</th><td>1:1 square</td><td>1:1 square</td><td>—</td></tr>
+      <tr><th>PNG size</th><td>602.7 KB</td><td>776.5 KB</td><td><span class="accent">+29 %</span> (back has more texture / dye detail)</td></tr>
+      <tr><th>Source JPEG</th><td>204 KB</td><td>261 KB</td><td><span class="accent">+28 %</span> (matches PNG delta — back is intrinsically busier)</td></tr>
+      <tr><th>Color depth</th><td>RGB</td><td>RGB</td><td>—</td></tr>
+      <tr><th>Alpha channel</th><td>no</td><td>no</td><td>— both alpha-flattened onto #000</td></tr>
+      <tr><th>Compression</th><td>lossless (PNG-9)</td><td>lossless (PNG-9)</td><td>— no further savings available</td></tr>
+      <tr><th>For grid card</th><td colspan="3" style="color:#E5E5E5;">Both render via hover-swap (front ↔ back) on <code>sgcoalition.xyz/shop</code>.</td></tr>
+      <tr><th>For PDP</th><td colspan="3" style="color:#E5E5E5;">Front shown by default; back as alternate gallery view on <code>/product/Coalition_Grey_Wave_Wallet_1_2</code>.</td></tr>
+      <tr><th>For Story</th><td colspan="3" style="color:#E5E5E5;">Both bled full-frame per the Story variants spec — see <a href="drop-kit-grey-wave.md">drop-kit</a> Slide 1-5.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ─── Stories section ─── -->
+<h2 id="stories-section" class="section-h fmt-story">STORIES · 1080×1920 · 5 SLIDES</h2>
+<div class="section-meta">
+  <span class="chip">5 postable PNGs</span>
+  <span class="chip">1080 × 1920</span>
+  <span class="chip">9:16 IG STORY</span>
+  <span class="chip">via <code>npm run story:reveal -- --slug grey-wave</code></span>
+</div>
+
+<div class="grid">
+  <div class="card fmt-story">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">1</span>
+        <span class="card-title">hero — full-bleed front.jpeg + dark top-left gradient + "COALITION" wordmark + "GREY WAVE" centered + subtitle</span>
+      </div>
+      <span class="card-subtitle">1262 KB · RGB · 1080 × 1920</span>
+    </div>
+    <div class="img-frame fit" data-mode="fit">
+      <img src="../story-reveal/grey-wave-slide-1.png" alt="Grey Wave — story 1 (hero)" draggable="false">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>          <td><code>docs/story-reveal/grey-wave-slide-1.png</code></td></tr>
+      <tr><th>Viewport</th>      <td>1080 × 1920 · <span class="accent">9:16 aspect</span></td></tr>
+      <tr><th>Mode</th>          <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>         <td><span class="no">no</span> · fully opaque · flattened onto pure #000</td></tr>
+      <tr><th>File size</th>     <td>1262 KB · Playwright PNG @1x</td></tr>
+      <tr><th>Renderer</th>      <td><code>npm run story:reveal -- --slug grey-wave</code></td></tr>
+      <tr><th>Layout</th>        <td><code>hero</code> — full-bleed front.jpeg + dark top-left gradient + "COALITION" wordmark + "GREY WAVE" centered + subtitle</td></tr>
+      <tr><th>Source image</th>  <td>front.jpeg</td></tr>
+      <tr><th>Sticker hints</th>  <td>Countdown sticker (top-right, end-time = drop time) + @sgcoalition mention (bottom-left)</td></tr>
+      <tr><th>Channel context</th><td>IG Story full-screen; top 250 px + bottom 320 px safe zones respected</td></tr>
+    </table>
+  </div>
+
+  <div class="card fmt-story">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">2</span>
+        <span class="card-title">detail — full-bleed back.jpeg + bottom 35% black gradient + "Hand-finished charcoal dye." + subtext</span>
+      </div>
+      <span class="card-subtitle">1297 KB · RGB · 1080 × 1920</span>
+    </div>
+    <div class="img-frame fit" data-mode="fit">
+      <img src="../story-reveal/grey-wave-slide-2.png" alt="Grey Wave — story 2 (detail)" draggable="false">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>          <td><code>docs/story-reveal/grey-wave-slide-2.png</code></td></tr>
+      <tr><th>Viewport</th>      <td>1080 × 1920 · <span class="accent">9:16 aspect</span></td></tr>
+      <tr><th>Mode</th>          <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>         <td><span class="no">no</span> · fully opaque · flattened onto pure #000</td></tr>
+      <tr><th>File size</th>     <td>1297 KB · Playwright PNG @1x</td></tr>
+      <tr><th>Renderer</th>      <td><code>npm run story:reveal -- --slug grey-wave</code></td></tr>
+      <tr><th>Layout</th>        <td><code>detail</code> — full-bleed back.jpeg + bottom 35% black gradient + "Hand-finished charcoal dye." + subtext</td></tr>
+      <tr><th>Source image</th>  <td>back.jpeg</td></tr>
+      <tr><th>Sticker hints</th>  <td>Poll sticker (right-side: "Harbor at dawn? Yes / No")</td></tr>
+      <tr><th>Channel context</th><td>IG Story; gradient overlay + safe-zone clearance</td></tr>
+    </table>
+  </div>
+
+  <div class="card fmt-story">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">3</span>
+        <span class="card-title">scarcity — 50/50 split — top half front.jpeg + bottom half solid #000 with "LIMITED EDITION" eyebrow + "1 OF 2" + "$35"</span>
+      </div>
+      <span class="card-subtitle">583 KB · RGB · 1080 × 1920</span>
+    </div>
+    <div class="img-frame fit" data-mode="fit">
+      <img src="../story-reveal/grey-wave-slide-3.png" alt="Grey Wave — story 3 (scarcity)" draggable="false">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>          <td><code>docs/story-reveal/grey-wave-slide-3.png</code></td></tr>
+      <tr><th>Viewport</th>      <td>1080 × 1920 · <span class="accent">9:16 aspect</span></td></tr>
+      <tr><th>Mode</th>          <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>         <td><span class="no">no</span> · fully opaque · flattened onto pure #000</td></tr>
+      <tr><th>File size</th>     <td>583 KB · Playwright PNG @1x</td></tr>
+      <tr><th>Renderer</th>      <td><code>npm run story:reveal -- --slug grey-wave</code></td></tr>
+      <tr><th>Layout</th>        <td><code>scarcity</code> — 50/50 split — top half front.jpeg + bottom half solid #000 with "LIMITED EDITION" eyebrow + "1 OF 2" + "$35"</td></tr>
+      <tr><th>Source image</th>  <td>front.jpeg</td></tr>
+      <tr><th>Sticker hints</th>  <td>Countdown (top-right) + Poll (bottom-left: "Should we run 2/2? Yes / Wait")</td></tr>
+      <tr><th>Channel context</th><td>IG Story primary urgency driver; black-panel copy fully inside bottom safe zone</td></tr>
+    </table>
+  </div>
+
+  <div class="card fmt-story">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">4</span>
+        <span class="card-title">manifesto — pure #000 with 10% opacity wallet ghost backdrop + "TRUST YOURSELF." giant + body subtext</span>
+      </div>
+      <span class="card-subtitle">570 KB · RGB · 1080 × 1920</span>
+    </div>
+    <div class="img-frame fit" data-mode="fit">
+      <img src="../story-reveal/grey-wave-slide-4.png" alt="Grey Wave — story 4 (manifesto)" draggable="false">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>          <td><code>docs/story-reveal/grey-wave-slide-4.png</code></td></tr>
+      <tr><th>Viewport</th>      <td>1080 × 1920 · <span class="accent">9:16 aspect</span></td></tr>
+      <tr><th>Mode</th>          <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>         <td><span class="no">no</span> · fully opaque · flattened onto pure #000</td></tr>
+      <tr><th>File size</th>     <td>570 KB · Playwright PNG @1x</td></tr>
+      <tr><th>Renderer</th>      <td><code>npm run story:reveal -- --slug grey-wave</code></td></tr>
+      <tr><th>Layout</th>        <td><code>manifesto</code> — pure #000 with 10% opacity wallet ghost backdrop + "TRUST YOURSELF." giant + body subtext</td></tr>
+      <tr><th>Source image</th>  <td>front.jpeg (ghost 10% opacity)</td></tr>
+      <tr><th>Sticker hints</th>  <td>Mention sticker (bottom-right @sgcoalition) + Emoji slider 🔥 (optional)</td></tr>
+      <tr><th>Channel context</th><td>IG Story brand beat; quietest slide; no CTA slot crossed</td></tr>
+    </table>
+  </div>
+
+  <div class="card fmt-story">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">5</span>
+        <span class="card-title">cta — 60/40 split — left 60% front.jpeg cropped tight + right 40% black panel with eyebrow + "SHOP NOW →" + URL</span>
+      </div>
+      <span class="card-subtitle">527 KB · RGB · 1080 × 1920</span>
+    </div>
+    <div class="img-frame fit" data-mode="fit">
+      <img src="../story-reveal/grey-wave-slide-5.png" alt="Grey Wave — story 5 (cta)" draggable="false">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>          <td><code>docs/story-reveal/grey-wave-slide-5.png</code></td></tr>
+      <tr><th>Viewport</th>      <td>1080 × 1920 · <span class="accent">9:16 aspect</span></td></tr>
+      <tr><th>Mode</th>          <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>         <td><span class="no">no</span> · fully opaque · flattened onto pure #000</td></tr>
+      <tr><th>File size</th>     <td>527 KB · Playwright PNG @1x</td></tr>
+      <tr><th>Renderer</th>      <td><code>npm run story:reveal -- --slug grey-wave</code></td></tr>
+      <tr><th>Layout</th>        <td><code>cta</code> — 60/40 split — left 60% front.jpeg cropped tight + right 40% black panel with eyebrow + "SHOP NOW →" + URL</td></tr>
+      <tr><th>Source image</th>  <td>front.jpeg</td></tr>
+      <tr><th>Sticker hints</th>  <td>Link sticker (on the →; URL = shop_url) + Mention sticker (bottom-left @sgcoalition)</td></tr>
+      <tr><th>Channel context</th><td>IG Story only slide that converts; link sticker → PDP</td></tr>
+    </table>
+  </div>
+</div>
+
+
+<!-- ─── Grid section ─── -->
+<h2 id="grid-section" class="section-h fmt-grid">GRID · 1080×1350 · 5 SLIDES</h2>
+<div class="section-meta">
+  <span class="chip">5 postable PNGs</span>
+  <span class="chip">1080 × 1350</span>
+  <span class="chip">4:5 IG GRID CAROUSEL</span>
+  <span class="chip">via <code>npm run grid:reveal -- --slug grey-wave</code></span>
+</div>
+
+<div class="grid">
+  <div class="card fmt-grid">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">1</span>
+        <span class="card-title">hero — full-bleed front.jpeg + dark top-left gradient + "COALITION" wordmark + "GREY WAVE" centered + subtitle</span>
+      </div>
+      <span class="card-subtitle">919 KB · RGB · 1080 × 1350</span>
+    </div>
+    <div class="img-frame fit" data-mode="fit">
+      <img src="../grid-reveal/grid-grey-wave-slide-1.png" alt="Grey Wave — grid 1 (hero)" draggable="false">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>          <td><code>docs/grid-reveal/grid-grey-wave-slide-1.png</code></td></tr>
+      <tr><th>Viewport</th>      <td>1080 × 1350 · <span class="accent">4:5 aspect</span></td></tr>
+      <tr><th>Mode</th>          <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>         <td><span class="no">no</span> · fully opaque · flattened onto pure #000</td></tr>
+      <tr><th>File size</th>     <td>919 KB · Playwright PNG @1x</td></tr>
+      <tr><th>Renderer</th>      <td><code>npm run grid:reveal -- --slug grey-wave</code></td></tr>
+      <tr><th>Layout</th>        <td><code>hero</code> — full-bleed front.jpeg + dark top-left gradient + "COALITION" wordmark + "GREY WAVE" centered + subtitle</td></tr>
+      <tr><th>Source image</th>  <td>front.jpeg</td></tr>
+      <tr><th>Sticker hints</th>  <td>No IG carousel stickers (carousel lacks Stories UI controls) — caption does the work</td></tr>
+      <tr><th>Channel context</th><td>IG Grid carousel portrait thumb; works in-feed at small sizes</td></tr>
+    </table>
+  </div>
+
+  <div class="card fmt-grid">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">2</span>
+        <span class="card-title">detail — full-bleed back.jpeg + bottom 35% black gradient + "Hand-finished charcoal dye." + subtext</span>
+      </div>
+      <span class="card-subtitle">1038 KB · RGB · 1080 × 1350</span>
+    </div>
+    <div class="img-frame fit" data-mode="fit">
+      <img src="../grid-reveal/grid-grey-wave-slide-2.png" alt="Grey Wave — grid 2 (detail)" draggable="false">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>          <td><code>docs/grid-reveal/grid-grey-wave-slide-2.png</code></td></tr>
+      <tr><th>Viewport</th>      <td>1080 × 1350 · <span class="accent">4:5 aspect</span></td></tr>
+      <tr><th>Mode</th>          <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>         <td><span class="no">no</span> · fully opaque · flattened onto pure #000</td></tr>
+      <tr><th>File size</th>     <td>1038 KB · Playwright PNG @1x</td></tr>
+      <tr><th>Renderer</th>      <td><code>npm run grid:reveal -- --slug grey-wave</code></td></tr>
+      <tr><th>Layout</th>        <td><code>detail</code> — full-bleed back.jpeg + bottom 35% black gradient + "Hand-finished charcoal dye." + subtext</td></tr>
+      <tr><th>Source image</th>  <td>back.jpeg</td></tr>
+      <tr><th>Sticker hints</th>  <td>No IG carousel stickers</td></tr>
+      <tr><th>Channel context</th><td>IG Grid back wallet shot with overlay copy</td></tr>
+    </table>
+  </div>
+
+  <div class="card fmt-grid">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">3</span>
+        <span class="card-title">scarcity — 50/50 split — top half front.jpeg + bottom half solid #000 with eyebrow + "1 OF 2" + "$35"</span>
+      </div>
+      <span class="card-subtitle">549 KB · RGB · 1080 × 1350</span>
+    </div>
+    <div class="img-frame fit" data-mode="fit">
+      <img src="../grid-reveal/grid-grey-wave-slide-3.png" alt="Grey Wave — grid 3 (scarcity)" draggable="false">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>          <td><code>docs/grid-reveal/grid-grey-wave-slide-3.png</code></td></tr>
+      <tr><th>Viewport</th>      <td>1080 × 1350 · <span class="accent">4:5 aspect</span></td></tr>
+      <tr><th>Mode</th>          <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>         <td><span class="no">no</span> · fully opaque · flattened onto pure #000</td></tr>
+      <tr><th>File size</th>     <td>549 KB · Playwright PNG @1x</td></tr>
+      <tr><th>Renderer</th>      <td><code>npm run grid:reveal -- --slug grey-wave</code></td></tr>
+      <tr><th>Layout</th>        <td><code>scarcity</code> — 50/50 split — top half front.jpeg + bottom half solid #000 with eyebrow + "1 OF 2" + "$35"</td></tr>
+      <tr><th>Source image</th>  <td>front.jpeg</td></tr>
+      <tr><th>Sticker hints</th>  <td>No IG carousel stickers</td></tr>
+      <tr><th>Channel context</th><td>IG Grid scarcity slide; main conversion visual in feed</td></tr>
+    </table>
+  </div>
+
+  <div class="card fmt-grid">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">4</span>
+        <span class="card-title">manifesto — pure #000 with 10% opacity wallet ghost texture + "TRUST YOURSELF." giant + body subtext</span>
+      </div>
+      <span class="card-subtitle">388 KB · RGB · 1080 × 1350</span>
+    </div>
+    <div class="img-frame fit" data-mode="fit">
+      <img src="../grid-reveal/grid-grey-wave-slide-4.png" alt="Grey Wave — grid 4 (manifesto)" draggable="false">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>          <td><code>docs/grid-reveal/grid-grey-wave-slide-4.png</code></td></tr>
+      <tr><th>Viewport</th>      <td>1080 × 1350 · <span class="accent">4:5 aspect</span></td></tr>
+      <tr><th>Mode</th>          <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>         <td><span class="no">no</span> · fully opaque · flattened onto pure #000</td></tr>
+      <tr><th>File size</th>     <td>388 KB · Playwright PNG @1x</td></tr>
+      <tr><th>Renderer</th>      <td><code>npm run grid:reveal -- --slug grey-wave</code></td></tr>
+      <tr><th>Layout</th>        <td><code>manifesto</code> — pure #000 with 10% opacity wallet ghost texture + "TRUST YOURSELF." giant + body subtext</td></tr>
+      <tr><th>Source image</th>  <td>front.jpeg (ghost 10% opacity)</td></tr>
+      <tr><th>Sticker hints</th>  <td>No IG carousel stickers</td></tr>
+      <tr><th>Channel context</th><td>IG Grid brand beat; intentionally low-key</td></tr>
+    </table>
+  </div>
+
+  <div class="card fmt-grid">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">5</span>
+        <span class="card-title">cta — 60/40 split — left 60% front.jpeg + right 40% black panel with eyebrow + "SHOP NOW →" + URL</span>
+      </div>
+      <span class="card-subtitle">434 KB · RGB · 1080 × 1350</span>
+    </div>
+    <div class="img-frame fit" data-mode="fit">
+      <img src="../grid-reveal/grid-grey-wave-slide-5.png" alt="Grey Wave — grid 5 (cta)" draggable="false">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>          <td><code>docs/grid-reveal/grid-grey-wave-slide-5.png</code></td></tr>
+      <tr><th>Viewport</th>      <td>1080 × 1350 · <span class="accent">4:5 aspect</span></td></tr>
+      <tr><th>Mode</th>          <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>         <td><span class="no">no</span> · fully opaque · flattened onto pure #000</td></tr>
+      <tr><th>File size</th>     <td>434 KB · Playwright PNG @1x</td></tr>
+      <tr><th>Renderer</th>      <td><code>npm run grid:reveal -- --slug grey-wave</code></td></tr>
+      <tr><th>Layout</th>        <td><code>cta</code> — 60/40 split — left 60% front.jpeg + right 40% black panel with eyebrow + "SHOP NOW →" + URL</td></tr>
+      <tr><th>Source image</th>  <td>front.jpeg</td></tr>
+      <tr><th>Sticker hints</th>  <td>No IG carousel link sticker (no stickers in carousel) — caption + bio link do the work</td></tr>
+      <tr><th>Channel context</th><td>IG Grid closing button; caption directs to bio link</td></tr>
+    </table>
+  </div>
+</div>
+
+
+<!-- ─── X section ─── -->
+<h2 id="x-section" class="section-h fmt-x">X · 1200×628 · 4 IMAGES</h2>
+<div class="section-meta">
+  <span class="chip">4 postable PNGs</span>
+  <span class="chip">1200 × 628</span>
+  <span class="chip">1.91:1 X FEED (single-post + 3-thread crops)</span>
+  <span class="chip">via <code>npm run x:reveal -- --slug grey-wave</code></span>
+</div>
+
+<div class="grid">
+  <div class="card fmt-x">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">single-post</span>
+        <span class="card-title">3-band layout — top black "GREY WAVE" header band / middle wallet contain / bottom black "$35 · 1 of 2 · Once it's gone" caption band</span>
+      </div>
+      <span class="card-subtitle">142 KB · RGB · 1200 × 628</span>
+    </div>
+    <div class="img-frame fit" data-mode="fit">
+      <img src="../x-reveal/x-grey-wave-single.png" alt="Grey Wave — x single-post" draggable="false">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>          <td><code>docs/x-reveal/x-grey-wave-single.png</code></td></tr>
+      <tr><th>Viewport</th>      <td>1200 × 628 · <span class="accent">1.91:1 aspect</span></td></tr>
+      <tr><th>Mode</th>          <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>         <td><span class="no">no</span> · fully opaque · flattened onto pure #000</td></tr>
+      <tr><th>File size</th>     <td>142 KB · Playwright PNG @1x</td></tr>
+      <tr><th>Renderer</th>      <td><code>npm run x:reveal -- --slug grey-wave</code></td></tr>
+      <tr><th>Layout</th>        <td><code>single-post</code> — 3-band layout — top black "GREY WAVE" header band / middle wallet contain / bottom black "$35 · 1 of 2 · Once it's gone" caption band</td></tr>
+      <tr><th>Source image</th>  <td>front.jpeg (contain, centered) + black bands above &amp; below</td></tr>
+      <tr><th>Sticker hints</th>  <td>No IG stickers (X is media-only)</td></tr>
+      <tr><th>Channel context</th><td>X feed single-post card; pairs with tweet copy from drop-copy</td></tr>
+    </table>
+  </div>
+
+  <div class="card fmt-x">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">thread-1</span>
+        <span class="card-title">full-bleed wallet contain + top/bottom dark vignette + "GREY WAVE" 110px overlay left + subtitle bottom-left</span>
+      </div>
+      <span class="card-subtitle">294 KB · RGB · 1200 × 628</span>
+    </div>
+    <div class="img-frame fit" data-mode="fit">
+      <img src="../x-reveal/x-grey-wave-thread-1.png" alt="Grey Wave — x thread-1" draggable="false">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>          <td><code>docs/x-reveal/x-grey-wave-thread-1.png</code></td></tr>
+      <tr><th>Viewport</th>      <td>1200 × 628 · <span class="accent">1.91:1 aspect</span></td></tr>
+      <tr><th>Mode</th>          <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>         <td><span class="no">no</span> · fully opaque · flattened onto pure #000</td></tr>
+      <tr><th>File size</th>     <td>294 KB · Playwright PNG @1x</td></tr>
+      <tr><th>Renderer</th>      <td><code>npm run x:reveal -- --slug grey-wave</code></td></tr>
+      <tr><th>Layout</th>        <td><code>thread-1</code> — full-bleed wallet contain + top/bottom dark vignette + "GREY WAVE" 110px overlay left + subtitle bottom-left</td></tr>
+      <tr><th>Source image</th>  <td>front.jpeg (contain, black backdrop) + vignette</td></tr>
+      <tr><th>Sticker hints</th>  <td>No IG stickers</td></tr>
+      <tr><th>Channel context</th><td>X thread tweet 1; sets release frame</td></tr>
+    </table>
+  </div>
+
+  <div class="card fmt-x">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">thread-2</span>
+        <span class="card-title">60/40 split — left 40% black type panel with "LIMITED EDITION" eyebrow + "1 OF 2" + "$35"; right 60% wallet contain</span>
+      </div>
+      <span class="card-subtitle">278 KB · RGB · 1200 × 628</span>
+    </div>
+    <div class="img-frame fit" data-mode="fit">
+      <img src="../x-reveal/x-grey-wave-thread-2.png" alt="Grey Wave — x thread-2" draggable="false">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>          <td><code>docs/x-reveal/x-grey-wave-thread-2.png</code></td></tr>
+      <tr><th>Viewport</th>      <td>1200 × 628 · <span class="accent">1.91:1 aspect</span></td></tr>
+      <tr><th>Mode</th>          <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>         <td><span class="no">no</span> · fully opaque · flattened onto pure #000</td></tr>
+      <tr><th>File size</th>     <td>278 KB · Playwright PNG @1x</td></tr>
+      <tr><th>Renderer</th>      <td><code>npm run x:reveal -- --slug grey-wave</code></td></tr>
+      <tr><th>Layout</th>        <td><code>thread-2</code> — 60/40 split — left 40% black type panel with "LIMITED EDITION" eyebrow + "1 OF 2" + "$35"; right 60% wallet contain</td></tr>
+      <tr><th>Source image</th>  <td>front.jpeg (contain, black backdrop)</td></tr>
+      <tr><th>Sticker hints</th>  <td>No IG stickers</td></tr>
+      <tr><th>Channel context</th><td>X thread tweet 2; scarcity knock</td></tr>
+    </table>
+  </div>
+
+  <div class="card fmt-x">
+    <div class="card-head">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="card-label">thread-3</span>
+        <span class="card-title">55/45 split — left 45% black panel with eyebrow + "SHOP NOW →" + URL; right 55% wallet contain</span>
+      </div>
+      <span class="card-subtitle">284 KB · RGB · 1200 × 628</span>
+    </div>
+    <div class="img-frame fit" data-mode="fit">
+      <img src="../x-reveal/x-grey-wave-thread-3.png" alt="Grey Wave — x thread-3" draggable="false">
+    </div>
+    <table class="meta-table">
+      <tr><th>File</th>          <td><code>docs/x-reveal/x-grey-wave-thread-3.png</code></td></tr>
+      <tr><th>Viewport</th>      <td>1200 × 628 · <span class="accent">1.91:1 aspect</span></td></tr>
+      <tr><th>Mode</th>          <td>RGB (3 channels)</td></tr>
+      <tr><th>Alpha</th>         <td><span class="no">no</span> · fully opaque · flattened onto pure #000</td></tr>
+      <tr><th>File size</th>     <td>284 KB · Playwright PNG @1x</td></tr>
+      <tr><th>Renderer</th>      <td><code>npm run x:reveal -- --slug grey-wave</code></td></tr>
+      <tr><th>Layout</th>        <td><code>thread-3</code> — 55/45 split — left 45% black panel with eyebrow + "SHOP NOW →" + URL; right 55% wallet contain</td></tr>
+      <tr><th>Source image</th>  <td>front.jpeg (contain, black backdrop)</td></tr>
+      <tr><th>Sticker hints</th>  <td>No IG stickers</td></tr>
+      <tr><th>Channel context</th><td>X thread tweet 3; CTA; ends the thread</td></tr>
+    </table>
+  </div>
+</div>
+
+
+<!-- ─── Reviewer checklist ─── -->
+<div class="checklist">
+  <h3>Reviewer checklist · pre-publish</h3>
+  <ol>
+    <li><b>All slides</b> — copy stack has safe-zone clearance: nothing crosses into the top 250 px or bottom 320 px.</li>
+    <li><b>All slides</b> — live preview on actual Android/iOS IG account before publishing (treat Canva preview as soft only).</li>
+    <li><b>All slides</b> — thread publishes in this exact order: Hero → Detail → Scarcity → Manifesto → CTA.</li>
+    <li><b>Story 1 · Hero</b> — countdown end-time matches launch time exactly; @sgcoalition mention resolves.</li>
+    <li><b>Story 2 · Detail</b> — back.jpeg has #000 black overlay at bottom 35% before any copy is placed.</li>
+    <li><b>Story 3 · Scarcity</b> — countdown end-time in IG-recognised timezone; poll "Should we run 2/2? / Yes / Wait" pulling demand signal.</li>
+    <li><b>Story 4 · Manifesto</b> — wallet texture at 10% opacity never competes with "TRUST YOURSELF." copy.</li>
+    <li><b>Story 5 · CTA</b> — link sticker URL == PDP URL (no trailing slash, no redirect typo).</li>
+    <li><b>Grid 1-5</b> — copy legibility at thumbnail size in-carousel (24 px body needs to read).</li>
+    <li><b>Grid 5</b> — caption + bio link do the CTA conversion (link sticker NOT supported on Grid).</li>
+    <li><b>X 1-4</b> — tweets publish in thread order (greedy-engagement reads sequentially, brand beat lands last).</li>
+    <li><b>X 2 · scarcity</b> — primary urgency driver for X feed, must read before "$35" in visual order.</li>
+  </ol>
+</div>
+
+<footer>
+  <p>Pair with <a href="drop-kit-grey-wave.md">drop-kit-grey-wave.md</a> · <a href="drop-copy-grey-wave.md">drop-copy-grey-wave.md</a> · <a href="storyboard-grey-wave.html">storyboard-grey-wave.html</a>.</p>
+  <p>Self-contained HTML. Open in any browser (Chrome, Safari, Firefox) — works offline once the PNGs are at <code>../public/images/</code>.</p>
+  <p>If images don't load when opening via raw <code>file://</code>, run <code>npx serve</code> from the project root, or copy this file next to <code>public/</code>.</p>
+  <p style="color:#555;margin-top:20px;">Built from <code>docs/preview-grey-wave-assets.html</code> · Coalition brand tokens shared with <code>docs/{story,grid,x}-reveal/preview.html</code>.</p>
+</footer>
+
+</div>
+
+<script>
+  function setMode(mode) {
+    document.querySelectorAll('.img-frame').forEach(f => {
+      f.classList.toggle('fit', mode === 'fit');
+      f.classList.toggle('actual', mode === 'actual');
+      f.dataset.mode = mode;
+    });
+    document.querySelectorAll('.toolbar .btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === mode);
+    });
+  }
+  function announceSize(side, w, h) {
+    // Updates the .card-subtitle text with the *actual* measured dimensions on load.
+    // Catches any drift between the metadata written below and the file on disk.
+    var card = document.getElementById('img-' + side);
+    if (!card) return;
+    var sub = card.parentElement.querySelector('.card-subtitle');
+    if (!sub) return;
+    var match = sub.textContent.match(/(\d+(?:\.\d+)?\s*KB)/);
+    var sizeKB = match ? match[1] : '';
+    if (w && h) sub.textContent = (sizeKB ? sizeKB + ' · ' : '') + w + '×' + h + ' · RGB';
+  }
+</script>
+</body>
+</html>

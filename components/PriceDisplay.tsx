@@ -37,7 +37,7 @@ const PriceDisplay: React.FC<PriceDisplayProps> = ({
     };
 
     return (
-        <div className={`space-y-2 ${className}`}>
+        <div className={`max-w-full space-y-2 ${className}`}>
             {/* Regular Price - NOT crossed out */}
             <div className={`text-white font-bold ${sizeClasses[size].base}`}>
                 {formatPrice(basePrice)}
@@ -45,13 +45,13 @@ const PriceDisplay: React.FC<PriceDisplayProps> = ({
 
             {/* SGCoin Payment Option - Only if enabled and showDiscount is true */}
             {discountEnabled && showDiscount && (
-                <div className="flex items-start gap-2 bg-green-900/20 border border-green-500/30 rounded-lg p-2">
+                <div className="flex max-w-full items-start gap-2 bg-green-900/20 border border-green-500/30 rounded-lg p-2">
                     <Coins className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
-                        <div className={`text-green-300 ${sizeClasses[size].label}`}>
+                    <div className="min-w-0 flex-1">
+                        <div className={`break-words leading-tight text-green-300 ${sizeClasses[size].label}`}>
                             Pay with SGCoin/GMONEY:
                         </div>
-                        <div className="flex items-baseline gap-2">
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                             <span className={`text-green-400 font-bold ${sizeClasses[size].sgcoin}`}>
                                 {formatPrice(sgcoinPrice)}
                             </span>

@@ -5,7 +5,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'Coalition_NF_Tee',
     name: 'COALITION NF-TEE',
-    price: 50,
+    price: 40,
     images: [
       PRODUCT_IMAGE_URLS.nfTee.model1,
       PRODUCT_IMAGE_URLS.nfTee.model2,
@@ -22,6 +22,23 @@ export const INITIAL_PRODUCTS: Product[] = [
       chain: 'polygon',
       openseaUrl: 'https://opensea.io/collection/sg-coalition'
     }
+  },
+  {
+    id: 'prod_tee_above_as_below',
+    name: 'COALITION ABOVE AS BELOW TEE',
+    price: 75,
+    createdAt: '2026-06-17T00:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back
+    ],
+    description: 'The Above as Below tee features a heavyweight black body with red-and-white Coalition artwork across the front and a full back graphic built around the Above as Below concept.',
+    category: 'shirt',
+    isFeatured: true,
+    freeShipping: true,
+    isLimitedEdition: true,
+    sizes: ['S', 'M', 'L', 'XL', '2XL'],
+    sizeInventory: { S: 10, M: 10, L: 10, XL: 10, '2XL': 10 }
   },
   {
     id: 'GreenCamoWallet',
@@ -161,7 +178,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     {
       id: 'prod_tee_distortion',
       name: 'COALITION DISTORTION TEE',
-      price: 65,
+      price: 60,
       images: [
         PRODUCT_IMAGE_URLS.distortionTee.main,
         PRODUCT_IMAGE_URLS.distortionTee.frontFlat,
@@ -189,10 +206,53 @@ export const INITIAL_PRODUCTS: Product[] = [
     soldAt: '2026-03-06T00:00:00Z',
     sizes: ['33'],
     sizeInventory: { '33': 0 }
+  },
+  {
+    id: 'Coalition_Grey_Wave_Wallet_1_2',
+    name: "Coalition 'Grey Wave' Wallet 1/2",
+    price: 35,
+    createdAt: '2026-06-20T00:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.greyWaveWallet.front,
+      PRODUCT_IMAGE_URLS.greyWaveWallet.back
+    ],
+    description: "First piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a custom charcoal-grey dye pattern inspired by Baltimore harbor at dawn. Built as a limited 1/2 collectible \u2014 once sold, it's gone forever.",
+    category: 'wallet',
+    isLimitedEdition: true,
+    archived: true,
+    archivedAt: '2026-06-25T02:40:12.191+00:00',
+    soldAt: '2026-06-25T02:40:12.191+00:00',
+    sizes: ['One Size'],
+    sizeInventory: { 'One Size': 0 },
+    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop."
+  },
+  {
+    id: 'Coalition_Grey_Wave_Wallet_2_2',
+    name: "Coalition 'Grey Wave' Wallet 2/2",
+    price: 35,
+    createdAt: '2026-06-28T00:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.greyWaveWallet22.front,
+      PRODUCT_IMAGE_URLS.greyWaveWallet22.back
+    ],
+    description: "Second and final piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a storm-grey wave pattern, raw edge stitching, copper grommet, and Coalition mark. Built as a limited 2/2 collectible - once sold, it's gone forever.",
+    makingVideoUrl: 'https://www.instagram.com/p/DZ8z0t0Tfws/',
+    category: 'wallet',
+    isLimitedEdition: true,
+    sizes: ['One Size'],
+    sizeInventory: { 'One Size': 1 }
   }
 ];
 
 export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
+  Coalition_Grey_Wave_Wallet_1_2: {
+    archived: true,
+    archivedAt: '2026-06-25T02:40:12.191+00:00',
+    soldAt: '2026-06-25T02:40:12.191+00:00',
+    sizes: ['One Size'],
+    sizeInventory: { 'One Size': 0 },
+    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop."
+  },
   SKYYBLUEWALLET1_2: {
     archived: true,
     archivedAt: '2026-03-26T00:00:00Z',
@@ -395,4 +455,3 @@ export const ADMIN_USER = {
   isAdmin: true,
   favorites: []
 };
-

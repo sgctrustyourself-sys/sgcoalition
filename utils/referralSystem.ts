@@ -251,10 +251,20 @@ export const updateReferralStats = async (userId: string): Promise<void> => {
     }
 };
 
+const buildReferralUrl = (referralCode: string, path: string): string => {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const url = new URL(normalizedPath, window.location.origin);
+    url.searchParams.set('ref', referralCode);
+    return url.toString();
+};
+
 // Generate shareable referral link
 export const generateReferralLink = (referralCode: string): string => {
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/?ref=${referralCode}`;
+    return buildReferralUrl(referralCode, '/');
+};
+
+export const generateProductReferralLink = (referralCode: string, productId: string): string => {
+    return buildReferralUrl(referralCode, `/product/${productId}`);
 };
 
 // Store referral code in localStorage (from URL parameter)

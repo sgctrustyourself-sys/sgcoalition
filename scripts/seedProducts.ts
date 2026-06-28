@@ -68,6 +68,12 @@ async function seedProducts() {
                 images: product.images,
                 description: product.description,
                 is_featured: product.isFeatured,
+                // Mirror of services/retryQueue.ts mapProductToDb. Column added in
+                // supabase/migrations/20260620_add_is_limited_edition_to_products.sql
+                // — without this, re-seeding a cleared DB would silently strip
+                // isLimitedEdition:true from the 3 LE products in INITIAL_PRODUCTS
+                // because the column's NOT NULL DEFAULT FALSE fills the gap with FALSE.
+                is_limited_edition: product.isLimitedEdition ?? false,
                 sizes: product.sizes,
                 size_inventory: product.sizeInventory || {},
                 nft_metadata: product.nft

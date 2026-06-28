@@ -42,6 +42,9 @@ async function syncProducts() {
         description: p.description?.trim(),
         category: p.category?.toLowerCase()?.trim() === 'accessories' ? 'accessory' : p.category?.toLowerCase()?.trim(),
         isFeatured: p.is_featured,
+        // Mirror of services/retryQueue.ts mapProductToDb. Column added in
+        // supabase/migrations/20260620_add_is_limited_edition_to_products.sql
+        isLimitedEdition: p.is_limited_edition ?? false,
         sizes: p.sizes,
         sizeInventory: p.size_inventory,
         nft: p.nft_metadata,

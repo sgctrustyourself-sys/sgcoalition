@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderStatus, OrderItem, Giveaway, GiveawayEntry, GiveawayStatus, Review, SocialAccount, CustomInquiry, SGCoinPurchaseRequest } from '../types';
 import { INITIAL_SECTIONS, COIN_REWARD_RATE, INITIAL_PRODUCTS, ADMIN_WALLETS, INITIAL_ORDERS, PRODUCT_LOCAL_OVERRIDES } from '../constants';
 import { supabase } from '../services/supabase';
@@ -39,7 +39,7 @@ interface AppState {
     updateSection: (id: string, data: Partial<Section>) => void;
     cartTotal: () => number;
     calculateReward: (total: number) => number;
-    addOrder: (order: Order) => Promise<void>;
+    addOrder: (order: Order, verification?: { paypalOrderId?: string; paypalCaptureId?: string }) => Promise<void>;
     updateOrderStatus: (orderId: string, newStatus: string) => Promise<void>;
     deleteOrder: (orderId: string) => Promise<void>;
     getOrderById: (orderId: string) => Order | undefined;
@@ -221,7 +221,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
                 if (!hasKeys) {
                     console.log('⚠️ Supabase keys not found, using initial products');
-                    setProducts(INITIAL_PRODUCTS);
+                    setProducts(applyLocalProductOverrides(INITIAL_PRODUCTS));
                     if (mounted) setIsLoading(false);
                     return;
                 }
@@ -393,7 +393,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     return {
                         id: item.id, name: item.name, price: Number(item.price), stock: item.stock, category: item.category,
                         createdAt: item.created_at || item.createdAt,
-                        images: resolveLocalImageUrls(item.images || []), description: item.description, isFeatured: item.is_featured,
+                        images: resolveLocalImageUrls(item.images || []), description: item.description,
+                        makingVideoUrl: item.making_video_url || item.makingVideoUrl,
+                        isFeatured: item.is_featured,
+                        // Mirrors services/retryQueue.ts mapProductToDb write path.
+                        // Column added in supabase/migrations/20260620_add_is_limited_edition_to_products.sql
+                        isLimitedEdition: item.is_limited_edition ?? false,
                         sizes: item.sizes || [], sizeInventory: item.size_inventory || {}, nft: item.nft_metadata,
                         reviews: savedReviews, archived: item.archived || false,
                         archivedAt: item.archived_at, releasedAt: item.released_at, soldAt: item.sold_at,
@@ -435,10 +440,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const finalWithOverrides = applyLocalProductOverrides(finalMerged);
 
                 setProducts(finalWithOverrides);
+                // Successful fetch — clear the offline-mode banner so synthesized
+                // SignalAlert hides once Supabase recovers.
+                setIsConfigError(false);
                 return finalWithOverrides;
             }
             return [];
-        } catch (err) { console.error('Error fetching products:', err); return products; }
+        } catch (err) {
+            console.error('Error fetching products:', err);
+            // Flag the AppContext as in a config error so SignalAlert can
+            // surface a "Supabase unreachable, showing local catalog"
+            // banner instead of failing silently.
+            setIsConfigError(true);
+            // Fall back to local defaults so a transient Supabase failure never
+            // strands the UI on an empty products array. Returning the stale
+            // closure value kept `products` at [] forever, which made
+            // ProductDetails bail to null on every product detail route.
+            const fallback = applyLocalProductOverrides(INITIAL_PRODUCTS);
+            setProducts(fallback);
+            return fallback;
+        }
     };
 
     const fetchSignals = async () => {
@@ -610,17 +631,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return mapped;
     };
 
+    // Realtime orders channel — set up once when Supabase is configured
+    // and torn down when it isn't. initApp already covers the initial
+    // fetchProducts/fetchOrders via Promise.all, so this hook only owns
+    // the channel subscription.
     useEffect(() => {
-        if (isSupabaseConfigured) {
-            fetchProducts();
+        if (!isSupabaseConfigured) return;
+        const channel = supabase.channel('orders_sync').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+            console.log('🔂 Order change detected, refreshing...');
             fetchOrders();
-            const channel = supabase.channel('orders_sync').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-                console.log('🔂 Order change detected, refreshing...');
-                fetchOrders();
-            }).subscribe();
-            return () => { channel.unsubscribe(); };
+        }).subscribe();
+        return () => { channel.unsubscribe(); };
+    }, [isSupabaseConfigured]);
+
+    // Refresh products + orders when admin mode is toggled. The skip ref
+    // prevents the first run of this effect (which fires on initial
+    // mount) from duplicating the work initApp just did. After that,
+    // every admin toggle causes a fresh fetch.
+    const skipInitialAdminRefresh = useRef(true);
+    useEffect(() => {
+        // Consume the skip flag on the very first run regardless of
+        // isSupabaseConfigured — otherwise if Supabase hasn't flipped yet
+        // we return at the guard below and the next admin toggle silently
+        // skips the fetch.
+        if (skipInitialAdminRefresh.current) {
+            skipInitialAdminRefresh.current = false;
+            return;
         }
-    }, [isSupabaseConfigured, isAdminMode]);
+        if (!isSupabaseConfigured) return;
+        fetchProducts();
+        fetchOrders();
+    }, [isAdminMode]);
 
     useEffect(() => { if (sections && sections.length > 0) localStorage.setItem('coalition_sections', JSON.stringify(sections)); }, [sections]);
     useEffect(() => { if (giveaways) localStorage.setItem('coalition_giveaways_v1', JSON.stringify(giveaways)); }, [giveaways]);
@@ -647,7 +688,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
             const { error } = await supabase.from('products').insert([{
                 id: normalizedProduct.id, name: normalizedProduct.name, price: normalizedProduct.price, category: normalizedProduct.category, images: normalizedProduct.images,
-                description: normalizedProduct.description, is_featured: normalizedProduct.isFeatured, sizes: normalizedProduct.sizes,
+                description: normalizedProduct.description, is_featured: normalizedProduct.isFeatured,
+                is_limited_edition: normalizedProduct.isLimitedEdition ?? false,
+                sizes: normalizedProduct.sizes,
                 size_inventory: normalizedProduct.sizeInventory, nft_metadata: normalizedProduct.nft
             }]);
             if (error) throw error;
@@ -686,7 +729,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
             const { error } = await supabase.from('products').update({
                 name: normalizedUpdated.name, price: normalizedUpdated.price, category: normalizedUpdated.category, images: normalizedUpdated.images,
-                description: normalizedUpdated.description, is_featured: normalizedUpdated.isFeatured, sizes: normalizedUpdated.sizes,
+                description: normalizedUpdated.description,
+                is_featured: normalizedUpdated.isFeatured,
+                is_limited_edition: normalizedUpdated.isLimitedEdition ?? false,
+                sizes: normalizedUpdated.sizes,
                 size_inventory: normalizedUpdated.sizeInventory, nft_metadata: normalizedUpdated.nft, archived: normalizedUpdated.archived
             }).eq('id', normalizedUpdated.id);
             if (error) throw error;
@@ -699,7 +745,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 try {
                     await supabase.from('products').update({
                         name: original.name, price: original.price, category: original.category, images: original.images,
-                        description: original.description, is_featured: original.isFeatured, sizes: original.sizes,
+                        description: original.description,
+                        is_featured: original.isFeatured,
+                        is_limited_edition: original.isLimitedEdition ?? false,
+                        sizes: original.sizes,
                         size_inventory: original.sizeInventory, nft_metadata: original.nft, archived: original.archived
                     }).eq('id', original.id);
                 } catch (rollbackErr) {
@@ -839,17 +888,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const cartTotal = () => cart.reduce((sum, item) => sum + getCartItemLineTotal(item), 0);
     const calculateReward = (total: number) => Math.floor(total * COIN_REWARD_RATE);
 
-    const addOrder = async (order: Order) => {
-        setOrders(prev => [order, ...prev]);
-        if (isSupabaseConfigured) {
+    const addOrder = async (order: Order, verification?: { paypalOrderId?: string; paypalCaptureId?: string }) => {
+        const mustUseOrderApi = order.paymentMethod === 'paypal';
+        if (isSupabaseConfigured || mustUseOrderApi) {
             try {
                 const response = await fetch('/api/complete-order', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order, verification })
                 });
-                if (!response.ok) throw new Error('Order completion failed');
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => ({}));
+                    throw new Error(payload.error || 'Order completion failed');
+                }
+                setOrders(prev => [order, ...prev.filter(existing => existing.id !== order.id)]);
                 fetchOrders(); // Refresh orders after successful placement
             } catch (err) { console.error('Order failed:', err); throw err; }
+            return;
         }
+
+        setOrders(prev => [order, ...prev]);
     };
 
     const updateOrderStatus = async (orderId: string, newStatus: string) => {

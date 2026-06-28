@@ -2,6 +2,24 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+function getResendFromAddress() {
+    return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>';
+}
+
+async function sendResendEmail(payload: any) {
+    const result = await resend.emails.send({
+        ...payload,
+        from: getResendFromAddress(),
+    });
+
+    const error = (result as any)?.error;
+    if (error) {
+        throw new Error(error.message || 'Resend rejected the email request.');
+    }
+
+    return result;
+}
+
 export default async function handler(req: any, res: any) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
@@ -26,8 +44,7 @@ export default async function handler(req: any, res: any) {
             return;
         }
 
-        const data = await resend.emails.send({
-            from: 'SG Coalition <noreply@sgcoalition.xyz>',
+        const data = await sendResendEmail({
             to: [to],
             subject,
             html,

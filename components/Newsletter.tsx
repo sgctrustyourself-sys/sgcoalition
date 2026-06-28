@@ -41,6 +41,8 @@ const Newsletter = () => {
         <form onSubmit={handleSubmit} className="flex flex-col gap-2 mt-2" noValidate>
             <div className={`flex border-b pb-2 transition-colors ${error ? 'border-red-500' : 'border-gray-600 focus-within:border-white'}`}>
                 <input
+                    id="coalition-newsletter-email"
+                    name="email"
                     type="email"
                     placeholder="ENTER YOUR EMAIL"
                     className="bg-transparent w-full outline-none text-sm placeholder-gray-600 text-white"

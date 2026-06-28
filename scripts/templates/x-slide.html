@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>__SLUG__-x-__SLIDE_N__-__LAYOUT_NAME__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  /* ─── Frame: 1200×628 (X feed card / thread image, ~1.91:1 landscape) ─── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 1200px;
+    height: 628px;
+    overflow: hidden;
+    background: #000;
+    color: #fff;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── Shared atoms ─── */
+  .wordmark { font-family: 'Inter', sans-serif; font-weight: 900; letter-spacing: 0.18em; color: #fff; text-transform: uppercase; }
+  .eyebrow { font-family: 'Inter', sans-serif; letter-spacing: 0.30em; text-transform: uppercase; color: #c8c8c8; font-weight: 700; }
+  .headline { font-family: 'Bebas Neue', 'Anton', 'Arial Narrow', Impact, sans-serif; color: #fff; line-height: 0.95; }
+  .body { font-family: 'Inter', sans-serif; color: #c8c8c8; }
+  .price { font-family: 'Bebas Neue', 'Anton', sans-serif; color: #c8c8c8; }
+  .url { font-family: 'Inter', sans-serif; color: #c8c8c8; }
+
+  /* ─── Reviewer aids (hidden in POSTABLE) ─── */
+  .sticker-hint {
+    position: absolute;
+    border: 2px dashed #ff7a59;
+    color: #ff7a59;
+    padding: 4px 8px;
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    font-size: 11px;
+    line-height: 1.25;
+    border-radius: 3px;
+    background: rgba(0,0,0,0.7);
+    max-width: 200px;
+    z-index: 10;
+  }
+  body[data-mode="postable"] .sticker-hint { display: none; }
+  .sticker-hint--top-left     { top: 12px; left: 12px; }
+  .sticker-hint--top-right    { top: 12px; right: 12px; }
+  .sticker-hint--center-right { top: 50%; right: 12px; transform: translateY(-50%); }
+  .sticker-hint--center-left  { top: 50%; left: 12px; transform: translateY(-50%); }
+  .sticker-hint--bottom-left  { bottom: 12px; left: 12px; }
+  .sticker-hint--bottom-right { bottom: 12px; right: 12px; }
+
+  .review-caption {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: rgba(17,17,17,0.92);
+    color: #c8c8c8;
+    padding: 6px 30px;
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    font-size: 11px;
+    text-align: center;
+    border-top: 1px solid #2a2a2a;
+    z-index: 5;
+  }
+  body[data-mode="postable"] .review-caption { display: none; }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     Layout: X-SINGLE — 3-band (header / wallet / caption) per drop-kit spec
+     ════════════════════════════════════════════════════════════════════════ */
+  .layout-x-single .header-band {
+    position: absolute; top: 0; left: 0; right: 0; height: 100px;
+    background: #000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .layout-x-single .header-band .headline { font-size: 56px; letter-spacing: 0.04em; }
+  .layout-x-single .image-area {
+    position: absolute; top: 100px; left: 0; right: 0; height: 420px;
+    background-size: contain; background-repeat: no-repeat; background-position: center;
+    background-color: #000;
+  }
+  .layout-x-single .caption-band {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 108px;
+    background: #000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .layout-x-single .caption-band .body { font-size: 22px; color: #c8c8c8; }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     Layout: X-THREAD-1 — Slide 1 hero, cropped to landscape
+     (full-bleed wallet + top/bottom dark vignettes + "GREY WAVE" overlay)
+     ════════════════════════════════════════════════════════════════════════ */
+  .layout-x-thread-1 .bg {
+    position: absolute; inset: 0;
+    background-size: contain; background-repeat: no-repeat; background-position: center;
+    background-color: #000;
+  }
+  .layout-x-thread-1 .vignette {
+    position: absolute; inset: 0; pointer-events: none;
+    background:
+      linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.05) 18%, rgba(0,0,0,0) 50%, rgba(0,0,0,0) 82%, rgba(0,0,0,0.85) 100%);
+  }
+  .layout-x-thread-1 .headline {
+    position: absolute; top: 50%; left: 60px; transform: translateY(-50%);
+    font-size: 110px;
+  }
+  .layout-x-thread-1 .subtitle {
+    position: absolute; left: 60px; bottom: 30px;
+    font-family: 'Inter', sans-serif;
+    font-size: 18px;
+    color: #c8c8c8;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     Layout: X-THREAD-2 — Slide 3 scarcity, landscape variant
+     (wallet on right + black type panel on left with the scarcity lockup)
+     ════════════════════════════════════════════════════════════════════════ */
+  .layout-x-thread-2 .bg {
+    position: absolute; top: 0; right: 0; width: 60%; height: 100%;
+    background-size: contain; background-position: center; background-repeat: no-repeat;
+    background-color: #000;
+  }
+  .layout-x-thread-2 .panel {
+    position: absolute; top: 0; left: 0; width: 40%; height: 100%;
+    background: #000;
+    padding: 56px 48px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .layout-x-thread-2 .panel .eyebrow { font-size: 14px; margin-bottom: 18px; }
+  .layout-x-thread-2 .panel .headline { font-size: 90px; line-height: 0.9; }
+  .layout-x-thread-2 .panel .price { font-size: 50px; margin-top: 18px; }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     Layout: X-THREAD-3 — Slide 5 CTA, landscape split
+     (wallet on right + black panel on left with eyebrow + SHOP NOW + URL)
+     ════════════════════════════════════════════════════════════════════════ */
+  .layout-x-thread-3 .bg {
+    position: absolute; top: 0; right: 0; width: 55%; height: 100%;
+    background-size: contain; background-position: center; background-repeat: no-repeat;
+    background-color: #000;
+  }
+  .layout-x-thread-3 .panel {
+    position: absolute; top: 0; left: 0; width: 45%; height: 100%;
+    background: #000;
+    padding: 56px 48px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .layout-x-thread-3 .panel .eyebrow { font-size: 14px; margin-bottom: 18px; }
+  .layout-x-thread-3 .panel .headline { font-size: 70px; line-height: 1; }
+  .layout-x-thread-3 .panel .url { font-size: 20px; margin-top: 26px; color: #c8c8c8; }
+</style>
+</head>
+<body data-mode="review">
+
+<!-- Hydrated by scripts/render-story.ts via __OUTPUT_INDEX__ dispatching to one of four layouts -->
+<div id="root"></div>
+
+<script type="application/json" id="drop-spec">__DROP_SPEC__</script>
+<script type="application/json" id="slide-spec">__SLIDE_SPEC__</script>
+<script type="application/json" id="output-ctx">{"index":__OUTPUT_INDEX__,"total":__OUTPUT_TOTAL__,"filename":"__LAYOUT_NAME__"}</script>
+
+<script>
+/* eslint-disable */
+(function() {
+  var drop = JSON.parse(document.getElementById('drop-spec').textContent);
+  var ctx = JSON.parse(document.getElementById('output-ctx').textContent);
+  var root = document.getElementById('root');
+
+  // Output 1: X single-post — 3-band layout per drop-kit spec
+  if (ctx.index === 1) {
+    root.className = 'layout-x-single';
+
+    var header = document.createElement('div');
+    header.className = 'header-band';
+    var h1 = document.createElement('div');
+    h1.className = 'headline';
+    h1.textContent = drop.releaseName;
+    header.appendChild(h1);
+    root.appendChild(header);
+
+    var img = document.createElement('div');
+    img.className = 'image-area';
+    img.style.backgroundImage = 'url("' + drop.images.front + '")';
+    root.appendChild(img);
+
+    var caption = document.createElement('div');
+    caption.className = 'caption-band';
+    var c1 = document.createElement('div');
+    c1.className = 'body';
+    c1.textContent = drop.price + '  \u00b7  ' + drop.x + ' of ' + drop.y + '  \u00b7  Once it\u2019s gone, it\u2019s gone.';
+    caption.appendChild(c1);
+    root.appendChild(caption);
+  }
+
+  // Output 2: X thread 1 — hero (slide 1) cropped to landscape
+  else if (ctx.index === 2) {
+    root.className = 'layout-x-thread-1';
+
+    var bg1 = document.createElement('div');
+    bg1.className = 'bg';
+    bg1.style.backgroundImage = 'url("' + drop.images.front + '")';
+    root.appendChild(bg1);
+
+    var v1 = document.createElement('div');
+    v1.className = 'vignette';
+    root.appendChild(v1);
+
+    var ht1 = document.createElement('div');
+    ht1.className = 'headline';
+    ht1.textContent = drop.releaseName;
+    root.appendChild(ht1);
+
+    var sub1 = document.createElement('div');
+    sub1.className = 'subtitle';
+    sub1.textContent = drop.productName + ' \u00b7 ' + drop.price;
+    root.appendChild(sub1);
+  }
+
+  // Output 3: X thread 2 — scarcity (slide 3) cropped to landscape
+  else if (ctx.index === 3) {
+    root.className = 'layout-x-thread-2';
+
+    var bg2 = document.createElement('div');
+    bg2.className = 'bg';
+    bg2.style.backgroundImage = 'url("' + drop.images.front + '")';
+    root.appendChild(bg2);
+
+    var panel2 = document.createElement('div');
+    panel2.className = 'panel';
+    var eb2 = document.createElement('div');
+    eb2.className = 'eyebrow';
+    eb2.textContent = 'LIMITED EDITION';
+    panel2.appendChild(eb2);
+    var h2 = document.createElement('div');
+    h2.className = 'headline';
+    h2.textContent = drop.x + ' OF ' + drop.y;
+    panel2.appendChild(h2);
+    var pr2 = document.createElement('div');
+    pr2.className = 'price';
+    pr2.textContent = drop.price;
+    panel2.appendChild(pr2);
+    root.appendChild(panel2);
+  }
+
+  // Output 4: X thread 3 — CTA (slide 5) cropped to landscape split
+  else if (ctx.index === 4) {
+    root.className = 'layout-x-thread-3';
+
+    var bg3 = document.createElement('div');
+    bg3.className = 'bg';
+    bg3.style.backgroundImage = 'url("' + drop.images.front + '")';
+    root.appendChild(bg3);
+
+    var panel3 = document.createElement('div');
+    panel3.className = 'panel';
+    var eb3 = document.createElement('div');
+    eb3.className = 'eyebrow';
+    eb3.textContent = drop.releaseName + ' / WALLET ' + drop.x + '/' + drop.y;
+    panel3.appendChild(eb3);
+    var h3 = document.createElement('div');
+    h3.className = 'headline';
+    h3.textContent = 'SHOP NOW \u2192';
+    panel3.appendChild(h3);
+    var u3 = document.createElement('div');
+    u3.className = 'url';
+    u3.textContent = drop.shopUrl;
+    panel3.appendChild(u3);
+    root.appendChild(panel3);
+  }
+
+  // X doesn't have IG stickers (X is media-only) — no overlay hints needed.
+
+  // Review-only caption strip
+  var cap = document.createElement('div');
+  cap.className = 'review-caption';
+  cap.textContent = 'REVIEW MODE \u2014 X feed image (' + ctx.filename + '). Stripped during PNG capture. (1200\u00d7628)';
+  document.body.appendChild(cap);
+})();
+</script>
+
+</body>
+</html>

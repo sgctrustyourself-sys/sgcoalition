@@ -1,5 +1,7 @@
 # Vercel Deployment Checklist
 
+> **Docs index:** [`docs/README.md`](./docs/README.md) (trio · drops registry) · [`README.md`](./README.md) (project + local dev).
+
 To resolve the Supabase connection issues and ensure all 4 products are visible on [sgcoalition.xyz](https://sgcoalition.xyz), please follow these steps:
 
 ## 1. Verify Vercel Environment Variables
@@ -34,3 +36,25 @@ After the deployment finishes:
     - [ ] Custom Coalition x Chrome Hearts Wallet
     - [ ] Coalition Green Camo Wallet
     - [ ] Coalition Skyy Blue Wallet
+
+## 5. PayPal Checkout Readiness
+Apply `supabase/migrations/20260617_add_paypal_order_fields.sql`, then set these Vercel environment variables for the target environment:
+
+- `VITE_PAYPAL_CLIENT_ID`
+- `PAYPAL_CLIENT_ID`
+- `PAYPAL_CLIENT_SECRET`
+- `PAYPAL_ENV` (`sandbox` for preview testing, `live` for production)
+- `VITE_APP_URL`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- Optional email: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `ORDER_NOTIFICATION_EMAIL`
+
+PayPal smoke test:
+
+1. Redeploy after changing `VITE_PAYPAL_CLIENT_ID`; it is embedded at build time.
+2. Add a physical product to cart and complete checkout with a PayPal sandbox buyer first.
+3. Verify Supabase has exactly one paid `orders` row with `paypal_order_id` and `payment_reference`.
+4. Verify the PayPal dashboard capture amount equals the Supabase `orders.total`.
+5. Repeat the same flow with live credentials only after the sandbox flow passes.

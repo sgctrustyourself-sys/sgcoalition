@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Sparkles, ArrowLeft, Zap, Copy, Check, MessageSquare, Plus, Trash2, Menu, X as XIcon, Paperclip, Image as ImageIcon, X, Bot, LogOut, Shirt } from 'lucide-react';
-import { sendChatMessage, generateImage, type ChatMessage } from '../services/aiChat';
+import { clearFullAIUnlock, generateImage, sendChatMessage, validateFullAIUnlock, type ChatMessage } from '../services/aiChat';
 import {
     createChatSession,
     saveMessage,
@@ -35,6 +35,8 @@ const AIPortal = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+    const [hasFullAccess, setHasFullAccess] = useState(false);
+    const [isAccessChecking, setIsAccessChecking] = useState(true);
 
     // Image State
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -54,6 +56,26 @@ const AIPortal = () => {
         const timer = setTimeout(scrollToBottom, 100);
         return () => clearTimeout(timer);
     }, [messages, previewUrl, isSidebarOpen]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        validateFullAIUnlock().then((isValid) => {
+            if (!isMounted) return;
+
+            setHasFullAccess(isValid);
+            setIsAccessChecking(false);
+
+            if (!isValid) {
+                addToast('AI Portal access expired. Re-enter the full mode password.', 'error');
+                navigate('/');
+            }
+        });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [addToast, navigate]);
 
     // Load sessions and auth state
     useEffect(() => {
@@ -147,6 +169,11 @@ const AIPortal = () => {
     };
 
     const handleGenerateImage = async () => {
+        if (!hasFullAccess) {
+            addToast('Full AI access required', 'error');
+            return;
+        }
+
         if (!input.trim()) {
             addToast('Please enter a prompt for the image', 'error');
             return;
@@ -208,6 +235,11 @@ const AIPortal = () => {
     };
 
     const handleSendMessage = async () => {
+        if (!hasFullAccess) {
+            addToast('Full AI access required', 'error');
+            return;
+        }
+
         if ((!input.trim() && !selectedFile) || isLoading) return;
 
         // Intent Detection: Check if user is asking for image generation
@@ -241,6 +273,7 @@ const AIPortal = () => {
         if (previewUrl) {
             userMessage.image = previewUrl;
         }
+        const aiImage = previewUrl || undefined;
 
         setMessages(prev => [...prev, userMessage]);
         setInput('');
@@ -273,7 +306,7 @@ const AIPortal = () => {
             }
 
             // 3. Get AI response
-            const response = await sendChatMessage(userMessage.content, 'full', messages, userMessage.image);
+            const response = await sendChatMessage(userMessage.content, 'full', messages, aiImage);
 
             const assistantMessage: ChatMessage = {
                 role: 'assistant',
@@ -295,6 +328,18 @@ const AIPortal = () => {
             setIsLoading(false);
         }
     };
+
+    if (isAccessChecking) {
+        return (
+            <div className="flex h-[100dvh] items-center justify-center bg-black text-white">
+                <div className="text-sm font-bold uppercase tracking-widest text-gray-500">Checking AI access...</div>
+            </div>
+        );
+    }
+
+    if (!hasFullAccess) {
+        return null;
+    }
 
     return (
         <div className="flex h-[100dvh] bg-black text-white overflow-hidden font-sans selection:bg-purple-500/30">
@@ -351,7 +396,10 @@ const AIPortal = () => {
 
                     <div className="mt-4 pt-4 border-t border-white/10">
                         <button
-                            onClick={() => window.close()}
+                            onClick={() => {
+                                clearFullAIUnlock();
+                                window.close();
+                            }}
                             className="flex items-center gap-2 text-gray-400 hover:text-white transition w-full p-2 rounded-lg hover:bg-white/5"
                         >
                             <LogOut className="w-4 h-4" />
@@ -570,7 +618,7 @@ const AIPortal = () => {
             </div>
             {/* Shirt Generator Modal */}
             <ShirtGeneratorModal
-                isOpen={showShirtGenModal}
+                isOpen={showShirtGenModal && hasFullAccess}
                 onClose={() => setShowShirtGenModal(false)}
                 onDesignGenerated={(url, prompt) => {
                     const aiMsg: ChatMessage = {
@@ -585,7 +633,7 @@ const AIPortal = () => {
             />
             {/* Image Gen Modal */}
             <ImageGenModal
-                isOpen={showImageGenModal}
+                isOpen={showImageGenModal && hasFullAccess}
                 onClose={() => setShowImageGenModal(false)}
                 onImageGenerated={(url, prompt) => {
                     // Optionally add the generated image to chat

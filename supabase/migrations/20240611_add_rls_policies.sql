@@ -110,7 +110,8 @@ CREATE TABLE IF NOT EXISTS brain_entries (
 
 ALTER TABLE IF EXISTS brain_entries ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Anyone can view brain entries" ON brain_entries;
-CREATE POLICY "Anyone can view brain entries" ON brain_entries FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Only admins can view brain entries" ON brain_entries;
+CREATE POLICY "Only admins can view brain entries" ON brain_entries FOR SELECT USING (EXISTS (SELECT 1 FROM admin_users WHERE user_id = auth.uid()));
 DROP POLICY IF EXISTS "Only admins can insert brain entries" ON brain_entries;
 CREATE POLICY "Only admins can insert brain entries" ON brain_entries FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM admin_users WHERE user_id = auth.uid()));
 DROP POLICY IF EXISTS "Only admins can update brain entries" ON brain_entries;

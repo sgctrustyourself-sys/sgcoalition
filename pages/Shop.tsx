@@ -4,6 +4,8 @@ import { useApp } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import SearchBar from '../components/SearchBar';
 import ProductCardSkeleton from '../components/ProductCardSkeleton';
+import Seo from '../components/Seo';
+import { buildItemListJsonLd } from '../utils/seo';
 
 const Shop = () => {
     const { products, isLoading, isConfigError } = useApp();
@@ -41,6 +43,14 @@ const Shop = () => {
     // Flat list for the top dropdown
     const categories = ['all', 'apparel', 'shirts', 'jeans', 'wallets', 'hats'];
     const allSizes = Array.from(new Set(products.flatMap(p => p.sizes || []))) as string[];
+    const shopJsonLd = React.useMemo(
+        () => buildItemListJsonLd(
+            products.filter(product => !product.archived),
+            'Coalition Shop',
+            '/shop'
+        ),
+        [products]
+    );
 
     const toggleSize = (size: string) => {
         setSelectedSizes(prev =>
@@ -111,7 +121,14 @@ const Shop = () => {
     }, [products, searchQuery, category, selectedSizes, priceRange, sortOption]);
 
     return (
-        <div className="pt-12 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-screen">
+        <>
+            <Seo
+                title="Shop Streetwear Drops"
+                description="Shop Coalition streetwear drops, limited wallets, tees, hats, and archive-ready pieces from Baltimore."
+                canonicalPath="/shop"
+                jsonLd={shopJsonLd}
+            />
+            <div className="pt-12 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-screen">
             {/* VIP Membership Banner */}
             {showVIPBanner && (
                 <div className="mb-8 bg-gradient-to-r from-purple-900/30 via-purple-800/30 to-blue-900/30 border border-purple-500/30 rounded-lg p-6 relative overflow-hidden">
@@ -344,7 +361,8 @@ const Shop = () => {
                     )}
                 </div>
             </div>
-        </div>
+            </div>
+        </>
     );
 };
 

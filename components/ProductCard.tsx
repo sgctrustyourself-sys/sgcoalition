@@ -16,6 +16,11 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     const primaryImage = product.images && product.images.length > 0 ? product.images[0] : '/images/logo.png';
     const hoverImage = product.images && product.images.length > 1 ? product.images[1] : primaryImage;
     const hasHoverImage = hoverImage !== primaryImage;
+    const shouldFitFullImage = product.id === 'prod_tee_above_as_below';
+    const keepImageClear = product.id === 'Coalition_NF_Tee';
+    const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-gray-900';
+    const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';
+    const hoverScaleClass = shouldFitFullImage ? 'group-hover:scale-[1.02]' : 'group-hover:scale-105';
 
     // Calculate urgency metrics
     const stockUrgency = getStockUrgency(product);
@@ -28,13 +33,13 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     return (
         <>
             <div className={`group relative bg-transparent ${isSold ? 'opacity-60' : ''}`}>
-                <div className="aspect-[4/5] overflow-hidden bg-gray-900 relative border border-white/5">
+                <div className={`aspect-[4/5] overflow-hidden ${imageFrameClass} relative border border-white/5`}>
                     <img
                         src={primaryImage}
                         alt={product.name}
                         loading="lazy"
-                        className={`absolute inset-0 h-full w-full object-cover object-center transition duration-700 ease-in-out ${
-                            hasHoverImage ? 'opacity-100 group-hover:opacity-0' : 'group-hover:scale-105 group-hover:grayscale'
+                        className={`absolute inset-0 h-full w-full ${imageObjectClass} object-center transition duration-700 ease-in-out ${
+                            hasHoverImage ? 'opacity-100 group-hover:opacity-0' : `${hoverScaleClass} group-hover:grayscale`
                         }`}
                     />
                     {hasHoverImage && (
@@ -42,7 +47,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
                             src={hoverImage}
                             alt={`${product.name} alternate view`}
                             loading="lazy"
-                            className="absolute inset-0 h-full w-full object-cover object-center opacity-0 group-hover:opacity-100 group-hover:scale-105 transition duration-700 ease-in-out"
+                            className={`absolute inset-0 h-full w-full ${imageObjectClass} object-center opacity-0 group-hover:opacity-100 ${hoverScaleClass} transition duration-700 ease-in-out`}
                         />
                     )}
                     {isSold && (
@@ -52,22 +57,22 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
                             </span>
                         </div>
                     )}
-                    {product.nft && !isSold && (
-                        <div className="absolute top-2 left-2 bg-black/80 backdrop-blur border border-white/20 text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 uppercase tracking-wider">
-                            <span className="text-brand-accent">✦</span>
-                            Digital Twin
+                    {!keepImageClear && (product.nft || product.isLimitedEdition || showLowStock) && (
+                        <div className="absolute top-2 left-2 z-20 flex flex-col items-start gap-1.5">
+                            {product.nft && !isSold && (
+                                <div className="bg-black/80 backdrop-blur border border-white/20 text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 uppercase tracking-wider">
+                                    <span className="text-brand-accent">*</span>
+                                    Digital Twin
+                                </div>
+                            )}
+                            {product.isLimitedEdition && (
+                                <UrgencyBadge type="limited-edition" />
+                            )}
+                            {showLowStock && (
+                                <UrgencyBadge type="low-stock" count={stockCount} />
+                            )}
                         </div>
                     )}
-
-                    {/* Urgency Badges */}
-                    <div className="absolute top-2 left-2 flex flex-col gap-1.5">
-                        {product.isLimitedEdition && (
-                            <UrgencyBadge type="limited-edition" />
-                        )}
-                        {showLowStock && (
-                            <UrgencyBadge type="low-stock" count={stockCount} />
-                        )}
-                    </div>
 
                     {user && (
                         <button
@@ -114,8 +119,8 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
                         )}
                     </div>
                 </div>
-                <div className="mt-4 flex justify-between items-start">
-                    <div>
+                <div className="mt-4 grid gap-3">
+                    <div className="min-w-0">
                         <h3 className="text-sm text-white font-bold uppercase tracking-wide">
                             <Link to={cardLink}>
                                 <span aria-hidden="true" className="absolute inset-0" />
@@ -123,8 +128,27 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
                             </Link>
                         </h3>
                         <p className="mt-1 text-xs text-gray-500 uppercase tracking-widest">{product.category}</p>
+                        {keepImageClear && (product.nft || product.isLimitedEdition || showLowStock) && (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                {product.nft && !isSold && (
+                                    <span className="inline-flex items-center gap-1 rounded-md border border-white/20 bg-white/5 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+                                        <span className="text-brand-accent">*</span>
+                                        Digital Twin
+                                    </span>
+                                )}
+                                {product.isLimitedEdition && (
+                                    <UrgencyBadge type="limited-edition" />
+                                )}
+                                {showLowStock && (
+                                    <UrgencyBadge type="low-stock" count={stockCount} />
+                                )}
+                            </div>
+                        )}
+                        {product.freeShipping && (
+                            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-brand-accent">Free Shipping</p>
+                        )}
                     </div>
-                    <PriceDisplay basePrice={product.price} size="small" showDiscount={true} />
+                    <PriceDisplay basePrice={product.price} size="small" showDiscount={true} className="w-full max-w-full" />
                 </div>
             </div>
             {

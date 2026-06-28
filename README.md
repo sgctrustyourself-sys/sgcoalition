@@ -2,6 +2,8 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
+> **Docs index:** [`docs/README.md`](docs/README.md) — drop template trio (kit + deck + storyboard), drops registry, project doc map.
+
 # Coalition Brand - E-commerce Platform
 
 Premium streetwear e-commerce platform built with React, Vite, and Stripe.
@@ -67,6 +69,56 @@ Use Stripe test cards:
 - **Success**: `4242 4242 4242 4242`
 - **Decline**: `4000 0000 0000 0002`
 - Any future expiry date and CVC
+
+### PayPal Checkout Smoke Test
+
+PayPal checkout is server-verified before an order is saved. The browser SDK uses `VITE_PAYPAL_CLIENT_ID`; `/api/paypal-order` creates/captures the PayPal order; `/api/complete-order` verifies the capture against PayPal and Supabase product pricing before writing `orders`.
+
+Required environment variables:
+
+```env
+VITE_PAYPAL_CLIENT_ID=your_paypal_client_id
+PAYPAL_CLIENT_ID=your_paypal_client_id
+PAYPAL_CLIENT_SECRET=your_paypal_client_secret
+PAYPAL_ENV=sandbox
+VITE_APP_URL=http://localhost:3000
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+```
+
+Optional order email variables:
+
+```env
+RESEND_API_KEY=re_your_key
+RESEND_FROM_EMAIL="SG Coalition <orders@your-domain.com>"
+ORDER_NOTIFICATION_EMAIL=orders@your-domain.com
+```
+
+Before testing, apply `supabase/migrations/20260617_add_paypal_order_fields.sql` so PayPal order and capture IDs are stored and de-duplicated.
+
+Smoke-test flow:
+
+1. Use a PayPal sandbox REST app and set all PayPal variables from the same sandbox app. Do not mix sandbox browser IDs with live server secrets.
+2. Run `npm run build`.
+3. Run the app through Vercel dev or a Vercel preview so `/api/paypal-order` and `/api/complete-order` execute as serverless functions.
+4. Add a physical product to cart, fill all shipping fields, leave partial store credit off, choose PayPal, and approve with a PayPal sandbox personal buyer account.
+5. Confirm the app lands on `/order/success?payment_method=paypal`.
+6. In Supabase, confirm one `orders` row exists with `payment_method = paypal`, `payment_status = paid`, `paypal_order_id` populated, `payment_reference` populated with the capture ID, and `total` equal to the PayPal capture amount.
+7. In the PayPal sandbox dashboard, confirm the order is `COMPLETED` and the captured amount matches the Supabase order total.
+
+For production, switch to live PayPal credentials and set `PAYPAL_ENV=live`, then redeploy so the Vite `VITE_PAYPAL_CLIENT_ID` is rebuilt into `index.html`.
+
+### Coalition Brain Bootstrap
+
+Populate the Brain table and seed entries with one idempotent admin bootstrap command:
+
+```bash
+npm run bootstrap:brain
+```
+
+Set either `SUPABASE_DB_URL`, or `VITE_SUPABASE_URL` plus `SUPABASE_DB_PASSWORD`, before running it. The script executes `supabase/migrations/20240611_seed_brain_entries.sql` through Postgres admin credentials, so it does not rely on anon-key writes against RLS-protected tables.
 
 ## Production Deployment
 

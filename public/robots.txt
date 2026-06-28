@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://sgcoalition.xyz/sitemap.xml

@@ -11,14 +11,43 @@ import {
     Megaphone
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import type { Signal } from '../context/AppContext';
+
+const CONFIG_ERROR_SIGNAL_ID = '__config_error__';
 
 const SignalAlert: React.FC = () => {
-    const { signals } = useApp();
+    const { signals, isConfigError } = useApp();
     const [dismissedIds, setDismissedIds] = useState<string[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
 
-    // Filter out dismissed signals
-    const activeSignals = signals.filter(s => !dismissedIds.includes(s.id));
+    // When AppContext sets isConfigError we synthesize a config-error
+    // signal and prepend it so it flows through the existing carousel
+    // and dismiss UI without duplicating markup.
+    const configErrorSignal: Signal | null = isConfigError
+        ? {
+            id: CONFIG_ERROR_SIGNAL_ID,
+            title: 'Offline Mode',
+            message: 'Supabase unreachable, showing local catalog',
+            type: 'alert',
+            is_active: true,
+            created_at: new Date().toISOString(),
+            // In-band retry: clicking "Retry" reloads the current URL. This
+            // is shorter than a full server restart and re-runs initApp,
+            // which re-attempts the failed Supabase fetch.
+            action_url: typeof window !== 'undefined' ? window.location.href : undefined,
+            action_label: 'Retry',
+        }
+        : null;
+
+    // Filter out dismissed items, including any prior dismiss of the
+    // synthesized config-error banner.
+    const filteredError = configErrorSignal && !dismissedIds.includes(configErrorSignal.id)
+        ? [configErrorSignal]
+        : [];
+    const activeSignals = [
+        ...filteredError,
+        ...signals.filter(s => !dismissedIds.includes(s.id)),
+    ];
 
     useEffect(() => {
         if (activeSignals.length > 1) {

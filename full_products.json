@@ -1,0 +1,236 @@
+[
+  {
+    "id": "Coalition_Grey_Wave_Wallet_2_2",
+    "name": "Coalition 'Grey Wave' Wallet 2/2",
+    "price": 35,
+    "stock": 1,
+    "category": "wallet",
+    "images": [
+      "https://i.imgur.com/FVMHZoq.jpeg",
+      "https://i.imgur.com/LLoGORu.jpeg"
+    ],
+    "description": "Second and final piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a storm-grey wave pattern, raw edge stitching, copper grommet, and Coalition mark. Built as a limited 2/2 collectible - once sold, it's gone forever.",
+    "is_featured": false,
+    "sizes": [
+      "One Size"
+    ],
+    "nft_metadata": null,
+    "created_at": "2026-06-28T06:10:04.347104+00:00",
+    "size_inventory": {
+      "One Size": 1
+    },
+    "archived": false,
+    "archived_at": null,
+    "released_at": null,
+    "sold_at": null,
+    "updated_at": "2026-06-28T06:11:55.280753+00:00"
+  },
+  {
+    "id": "prod_trust_yourself_hat_01",
+    "name": "Trust Yourself Custom Trucker (1/1)",
+    "price": 50,
+    "stock": 0,
+    "category": "headwear",
+    "images": [
+      "https://i.imgur.com/iYBlwm8.png",
+      "https://i.imgur.com/jwnVHoI.png",
+      "https://i.imgur.com/YNiTSFA.png",
+      "https://i.imgur.com/HqcoV24.png",
+      "https://i.imgur.com/6179VgH.png"
+    ],
+    "description": "A one-of-one custom trucker hat featuring 3D puff \"TRUST YOURSELF\" embroidery, hand-distressed brim, and a custom D20 pin. This piece represents the next evolution of Coalition headwear.",
+    "is_featured": false,
+    "sizes": [
+      "One Size"
+    ],
+    "nft_metadata": null,
+    "created_at": "2026-03-03T09:37:09.982845+00:00",
+    "size_inventory": {
+      "One Size": 0
+    },
+    "archived": true,
+    "archived_at": "2026-03-03T09:39:56.104+00:00",
+    "released_at": null,
+    "sold_at": "2025-01-01T00:00:00+00:00",
+    "updated_at": "2026-03-10T05:03:53.064948+00:00"
+  },
+  {
+    "id": "Coalition_x_True_Religion_S1",
+    "name": "Coalition x True Religion 1/1 Jeans S1",
+    "price": 240,
+    "stock": 0,
+    "category": "jeans",
+    "images": [
+      "https://i.imgur.com/2VU7MEr.jpg",
+      "https://i.imgur.com/hJgvL2K.jpg",
+      "https://i.imgur.com/EsvBcv4.jpg",
+      "https://i.imgur.com/J9EmRZq.jpg"
+    ],
+    "description": "One-of-one Coalition x True Religion collaboration jeans. Season 1 exclusive — custom distressed denim with premium detailing. Size 33. Once it's gone, it's gone.",
+    "is_featured": false,
+    "sizes": [
+      "33"
+    ],
+    "nft_metadata": null,
+    "created_at": "2026-02-28T16:35:16.737109+00:00",
+    "size_inventory": {
+      "33": 0
+    },
+    "archived": true,
+    "archived_at": null,
+    "released_at": null,
+    "sold_at": "2026-03-06T00:00:00+00:00",
+    "updated_at": "2026-03-10T08:13:47.949612+00:00"
+  },
+  {
+    "id": "GreenCamoWallet",
+    "name": "Coalition Green Camo Wallet",
+    "price": 35,
+    "stock": 0,
+    "category": "accessory",
+    "images": [
+      "https://i.imgur.com/kzIWQzA.jpg",
+      "https://i.imgur.com/hs4lZFg.jpg"
+    ],
+    "description": "Exclusive 1/1 custom wallet featuring camo green aesthetic and signature Coalition branding. Hand-crafted and unique.",
+    "is_featured": false,
+    "sizes": [
+      "One Size"
+    ],
+    "nft_metadata": null,
+    "created_at": "2025-11-22T03:16:30.859647+00:00",
+    "size_inventory": {
+      "One Size": 0
+    },
+    "archived": true,
+    "archived_at": "2026-05-22T22:33:38+00:00",
+    "released_at": null,
+    "sold_at": "2026-05-22T00:00:00+00:00",
+    "updated_at": "2026-05-23T13:33:03.943959+00:00"
+  },
+  {
+    "id": "Coalition_NF_Tee",
+    "name": "COALITION NF-TEE",
+    "price": 40,
+    "stock": 350,
+    "category": "shirt",
+    "images": [
+      "/images/products/nf-tee/model-1.jpg",
+      "/images/products/nf-tee/model-2.jpg",
+      "/images/products/nf-tee/model-3.jpg",
+      "/images/products/nf-tee/model-4.jpg"
+    ],
+    "description": "The future of streetwear. This limited edition phy-gital tee serves as your access pass to the Coalition ecosystem. Features exclusive \"Trust Yourself\" puff print and embedded NFC technology linked to its digital twin on the Polygon blockchain.",
+    "is_featured": false,
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL"
+    ],
+    "nft_metadata": {
+      "chain": "polygon",
+      "tokenId": "1",
+      "openseaUrl": "https://opensea.io/collection/sg-coalition",
+      "contractAddress": "0x951806a2581c22C478aC613a675e6c898E2aBe21"
+    },
+    "created_at": "2025-11-22T03:16:30.859647+00:00",
+    "size_inventory": {
+      "L": 1,
+      "M": 1,
+      "S": 1,
+      "XL": 1
+    },
+    "archived": false,
+    "archived_at": null,
+    "released_at": null,
+    "sold_at": null,
+    "updated_at": "2026-06-23T19:44:26.815089+00:00"
+  },
+  {
+    "id": "prod_1773860269374",
+    "name": "Coalition Shark Tee – 1/1 Exclusive ",
+    "price": 60,
+    "stock": 0,
+    "category": "shirt",
+    "images": [
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/new-product_1773860282282_tr59x.jpg",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/new-product_1773860297947_vxbrj.jpg",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/new-product_1773860317842_fobgj.jpg",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/new-product_1773860327763_lohf0.jpg"
+    ],
+    "description": "Unique SGCoalition tie‑dye “Trust Yourself” tee with a striking blue spiral pattern and the iconic crowned‑bird graphic. This one‑of‑a‑kind piece features premium print details and a motivational streetwear vibe. Size Small, in excellent condition with no flaws—ideal for collectors or anyone looking to add a standout Coalition piece to their wardrobe.",
+    "is_featured": false,
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL"
+    ],
+    "nft_metadata": null,
+    "created_at": "2026-03-18T19:00:38.440681+00:00",
+    "size_inventory": {
+      "L": 0,
+      "M": 0,
+      "S": 1,
+      "XL": 0
+    },
+    "archived": false,
+    "archived_at": null,
+    "released_at": null,
+    "sold_at": null,
+    "updated_at": "2026-06-23T22:07:54.979452+00:00"
+  },
+  {
+    "id": "Coalition_Grey_Wave_Wallet_1_2",
+    "name": "Coalition 'Grey Wave' Wallet 1/2",
+    "price": 35,
+    "stock": 0,
+    "category": "wallet",
+    "images": [
+      "https://i.imgur.com/7z2h8u6.jpeg",
+      "https://i.imgur.com/UqtbJCq.jpeg"
+    ],
+    "description": "First piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a custom charcoal-grey dye pattern inspired by Baltimore harbor at dawn. Built as a limited 1/2 collectible — once sold, it's gone forever.",
+    "is_featured": false,
+    "sizes": [
+      "One Size"
+    ],
+    "nft_metadata": null,
+    "created_at": "2026-06-20T23:37:00.358123+00:00",
+    "size_inventory": {
+      "One Size": 0
+    },
+    "archived": true,
+    "archived_at": "2026-06-25T02:40:12.191+00:00",
+    "released_at": null,
+    "sold_at": "2026-06-25T02:40:12.191+00:00",
+    "updated_at": "2026-06-25T02:40:10.758472+00:00"
+  },
+  {
+    "id": "SKYYBLUEWALLET1_2",
+    "name": "COALITION SKYY BLUE WALLET 1/2",
+    "price": 35,
+    "stock": 0,
+    "category": "wallet",
+    "images": [
+      "/images/products/wallet-skyy-blue/front.jpg",
+      "/images/products/wallet-skyy-blue/back.jpg"
+    ],
+    "description": "Second piece of the Skyy Blue collection. Hand-crafted tie-dye wallet with silver stitched border. Each piece unique — no two alike.",
+    "is_featured": false,
+    "sizes": [
+      "One Size"
+    ],
+    "nft_metadata": null,
+    "created_at": "2026-03-10T04:48:13.371411+00:00",
+    "size_inventory": {
+      "One Size": 0
+    },
+    "archived": true,
+    "archived_at": "2026-05-22T22:33:38+00:00",
+    "released_at": null,
+    "sold_at": "2026-05-22T00:00:00+00:00",
+    "updated_at": "2026-05-23T13:33:03.943959+00:00"
+  }
+]

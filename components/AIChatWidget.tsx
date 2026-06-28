@@ -12,6 +12,7 @@ const AIChatWidget = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [passwordInput, setPasswordInput] = useState('');
+    const [isUnlocking, setIsUnlocking] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -63,16 +64,23 @@ const AIChatWidget = () => {
         }
     };
 
-    const handleUnlockFullMode = () => {
-        if (verifyFullAIPassword(passwordInput)) {
-            setShowPasswordModal(false);
-            setPasswordInput('');
-            addToast('🚀 Opening Coalition AI Portal...', 'success');
+    const handleUnlockFullMode = async () => {
+        if (isUnlocking) return;
 
-            // Open AI Portal in new window
-            window.open('/#/ai-portal', '_blank');
-        } else {
-            addToast('Incorrect password', 'error');
+        setIsUnlocking(true);
+        try {
+            if (await verifyFullAIPassword(passwordInput)) {
+                setShowPasswordModal(false);
+                setPasswordInput('');
+                addToast('Opening Coalition AI Portal...', 'success');
+
+                // Open AI Portal in new window
+                window.open('/#/ai-portal', '_blank');
+            } else {
+                addToast('Incorrect password', 'error');
+            }
+        } finally {
+            setIsUnlocking(false);
         }
     };
 
@@ -216,6 +224,7 @@ const AIChatWidget = () => {
                             onKeyPress={(e) => e.key === 'Enter' && handleUnlockFullMode()}
                             placeholder="Enter password..."
                             className="w-full bg-black/50 border border-purple-500/30 rounded px-4 py-2 text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none mb-4"
+                            disabled={isUnlocking}
                         />
                         <div className="flex gap-3">
                             <button
@@ -229,9 +238,10 @@ const AIChatWidget = () => {
                             </button>
                             <button
                                 onClick={handleUnlockFullMode}
+                                disabled={isUnlocking}
                                 className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-4 py-2 rounded font-bold transition"
                             >
-                                Open Portal
+                                {isUnlocking ? 'Checking...' : 'Open Portal'}
                             </button>
                         </div>
                     </div>

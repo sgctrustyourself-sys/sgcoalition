@@ -1,6 +1,7 @@
 // Global type definitions
 interface Window {
-    ethereum: any;
+    ethereum?: any;
+    paypal?: any;
 }
 
 declare module 'ethers';

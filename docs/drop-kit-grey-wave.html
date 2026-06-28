@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coalition Drop Kit — Grey Wave Wallet 1/2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --doc-accent: #3B82F6;  /* web3-blue — designer blueprint feel */
+  }
+  html { background: #050505; }
+  body {
+    --brand-accent: #3B82F6;
+    --format-story-accent: #F59E0B;
+    --format-grid-accent: #A855F7;
+    --format-x-accent: #3B82F6;
+    background: #050505; color: #E5E5E5;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    margin: 0; padding: 32px 24px 64px;
+    position: relative; min-height: 100vh;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999;
+  }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #111; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 36px 28px 80px; position: relative; z-index: 1; }
+
+  header {
+    padding: 0 0 32px;
+    margin-bottom: 44px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .eyebrow {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.3em;
+    color: #E5E5E5; text-transform: uppercase;
+    margin: 0 0 14px;
+  }
+  h1.h-display {
+    font-family: 'Oswald', sans-serif;
+    font-size: clamp(40px, 7vw, 80px);
+    font-weight: 700; line-height: 0.95;
+    letter-spacing: -0.005em;
+    text-transform: uppercase; color: #fff;
+    margin: 0 0 18px;
+  }
+  h1.h-display .dim { color: #888; }
+  .lead {
+    font-family: 'Inter', sans-serif; font-weight: 300;
+    font-size: 16px; line-height: 1.65; color: #aaa;
+    max-width: 76ch; margin: 0 0 14px;
+  }
+  .pair-with {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-left: 3px solid var(--doc-accent);
+    padding: 16px 20px; margin: 18px 0 0;
+    font-size: 13px; line-height: 1.7;
+    border-radius: 4px;
+  }
+  .pair-with p { margin: 6px 0; }
+  .pair-with strong { color: #fff; }
+  .pair-with a { color: #fff; text-decoration: none; font-weight: 700; border-bottom: 1px solid rgba(255, 255, 255, 0.20); transition: border-color 200ms; }
+  .pair-with a:hover { border-bottom-color: var(--brand-accent); }
+  .pair-with code, .pair-with .src-code { background: rgba(0, 0, 0, 0.6); padding: 1px 6px; border-radius: 2px; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .pair-with .source-md { display: block; margin-top: 8px; color: #888; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+  .pair-with .source-md a { color: #aaa; border-bottom-color: rgba(255, 255, 255, 0.10); }
+  .pair-with .editor-note { display: block; margin-top: 6px; color: #888; font-size: 12px; font-style: italic; }
+
+  h2.section-h {
+    font-family: 'Oswald', sans-serif;
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 700; line-height: 1.0;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    margin: 60px 0 4px;
+    color: var(--doc-accent);
+  }
+  h3.sub-h {
+    font-family: 'Oswald', sans-serif;
+    font-size: 18px; font-weight: 600;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    color: #fff;
+    margin: 28px 0 8px;
+  }
+  p { margin: 10px 0; }
+  p code, li code, td code { background: rgba(0, 0, 0, 0.6); padding: 1px 6px; border-radius: 2px; color: #fff; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+  code.token { background: rgba(59, 130, 246, 0.12); color: #93C5FD; border: 1px solid rgba(59, 130, 246, 0.30); padding: 2px 8px; border-radius: 2px; font-family: 'JetBrains Mono', monospace; font-size: 11px; display: inline-block; }
+
+  .section-meta {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin: 8px 0 22px;
+  }
+  .section-meta .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: #aaa; border: 1px solid rgba(255, 255, 255, 0.10); background: rgba(255, 255, 255, 0.03);
+    border-radius: 2px;
+  }
+  .section-meta .chip code { background: transparent; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+  /* Spec card — antigravity-glass content block */
+  .spec-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    padding: 22px 26px;
+    margin: 0 0 18px;
+    transition: all 300ms ease;
+  }
+  .spec-card:hover {
+    border-color: rgba(255, 255, 255, 0.20);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 36px rgba(0, 0, 0, 0.2), inset 0 0 0 1px rgba(59, 130, 246, 0.15);
+  }
+  .spec-card h3.sub-h { margin-top: 0; }
+
+  /* Tables (the markdown | col | col | style) */
+  table.spec-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 10px 0 0;
+  }
+  .spec-table th, .spec-table td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    vertical-align: top;
+  }
+  .spec-table th {
+    color: #888;
+    font-weight: 400;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    font-size: 10px;
+    width: 32%;
+    background: rgba(0, 0, 0, 0.30);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .spec-table td { color: #E5E5E5; font-family: 'Inter', sans-serif; }
+  .spec-table tr:last-child th, .spec-table tr:last-child td { border-bottom: 0; }
+
+  /* Code block — for hashtag bank / IG caption code-fence substitutes */
+  pre.code-block {
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 3px solid var(--doc-accent);
+    border-radius: 4px;
+    padding: 14px 16px;
+    margin: 10px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #E5E5E5;
+    overflow-x: auto;
+    white-space: pre;
+    line-height: 1.5;
+  }
+  pre.code-block strong { color: #fff; }
+
+  /* Companion blockquote variants (slide-spec notes) */
+  blockquote.note {
+    background: rgba(245, 158, 11, 0.06);
+    border-left: 3px solid #F59E0B;
+    padding: 10px 16px;
+    margin: 10px 0;
+    color: #E5E5E5;
+    font-size: 13px;
+    border-radius: 0 4px 4px 0;
+  }
+  blockquote.note strong { color: #fff; }
+
+  ul.checklist, ol.checklist {
+    list-style: none;
+    padding: 0; margin: 14px 0 0;
+  }
+  ul.checklist li {
+    padding: 8px 0 8px 28px;
+    position: relative;
+    font-size: 13px;
+    color: #E5E5E5;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+    line-height: 1.55;
+  }
+  ul.checklist li:last-child { border-bottom: 0; }
+  ul.checklist li::before {
+    content: '☐'; position: absolute; left: 4px; top: 8px;
+    color: var(--doc-accent); font-weight: 700;
+  }
+  ul.checklist li b { color: #fff; }
+  ul.checklist li code { background: rgba(0, 0, 0, 0.6); padding: 1px 6px; border-radius: 2px; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+  .callout-row {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    margin: 12px 0;
+  }
+  .callout {
+    flex: 1; min-width: 220px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    padding: 12px 14px;
+  }
+  .callout .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: #888; font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .callout .body { color: #fff; font-size: 13px; font-weight: 600; }
+
+  hr.divider {
+    border: 0;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 36px 0;
+  }
+
+  footer {
+    margin: 60px 0 0;
+    padding: 24px 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    color: #888; font-size: 12px; line-height: 1.7;
+  }
+  footer p { margin: 4px 0; }
+  footer a { color: #fff; text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, 0.20); transition: border-color 200ms; }
+  footer a:hover { border-bottom-color: var(--brand-accent); }
+  footer code { background: rgba(0, 0, 0, 0.6); padding: 1px 6px; border-radius: 2px; color: #fff; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+
+  @media print {
+    body { background: #fff; color: #000; }
+    body::before { display: none; }
+    .spec-card { box-shadow: none; border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">Coalition · Drop Kit · Grey Wave Wallet 1/2</span>
+  <h1 class="h-display">DROP <span class="dim">KIT</span></h1>
+  <p class="lead">Reusable spec for building brand-consistent drops — IG grid carousel, X thread cards, IG Story variants — for any Coalition limited-release product. Grey Wave Wallet 1/2 is the worked example; <code>{{release_name}}</code> placeholders map to the next drop's specifics.</p>
+
+  <blockquote class="pair-with">
+    <p><strong>Worked example:</strong> Coalition 'Grey Wave' Wallet 1/2 · <strong>Drop date:</strong> 2026-06-20 · <strong>Channels:</strong> IG grid · IG Stories · X single-post + 3-tweet thread.</p>
+    <p><strong>Pair with — <a href="drop-copy-grey-wave.html">docs/drop-copy-grey-wave.html</a></strong> : copy deck with hashtag bank, IG caption variants, X thread copy, Slack one-liner, and per-channel publish order.<span class="source-md">md source · <a href="drop-copy-grey-wave.md">drop-copy-grey-wave.md</a></span></p>
+    <p><strong>Storyboard preview — <a href="storyboard-grey-wave.html">docs/storyboard-grey-wave.html</a></strong> : 9:16 ASCII frames + reviewer checklist for non-designers.</p>
+    <p><strong>Trio hub — <a href="preview-grey-wave-assets.html">docs/preview-grey-wave-assets.html</a></strong> : 16 postable PNGs (source + Story + Grid + X) for visual review.</p>
+    <p><strong>Template inspo — <a href="storyboard-inspo-kittl-frame-canva.html">docs/storyboard-inspo-kittl-frame-canva.html</a></strong> : source a real template from Kittl / Canva / Motion Array tonight + re-skin it. <span class="source-md">md source · <a href="storyboard-inspo-kittl-frame-canva.md">storyboard-inspo-kittl-frame-canva.md</a></span></p>
+    <span class="editor-note">Always edit kit + deck + storyboard together. Each .html preview stays in lockstep with its .md source.</span>
+  </blockquote>
+</header>
+
+<h2 id="brand-specs" class="section-h">BRAND SPECS · ACROSS EVERY SLIDE</h2>
+<div class="section-meta">
+  <span class="chip">10 tokens</span>
+  <span class="chip">applies to all 5 slides</span>
+  <span class="chip">Only the wallet imagery + price + copy change per drop</span>
+</div>
+<div class="spec-card">
+  <p>These stay constant across drops — only the wallet imagery, price, and copy change.</p>
+  <table class="spec-table">
+    <tr><th>Canvas — IG portrait</th>    <td>1080 × 1350</td></tr>
+    <tr><th>Canvas — X card</th>        <td>1200 × 628</td></tr>
+    <tr><th>Canvas — Story</th>         <td>1080 × 1920</td></tr>
+    <tr><th>Palette — base</th>         <td><code>#000000</code></td></tr>
+    <tr><th>Palette — text</th>         <td><code>#FFFFFF</code></td></tr>
+    <tr><th>Palette — frame</th>        <td><code>#1A1A1A</code></td></tr>
+    <tr><th>Palette — stone</th>        <td><code>#6B6B6B</code></td></tr>
+    <tr><th>Palette — mist</th>         <td><code>#C8C8C8</code></td></tr>
+    <tr><th>Display font</th>           <td>Bebas Neue · Anton · Druk Wide</td></tr>
+    <tr><th>Body font</th>              <td>Inter · Söhne</td></tr>
+    <tr><th>Outer margin (portrait)</th> <td>80–120 px</td></tr>
+    <tr><th>Wordmark position</th>      <td>top-left, ~10–12% page width</td></tr>
+    <tr><th>Wordmark color</th>         <td>white</td></tr>
+  </table>
+  <blockquote class="note"><strong>Note:</strong> No accent color — the wallet's own dye is the only color the slides show. Override this only if the release's dye demands one.</blockquote>
+</div>
+
+<h2 id="image-assets" class="section-h">IMAGE ASSETS · PER DROP</h2>
+<div class="section-meta">
+  <span class="chip">2 URLs · 2 local PNGs</span>
+  <span class="chip">alpha-free RGB</span>
+  <span class="chip">1024 × 1024 source</span>
+</div>
+<div class="spec-card">
+  <p>For any drop, you'll have two CDN URLs:</p>
+  <ul style="list-style: none; padding: 0; margin: 8px 0 14px;">
+    <li><code>image_front_url</code> — primary hero shot, used in Slides 1 + 3 + 5</li>
+    <li><code>image_back_url</code> — secondary detail shot, used in Slide 2</li>
+  </ul>
+  <h3 class="sub-h">Worked values (Grey Wave)</h3>
+  <table class="spec-table">
+    <tr><th><code>image_front_url</code></th><td><code>https://i.imgur.com/7z2h8u6.jpeg</code></td></tr>
+    <tr><th><code>image_back_url</code></th><td><code>https://i.imgur.com/UqtbJCq.jpeg</code></td></tr>
+  </table>
+  <h3 class="sub-h">Local PNG copies (for direct Canva upload, alpha-free)</h3>
+  <pre class="code-block">public/images/grey-wave-wallet-1-2-front.png
+public/images/grey-wave-wallet-1-2-back.png</pre>
+  <p style="margin-top: 10px;">For the next drop, swap these paths + URLs only.</p>
+</div>
+
+<h2 id="slide-1" class="section-h">SLIDE 1 · HERO</h2>
+<div class="section-meta">
+  <span class="chip">1080 × 1350</span>
+  <span class="chip">full-bleed <code>{{image_front_url}}</code></span>
+  <span class="chip">top-left dark gradient overlay</span>
+</div>
+<div class="spec-card">
+  <p><strong>Layout:</strong> full-bleed <code>{{image_front_url}}</code> with a dark gradient overlay (top-left, 30% opacity, #000 → transparent) so the wordmark reads cleanly.</p>
+  <table class="spec-table">
+    <tr><th>Wordmark (top-left, ~80px wide, white)</th> <td><code>COALITION</code></td></tr>
+    <tr><th>Center-top, 96–120px Display</th>           <td><code>{{release_name_uppercase}}</code> (e.g., "GREY WAVE")</td></tr>
+    <tr><th>Below, 32px body, color <code>#C8C8C8</code></th> <td><code>Coalition '{{release_name_title_case}}' Wallet {{x}}/{{y}}</code></td></tr>
+  </table>
+  <blockquote class="note"><strong>Grey Wave:</strong> "GREY WAVE" / "Coalition 'Grey Wave' Wallet 1/2".</blockquote>
+</div>
+
+<h2 id="slide-2" class="section-h">SLIDE 2 · DETAIL</h2>
+<div class="section-meta">
+  <span class="chip">1080 × 1350</span>
+  <span class="chip">full-bleed <code>{{image_back_url}}</code></span>
+  <span class="chip">bottom 35% black gradient</span>
+</div>
+<div class="spec-card">
+  <p><strong>Layout:</strong> full-bleed <code>{{image_back_url}}</code>. Black vertical gradient from bottom (0% → 70% opacity). Copy sits on solid black.</p>
+  <table class="spec-table">
+    <tr><th>Center-bottom, 56–64px Display</th> <td><code>{{detail_headline}}</code></td></tr>
+    <tr><th>Below, 28–32px body, <code>#C8C8C8</code></th> <td><code>{{detail_subtext}}</code></td></tr>
+  </table>
+  <h3 class="sub-h">Grey Wave</h3>
+  <table class="spec-table">
+    <tr><th><code>detail_headline</code></th> <td>"Hand-finished charcoal dye."</td></tr>
+    <tr><th><code>detail_subtext</code></th>  <td>"Inspired by Baltimore harbor at dawn — the moment before anything moves."</td></tr>
+  </table>
+</div>
+
+<h2 id="slide-3" class="section-h">SLIDE 3 · SCARCITY</h2>
+<div class="section-meta">
+  <span class="chip">1080 × 1350</span>
+  <span class="chip">50/50 split — top half + bottom half #000</span>
+  <span class="chip">primary urgency driver</span>
+</div>
+<div class="spec-card">
+  <p><strong>Layout:</strong> 50/50 split — top half = <code>{{image_front_url}}</code>, bottom half = pure <code>#000</code> for the type lockup.</p>
+  <table class="spec-table">
+    <tr><th>Eyebrow above the big number, 14px tracked-out</th> <td><code>LIMITED EDITION</code>, color <code>#6B6B6B</code>, letter-spacing 0.3em</td></tr>
+    <tr><th>Center-bottom, 96–110px Display</th>              <td><code>{{x}} OF {{y}}</code></td></tr>
+    <tr><th>Below, 40px Display</th>                           <td><code>{{price}}</code>, color <code>#C8C8C8</code></td></tr>
+  </table>
+  <p><strong>Story variant:</strong> drop a 24-hour countdown sticker above the "X OF Y" line.</p>
+  <blockquote class="note"><strong>Grey Wave:</strong> "1 OF 2" / "<span class="token" style="margin: 0;">$35</span>" — <code>price</code> = <code>{{price}}</code>.</blockquote>
+</div>
+
+<h2 id="slide-4" class="section-h">SLIDE 4 · MANIFESTO</h2>
+<div class="section-meta">
+  <span class="chip">1080 × 1350</span>
+  <span class="chip">pure #000 + 10–15% wallet backdrop</span>
+  <span class="chip">brand beat, no price, no scarcity</span>
+</div>
+<div class="spec-card">
+  <p><strong>Layout:</strong> pure <code>#000</code> background with a tiny wallet image tucked in as low-contrast backdrop (~15% opacity). Center text lockup.</p>
+  <table class="spec-table">
+    <tr><th>Center, 120–160px Display</th>  <td><code>{{manifesto_headline}}</code></td></tr>
+    <tr><th>Below, 28px body, <code>#6B6B6B</code></th> <td><code>{{manifesto_subtext}}</code></td></tr>
+  </table>
+  <blockquote class="note"><strong>Grey Wave:</strong> "TRUST YOURSELF." / "Coalition is action. Show up."</blockquote>
+</div>
+
+<h2 id="slide-5" class="section-h">SLIDE 5 · CTA</h2>
+<div class="section-meta">
+  <span class="chip">1080 × 1350</span>
+  <span class="chip">60/40 split — front cropped + black panel</span>
+  <span class="chip">only slide that converts via caption</span>
+</div>
+<div class="spec-card">
+  <p><strong>Layout:</strong> split frame — left 60% = <code>{{image_front_url}}</code> cropped tight. Right 40% = clean black panel.</p>
+  <table class="spec-table">
+    <tr><th>Top of black panel, 24px eyebrow, <code>#6B6B6B</code></th> <td><code>{{release_name_uppercase}} / WALLET {{x}}/{{y}}</code></td></tr>
+    <tr><th>Mid, 56–72px Display</th>                                <td><code>SHOP NOW</code> followed by <code>→</code> in <code>#C8C8C8</code></td></tr>
+    <tr><th>Bottom of black panel, 24px body, <code>#C8C8C8</code></th> <td><code>{{shop_url}}</code></td></tr>
+  </table>
+  <p><strong>Story variant:</strong> replace "SHOP NOW" with a "Shop Now" sticker + URL sticker. URL = <code>{{shop_url}}</code>.</p>
+  <blockquote class="note"><strong>Grey Wave:</strong> "GREY WAVE / WALLET 1/2" / "sgcoalition.xyz/shop".</blockquote>
+</div>
+
+<h2 id="x-single" class="section-h">X SINGLE-POST CARD · 1200×628</h2>
+<div class="section-meta">
+  <span class="chip">Slide 5 cropped</span>
+  <span class="chip">black header band above + below</span>
+  <span class="chip">1.91:1 ratio</span>
+</div>
+<div class="spec-card">
+  <p>Use Slide 5 cropped to 1200×628 with a black header band:</p>
+  <ul style="list-style: none; padding: 0; margin: 8px 0;">
+    <li>Above the wallet: <code>{{release_name_uppercase}}</code> 72px Display, white on black.</li>
+    <li>Below the wallet: <code>{{price}} · {{x}} of {{y}} · Once it's gone, it's gone.</code> 24px body, <code>#C8C8C8</code>.</li>
+  </ul>
+  <p>Don't fight the wallet's contrast — keep the type band under the image, not on top.</p>
+</div>
+
+<h2 id="x-thread" class="section-h">X THREAD IMAGES · 1 IMAGE PER TWEET</h2>
+<div class="section-meta">
+  <span class="chip">3-tweet thread</span>
+  <span class="chip">1200×628 each</span>
+</div>
+<div class="spec-card">
+  <ul style="list-style: none; padding: 0; margin: 0;">
+    <li>✅ <strong>Tweet 1 image</strong> — drop-kit Slide 1 (hero)</li>
+    <li>✅ <strong>Tweet 2 image</strong> — drop-kit Slide 3 (scarcity)</li>
+    <li>✅ <strong>Tweet 3 image</strong> — drop-kit Slide 5 (CTA)</li>
+  </ul>
+</div>
+
+<h2 id="ig-stories" class="section-h">IG STORY VARIANTS · 1080×1920</h2>
+<div class="section-meta">
+  <span class="chip">1080 × 1920</span>
+  <span class="chip">9:16 vertical</span>
+  <span class="chip">Stickers: countdown, poll, mention, link</span>
+  <span class="chip">5 slides</span>
+</div>
+<div class="spec-card">
+  <p>The grid carousel is 1080×1350. Stories flip to 1080×1920 vertical 9:16 and add IG-specific stickers (countdown, poll, mention, link) for engagement. Use these specs alongside the grid.</p>
+
+  <h3 class="sub-h">Safe zones</h3>
+  <table class="spec-table">
+    <tr><th>Top safe (profile handle / IG UI)</th>  <td>250 px from top</td></tr>
+    <tr><th>Bottom safe (CTA tray / sticker UI)</th> <td>320 px from bottom</td></tr>
+    <tr><th>Useable canvas</th>                     <td>~1080 × 1350 within safe area</td></tr>
+  </table>
+
+  <h3 class="sub-h">Slide 1 · HERO (Story)</h3>
+  <table class="spec-table">
+    <tr><th>Background</th>   <td>full bleed — <code>{{image_front_url}}</code></td></tr>
+    <tr><th>Wordmark</th>     <td>top safe zone, 80 px wide, 60 px from top — <code>COALITION</code></td></tr>
+    <tr><th>Display title</th> <td>center, 88 px — <code>{{release_name_uppercase}}</code></td></tr>
+    <tr><th>Subtitle</th>     <td>below title, 26 px body <code>#C8C8C8</code> — <code>Coalition '{{release_name_title_case}}' Wallet {{x}}/{{y}}</code></td></tr>
+  </table>
+  <p><strong>Stickers:</strong> Countdown sticker top-right (120 px from right, 200 px from top; end-time = drop time). <code>@sgcoalition</code> mention sticker bottom-left.</p>
+  <blockquote class="note"><strong>Grey Wave:</strong> title "GREY WAVE", subtitle "Coalition 'Grey Wave' Wallet 1/2"; countdown to 2026-06-20 launch.</blockquote>
+
+  <h3 class="sub-h">Slide 2 · DETAIL (Story)</h3>
+  <table class="spec-table">
+    <tr><th>Background</th>          <td>full bleed — <code>{{image_back_url}}</code></td></tr>
+    <tr><th>Bottom gradient</th>     <td>bottom 35% of slide — <code>#000</code> 0% → 70% opacity</td></tr>
+    <tr><th>Display headline</th>    <td>center-bottom, 56 px — <code>{{detail_headline}}</code></td></tr>
+    <tr><th>Body subtext</th>        <td>below, 24 px <code>#C8C8C8</code> — <code>{{detail_subtext}}</code></td></tr>
+  </table>
+  <p><strong>Stickers:</strong> Poll sticker right-side: "Harbor at dawn? Yes / No" (engagement bait).</p>
+  <blockquote class="note"><strong>Grey Wave:</strong> headline "Hand-finished charcoal dye.", subtext "Inspired by Baltimore harbor at dawn — the moment before anything moves."</blockquote>
+
+  <h3 class="sub-h">Slide 3 · SCARCITY (Story)</h3>
+  <table class="spec-table">
+    <tr><th>Top half</th>            <td>upper 50% — <code>{{image_front_url}}</code></td></tr>
+    <tr><th>Bottom half</th>         <td>lower 50% — solid <code>#000</code></td></tr>
+    <tr><th>Eyebrow</th>             <td>above big number, 16 px <code>#6B6B6B</code> letter-spacing 0.3em — <code>LIMITED EDITION</code></td></tr>
+    <tr><th>Display scarcity</th>    <td>center of bottom half, 140 px — <code>{{x}} OF {{y}}</code></td></tr>
+    <tr><th>Price</th>               <td>below, 60 px <code>#C8C8C8</code> — <code>{{price}}</code></td></tr>
+  </table>
+  <p><strong>Stickers:</strong> Countdown sticker top-right (drop end-time, drives urgency); poll sticker bottom-left in black panel: "Should we run <code>{{y}}/{{y}}</code>? Yes / Wait" — most actionable data point in the campaign (early demand signal for the trailing release).</p>
+  <blockquote class="note"><strong>Grey Wave:</strong> "1 OF 2" / "$35".</blockquote>
+
+  <h3 class="sub-h">Slide 4 · MANIFESTO (Story)</h3>
+  <table class="spec-table">
+    <tr><th>Background</th>         <td>pure <code>#000</code></td></tr>
+    <tr><th>Subtle backdrop</th>    <td>full-bleed at ~10% opacity — <code>{{image_front_url}}</code> (texture)</td></tr>
+    <tr><th>Display headline</th>   <td>center, 130 px white — <code>{{manifesto_headline}}</code></td></tr>
+    <tr><th>Body subtext</th>       <td>below, 32 px <code>#6B6B6B</code> — <code>{{manifesto_subtext}}</code></td></tr>
+  </table>
+  <p><strong>Stickers:</strong> Mention sticker <code>@sgcoalition</code> bottom-right.</p>
+  <blockquote class="note"><strong>Grey Wave:</strong> "TRUST YOURSELF." / "Coalition is action. Show up."</blockquote>
+
+  <h3 class="sub-h">Slide 5 · CTA (Story)</h3>
+  <table class="spec-table">
+    <tr><th>Top 60%</th>            <td>upper portion — <code>{{image_front_url}}</code> cropped tight</td></tr>
+    <tr><th>Bottom 40%</th>         <td>lower portion — solid <code>#000</code> panel</td></tr>
+    <tr><th>Eyebrow</th>            <td>top of black panel, 26 px <code>#6B6B6B</code> — <code>{{release_name_uppercase}} / WALLET {{x}}/{{y}}</code></td></tr>
+    <tr><th>Display CTA</th>        <td>mid panel, 70 px white — <code>SHOP NOW</code> + arrow brand mark <code>→</code> (<code>#C8C8C8</code>)</td></tr>
+    <tr><th>URL</th>                <td>bottom of panel, 28 px <code>#C8C8C8</code> — <code>{{shop_url}}</code></td></tr>
+  </table>
+  <p><strong>Stickers:</strong> Link sticker on the <code>→</code> mark → <code>{{shop_url}}</code>; mention sticker <code>@sgcoalition</code> bottom-left. The link sticker is the actual Story → PDP conversion path.</p>
+  <blockquote class="note"><strong>Grey Wave:</strong> eyebrow "GREY WAVE / WALLET 1/2", URL "sgcoalition.xyz/shop".</blockquote>
+
+  <h3 class="sub-h">Sticker strategy (priority order)</h3>
+  <ol style="padding-left: 20px; margin: 8px 0;">
+    <li><strong>Countdown</strong> (slides 1+3) — drives reminder sets; converts browsers to drop-night traffic.</li>
+    <li><strong>Poll</strong> (slides 2+3) — earliest demand signal for the trailing release (the most actionable data point in the campaign).</li>
+    <li><strong>Link sticker</strong> (slide 5) — direct Story → PDP path (the only one that converts).</li>
+    <li><strong>Mention sticker</strong> (slides 4+5) — <code>@sgcoalition</code> cross-pollination to the IG grid.</li>
+    <li><strong>Emoji slider</strong> (slide 4) — "🔥 Trust Yourself" (low value but lifts retention metrics; optional).</li>
+  </ol>
+
+  <h3 class="sub-h">Story-only templating checks (additions)</h3>
+  <ul class="checklist">
+    <li>Drop time for the countdown sticker <b>exactly matches</b> the publish time.</li>
+    <li>Countdown sticker's <code>ends_at</code> is in the future at publish, in IG-recognized timezone (defaults to your local).</li>
+    <li>Link sticker URL matches the PDP URL — no trailing slash, no redirect typos.</li>
+    <li>Mention sticker's <code>@sgcoalition</code> resolves to the active handle.</li>
+    <li>Poll sticker options are short (≤24 chars), mutually exclusive, on-brand.</li>
+    <li>Stickers float OVER text (added after the canvas is composed), never under a black gradient.</li>
+  </ul>
+
+  <h3 class="sub-h">Story thumb-prep checklist</h3>
+  <ul class="checklist">
+    <li>Local PNGs at <code>public/images/{{release_slug}}-wallet-{{x}}-{{y}}-{front,back}.png</code> are alpha-free RGB.</li>
+    <li>1080×1920 frame in Canva or Figma, safe-zone rectangles drawn first.</li>
+    <li>Sticker overlays added AFTER copy so copy stays clean inside the safe area.</li>
+    <li>Mention + link stuck in the same Story slot to avoid sticker-tray collisions.</li>
+    <li>Live preview on the actual IG account before publishing (stickers snap to tray edges differently than Canva previews).</li>
+  </ul>
+</div>
+
+<h2 id="canva" class="section-h">CANVA RECIPE · UNDER 5 MINUTES PER SLIDE</h2>
+<div class="section-meta">
+  <span class="chip">5 steps</span>
+  <span class="chip">1080 × 1350 frame</span>
+  <span class="chip">no-code path</span>
+</div>
+<div class="spec-card">
+  <ol style="padding-left: 20px; line-height: 1.7; color: #E5E5E5;">
+    <li><strong>Custom size → 1080×1350.</strong> Black background.</li>
+    <li><strong>Drop the image</strong> via "Upload" (paste Imgur URL into embed element if Canva refuses uploads; or download from Imgur first).</li>
+    <li><strong>Position image full-bleed</strong>, crop if needed.</li>
+    <li><strong>Add Display text</strong> — Bebas Neue is free in Canva; or upload your brand font.</li>
+    <li><strong>Add a transparent-to-black linear gradient rectangle</strong> behind any text overlay.</li>
+    <li><strong>Repeat</strong> for each slide, then "Resize" → duplicate the design and swap image.</li>
+  </ol>
+</div>
+
+<h2 id="figma" class="section-h">FIGMA RECIPE</h2>
+<div class="section-meta">
+  <span class="chip">5 steps</span>
+  <span class="chip">1080 × 1350 frame × 5 pages</span>
+  <span class="chip">Auto-layout for resize</span>
+</div>
+<div class="spec-card">
+  <ol style="padding-left: 20px; line-height: 1.7; color: #E5E5E5;">
+    <li><strong>New file → 1080×1350 frame.</strong> Build a 5-page structure for the carousel.</li>
+    <li><strong>Use Figma's "Place image"</strong> with the Imgur URLs (Figma embeds them).</li>
+    <li><strong>Create text styles once</strong> (Display + Body), apply across all slides.</li>
+    <li><strong>Use Auto-layout</strong> for the manifesto slide so resizing to X / Story is one click.</li>
+    <li><strong>Export each frame</strong> as PNG @2x for IG.</li>
+  </ol>
+</div>
+
+<h2 id="templating" class="section-h">TEMPLATING CHECKLIST · FOR THE NEXT DROP</h2>
+<div class="section-meta">
+  <span class="chip">7 steps · edit / build / publish</span>
+</div>
+<div class="spec-card">
+  <ul class="checklist">
+    <li>Upload front + back Imgur albums, copy direct CDN URLs.</li>
+    <li>Decide release name (e.g., "Grey Wave"), variant count (e.g., 1/2), price.</li>
+    <li>Write <code>{{detail_headline}}</code>, <code>{{detail_subtext}}</code>, <code>{{manifesto_headline}}</code>, <code>{{manifesto_subtext}}</code>, <code>{{scarcity_subtext}}</code>.</li>
+    <li>Duplicate this file to <code>docs/drop-kit-{{release_slug}}-{{x}}-{{y}}.md</code>.</li>
+    <li>Replace all <code class="token">{{ }}</code> placeholders with the new drop's specifics.</li>
+    <li>Build in Canva or Figma following the same 5-slide grid.</li>
+    <li>Verify <code>#000</code> background + alpha-free PNGs render cleanly before exporting.</li>
+    <li>Schedule the IG + X posts.</li>
+  </ul>
+</div>
+
+<h2 id="asset-prep" class="section-h">ASSET PREP REFERENCE</h2>
+<div class="section-meta">
+  <span class="chip">Grey Wave specific</span>
+</div>
+<div class="spec-card">
+  <p>For Grey Wave, local PNGs are already saved alongside this template:</p>
+  <pre class="code-block">public/images/grey-wave-wallet-1-2-front.png   — alpha-free RGB, 1024×1024
+public/images/grey-wave-wallet-1-2-back.png    — alpha-free RGB, 1024×1024</pre>
+  <p>Generate these per drop by running the same Pillow pipeline (Pillow <code>optimize=True, compress_level=9</code>, JPEG input flattened onto pure black) — image shrink further requires lossy WebP variants for mobile Story uploads.</p>
+</div>
+
+<footer>
+  <p>Pair with <a href="drop-copy-grey-wave.html">drop-copy-grey-wave.html</a> · <a href="storyboard-grey-wave.html">storyboard-grey-wave.html</a> · <a href="preview-grey-wave-assets.html">preview-grey-wave-assets.html</a>.</p>
+  <p>Markdown source · <a href="drop-kit-grey-wave.md">drop-kit-grey-wave.md</a> — keep the .html preview in lockstep with the .md source on every edit. Drop date 2026-06-20.</p>
+  <p>Reusable spec for any Coalition limited-release. Grey Wave worked values throughout; <code>{{ }}</code> placeholders map to the next drop's specifics.</p>
+  <p style="color:#555;margin-top:20px;">Drop-kit · Coalition brand tokens shared with <code>docs/{preview,storyboard,drop-kit,drop-copy}-grey-wave-assets.html</code>.</p>
+</footer>
+
+</div>
+</body>
+</html>

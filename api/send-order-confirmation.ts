@@ -1,6 +1,110 @@
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const DEFAULT_ORDER_NOTIFICATION_EMAIL = 'sgctrustyourself@gmail.com';
+
+function getOrderNotificationRecipients() {
+    return (process.env.ORDER_NOTIFICATION_EMAIL || process.env.ADMIN_ORDER_EMAIL || DEFAULT_ORDER_NOTIFICATION_EMAIL)
+        .split(',')
+        .map(email => email.trim())
+        .filter(Boolean);
+}
+
+function getResendFromAddress() {
+    return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>';
+}
+
+async function sendResendEmail(payload: any) {
+    const result = await resend.emails.send({
+        ...payload,
+        from: getResendFromAddress(),
+    });
+
+    const error = (result as any)?.error;
+    if (error) {
+        throw new Error(error.message || 'Resend rejected the email request.');
+    }
+
+    return result;
+}
+
+function escapeHtml(value: unknown) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+async function sendAdminOrderNotification(order: any) {
+    const recipients = getOrderNotificationRecipients();
+    if (recipients.length === 0) return;
+
+    const itemsHtml = (order.items || []).map((item: any) => {
+        const unitPrice = Number(item.price || 0);
+        const quantity = Math.max(1, Number(item.quantity || 1));
+        return `
+        <tr>
+            <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;">
+                <strong>${escapeHtml(item.name || item.productName || 'Product')}</strong><br>
+                <span style="color:#6b7280;font-size:13px;">Size: ${escapeHtml(item.size || item.selectedSize || 'One Size')} - Qty: ${escapeHtml(quantity)}</span>
+            </td>
+            <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;text-align:right;">$${unitPrice.toFixed(2)}</td>
+            <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;text-align:right;">$${(unitPrice * quantity).toFixed(2)}</td>
+        </tr>
+    `;
+    }).join('');
+
+    const shipping = order.shippingInfo || order.shippingAddress || {};
+    return await sendResendEmail({
+        to: recipients,
+        subject: `ACTION REQUIRED: Prepare Coalition order ${order.id}`,
+        html: `
+            <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:28px;background:#ffffff;color:#111827;">
+                <h1 style="margin:0 0 8px;letter-spacing:2px;text-transform:uppercase;">Order Ready To Fulfill</h1>
+                <p style="margin:0 0 24px;color:#6b7280;">A paid order was placed on sgcoalition.xyz. Prepare, pack, and ship the items below.</p>
+                <div style="background:#111827;color:#ffffff;border-radius:8px;padding:18px;margin-bottom:24px;">
+                    <div style="font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#9ca3af;">Fulfillment Summary</div>
+                    <div style="font-size:28px;font-weight:bold;margin-top:4px;">${escapeHtml(order.id)}</div>
+                    <div style="margin-top:8px;">Total: <strong>$${Number(order.total || 0).toFixed(2)}</strong> | Payment: <strong>${escapeHtml(order.paymentMethod || order.payment_method || 'unknown')}</strong></div>
+                </div>
+                <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+                    <tr><td style="padding:12px;background:#f9fafb;"><strong>Order</strong></td><td style="padding:12px;text-align:right;">${escapeHtml(order.id)}</td></tr>
+                    <tr><td style="padding:12px;background:#f9fafb;"><strong>Total</strong></td><td style="padding:12px;text-align:right;">$${Number(order.total || 0).toFixed(2)}</td></tr>
+                    <tr><td style="padding:12px;background:#f9fafb;"><strong>Payment</strong></td><td style="padding:12px;text-align:right;">${escapeHtml(order.paymentMethod || order.payment_method || 'unknown')}</td></tr>
+                    <tr><td style="padding:12px;background:#f9fafb;"><strong>Shipping</strong></td><td style="padding:12px;text-align:right;">${escapeHtml(order.shippingMethod || shipping.shippingMethod || 'standard')} ($${Number(order.shippingCost || shipping.shippingCost || 0).toFixed(2)})</td></tr>
+                </table>
+                <h2 style="font-size:18px;margin:0 0 10px;">Customer</h2>
+                <p style="margin:0 0 20px;line-height:1.6;">
+                    ${escapeHtml(order.customerName || '')}<br>
+                    <a href="mailto:${escapeHtml(order.customerEmail || '')}">${escapeHtml(order.customerEmail || '')}</a>
+                </p>
+                <h2 style="font-size:18px;margin:0 0 10px;">Ship To</h2>
+                <p style="margin:0 0 20px;line-height:1.6;">
+                    ${escapeHtml(shipping.address1 || '')}<br>
+                    ${escapeHtml(shipping.city || '')}${shipping.city && shipping.state ? ', ' : ''}${escapeHtml(shipping.state || '')} ${escapeHtml(shipping.zip || '')}<br>
+                    ${escapeHtml(shipping.country || '')}
+                </p>
+                <h2 style="font-size:18px;margin:0 0 10px;">Items</h2>
+                <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                    <tr>
+                        <th align="left" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Item</th>
+                        <th align="right" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Unit</th>
+                        <th align="right" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Line</th>
+                    </tr>
+                    ${itemsHtml}
+                </table>
+                <div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;padding:16px;margin-bottom:24px;">
+                    <strong>Next step:</strong> Pull the items, verify size/quantity, pack the order, then update the admin dashboard when it ships.
+                </div>
+                <p style="margin-top:24px;">
+                    <a href="https://sgcoalition.xyz/#/admin" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Admin Dashboard</a>
+                </p>
+            </div>
+        `,
+    });
+}
 
 export default async function handler(req: any, res: any) {
     // Set CORS headers
@@ -181,14 +285,20 @@ export default async function handler(req: any, res: any) {
         `;
 
         // Send email using Resend
-        const data = await resend.emails.send({
-            from: 'SG Coalition <noreply@sgcoalition.xyz>',
+        const data = await sendResendEmail({
             to: [order.customerEmail],
             subject: `Order Confirmation - ${order.id}`,
             html: emailHtml,
         });
 
-        res.status(200).json({ success: true, data });
+        let adminNotification = null;
+        try {
+            adminNotification = await sendAdminOrderNotification(order);
+        } catch (emailError) {
+            console.warn('Admin order notification failed:', emailError);
+        }
+
+        res.status(200).json({ success: true, data, adminNotification });
     } catch (err: any) {
         console.error('Email send error:', err);
         res.status(500).json({ error: err.message || 'Failed to send email' });

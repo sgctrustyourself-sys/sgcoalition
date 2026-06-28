@@ -1,22 +1,32 @@
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { DEFAULT_SEO_DESCRIPTION, DEFAULT_SEO_IMAGE, absoluteUrl } from '../utils/seo';
 
 interface SeoProps {
   title: string;
   description?: string;
   image?: string;
   type?: 'website' | 'article' | 'product';
+  canonicalPath?: string;
+  url?: string;
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  noindex?: boolean;
 }
 
 const Seo: React.FC<SeoProps> = ({ 
   title, 
-  description = "Coalition is a premium streetwear brand born in Baltimore. Quality, community, and the hustle. Shop the latest drops and join the movement.",
-  image = "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-  type = 'website' 
+  description = DEFAULT_SEO_DESCRIPTION,
+  image = DEFAULT_SEO_IMAGE,
+  type = 'website',
+  canonicalPath,
+  url,
+  jsonLd,
+  noindex = false,
 }) => {
   const location = useLocation();
   const fullTitle = title.includes('Coalition') ? title : `Coalition | ${title}`;
-  const url = `https://sgcoalition.xyz${location.pathname}`;
+  const canonicalUrl = url || absoluteUrl(canonicalPath || location.pathname);
+  const previewImage = absoluteUrl(image);
 
   useEffect(() => {
     // Update Title
@@ -25,15 +35,18 @@ const Seo: React.FC<SeoProps> = ({
     // Update Meta Tags
     const metaTags = [
       { name: 'description', content: description },
+      { name: 'robots', content: noindex ? 'noindex,nofollow' : 'index,follow' },
       { property: 'og:title', content: fullTitle },
       { property: 'og:description', content: description },
-      { property: 'og:image', content: image },
-      { property: 'og:url', content: url },
+      { property: 'og:image', content: previewImage },
+      { property: 'og:url', content: canonicalUrl },
       { property: 'og:type', content: type },
+      { property: 'og:site_name', content: 'Coalition' },
       { name: 'twitter:card', content: 'summary_large_image' },
+      { name: 'twitter:site', content: '@sgcoalition' },
       { name: 'twitter:title', content: fullTitle },
       { name: 'twitter:description', content: description },
-      { name: 'twitter:image', content: image },
+      { name: 'twitter:image', content: previewImage },
     ];
 
     metaTags.forEach(tag => {
@@ -56,7 +69,27 @@ const Seo: React.FC<SeoProps> = ({
       }
     });
 
-  }, [fullTitle, description, image, url, type]);
+    let canonical = document.querySelector('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.setAttribute('rel', 'canonical');
+      document.head.appendChild(canonical);
+    }
+    canonical.setAttribute('href', canonicalUrl);
+
+    document
+      .querySelectorAll('script[data-seo-jsonld="true"], script[data-seo-static-jsonld="true"]')
+      .forEach(script => script.remove());
+
+    if (jsonLd) {
+      const script = document.createElement('script');
+      script.type = 'application/ld+json';
+      script.dataset.seoJsonld = 'true';
+      script.textContent = JSON.stringify(jsonLd);
+      document.head.appendChild(script);
+    }
+
+  }, [fullTitle, description, previewImage, canonicalUrl, type, jsonLd, noindex]);
 
   return null; // This component handles side effects only
 };

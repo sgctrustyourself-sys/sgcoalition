@@ -224,7 +224,11 @@ const App = () => {
                     <Route path="/tutorial/use-sgcoin" element={<Navigate to="/tutorial/use" replace />} />
                     <Route path="/migrate" element={<MigrationPage />} />
                     <Route path="/live-orders" element={<LiveOrdersMap />} />
-                    <Route path="/brain" element={<Brain />} />
+                    <Route path="/brain" element={
+                      <ProtectedRoute requireAdmin={true}>
+                        <Brain />
+                      </ProtectedRoute>
+                    } />
 
                     <Route path="*" element={<NotFound />} />
                   </Routes>

@@ -183,6 +183,12 @@ export class RetryQueue {
 
     /**
      * Map Product to database format
+     *
+     * NOTE: is_limited_edition column was added in
+     * supabase/migrations/20260620_add_is_limited_edition_to_products.sql.
+     * Keep this list in lockstep with the AppContext.tsx addProduct /
+     * updateProduct insert/update payloads and the seedProducts.ts script
+     * so Supabase-sourced products retain the Limited Edition badge.
      */
     private mapProductToDb(p: Product) {
         return {
@@ -193,6 +199,7 @@ export class RetryQueue {
             images: p.images,
             description: p.description,
             is_featured: p.isFeatured,
+            is_limited_edition: p.isLimitedEdition ?? false,
             sizes: p.sizes,
             size_inventory: p.sizeInventory || {},
             nft_metadata: p.nft,

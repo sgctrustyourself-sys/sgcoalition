@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coalition Drop Copy — Grey Wave Wallet 1/2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --doc-accent: #A855F7;  /* purple-500 — copy / creative-flow frequency */
+  }
+  html { background: #050505; }
+  body {
+    --brand-accent: #3B82F6;
+    --format-story-accent: #F59E0B;
+    --format-grid-accent: #A855F7;
+    --format-x-accent: #3B82F6;
+    background: #050505; color: #E5E5E5;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    margin: 0; padding: 32px 24px 64px;
+    position: relative; min-height: 100vh;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999;
+  }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #111; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 36px 28px 80px; position: relative; z-index: 1; }
+
+  header {
+    padding: 0 0 32px;
+    margin-bottom: 44px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .eyebrow {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.3em;
+    color: #E5E5E5; text-transform: uppercase;
+    margin: 0 0 14px;
+  }
+  h1.h-display {
+    font-family: 'Oswald', sans-serif;
+    font-size: clamp(40px, 7vw, 80px);
+    font-weight: 700; line-height: 0.95;
+    letter-spacing: -0.005em;
+    text-transform: uppercase; color: #fff;
+    margin: 0 0 18px;
+  }
+  h1.h-display .dim { color: #888; }
+  .lead {
+    font-family: 'Inter', sans-serif; font-weight: 300;
+    font-size: 16px; line-height: 1.65; color: #aaa;
+    max-width: 76ch; margin: 0 0 14px;
+  }
+  .pair-with {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-left: 3px solid var(--doc-accent);
+    padding: 16px 20px; margin: 18px 0 0;
+    font-size: 13px; line-height: 1.7;
+    border-radius: 4px;
+  }
+  .pair-with p { margin: 6px 0; }
+  .pair-with strong { color: #fff; }
+  .pair-with a { color: #fff; text-decoration: none; font-weight: 700; border-bottom: 1px solid rgba(255, 255, 255, 0.20); transition: border-color 200ms; }
+  .pair-with a:hover { border-bottom-color: var(--brand-accent); }
+  .pair-with code { background: rgba(0, 0, 0, 0.6); padding: 1px 6px; border-radius: 2px; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .pair-with .source-md { display: block; margin-top: 8px; color: #888; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+  .pair-with .source-md a { color: #aaa; border-bottom-color: rgba(255, 255, 255, 0.10); }
+  .pair-with .editor-note { display: block; margin-top: 6px; color: #888; font-size: 12px; font-style: italic; }
+
+  h2.section-h {
+    font-family: 'Oswald', sans-serif;
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 700; line-height: 1.0;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    margin: 60px 0 4px;
+    color: var(--doc-accent);
+  }
+  h3.sub-h {
+    font-family: 'Oswald', sans-serif;
+    font-size: 18px; font-weight: 600;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    color: #fff;
+    margin: 28px 0 8px;
+  }
+  h4.copy-h {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--doc-accent);
+    margin: 14px 0 6px;
+  }
+  p { margin: 10px 0; }
+  p code, li code, td code { background: rgba(0, 0, 0, 0.6); padding: 1px 6px; border-radius: 2px; color: #fff; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+  code.token { background: rgba(168, 85, 247, 0.12); color: #C4B5FD; border: 1px solid rgba(168, 85, 247, 0.30); padding: 2px 8px; border-radius: 2px; font-family: 'JetBrains Mono', monospace; font-size: 11px; display: inline-block; }
+  strong { color: #fff; }
+
+  .section-meta {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin: 8px 0 22px;
+  }
+  .section-meta .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: #aaa; border: 1px solid rgba(255, 255, 255, 0.10); background: rgba(255, 255, 255, 0.03);
+    border-radius: 2px;
+  }
+  .section-meta .chip code { background: transparent; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+  /* Copy card — antigravity-glass content block */
+  .copy-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    padding: 22px 26px;
+    margin: 0 0 18px;
+    transition: all 300ms ease;
+  }
+  .copy-card:hover {
+    border-color: rgba(255, 255, 255, 0.20);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 36px rgba(0, 0, 0, 0.2), inset 0 0 0 1px rgba(168, 85, 247, 0.15);
+  }
+  .copy-card h3.sub-h, .copy-card h4.copy-h { margin-top: 0; }
+  .copy-card blockquote.tip { border-left-color: var(--doc-accent); }
+
+  /* Copy block — the IG caption / X tweet text (lifts the {{price}} and mentions into highlighted spans). */
+  pre.copy-block {
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 3px solid var(--doc-accent);
+    border-radius: 4px;
+    padding: 14px 16px;
+    margin: 10px 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 13px;
+    color: #E5E5E5;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    line-height: 1.6;
+  }
+  pre.copy-block .hashtag {
+    color: #C4B5FD;
+    font-weight: 600;
+  }
+  pre.copy-block code.token {
+    background: rgba(168, 85, 247, 0.18);
+    border-color: rgba(168, 85, 247, 0.40);
+  }
+
+  /* Character count chip — small flag */
+  .char-count {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    margin-left: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: #aaa;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 2px;
+  }
+  .char-count strong { color: #fff; }
+
+  /* Tip callout — for "Engagement tip:", "Length:", etc. */
+  blockquote.tip {
+    background: rgba(168, 85, 247, 0.06);
+    border-left: 3px solid var(--doc-accent);
+    padding: 10px 16px;
+    margin: 10px 0;
+    color: #E5E5E5;
+    font-size: 13px;
+    border-radius: 0 4px 4px 0;
+  }
+  blockquote.tip strong { color: var(--doc-accent); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; margin-right: 6px; }
+
+  /* Variant card grid */
+  .variant-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    margin: 12px 0 18px;
+  }
+  @media (max-width: 1000px) { .variant-row { grid-template-columns: 1fr; } }
+  .variant-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 3px solid var(--doc-accent);
+    border-radius: 4px;
+    padding: 16px 18px;
+    transition: all 300ms ease;
+  }
+  .variant-card:hover {
+    border-color: rgba(255, 255, 255, 0.20);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 30px rgba(0, 0, 0, 0.2);
+  }
+  .variant-card .v-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--doc-accent);
+    margin-bottom: 4px;
+  }
+  .variant-card .v-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 20px; font-weight: 700;
+    text-transform: uppercase;
+    color: #fff;
+    margin: 4px 0 8px;
+    letter-spacing: -0.005em;
+  }
+  .variant-card pre.copy-block { font-size: 12px; margin: 6px 0; }
+  .variant-card blockquote.tip { margin: 6px 0; }
+
+  /* Thread card */
+  .thread-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    padding: 18px 22px;
+    margin: 0 0 18px;
+  }
+  .thread-card .thread-h {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+  }
+  .thread-card .thread-h .tweet-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--doc-accent);
+  }
+  .thread-card pre.copy-block { margin: 8px 0; }
+
+  /* Publish-order list */
+  ol.publish {
+    list-style: none;
+    padding: 0; margin: 14px 0 0;
+    counter-reset: publish-counter;
+  }
+  ol.publish li {
+    padding: 14px 0 14px 60px;
+    position: relative;
+    font-size: 13px;
+    color: #E5E5E5;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    line-height: 1.55;
+  }
+  ol.publish li:last-child { border-bottom: 0; }
+  ol.publish li::before {
+    counter-increment: publish-counter;
+    content: counter(publish-counter);
+    position: absolute; left: 0; top: 14px;
+    width: 44px; height: 44px;
+    background: rgba(168, 85, 247, 0.10);
+    border: 1px solid var(--doc-accent);
+    border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Oswald', sans-serif;
+    font-size: 18px; font-weight: 700;
+    color: var(--doc-accent);
+  }
+  ol.publish li b { color: #fff; }
+  ol.publish li .t-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    margin-right: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: #fff;
+    background: rgba(168, 85, 247, 0.20);
+    border: 1px solid var(--doc-accent);
+    border-radius: 2px;
+    vertical-align: middle;
+  }
+
+  ul.checklist {
+    list-style: none;
+    padding: 0; margin: 14px 0 0;
+  }
+  ul.checklist li {
+    padding: 8px 0 8px 28px;
+    position: relative;
+    font-size: 13px;
+    color: #E5E5E5;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+    line-height: 1.55;
+  }
+  ul.checklist li:last-child { border-bottom: 0; }
+  ul.checklist li::before {
+    content: '☐'; position: absolute; left: 4px; top: 8px;
+    color: var(--doc-accent); font-weight: 700;
+  }
+  ul.checklist li b { color: #fff; }
+  ul.checklist li code, ul.checklist li code.token { background: rgba(0, 0, 0, 0.6); padding: 1px 6px; border-radius: 2px; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+  hr.divider {
+    border: 0;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 36px 0;
+  }
+
+  footer {
+    margin: 60px 0 0;
+    padding: 24px 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    color: #888; font-size: 12px; line-height: 1.7;
+  }
+  footer p { margin: 4px 0; }
+  footer a { color: #fff; text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, 0.20); transition: border-color 200ms; }
+  footer a:hover { border-bottom-color: var(--brand-accent); }
+  footer code { background: rgba(0, 0, 0, 0.6); padding: 1px 6px; border-radius: 2px; color: #fff; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+
+  @media print {
+    body { background: #fff; color: #000; }
+    body::before { display: none; }
+    .copy-card, .variant-card, .thread-card { box-shadow: none; border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">Coalition · Drop Copy · Grey Wave Wallet 1/2</span>
+  <h1 class="h-display">DROP <span class="dim">COPY</span></h1>
+  <p class="lead">Ready-to-paste copy deck paired with <code>drop-kit-grey-wave</code>. Grey Wave Wallet 1/2 is the worked example; every <code class="token">{{ }}</code> token is a portability slot for future drops.</p>
+
+  <blockquote class="pair-with">
+    <p><strong>Pair with — <a href="drop-kit-grey-wave.html">docs/drop-kit-grey-wave.html</a></strong> : visual spec for slide assembly (1080×1350 / 1080×1920 / 1200×628 + Canva/Figma recipes).<span class="source-md">md source · <a href="drop-kit-grey-wave.md">drop-kit-grey-wave.md</a></span></p>
+    <p><strong>Storyboard preview — <a href="storyboard-grey-wave.html">docs/storyboard-grey-wave.html</a></strong> : 9:16 ASCII frames + reviewer checklist for non-designers.</p>
+    <p><strong>Trio hub — <a href="preview-grey-wave-assets.html">docs/preview-grey-wave-assets.html</a></strong> : 16 postable PNGs (source + Story + Grid + X) for visual review.</p>
+    <p><strong>Template inspo — <a href="storyboard-inspo-kittl-frame-canva.html">docs/storyboard-inspo-kittl-frame-canva.html</a></strong> : where the copy above actually lands in a Story template (Kittl / Canva / Motion Array). <span class="source-md">md source · <a href="storyboard-inspo-kittl-frame-canva.md">storyboard-inspo-kittl-frame-canva.md</a></span></p>
+    <p><strong>Channels:</strong> IG caption · IG Stories · X single-post · X 3-tweet thread · <strong>Copy deck version:</strong> Grey Wave 1/2 (2026-06-20)</p>
+    <span class="editor-note">Always edit kit + deck + storyboard together. Each .html preview stays in lockstep with its .md source.</span>
+  </blockquote>
+</header>
+
+<h2 id="hashtag-bank" class="section-h">HASHTAG BANK · CANONICAL</h2>
+<div class="section-meta">
+  <span class="chip">Tier 1 · always include</span>
+  <span class="chip">Tier 2 · rotate 2–3 per post</span>
+  <span class="chip">single-source-of-truth</span>
+</div>
+<div class="copy-card">
+  <p>Always include at the bottom of every post, in this order:</p>
+  <pre class="copy-block"><span class="hashtag">#Coalition</span> <span class="hashtag">#{{release_hashtag}}</span> <span class="hashtag">#BaltimoreStreetwear</span> <span class="hashtag">#TrustYourself</span> <span class="hashtag">#LimitedEdition</span></pre>
+  <blockquote class="tip"><strong>Worked (Grey Wave):</strong> <span class="hashtag">#Coalition</span> <span class="hashtag">#GreyWave</span> <span class="hashtag">#BaltimoreStreetwear</span> <span class="hashtag">#TrustYourself</span> <span class="hashtag">#LimitedEdition</span></blockquote>
+  <p>Tier-2 (rotate 2–3 per post for reach — never all at once):</p>
+  <pre class="copy-block"><span class="hashtag">#Streetwear</span> <span class="hashtag">#Baltimore</span> <span class="hashtag">#{{y}}of{{y}}</span> <span class="hashtag">#{{release_hashtag}}Edition</span> <span class="hashtag">#HandFinished</span> <span class="hashtag">#Drops</span></pre>
+  <blockquote class="tip"><strong>Worked (Grey Wave):</strong> <span class="hashtag">#Streetwear</span> <span class="hashtag">#Baltimore</span> <span class="hashtag">#1of2</span> <span class="hashtag">#GreyWaveEdition</span> <span class="hashtag">#HandFinished</span> <span class="hashtag">#Drops</span></blockquote>
+</div>
+
+<h2 id="ig-captions" class="section-h">INSTAGRAM CAPTION · LONG</h2>
+<div class="section-meta">
+  <span class="chip">carousel feed · full</span>
+  <span class="chip">~570 chars</span>
+  <span class="chip">8 hashtags</span>
+</div>
+<div class="copy-card">
+  <h4 copy-h>Carousel feed (long)</h4>
+  <pre class="copy-block">🌊 GREY WAVE.
+
+Coalition 'Grey Wave' Wallet 1/2 — $35.
+
+Hand-finished charcoal dye. Inspired by Baltimore harbor at dawn — the moment before anything moves. 1 of 2 in this run. Limited edition.
+
+When it's gone, it's gone. Trust Yourself.
+
+🔗 Link in bio → sgcoalition.xyz/shop
+
+<span class="hashtag">#Coalition</span> <span class="hashtag">#GreyWave</span> <span class="hashtag">#BaltimoreStreetwear</span> <span class="hashtag">#TrustYourself</span> <span class="hashtag">#LimitedEdition</span> <span class="hashtag">#Streetwear</span> <span class="hashtag">#1of2</span> <span class="hashtag">#Drop</span></pre>
+  <blockquote class="tip"><strong>Length:</strong> ~570 chars (well under IG's 2,200 limit). 8 hashtags — IG allows up to 30 but 8–12 is the engagement sweet spot.</blockquote>
+</div>
+
+<h3 class="sub-h">IG caption · short (Stories-first / casual feed)</h3>
+<div class="copy-card">
+  <pre class="copy-block">🌊 GREY WAVE.
+
+Coalition 'Grey Wave' Wallet 1/2 — $35. 1 of 2. Hand-finished charcoal dye.
+
+When it's gone, it's gone.
+
+🔗 Link in bio.
+
+<span class="hashtag">#Coalition</span> <span class="hashtag">#GreyWave</span> <span class="hashtag">#TrustYourself</span> <span class="hashtag">#LimitedEdition</span> <span class="hashtag">#BaltimoreStreetwear</span></pre>
+  <blockquote class="tip"><strong>Length:</strong> ~225 chars. Use when the carousel visuals carry the load and caption should be tight.</blockquote>
+</div>
+
+<h2 id="x-single" class="section-h">X · SINGLE TWEET</h2>
+<div class="section-meta">
+  <span class="chip">≤ 280 chars</span>
+  <span class="chip">with image</span>
+</div>
+<div class="copy-card">
+  <pre class="copy-block">🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $35. Hand-finished charcoal dye. Inspired by Baltimore harbor at dawn. Limited 1/2. Once it's gone, it's gone. sgcoalition.xyz/shop</pre>
+  <blockquote class="tip"><strong>Length:</strong> ~199 chars.</blockquote>
+  <h4 copy-h>Hashtag-ified variant (still within limit)</h4>
+  <pre class="copy-block">🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $35. Limited 1/2. Once it's gone, it's gone. sgcoalition.xyz/shop
+
+<span class="hashtag">#Coalition</span> <span class="hashtag">#GreyWave</span> <span class="hashtag">#TrustYourself</span></pre>
+  <blockquote class="tip"><strong>Length:</strong> ~150 chars. Reserve the long version for blog posts or longer-form platforms (Bluesky, Threads).</blockquote>
+</div>
+
+<h2 id="x-thread" class="section-h">X · 3-TWEET THREAD</h2>
+<div class="section-meta">
+  <span class="chip">3 tweets · 1 image each</span>
+  <span class="chip">1200×628 X crop</span>
+</div>
+
+<div class="thread-card">
+  <div class="thread-h">
+    <span class="tweet-tag">Tweet 1/3</span>
+    <span class="char-count">~134 chars · Pair: drop-kit Slide 1 (hero)</span>
+  </div>
+  <pre class="copy-block">🌊 GREY WAVE.
+
+Coalition 'Grey Wave' Wallet 1/2 — $35. Hand-finished charcoal dye inspired by Baltimore harbor at dawn. Once it's gone, it's gone.
+
+sgcoalition.xyz/shop</pre>
+  <blockquote class="tip"><strong>Engagement tip:</strong> post this tweet first; replies count starts here.</blockquote>
+</div>
+
+<div class="thread-card">
+  <div class="thread-h">
+    <span class="tweet-tag">Tweet 2/3</span>
+    <span class="char-count">~119 chars · Pair: drop-kit Slide 3 (scarcity)</span>
+  </div>
+  <pre class="copy-block">1 of 2. No reprints.
+
+Each wallet is finished by hand. Harbor-at-dawn dye pattern — the moment before anything moves.</pre>
+  <blockquote class="tip"><strong>Engagement tip:</strong> this is the data-gathering tweet — pin a poll in replies if X allows it on your account.</blockquote>
+</div>
+
+<div class="thread-card">
+  <div class="thread-h">
+    <span class="tweet-tag">Tweet 3/3</span>
+    <span class="char-count">~42 chars · Pair: drop-kit Slide 5 (CTA)</span>
+  </div>
+  <pre class="copy-block">Coalition is action. Trust Yourself. 🖤</pre>
+  <blockquote class="tip"><strong>Engagement tip:</strong> end on the brand line, not the URL. The CTA sticker lives on the image, not in the tweet text.</blockquote>
+</div>
+
+<h2 id="ig-stories-copy" class="section-h">IG STORY SEQUENCE COPY · 1080×1920</h2>
+<div class="section-meta">
+  <span class="chip">5 slides · per-slide copy</span>
+  <span class="chip">stickers float OVER copy</span>
+</div>
+<div class="copy-card">
+  <p>The visual layout for each Story is detailed in <a href="drop-kit-grey-wave.html">drop-kit-grey-wave.html</a> under "IG Story variants". This section is the actual copy that lives on each slide. Stickers float over the copy (added after canvas is composed).</p>
+
+  <h3 class="sub-h">Story 1 · HERO</h3>
+  <h4 copy-h>On-slide copy stack</h4>
+  <pre class="copy-block">COALITION                     (top safe zone, 80 px wide)
+GREY WAVE                     (center, 88 px Display)
+Coalition 'Grey Wave' Wallet 1/2   (subtitle, 26 px body, #C8C8C8)</pre>
+  <h4 copy-h>Stickers</h4>
+  <ul style="padding-left: 20px; margin: 6px 0;">
+    <li>Countdown sticker (top-right, end-time = drop time)</li>
+    <li><code>@sgcoalition</code> mention sticker (bottom-left)</li>
+  </ul>
+
+  <h3 class="sub-h">Story 2 · DETAIL</h3>
+  <h4 copy-h>On-slide copy stack</h4>
+  <pre class="copy-block">Hand-finished charcoal dye.                        (56 px Display)
+Inspired by Baltimore harbor at dawn — the moment before anything moves.   (24 px body, #C8C8C8)</pre>
+  <h4 copy-h>Stickers</h4>
+  <ul style="padding-left: 20px; margin: 6px 0;">
+    <li>Poll sticker (right-side, centered vertically): <strong>"Harbor at dawn?" / Yes / No</strong></li>
+  </ul>
+
+  <h3 class="sub-h">Story 3 · SCARCITY</h3>
+  <h4 copy-h>On-slide copy stack</h4>
+  <pre class="copy-block">LIMITED EDITION                (16 px eyebrow, #6B6B6B, tracked 0.3em)
+1 OF 2                         (140 px Display, center of bottom half)
+$35                            (60 px Display, #C8C8C8)</pre>
+  <h4 copy-h>Stickers</h4>
+  <ul style="padding-left: 20px; margin: 6px 0;">
+    <li>Countdown sticker (top-right, end-time = drop time — primary urgency driver)</li>
+    <li>Poll sticker (bottom-left of black panel): <strong>"Should we run 2/2?" / Yes / Wait</strong></li>
+  </ul>
+
+  <h3 class="sub-h">Story 4 · MANIFESTO</h3>
+  <h4 copy-h>On-slide copy stack</h4>
+  <pre class="copy-block">TRUST YOURSELF.                (130 px Display, center)
+Coalition is action. Show up.  (32 px body, #6B6B6B)</pre>
+  <h4 copy-h>Stickers</h4>
+  <ul style="padding-left: 20px; margin: 6px 0;">
+    <li><code>@sgcoalition</code> mention sticker (bottom-right)</li>
+    <li>(Optional) emoji slider sticker: <strong>"🔥 Trust Yourself"</strong></li>
+  </ul>
+
+  <h3 class="sub-h">Story 5 · CTA</h3>
+  <h4 copy-h>On-slide copy stack</h4>
+  <pre class="copy-block">GREY WAVE / WALLET 1/2         (eyebrow, 26 px, #6B6B6B)
+SHOP NOW →                     (70 px Display, white; arrow in #C8C8C8)
+sgcoalition.xyz/shop           (28 px body, #C8C8C8)</pre>
+  <h4 copy-h>Stickers</h4>
+  <ul style="padding-left: 20px; margin: 6px 0;">
+    <li>Link sticker (on the <code>→</code> mark, URL field = <code>sgcoalition.xyz/shop</code> — the actual Story → PDP conversion path)</li>
+    <li><code>@sgcoalition</code> mention sticker (bottom-left)</li>
+  </ul>
+</div>
+
+<h2 id="ab-variants" class="section-h">CAPTION VARIANTS · FOR A/B TESTING</h2>
+<div class="section-meta">
+  <span class="chip">3 variants · pick per-post</span>
+</div>
+<div class="variant-row">
+
+  <div class="variant-card">
+    <div class="v-tag">Variant A</div>
+    <div class="v-title">Scarcity-led</div>
+    <pre class="copy-block">🌊 GREY WAVE. 1 of 2 — $35. Hand-finished charcoal dye. Once it's gone, it's gone. Link in bio.
+
+<span class="hashtag">#Coalition</span> <span class="hashtag">#GreyWave</span> <span class="hashtag">#TrustYourself</span></pre>
+    <blockquote class="tip"><strong>~165 chars.</strong> Best when scarcity is the only signal that matters.</blockquote>
+  </div>
+
+  <div class="variant-card">
+    <div class="v-tag">Variant B</div>
+    <div class="v-title">Story-led</div>
+    <pre class="copy-block">Inspired by Baltimore harbor at dawn — the moment before anything moves.
+
+Coalition 'Grey Wave' Wallet 1/2 — $35. Hand-finished charcoal dye. 1 of 2.
+
+🔗 Link in bio.
+
+<span class="hashtag">#Coalition</span> <span class="hashtag">#GreyWave</span> <span class="hashtag">#BaltimoreStreetwear</span> <span class="hashtag">#TrustYourself</span> <span class="hashtag">#LimitedEdition</span></pre>
+    <blockquote class="tip"><strong>~340 chars.</strong> Best for narrative-led brand weeks or after drops with momentum.</blockquote>
+  </div>
+
+  <div class="variant-card">
+    <div class="v-tag">Variant C</div>
+    <div class="v-title">Collectibility-led</div>
+    <pre class="copy-block">First of two Grey Wave wallets. Each is hand-finished — no two alike.
+
+$35. When this one's gone, it's gone.
+
+🔗 Link in bio.
+
+<span class="hashtag">#Coalition</span> <span class="hashtag">#GreyWave</span> <span class="hashtag">#BaltimoreStreetwear</span> <span class="hashtag">#TrustYourself</span> <span class="hashtag">#1of2</span></pre>
+    <blockquote class="tip"><strong>~230 chars.</strong> Best for collector audiences and pre-2/2 build-up posts.</blockquote>
+  </div>
+
+</div>
+<p style="margin-top: 4px;">Pick <strong>A</strong> for pure scarcity push, <strong>B</strong> for narrative-led engagement, <strong>C</strong> for collector / anticipation builds.</p>
+
+<h2 id="slack" class="section-h">SLACK ONE-LINER</h2>
+<div class="section-meta">
+  <span class="chip">153 chars</span>
+  <span class="chip">Slack · Discord · SMS · pre-launch email subject</span>
+</div>
+<div class="copy-card">
+  <p>For internal Slack, Discord, or pre-launch email subject lines use this 153-char line:</p>
+  <pre class="copy-block">🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $35. 1 of 2. Hand-finished charcoal dye. sgcoalition.xyz/shop</pre>
+  <blockquote class="tip">Fits Slack embed previews, Discord 200-char message previews, and most SMS previews.</blockquote>
+</div>
+
+<h2 id="templating" class="section-h">TEMPLATING CHECKLIST · COPY ADDITIONS</h2>
+<div class="section-meta">
+  <span class="chip">6 copy-edit checks</span>
+</div>
+<div class="copy-card">
+  <ul class="checklist">
+    <li>Replace every <code>{{release_name}}</code>, <code>{{x}}/{{y}}</code>, <code>{{price}}</code>, <code>{{shop_url}}</code> placeholder.</li>
+    <li>Drop in the right hashtags from the bank (<code>#{{release_hashtag}}</code> is the only one that changes per drop).</li>
+    <li>Confirm character counts: IG caption ≤ 2,200; X single ≤ 280; each X thread tweet ≤ 280; Slack one-liner ≤ 200.</li>
+    <li>Cross-check copy against drop-kit Slide 3 (<code>{{x}} OF {{y}}</code>, <code>{{price}}</code>) and Slide 5 (<code>{{shop_url}}</code>) — copy must match the slide lockup <b>verbatim</b>.</li>
+    <li>Re-read caption aloud once before pasting. Streetwear copy that doesn't read as a sentence fails engagement.</li>
+    <li>Story copy stack has safe-zone clearance — no text crosses into the IG profile handle (top 250 px) or CTA tray (bottom 320 px).</li>
+  </ul>
+</div>
+
+<h2 id="publish-order" class="section-h">PER-CHANNEL PUBLISH ORDER</h2>
+<div class="section-meta">
+  <span class="chip">T-2h → T+12h</span>
+  <span class="chip">Eastern time default · adjust for audience</span>
+</div>
+<div class="copy-card">
+  <p>Suggested sequence on drop day (Eastern time as default — adjust for your audience):</p>
+  <ol class="publish">
+    <li><span class="t-tag">T-2h</span> Pin the IG grid carousel (5 slides) early to start building anticipation.</li>
+    <li><span class="t-tag">T-30m</span> Publish IG Stories 1–3 with countdown running + poll bait live.</li>
+    <li><span class="t-tag">T-0</span> Publish Story 4 + 5 with link sticker live, drop the X thread, pin the C-variant IG caption as a teaser comment on the grid post.</li>
+    <li><span class="t-tag">T+1h</span> Tweet C-variant + Story reply with live stock count.</li>
+    <li><span class="t-tag">T+6h</span> Post a "ticker" Story: "1 of 2 remaining" if not yet sold.</li>
+    <li><span class="t-tag">T+12h</span> If still live, push Variant C with the 2/2 teaser hook to seed the next release.</li>
+  </ol>
+</div>
+
+<footer>
+  <p>Pair with <a href="drop-kit-grey-wave.html">drop-kit-grey-wave.html</a> · <a href="storyboard-grey-wave.html">storyboard-grey-wave.html</a> · <a href="preview-grey-wave-assets.html">preview-grey-wave-assets.html</a>.</p>
+  <p>Markdown source · <a href="drop-copy-grey-wave.md">drop-copy-grey-wave.md</a> — keep the .html preview in lockstep with the .md source on every edit. Drop date 2026-06-20.</p>
+  <p>Reusable copy deck for any Coalition limited-release. Grey Wave worked values throughout; <code class="token">{{ }}</code> placeholders map to the next drop's specifics.</p>
+  <p style="color:#555;margin-top:20px;">Drop-copy · Coalition brand tokens shared with <code>docs/{preview,storyboard,drop-kit,drop-copy}-grey-wave-assets.html</code>.</p>
+</footer>
+
+</div>
+</body>
+</html>
