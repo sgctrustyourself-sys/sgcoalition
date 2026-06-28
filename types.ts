@@ -6,7 +6,7 @@ export interface Product {
   description: string;
   makingVideoUrl?: string;
   createdAt?: string; // ISO timestamp for when the product was added
-  category: 'apparel' | 'accessory' | 'shirt' | 'wallet' | 'jeans' | 'hat';
+  category: 'apparel' | 'accessory' | 'shirt' | 'shorts' | 'sweatshirt' | 'wallet' | 'jeans' | 'hat';
   isFeatured?: boolean;
   // Free shipping when this product is in the cart AND a distinct other
   // product is also in the cart. Used for the Coalition 'Overwhelmingly
@@ -50,6 +50,13 @@ export interface Product {
   isLimitedEdition?: boolean; // Limited edition badge
   stock?: number; // Current available stock as mirrored from the products DB row (set by AppContext.fetchProducts from public.products.stock)
   saleEndDate?: string; // ISO timestamp for flash sales
+  // Per-product shipping-fulfillment override. When set, takes precedence
+  // over the generic PDP "Fulfillment" stat (which otherwise falls through
+  // to free-shipping / $200 / "Ships in 1-2 business days" copy). Used by
+  // the Overwhelmingly Patient Hoodie pre-order, whose real ship window
+  // ("Ships in 1-2 weeks") is tighter than the storefront default. Keep the
+  // string in the same brand voice as the other shipping copy lines.
+  shippingFulfillment?: string;
 }
 
 export interface CartItem extends Product {

@@ -9,6 +9,8 @@ import RequestSimilarModal from '../components/RequestSimilarModal';
 import ImageCropperModal from '../components/ui/ImageCropperModal';
 import PageLoader from '../components/ui/PageLoader';
 import Seo from '../components/Seo';
+import CompleteTheFit from '../components/CompleteTheFit';
+import { INITIAL_PRODUCTS, PRODUCT_LOCAL_OVERRIDES } from '../constants';
 import { ethers } from 'ethers';
 import { checkNftOwnership, switchToPolygon } from '../services/web3Service';
 import { uploadProductImage } from '../services/productUpload';
@@ -34,11 +36,17 @@ const ProductDetails = () => {
     const { products, addToCart, isAdminMode, updateProduct, deleteProduct, user, toggleFavorite, loginUser, isLoading } = useApp();
     const { addToast } = useToast();
 
-    // Derive the resolved product directly from context on every render.
-    // No local copy = no risk of drift between context.products and a stale
-    // local snapshot, and no `if (!product) return null` while products=[] on
-    // the cold-load tick before AppContext finishes fetching.
-    const product = React.useMemo(() => products.find(p => p.id === id), [products, id]);
+    // Resolve from live context first, then fall back to the static catalog so
+    // local/drop products still paint if Supabase is slow or temporarily empty.
+    const product = React.useMemo(() => {
+        const resolvedProduct = products.find(p => p.id === id);
+        if (resolvedProduct) return resolvedProduct;
+
+        const localProduct = INITIAL_PRODUCTS.find(p => p.id === id);
+        return localProduct
+            ? { ...localProduct, ...(PRODUCT_LOCAL_OVERRIDES[localProduct.id] || {}) }
+            : undefined;
+    }, [products, id]);
     const [selectedSize, setSelectedSize] = useState<string>('');
     const [activeImageIndex, setActiveImageIndex] = useState(0);
     const [includeKeychainClipOn, setIncludeKeychainClipOn] = useState(false);
@@ -193,6 +201,7 @@ const ProductDetails = () => {
     const galleryImages = isEditing && editForm.images ? editForm.images : product.images;
     const shouldFitFullImage = product.id === 'prod_tee_above_as_below'
         || product.id === 'prod_shorts_above_as_below'
+        || product.id === 'prod_hoodie_overwhelmingly_patient'
         || product.id === 'Coalition_Grey_Wave_Wallet_1_2'
         || product.id === 'Coalition_Grey_Wave_Wallet_2_2';
     const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-dark';
@@ -227,11 +236,13 @@ const ProductDetails = () => {
         : `${selectedSize || resolvedSize || 'Select size'}${resolvedSize ? ` - ${selectedSizeStock} left` : ''}`;
     const shippingDetail = isArchived
         ? 'This exact piece is archived'
-        : product.freeShipping
-            ? 'Free shipping on this item'
-            : displayPrice >= 200
-                ? 'Free shipping unlocked'
-                : 'Ships in 1-2 business days';
+        : product.shippingFulfillment
+            ? product.shippingFulfillment
+            : product.freeShipping
+                ? 'Free shipping on this item'
+                : displayPrice >= 200
+                    ? 'Free shipping unlocked'
+                    : 'Ships in 1-2 business days';
     const makingVideoUrl = product.makingVideoUrl?.trim();
     const productSeo = getProductSeo(product);
     const productJsonLd = buildProductJsonLd(product);
@@ -880,6 +891,12 @@ const ProductDetails = () => {
                                         </button>
                                     </div>
                                 )}
+
+                                <CompleteTheFit
+                                    currentProduct={product}
+                                    selectedSize={resolvedSize}
+                                    isUnavailable={isUnavailable}
+                                />
 
                                 <div className="pt-10 flex flex-col gap-4">
                                     {isUnavailable ? (
