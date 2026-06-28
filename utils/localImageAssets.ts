@@ -9,6 +9,18 @@ export const PRODUCT_IMAGE_URLS = {
         front: '/images/above-as-below-tee-front.png',
         back: '/images/above-as-below-tee-back.png',
     },
+    aboveAsBelowShorts: {
+        front: '/images/shorts%201.webp',
+        back: '/images/short%201%20back.png',
+        setFront: '/images/above-as-below-set-front.png',
+        setBack: '/images/above-as-below-set-back.png',
+    },
+    overwhelminglyPatientHoodie: {
+        flatFront: '/images/front.png',
+        flatBack: '/images/back.png',
+        modelFront: '/images/ChatGPT%20Image%20Jun%2028%2C%202026%2C%2011_31_20%20AM.png',
+        modelBack: '/images/ChatGPT%20Image%20Jun%2028%2C%202026%2C%2011_35_18%20AM.png',
+    },
     greyWaveWallet: {
         front: '/images/grey-wave-wallet-1-2-front.png',
         back: '/images/grey-wave-wallet-1-2-back.png',
@@ -91,6 +103,10 @@ const LOCAL_TO_REMOTE_IMAGE_URLS: Record<string, string> = {
     '/images/products/true-religion-s1/front-2.jpg': PRODUCT_IMAGE_URLS.trueReligionJeans.front2,
     '/images/products/true-religion-s1/front-3.jpg': PRODUCT_IMAGE_URLS.trueReligionJeans.front3,
     '/images/products/true-religion-s1/front-4.jpg': PRODUCT_IMAGE_URLS.trueReligionJeans.front4,
+    '/images/above-as-below-shorts-front.png': PRODUCT_IMAGE_URLS.aboveAsBelowShorts.front,
+    '/images/above-as-below-shorts-back.png': PRODUCT_IMAGE_URLS.aboveAsBelowShorts.back,
+    '/images/coalition-overwhelmingly-patient-hoodie-front.png': PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatFront,
+    '/images/coalition-overwhelmingly-patient-hoodie-back.png': PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatBack,
 };
 
 const REMOTE_TO_LOCAL_IMAGE_URLS: Record<string, string> = {

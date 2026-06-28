@@ -56,7 +56,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'GreenCamoWallet',
     founderNote: `[PLACEHOLDER · GreenCamoWallet] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION GREEN CAMO WALLET',
-    price: 75,
+    price: 85,
     images: [PRODUCT_IMAGE_URLS.walletGreen.front, PRODUCT_IMAGE_URLS.walletGreen.back],
     description: 'Tactical accessory designed for the modern collector. Spec-camo pattern with multiple card slots and RFID protection.',
     category: 'wallet',
@@ -71,7 +71,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'SKYYBLUEWALLET1_2',
     founderNote: `[PLACEHOLDER · SKYYBLUEWALLET1_2] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION SKYY BLUE WALLET 1/2',
-    price: 75,
+    price: 85,
     images: [PRODUCT_IMAGE_URLS.walletSkyyBlue.front, PRODUCT_IMAGE_URLS.walletSkyyBlue.back],
     description: 'Electric blue variant of our signature tactical wallet. Sleek, durable, and ready for any mission.',
     category: 'wallet',
@@ -86,7 +86,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'prod_wallet_004',
     founderNote: `[PLACEHOLDER · prod_wallet_004] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION SKYY BLUE WALLET 2/2',
-    price: 75,
+    price: 85,
     images: [PRODUCT_IMAGE_URLS.walletSkyyBlueArchive.front, PRODUCT_IMAGE_URLS.walletSkyyBlueArchive.back],
     description: 'Second piece of the Skyy Blue collection. Hand-crafted tie-dye wallet with silver stitched border. Each piece unique — no two alike.',
     category: 'wallet',
@@ -101,7 +101,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'Coalition_Racing_Team_Wallet_1_4',
     founderNote: `[PLACEHOLDER · Coalition_Racing_Team_Wallet_1_4] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Racing Team' Wallet 1/4",
-    price: 75,
+    price: 85,
     createdAt: '2026-04-07T00:00:00Z',
     images: [
       'https://i.imgur.com/3UUmYQa.jpg',
@@ -120,7 +120,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'Coalition_Racing_Team_Wallet_2_4',
     founderNote: `[PLACEHOLDER · Coalition_Racing_Team_Wallet_2_4] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Racing Team' Wallet 2/4",
-    price: 75,
+    price: 85,
     createdAt: '2026-04-07T06:57:00Z',
     images: [
       'https://i.imgur.com/IRhVbhN.jpg',
@@ -139,7 +139,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'Coalition_Racing_Team_Wallet_3_4',
     founderNote: `[PLACEHOLDER · Coalition_Racing_Team_Wallet_3_4] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Racing Team' Wallet 3/4",
-    price: 75,
+    price: 85,
     createdAt: '2026-04-07T07:08:00Z',
     images: [
       'https://i.imgur.com/dcw5qLQ.jpg',
@@ -158,7 +158,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'Coalition_Racing_Team_Wallet_4_4',
     founderNote: `[PLACEHOLDER · Coalition_Racing_Team_Wallet_4_4] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Racing Team' Wallet 4/4",
-    price: 75,
+    price: 85,
     createdAt: '2026-04-07T07:25:00Z',
     images: [
       'https://i.imgur.com/EylCpDU.jpg',
@@ -259,7 +259,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'Coalition_Grey_Wave_Wallet_1_2',
     founderNote: `[PLACEHOLDER · Coalition_Grey_Wave_Wallet_1_2] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Grey Wave' Wallet 1/2",
-    price: 75,
+    price: 85,
     createdAt: '2026-06-20T00:00:00-04:00',
     images: [
       PRODUCT_IMAGE_URLS.greyWaveWallet.front,
@@ -280,7 +280,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'Coalition_Grey_Wave_Wallet_2_2',
     founderNote: `[PLACEHOLDER · Coalition_Grey_Wave_Wallet_2_2] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Grey Wave' Wallet 2/2",
-    price: 75,
+    price: 85,
     createdAt: '2026-06-28T00:00:00-04:00',
     images: [
       PRODUCT_IMAGE_URLS.greyWaveWallet22.front,
@@ -298,7 +298,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'Coalition_Above_As_Below_Wallet_1_1',
     founderNote: `[PLACEHOLDER · Coalition_Above_As_Below_Wallet_1_1] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION ABOVE AS BELOW 1/1 WALLET',
-    price: 75,
+    price: 85,
     createdAt: '2026-06-28T00:00:00-04:00',
     images: [
       'https://i.imgur.com/9NF3LzM.jpg',
@@ -323,13 +323,13 @@ Hand-cut, raw-hem, deep-set pocket. Sized S through 2XL.`,
     price: 75,
     createdAt: '2026-06-28T00:00:00-04:00',
     images: [
-      '/images/above-as-below-shorts-front.png',
-      '/images/above-as-below-shorts-back.png',
-      '/images/above-as-below-set-front.png',
-      '/images/above-as-below-set-back.png'
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.front,
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.back,
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setBack
     ],
     description: "The matching Above as Below shorts. Same hand-crafted red-and-white Coalition lineage as the tee - heavyweight cotton, deep set pocket, raw-hem finished. Sold at $75 individually, or grab the set with the tee for $120 and save $30.",
-    category: 'apparel',
+    category: 'shorts',
     isFeatured: false,
     isLimitedEdition: true,
     freeShipping: true,
@@ -349,14 +349,21 @@ Pre-order reservations are intentionally capped at one per size. After the close
     price: 100,
     createdAt: '2026-06-28T00:00:00-04:00',
     images: [
-      '/images/coalition-overwhelmingly-patient-hoodie-front.png',
-      '/images/coalition-overwhelmingly-patient-hoodie-back.png'
+      PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatFront,
+      PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatBack,
+      PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.modelFront,
+      PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.modelBack
     ],
-    description: "Pre-order release of the Coalition Overwhelmingly Patient Hoodie at $100. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Free shipping when paired with any other item. Reservations capped at one per size; ships in 4-6 weeks from the close of the pre-order window.",
-    category: 'apparel',
+    description: "Pre-order release of the Coalition Overwhelmingly Patient Hoodie at $100. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Free shipping when paired with any other item. Reservations capped at one per size; ships in 1-2 weeks from the close of the pre-order window.",
+    category: 'sweatshirt',
     isFeatured: false,
     isLimitedEdition: true,
     freeShippingWhenPaired: true,
+    // shippingFulfillment lives in PRODUCT_LOCAL_OVERRIDES below, NOT here.
+    // The AppContext fetch spreads `{...local, ...sp}` so Supabase wins
+    // for any field present in the row, which would clobber this value
+    // back to `undefined`. applyLocalProductOverrides (which runs LAST)
+    // is the only reliable surface for per-product shipping copy.
     saleEndDate: '2026-07-26T23:59:59.999Z',
     sizes: ['S', 'M', 'L', 'XL', '2XL'],
     sizeInventory: { S: 1, M: 1, L: 1, XL: 1, '2XL': 1 }
@@ -364,6 +371,15 @@ Pre-order reservations are intentionally capped at one per size. After the close
 ];
 
 export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
+  // Hoodie ships in 1-2 weeks (faster than the original 4-6 week pre-order
+  // commitment). Lives in PRODUCT_LOCAL_OVERRIDES rather than only in
+  // INITIAL_PRODUCTS so applyLocalProductOverrides wins the AppContext merge
+  // after the Supabase fetch — the live Supabase row was added before
+  // `shippingFulfillment` existed, so a `{...local, ...sp}` spread would
+  // otherwise clobber the local value with `undefined`.
+  prod_hoodie_overwhelmingly_patient: {
+    shippingFulfillment: 'Ships in 1-2 weeks',
+  },
   Coalition_Grey_Wave_Wallet_1_2: {
     archived: true,
     archivedAt: '2026-06-25T02:40:12.191+00:00',

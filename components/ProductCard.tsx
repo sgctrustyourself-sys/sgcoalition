@@ -17,7 +17,8 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     const hoverImage = product.images && product.images.length > 1 ? product.images[1] : primaryImage;
     const hasHoverImage = hoverImage !== primaryImage;
     const shouldFitFullImage = product.id === 'prod_tee_above_as_below'
-        || product.id === 'prod_shorts_above_as_below';
+        || product.id === 'prod_shorts_above_as_below'
+        || product.id === 'prod_hoodie_overwhelmingly_patient';
     const keepImageClear = product.id === 'Coalition_NF_Tee';
     const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-gray-900';
     const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';

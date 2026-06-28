@@ -200,6 +200,9 @@ export class RetryQueue {
             description: p.description,
             is_featured: p.isFeatured,
             is_limited_edition: p.isLimitedEdition ?? false,
+            // Numbered-edition tier-pricing columns (migration 20261101).
+            pricing_tiers: p.pricingTiers ?? null,
+            edition_size: p.editionSize ?? null,
             sizes: p.sizes,
             size_inventory: p.sizeInventory || {},
             nft_metadata: p.nft,

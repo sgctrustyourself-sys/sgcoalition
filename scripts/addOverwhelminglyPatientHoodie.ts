@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { PRODUCT_IMAGE_URLS } from '../utils/localImageAssets';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,8 +37,10 @@ async function addOverwhelminglyPatientHoodie() {
         price: 100,
         stock: totalStock,
         images: [
-            '/images/coalition-overwhelmingly-patient-hoodie-front.png',
-            '/images/coalition-overwhelmingly-patient-hoodie-back.png'
+            PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatFront,
+            PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatBack,
+            PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.modelFront,
+            PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.modelBack
         ],
         description: 'Pre-order release of the Coalition Overwhelmingly Patient Hoodie at $100. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Free shipping when paired with any other item. Reservations capped at one per size; ships in 4-6 weeks from the close of the pre-order window.',
         category: 'apparel',

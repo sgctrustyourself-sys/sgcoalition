@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { PRODUCT_IMAGE_URLS } from '../utils/localImageAssets';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,8 +28,10 @@ async function addAboveAsBelowShorts() {
         price: 75,
         stock: Object.values(sizeInventory).reduce((sum, count) => sum + count, 0),
         images: [
-            '/images/above-as-below-set-front.png',
-            '/images/above-as-below-set-back.png'
+            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.front,
+            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.back,
+            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
+            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setBack
         ],
         description: "The matching Above as Below shorts. Same hand-crafted red-and-white Coalition lineage as the tee - heavyweight cotton, deep set pocket, raw-hem finished. Sold at $75 individually, or grab the set with the tee for $120 and save $30.",
         category: 'apparel',
