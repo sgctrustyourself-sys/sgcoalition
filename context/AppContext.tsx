@@ -100,9 +100,15 @@ const safeJsonParse = (key: string, defaultValue: any) => {
 const loadWalletActions = () => import('../services/walletActions');
 const loadWalletBalances = () => import('../services/walletBalances');
 
+const applyLocalProductOverrides = (items: Product[]) =>
+    items.map(product => ({
+        ...product,
+        ...(PRODUCT_LOCAL_OVERRIDES[product.id] || {}),
+    }));
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { addToast } = useToast();
-    const [products, setProducts] = useState<Product[]>([]);
+    const [products, setProducts] = useState<Product[]>(() => applyLocalProductOverrides(INITIAL_PRODUCTS));
     const [sections, setSections] = useState<Section[]>(() => safeJsonParse('coalition_sections', INITIAL_SECTIONS));
     const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -128,12 +134,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isLoading, setIsLoading] = useState(true);
     const [signals, setSignals] = useState<Signal[]>([]);
     const [chainId, setChainId] = useState<number | null>(null);
-    const applyLocalProductOverrides = (items: Product[]) =>
-        items.map(product => ({
-            ...product,
-            ...(PRODUCT_LOCAL_OVERRIDES[product.id] || {}),
-        }));
-
     const getExclusiveFeaturedProducts = (featuredProductId: string, baseProducts: Product[]) =>
         baseProducts.map(product => ({
             ...product,
@@ -237,7 +237,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 // Await initial data fetch before hiding loader to prevent race conditions
                 console.log('🔄 Fetching initial data from Supabase...');
                 await Promise.all([
-                    fetchProducts(),
+                    fetchProducts(true),
                     fetchOrders(),
                     fetchSignals(),
                     fetchGiveaways()
@@ -379,8 +379,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
     }, []);
 
-    const fetchProducts = async () => {
-        if (!isSupabaseConfigured) {
+    const fetchProducts = async (supabaseConfigured = isSupabaseConfigured) => {
+        if (!supabaseConfigured) {
             const localProducts = applyLocalProductOverrides(INITIAL_PRODUCTS);
             setProducts(localProducts);
             return localProducts;
