@@ -33,13 +33,13 @@ async function addOverwhelminglyPatientHoodie() {
     const product = {
         id: 'prod_hoodie_overwhelmingly_patient',
         name: 'COALITION OVERWHELMINGLY PATIENT HOODIE',
-        price: 135,
+        price: 100,
         stock: totalStock,
         images: [
             '/images/coalition-overwhelmingly-patient-hoodie-front.png',
             '/images/coalition-overwhelmingly-patient-hoodie-back.png'
         ],
-        description: 'Pre-order release of the Coalition Overwhelmingly Patient Hoodie. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Reservations capped at one per size; ships in 4-6 weeks from the close of the pre-order window.',
+        description: 'Pre-order release of the Coalition Overwhelmingly Patient Hoodie at $100. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Free shipping when paired with any other item. Reservations capped at one per size; ships in 4-6 weeks from the close of the pre-order window.',
         category: 'apparel',
         is_featured: false,
         sizes: ['S', 'M', 'L', 'XL', '2XL'],

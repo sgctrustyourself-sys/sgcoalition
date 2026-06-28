@@ -346,16 +346,17 @@ Signs of imbalance this piece considers: low creative drive, emotional flatness 
 
 Pre-order reservations are intentionally capped at one per size. After the close date we cut, dye, screen, and ship in one batch - no restocks, no second run. If you reserve, the only way to wear it is to wait with us.`,
     name: 'COALITION OVERWHELMINGLY PATIENT HOODIE',
-    price: 135,
+    price: 100,
     createdAt: '2026-06-28T00:00:00-04:00',
     images: [
       '/images/coalition-overwhelmingly-patient-hoodie-front.png',
       '/images/coalition-overwhelmingly-patient-hoodie-back.png'
     ],
-    description: "Pre-order release of the Coalition Overwhelmingly Patient Hoodie. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Reservations capped at one per size; ships in 4-6 weeks from the close of the pre-order window.",
+    description: "Pre-order release of the Coalition Overwhelmingly Patient Hoodie at $100. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Free shipping when paired with any other item. Reservations capped at one per size; ships in 4-6 weeks from the close of the pre-order window.",
     category: 'apparel',
     isFeatured: false,
     isLimitedEdition: true,
+    freeShippingWhenPaired: true,
     saleEndDate: '2026-07-26T23:59:59.999Z',
     sizes: ['S', 'M', 'L', 'XL', '2XL'],
     sizeInventory: { S: 1, M: 1, L: 1, XL: 1, '2XL': 1 }

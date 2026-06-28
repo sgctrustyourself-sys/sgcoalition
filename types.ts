@@ -8,6 +8,11 @@ export interface Product {
   createdAt?: string; // ISO timestamp for when the product was added
   category: 'apparel' | 'accessory' | 'shirt' | 'wallet' | 'jeans' | 'hat';
   isFeatured?: boolean;
+  // Free shipping when this product is in the cart AND a distinct other
+  // product is also in the cart. Used for the Coalition 'Overwhelmingly
+  // Patient' Hoodie (pre-order release) — shipping is paid for the hoodie
+  // alone, $0 once a second line item is added.
+  freeShippingWhenPaired?: boolean;
   freeShipping?: boolean;
   sizes?: string[];
   sizeInventory?: Record<string, number>; // Size-based inventory: { 'S': 10, 'M': 25, 'L': 30 }

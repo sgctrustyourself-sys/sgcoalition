@@ -70,7 +70,25 @@ const Checkout: React.FC = () => {
 
     // VIP / Product Free Shipping Logic
     const isVIP = user?.isVIP || false;
-    const hasFreeShippingProduct = cart.some(item => item.freeShipping);
+    // Direct (always) free shipping: any product flagged freeShipping.
+    const hasDirectFreeShipping = cart.some(item => item.freeShipping);
+    // Paired-with-any-other-item free shipping: a product flagged
+    // freeShippingWhenPaired only ships $0 when the cart ALSO contains a
+    // distinct other product (different productId). Used by the Coalition
+    // 'Overwhelmingly Patient' Hoodie so the hoodie alone pays shipping,
+    // hoodie + tee (or anything else) ships free.
+    const hasPairedFreeShippingItem = cart.some(item => item.freeShippingWhenPaired);
+    const distinctCartProductIds = new Set(cart.map(item => item.id));
+    const isPairedFreeShippingEligible = hasPairedFreeShippingItem && distinctCartProductIds.size >= 2;
+    // Composite flag consumed by the shipping math AND every display
+    // reference below (JM keeps the original variable name so the JSX
+    // references didn't have to be touched).
+    const hasFreeShippingProduct = hasDirectFreeShipping || isPairedFreeShippingEligible;
+    // Hint state for the 'Add another item to ship free' nudge: the hoodie
+    // is in the cart, but no second distinct line item — so $5 shipping is
+    // currently being charged and would zero out if the customer added
+    // anything else.
+    const showPairAnotherItemHint = hasPairedFreeShippingItem && distinctCartProductIds.size === 1;
     const baseShippingCost = shippingMethod === 'express' ? 10 : 0;
     const shippingCost = hasFreeShippingProduct || (isVIP && shippingMethod === 'standard') ? 0 : baseShippingCost;
 
@@ -1017,6 +1035,19 @@ const Checkout: React.FC = () => {
                                     <span>Shipping</span>
                                     <span>{shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`}</span>
                                 </div>
+                                {showPairAnotherItemHint && (
+                                    <div className="rounded-lg bg-orange-500/10 border border-orange-500/30 p-3 flex items-start gap-2 animate-in fade-in slide-in-from-bottom-2">
+                                        <Sparkles className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
+                                        <div className="flex-1">
+                                            <p className="text-xs font-bold text-orange-300 uppercase tracking-wide">
+                                                Add another item to ship free
+                                            </p>
+                                            <p className="mt-1 text-xs text-orange-200/80 leading-relaxed">
+                                                This piece ships $0 once you add a second distinct item to your cart. Pair it with a tee, shorts, or anything else in the shop.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                                 {cartBonusCents > 0 && (
                                     <div className="flex justify-between text-green-400">
                                         <span>Above as Below set bonus</span>
