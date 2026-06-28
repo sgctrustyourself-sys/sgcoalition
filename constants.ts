@@ -241,6 +241,23 @@ export const INITIAL_PRODUCTS: Product[] = [
     isLimitedEdition: true,
     sizes: ['One Size'],
     sizeInventory: { 'One Size': 1 }
+  },
+  {
+    id: 'Coalition_Above_As_Below_Wallet_1_1',
+    name: 'COALITION ABOVE AS BELOW 1/1 WALLET',
+    price: 35,
+    createdAt: '2026-06-28T00:00:00-04:00',
+    images: [
+      'https://i.imgur.com/9NF3LzM.jpg',
+      'https://i.imgur.com/UoY42bg.jpg'
+    ],
+    description: '1/1 Above as Below wallet. Hand-finished with the same storm-and-balance motif as the matching Above as Below tee — single piece, one red-and-white Coalition mark, scaled for everyday carry. Once sold, gone forever.',
+    category: 'wallet',
+    isLimitedEdition: true,
+    isFeatured: false,
+    freeShipping: true,
+    sizes: ['One Size'],
+    sizeInventory: { 'One Size': 1 }
   }
 ];
 
