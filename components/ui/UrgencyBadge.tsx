@@ -3,12 +3,15 @@ import { AlertCircle, Eye, TrendingUp, Zap, Clock } from 'lucide-react';
 
 interface UrgencyBadgeProps {
     type: 'low-stock' | 'limited-edition' | 'viewing' | 'sold-recently' | 'flash-sale';
+    /** Current count. For limited-edition this is the surviving mintable units. */
     count?: number;
+    /** Total cap. For limited-edition this is the sum of sizeInventory (or product.stock fallback). */
+    cap?: number;
     text?: string;
     className?: string;
 }
 
-const UrgencyBadge: React.FC<UrgencyBadgeProps> = ({ type, count, text, className = '' }) => {
+const UrgencyBadge: React.FC<UrgencyBadgeProps> = ({ type, count, cap, text, className = '' }) => {
     const getConfig = () => {
         switch (type) {
             case 'low-stock':
@@ -26,7 +29,15 @@ const UrgencyBadge: React.FC<UrgencyBadgeProps> = ({ type, count, text, classNam
                     bgColor: 'bg-purple-500/20',
                     textColor: 'text-purple-400',
                     borderColor: 'border-purple-500/30',
-                    label: text || 'Limited Edition',
+                    // Reads as "X / Y available" so the verb lines up with
+                    // count = product.stock (i.e., remaining units, not
+                    // units-sold). 43 / 44 at fresh drop means "43 of 44
+                    // are still available", matching what product.stock
+                    // actually says. Falls back to the static label when
+                    // the cap can't be derived.
+                    label: text || (typeof count === 'number' && typeof cap === 'number' && cap > 0
+                        ? `${count} / ${cap} available`
+                        : 'Limited Edition'),
                     pulse: true
                 };
             case 'viewing':
@@ -70,10 +81,19 @@ const UrgencyBadge: React.FC<UrgencyBadgeProps> = ({ type, count, text, classNam
 
     const config = getConfig();
     const Icon = config.icon;
+    // Announce the limited-edition fraction as a sentence rather than the
+    // literal "12 / 44" so screen readers don't pipe through the slash.
+    // The "limited edition piece" phrasing mirrors the founder-voice copy
+    // in pages/About.tsx ("Every piece from our drops...") rather than
+    // streetwear-slang default.
+    const fractionAriaLabel = type === 'limited-edition' && typeof count === 'number' && typeof cap === 'number' && cap > 0
+        ? `${count} of ${cap} available, limited edition piece`
+        : undefined;
 
     return (
         <div
             className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border ${config.bgColor} ${config.textColor} ${config.borderColor} text-xs font-semibold ${config.pulse ? 'animate-pulse' : ''} ${className}`}
+            aria-label={fractionAriaLabel}
         >
             <Icon className="w-3.5 h-3.5" />
             <span>{config.label}</span>

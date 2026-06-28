@@ -30,6 +30,7 @@ export interface Product {
   archiveNote?: string; // Context shown when a sold/archive piece has a story behind it
   // Urgency & Scarcity Fields
   isLimitedEdition?: boolean; // Limited edition badge
+  stock?: number; // Current available stock as mirrored from the products DB row (set by AppContext.fetchProducts from public.products.stock)
   saleEndDate?: string; // ISO timestamp for flash sales
 }
 

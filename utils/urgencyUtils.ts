@@ -111,3 +111,31 @@ export const formatTimeRemaining = (endDate: string): string => {
         return `${seconds}s`;
     }
 };
+
+/**
+ * Compute the live availability fraction shown on limited-edition badges.
+ * Returns null when the cap can't be derived so callers can fall back
+ * to the static "Limited Edition" label.
+ *
+ * `cap` is the total units ever available. We require sizeInventory for
+ * the cap so the per-size breakdown is preserved -- "5 / 5 available"
+ * on a row with no per-size detail is technically accurate but reads
+ * as noise. Static "Limited Edition" copy wins in that case.
+ *
+ * `remaining` is the current available count. We prefer product.stock
+ * (the column maintained by /api/complete-order on every order, so it
+ * tracks the DB truth across sessions) and fall back to the
+ * sizeInventory sum for local-only rendering (where deductInventory
+ * mutates sizeInventory directly and the sum is the live truth).
+ */
+export const getMintFraction = (product: Product): { remaining: number; cap: number } | null => {
+    if (!product.sizeInventory) return null;
+    const cap = Object.values(product.sizeInventory).reduce((sum, n) => sum + n, 0);
+    if (cap <= 0) return null;
+
+    const remaining = typeof product.stock === 'number'
+        ? product.stock
+        : Object.values(product.sizeInventory).reduce((sum, n) => sum + n, 0);
+
+    return { remaining, cap };
+};

@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext';
 import { Product } from '../types';
 import PriceDisplay from './PriceDisplay';
 import UrgencyBadge from './ui/UrgencyBadge';
-import { getStockUrgency, getStockCount, generateViewCount } from '../utils/urgencyUtils';
+import { getStockUrgency, getStockCount, generateViewCount, getMintFraction } from '../utils/urgencyUtils';
 import RequestSimilarModal from './RequestSimilarModal';
 
 const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
@@ -25,6 +25,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     // Calculate urgency metrics
     const stockUrgency = getStockUrgency(product);
     const stockCount = getStockCount(product);
+    const mintFraction = getMintFraction(product);
     const viewCount = generateViewCount(product);
     const showLowStock = stockUrgency !== 'normal' && !product.archived;
 
@@ -65,8 +66,12 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
                                     Digital Twin
                                 </div>
                             )}
-                            {product.isLimitedEdition && (
-                                <UrgencyBadge type="limited-edition" />
+                            {product.isLimitedEdition && mintFraction?.remaining !== 0 && (
+                                <UrgencyBadge
+                                    type="limited-edition"
+                                    count={mintFraction?.remaining}
+                                    cap={mintFraction?.cap}
+                                />
                             )}
                             {showLowStock && (
                                 <UrgencyBadge type="low-stock" count={stockCount} />
@@ -136,8 +141,12 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
                                         Digital Twin
                                     </span>
                                 )}
-                                {product.isLimitedEdition && (
-                                    <UrgencyBadge type="limited-edition" />
+                                {product.isLimitedEdition && mintFraction?.remaining !== 0 && (
+                                    <UrgencyBadge
+                                        type="limited-edition"
+                                        count={mintFraction?.remaining}
+                                        cap={mintFraction?.cap}
+                                    />
                                 )}
                                 {showLowStock && (
                                     <UrgencyBadge type="low-stock" count={stockCount} />
