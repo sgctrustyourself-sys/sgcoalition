@@ -134,13 +134,24 @@ const scanToMatching = (source, openIndex, openChar, closeChar) => {
 
 const splitTopLevelObjects = (arraySource) => {
   const objects = [];
-  let start = -1;
-  let depth = 0;
   let quote = '';
   let escaped = false;
+  let inLineComment = false;
+  let inBlockComment = false;
 
   for (let index = 0; index < arraySource.length; index += 1) {
     const char = arraySource[index];
+    const next = arraySource[index + 1];
+
+    if (inLineComment) {
+      if (char === '\n') inLineComment = false;
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (char === '*' && next === '/') { inBlockComment = false; index += 1; }
+      continue;
+    }
 
     if (quote) {
       if (escaped) {
@@ -153,22 +164,19 @@ const splitTopLevelObjects = (arraySource) => {
       continue;
     }
 
+    if (char === '/' && next === '/') { inLineComment = true; index += 1; continue; }
+    if (char === '/' && next === '*') { inBlockComment = true; index += 1; continue; }
+
     if (char === '"' || char === "'" || char === '`') {
       quote = char;
       continue;
     }
 
     if (char === '{') {
-      if (depth === 0) start = index;
-      depth += 1;
-      continue;
-    }
-
-    if (char === '}') {
-      depth -= 1;
-      if (depth === 0 && start >= 0) {
-        objects.push(arraySource.slice(start, index + 1));
-        start = -1;
+      const objectEnd = scanToMatching(arraySource, index, '{', '}');
+      if (objectEnd >= 0) {
+        objects.push(arraySource.slice(index, objectEnd + 1));
+        index = objectEnd;
       }
     }
   }
