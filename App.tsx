@@ -31,6 +31,7 @@ const Membership = React.lazy(() => import('./pages/Membership'));
 const Ecosystem = React.lazy(() => import('./pages/Ecosystem'));
 const Archive = React.lazy(() => import('./pages/Archive'));
 const Checkout = React.lazy(() => import('./pages/Checkout'));
+const Cart = React.lazy(() => import('./pages/Cart'));
 const OrderSuccess = React.lazy(() => import('./pages/OrderSuccess'));
 const OrderCancel = React.lazy(() => import('./pages/OrderCancel'));
 const OrderDetails = React.lazy(() => import('./pages/OrderDetails'));
@@ -180,6 +181,7 @@ const App = () => {
                     <Route path="/ecosystem" element={<Ecosystem />} />
                     <Route path="/archive" element={<Archive />} />
                     <Route path="/checkout" element={<Checkout />} />
+                    <Route path="/cart" element={<Cart />} />
                     <Route path="/order/:orderId" element={<OrderDetails />} />
                     <Route path="/order/success" element={<OrderSuccess />} />
                     <Route path="/order/cancel" element={<OrderCancel />} />

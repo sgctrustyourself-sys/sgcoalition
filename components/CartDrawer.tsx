@@ -13,8 +13,12 @@ const CartDrawer = () => {
     const navigate = useNavigate();
     const { isCartOpen, setCartOpen, cart, removeFromCart, cartTotal, calculateReward } = useApp();
 
-    if (!isCartOpen) return null;
-
+    // Rules of Hooks: ALL hooks must be called unconditionally on every render
+    // in the same order, regardless of whether the drawer is open. Earlier
+    // versions returned early (`if (!isCartOpen) return null`) BEFORE calling
+    // useMemo, which caused React to detect a hook-count mismatch the moment
+    // the open flag flipped — that fired a fatal error in the global drawer
+    // mount and blanked out the entire SPA. Always call hooks first.
     const total = cartTotal();
     const reward = calculateReward(total);
     // Above-as-Below tee + shorts bundle auto-bonus. Shown in the drawer so it
@@ -26,6 +30,8 @@ const CartDrawer = () => {
     const setBonusDollars = setBonusCents / 100;
     const displayTotal = Math.max(0, total - setBonusDollars);
     // setCount removed: bonus is one-shot $30, no quantity multiplier.
+
+    if (!isCartOpen) return null;
 
     return (
         <div className="fixed inset-0 z-[70] flex justify-end">

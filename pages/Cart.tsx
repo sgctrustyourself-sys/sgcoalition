@@ -7,6 +7,9 @@ import { COIN_REWARD_RATE } from '../constants';
 import { getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
 
+// Named export keeps symbol-search by `Cart` working; default export lets
+// App.tsx register the /cart route via React.lazy(() => import('./pages/Cart')).
+// Both references resolve to the same component instance.
 export const Cart: React.FC = () => {
     const navigate = useNavigate();
     const { cart, removeFromCart, clearCart, user } = useApp();
@@ -106,3 +109,5 @@ export const Cart: React.FC = () => {
         </div>
     );
 };
+
+export default Cart;
