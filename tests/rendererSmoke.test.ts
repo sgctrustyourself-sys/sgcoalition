@@ -14,7 +14,11 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execSync } from 'child_process';
-import { promises as fs } from 'fs';
+// Top-level `fs` (not `fs.promises`) so the sync helpers like
+// `fs.readdirSync`/`fs.rmSync` resolve alongside the async ones
+// (`fs.createReadStream`, `fs.rm`, `fs.writeFile`) without having to mix
+// two `fs` namespaces in the same file.
+import fs from 'fs';
 import path from 'path';
 import { PNG } from 'pngjs';
 
