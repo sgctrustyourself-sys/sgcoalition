@@ -9,6 +9,7 @@ import { ensureSubscriberGiveawayEntries, pickWeightedGiveawayWinners } from '..
 import { resolveLocalImageUrls } from '../utils/localImageAssets';
 import { normalizeProductSizeData } from '../utils/productSizes';
 import { getCartItemLineTotal, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
+import { fetchPaidCountsByProduct } from '../services/numberedPieces';
 
 interface AppState {
     products: Product[];
@@ -399,19 +400,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         // Mirrors services/retryQueue.ts mapProductToDb write path.
                         // Column added in supabase/migrations/20260620_add_is_limited_edition_to_products.sql
                         isLimitedEdition: item.is_limited_edition ?? false,
+                        // Numbered-edition tier-pricing fields (migration 20261101).
+                        pricingTiers: item.pricing_tiers ?? null,
+                        editionSize: item.edition_size ?? null,
+                        editionSoldCount: null,
                         sizes: item.sizes || [], sizeInventory: item.size_inventory || {}, nft: item.nft_metadata,
                         reviews: savedReviews, archived: item.archived || false,
                         archivedAt: item.archived_at, releasedAt: item.released_at, soldAt: item.sold_at,
                         archiveNote: PRODUCT_LOCAL_OVERRIDES[item.id]?.archiveNote
                     };
                 });
-                // Deduplicate by ID to prevent ghost products (like prod_nft_001 vs Coalition_NF_Tee)
+                // Deduplicate by ID only. The previous (name + images[1]) collision
+                // check silently swallowed legitimate distinct products (e.g. the
+                // Coalition Shark Tee), so the rule is now id-only: any row with
+                // the same id as an already-kept row is dropped. Legitimate
+                // duplicate-name duplicates (rare in practice) are now the
+                // operator's responsibility via admin ProductManager, which lets
+                // them rename / merge / archive the offending row directly.
+                // First occurrence wins so realtime appends don't clobber edits.
                 const uniqueProducts = mapped.reduce((acc: any[], current) => {
-                    const x = acc.find(item => item.id === current.id || (item.name === current.name && item.images[0] === current.images[0]));
+                    const x = acc.find(item => item.id === current.id);
                     if (!x) {
                         return acc.concat([current]);
                     } else {
-                        // If we have a collision, prioritize the one with the cleaner ID (usually Supabase version)
+                        // id collision: keep the FIRST occurrence (acc is the
+                        // accumulator). Subsequent appends with the same id
+                        // are silently logged via console.warn so operator
+                        // dashboards surface the duplicate without breaking
+                        // the storefront render.
+                        if (typeof console !== 'undefined' && console.warn) {
+                            console.warn('[products] dropping duplicate id row:', current.id, current.name);
+                        }
                         return acc;
                     }
                 }, []);
@@ -439,11 +458,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const finalMerged = [...interceptedProducts, ...localOnly];
                 const finalWithOverrides = applyLocalProductOverrides(finalMerged);
 
-                setProducts(finalWithOverrides);
+                // Numbered-edition enrichment: batch-fetch paid-quantity counts via
+                // the get_product_paid_count RPC so PDP can render
+                // "X/44 minted at $75" without re-querying on every render.
+                // Best-effort: a single RPC failure degrades to 0 for that
+                // product (other products still load).
+                const numberedIds = finalWithOverrides
+                    .filter(p => p.editionSize && p.pricingTiers && p.pricingTiers.length > 0)
+                    .map(p => p.id);
+                const countsByProduct = numberedIds.length > 0
+                    ? await fetchPaidCountsByProduct(numberedIds)
+                    : {};
+                const enrichedProducts = finalWithOverrides.map(p => (
+                    countsByProduct[p.id] !== undefined
+                        ? { ...p, editionSoldCount: countsByProduct[p.id] }
+                        : p
+                ));
+
+                setProducts(enrichedProducts);
                 // Successful fetch — clear the offline-mode banner so synthesized
                 // SignalAlert hides once Supabase recovers.
                 setIsConfigError(false);
-                return finalWithOverrides;
+                return enrichedProducts;
             }
             return [];
         } catch (err) {
@@ -690,6 +726,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 id: normalizedProduct.id, name: normalizedProduct.name, price: normalizedProduct.price, category: normalizedProduct.category, images: normalizedProduct.images,
                 description: normalizedProduct.description, is_featured: normalizedProduct.isFeatured,
                 is_limited_edition: normalizedProduct.isLimitedEdition ?? false,
+                // Numbered-edition tier-pricing columns (migration 20261101).
+                pricing_tiers: normalizedProduct.pricingTiers ?? null,
+                edition_size: normalizedProduct.editionSize ?? null,
                 sizes: normalizedProduct.sizes,
                 size_inventory: normalizedProduct.sizeInventory, nft_metadata: normalizedProduct.nft
             }]);
@@ -732,6 +771,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 description: normalizedUpdated.description,
                 is_featured: normalizedUpdated.isFeatured,
                 is_limited_edition: normalizedUpdated.isLimitedEdition ?? false,
+                pricing_tiers: normalizedUpdated.pricingTiers ?? null,
+                edition_size: normalizedUpdated.editionSize ?? null,
                 sizes: normalizedUpdated.sizes,
                 size_inventory: normalizedUpdated.sizeInventory, nft_metadata: normalizedUpdated.nft, archived: normalizedUpdated.archived
             }).eq('id', normalizedUpdated.id);
@@ -748,6 +789,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         description: original.description,
                         is_featured: original.isFeatured,
                         is_limited_edition: original.isLimitedEdition ?? false,
+                        pricing_tiers: original.pricingTiers ?? null,
+                        edition_size: original.editionSize ?? null,
                         sizes: original.sizes,
                         size_inventory: original.sizeInventory, nft_metadata: original.nft, archived: original.archived
                     }).eq('id', original.id);
