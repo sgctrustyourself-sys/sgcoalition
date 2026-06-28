@@ -187,22 +187,39 @@ export const INITIAL_PRODUCTS: Product[] = [
     isFeatured: false,
     archived: true,
     soldAt: '2025-01-01T00:00:00Z'
-  },
-    {
+  },  {
     id: 'prod_tee_distortion',
     founderNote: `[PLACEHOLDER · prod_tee_distortion] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION DISTORTION TEE',
-      price: 60,
-      images: [
-        PRODUCT_IMAGE_URLS.distortionTee.main,
-        PRODUCT_IMAGE_URLS.distortionTee.frontFlat,
-        PRODUCT_IMAGE_URLS.distortionTee.backModel,
-        PRODUCT_IMAGE_URLS.distortionTee.backFlat,
-      ],
-      description: 'The Coalition Distortion Tee features a high-density graphic print that warps and bends the brand logo into a digital frequency. Heavyweight cotton construction with a classic streetwear fit. Trust Yourself.',
-      category: 'shirt',
-      isFeatured: true
-    },
+    price: 60,
+    images: [
+      PRODUCT_IMAGE_URLS.distortionTee.main,
+      PRODUCT_IMAGE_URLS.distortionTee.frontFlat,
+      PRODUCT_IMAGE_URLS.distortionTee.backModel,
+      PRODUCT_IMAGE_URLS.distortionTee.backFlat,
+    ],
+    description: 'The Coalition Distortion Tee features a high-density graphic print that warps and bends the brand logo into a digital frequency. Heavyweight cotton construction with a classic streetwear fit. Trust Yourself.',
+    category: 'shirt',
+    isFeatured: true
+  },
+  {
+    id: 'prod_1773860269374',
+    founderNote: `[PLACEHOLDER · prod_1773860269374] Replace with founder's note: 1-2 paragraphs covering what this 1/1 build is, where it sits in the Coalition shark arc, and what's worth noticing in the seams. Anti-tricky-brand voice, ~120 words.`,
+    name: 'Coalition Shark Tee - 1/1 Exclusive',
+    price: 60,
+    createdAt: '2026-03-18T19:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.sharkTee.main,
+      PRODUCT_IMAGE_URLS.sharkTee.back,
+      PRODUCT_IMAGE_URLS.sharkTee.frontFlat,
+      PRODUCT_IMAGE_URLS.sharkTee.backFlat,
+    ],
+    description: "Unique SGCoalition tie-dye 'Trust Yourself' tee with a striking blue spiral pattern and the iconic crowned-bird graphic. This one-of-a-kind piece features premium print details and a motivational streetwear vibe. Size Small, in excellent condition with no flaws - ideal for collectors or anyone looking to add a standout Coalition piece to their wardrobe.",
+    category: 'shirt',
+    isLimitedEdition: true,
+    sizes: ['S', 'M', 'L', 'XL'],
+    sizeInventory: { S: 1, M: 0, L: 0, XL: 0 }
+  },
   {
     id: 'Coalition_x_True_Religion_S1',
     founderNote: `[PLACEHOLDER · Coalition_x_True_Religion_S1] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,

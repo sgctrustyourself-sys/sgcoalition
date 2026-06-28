@@ -46,6 +46,12 @@ export const PRODUCT_IMAGE_URLS = {
         backModel: 'https://i.imgur.com/1S7Hkyw.jpg',
         backFlat: 'https://i.imgur.com/u0qjWgl.jpg',
     },
+    sharkTee: {
+        main: 'https://i.imgur.com/evsuOt6.jpg',
+        back: 'https://i.imgur.com/gaA93ug.jpg',
+        frontFlat: 'https://i.imgur.com/cYmL6GQ.jpg',
+        backFlat: 'https://i.imgur.com/IVmfRGx.jpg',
+    },
     trueReligionJeans: {
         front1: 'https://i.imgur.com/2VU7MEr.jpg',
         front2: 'https://i.imgur.com/hJgvL2K.jpg',
