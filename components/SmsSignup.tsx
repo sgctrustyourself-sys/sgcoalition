@@ -16,39 +16,39 @@ const SmsSignup = () => {
         setStatus('loading');
         setErrorMsg('');
 
+        // Server-side unified enrollment through /api/marketing-subscribe.
+        // The endpoint writes to marketing_contacts (the new unified audience),
+        // writes a row to marketing_consent_log, and sends the SMS confirmation
+        // round-trip through Twilio when configured. The legacy
+        // coalition_signal_subscribers row is still populated by the API endpoint
+        // on the read-time union path (see /api/marketing-send.ts fetchAudience).
         try {
-            const { error } = await supabase
-                .from('coalition_signal_subscribers')
-                .insert([
-                    {
-                        phone_number: `${countryCode}${phone.replace(/\D/g, '')}`,
-                        country_code: countryCode,
-                        metadata: {
-                            source: 'sms_signup_component',
-                            enrolled_at: new Date().toISOString()
-                        }
-                    }
-                ]);
+            const e164 = `${countryCode}${phone.replace(/\D/g, '')}`;
+            const response = await fetch('/api/marketing-subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: null,
+                    phone: e164,
+                    countryCode,
+                    channel: 'sms',
+                    source: 'sms_signup_component',
+                    consentText: 'Coalition Signal: SMS notifications for drops, early access, and exclusive offers. Standard message rates may apply. Reply STOP to opt out at any time.',
+                }),
+            });
+            const data = await response.json().catch(() => ({}));
 
-            if (error) {
-                if (error.code === '23505') {
-                    // Unique constraint violation - already subscribed
-                    setStatus('success');
-                } else {
-                    throw error;
-                }
-            } else {
-                setStatus('success');
+            if (!response.ok || !data?.success) {
+                throw new Error(data?.error || `Subscription failed (${response.status})`);
             }
 
+            setStatus('success');
             setPhone('');
-            // Reset success message after 5 seconds
             setTimeout(() => setStatus('idle'), 5000);
         } catch (err: any) {
             console.error('Subscription error:', err);
             setStatus('error');
-            // Provide more descriptive error for debugging
-            const msg = err.message || err.details || (typeof err === 'string' ? err : 'Unknown subscription failure');
+            const msg = err?.message || (typeof err === 'string' ? err : 'Unknown subscription failure');
             setErrorMsg(msg);
             setTimeout(() => setStatus('idle'), 5000);
         }

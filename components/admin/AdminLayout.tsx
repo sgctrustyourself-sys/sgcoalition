@@ -1,11 +1,11 @@
 import React from 'react';
-import { Activity, Package, ShoppingCart, GitBranch, Gift, Settings, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3, TrendingUp, Instagram, Megaphone, Users, Brain } from 'lucide-react';
+import { Activity, Package, ShoppingCart, GitBranch, Gift, Settings, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3, TrendingUp, Instagram, Megaphone, Users, Brain, Send } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'users' | 'brain' | 'settings';
-    onTabChange: (tab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'users' | 'brain' | 'settings') => void;
+    activeTab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'marketing' | 'users' | 'brain' | 'settings';
+    onTabChange: (tab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'marketing' | 'users' | 'brain' | 'settings') => void;
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange }) => {
@@ -27,6 +27,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
         { id: 'giveaways', label: 'Giveaways', icon: Gift },
         { id: 'inquiries', label: 'Custom Inquiries', icon: MessageSquare },
         { id: 'signals', label: 'Signal Broadcast', icon: Megaphone },
+        { id: 'marketing', label: 'Marketing', icon: Send },
         { id: 'brain', label: 'Coalition Brain', icon: Brain },
         { id: 'users', label: 'User Directory', icon: Users },
         // { id: 'settings', label: 'Settings', icon: Settings },

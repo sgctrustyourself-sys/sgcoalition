@@ -19,6 +19,7 @@ const BlogManager = lazy(() => import('./admin/BlogManager'));
 const SignalManager = lazy(() => import('../components/admin/SignalManager'));
 const BrainManager = lazy(() => import('../components/admin/BrainManager'));
 const UserManager = lazy(() => import('../components/admin/UserManager'));
+const MarketingManager = lazy(() => import('../components/admin/MarketingManager'));
 
 // Loading component for Suspense fallback
 const LoadingSpinner = () => (
@@ -34,7 +35,7 @@ const LoadingSpinner = () => (
 
 const Admin: React.FC = () => {
     const { user } = useApp();
-    const [activeTab, setActiveTab] = useState<'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'users' | 'brain' | 'settings'>('command-center');
+    const [activeTab, setActiveTab] = useState<'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'marketing' | 'users' | 'brain' | 'settings'>('command-center');
 
     const renderContent = () => {
         switch (activeTab) {
@@ -66,6 +67,8 @@ const Admin: React.FC = () => {
                 return <SGCoinRequestManager adminWalletAddress={user?.walletAddress || ''} />;
             case 'signals':
                 return <SignalManager />;
+            case 'marketing':
+                return <MarketingManager />;
             case 'brain':
                 return <BrainManager />;
             case 'users':
