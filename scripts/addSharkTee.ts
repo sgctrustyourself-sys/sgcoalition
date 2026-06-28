@@ -52,10 +52,7 @@ async function addSharkTee() {
         archived: false
     };
 
-    const { data, error } = await supabase
-        .from('products')
-        .upsert([product])
-        .select();
+    const { data, error } = await upsertWithSchemaFallback(product, []);
 
     if (error) {
         console.error('❌ Error upserting product:', error);
@@ -69,3 +66,31 @@ async function addSharkTee() {
 }
 
 addSharkTee();
+
+// Idempotent upsert helper that gracefully degrades when a referenced column
+// doesn't exist yet on the live Supabase schema (e.g. is_limited_edition
+// before supabase/migrations/20260620_add_is_limited_edition_to_products.sql
+// is applied). On PostgREST's PGRST204 ('column not in schema cache') error
+// we strip the offending column from the payload and retry once per column,
+// with a blacklist so a malformed can't-locate message can't loop forever.
+// Operator is warned on each missing column so they know which migration is
+// unapplied and which PDP feature won't be live until it is.
+async function upsertWithSchemaFallback(row: any, blacklist: string[]): Promise<{ data: any; error: any }> {
+    const { data, error } = await supabase
+        .from('products')
+        .upsert([row])
+        .select();
+
+    if (error?.code === 'PGRST204') {
+        const match = /'([^']+)' column/i.exec(error.message || '');
+        const missingCol = match?.[1];
+        if (missingCol && row[missingCol] !== undefined && !blacklist.includes(missingCol)) {
+            console.warn(`!! Column '${missingCol}' missing in public.products — retrying upsert without it.`);
+            console.warn(`   Apply supabase/migrations/<that column>.sql to enable this field on the live shop.`);
+            const stripped = { ...row };
+            delete (stripped as any)[missingCol];
+            return upsertWithSchemaFallback(stripped, [...blacklist, missingCol]);
+        }
+    }
+    return { data, error };
+}
