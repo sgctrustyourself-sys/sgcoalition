@@ -1,4 +1,4 @@
-const CACHE_NAME = 'coalition-ai-v4';
+const CACHE_NAME = 'coalition-ai-v5';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
