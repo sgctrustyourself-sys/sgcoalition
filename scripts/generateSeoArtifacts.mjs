@@ -48,24 +48,74 @@ const absoluteUrl = (value = DEFAULT_IMAGE) => {
 
 const productPath = (id) => `/product/${encodeURIComponent(id)}`;
 
+// Bracket-balanced scan that respects:
+//   - JS line comments (// ... \n)
+//   - JS block comments (/* ... */)
+//   - String literals ('...' / "..." / `...`)
+//   - String-literal escapes (\)
+//   - Template-literal interpolations (`${...}` with balanced {} inside)
+// Returns the index of the matching closeChar, or -1 if it never drops to depth 0
+// before the source ends, or if it goes negative (mismatched source).
 const scanToMatching = (source, openIndex, openChar, closeChar) => {
   let depth = 0;
   let quote = '';
   let escaped = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+  let bracketDepthInInterpolation = 0;
 
   for (let index = openIndex; index < source.length; index += 1) {
     const char = source[index];
+    const next = source[index + 1];
+
+    if (inLineComment) {
+      if (char === '\n') inLineComment = false;
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (char === '*' && next === '/') { inBlockComment = false; index += 1; }
+      continue;
+    }
 
     if (quote) {
       if (escaped) {
         escaped = false;
-      } else if (char === '\\') {
+        continue;
+      }
+      if (char === '\\') {
         escaped = true;
-      } else if (char === quote) {
+        continue;
+      }
+      // Template-literal interpolation: skip `${...}` with balanced braces.
+      if (quote === '`' && char === '$' && next === '{') {
+        bracketDepthInInterpolation = 1;
+        index += 1; // consume '{'
+        for (let j = index + 1; j < source.length; j += 1) {
+          const ic = source[j];
+          if (ic === '{') bracketDepthInInterpolation += 1;
+          else if (ic === '}') {
+            bracketDepthInInterpolation -= 1;
+            if (bracketDepthInInterpolation === 0) {
+              index = j;
+              break;
+            }
+          }
+        }
+        continue;
+      }
+      if (char === quote) {
         quote = '';
       }
       continue;
     }
+
+    // Detect comment starts ONLY when not in a string and not in a context
+    // where these characters have other meanings. We are tracking `[` `]` here,
+    // so the closest "wrong-context" false positives are inside regex literals
+    // (which constants.ts does not contain).
+    if (char === '/' && next === '/') { inLineComment = true; index += 1; continue; }
+    if (char === '/' && next === '*') { inBlockComment = true; index += 1; continue; }
 
     if (char === '"' || char === "'" || char === '`') {
       quote = char;
@@ -194,12 +244,16 @@ const parseProducts = () => {
   const constantsSource = readFile('constants.ts');
   const imageCatalog = parseImageCatalog();
   const productsStart = constantsSource.indexOf('export const INITIAL_PRODUCTS');
-  const initializerStart = constantsSource.indexOf('=', productsStart);
-  const arrayStart = constantsSource.indexOf('[', initializerStart);
-  const arrayEnd = scanToMatching(constantsSource, arrayStart, '[', ']');
+  const initializerStart = productsStart >= 0 ? constantsSource.indexOf('=', productsStart) : -1;
+  const arrayStart = initializerStart >= 0 ? constantsSource.indexOf('[', initializerStart) : -1;
+  const arrayEnd = arrayStart >= 0 ? scanToMatching(constantsSource, arrayStart, '[', ']') : -1;
 
   if (productsStart < 0 || initializerStart < 0 || arrayStart < 0 || arrayEnd < 0) {
-    throw new Error('Unable to locate INITIAL_PRODUCTS in constants.ts.');
+    throw new Error(
+      'Unable to locate INITIAL_PRODUCTS in constants.ts. '
+      + `productsStart=${productsStart}, initializerStart=${initializerStart}, `
+      + `arrayStart=${arrayStart}, arrayEnd=${arrayEnd}, sourceLength=${constantsSource.length}.`
+    );
   }
 
   return splitTopLevelObjects(constantsSource.slice(arrayStart + 1, arrayEnd))
