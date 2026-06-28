@@ -313,8 +313,8 @@ Hand-cut, raw-hem, deep-set pocket. Sized S through 2XL.`,
     price: 75,
     createdAt: '2026-06-28T00:00:00-04:00',
     images: [
-      '/images/above-as-below-tee+shorts-front.png',
-      '/images/above-as-below-tee+shorts-back.png'
+      '/images/above-as-below-set-front.png',
+      '/images/above-as-below-set-back.png'
     ],
     description: "The matching Above as Below shorts. Same hand-crafted red-and-white Coalition lineage as the tee - heavyweight cotton, deep set pocket, raw-hem finished. Sold at $75 individually, or grab the set with the tee for $120 and save $30.",
     category: 'apparel',
