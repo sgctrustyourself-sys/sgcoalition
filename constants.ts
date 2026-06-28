@@ -323,6 +323,8 @@ Hand-cut, raw-hem, deep-set pocket. Sized S through 2XL.`,
     price: 75,
     createdAt: '2026-06-28T00:00:00-04:00',
     images: [
+      '/images/above-as-below-shorts-front.png',
+      '/images/above-as-below-shorts-back.png',
       '/images/above-as-below-set-front.png',
       '/images/above-as-below-set-back.png'
     ],
@@ -333,6 +335,30 @@ Hand-cut, raw-hem, deep-set pocket. Sized S through 2XL.`,
     freeShipping: true,
     sizes: ['S', 'M', 'L', 'XL', '2XL'],
     sizeInventory: { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 }
+  },
+  {
+    id: 'prod_hoodie_overwhelmingly_patient',
+    founderNote: `This hoodie is the start of the Coalition chakra line. The body is heavyweight 400gsm cotton fleece, cut deliberately oversized so it drapes below the hips. The graphic is a hand-drawn Sacral Chakra mark - the six-petaled lotus in deep burnt orange - sitting centered over the lower abdomen, the location Svadhisthana governs.
+
+We picked orange the way the body reads orange. Warm. Liquid. The lower belly responds to warmth, to creative pressure, to the willingness to move without explaining why.
+
+Signs of imbalance this piece considers: low creative drive, emotional flatness that will not resolve in the chest, and the fashionable numbness people call focus. To rebalance it: hip-opening yoga, spontaneous creative work without deadline, daily repetition of "I move with the flow of life."
+
+Pre-order reservations are intentionally capped at one per size. After the close date we cut, dye, screen, and ship in one batch - no restocks, no second run. If you reserve, the only way to wear it is to wait with us.`,
+    name: 'COALITION OVERWHELMINGLY PATIENT HOODIE',
+    price: 135,
+    createdAt: '2026-06-28T00:00:00-04:00',
+    images: [
+      '/images/coalition-overwhelmingly-patient-hoodie-front.png',
+      '/images/coalition-overwhelmingly-patient-hoodie-back.png'
+    ],
+    description: "Pre-order release of the Coalition Overwhelmingly Patient Hoodie. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Reservations capped at one per size; ships in 4-6 weeks from the close of the pre-order window.",
+    category: 'apparel',
+    isFeatured: false,
+    isLimitedEdition: true,
+    saleEndDate: '2026-07-26T23:59:59.999Z',
+    sizes: ['S', 'M', 'L', 'XL', '2XL'],
+    sizeInventory: { S: 1, M: 1, L: 1, XL: 1, '2XL': 1 }
   },
 ];
 
