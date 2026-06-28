@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import { Section } from '../types';
 import ProductCard from '../components/ProductCard';
 import SmsSignup from '../components/SmsSignup';
+import Newsletter from '../components/Newsletter';
 
 const Home = () => {
     const { sections, products, isAdminMode, updateSections, updateSection, isLoading } = useApp();
@@ -372,6 +373,11 @@ const Home = () => {
                     {s.type === 'featured' && <SmsSignup />}
                 </React.Fragment>
             ))}
+            {/* Drop-list invite: keeps the storefront audience loop closed between
+                drops. Block variant reads as Founder voice, not as marketing. */}
+            <div className="px-4 pt-20 pb-4 max-w-4xl mx-auto">
+                <Newsletter source="home" variant="block" />
+            </div>
             {isAdminMode && (
                 <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-black text-white px-6 py-3 rounded-full shadow-2xl z-50 flex items-center gap-4">
                     <span className="text-sm font-bold">Layout Edit Mode</span>

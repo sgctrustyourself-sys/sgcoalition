@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { PenTool, Shirt, Package, Building, SprayCan, Music, TrendingUp, ArrowRight } from 'lucide-react';
+import Newsletter from '../components/Newsletter';
 
 const Story = () => {
     return (
@@ -207,6 +208,12 @@ const Story = () => {
                     </div>
 
                 </div>
+            </section>
+
+            {/* Drop-list invite: most natural moment to convert voice-believers
+                into subscribers, just before the final call-to-action. */}
+            <section className="py-20 px-4 max-w-4xl mx-auto">
+                <Newsletter source="about" variant="block" />
             </section>
 
             {/* Brand Message / Footer Callout */}

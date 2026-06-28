@@ -5,6 +5,7 @@ import ProductCard from '../components/ProductCard';
 import SearchBar from '../components/SearchBar';
 import ProductCardSkeleton from '../components/ProductCardSkeleton';
 import Seo from '../components/Seo';
+import Newsletter from '../components/Newsletter';
 import { buildItemListJsonLd } from '../utils/seo';
 
 const Shop = () => {
@@ -360,6 +361,11 @@ const Shop = () => {
                         </div>
                     )}
                 </div>
+            </div>
+            {/* Drop-list invite under the grid: the most engaged moment of the
+                browse flow is right after the buyer has been comparing pieces. */}
+            <div className="mt-20 pt-10 border-t border-white/10 max-w-2xl mx-auto">
+                <Newsletter source="shop" variant="inline" />
             </div>
             </div>
         </>
