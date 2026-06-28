@@ -28,6 +28,7 @@ export interface Product {
   releasedAt?: string; // ISO timestamp
   soldAt?: string;     // ISO timestamp
   archiveNote?: string; // Context shown when a sold/archive piece has a story behind it
+  founderNote?: string; // Personal note from the founder shown below the buy button on the PDP
   // Urgency & Scarcity Fields
   isLimitedEdition?: boolean; // Limited edition badge
   stock?: number; // Current available stock as mirrored from the products DB row (set by AppContext.fetchProducts from public.products.stock)

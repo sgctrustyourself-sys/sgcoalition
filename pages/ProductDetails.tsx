@@ -930,6 +930,20 @@ const ProductDetails = () => {
                                     {/* Local Impact Message */}
                                     <ImpactMessage className="mt-2" />
 
+                                    {/* Founder's Note - anti-tricky-brand voice at the conviction moment.
+                                        Renders only when product.founderNote is set and non-whitespace.
+                                        Whitespace-pre-line preserves the founder's intentional line breaks. */}
+                                    {product.founderNote?.trim() && (
+                                        <div className="border border-brand-accent/20 bg-brand-accent/5 px-5 py-5 text-left">
+                                            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-brand-accent mb-3">
+                                                From the Founder
+                                            </p>
+                                            <p className="text-sm md:text-base leading-relaxed text-gray-200 font-light whitespace-pre-line">
+                                                {product.founderNote}
+                                            </p>
+                                        </div>
+                                    )}
+
                                     {/* Reddit Community Banner */}
                                     {(() => {
                                         const redditLinks: Record<string, { url: string; label: string; description: string }> = {

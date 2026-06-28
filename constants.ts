@@ -4,6 +4,7 @@ import { PRODUCT_IMAGE_URLS } from './utils/localImageAssets';
 export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'Coalition_NF_Tee',
+    founderNote: `[PLACEHOLDER · Coalition_NF_Tee] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION NF-TEE',
     price: 40,
     images: [
@@ -25,6 +26,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'prod_tee_above_as_below',
+    founderNote: `[PLACEHOLDER · prod_tee_above_as_below] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION ABOVE AS BELOW TEE',
     price: 75,
     createdAt: '2026-06-17T00:00:00-04:00',
@@ -44,6 +46,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'GreenCamoWallet',
+    founderNote: `[PLACEHOLDER · GreenCamoWallet] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION GREEN CAMO WALLET',
     price: 75,
     images: [PRODUCT_IMAGE_URLS.walletGreen.front, PRODUCT_IMAGE_URLS.walletGreen.back],
@@ -57,6 +60,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'SKYYBLUEWALLET1_2',
+    founderNote: `[PLACEHOLDER · SKYYBLUEWALLET1_2] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION SKYY BLUE WALLET 1/2',
     price: 75,
     images: [PRODUCT_IMAGE_URLS.walletSkyyBlue.front, PRODUCT_IMAGE_URLS.walletSkyyBlue.back],
@@ -70,6 +74,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'prod_wallet_004',
+    founderNote: `[PLACEHOLDER · prod_wallet_004] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION SKYY BLUE WALLET 2/2',
     price: 75,
     images: [PRODUCT_IMAGE_URLS.walletSkyyBlueArchive.front, PRODUCT_IMAGE_URLS.walletSkyyBlueArchive.back],
@@ -83,6 +88,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'Coalition_Racing_Team_Wallet_1_4',
+    founderNote: `[PLACEHOLDER · Coalition_Racing_Team_Wallet_1_4] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Racing Team' Wallet 1/4",
     price: 75,
     createdAt: '2026-04-07T00:00:00Z',
@@ -100,6 +106,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'Coalition_Racing_Team_Wallet_2_4',
+    founderNote: `[PLACEHOLDER · Coalition_Racing_Team_Wallet_2_4] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Racing Team' Wallet 2/4",
     price: 75,
     createdAt: '2026-04-07T06:57:00Z',
@@ -117,6 +124,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'Coalition_Racing_Team_Wallet_3_4',
+    founderNote: `[PLACEHOLDER · Coalition_Racing_Team_Wallet_3_4] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Racing Team' Wallet 3/4",
     price: 75,
     createdAt: '2026-04-07T07:08:00Z',
@@ -134,6 +142,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'Coalition_Racing_Team_Wallet_4_4',
+    founderNote: `[PLACEHOLDER · Coalition_Racing_Team_Wallet_4_4] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Racing Team' Wallet 4/4",
     price: 75,
     createdAt: '2026-04-07T07:25:00Z',
@@ -151,6 +160,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'prod_wallet_chrome_hearts',
+    founderNote: `[PLACEHOLDER · prod_wallet_chrome_hearts] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'CUSTOM COALITION X CHROME HEARTS WALLET',
     price: 450,
     images: [PRODUCT_IMAGE_URLS.chromeHeartsWallet.front, PRODUCT_IMAGE_URLS.chromeHeartsWallet.back],
@@ -162,6 +172,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'prod_trust_yourself_hat_01',
+    founderNote: `[PLACEHOLDER · prod_trust_yourself_hat_01] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'TRUST YOURSELF CUSTOM TRUCKER (1/1)',
     price: 85,
     images: [
@@ -178,8 +189,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     soldAt: '2025-01-01T00:00:00Z'
   },
     {
-      id: 'prod_tee_distortion',
-      name: 'COALITION DISTORTION TEE',
+    id: 'prod_tee_distortion',
+    founderNote: `[PLACEHOLDER · prod_tee_distortion] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
+    name: 'COALITION DISTORTION TEE',
       price: 60,
       images: [
         PRODUCT_IMAGE_URLS.distortionTee.main,
@@ -193,6 +205,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     },
   {
     id: 'Coalition_x_True_Religion_S1',
+    founderNote: `[PLACEHOLDER · Coalition_x_True_Religion_S1] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'Coalition x True Religion 1/1 Jeans S1',
     price: 240,
     images: [
@@ -211,6 +224,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'Coalition_Grey_Wave_Wallet_1_2',
+    founderNote: `[PLACEHOLDER · Coalition_Grey_Wave_Wallet_1_2] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Grey Wave' Wallet 1/2",
     price: 75,
     createdAt: '2026-06-20T00:00:00-04:00',
@@ -230,6 +244,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'Coalition_Grey_Wave_Wallet_2_2',
+    founderNote: `[PLACEHOLDER · Coalition_Grey_Wave_Wallet_2_2] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Grey Wave' Wallet 2/2",
     price: 75,
     createdAt: '2026-06-28T00:00:00-04:00',
@@ -246,6 +261,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'Coalition_Above_As_Below_Wallet_1_1',
+    founderNote: `[PLACEHOLDER · Coalition_Above_As_Below_Wallet_1_1] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION ABOVE AS BELOW 1/1 WALLET',
     price: 75,
     createdAt: '2026-06-28T00:00:00-04:00',
@@ -263,6 +279,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'prod_shorts_above_as_below',
+    founderNote: `[PLACEHOLDER · prod_shorts_above_as_below] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION ABOVE AS BELOW SHORTS',
     price: 75,
     createdAt: '2026-06-28T00:00:00-04:00',
@@ -277,6 +294,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'prod_set_above_as_below',
+    founderNote: `[PLACEHOLDER · prod_set_above_as_below] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION ABOVE AS BELOW SET (TEE + SHORTS)',
     price: 120,
     createdAt: '2026-06-28T00:00:00-04:00',

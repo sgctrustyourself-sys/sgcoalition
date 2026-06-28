@@ -90,6 +90,7 @@ const ProductManager: React.FC = () => {
                 sizeInventory: normalizedSizes.sizeInventory,
                 nft: editForm.nft,
                 archived: editForm.archived || false,
+                founderNote: editForm.founderNote,
             };
 
             if (isAdding) {
@@ -587,6 +588,22 @@ const ProductManager: React.FC = () => {
                                     className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-white/30 outline-none h-32"
                                     placeholder="Product description... (Markdown supported)"
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Founder's Note</label>
+                                <textarea
+                                    value={editForm.founderNote || ''}
+                                    onChange={(e) => updateField('founderNote', e.target.value)}
+                                    rows={5}
+                                    className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-white/30 outline-none"
+                                    placeholder="1-2 paragraphs from the founder about this specific build. Anti-tricky-brand voice: personal, concrete, written to the buyer not the algorithm. ~120 words."
+                                />
+                                <p className="text-[10px] text-gray-500 mt-2 italic leading-relaxed">
+                                    Shown on the public product page directly below the buy button. Line breaks
+                                    honor the founder's intentional spacing. Edits land in local state; sync to
+                                    Supabase once a founder_note column is added to the products table.
+                                </p>
                             </div>
 
                             {/* Archive Toggle */}
