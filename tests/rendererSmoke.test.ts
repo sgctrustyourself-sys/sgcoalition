@@ -91,10 +91,27 @@ function hasOrangeBleed(data) {
 }
 
 function listPngs(dir) {
-    return fs.readdirSync(dir).filter(f => f.endsWith('.png')).sort();
+    // The first test legitimately expects 0 grid / 0 x PNGs even when
+    // `npm run reveal` never created those reveal dirs in the first
+    // place -- on a fresh checkout, grid-reveal/ and x-reveal/ do not
+    // exist at all. `fs.readdirSync` throws ENOENT on a missing dir, so
+    // return [] for that case and let the count assertion (0 === 0)
+    // pass. Rethrow on any other error so we don't silently swallow
+    // genuine failures (permission, EIO, etc.).
+    try {
+        return fs.readdirSync(dir).filter(f => f.endsWith('.png')).sort();
+    } catch (err) {
+        if (err && err.code === 'ENOENT') return [];
+        throw err;
+    }
 }
 function listHtml(dir) {
-    return fs.readdirSync(dir).filter(f => f.endsWith('.html')).sort();
+    try {
+        return fs.readdirSync(dir).filter(f => f.endsWith('.html')).sort();
+    } catch (err) {
+        if (err && err.code === 'ENOENT') return [];
+        throw err;
+    }
 }
 
 describe('Coalition Drop Renderer smoke test', () => {
