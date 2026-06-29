@@ -1,6 +1,6 @@
 name: vitest
 
-# Run the test suite on every push to main and on every PR targeting main.
+# Run the test suite on every push to main and on every PR targeting main or release.
 # Posts results as a PR check, with GitHub annotations on test failures via
 # the `github-actions` reporter. Catches regressions like the rimraf cascade
 # (commit fe8acec) and the ENOENT crash (commit 74b9817) before they land.
@@ -8,7 +8,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, release]
 
 # Cancel in-flight runs for the same ref so a force-push or a flurry of
 # PR commits doesn't pile up redundant CI jobs.
@@ -51,6 +51,12 @@ jobs:
       # than `npm install` on a clean checkout, which is what CI gets.
       - name: Install dependencies
         run: npm ci
+
+      # rendererSmoke launches Playwright Chromium through scripts/render-story.ts.
+      # npm installs the Playwright package, but GitHub's clean runners still need
+      # the browser binary and Linux system dependencies downloaded explicitly.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
       # `npx vitest run` (no --project flags) runs BOTH projects in
       # vitest.config.ts -- `react-components` (jsdom + tests/setup.ts)

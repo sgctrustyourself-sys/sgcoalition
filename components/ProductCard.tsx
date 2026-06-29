@@ -7,15 +7,33 @@ import PriceDisplay from './PriceDisplay';
 import UrgencyBadge from './ui/UrgencyBadge';
 import { getStockUrgency, getStockCount, generateViewCount, getMintFraction } from '../utils/urgencyUtils';
 import RequestSimilarModal from './RequestSimilarModal';
+import { getProductImage, getProductImageSrcSet, getProductRoleImage, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
 
-const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
+interface ProductCardProps {
+    product: Product;
+    /**
+     * Marks the LCP card. When true the browser fetches the primary image
+     * eagerly with high fetchpriority and we drop decoding="async" so the
+     * card paints without visual pop-in. Pass `true` only on the first card
+     * of /shop, /home featured grid, the first search/wishlist/favorites card,
+     * and the first "You may also like" recommendation.
+     */
+    priority?: boolean;
+}
+
+const ProductCard: React.FC<ProductCardProps> = ({ product, priority = false }) => {
     const { addToCart, toggleFavorite, user } = useApp();
     const isFav = user?.favorites.includes(product.id);
     const isSold = product.archived && !!product.soldAt;
     const [showRequestModal, setShowRequestModal] = useState(false);
-    const primaryImage = product.images && product.images.length > 0 ? product.images[0] : '/images/logo.png';
-    const hoverImage = product.images && product.images.length > 1 ? product.images[1] : primaryImage;
-    const hasHoverImage = hoverImage !== primaryImage;
+    // Role-aware reads: getProductRoleImage falls back to position-based
+    // defaults when imageRoles isn't set, so products created before this
+    // field still render correctly.
+    const rolePrimary = getProductRoleImage(product, 'primary');
+    const roleHover = getProductRoleImage(product, 'hover');
+    const primaryImage = rolePrimary || (product.images && product.images.length > 0 ? product.images[0] : '/images/logo.png');
+    const hoverImage = roleHover ?? primaryImage;
+    const hasHoverImage = !!roleHover && hoverImage !== primaryImage;
     const shouldFitFullImage = product.id === 'prod_tee_above_as_below'
         || product.id === 'prod_shorts_above_as_below'
         || product.id === 'prod_hoodie_overwhelmingly_patient';
@@ -33,23 +51,58 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
 
     const cardLink = `/product/${product.id}`;
 
+    // Supabase image transforms (/storage/v1/render/image/...) are Pro-plan and
+    // can 4xx if disabled. Each <img> gets its own inline onError so the
+    // fallback swaps to THAT image's raw URL, not the card's primary image.
+    // A dataset flag guards against an infinite loop if the raw URL itself 404s.
+    const handlePrimaryError = (event: React.SyntheticEvent<HTMLImageElement>) => {
+        const img = event.currentTarget;
+        if (img.dataset.fallbackApplied === '1') return;
+        img.dataset.fallbackApplied = '1';
+        img.src = primaryImage;
+        img.removeAttribute('srcset');
+        img.removeAttribute('sizes');
+    };
+    const handleHoverError = (event: React.SyntheticEvent<HTMLImageElement>) => {
+        const img = event.currentTarget;
+        if (img.dataset.fallbackApplied === '1') return;
+        img.dataset.fallbackApplied = '1';
+        img.src = hoverImage;
+        img.removeAttribute('srcset');
+        img.removeAttribute('sizes');
+    };
+
     return (
         <>
             <div className={`group relative bg-transparent ${isSold ? 'opacity-60' : ''}`}>
                 <div className={`aspect-[4/5] overflow-hidden ${imageFrameClass} relative border border-white/5`}>
                     <img
-                        src={primaryImage}
+                        src={getProductImage(primaryImage, 'card')}
+                        srcSet={getProductImageSrcSet(primaryImage)}
+                        sizes={PRODUCT_IMAGE_SIZES.card}
                         alt={product.name}
-                        loading="lazy"
+                        width={800}
+                        height={1000}
+                        loading={priority ? 'eager' : 'lazy'}
+                        fetchPriority={priority ? 'high' : 'auto'}
+                        decoding={priority ? 'sync' : 'async'}
+                        onError={handlePrimaryError}
                         className={`absolute inset-0 h-full w-full ${imageObjectClass} object-center transition duration-700 ease-in-out ${
                             hasHoverImage ? 'opacity-100 group-hover:opacity-0' : `${hoverScaleClass} group-hover:grayscale`
                         }`}
                     />
                     {hasHoverImage && (
                         <img
-                            src={hoverImage}
+                            src={getProductImage(hoverImage, 'gallery')}
+                            srcSet={getProductImageSrcSet(hoverImage)}
+                            sizes={PRODUCT_IMAGE_SIZES.card}
                             alt={`${product.name} alternate view`}
+                            width={800}
+                            height={1000}
                             loading="lazy"
+                            fetchPriority="auto"
+                            decoding="async"
+                            onError={handleHoverError}
                             className={`absolute inset-0 h-full w-full ${imageObjectClass} object-center opacity-0 group-hover:opacity-100 ${hoverScaleClass} transition duration-700 ease-in-out`}
                         />
                     )}

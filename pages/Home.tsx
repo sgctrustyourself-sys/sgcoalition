@@ -6,6 +6,7 @@ import { Section } from '../types';
 import ProductCard from '../components/ProductCard';
 import SmsSignup from '../components/SmsSignup';
 import Newsletter from '../components/Newsletter';
+import { getProductImage, getProductImageSrcSet, getProductRoleImage, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
 
 const Home = () => {
     const { sections, products, isAdminMode, updateSections, updateSection, isLoading } = useApp();
@@ -175,7 +176,25 @@ const Home = () => {
                                 </div>
                             </div>
                             <div className="order-1 md:order-2 bg-gray-900 aspect-square relative overflow-hidden border border-white/5 group">
-                                <img src={featured.images[0]} alt={featured.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition duration-700" />
+                                <img
+                                    src={getProductImage(getProductRoleImage(featured, 'primary') || featured.images[0], 'hero')}
+                                    srcSet={getProductImageSrcSet(getProductRoleImage(featured, 'primary') || featured.images[0])}
+                                    sizes={PRODUCT_IMAGE_SIZES.hero}
+                                    alt={featured.name}
+                                    width={1200}
+                                    height={1200}
+                                    loading="eager"
+                                    fetchPriority="high"
+                                    decoding="sync"
+                                    onError={(event) => {
+                                        const img = event.currentTarget;
+                                        if (img.getAttribute('data-fallback-applied') === '1') return;
+                                        img.setAttribute('data-fallback-applied', '1');
+                                        img.src = getProductRoleImage(featured, 'primary') || featured.images[0];
+                                        img.removeAttribute('srcset');
+                                    }}
+                                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition duration-700"
+                                />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none"></div>
                             </div>
                         </div>
@@ -276,7 +295,7 @@ const Home = () => {
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16">
-                                {products.slice(0, 6).map(p => <ProductCard key={p.id} product={p} />)}
+                                {products.slice(0, 6).map((p, idx) => <ProductCard key={p.id} product={p} priority={idx === 0} />)}
                             </div>
                         )}
                     </section>

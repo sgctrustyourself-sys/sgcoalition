@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
-import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderStatus, OrderItem, Giveaway, GiveawayEntry, GiveawayStatus, Review, SocialAccount, CustomInquiry, SGCoinPurchaseRequest } from '../types';
+import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderStatus, OrderItem, Giveaway, GiveawayEntry, GiveawayStatus, Review, SocialAccount, CustomInquiry, SGCoinPurchaseRequest, ImageRoles } from '../types';
 import { INITIAL_SECTIONS, COIN_REWARD_RATE, INITIAL_PRODUCTS, ADMIN_WALLETS, INITIAL_ORDERS, PRODUCT_LOCAL_OVERRIDES } from '../constants';
 import { supabase } from '../services/supabase';
-import { autoCommit, generateProductAddedMessage, generateProductUpdatedMessage, generateProductDeletedMessage } from '../services/autoCommitService';
 import { signOut } from '../services/auth';
-import { useToast } from './ToastContext';
-import { ensureSubscriberGiveawayEntries, pickWeightedGiveawayWinners } from '../utils/giveawayUtils';
+import { useToast } from './ToastContext';import { ensureSubscriberGiveawayEntries, pickWeightedGiveawayWinners } from '../utils/giveawayUtils';
 import { resolveLocalImageUrls } from '../utils/localImageAssets';
 import { normalizeProductSizeData } from '../utils/productSizes';
 import { getCartItemLineTotal, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
@@ -134,6 +132,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isLoading, setIsLoading] = useState(true);
     const [signals, setSignals] = useState<Signal[]>([]);
     const [chainId, setChainId] = useState<number | null>(null);
+
+    // Realtime self-write guard. Supabase RT echoes our own INSERT/UPDATE/DELETE
+    // back to every client (including ours); the optimistic setProducts(...) we
+    // did BEFORE awaiting the DB write has the new state, so a re-fetch at
+    // that moment can race the SELECT cache replication and briefly blank the
+    // row. We track the product ids we just touched locally and skip
+    // fetchProducts for any realtime event whose affected id intersects this
+    // set within the TTL window. Other users / other tabs land normally.
+    //
+    // Tradeoff: if a SECOND admin edits the same product id within 3s of our
+    // own write, our client silently drops their event. Acceptable for a
+    // low-collision admin panel; the client falls back to the next
+    // SELECT cycle or the next user-initiated refresh.
+    const ignoredProductIds = useRef<Set<string>>(new Set());
+    const SELF_WRITE_TTL_MS = 3000;
+    const flagSelfWrite = (id: string) => {
+        const set = ignoredProductIds.current;
+        set.add(id);
+        window.setTimeout(() => {
+            set.delete(id);
+        }, SELF_WRITE_TTL_MS);
+    };
+    const shouldIgnoreRealtimeEvent = (recordId: string | null | undefined): boolean => {
+        if (!recordId) return false;
+        return ignoredProductIds.current.has(recordId);
+    };
     const getExclusiveFeaturedProducts = (featuredProductId: string, baseProducts: Product[]) =>
         baseProducts.map(product => ({
             ...product,
@@ -365,7 +389,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
                 productSync = supabase
                     .channel('products_channel')
-                    .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => fetchProducts())
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload: any) => {
+                        const recordId: string | null | undefined = payload?.new?.id ?? payload?.old?.id;
+                        if (shouldIgnoreRealtimeEvent(recordId)) {
+                            // Skip: this is the realtime echo of our own just-touched id.
+                            // See ignoredProductIds ref + flagSelfWrite on each write path.
+                            return;
+                        }
+                        fetchProducts();
+                    })
                     .subscribe();
             } catch (err) { console.error("Critical error in AppContext initialization:", err); }
             finally { if (mounted) setIsLoading(false); }
@@ -400,6 +432,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         // Mirrors services/retryQueue.ts mapProductToDb write path.
                         // Column added in supabase/migrations/20260620_add_is_limited_edition_to_products.sql
                         isLimitedEdition: item.is_limited_edition ?? false,
+                        // Image-role mapping (column added in supabase/migrations/20260630_add_image_roles_to_products.sql).
+                        // Older rows won't have the column — Supabase returns null and
+                        // getProductRoles falls back to the position-based default.
+                        imageRoles: (item.image_roles as ImageRoles | null) ?? undefined,
                         // Numbered-edition tier-pricing fields (migration 20261101).
                         pricingTiers: item.pricing_tiers ?? null,
                         editionSize: item.edition_size ?? null,
@@ -407,7 +443,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         sizes: item.sizes || [], sizeInventory: item.size_inventory || {}, nft: item.nft_metadata,
                         reviews: savedReviews, archived: item.archived || false,
                         archivedAt: item.archived_at, releasedAt: item.released_at, soldAt: item.sold_at,
-                        archiveNote: PRODUCT_LOCAL_OVERRIDES[item.id]?.archiveNote
+                        // archive_note column added in supabase/migrations/20260701_add_archive_note_to_products.sql.
+                        // PRODUCT_LOCAL_OVERRIDES still wins when set, so legacy overrides
+                        // (pre-migration constants.ts entries) keep rendering until the
+                        // operator explicitly clears them from constants.ts.
+                        archiveNote: item.archive_note ?? PRODUCT_LOCAL_OVERRIDES[item.id]?.archiveNote
                     };
                 });
                 // Deduplicate by ID only. The previous (name + images[1]) collision
@@ -423,11 +463,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     if (!x) {
                         return acc.concat([current]);
                     } else {
-                        // id collision: keep the FIRST occurrence (acc is the
-                        // accumulator). Subsequent appends with the same id
-                        // are silently logged via console.warn so operator
-                        // dashboards surface the duplicate without breaking
-                        // the storefront render.
                         if (typeof console !== 'undefined' && console.warn) {
                             console.warn('[products] dropping duplicate id row:', current.id, current.name);
                         }
@@ -435,41 +470,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     }
                 }, []);
 
-                // Blend local defaults with database records.
-                // Database values win so admin edits like featured state persist correctly.
-                const initialProductMap = new Map(INITIAL_PRODUCTS.map(p => [p.id, p]));
-
-                const interceptedProducts = uniqueProducts.map((sp: any) => {
-                    const local = initialProductMap.get(sp.id);
-                    if (local) {
-                        return {
-                            ...local,
-                            ...sp,
-                            isFeatured: typeof sp.isFeatured === 'boolean' ? sp.isFeatured : local.isFeatured,
-                        };
-                    }
-                    return sp;
-                });
-
-                // Merge in any INITIAL_PRODUCTS entries not already in Supabase at all
-                const supabaseIds = new Set(interceptedProducts.map((p: any) => p.id));
-                const localOnly = INITIAL_PRODUCTS.filter(p => !supabaseIds.has(p.id));
-
-                const finalMerged = [...interceptedProducts, ...localOnly];
-                const finalWithOverrides = applyLocalProductOverrides(finalMerged);
+                // Apply PRODUCT_LOCAL_OVERRIDES on top of the DB row. Overrides
+                // are a deliberate, narrow mechanism for copy that we don't yet
+                // want to promote to the DB schema (e.g. archiveNote), so the
+                // merge is one-way: DB wins for shared fields, overrides fill
+                // gaps. We deliberately do NOT merge INITIAL_PRODUCTS into the
+                // live list — Supabase is the single source of truth and admin
+                // edits land on next refresh. INITIAL_PRODUCTS is reserved for
+                // (a) the no-config local-dev path above and (b) the isLoading
+                // skeleton render in useState below; live data never mixes with
+                // it on a successful fetch.
+                const withOverrides = applyLocalProductOverrides(uniqueProducts);
 
                 // Numbered-edition enrichment: batch-fetch paid-quantity counts via
                 // the get_product_paid_count RPC so PDP can render
                 // "X/44 minted at $75" without re-querying on every render.
                 // Best-effort: a single RPC failure degrades to 0 for that
                 // product (other products still load).
-                const numberedIds = finalWithOverrides
+                const numberedIds = withOverrides
                     .filter(p => p.editionSize && p.pricingTiers && p.pricingTiers.length > 0)
                     .map(p => p.id);
                 const countsByProduct = numberedIds.length > 0
                     ? await fetchPaidCountsByProduct(numberedIds)
                     : {};
-                const enrichedProducts = finalWithOverrides.map(p => (
+                const enrichedProducts = withOverrides.map(p => (
                     countsByProduct[p.id] !== undefined
                         ? { ...p, editionSoldCount: countsByProduct[p.id] }
                         : p
@@ -721,6 +745,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             : [...originalProducts, normalizedProduct];
 
         setProducts(nextProducts);
+        // Flag our own write so the realtime echo doesn't race the SELECT
+        // cache replication and overwrite our optimistic state.
+        flagSelfWrite(normalizedProduct.id);
         try {
             const { error } = await supabase.from('products').insert([{
                 id: normalizedProduct.id, name: normalizedProduct.name, price: normalizedProduct.price, category: normalizedProduct.category, images: normalizedProduct.images,
@@ -730,13 +757,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 pricing_tiers: normalizedProduct.pricingTiers ?? null,
                 edition_size: normalizedProduct.editionSize ?? null,
                 sizes: normalizedProduct.sizes,
-                size_inventory: normalizedProduct.sizeInventory, nft_metadata: normalizedProduct.nft
+                size_inventory: normalizedProduct.sizeInventory, nft_metadata: normalizedProduct.nft,
+                // Image-role mapping column (migration 20260630). Null is fine —
+                // getProductRoles fallback handles missing roles. Skipped if the
+                // column doesn't exist yet on the live schema (PGRST204 retry below).
+                image_roles: normalizedProduct.imageRoles ?? null,
+                // Archive note column (migration 20260701). Operator-authored copy shown
+                // beneath the buy button on sold/archived PDPs.
+                archive_note: normalizedProduct.archiveNote ?? null
             }]);
             if (error) throw error;
             if (normalizedProduct.isFeatured) {
                 await clearOtherFeaturedProductsInDb(normalizedProduct.id);
             }
-            await autoCommit({ message: generateProductAddedMessage(p.name) });
         } catch (err) {
             try {
                 if (normalizedProduct.isFeatured) {
@@ -765,6 +798,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             : products.map(p => p.id === normalizedUpdated.id ? normalizedUpdated : p);
 
         setProducts(nextProducts);
+        flagSelfWrite(normalizedUpdated.id);
         try {
             const { error } = await supabase.from('products').update({
                 name: normalizedUpdated.name, price: normalizedUpdated.price, category: normalizedUpdated.category, images: normalizedUpdated.images,
@@ -774,26 +808,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 pricing_tiers: normalizedUpdated.pricingTiers ?? null,
                 edition_size: normalizedUpdated.editionSize ?? null,
                 sizes: normalizedUpdated.sizes,
-                size_inventory: normalizedUpdated.sizeInventory, nft_metadata: normalizedUpdated.nft, archived: normalizedUpdated.archived
+                size_inventory: normalizedUpdated.sizeInventory, nft_metadata: normalizedUpdated.nft, archived: normalizedUpdated.archived,
+                image_roles: normalizedUpdated.imageRoles ?? null,
+                archive_note: updated.archiveNote ?? null
             }).eq('id', normalizedUpdated.id);
             if (error) throw error;
             if (normalizedUpdated.isFeatured) {
                 await clearOtherFeaturedProductsInDb(normalizedUpdated.id);
             }
-            await autoCommit({ message: generateProductUpdatedMessage(updated.name) });
         } catch (err) {
             if (original) {
-                try {
-                    await supabase.from('products').update({
-                        name: original.name, price: original.price, category: original.category, images: original.images,
-                        description: original.description,
-                        is_featured: original.isFeatured,
-                        is_limited_edition: original.isLimitedEdition ?? false,
-                        pricing_tiers: original.pricingTiers ?? null,
-                        edition_size: original.editionSize ?? null,
-                        sizes: original.sizes,
-                        size_inventory: original.sizeInventory, nft_metadata: original.nft, archived: original.archived
-                    }).eq('id', original.id);
+                try {                    await supabase.from('products').update({
+                    name: original.name, price: original.price, category: original.category, images: original.images,
+                    description: original.description,
+                    is_featured: original.isFeatured,
+                    is_limited_edition: original.isLimitedEdition ?? false,
+                    pricing_tiers: original.pricingTiers ?? null,
+                    edition_size: original.editionSize ?? null,
+                    sizes: original.sizes,
+                    size_inventory: original.sizeInventory, nft_metadata: original.nft, archived: original.archived,
+                    image_roles: original.imageRoles ?? null,
+                    archive_note: original.archiveNote ?? null
+                }).eq('id', original.id);
                 } catch (rollbackErr) {
                     console.warn('Failed to rollback featured product update:', rollbackErr);
                 }
@@ -804,14 +840,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const deleteProduct = async (id: string) => {
-        const product = products.find(p => p.id === id);
-        if (isSupabaseConfigured) {
-            const { error } = await supabase.from('products').delete().eq('id', id);
-            if (!error) {
-                setProducts(prev => prev.filter(p => p.id !== id));
-                await autoCommit({ message: generateProductDeletedMessage(product?.name || id) });
-            }
+        if (!isSupabaseConfigured) {
+            // No Supabase: locally remove is the only path available.
+            setProducts(prev => prev.filter(p => p.id !== id));
+            return;
         }
+
+        flagSelfWrite(id);
+        const { error } = await supabase.from('products').delete().eq('id', id);
+        if (error) {
+            // Backend failed — surface the error to the operator so they
+            // don't think the delete succeeded while the row still lives
+            // in the DB. Keep the row in local state until it's actually
+            // gone server-side.
+            console.error('Supabase delete failed:', error);
+            addToast('Delete failed — row still in DB. Try again.', 'error');
+            return;
+        }
+        addToast('Product deleted.', 'success');
+        setProducts(prev => prev.filter(p => p.id !== id));
     };
 
     const addToCart = (product: Product, size: string, options?: { keychainClipOn?: boolean }) => {

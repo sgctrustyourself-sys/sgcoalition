@@ -340,7 +340,7 @@ const Shop = () => {
                         </div>
                     ) : filteredProducts.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
-                            {filteredProducts.map(p => <ProductCard key={p.id} product={p} />)}
+                            {filteredProducts.map((p, i) => <ProductCard key={p.id} product={p} priority={i === 0} />)}
                         </div>
                     ) : isConfigError ? (
                         <div className="py-20 text-center px-4 bg-red-900/10 border border-red-500/20 rounded-lg">

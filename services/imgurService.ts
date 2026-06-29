@@ -51,31 +51,6 @@ export async function uploadToImgur(
 }
 
 /**
- * Trigger product synchronization from Supabase to local constants.ts
- */
-export async function syncProductsToCode(): Promise<string> {
-    try {
-        const response = await fetch(buildGitOperationsUrl('sync-constants'), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Sync failed');
-        }
-
-        const data = await response.json();
-        return data.hash;
-    } catch (error: any) {
-        console.error('Sync Service Error:', error);
-        throw error;
-    }
-}
-
-/**
  * Convert File object to base64 string
  */
 function fileToBase64(file: File): Promise<string> {

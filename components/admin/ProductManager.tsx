@@ -1,19 +1,18 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Product } from '../../types';
-import { Plus, Edit2, Trash2, Save, X, Copy, Search, AlertCircle, CheckCircle, RefreshCw, Loader2, Upload, ChevronLeft, ChevronRight, GripVertical, Star } from 'lucide-react';
-import { syncProductsToCode } from '../../services/imgurService';
+import { Product, ImageRoles } from '../../types';
+import { Plus, Edit2, Trash2, Save, X, Copy, Search, AlertCircle, CheckCircle, Loader2, Upload, ChevronLeft, ChevronRight, GripVertical, Star, Eye, EyeOff } from 'lucide-react';
 import { uploadProductImage } from '../../services/productUpload';
 import ImageCropperModal from '../ui/ImageCropperModal';
 import { moveArrayItem } from '../../utils/arrayMove';
 import { getProductEditableSizes, normalizeProductSizeData } from '../../utils/productSizes';
+import { getProductRoles, reconcileImageRoles } from '../../utils/productImage';
 
 const ProductManager: React.FC = () => {
     const { products, addProduct, updateProduct, deleteProduct } = useApp();
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isAdding, setIsAdding] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [isSyncing, setIsSyncing] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [editForm, setEditForm] = useState<Partial<Product>>({});
@@ -34,6 +33,7 @@ const ProductManager: React.FC = () => {
             name: '',
             price: 0,
             images: [],
+            imageRoles: undefined,
             description: '',
             category: 'apparel',
             isFeatured: false,
@@ -78,11 +78,17 @@ const ProductManager: React.FC = () => {
         setIsSaving(true);
         try {
             const normalizedSizes = normalizeProductSizeData(editForm.sizes, editForm.sizeInventory);
+            const images = editForm.images || [];
+            // Reconcile role URLs against the current images array so a stale
+            // primaryUrl/hoverUrl pointing at a deleted image falls back to a
+            // valid position-based default before we persist.
+            const imageRoles = reconcileImageRoles(images, editForm.imageRoles);
             const productData: Product = {
                 id: editForm.id || `prod_${Date.now()}`,
                 name: editForm.name,
                 price: Number(editForm.price),
-                images: editForm.images || [],
+                images,
+                imageRoles,
                 description: editForm.description || '',
                 category: editForm.category || 'apparel',
                 isFeatured: editForm.isFeatured || false,
@@ -95,10 +101,10 @@ const ProductManager: React.FC = () => {
 
             if (isAdding) {
                 await addProduct(productData);
-                setSuccess('Product added successfully!');
+                setSuccess('Saved — live now.');
             } else {
                 await updateProduct(productData);
-                setSuccess('Product updated successfully!');
+                setSuccess('Saved — live now.');
             }
 
             setTimeout(() => {
@@ -113,24 +119,62 @@ const ProductManager: React.FC = () => {
         }
     };
 
-    // Sync to Codebase
-    const handleSync = async () => {
-        if (!window.confirm('This will update constants.ts with all current database products and create a Git commit. Proceed?')) return;
-
-        setIsSyncing(true);
-        setError(null);
-        setSuccess(null);
-        try {
-            const hash = await syncProductsToCode();
-            setSuccess(`Sync Complete! Constants updated and committed (${hash})`);
-            setTimeout(() => setSuccess(null), 5000);
-        } catch (err) {
-            console.error('Core sync failed:', err);
-            setError('Failed to sync products to codebase. Make sure the local server is running.');
-        } finally {
-            setIsSyncing(false);
-        }
+    // ----- Image role helpers (Primary / Hover / Gallery) -----
+    // Storing role URLs (not indices) so admin reorders delete any saved
+    // mapping rather than silently pointing at the wrong photo.
+    const setImageRole = (url: string, role: 'primary' | 'hover' | 'gallery') => {
+        setEditForm(prev => {
+            const images = prev.images || [];
+            const currentRoles: ImageRoles = prev.imageRoles ?? {};
+            const next: ImageRoles = { ...currentRoles };
+            if (role === 'primary') {
+                next.primaryUrl = url;
+                // If the new primary was the hover, clear hover.
+                if (currentRoles.hoverUrl === url) next.hoverUrl = null;
+            } else if (role === 'hover') {
+                // An image can't be both primary AND hover; if primary, drop
+                // primary on this image and let the next save reconcile.
+                next.hoverUrl = url;
+                if (currentRoles.primaryUrl === url) next.primaryUrl = undefined;
+            } else if (role === 'gallery') {
+                // Reset to "anything-not-primary-not-hover is gallery": clearing
+                // role metadata lets the helper derive from images[i] defaults.
+                next.primaryUrl = currentRoles.primaryUrl === url ? undefined : currentRoles.primaryUrl;
+                next.hoverUrl = currentRoles.hoverUrl === url ? null : currentRoles.hoverUrl;
+                // Touch images so React re-renders the role badge accurately.
+                if (!images.includes(url)) return prev;
+            }
+            // Validate URLs against images; if operator marked a URL that's
+            // no longer in the array, the helper will reconcile on save.
+            return {
+                ...prev,
+                imageRoles: next,
+                images: images.includes(url) ? images : images,
+            };
+        });
     };
+
+    const toggleHoverEnabled = () => {
+        setEditForm(prev => {
+            const currentRoles: ImageRoles = prev.imageRoles ?? {};
+            const hasExplicitHover = currentRoles.hasOwnProperty('hoverUrl') && currentRoles.hoverUrl !== null;
+            const newHover = hasExplicitHover ? null : (previewRoles.hoverUrl ?? prev.images?.[1] ?? null);
+            return { ...prev, imageRoles: { ...currentRoles, hoverUrl: newHover } };
+        });
+    };
+
+    // Live preview of what storefront consumers will read for this form state,
+    // used to badge the tiles correctly while editing. Tiles are still based
+    // on position AND role so the operator sees the final mapping in-form.
+    const previewRoles = getProductRoles({
+        id: editForm.id ?? 'preview',
+        name: '',
+        price: 0,
+        images: editForm.images || [],
+        imageRoles: editForm.imageRoles,
+        description: '',
+        category: 'apparel',
+    } as Product);
 
     // Handle Direct File Upload
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -300,15 +344,6 @@ const ProductManager: React.FC = () => {
                         />
                     </div>
                     <button
-                        onClick={handleSync}
-                        disabled={isSyncing}
-                        className="flex items-center gap-2 bg-purple-500/20 border border-purple-500/30 text-purple-300 px-4 py-2 rounded-lg font-bold uppercase text-sm hover:bg-purple-500/30 transition disabled:opacity-50"
-                        title="Sync Supabase products to constants.ts"
-                    >
-                        {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                        Sync Code
-                    </button>
-                    <button
                         onClick={initNewProduct}
                         className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-lg font-bold uppercase text-sm hover:bg-gray-200 transition"
                     >
@@ -459,7 +494,8 @@ const ProductManager: React.FC = () => {
                                 {/* Image Preview Grid */}
                                 <div className="grid grid-cols-3 gap-2 mb-3">
                                     {(editForm.images || []).map((img, index) => {
-                                        const isPrimary = index === 0;
+                                        const isPrimary = previewRoles.primaryUrl === img;
+                                        const isHover = previewRoles.hoverUrl === img;
                                         const isDragged = draggedImageIndex === index;
                                         const isDropTarget = dragOverImageIndex === index;
 
@@ -488,6 +524,56 @@ const ProductManager: React.FC = () => {
                                                             Primary
                                                         </span>
                                                     )}
+                                                    {isHover && (
+                                                        <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-300">
+                                                            Hover
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Role-picker toolbar (visible on hover). Sets ONE image
+                                                    as primary or hover; clearing an explicit role reverts
+                                                    to "anything-not-claimed is gallery". */}
+                                                <div className="absolute right-1 top-7 flex flex-col gap-1 opacity-0 transition group-hover:opacity-100">
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); setImageRole(img, 'primary'); }}
+                                                        className={`p-1 rounded-md border ${isPrimary ? 'border-brand-accent bg-brand-accent text-black' : 'border-white/10 bg-black/80 text-white/80 hover:border-white/30 hover:text-white'}`}
+                                                        title="Set as primary"
+                                                    >
+                                                        <Star className="h-3 w-3" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); setImageRole(img, 'hover'); }}
+                                                        className={`p-1 rounded-md border ${isHover ? 'border-blue-500 bg-blue-500 text-white' : 'border-white/10 bg-black/80 text-white/80 hover:border-white/30 hover:text-white'}`}
+                                                        title="Set as hover image"
+                                                    >
+                                                        <Eye className="h-3 w-3" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); setImageRole(img, 'gallery'); }}
+                                                        className="p-1 rounded-md border border-white/10 bg-black/80 text-white/80 hover:border-white/30 hover:text-white"
+                                                        title="Restore gallery (default)"
+                                                    >
+                                                        <span className="block h-3 w-3 leading-none text-[8px] font-black text-center">G</span>
+                                                    </button>
+                                                </div>
+
+                                                {/* Hover-toggle (independent of per-tile picker). When
+                                                    "No Hover" is on, hoverUrl=null forces disabled hover
+                                                    across the storefront. */}
+                                                <div className="absolute right-1 bottom-7 flex flex-col gap-1 opacity-0 transition group-hover:opacity-100">
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); toggleHoverEnabled(); }}
+                                                        className={`p-1 rounded-md border ${(!editForm.imageRoles?.hasOwnProperty('hoverUrl') || editForm.imageRoles?.hoverUrl === null) ? 'border-gray-500 bg-black/80 text-gray-400' : 'border-white/10 bg-black/80 text-white/80 hover:border-white/30 hover:text-white'}`}
+                                                        title="No hover image for this product"
+                                                        disabled={(editForm.images?.length || 0) <= 1}
+                                                    >
+                                                        <EyeOff className="h-3 w-3" />
+                                                    </button>
                                                 </div>
 
                                                 <button

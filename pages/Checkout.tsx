@@ -123,7 +123,7 @@ const Checkout: React.FC = () => {
     const finalTotal = Math.max(0, total - discount - cartBonusDollars + shippingCost - creditToApply);
     const requiresNoExternalPayment = isZeroAmount || finalTotal <= 0;
     const paymentLabel = paymentMethod === 'paypal'
-        ? 'PayPal, card, or Apple Pay'
+        ? 'PayPal, Pay Later, card, or Apple Pay'
         : paymentMethod === 'crypto'
             ? 'USDC on Polygon'
             : 'Card';
@@ -135,6 +135,7 @@ const Checkout: React.FC = () => {
     const contactEmailLabel = shippingInfo.email.trim() || 'your checkout email';
     const paymentAvailability = [
         'PayPal secure checkout',
+        'Pay Later when PayPal offers it',
         'Credit and debit cards via PayPal',
         'Apple Pay when available',
         discountEnabled ? `USDC on Polygon saves ${getDiscountPercentageText()}` : 'USDC on Polygon available'
@@ -143,7 +144,7 @@ const Checkout: React.FC = () => {
         {
             icon: ShieldCheck,
             title: 'Secure PayPal payment',
-            detail: 'PayPal handles payment details before capture.'
+            detail: 'PayPal handles payment details, including Pay Later when eligible, before capture.'
         },
         {
             icon: Mail,
@@ -174,6 +175,67 @@ const Checkout: React.FC = () => {
             setIsZeroAmount(false);
         }
     }, [cart, paymentMethod, useStoreCredit, shippingMethod]);
+
+    useEffect(() => {
+        if (paymentMethod !== 'paypal' || requiresNoExternalPayment) return;
+
+        let cancelled = false;
+        let retryTimer: ReturnType<typeof window.setTimeout> | undefined;
+        let attempts = 0;
+
+        const renderPayLaterMessage = () => {
+            if (cancelled) return;
+
+            const container = document.getElementById('paypal-pay-later-message-checkout');
+            if (!container) return;
+
+            const PayPalMessages = window.paypal?.Messages;
+            if (typeof PayPalMessages !== 'function') {
+                attempts += 1;
+                if (attempts <= 20) {
+                    retryTimer = window.setTimeout(renderPayLaterMessage, 250);
+                }
+                return;
+            }
+
+            container.innerHTML = '';
+
+            try {
+                const renderResult = PayPalMessages({
+                    amount: finalTotal.toFixed(2),
+                    placement: 'payment',
+                    style: {
+                        layout: 'text',
+                        logo: {
+                            type: 'inline',
+                        },
+                        text: {
+                            color: 'white',
+                            size: 12,
+                        },
+                    },
+                }).render('#paypal-pay-later-message-checkout');
+
+                if (renderResult && typeof renderResult.catch === 'function') {
+                    renderResult.catch((err: any) => {
+                        console.warn('PayPal Pay Later message unavailable:', err);
+                    });
+                }
+            } catch (err) {
+                console.warn('PayPal Pay Later message unavailable:', err);
+            }
+        };
+
+        renderPayLaterMessage();
+
+        return () => {
+            cancelled = true;
+            if (retryTimer) window.clearTimeout(retryTimer);
+
+            const container = document.getElementById('paypal-pay-later-message-checkout');
+            if (container) container.innerHTML = '';
+        };
+    }, [paymentMethod, requiresNoExternalPayment, finalTotal]);
 
     // Check for existing coupon on mount
     useEffect(() => {
@@ -728,8 +790,8 @@ const Checkout: React.FC = () => {
                                                     className="w-5 h-5 border-gray-500 text-purple-600 focus:ring-purple-500"
                                                 />
                                                 <div className="flex flex-col">
-                                                    <span className="font-black text-base text-white">PayPal, Cards & Apple Pay</span>
-                                                    <span className="text-xs text-gray-400">Pay securely with PayPal, Credit/Debit Card, or Apple Pay</span>
+                                                    <span className="font-black text-base text-white">PayPal, Pay Later, Cards & Apple Pay</span>
+                                                    <span className="text-xs text-gray-400">Pay securely with PayPal, Pay Later if eligible, Credit/Debit Card, or Apple Pay</span>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2 opacity-80">
@@ -802,10 +864,14 @@ const Checkout: React.FC = () => {
                                                     <div>
                                                         <h4 className="font-bold text-purple-400 text-sm uppercase tracking-wide mb-1">Fast & Secure Checkout</h4>
                                                         <p className="text-sm text-gray-300">
-                                                            Pay with <span className="text-white font-bold">PayPal, Apple Pay, or Card</span>. PayPal shows the available wallet and card options for your device before any capture.
+                                                            Pay with <span className="text-white font-bold">PayPal, Pay Later, Apple Pay, or Card</span>. PayPal shows eligible wallet, pay-later, and card options for your device before any capture.
                                                         </p>
                                                     </div>
                                                 </div>
+                                            </div>
+
+                                            <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                                                <div id="paypal-pay-later-message-checkout" className="min-h-[24px] text-xs text-gray-300"></div>
                                             </div>
 
                                             {/* PayPal Button Container */}

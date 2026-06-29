@@ -367,7 +367,7 @@ const Profile = () => {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                            {favorites.map(p => <ProductCard key={p.id} product={p} />)}
+                            {favorites.map((p, idx) => <ProductCard key={p.id} product={p} priority={idx === 0} />)}
                         </div>
                     )}
                 </div>

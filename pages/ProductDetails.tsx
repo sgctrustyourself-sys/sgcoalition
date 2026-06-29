@@ -22,6 +22,7 @@ import { buildProductJsonLd, getProductSeo } from '../utils/seo';
 import { isNumberedEdition, getActiveTierPrice } from '../types';
 import { formatTierCalloutCopy } from '../services/numberedPieces';
 import { Lock, Unlock, Loader } from 'lucide-react';
+import { getProductImage, getProductImageSrcSet, getProductRoleImage, getProductRoles, reconcileImageRoles, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
 
 const formatProductDate = (value?: string) => {
     if (!value) return '';
@@ -198,7 +199,23 @@ const ProductDetails = () => {
     const displayPrice = basePrice + (walletProduct && includeKeychainClipOn ? WALLET_KEYCHAIN_CLIP_PRICE : 0);
     const tierInfo = isNumbered ? formatTierCalloutCopy(product, soldCount) : null;
     const editableSizes = getProductEditableSizes(editForm.sizes, editForm.sizeInventory);
-    const galleryImages = isEditing && editForm.images ? editForm.images : product.images;
+    // Gallery is role-aware: when imageRoles maps galleryUrls explicitly, use
+    // that ordering; otherwise derive from images excluding primary/hover. We
+    // intentionally keep "activeImageIndex" as a stable counter into
+    // galleryImages so the operator's last clicked thumbnail stays selected
+    // when primary/hover change.
+    const visibleImages = isEditing && editForm.images ? editForm.images : product.images;
+    const liveRoles = getProductRoles({
+        ...(product as Product),
+        ...(isEditing ? { images: editForm.images ?? [], imageRoles: editForm.imageRoles } : {}),
+    } as Product);
+    const galleryImages = isEditing
+        ? (liveRoles.primaryUrl ? [liveRoles.primaryUrl, ...liveRoles.galleryUrls] : liveRoles.galleryUrls.slice())
+        : (liveRoles.primaryUrl ? [liveRoles.primaryUrl, ...liveRoles.galleryUrls] : liveRoles.galleryUrls.slice());
+    const galleryImageIndex = (url: string | null) => {
+        if (!url) return -1;
+        return galleryImages.indexOf(url);
+    };
     const shouldFitFullImage = product.id === 'prod_tee_above_as_below'
         || product.id === 'prod_shorts_above_as_below'
         || product.id === 'prod_hoodie_overwhelmingly_patient'
@@ -250,10 +267,14 @@ const ProductDetails = () => {
     const handleSave = () => {
         if (editForm.id) {
             const normalizedSizes = normalizeProductSizeData(editForm.sizes, editForm.sizeInventory);
+            const images = editForm.images ?? [];
+            const imageRoles = reconcileImageRoles(images, editForm.imageRoles);
             updateProduct({
                 ...(editForm as Product),
                 sizes: normalizedSizes.sizes,
                 sizeInventory: normalizedSizes.sizeInventory,
+                images,
+                imageRoles,
             });
             setIsEditing(false);
         }
@@ -448,8 +469,22 @@ const ProductDetails = () => {
                     <div className="space-y-4">
                         <div className={`aspect-[4/5] ${imageFrameClass} overflow-hidden rounded-sm relative border border-white/5 box-glow`}>
                             <img
-                                src={galleryImages[activeImageIndex]}
+                                src={getProductImage(galleryImages[activeImageIndex], 'gallery')}
+                                srcSet={getProductImageSrcSet(galleryImages[activeImageIndex])}
+                                sizes={PRODUCT_IMAGE_SIZES.gallery}
                                 alt={product.name}
+                                width={800}
+                                height={1000}
+                                loading="eager"
+                                fetchPriority="high"
+                                decoding="sync"
+                                onError={(event) => {
+                                    const img = event.currentTarget;
+                                    if (img.getAttribute('data-fallback-applied') === '1') return;
+                                    img.setAttribute('data-fallback-applied', '1');
+                                    img.src = galleryImages[activeImageIndex];
+                                    img.removeAttribute('srcset');
+                                }}
                                 className={`w-full h-full ${imageObjectClass} opacity-90 hover:opacity-100 transition-opacity`}
                             />
                             <div className="absolute left-4 top-4 flex max-w-[calc(100%-2rem)] flex-wrap gap-2">
@@ -487,7 +522,18 @@ const ProductDetails = () => {
                                     onClick={() => setActiveImageIndex(idx)}
                                     className={`relative w-24 h-28 flex-shrink-0 overflow-hidden rounded-sm border-2 transition-all ${shouldFitFullImage ? 'bg-white' : ''} ${activeImageIndex === idx ? 'border-brand-accent' : 'border-white/10 opacity-50 hover:opacity-100'}`}
                                 >
-                                    <img src={img} alt={`View ${idx + 1}`} className={`w-full h-full ${imageObjectClass}`} />
+                                    <img
+                                        src={getProductImage(img, 'thumb')}
+                                        srcSet={getProductImageSrcSet(img)}
+                                        sizes={PRODUCT_IMAGE_SIZES.thumb}
+                                        alt={`View ${idx + 1}`}
+                                        width={96}
+                                        height={120}
+                                        loading="lazy"
+                                        fetchPriority="auto"
+                                        decoding="async"
+                                        className={`w-full h-full ${imageObjectClass}`}
+                                    />
                                 </button>
                             ))}
                         </div>

@@ -1,8 +1,24 @@
+// Per-product image-role mapping. Stored as URL strings (not indices) so
+// admin reorders / deletes don't silently corrupt the assignment. Older
+// products without an imageRoles field fall through to position-based
+// defaults (images[0] = primary, images[1] = hover, rest = gallery) via
+// utils/productImage.getProductRoles.
+export interface ImageRoles {
+  /** URL of the cover image shown on cards and as the PDP hero. */
+  primaryUrl?: string;
+  /** URL of the alt-view shown on ProductCard hover. Explicit `null` = no hover. */
+  hoverUrl?: string | null;
+  /** PDP thumbnail URLs. Optional; derived from images[2..n] when omitted. */
+  galleryUrls?: string[];
+}
+
 export interface Product {
   id: string;
   name: string;
   price: number;
   images: string[];
+  // Explicit image-role mapping. See ImageRoles above.
+  imageRoles?: ImageRoles;
   description: string;
   makingVideoUrl?: string;
   createdAt?: string; // ISO timestamp for when the product was added

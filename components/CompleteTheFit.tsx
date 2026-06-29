@@ -10,6 +10,7 @@ import {
     ABOVE_AS_BELOW_SET_BONUS_CENTS,
 } from '../utils/aboveAsBelowSet';
 import { resolveLocalImageUrl } from '../utils/localImageAssets';
+import { getProductImage, getProductImageSrcSet, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
 
 interface CompleteTheFitProps {
     currentProduct: Product;
@@ -103,10 +104,23 @@ const CompleteTheFit: React.FC<CompleteTheFitProps> = ({
                 <div className="flex items-center gap-4">
                     <div className="h-20 w-20 shrink-0 overflow-hidden border border-white/10 bg-white">
                         <img
-                            src={matchImage}
+                            src={getProductImage(matchImage, 'thumb')}
+                            srcSet={getProductImageSrcSet(matchImage)}
+                            sizes={PRODUCT_IMAGE_SIZES.thumb}
                             alt={match.name}
-                            className="h-full w-full object-contain"
+                            width={120}
+                            height={150}
                             loading="lazy"
+                            fetchPriority="auto"
+                            decoding="async"
+                            onError={(event) => {
+                                const img = event.currentTarget;
+                                if (img.getAttribute('data-fallback-applied') === '1') return;
+                                img.setAttribute('data-fallback-applied', '1');
+                                img.src = matchImage;
+                                img.removeAttribute('srcset');
+                            }}
+                            className="h-full w-full object-contain"
                         />
                     </div>
                     <div className="min-w-0 flex-1 space-y-1">
