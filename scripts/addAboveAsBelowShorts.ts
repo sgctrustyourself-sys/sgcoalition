@@ -18,7 +18,7 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const BASE_SELECT_COLUMNS = 'id,name,price,stock,images,archived,size_inventory';
+const BASE_SELECT_COLUMNS = 'id,name,price,stock,images,category,archived,size_inventory';
 
 async function addAboveAsBelowShorts() {
     const sizeInventory = { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 };
@@ -34,7 +34,7 @@ async function addAboveAsBelowShorts() {
             PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setBack
         ],
         description: "The matching Above as Below shorts. Same hand-crafted red-and-white Coalition lineage as the tee - heavyweight cotton, deep set pocket, raw-hem finished. Sold at $75 individually, or grab the set with the tee for $120 and save $30.",
-        category: 'apparel',
+        category: 'shorts',
         is_featured: false,
         sizes: ['S', 'M', 'L', 'XL', '2XL'],
         size_inventory: sizeInventory,

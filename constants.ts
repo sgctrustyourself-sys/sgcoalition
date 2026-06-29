@@ -40,7 +40,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     createdAt: '2026-06-17T00:00:00-04:00',
     images: [
       PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
-      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelFront,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelBack
     ],
     description: 'The Above as Below tee features a heavyweight black body with red-and-white Coalition artwork across the front and a full back graphic built around the Above as Below concept.',
     category: 'shirt',
@@ -371,6 +373,14 @@ Pre-order reservations are intentionally capped at one per size. After the close
 ];
 
 export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
+  prod_tee_above_as_below: {
+    images: [
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelFront,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelBack
+    ],
+  },
   // Hoodie ships in 1-2 weeks (faster than the original 4-6 week pre-order
   // commitment). Lives in PRODUCT_LOCAL_OVERRIDES rather than only in
   // INITIAL_PRODUCTS so applyLocalProductOverrides wins the AppContext merge

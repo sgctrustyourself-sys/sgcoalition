@@ -8,6 +8,8 @@ export const PRODUCT_IMAGE_URLS = {
     aboveAsBelowTee: {
         front: '/images/above-as-below-tee-front.png',
         back: '/images/above-as-below-tee-back.png',
+        modelFront: '/images/above-as-below-tee-model-front.png',
+        modelBack: '/images/above-as-below-tee-model-back.png',
     },
     aboveAsBelowShorts: {
         front: '/images/shorts%201.webp',
