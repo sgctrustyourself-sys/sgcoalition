@@ -432,14 +432,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         isFeatured: item.is_featured,
                         // Mirrors services/retryQueue.ts mapProductToDb write path.
                         // Column added in supabase/migrations/20260620_add_is_limited_edition_to_products.sql
-                        isLimitedEdition: item.is_limited_edition ?? false,
+                        isLimitedEdition: item.is_limited_edition,
                         // Image-role mapping (column added in supabase/migrations/20260630_add_image_roles_to_products.sql).
                         // Older rows won't have the column — Supabase returns null and
                         // getProductRoles falls back to the position-based default.
                         imageRoles: (item.image_roles as ImageRoles | null) ?? undefined,
                         // Numbered-edition tier-pricing fields (migration 20261101).
-                        pricingTiers: item.pricing_tiers ?? null,
-                        editionSize: item.edition_size ?? null,
+                        pricingTiers: item.pricing_tiers,
+                        editionSize: item.edition_size,
                         editionSoldCount: null,
                         sizes: item.sizes || [], sizeInventory: item.size_inventory || {}, nft: item.nft_metadata,
                         reviews: savedReviews, archived: item.archived || false,
@@ -459,6 +459,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 // operator's responsibility via admin ProductManager, which lets
                 // them rename / merge / archive the offending row directly.
                 // First occurrence wins so realtime appends don't clobber edits.
+                const localProductsById = new Map(INITIAL_PRODUCTS.map(product => [product.id, product]));
+                const withoutUndefinedFields = (product: Product) => (
+                    Object.fromEntries(
+                        Object.entries(product).filter(([, value]) => value !== undefined)
+                    ) as Product
+                );
                 const uniqueProducts = mapped.reduce((acc: any[], current) => {
                     const x = acc.find(item => item.id === current.id);
                     if (!x) {
@@ -469,7 +475,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         }
                         return acc;
                     }
-                }, []);
+                }, []).map(product => {
+                    const localProduct = localProductsById.get(product.id);
+                    return localProduct
+                        ? { ...localProduct, ...withoutUndefinedFields(product) }
+                        : product;
+                });
 
                 // Supabase rows win for ids that exist in the DB, but some drops
                 // still live only in constants.ts while the catalog is being
