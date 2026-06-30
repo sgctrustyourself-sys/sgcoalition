@@ -3,7 +3,8 @@ import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderStat
 import { INITIAL_SECTIONS, COIN_REWARD_RATE, INITIAL_PRODUCTS, ADMIN_WALLETS, INITIAL_ORDERS, PRODUCT_LOCAL_OVERRIDES } from '../constants';
 import { supabase } from '../services/supabase';
 import { signOut } from '../services/auth';
-import { useToast } from './ToastContext';import { ensureSubscriberGiveawayEntries, pickWeightedGiveawayWinners } from '../utils/giveawayUtils';
+import { useToast } from './ToastContext';
+import { ensureSubscriberGiveawayEntries, pickWeightedGiveawayWinners } from '../utils/giveawayUtils';
 import { resolveLocalImageUrls } from '../utils/localImageAssets';
 import { normalizeProductSizeData } from '../utils/productSizes';
 import { getCartItemLineTotal, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
@@ -470,17 +471,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     }
                 }, []);
 
-                // Apply PRODUCT_LOCAL_OVERRIDES on top of the DB row. Overrides
-                // are a deliberate, narrow mechanism for copy that we don't yet
-                // want to promote to the DB schema (e.g. archiveNote), so the
-                // merge is one-way: DB wins for shared fields, overrides fill
-                // gaps. We deliberately do NOT merge INITIAL_PRODUCTS into the
-                // live list — Supabase is the single source of truth and admin
-                // edits land on next refresh. INITIAL_PRODUCTS is reserved for
-                // (a) the no-config local-dev path above and (b) the isLoading
-                // skeleton render in useState below; live data never mixes with
-                // it on a successful fetch.
-                const withOverrides = applyLocalProductOverrides(uniqueProducts);
+                // Supabase rows win for ids that exist in the DB, but some drops
+                // still live only in constants.ts while the catalog is being
+                // reconciled. Append those local-only rows so a successful
+                // Supabase fetch does not accidentally hide live storefront items.
+                const supabaseIds = new Set(uniqueProducts.map((product: Product) => product.id));
+                const localOnlyProducts = INITIAL_PRODUCTS.filter(product => !supabaseIds.has(product.id));
+                const mergedProducts = [...uniqueProducts, ...localOnlyProducts];
+
+                // Apply PRODUCT_LOCAL_OVERRIDES last so pinned local fields, like
+                // preview-only image arrays or archive notes, still win.
+                const withOverrides = applyLocalProductOverrides(mergedProducts);
 
                 // Numbered-edition enrichment: batch-fetch paid-quantity counts via
                 // the get_product_paid_count RPC so PDP can render
