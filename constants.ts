@@ -467,7 +467,7 @@ Numbered cohort of 50 — first ten buyers lock in $50, the next fifteen get $60
     ],
     imageRoles: {
       primaryUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
-      hoverUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelFront
+      hoverUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled
     },
     description: 'Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Numbered edition of 50: tier-priced $50 / $60 / $75 as the cohort fills.',
     category: 'dress',
@@ -603,7 +603,7 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
     ],
     imageRoles: {
       primaryUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
-      hoverUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelFront
+      hoverUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled
     },
     isLimitedEdition: true,
     editionSize: 50,
