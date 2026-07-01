@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { Product, ImageRoles } from '../../types';
 import { Plus, Edit2, Trash2, Save, X, Copy, Search, AlertCircle, CheckCircle, Loader2, Upload, ChevronLeft, ChevronRight, GripVertical, Star, Eye, EyeOff } from 'lucide-react';
 import { uploadProductImage } from '../../services/productUpload';
+import { getNamedSlotDefaults } from '../../utils/localImageAssets';
 import ImageCropperModal from '../ui/ImageCropperModal';
 import { moveArrayItem } from '../../utils/arrayMove';
 import { getProductEditableSizes, normalizeProductSizeData } from '../../utils/productSizes';
@@ -22,6 +23,11 @@ const ProductManager: React.FC = () => {
     const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
     const [dragOverImageIndex, setDragOverImageIndex] = useState<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    // Tracks which named-slot a pending ImageCropperModal flow is for so the
+    // shared handleCroppedUpload can branch from "append to images[]" (the
+    // legacy flow used by the upload placeholder) to "replace images[slotIndex]
+    // + persist imageRoles.namedSlots[slotName]" for the named-slot flow.
+    const pendingSlotReplaceRef = useRef<{ slotName: string; slotIndex: number } | null>(null);
 
     // Initialize new product form
     const initNewProduct = () => {
@@ -199,11 +205,31 @@ const ProductManager: React.FC = () => {
         setError(null);
         try {
             const url = await uploadProductImage(croppedFile, editForm.name || 'new-product');
-            setEditForm(prev => ({
-                ...prev,
-                images: [...(prev.images || []), url]
-            }));
-            setSuccess('Cropped image uploaded successfully!');
+            const pendingSlotReplace = pendingSlotReplaceRef.current;
+            if (pendingSlotReplace) {
+                const { slotName, slotIndex } = pendingSlotReplace;
+                setEditForm(prev => {
+                    const nextImages = [...(prev.images || [])];
+                    // Pad sparse: an admin might be filling slot N on a brand-new
+                    // product. Empty-string filler is benign because
+                    // reconcileImageRoles + getProductRoles fall through to
+                    // position-based defaults if the slot lacks a real URL after
+                    // save.
+                    while (nextImages.length < slotIndex + 1) nextImages.push('');
+                    nextImages[slotIndex] = url;
+                    const nextRoles: ImageRoles = { ...(prev.imageRoles || {}) };
+                    nextRoles.namedSlots = { ...(nextRoles.namedSlots || {}), [slotName]: url };
+                    return { ...prev, images: nextImages, imageRoles: nextRoles };
+                });
+                setSuccess(`${slotName} slot replaced — saved on Apply Changes.`);
+                pendingSlotReplaceRef.current = null;
+            } else {
+                setEditForm(prev => ({
+                    ...prev,
+                    images: [...(prev.images || []), url]
+                }));
+                setSuccess('Cropped image uploaded successfully!');
+            }
             setTimeout(() => setSuccess(null), 3000);
             setPendingCropFile(null);
         } catch (err: any) {
@@ -667,6 +693,69 @@ const ProductManager: React.FC = () => {
                                 <p className="text-[10px] text-gray-500 mt-2 italic font-mono uppercase tracking-tighter">
                                     First image is the storefront cover. Drag tiles or use the arrows to reorder before saving.
                                 </p>
+
+                                {/* Named-slot targeting for products whose taxonomy
+                                    doesn't fit the default primary/hover/gallery flow
+                                    (the Halo Mini Dress has 6 named slots). Drive via
+                                    getNamedSlotDefaults so adding new named-slot
+                                    products only requires an entry in that helper. */}
+                                {editForm.id && (() => {
+                                    const slotDefaults = getNamedSlotDefaults(editForm.id);
+                                    if (slotDefaults.length === 0) return null;
+                                    return (
+                                        <div className="mt-4 bg-white/5 border border-white/10 rounded-lg p-4 space-y-3">
+                                            <div>
+                                                <h4 className="font-bold text-white uppercase text-sm">
+                                                    Named Slot Targets
+                                                </h4>
+                                                <p className="text-[10px] text-gray-500 mt-1 italic">
+                                                    Replace specific pose slots on {editForm.name || 'this product'}.
+                                                    Uploads overwrite <span className="font-mono">images[slotIndex]</span> AND
+                                                    {' '}<span className="font-mono">imageRoles.namedSlots[slotName]</span> so the PDP
+                                                    carousel renders N distinct slides (no carousel dedupe).
+                                                </p>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {slotDefaults.map(({ slotName, defaultUrl }, slotIndex) => {
+                                                    const currentUrl = editForm.images?.[slotIndex] || defaultUrl;
+                                                    return (
+                                                        <div
+                                                            key={slotName}
+                                                            className="bg-black/30 border border-white/10 rounded-lg p-3 flex items-center gap-3"
+                                                        >
+                                                            <div className="w-12 h-12 rounded overflow-hidden border border-white/10 flex-shrink-0 bg-black/40">
+                                                                <img
+                                                                    src={currentUrl}
+                                                                    alt={slotName}
+                                                                    className="w-full h-full object-cover"
+                                                                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0.2'; }}
+                                                                />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                                                                    #{slotIndex + 1} · {slotName}
+                                                                </p>
+                                                                <p className="text-[10px] text-gray-500 truncate font-mono">
+                                                                    {currentUrl.replace(/^https?:\/\//, '')}
+                                                                </p>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    pendingSlotReplaceRef.current = { slotName, slotIndex };
+                                                                    fileInputRef.current?.click();
+                                                                }}
+                                                                className="text-[10px] font-bold uppercase tracking-widest text-brand-accent hover:text-white transition"
+                                                            >
+                                                                Replace
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
 
                             <div>

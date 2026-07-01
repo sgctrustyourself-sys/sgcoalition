@@ -10,6 +10,19 @@ export interface ImageRoles {
   hoverUrl?: string | null;
   /** PDP thumbnail URLs. Optional; derived from images[2..n] when omitted. */
   galleryUrls?: string[];
+  /**
+   * Per-product image-role "named slots" for products whose slot taxonomy
+   * doesn't fit the default primary/hover/gallery shape (e.g. the Halo
+   * Mini Dress has modelFaceFront / modelFront / modelAngledFront /
+   * modelSide / modelBackAngled / modelBack).
+   *
+   * Map: slot identifier → public URL. Synced positionally with the
+   * product's `images[]` array — slot `i` corresponds to `images[i]` —
+   * so the admin upload-replace flow in components/admin/ProductManager.tsx
+   * writes to a deterministic index in both arrays at once.
+   * forwarded by reconcileImageRoles (utils/productImage.ts).
+   */
+  namedSlots?: Record<string, string>;
 }
 
 export interface Product {

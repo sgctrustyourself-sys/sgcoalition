@@ -202,3 +202,40 @@ export const rewriteImageSrcs = (html: string = '') => {
         html
     );
 };
+
+/**
+ * Resolve per-product "named slot" defaults from the `PRODUCT_IMAGE_URLS`
+ * asset map for products whose slot taxonomy doesn't fit the default
+ * primary/hover/gallery flow (e.g. the Halo Mini Dress has 6 named slots:
+ * modelFaceFront / modelFront / modelAngledFront / modelSide /
+ * modelBackAngled / modelBack).
+ *
+ * Caller passes the productId stored on the row / on
+ * `editForm.id`. The function returns the canonical slot list (in source
+ * order) with each entry's hardcoded default URL. The admin
+ * components/admin/ProductManager.tsx renderer overlays the operator's
+ * current edits on top so slot i reads from `images[i]` (see
+ * ImageRoles.namedSlots).
+ *
+ * To add a new "named-slot" product: drop a slot map into `PRODUCT_IMAGE_URLS`
+ * whose keys are all `model*`-prefixed (or whatever convention this helper
+ * scans) AND add an alias here. Today: only prod_halo_mini_dress.
+ */
+export interface NamedSlotDefault {
+    slotName: string;
+    defaultUrl: string;
+}
+
+const NAMED_SLOT_PRODUCT_ALIASES: Record<string, keyof typeof PRODUCT_IMAGE_URLS> = {
+    prod_halo_mini_dress: 'haloMiniDress',
+};
+
+export function getNamedSlotDefaults(productId: string | undefined | null): NamedSlotDefault[] {
+    if (!productId) return [];
+    const key = NAMED_SLOT_PRODUCT_ALIASES[productId];
+    if (!key) return [];
+    const block = PRODUCT_IMAGE_URLS[key] as unknown as Record<string, string>;
+    return Object.entries(block)
+        .filter(([slotName, url]) => slotName.toLowerCase().startsWith('model') && typeof url === 'string')
+        .map(([slotName, defaultUrl]) => ({ slotName, defaultUrl }));
+}

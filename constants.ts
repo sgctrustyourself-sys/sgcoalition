@@ -601,10 +601,13 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
       PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled,
       PRODUCT_IMAGE_URLS.haloMiniDress.modelBack
     ],
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
-      hoverUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled
-    },
+    // imageRoles is intentionally NOT in this override so the Supabase row's
+    // imageRoles.{primaryUrl, hoverUrl, namedSlots} wins after the
+    // AppContext fetchProducts merge. Halo image roles are operator-curated
+    // at runtime via components/admin/ProductManager.tsx > Named Slot Targets
+    // and mirrored through the upsert in scripts/addHaloMiniDress.ts. The
+    // legacy shape (without namedSlots) gets a clean default from
+    // INITIAL_PRODUCTS > imageRoles above.
     isLimitedEdition: true,
     editionSize: 50,
     pricingTiers: [

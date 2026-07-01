@@ -214,5 +214,17 @@ export function reconcileImageRoles(
     } else {
         hoverUrl = images.length > 1 && images[1] !== primaryUrl ? images[1] : null;
     }
-    return { primaryUrl, hoverUrl };
+    // Forward namedSlot mappings whose URLs still resolve in the trimmed
+    // images[] array. Slots whose URL has been deleted elsewhere drop here
+    // so a stale namedSlots entry never points at a stub. Empty result
+    // is omitted so missing fields stay undefined downstream.
+    const namedSlots: Record<string, string> | undefined = roles?.namedSlots
+        ? Object.fromEntries(
+            Object.entries(roles.namedSlots).filter(
+                ([slotName, url]) => typeof url === 'string' && imageSet.has(url)
+            )
+        )
+        : undefined;
+    const namedSlotsOut = namedSlots && Object.keys(namedSlots).length > 0 ? namedSlots : undefined;
+    return { primaryUrl, hoverUrl, namedSlots: namedSlotsOut };
 }
