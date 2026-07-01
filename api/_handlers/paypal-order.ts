@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet';
-import { calculatePromoDiscountCents } from '../../utils/promoCodes';
+import { calculatePromoDiscountCents, normalizePromoCode } from '../../utils/promoCodes';
 import type {
     ApiRequest,
     ApiResponse,
@@ -68,6 +68,38 @@ function parseMoneyCents(value: unknown, fieldName: string) {
         throw createHttpError(400, `${fieldName} cannot be negative.`);
     }
     return Math.round(parsed * 100);
+}
+
+/**
+ * Cap-aware wrapper around `calculatePromoDiscountCents`. Mirrors the client
+ * pre-check (utils/couponSystem.ts) so server-side discount math matches
+ * reality when a promo like EARLYACCESS hits its `max_uses` ceiling.
+ */
+async function getCapAwarePromoDiscountCents(
+    supabase: SupabaseClient,
+    baseCents: number,
+    code: string | null | undefined,
+): Promise<number> {
+    const defaultDiscount = calculatePromoDiscountCents(baseCents, code);
+    if (defaultDiscount <= 0) return 0;
+
+    const normalized = normalizePromoCode(code);
+    if (!normalized) return defaultDiscount;
+
+    const { data, error } = await supabase
+        .from('coupons')
+        .select('used_count, max_uses')
+        .eq('code', normalized)
+        .maybeSingle();
+
+    if (error || !data) return defaultDiscount;
+
+    const cap = Number(data.max_uses);
+    const used = Number(data.used_count || 0);
+    if (Number.isFinite(cap) && cap > 0 && used >= cap) {
+        return 0;
+    }
+    return defaultDiscount;
 }
 
 interface RawCheckoutItem {
@@ -214,7 +246,11 @@ async function createPaypalOrder(body: PayPalCreateOrderInput): Promise<{ id: st
     const setBonusCents = calculateAboveAsBelowSetBonusCents(
         normalizedItems.map(item => ({ productId: item.productId, quantity: item.quantity })),
     );
-    const promoDiscountCents = calculatePromoDiscountCents(Math.max(0, itemTotalCents - setBonusCents), body.couponCode);
+    const promoDiscountCents = await getCapAwarePromoDiscountCents(
+        getSupabaseAdmin(),
+        Math.max(0, itemTotalCents - setBonusCents),
+        body.couponCode,
+    );
     const allowedDiscountCents = setBonusCents + promoDiscountCents;
     const otherDiscountCents = Math.max(0, requestedDiscountCents - allowedDiscountCents);
     if (otherDiscountCents > 0) {

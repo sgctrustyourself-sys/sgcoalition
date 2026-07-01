@@ -51,6 +51,7 @@ const Checkout: React.FC = () => {
     // Coupon code state
     const [couponCode, setCouponCode] = useState('');
     const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+    const [appliedCouponDiscountPercentage, setAppliedCouponDiscountPercentage] = useState(0);
     const [couponReferrerName, setCouponReferrerName] = useState<string | null>(null);
     const [couponError, setCouponError] = useState<string | null>(null);
     const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
@@ -108,7 +109,12 @@ const Checkout: React.FC = () => {
 
     const promo = useMemo(() => getPromoCodeDiscount(appliedCoupon), [appliedCoupon]);
     const promoDiscountBase = Math.max(0, total - cartBonusDollars);
-    const promoDiscount = promo ? calculatePromoDiscountDollars(promoDiscountBase, appliedCoupon) : 0;
+    // Discount math uses the percentage returned by `validateCouponCode` (which
+    // pre-checks the EARLYACCESS server-side cap). The engine's static
+    // `promo.discountPercentage` only feeds the display label / legacy callers.
+    const promoDiscount = appliedCoupon
+        ? Math.round(promoDiscountBase * appliedCouponDiscountPercentage) / 100
+        : 0;
 
     // Calculate SGCoin discount if crypto payment is selected. Apply the
     // percentage AFTER the set bonus and promo code so discounts stack in the
@@ -243,13 +249,22 @@ const Checkout: React.FC = () => {
         };
     }, [paymentMethod, requiresNoExternalPayment, finalTotal]);
 
-    // Check for existing coupon on mount
+    // Check for existing coupon on mount (re-validate so the discount % reflects
+    // any EARLYACCESS cap-met state since the user's last session).
     useEffect(() => {
         const existingCoupon = getAppliedCouponCode();
-        if (existingCoupon) {
-            setAppliedCoupon(existingCoupon);
-            setCouponCode(existingCoupon);
-        }
+        if (!existingCoupon) return;
+
+        setAppliedCoupon(existingCoupon);
+        setCouponCode(existingCoupon);
+
+        validateCouponCode(existingCoupon).then(result => {
+            if (result.valid) {
+                setAppliedCouponDiscountPercentage(result.discountPercentage || 0);
+            }
+        }).catch(() => {
+            // Best-effort — keep the saved code visible, fall back to engine math.
+        });
     }, []);
 
     const handleApplyCoupon = async () => {
@@ -264,7 +279,14 @@ const Checkout: React.FC = () => {
             setAppliedCoupon(normalizedCode);
             setCouponCode(normalizedCode);
             setCouponReferrerName(result.referrerName || null);
-            addToast(result.discountPercentage ? `${normalizedCode} applied: ${result.discountPercentage}% off` : 'Coupon code applied successfully!', 'success');
+            setAppliedCouponDiscountPercentage(result.discountPercentage || 0);
+            // Soft toast for cap-met EARLYACCESS so the user knows the code
+            // was applied — just no discount this round (per "than cool" UX).
+            const appliedPct = result.discountPercentage || 0;
+            const toastMessage = appliedPct > 0
+                ? `${normalizedCode} applied: ${appliedPct}% off`
+                : `${normalizedCode} applied — early-access cap already met, no discount this round`;
+            addToast(toastMessage, 'success');
         } else {
             setCouponError(result.error || 'Invalid code');
             addToast(result.error || 'Invalid coupon code', 'error');
@@ -278,6 +300,7 @@ const Checkout: React.FC = () => {
         setAppliedCoupon(null);
         setCouponCode('');
         setCouponReferrerName(null);
+        setAppliedCouponDiscountPercentage(0);
         setCouponError(null);
         addToast('Coupon code removed', 'info');
     };
@@ -415,7 +438,15 @@ const Checkout: React.FC = () => {
                 paypalOrderId: paymentVerification?.paypalOrderId,
                 paypalCaptureId: paymentVerification?.paypalCaptureId,
                 orderType: 'online' as const,
-                notes: appliedCoupon ? `Coupon code: ${appliedCoupon}` : '',
+                // Cap-met honesty: when EARLYACCESS is applied but the server
+                // computes 0% off (cap reached), tag the notes so the admin
+                // fulfillment email doesn't show "EARLYACCESS" alongside a
+                // full-price order without context.
+                notes: appliedCoupon
+                    ? (appliedCouponDiscountPercentage > 0
+                        ? `Coupon code: ${appliedCoupon}`
+                        : `Coupon code: ${appliedCoupon} [cap-met-0%]`)
+                    : '',
                 createdAt: new Date().toISOString(),
                 paidAt: paymentMethodUsed !== 'crypto' ? new Date().toISOString() : undefined,
                 sgCoinReward: reward,
@@ -693,9 +724,14 @@ const Checkout: React.FC = () => {
                                                 Supporting {couponReferrerName}'s referral
                                             </p>
                                         )}
-                                        {promo && (
+                                        {promo && appliedCouponDiscountPercentage > 0 && (
                                             <p className="text-xs text-gray-300">
-                                                {promo.discountPercentage}% off products applied
+                                                {appliedCouponDiscountPercentage}% off products applied
+                                            </p>
+                                        )}
+                                        {promo && appliedCouponDiscountPercentage === 0 && (
+                                            <p className="text-xs text-gray-300">
+                                                Code acknowledged — early-access cap met (no discount this round)
                                             </p>
                                         )}
                                     </div>

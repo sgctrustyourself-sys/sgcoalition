@@ -309,7 +309,11 @@ async function validatePayPalOrderRecord(supabase: SupabaseClient, record: Order
         items.map(item => ({ productId: item.productId, quantity: item.quantity })),
     );
     const promoCode = getOrderPromoCode(record);
-    const promoDiscountCents = calculatePromoDiscountCents(Math.max(0, subtotalCents - setBonusCents), promoCode);
+    const promoDiscountCents = await getCapAwarePromoDiscountCents(
+        supabase,
+        Math.max(0, subtotalCents - setBonusCents),
+        promoCode,
+    );
     const allowedDiscountCents = setBonusCents + promoDiscountCents;
     const otherDiscountCents = Math.max(0, requestedDiscountCents - allowedDiscountCents);
     if (otherDiscountCents > 0) {
@@ -493,6 +497,40 @@ function validateExistingPaymentMatch(existing: OrderRow, record: OrderRow): voi
     }
 }
 
+/**
+ * Cap-aware wrapper around `calculatePromoDiscountCents` for the order
+ * completion hand-off. Mirrors the client pre-check so a promo-code cap
+ * (e.g. EARLYACCESS first-4-orders ceiling) drops the discount to 0
+ * authoritatively on the server before we hand the order off to PayPal /
+ * the order save. Mirrors paypal-order.ts so both endpoints agree.
+ */
+async function getCapAwarePromoDiscountCents(
+    supabase: SupabaseClient,
+    baseCents: number,
+    code: string | null | undefined,
+): Promise<number> {
+    const defaultDiscount = calculatePromoDiscountCents(baseCents, code);
+    if (defaultDiscount <= 0) return 0;
+
+    const normalized = normalizePromoCode(code);
+    if (!normalized) return defaultDiscount;
+
+    const { data, error } = await supabase
+        .from('coupons')
+        .select('used_count, max_uses')
+        .eq('code', normalized)
+        .maybeSingle();
+
+    if (error || !data) return defaultDiscount;
+
+    const cap = Number(data.max_uses);
+    const used = Number(data.used_count || 0);
+    if (Number.isFinite(cap) && cap > 0 && used >= cap) {
+        return 0;
+    }
+    return defaultDiscount;
+}
+
 async function upsertOrderRecord(supabase: SupabaseClient, record: OrderRow, options: { requirePaymentColumns?: boolean } = {}): Promise<{ record: OrderRow; created: boolean }> {
     const existing = await findExistingPayPalOrder(supabase, record);
     if (existing) {
@@ -674,6 +712,18 @@ async function createOrder(req: ApiRequest): Promise<OrderRow> {
     const saveResult = await upsertOrderRecord(supabase, record, { requirePaymentColumns: paymentMethod === 'paypal' });
 
     if (saveResult.created) {
+        // Bump the promo counter atomically via RPC so concurrent orders
+        // never double-count past the cap. RPC is race-safe; if it fails we
+        // log and continue — the order is already saved.
+        const promoCode = getOrderPromoCode(record);
+        if (promoCode) {
+            try {
+                await supabase.rpc('increment_coupon_usage', { p_code: promoCode });
+            } catch (rpcError: unknown) {
+                console.warn('[Order API] increment_coupon_usage failed for', promoCode, rpcError);
+            }
+        }
+
         try {
             await sendOrderEmail(saveResult.record);
         } catch (emailError: unknown) {

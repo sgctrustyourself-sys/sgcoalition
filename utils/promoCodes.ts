@@ -9,6 +9,11 @@ export const BADDIES_DISCOUNT_PERCENTAGE = 25;
 
 export const EARLYACCESS_PROMO_CODE = 'EARLYACCESS';
 export const EARLYACCESS_DISCOUNT_PERCENTAGE = 10;
+// Source of truth for the EARLYACCESS global cap is `coupons.max_uses` in
+// Supabase (the api handlers bump it via the `increment_coupon_usage` RPC).
+// This constant is mirrored here for client-side UX hints and tests — keep in
+// sync with `scripts/upsertEarlyAccessCoupon.ts`.
+export const EARLYACCESS_MAX_REDEMPTIONS = 4;
 
 export type PromoCodeDiscount = {
     code: string;

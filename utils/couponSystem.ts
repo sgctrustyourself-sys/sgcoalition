@@ -27,10 +27,28 @@ export const validateCouponCode = async (code: string): Promise<CouponValidation
 
         const promo = getPromoCodeDiscount(normalizedCode);
         if (promo) {
+            // Cap pre-check for promo codes that have a `max_uses` row in
+            // the `coupons` table (e.g. EARLYACCESS first-4-orders cap).
+            // The code itself is still valid for anyone who knows it — it
+            // just yields a 0% discount after the cap is met, per the user's
+            // "if they use the code than cool" spec. Server-side validation
+            // still re-checks this in api/_handlers (authoritative).
+            const { data: couponRow } = await supabase
+                .from('coupons')
+                .select('used_count, max_uses')
+                .eq('code', promo.code)
+                .maybeSingle();
+
+            const capReached = Boolean(
+                couponRow
+                    && couponRow.max_uses !== null
+                    && Number(couponRow.used_count || 0) >= Number(couponRow.max_uses),
+            );
+
             return {
                 valid: true,
                 code: promo.code,
-                discountPercentage: promo.discountPercentage,
+                discountPercentage: capReached ? 0 : promo.discountPercentage,
                 type: 'promo',
             };
         }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     BADDIES_PROMO_CODE,
+    EARLYACCESS_MAX_REDEMPTIONS,
     EARLYACCESS_PROMO_CODE,
     calculatePromoDiscountCents,
     getPromoCodeDiscount,
@@ -32,4 +33,10 @@ describe('promoCodes', () => {
         expect(getPromoCodeDiscount('unknown')).toBeNull();
         expect(calculatePromoDiscountCents(6000, 'unknown')).toBe(0);
     });
+
+
+    it('exposes EARLYACCESS_MAX_REDEMPTIONS=4 as the engine-side cap constant', () => {
+        expect(EARLYACCESS_MAX_REDEMPTIONS).toBe(4);
+    });
+
 });
