@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet';
+import { calculatePromoDiscountCents } from '../../utils/promoCodes';
 import type {
     ApiRequest,
     ApiResponse,
@@ -206,17 +207,20 @@ async function createPaypalOrder(body: PayPalCreateOrderInput): Promise<{ id: st
     const itemTotalCents = lineItems.reduce((sum, item) => sum + item.lineTotalCents, 0);
     const shippingCents = parseMoneyCents(body.shipping || 0, 'Shipping');
     const requestedDiscountCents = parseMoneyCents(body.discount || 0, 'Discount');
-    // Server is the source of truth for the set bonus: re-derive it from the
-    // cart contents regardless of what the client sent. Anything beyond the
-    // legitimate bonus is treated as store-credit abuse and rejected.
+    // Server is the source of truth for cart discounts: re-derive them from
+    // the cart contents and submitted promo code regardless of what the client
+    // sent. Anything beyond legitimate discounts is treated as store-credit
+    // abuse and rejected.
     const setBonusCents = calculateAboveAsBelowSetBonusCents(
         normalizedItems.map(item => ({ productId: item.productId, quantity: item.quantity })),
     );
-    const otherDiscountCents = Math.max(0, requestedDiscountCents - setBonusCents);
+    const promoDiscountCents = calculatePromoDiscountCents(Math.max(0, itemTotalCents - setBonusCents), body.couponCode);
+    const allowedDiscountCents = setBonusCents + promoDiscountCents;
+    const otherDiscountCents = Math.max(0, requestedDiscountCents - allowedDiscountCents);
     if (otherDiscountCents > 0) {
         throw createHttpError(400, 'Store credit cannot be combined with PayPal yet. Turn off store credit or use it to cover the full order.');
     }
-    const discountCents = setBonusCents;
+    const discountCents = allowedDiscountCents;
 
     if (shippingCents !== 0 && shippingCents !== 1000) {
         throw createHttpError(400, 'Invalid PayPal shipping amount.');

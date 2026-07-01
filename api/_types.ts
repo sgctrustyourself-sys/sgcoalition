@@ -287,6 +287,7 @@ export interface PayPalCreateOrderInput {
     items?: unknown[];
     shipping?: number;
     discount?: number;
+    couponCode?: string | null;
     expectedTotal?: number;
     referenceId?: string;
     description?: string;

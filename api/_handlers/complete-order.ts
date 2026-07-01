@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet';
+import { calculatePromoDiscountCents, normalizePromoCode } from '../../utils/promoCodes';
 import type {
     ApiRequest,
     ApiResponse,
@@ -301,16 +302,20 @@ async function validatePayPalOrderRecord(supabase: SupabaseClient, record: Order
 
     const shippingCents = parseMoneyCents(record.shipping_address?.shippingCost || 0, 'Shipping');
     const requestedDiscountCents = parseMoneyCents(record.discount || 0, 'Discount');
-    // Same logic as paypal-order: server owns the set bonus, anything else
-    // implies store credit abuse (since PayPal orders can't redeem SGCoin).
+    // Same logic as paypal-order: server owns cart discounts, anything beyond
+    // the set bonus and a valid promo implies store credit abuse (since PayPal
+    // orders can't redeem SGCoin).
     const setBonusCents = calculateAboveAsBelowSetBonusCents(
         items.map(item => ({ productId: item.productId, quantity: item.quantity })),
     );
-    const otherDiscountCents = Math.max(0, requestedDiscountCents - setBonusCents);
+    const promoCode = getOrderPromoCode(record);
+    const promoDiscountCents = calculatePromoDiscountCents(Math.max(0, subtotalCents - setBonusCents), promoCode);
+    const allowedDiscountCents = setBonusCents + promoDiscountCents;
+    const otherDiscountCents = Math.max(0, requestedDiscountCents - allowedDiscountCents);
     if (otherDiscountCents > 0) {
         throw createHttpError(400, 'Store credit cannot be combined with PayPal yet. Turn off store credit or use it to cover the full order.');
     }
-    const discountCents = setBonusCents;
+    const discountCents = allowedDiscountCents;
 
     if (shippingCents !== 0 && shippingCents !== 1000) {
         throw createHttpError(400, 'Invalid PayPal shipping amount.');
@@ -331,6 +336,12 @@ async function validatePayPalOrderRecord(supabase: SupabaseClient, record: Order
             shippingCost: Number(moneyFromCents(shippingCents)),
         },
     };
+}
+
+function getOrderPromoCode(record: OrderRow): string | null {
+    const match = String(record.notes || '').match(/Coupon code:\s*([^\n]+)/i);
+    const normalized = normalizePromoCode(match?.[1] || '');
+    return normalized || null;
 }
 
 function normalizeOrderItems(items: OrderItemInput[] = []): OrderItemRow[] {
