@@ -1,4 +1,6 @@
 import { Resend } from 'resend';
+import { setCorsHeaders } from '../_helpers';
+import type { ApiRequest, ApiResponse, ResendEmailPayload } from '../_types';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -6,13 +8,13 @@ function getResendFromAddress() {
     return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>';
 }
 
-async function sendResendEmail(payload: any) {
+async function sendResendEmail(payload: ResendEmailPayload) {
     const result = await resend.emails.send({
         ...payload,
         from: getResendFromAddress(),
-    });
+    } as Parameters<Resend['emails']['send']>[0]);
 
-    const error = (result as any)?.error;
+    const error = result?.error;
     if (error) {
         throw new Error(error.message || 'Resend rejected the email request.');
     }
@@ -20,11 +22,8 @@ async function sendResendEmail(payload: any) {
     return result;
 }
 
-export default async function handler(req: any, res: any) {
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
-    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
+    setCorsHeaders(req, res, { methods: 'POST,OPTIONS' });
 
     if (req.method === 'OPTIONS') {
         res.status(200).end();
@@ -37,7 +36,9 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const { to, subject, html } = req.body;
+        interface SendEmailBody { to?: string; subject?: string; html?: string; }
+        const body = (req.body ?? {}) as SendEmailBody;
+        const { to, subject, html } = body;
 
         if (!to || !subject || !html) {
             res.status(400).json({ error: 'Missing required fields: to, subject, html' });
@@ -51,8 +52,9 @@ export default async function handler(req: any, res: any) {
         });
 
         res.status(200).json({ success: true, data });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Send email error:', err);
-        res.status(500).json({ error: err.message || 'Failed to send email' });
+        const message = err instanceof Error ? err.message : 'Failed to send email';
+        res.status(500).json({ error: message });
     }
 }

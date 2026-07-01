@@ -1,5 +1,16 @@
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, setCorsHeaders, type HttpError } from '../_helpers';
+import type {
+    ApiRequest,
+    ApiResponse,
+    CreatePaymentIntentBody,
+    PaymentIntentResponse,
+    ProfileRow,
+    SupabaseClient,
+} from '../_types';
+
+const CURRENCY = 'usd';
 
 if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is missing');
@@ -9,22 +20,74 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
     // apiVersion omitted to use default
 });
 
-const supabaseAdmin = createClient(
-    process.env.VITE_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+// Admin Supabase client (service role, bypasses RLS) — eager init matches the
+// existing create-subscription-session / place-order-credits convention. If a
+// caller hits this endpoint without SUPABASE credentials they get a 503 from
+// the request handler instead of a silent profile-less credit path.
+const supabaseAdmin: SupabaseClient = createClient(
+    process.env.VITE_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 );
 
-export default async function handler(req: any, res: any) {
-    // Set CORS headers
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-    res.setHeader(
-        'Access-Control-Allow-Headers',
-        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-    );
+async function loadStoreCredit(userId: string): Promise<number> {
+    const { data, error } = await supabaseAdmin
+        .from('profiles')
+        .select('store_credit')
+        .eq('id', userId)
+        .single();
 
-    // Handle preflight request
+    if (error || !data) return 0;
+    return Number((data as Pick<ProfileRow, 'store_credit'>).store_credit || 0);
+}
+
+async function createPaymentIntent(req: ApiRequest): Promise<PaymentIntentResponse> {
+    const rawBody = parseBody(req);
+    const body = rawBody as CreatePaymentIntentBody;
+    const originalAmount = Number(body.amount || 0);
+    const userId = body.userId ? String(body.userId) : undefined;
+    const useStoreCredit = Boolean(body.useStoreCredit);
+
+    let finalAmount = originalAmount;
+    let creditApplied = 0;
+
+    if (useStoreCredit && userId) {
+        const availableCredit = await loadStoreCredit(userId);
+        creditApplied = Math.min(availableCredit, originalAmount);
+        finalAmount = Math.max(0, originalAmount - creditApplied);
+    }
+
+    if (finalAmount <= 0) {
+        // No payment needed via Stripe (store credit covered it).
+        return {
+            clientSecret: null,
+            zeroAmount: true,
+            creditApplied,
+        };
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(finalAmount * 100),
+        currency: CURRENCY,
+        automatic_payment_methods: {
+            enabled: true,
+        },
+        metadata: {
+            userId: userId || '',
+            creditApplied: creditApplied.toFixed(2),
+            originalAmount: originalAmount.toFixed(2),
+        },
+    });
+
+    return {
+        clientSecret: paymentIntent.client_secret,
+        creditApplied,
+        finalAmount,
+    };
+}
+
+export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
+    setCorsHeaders(req, res, { methods: 'GET,OPTIONS,PATCH,DELETE,POST,PUT', allowedHeaders: EXTENDED_CORS_HEADERS });
+
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
@@ -36,61 +99,12 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const { amount: originalAmount, userId, useStoreCredit } = req.body;
-        let finalAmount = originalAmount;
-        let creditApplied = 0;
-
-        if (useStoreCredit && userId) {
-            const { data: profile } = await supabaseAdmin
-                .from('profiles')
-                .select('store_credit')
-                .eq('id', userId)
-                .single();
-
-            if (profile) {
-                const availableCredit = Number(profile.store_credit || 0);
-                creditApplied = Math.min(availableCredit, originalAmount);
-                finalAmount = Math.max(0, originalAmount - creditApplied);
-            }
-        }
-
-        if (finalAmount <= 0.50 && finalAmount > 0) {
-            // Stripe minimum is often $0.50. If remaining is tiny, just absorb it or force min?
-            // For now, let's assume if it's > 0 it must be valid, or we handle error.
-        }
-
-        if (finalAmount === 0) {
-            // No payment needed via Stripe
-            res.status(200).json({
-                clientSecret: null,
-                zeroAmount: true,
-                creditApplied
-            });
-            return;
-        }
-
-        // Create Payment Intent
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount: Math.round(finalAmount * 100), // Convert to cents
-            currency: 'usd',
-            automatic_payment_methods: {
-                enabled: true,
-            },
-            metadata: {
-                userId,
-                creditApplied: creditApplied.toFixed(2),
-                originalAmount: originalAmount.toFixed(2)
-            }
-        });
-
-        res.status(200).json({
-            clientSecret: paymentIntent.client_secret,
-            creditApplied,
-            finalAmount
-        });
-
-    } catch (err: any) {
-        console.error('Stripe error:', err);
-        res.status(500).json({ error: err.message || 'Internal server error' });
+        res.status(200).json(await createPaymentIntent(req));
+    } catch (error: unknown) {
+        const message = (error as { message?: string } | null)?.message;
+        const httpError = error as HttpError | null;
+        const status = Number(httpError?.status || 500);
+        console.error('Stripe error:', error);
+        res.status(status).json({ error: message || 'Internal server error' });
     }
 }

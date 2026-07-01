@@ -1,6 +1,8 @@
-import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory, type Part } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
+import { setCorsHeaders, createHttpError, parseBody, type HttpError, LOCAL_DEV_ORIGINS } from '../_helpers';
+import type { ApiRequest, ApiResponse, BrainEntry, SupabaseClient } from '../_types';
 
 type ChatMode = 'brand' | 'full';
 
@@ -8,10 +10,6 @@ interface ChatMessage {
     role: 'user' | 'assistant';
     content: string;
     image?: string;
-}
-
-interface HttpError extends Error {
-    status?: number;
 }
 
 const BRAND_MODE_PROMPT = `You are Coalition Brand Assistant, a sophisticated AI powered by Google's Gemini model. You represent Coalition - a premium streetwear brand that bridges physical fashion with blockchain technology.
@@ -68,30 +66,6 @@ const FULL_AI_TOKEN_TTL_MS = 4 * 60 * 60 * 1000;
 const MAX_HISTORY_MESSAGES = 12;
 const MAX_IMAGE_DATA_URL_LENGTH = 8_000_000;
 
-function setCorsHeaders(req: any, res: any) {
-    const configuredOrigin = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
-    const allowedOrigins = new Set([
-        configuredOrigin,
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3001',
-    ]);
-    const requestOrigin = req.headers?.origin;
-    const responseOrigin = requestOrigin && allowedOrigins.has(requestOrigin) ? requestOrigin : configuredOrigin;
-
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', responseOrigin);
-    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-}
-
-function createHttpError(status: number, message: string): HttpError {
-    const error = new Error(message) as HttpError;
-    error.status = status;
-    return error;
-}
-
 function getGeminiApiKey() {
     return (
         process.env.GEMINI_API_KEY ||
@@ -145,7 +119,7 @@ function issueFullAIToken() {
     };
 }
 
-function verifyFullAIToken(unlockToken?: string) {
+function verifyFullAIToken(unlockToken: unknown) {
     if (!unlockToken || typeof unlockToken !== 'string') return false;
     const [encodedPayload, signature] = unlockToken.split('.');
     if (!encodedPayload || !signature) return false;
@@ -164,19 +138,13 @@ function verifyFullAIToken(unlockToken?: string) {
     }
 }
 
-function requireFullAccess(body: any) {
+function requireFullAccess(body: Record<string, unknown>) {
     if (!verifyFullAIToken(body?.unlockToken)) {
         throw createHttpError(401, 'Full AI unlock required.');
     }
 }
 
-function parseBody(req: any) {
-    if (!req.body) return {};
-    if (typeof req.body === 'string') return JSON.parse(req.body);
-    return req.body;
-}
-
-function json(res: any, status: number, body: Record<string, unknown>) {
+function json(res: ApiResponse, status: number, body: Record<string, unknown>): void {
     res.status(status).json(body);
 }
 
@@ -186,7 +154,7 @@ function getGenAI() {
     return new GoogleGenerativeAI(apiKey);
 }
 
-function getSupabaseClient(requireServiceRole = false) {
+function getSupabaseClient(requireServiceRole = false): SupabaseClient | null {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
     const supabaseKey = requireServiceRole
         ? process.env.SUPABASE_SERVICE_ROLE_KEY || ''
@@ -200,13 +168,13 @@ function getSupabaseClient(requireServiceRole = false) {
     return createClient(supabaseUrl, supabaseKey);
 }
 
-function getBearerToken(req: any) {
+function getBearerToken(req: ApiRequest): string | null {
     const header = req.headers?.authorization || req.headers?.Authorization || '';
     const match = String(header).match(/^Bearer\s+(.+)$/i);
     return match?.[1] || null;
 }
 
-async function isAdminRequest(req: any) {
+async function isAdminRequest(req: ApiRequest): Promise<boolean> {
     try {
         const token = getBearerToken(req);
         if (!token) return false;
@@ -255,11 +223,11 @@ async function recallBrainContext(topic: string) {
     if (error || !data?.length) return null;
 
     return data
-        .map((entry: any) => `[BRAIN: ${entry.title}] ${String(entry.content || '').substring(0, 500)}`)
+        .map((entry: BrainEntry) => `[BRAIN: ${entry.title}] ${String(entry.content || '').substring(0, 500)}`)
         .join('\n\n');
 }
 
-function toInlineImage(image?: string) {
+function toInlineImage(image?: string): Part | null {
     if (!image || typeof image !== 'string') return null;
     if (!image.startsWith('data:image/') || image.length > MAX_IMAGE_DATA_URL_LENGTH) return null;
 
@@ -274,8 +242,8 @@ function toInlineImage(image?: string) {
     };
 }
 
-function messageToParts(content: string, image?: string) {
-    const parts: any[] = [];
+function messageToParts(content: string, image?: string): Part[] {
+    const parts: Part[] = [];
     if (content) parts.push({ text: content });
 
     const inlineImage = toInlineImage(image);
@@ -301,7 +269,7 @@ function getTextModel() {
     });
 }
 
-async function handleChat(req: any, body: any) {
+async function handleChat(req: ApiRequest, body: Record<string, unknown>) {
     const message = String(body.message || '').trim();
     const mode: ChatMode = body.mode === 'full' ? 'full' : 'brand';
     const history = Array.isArray(body.history) ? body.history as ChatMessage[] : [];
@@ -364,7 +332,7 @@ async function generateImageFromPrompt(prompt: string) {
     return { success: true, imageUrl: `data:image/png;base64,${imageData}` };
 }
 
-async function handleGenerateImage(body: any) {
+async function handleGenerateImage(body: Record<string, unknown>) {
     requireFullAccess(body);
     const prompt = String(body.prompt || '').trim();
     if (!prompt) throw createHttpError(400, 'Prompt is required.');
@@ -407,7 +375,7 @@ OUTPUT FORMAT: Write only the image generation prompt, with no preamble or expla
     return response.text().trim();
 }
 
-async function handleAnalyzeShirtReference(body: any) {
+async function handleAnalyzeShirtReference(body: Record<string, unknown>) {
     requireFullAccess(body);
     const referenceImage = String(body.referenceImage || '');
     const userInstructions = String(body.userInstructions || '');
@@ -415,7 +383,7 @@ async function handleAnalyzeShirtReference(body: any) {
     return { designPrompt: await analyzeShirtReference(referenceImage, userInstructions) };
 }
 
-async function handleGenerateShirtDesign(body: any) {
+async function handleGenerateShirtDesign(body: Record<string, unknown>) {
     requireFullAccess(body);
     const designPrompt = String(body.designPrompt || '').trim();
     const baseGarment = String(body.baseGarment || 'heavyweight cotton t-shirt').trim();
@@ -425,7 +393,7 @@ async function handleGenerateShirtDesign(body: any) {
     return generateImageFromPrompt(fullPrompt);
 }
 
-async function handleDesignShirtFromReference(body: any) {
+async function handleDesignShirtFromReference(body: Record<string, unknown>) {
     requireFullAccess(body);
     const referenceImage = String(body.referenceImage || '');
     const userInstructions = String(body.userInstructions || '');
@@ -438,9 +406,10 @@ async function handleDesignShirtFromReference(body: any) {
     };
 }
 
-async function handleSaveToBrain(body: any) {
+async function handleSaveToBrain(body: Record<string, unknown>) {
     if (!body.__isAdmin) throw createHttpError(403, 'Admin access required.');
     const supabase = getSupabaseClient(true);
+    if (!supabase) throw createHttpError(503, 'Brain write service is not configured.');
     const title = String(body.title || '').trim();
     const content = String(body.content || '').trim();
     const tags = Array.isArray(body.tags) ? body.tags.map((tag: unknown) => String(tag).trim()).filter(Boolean).slice(0, 10) : [];
@@ -462,7 +431,7 @@ async function handleSaveToBrain(body: any) {
     return { success: true };
 }
 
-async function handleRecallBrainContext(body: any) {
+async function handleRecallBrainContext(body: Record<string, unknown>) {
     if (!body.__isAdmin) throw createHttpError(403, 'Admin access required.');
     const topic = String(body.topic || '').trim();
     if (!topic) return { context: null };
@@ -470,7 +439,7 @@ async function handleRecallBrainContext(body: any) {
     return { context: await recallBrainContext(topic) };
 }
 
-async function handleVerifyPassword(body: any) {
+async function handleVerifyPassword(body: Record<string, unknown>) {
     const configuredPassword = getFullAIPassword();
     const providedPassword = String(body.password || '');
 
@@ -485,12 +454,12 @@ async function handleVerifyPassword(body: any) {
     };
 }
 
-async function handleValidateToken(body: any) {
+async function handleValidateToken(body: Record<string, unknown>) {
     return { success: verifyFullAIToken(body.unlockToken) };
 }
 
-export default async function handler(req: any, res: any) {
-    setCorsHeaders(req, res);
+export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
+    setCorsHeaders(req, res, { originWhitelist: LOCAL_DEV_ORIGINS, methods: 'POST,OPTIONS' });
 
     if (req.method === 'OPTIONS') {
         res.status(200).end();
@@ -537,9 +506,10 @@ export default async function handler(req: any, res: any) {
             default:
                 json(res, 400, { error: 'Invalid AI action.' });
         }
-    } catch (error: any) {
-        const status = Number(error?.status || 500);
-        const message = status >= 500 ? error?.message || 'AI request failed.' : error.message;
+    } catch (error: unknown) {
+        const e = error as { status?: number; message?: string } | null;
+        const status = Number(e?.status ?? 500);
+        const message = status >= 500 ? (e?.message || 'AI request failed.') : e?.message;
         console.error('[AI API]', message);
         json(res, status, { error: message });
     }

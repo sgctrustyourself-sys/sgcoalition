@@ -3,6 +3,8 @@
 // Writes marketing_campaigns + per-recipient marketing_sends rows.
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { setCorsHeaders } from '../_helpers';
+import type { ApiRequest, ApiResponse, MarketingAudienceRow, MarketingChannel, ResendEmailPayload } from '../_types';
 
 let cachedAdminClient: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient | null {
@@ -31,9 +33,9 @@ function isAdminAuthorized(authHeader: string | undefined): boolean {
 
 async function fetchAudience(
     admin: SupabaseClient,
-    channel: 'email' | 'sms' | 'both',
-): Promise<Array<{ id?: string; email: string | null; phone: string | null; source: string; unsubscribe_token: string | null }>> {
-    const rows = new Map<string, { id?: string; email: string | null; phone: string | null; source: string; unsubscribe_token: string | null }>();
+    channel: MarketingChannel,
+): Promise<MarketingAudienceRow[]> {
+    const rows = new Map<string, MarketingAudienceRow>();
 
     if (channel === 'email' || channel === 'both') {
         const [dropRes, mcRes, cssRes, ordersRes] = await Promise.all([
@@ -121,21 +123,23 @@ async function sendEmails(opts: {
                 html,
                 text: opts.text,
                 headers,
-            });
-            const error = (result as any)?.error;
+            } as Parameters<Resend['emails']['send']>[0]);
+            const error = result?.error;
+            const messageId = result?.data?.id ?? null;
             await opts.admin.from('marketing_sends').upsert({
                 campaign_id: opts.campaignId, contact_id: r.id || null, channel: 'email',
-                message_id: (result as any)?.data?.id || null,
+                message_id: messageId,
                 status: error ? 'failed' : 'delivered',
                 error: error?.message || null,
                 delivered_at: error ? null : new Date().toISOString(),
             }, { onConflict: 'campaign_id,contact_id,channel', ignoreDuplicates: true });
             if (error) failed += 1; else sent += 1;
-        } catch (e: any) {
+        } catch (e: unknown) {
             failed += 1;
+            const message = e instanceof Error ? e.message : 'send failed';
             await opts.admin.from('marketing_sends').upsert({
                 campaign_id: opts.campaignId, contact_id: r.id || null, channel: 'email',
-                status: 'failed', error: e?.message || 'send failed',
+                status: 'failed', error: typeof message === 'string' ? message : 'send failed',
             }, { onConflict: 'campaign_id,contact_id,channel', ignoreDuplicates: true });
         }
     }
@@ -215,11 +219,8 @@ async function sendSmss(opts: {
     }
     return { sent, failed };
 }
-export default async function handler(req: any, res: any) {
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
-    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
+    setCorsHeaders(req, res, { methods: 'POST,OPTIONS' });
 
     if (req.method === 'OPTIONS') { res.status(200).end(); return; }
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
@@ -230,18 +231,18 @@ export default async function handler(req: any, res: any) {
         return;
     }
 
-    let body: any = req.body ?? {};
+    let body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
     if (typeof body === 'string') {
-        try { body = JSON.parse(body); } catch { body = {}; }
+        try { body = JSON.parse(body) as Record<string, unknown>; } catch { body = {}; }
     }
 
-    const name = typeof body?.name === 'string' ? body.name.trim().slice(0, 200) : '';
-    const channel: 'email' | 'sms' | 'both' =
-        body?.channel === 'sms' || body?.channel === 'email' || body?.channel === 'both' ? body.channel : 'email';
-    const subject = typeof body?.subject === 'string' ? body.subject.slice(0, 200) : '';
-    const bodyHtml = typeof body?.bodyHtml === 'string' ? body.bodyHtml.slice(0, 50000) : '';
-    const bodyText = typeof body?.bodyText === 'string' ? body.bodyText.slice(0, 10000) : '';
-    const smsBody = typeof body?.smsBody === 'string' ? body.smsBody.slice(0, 1600) : '';
+    const name = typeof body.name === 'string' ? body.name.trim().slice(0, 200) : '';
+    const channel: MarketingChannel =
+        body.channel === 'sms' || body.channel === 'email' || body.channel === 'both' ? body.channel : 'email';
+    const subject = typeof body.subject === 'string' ? body.subject.slice(0, 200) : '';
+    const bodyHtml = typeof body.bodyHtml === 'string' ? body.bodyHtml.slice(0, 50000) : '';
+    const bodyText = typeof body.bodyText === 'string' ? body.bodyText.slice(0, 10000) : '';
+    const smsBody = typeof body.smsBody === 'string' ? body.smsBody.slice(0, 1600) : '';
 
     if (!name) { res.status(400).json({ error: 'Campaign name is required.' }); return; }
     if ((channel === 'email' || channel === 'both') && (!subject || !bodyHtml)) {
@@ -263,7 +264,7 @@ export default async function handler(req: any, res: any) {
             sms_body: channel !== 'email' ? smsBody : null,
             channel,
             status: 'sending',
-            audience_filter: typeof body?.audienceFilter === 'object' && body.audienceFilter !== null ? body.audienceFilter : {},
+            audience_filter: typeof body.audienceFilter === 'object' && body.audienceFilter !== null ? body.audienceFilter : {},
         }).select('*').single();
         if (cErr || !campaign) throw new Error(cErr?.message || 'Could not create campaign.');
 
@@ -349,8 +350,9 @@ export default async function handler(req: any, res: any) {
             sms: smsResult,
             status,
         });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('[marketing-send] failed:', err);
-        res.status(500).json({ error: err?.message || 'Send failed.' });
+        const message = err instanceof Error ? err.message : 'Send failed.';
+        res.status(500).json({ error: message });
     }
 }

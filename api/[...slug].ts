@@ -58,7 +58,7 @@ export default async function handler(req: any, res: any) {
         slug = fallback;
     }
 
-    const loader = handlers[slug];
+    const loader = handlers[slug as string];
     if (!loader) {
         // Avoid leaking the path name in the response -- only log it server-side.
         console.info('[api] unknown endpoint:', slug);
