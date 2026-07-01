@@ -29,23 +29,24 @@ export const PRODUCT_IMAGE_URLS = {
         back: 'https://i.imgur.com/EqDgC3h.png',
     },
     haloMiniDress: {
-        // Direct URLs from album https://imgur.com/a/XD73nPS (9 photos total)
-        // mapped to the canonical fashion-shoot order below. The first 6 cover
-        // primary, hover, and the four-shot gallery rotation on the PDP; the
-        // remaining 3 extra shots from the album are not currently wired and
-        // can be added as additional variants if/when a wider gallery is wanted.
+        // Album https://imgur.com/a/XD73nPS ships only 4 verified dress
+        // photos (visual audit 2026-07-01: each Imgur hash was loaded and
+        // classified). Wiring the 4 to their natural pose slots and
+        // duplicating the nearest neighbour for the two angles the album
+        // does NOT include, until those angles upload:
+        //   nzsauOz  = face/chest close-up
+        //   wYR7Nfx = front full-body   (covers modelFront + modelAngledFront)
+        //   v4xVrou = side-profile
+        //   OKefysC = back-angled       (covers modelBackAngled + modelBack)
+        // The remaining 5 album hashes (vAB30az cartoon, eO01k3Z cat photo,
+        // KbE6CVj army-induction video, t4HJ1gI unverified, 8hDRjjl wrestling
+        // video) are NOT dress photography and are intentionally not wired.
         modelFaceFront: 'https://i.imgur.com/nzsauOz.jpg',
-        modelFront: 'https://i.imgur.com/OKefysC.jpg',
+        modelFront: 'https://i.imgur.com/wYR7Nfx.jpg',
         modelAngledFront: 'https://i.imgur.com/wYR7Nfx.jpg',
         modelSide: 'https://i.imgur.com/v4xVrou.jpg',
-        modelBackAngled: 'https://i.imgur.com/vAB30az.jpg',
-        modelBack: 'https://i.imgur.com/eO01k3Z.jpg',
-        // Extras from the album (not wired into the primary 6-slot rotation
-        // yet). Easy to add later as additional variants — e.g.
-        // modelAltFront, modelAltBack, modelCloseupDetail.
-        // extra7: 'https://i.imgur.com/KbE6CVj.jpg',
-        // extra8: 'https://i.imgur.com/t4HJ1gI.jpg',
-        // extra9: 'https://i.imgur.com/8hDRjjl.jpg',
+        modelBackAngled: 'https://i.imgur.com/OKefysC.jpg',
+        modelBack: 'https://i.imgur.com/OKefysC.jpg',
     },
     overwhelminglyPatientHoodie: {
         flatFront: '/images/front.png',
