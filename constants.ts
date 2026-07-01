@@ -1,6 +1,25 @@
 import { Product, Section } from './types';
 import { PRODUCT_IMAGE_URLS } from './utils/localImageAssets';
 
+const ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL = 'https://www.instagram.com/p/DaQpKS9EXT8/';
+const ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_LINKS: NonNullable<Product['makingVideoLinks']> = [
+  {
+    platform: 'instagram',
+    label: 'Instagram Reel',
+    url: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL
+  },
+  {
+    platform: 'youtube',
+    label: 'YouTube Short',
+    url: 'https://www.youtube.com/shorts/YN82FCNhNJ8'
+  },
+  {
+    platform: 'tiktok',
+    label: 'TikTok',
+    url: 'https://www.tiktok.com/@sgcoalition/video/7657634047572593933'
+  }
+];
+
 export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'Coalition_NF_Tee',
@@ -268,6 +287,7 @@ export const INITIAL_PRODUCTS: Product[] = [
       PRODUCT_IMAGE_URLS.greyWaveWallet.back
     ],
     description: "First piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a custom charcoal-grey dye pattern inspired by Baltimore harbor at dawn. Built as a limited 1/2 collectible \u2014 once sold, it's gone forever.",
+    makingVideoUrl: 'https://www.instagram.com/p/DZ3wBL_z0sd/',
     category: 'wallet',
     freeShipping: true,
     isLimitedEdition: true,
@@ -307,6 +327,8 @@ export const INITIAL_PRODUCTS: Product[] = [
       'https://i.imgur.com/UoY42bg.jpg'
     ],
     description: '1/1 Above as Below wallet. Hand-finished with the same storm-and-balance motif as the matching Above as Below tee — single piece, one red-and-white Coalition mark, scaled for everyday carry. Once sold, gone forever.',
+    makingVideoUrl: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL,
+    makingVideoLinks: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_LINKS,
     category: 'wallet',
     isLimitedEdition: true,
     isFeatured: false,
@@ -625,12 +647,17 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
   prod_hoodie_overwhelmingly_patient: {
     shippingFulfillment: 'Ships in 1-2 weeks',
   },
+  Coalition_Above_As_Below_Wallet_1_1: {
+    makingVideoUrl: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL,
+    makingVideoLinks: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_LINKS,
+  },
   Coalition_Grey_Wave_Wallet_1_2: {
     archived: true,
     archivedAt: '2026-06-25T02:40:12.191+00:00',
     soldAt: '2026-06-25T02:40:12.191+00:00',
     sizes: ['One Size'],
     sizeInventory: { 'One Size': 0 },
+    makingVideoUrl: 'https://www.instagram.com/p/DZ3wBL_z0sd/',
     archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop."
   },
   SKYYBLUEWALLET1_2: {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Share2, Shield, Plus, Trash2, X, Upload, ExternalLink, Smartphone, Scan, Heart, MessageSquare, ChevronLeft, ChevronRight, GripVertical, Star, CheckCircle2, Clock3, Ruler, Truck, Instagram } from 'lucide-react';
+import { ArrowLeft, Share2, Shield, Plus, Trash2, X, Upload, ExternalLink, Smartphone, Scan, Heart, MessageSquare, ChevronLeft, ChevronRight, GripVertical, Star, CheckCircle2, Clock3, Ruler, Truck, Instagram, Youtube } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { Product, AuthProvider } from '../types';
@@ -29,6 +29,13 @@ const formatProductDate = (value?: string) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '';
     return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
+};
+
+const getMakingVideoIcon = (platform?: string) => {
+    if (platform === 'youtube') return Youtube;
+    if (platform === 'tiktok') return Smartphone;
+    if (platform === 'instagram') return Instagram;
+    return ExternalLink;
 };
 
 const ProductDetails = () => {
@@ -261,6 +268,14 @@ const ProductDetails = () => {
                     ? 'Free shipping unlocked'
                     : 'Ships in 1-2 business days';
     const makingVideoUrl = product.makingVideoUrl?.trim();
+    const makingVideoLinks = (product.makingVideoLinks || [])
+        .map(link => ({ ...link, url: link.url.trim() }))
+        .filter(link => link.url);
+    const processVideoLinks = makingVideoLinks.length > 0
+        ? makingVideoLinks
+        : makingVideoUrl
+            ? [{ platform: 'instagram' as const, label: 'Watch It Being Made', url: makingVideoUrl }]
+            : [];
     const productSeo = getProductSeo(product);
     const productJsonLd = buildProductJsonLd(product);
 
@@ -831,17 +846,26 @@ const ProductDetails = () => {
                                     <div className="prose prose-invert prose-sm text-gray-400 leading-relaxed font-light">
                                         <p className="text-base">{product.description}</p>
                                     </div>
-                                    {makingVideoUrl && (
-                                        <a
-                                            href={makingVideoUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="mt-5 inline-flex max-w-full items-center gap-3 border border-brand-accent/30 bg-brand-accent/10 px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] text-brand-accent transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
-                                        >
-                                            <Instagram className="h-4 w-4 shrink-0" />
-                                            <span className="min-w-0 break-words">Watch It Being Made</span>
-                                            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                                        </a>
+                                    {processVideoLinks.length > 0 && (
+                                        <div className="mt-5 flex flex-wrap gap-2">
+                                            {processVideoLinks.map(link => {
+                                                const Icon = getMakingVideoIcon(link.platform);
+
+                                                return (
+                                                    <a
+                                                        key={`${link.platform}-${link.url}`}
+                                                        href={link.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex max-w-full items-center gap-2 border border-brand-accent/30 bg-brand-accent/10 px-3 py-2.5 text-[11px] font-bold uppercase tracking-[0.16em] text-brand-accent transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
+                                                    >
+                                                        <Icon className="h-4 w-4 shrink-0" />
+                                                        <span className="min-w-0 break-words">{link.label}</span>
+                                                        <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                                                    </a>
+                                                );
+                                            })}
+                                        </div>
                                     )}
                                 </div>
 

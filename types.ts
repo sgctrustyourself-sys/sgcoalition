@@ -25,6 +25,14 @@ export interface ImageRoles {
   namedSlots?: Record<string, string>;
 }
 
+export type MakingVideoPlatform = 'instagram' | 'youtube' | 'tiktok' | 'external';
+
+export interface MakingVideoLink {
+  platform: MakingVideoPlatform;
+  label: string;
+  url: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -34,6 +42,7 @@ export interface Product {
   imageRoles?: ImageRoles;
   description: string;
   makingVideoUrl?: string;
+  makingVideoLinks?: MakingVideoLink[];
   createdAt?: string; // ISO timestamp for when the product was added
   category: 'apparel' | 'accessory' | 'shirt' | 'shorts' | 'sweatshirt' | 'wallet' | 'jeans' | 'hat' | 'dress';
   isFeatured?: boolean;
