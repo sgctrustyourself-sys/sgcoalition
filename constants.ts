@@ -493,6 +493,9 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
     ],
   },
   prod_set_above_as_below: {
+    name: 'COALITION ABOVE AS BELOW SET',
+    price: 120,
+    createdAt: '2026-07-01T00:00:00-04:00',
     images: [
       PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
       PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setBack,
@@ -504,7 +507,14 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
     imageRoles: {
       primaryUrl: PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
       hoverUrl: null
-    }
+    },
+    description: "Above as Below tee and shorts together in one set. Each piece is $75 on its own ($150 total); the set is $120, saving $30 off the combined price. Sized S-M-L-XL-2XL.",
+    category: 'apparel',
+    isFeatured: false,
+    isLimitedEdition: true,
+    freeShipping: true,
+    sizes: ['S', 'M', 'L', 'XL', '2XL'],
+    sizeInventory: { S: 4, M: 4, L: 4, XL: 4, '2XL': 4 }
   },
   prod_womens_above_as_below_contrast_shorts: {
     images: [
