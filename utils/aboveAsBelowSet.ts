@@ -1,11 +1,11 @@
 // Auto-applied cart discount for the Above as Below tee + shorts combination.
-// Replaces the retired `prod_set_above_as_below` standalone bundle SKU so a
-// $30 saving kicks in whenever a shopper buys both pieces together. Lives in
-// `utils/` (not under `api/_handlers/`) so the same source-of-truth is shared
-// by the React UI (Checkout / Cart / CartDrawer) and the Vercel Lambda
-// handlers (paypal-order, complete-order). Keeping the math on both sides of
-// the network prevents the storefront total from drifting away from the
-// amount PayPal / Stripe actually captures.
+// Complements the standalone `prod_set_above_as_below` set SKU so shoppers can
+// either buy the set directly or add both individual pieces and still receive
+// the same $30 saving. Lives in `utils/` (not under `api/_handlers/`) so the
+// same source-of-truth is shared by the React UI (Checkout / Cart / CartDrawer)
+// and the Vercel Lambda handlers (paypal-order, complete-order). Keeping the
+// math on both sides of the network prevents the storefront total from drifting
+// away from the amount PayPal / Stripe actually captures.
 
 export const ABOVE_AS_BELOW_TEE_ID = 'prod_tee_above_as_below';
 export const ABOVE_AS_BELOW_SHORTS_ID = 'prod_shorts_above_as_below';

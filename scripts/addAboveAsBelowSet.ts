@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { PRODUCT_IMAGE_URLS } from '../utils/localImageAssets';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,26 +18,38 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const BASE_SELECT_COLUMNS = 'id,name,price,stock,images,archived,size_inventory';
+const BASE_SELECT_COLUMNS = 'id,name,price,stock,images,description,category,is_featured,sizes,size_inventory,archived,created_at';
 
 async function addAboveAsBelowSet() {
     const sizeInventory = { S: 4, M: 4, L: 4, XL: 4, '2XL': 4 };
     const product = {
         id: 'prod_set_above_as_below',
-        name: 'COALITION ABOVE AS BELOW SET (TEE + SHORTS)',
+        name: 'COALITION ABOVE AS BELOW SET',
         price: 120,
         stock: Object.values(sizeInventory).reduce((sum, count) => sum + count, 0),
-        images: ['/images/logo.png'],
-        description: "Above as Below tee and shorts together in one bundle. Each piece is $75 on its own ($150 total); the set is $120, saving you $30 off the combined price. Hand-crafted in small batches. Once this drop is sold, it won't be restocked.",
+        images: [
+            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
+            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setBack,
+            PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
+            PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
+            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.front,
+            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.back
+        ],
+        description: "Above as Below tee and shorts together in one set. Each piece is $75 on its own ($150 total); the set is $120, saving $30 off the combined price. Sized S-M-L-XL-2XL.",
         category: 'apparel',
-        is_featured: true,
+        is_featured: false,
         sizes: ['S', 'M', 'L', 'XL', '2XL'],
         size_inventory: sizeInventory,
         archived: false
     };
 
     const optionalColumns: Record<string, unknown> = {
-        is_limited_edition: true
+        is_limited_edition: true,
+        image_roles: {
+            primaryUrl: PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
+            hoverUrl: null
+        },
+        created_at: '2026-07-01T00:00:00-04:00'
     };
 
     let result;

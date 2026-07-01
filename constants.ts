@@ -339,6 +339,34 @@ Hand-cut, raw-hem, deep-set pocket. Sized S through 2XL.`,
     sizeInventory: { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 }
   },
   {
+    id: 'prod_set_above_as_below',
+    founderNote: `The full Above as Below uniform: tee and shorts together, priced as the set instead of two separate pieces.
+
+One size selection covers both pieces. Sized S through 2XL. Set price: $120.`,
+    name: 'COALITION ABOVE AS BELOW SET',
+    price: 120,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setBack,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.front,
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.back
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
+      hoverUrl: null
+    },
+    description: "Above as Below tee and shorts together in one set. Each piece is $75 on its own ($150 total); the set is $120, saving $30 off the combined price. Sized S-M-L-XL-2XL.",
+    category: 'apparel',
+    isFeatured: false,
+    isLimitedEdition: true,
+    freeShipping: true,
+    sizes: ['S', 'M', 'L', 'XL', '2XL'],
+    sizeInventory: { S: 4, M: 4, L: 4, XL: 4, '2XL': 4 }
+  },
+  {
     id: 'prod_womens_above_as_below_contrast_shorts',
     founderNote: `Cut as the women's counterpart to the Above as Below drop. Black body, white contrast trim, and the red Coalition artwork placed low on the leg so it reads with the crop tank instead of fighting it.
 
@@ -463,6 +491,20 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
       PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelFront,
       PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelBack
     ],
+  },
+  prod_set_above_as_below: {
+    images: [
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setBack,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.front,
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.back
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
+      hoverUrl: null
+    }
   },
   prod_womens_above_as_below_contrast_shorts: {
     images: [
