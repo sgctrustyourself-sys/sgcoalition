@@ -339,6 +339,89 @@ Hand-cut, raw-hem, deep-set pocket. Sized S through 2XL.`,
     sizeInventory: { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 }
   },
   {
+    id: 'prod_womens_above_as_below_contrast_shorts',
+    founderNote: `Cut as the women's counterpart to the Above as Below drop. Black body, white contrast trim, and the red Coalition artwork placed low on the leg so it reads with the crop tank instead of fighting it.
+
+$40 on its own. Sized S through XL. Built to pair with the crewneck crop tank as the $75 women's set.`,
+    name: "WOMEN'S COALITION ABOVE AS BELOW CONTRAST SHORTS",
+    price: 40,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.back,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
+      hoverUrl: null
+    },
+    description: "Women's Above as Below contrast shorts in black with white trim, red Coalition artwork, and a red waistband label. Available S-M-L-XL. $40 separately, or grab the matching crop tank and shorts set for $75.",
+    category: 'shorts',
+    isFeatured: false,
+    isLimitedEdition: true,
+    freeShipping: true,
+    sizes: ['S', 'M', 'L', 'XL'],
+    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
+  },
+  {
+    id: 'prod_womens_above_as_below_crop_tank',
+    founderNote: `A crewneck crop tank built for the women's Above as Below set. Front SG mark, full back Above as Below figure, and the red Coalition label at the hem.
+
+$40 on its own. Sized S through XL. Pair it with the contrast shorts for the $75 set.`,
+    name: "WOMEN'S COALITION ABOVE AS BELOW CREWNECK CROP TANK",
+    price: 40,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.back,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
+      hoverUrl: null
+    },
+    description: "Women's Above as Below crewneck crop tank in black with front SG artwork, back Above as Below graphic, and red Coalition hem label. $40 separately, or pair it with the contrast shorts as a $75 set.",
+    category: 'shirt',
+    isFeatured: false,
+    isLimitedEdition: true,
+    freeShipping: true,
+    sizes: ['S', 'M', 'L', 'XL'],
+    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
+  },
+  {
+    id: 'prod_womens_above_as_below_set',
+    founderNote: `The full women's Above as Below uniform: crewneck crop tank and contrast shorts together, priced as the set instead of two separate pieces.
+
+One size selection covers both pieces. Sized S through XL. Set price: $75.`,
+    name: "WOMEN'S COALITION ABOVE AS BELOW SET",
+    price: 75,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.back,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.back
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      hoverUrl: null
+    },
+    description: "Women's Above as Below set with the crewneck crop tank and contrast shorts together. Black body, red-and-white Coalition artwork, and matching set styling. $75 as a set, sized S-M-L-XL.",
+    category: 'apparel',
+    isFeatured: false,
+    isLimitedEdition: true,
+    freeShipping: true,
+    sizes: ['S', 'M', 'L', 'XL'],
+    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
+  },
+  {
     id: 'prod_hoodie_overwhelmingly_patient',
     founderNote: `This hoodie is the start of the Coalition chakra line. The body is heavyweight 400gsm cotton fleece, cut deliberately oversized so it drapes below the hips. The graphic is a hand-drawn Sacral Chakra mark - the six-petaled lotus in deep burnt orange - sitting centered over the lower abdomen, the location Svadhisthana governs.
 
@@ -380,6 +463,47 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
       PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelFront,
       PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelBack
     ],
+  },
+  prod_womens_above_as_below_contrast_shorts: {
+    images: [
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.back,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
+      hoverUrl: null
+    }
+  },
+  prod_womens_above_as_below_crop_tank: {
+    images: [
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.back,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
+      hoverUrl: null
+    }
+  },
+  prod_womens_above_as_below_set: {
+    images: [
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.back,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.back
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      hoverUrl: null
+    }
   },
   // Hoodie ships in 1-2 weeks (faster than the original 4-6 week pre-order
   // commitment). Lives in PRODUCT_LOCAL_OVERRIDES rather than only in

@@ -17,6 +17,17 @@ export const PRODUCT_IMAGE_URLS = {
         setFront: '/images/above-as-below-set-front.png',
         setBack: '/images/above-as-below-set-back.png',
     },
+    womensAboveAsBelowContrastShorts: {
+        front: 'https://i.imgur.com/juuQ8jz.png',
+        back: 'https://i.imgur.com/IXvoGU6.png',
+        setAngledFront: 'https://i.imgur.com/coiMyd6.png',
+        setFront: 'https://i.imgur.com/DpkQWuU.png',
+        setBack: 'https://i.imgur.com/BoayHw0.png',
+    },
+    womensAboveAsBelowCropTank: {
+        front: 'https://i.imgur.com/HFMfNYr.png',
+        back: 'https://i.imgur.com/EqDgC3h.png',
+    },
     overwhelminglyPatientHoodie: {
         flatFront: '/images/front.png',
         flatBack: '/images/back.png',

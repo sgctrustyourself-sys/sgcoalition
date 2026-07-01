@@ -20,6 +20,8 @@ jobs:
   test:
     name: Run vitest
     runs-on: ubuntu-latest
+    env:
+      VITE_SALES_FINAL: "true"
     # rendererSmoke runs `npm run reveal` (story-reveal) end-to-end and
     # takes ~40s on a fast box; 15 minutes is comfortable headroom for the
     # full suite including any future tests.
