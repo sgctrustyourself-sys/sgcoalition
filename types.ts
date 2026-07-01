@@ -22,7 +22,7 @@ export interface Product {
   description: string;
   makingVideoUrl?: string;
   createdAt?: string; // ISO timestamp for when the product was added
-  category: 'apparel' | 'accessory' | 'shirt' | 'shorts' | 'sweatshirt' | 'wallet' | 'jeans' | 'hat';
+  category: 'apparel' | 'accessory' | 'shirt' | 'shorts' | 'sweatshirt' | 'wallet' | 'jeans' | 'hat' | 'dress';
   isFeatured?: boolean;
   // Free shipping when this product is in the cart AND a distinct other
   // product is also in the cart. Used for the Coalition 'Overwhelmingly

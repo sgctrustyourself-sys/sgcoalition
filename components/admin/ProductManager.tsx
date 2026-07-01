@@ -423,6 +423,7 @@ const ProductManager: React.FC = () => {
                                         <option value="hoodie">Hoodie</option>
                                         <option value="hat">Hat</option>
                                         <option value="jeans">Jeans</option>
+                                        <option value="dress">Dress</option>
                                     </select>
                                 </div>
                             </div>

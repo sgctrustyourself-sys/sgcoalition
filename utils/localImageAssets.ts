@@ -28,6 +28,25 @@ export const PRODUCT_IMAGE_URLS = {
         front: 'https://i.imgur.com/HFMfNYr.png',
         back: 'https://i.imgur.com/EqDgC3h.png',
     },
+    haloMiniDress: {
+        // Direct URLs from album https://imgur.com/a/XD73nPS (9 photos total)
+        // mapped to the canonical fashion-shoot order below. The first 6 cover
+        // primary, hover, and the four-shot gallery rotation on the PDP; the
+        // remaining 3 extra shots from the album are not currently wired and
+        // can be added as additional variants if/when a wider gallery is wanted.
+        modelFaceFront: 'https://i.imgur.com/nzsauOz.jpg',
+        modelFront: 'https://i.imgur.com/OKefysC.jpg',
+        modelAngledFront: 'https://i.imgur.com/wYR7Nfx.jpg',
+        modelSide: 'https://i.imgur.com/v4xVrou.jpg',
+        modelBackAngled: 'https://i.imgur.com/vAB30az.jpg',
+        modelBack: 'https://i.imgur.com/eO01k3Z.jpg',
+        // Extras from the album (not wired into the primary 6-slot rotation
+        // yet). Easy to add later as additional variants — e.g.
+        // modelAltFront, modelAltBack, modelCloseupDetail.
+        // extra7: 'https://i.imgur.com/KbE6CVj.jpg',
+        // extra8: 'https://i.imgur.com/t4HJ1gI.jpg',
+        // extra9: 'https://i.imgur.com/8hDRjjl.jpg',
+    },
     overwhelminglyPatientHoodie: {
         flatFront: '/images/front.png',
         flatBack: '/images/back.png',

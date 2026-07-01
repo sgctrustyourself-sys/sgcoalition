@@ -31,7 +31,7 @@ const RequestSimilarModal: React.FC<Props> = ({ product, onClose }) => {
             const categoryRaw = product.category?.toLowerCase() || '';
             let mappedType: 'apparel-pants' | 'apparel-shirt' | '3d-printed' | 'other' = 'other';
             if (categoryRaw.includes('pant') || categoryRaw.includes('denim') || categoryRaw.includes('jean') || categoryRaw === 'shorts') mappedType = 'apparel-pants';
-            else if (categoryRaw.includes('shirt') || categoryRaw.includes('tee') || categoryRaw.includes('hoodie') || categoryRaw === 'sweatshirt') mappedType = 'apparel-shirt';
+            else if (categoryRaw.includes('shirt') || categoryRaw.includes('tee') || categoryRaw.includes('hoodie') || categoryRaw === 'sweatshirt' || categoryRaw === 'dress') mappedType = 'apparel-shirt';
             else if (categoryRaw.includes('3d')) mappedType = '3d-printed';
 
             await submitCustomInquiry({

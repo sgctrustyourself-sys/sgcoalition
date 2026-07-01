@@ -450,6 +450,41 @@ One size selection covers both pieces. Sized S through XL. Set price: $75.`,
     sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
   },
   {
+    id: 'prod_halo_mini_dress',
+    founderNote: `The Halo Mini Dress is a clean black bodycon silhouette with the Coalition halo mark placed high on the chest and the cross-backed Coalition hit sitting low on the back.
+
+Numbered cohort of 50 — first ten buyers lock in $50, the next fifteen get $60, every piece after that $75. Same fabric run, same hand-finished back graphic — late buyers pay a small premium for landing later in the cohort. Sized S through XL.`,
+    name: 'COALITION HALO MINI DRESS',
+    price: 50,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelFront,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelAngledFront,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelSide,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelBack
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
+      hoverUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelFront
+    },
+    description: 'Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Numbered edition of 50: tier-priced $50 / $60 / $75 as the cohort fills.',
+    category: 'dress',
+    isFeatured: false,
+    isLimitedEdition: true,
+    editionSize: 50,
+    pricingTiers: [
+      { untilCount: 10, price: 50 },
+      { untilCount: 25, price: 60 },
+      { untilCount: null, price: 75 }
+    ],
+    sizes: ['S', 'M', 'L', 'XL'],
+    // Total 50 across all sizes; matches the numbered cohort.
+    sizeInventory: { S: 12, M: 13, L: 13, XL: 12 },
+    editionSoldCount: 0
+  },
+  {
     id: 'prod_hoodie_overwhelmingly_patient',
     founderNote: `This hoodie is the start of the Coalition chakra line. The body is heavyweight 400gsm cotton fleece, cut deliberately oversized so it drapes below the hips. The graphic is a hand-drawn Sacral Chakra mark - the six-petaled lotus in deep burnt orange - sitting centered over the lower abdomen, the location Svadhisthana governs.
 
@@ -556,6 +591,27 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
       primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
       hoverUrl: null
     }
+  },
+  prod_halo_mini_dress: {
+    images: [
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelFront,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelAngledFront,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelSide,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelBack
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
+      hoverUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelFront
+    },
+    isLimitedEdition: true,
+    editionSize: 50,
+    pricingTiers: [
+      { untilCount: 10, price: 50 },
+      { untilCount: 25, price: 60 },
+      { untilCount: null, price: 75 }
+    ]
   },
   // Hoodie ships in 1-2 weeks (faster than the original 4-6 week pre-order
   // commitment). Lives in PRODUCT_LOCAL_OVERRIDES rather than only in
