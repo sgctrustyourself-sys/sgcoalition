@@ -125,6 +125,9 @@ async function main() {
   } catch (e) {
     console.error('\nSQL execution error:', e.message);
     if (e.code) console.error('pg error code: ' + e.code);
+    // Non-zero exit so CI / shell chaining can detect a failed apply.
+    // Release + pool.end() still run in the finally block below.
+    process.exitCode = 1;
   } finally {
     try { client.release(); } catch {}
     try { await pool.end(); } catch {}
