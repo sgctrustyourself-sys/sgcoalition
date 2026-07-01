@@ -53,7 +53,7 @@ async function addHaloMiniDress() {
         is_limited_edition: true,
         image_roles: {
             primaryUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
-            hoverUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelFront
+            hoverUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled
         },
         edition_size: 50,
         pricing_tiers: [
