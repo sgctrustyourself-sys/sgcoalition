@@ -1,6 +1,25 @@
 import { Product, Section } from './types';
 import { PRODUCT_IMAGE_URLS } from './utils/localImageAssets';
 
+const ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL = 'https://www.instagram.com/p/DaQpKS9EXT8/';
+const ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_LINKS: NonNullable<Product['makingVideoLinks']> = [
+  {
+    platform: 'instagram',
+    label: 'Instagram Reel',
+    url: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL
+  },
+  {
+    platform: 'youtube',
+    label: 'YouTube Short',
+    url: 'https://www.youtube.com/shorts/YN82FCNhNJ8'
+  },
+  {
+    platform: 'tiktok',
+    label: 'TikTok',
+    url: 'https://www.tiktok.com/@sgcoalition/video/7657634047572593933'
+  }
+];
+
 export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'Coalition_NF_Tee',
@@ -40,7 +59,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     createdAt: '2026-06-17T00:00:00-04:00',
     images: [
       PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
-      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelFront,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelBack
     ],
     description: 'The Above as Below tee features a heavyweight black body with red-and-white Coalition artwork across the front and a full back graphic built around the Above as Below concept.',
     category: 'shirt',
@@ -266,6 +287,7 @@ export const INITIAL_PRODUCTS: Product[] = [
       PRODUCT_IMAGE_URLS.greyWaveWallet.back
     ],
     description: "First piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a custom charcoal-grey dye pattern inspired by Baltimore harbor at dawn. Built as a limited 1/2 collectible \u2014 once sold, it's gone forever.",
+    makingVideoUrl: 'https://www.instagram.com/p/DZ3wBL_z0sd/',
     category: 'wallet',
     freeShipping: true,
     isLimitedEdition: true,
@@ -305,6 +327,8 @@ export const INITIAL_PRODUCTS: Product[] = [
       'https://i.imgur.com/UoY42bg.jpg'
     ],
     description: '1/1 Above as Below wallet. Hand-finished with the same storm-and-balance motif as the matching Above as Below tee — single piece, one red-and-white Coalition mark, scaled for everyday carry. Once sold, gone forever.',
+    makingVideoUrl: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL,
+    makingVideoLinks: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_LINKS,
     category: 'wallet',
     isLimitedEdition: true,
     isFeatured: false,
@@ -335,6 +359,152 @@ Hand-cut, raw-hem, deep-set pocket. Sized S through 2XL.`,
     freeShipping: true,
     sizes: ['S', 'M', 'L', 'XL', '2XL'],
     sizeInventory: { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 }
+  },
+  {
+    id: 'prod_set_above_as_below',
+    founderNote: `The full Above as Below uniform: tee and shorts together, priced as the set instead of two separate pieces.
+
+One size selection covers both pieces. Sized S through 2XL. Set price: $120.`,
+    name: 'COALITION ABOVE AS BELOW SET',
+    price: 120,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setBack,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.front,
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.back
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
+      hoverUrl: null
+    },
+    description: "Above as Below tee and shorts together in one set. Each piece is $75 on its own ($150 total); the set is $120, saving $30 off the combined price. Sized S-M-L-XL-2XL.",
+    category: 'apparel',
+    isFeatured: false,
+    isLimitedEdition: true,
+    freeShipping: true,
+    sizes: ['S', 'M', 'L', 'XL', '2XL'],
+    sizeInventory: { S: 4, M: 4, L: 4, XL: 4, '2XL': 4 }
+  },
+  {
+    id: 'prod_womens_above_as_below_contrast_shorts',
+    founderNote: `Cut as the women's counterpart to the Above as Below drop. Black body, white contrast trim, and the red Coalition artwork placed low on the leg so it reads with the crop tank instead of fighting it.
+
+$40 on its own. Sized S through XL. Built to pair with the crewneck crop tank as the $75 women's set.`,
+    name: "WOMEN'S COALITION ABOVE AS BELOW CONTRAST SHORTS",
+    price: 40,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.back,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
+      hoverUrl: null
+    },
+    description: "Women's Above as Below contrast shorts in black with white trim, red Coalition artwork, and a red waistband label. Available S-M-L-XL. $40 separately, or grab the matching crop tank and shorts set for $75.",
+    category: 'shorts',
+    isFeatured: false,
+    isLimitedEdition: true,
+    freeShipping: true,
+    sizes: ['S', 'M', 'L', 'XL'],
+    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
+  },
+  {
+    id: 'prod_womens_above_as_below_crop_tank',
+    founderNote: `A crewneck crop tank built for the women's Above as Below set. Front SG mark, full back Above as Below figure, and the red Coalition label at the hem.
+
+$40 on its own. Sized S through XL. Pair it with the contrast shorts for the $75 set.`,
+    name: "WOMEN'S COALITION ABOVE AS BELOW CREWNECK CROP TANK",
+    price: 40,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.back,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
+      hoverUrl: null
+    },
+    description: "Women's Above as Below crewneck crop tank in black with front SG artwork, back Above as Below graphic, and red Coalition hem label. $40 separately, or pair it with the contrast shorts as a $75 set.",
+    category: 'shirt',
+    isFeatured: false,
+    isLimitedEdition: true,
+    freeShipping: true,
+    sizes: ['S', 'M', 'L', 'XL'],
+    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
+  },
+  {
+    id: 'prod_womens_above_as_below_set',
+    founderNote: `The full women's Above as Below uniform: crewneck crop tank and contrast shorts together, priced as the set instead of two separate pieces.
+
+One size selection covers both pieces. Sized S through XL. Set price: $75.`,
+    name: "WOMEN'S COALITION ABOVE AS BELOW SET",
+    price: 75,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.back,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.back
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      hoverUrl: null
+    },
+    description: "Women's Above as Below set with the crewneck crop tank and contrast shorts together. Black body, red-and-white Coalition artwork, and matching set styling. $75 as a set, sized S-M-L-XL.",
+    category: 'apparel',
+    isFeatured: false,
+    isLimitedEdition: true,
+    freeShipping: true,
+    sizes: ['S', 'M', 'L', 'XL'],
+    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
+  },
+  {
+    id: 'prod_halo_mini_dress',
+    founderNote: `The Halo Mini Dress is a clean black bodycon silhouette with the Coalition halo mark placed high on the chest and the cross-backed Coalition hit sitting low on the back.
+
+Numbered cohort of 50 — first ten buyers lock in $50, the next fifteen get $60, every piece after that $75. Same fabric run, same hand-finished back graphic — late buyers pay a small premium for landing later in the cohort. Sized S through XL.`,
+    name: 'COALITION HALO MINI DRESS',
+    price: 50,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelFront,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelAngledFront,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelSide,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelBack
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
+      hoverUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled
+    },
+    description: 'Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Numbered edition of 50: tier-priced $50 / $60 / $75 as the cohort fills.',
+    category: 'dress',
+    isFeatured: false,
+    isLimitedEdition: true,
+    editionSize: 50,
+    pricingTiers: [
+      { untilCount: 10, price: 50 },
+      { untilCount: 25, price: 60 },
+      { untilCount: null, price: 75 }
+    ],
+    sizes: ['S', 'M', 'L', 'XL'],
+    // Total 50 across all sizes; matches the numbered cohort.
+    sizeInventory: { S: 12, M: 13, L: 13, XL: 12 },
+    editionSoldCount: 0
   },
   {
     id: 'prod_hoodie_overwhelmingly_patient',
@@ -371,14 +541,120 @@ Pre-order reservations are intentionally capped at one per size. After the close
 ];
 
 export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
+  prod_tee_above_as_below: {
+    images: [
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelFront,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelBack
+    ],
+  },
+  prod_set_above_as_below: {
+    name: 'COALITION ABOVE AS BELOW SET',
+    price: 120,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setBack,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.front,
+      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.back
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
+      hoverUrl: null
+    },
+    description: "Above as Below tee and shorts together in one set. Each piece is $75 on its own ($150 total); the set is $120, saving $30 off the combined price. Sized S-M-L-XL-2XL.",
+    category: 'apparel',
+    isFeatured: false,
+    isLimitedEdition: true,
+    freeShipping: true,
+    sizes: ['S', 'M', 'L', 'XL', '2XL'],
+    sizeInventory: { S: 4, M: 4, L: 4, XL: 4, '2XL': 4 }
+  },
+  prod_womens_above_as_below_contrast_shorts: {
+    images: [
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.back,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
+      hoverUrl: null
+    }
+  },
+  prod_womens_above_as_below_crop_tank: {
+    images: [
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.back,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
+      hoverUrl: null
+    }
+  },
+  prod_womens_above_as_below_set: {
+    images: [
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.back,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
+      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.back
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
+      hoverUrl: null
+    }
+  },
+  prod_halo_mini_dress: {
+    images: [
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelFront,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelAngledFront,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelSide,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled,
+      PRODUCT_IMAGE_URLS.haloMiniDress.modelBack
+    ],
+    // imageRoles is intentionally NOT in this override so the Supabase row's
+    // imageRoles.{primaryUrl, hoverUrl, namedSlots} wins after the
+    // AppContext fetchProducts merge. Halo image roles are operator-curated
+    // at runtime via components/admin/ProductManager.tsx > Named Slot Targets
+    // and mirrored through the upsert in scripts/addHaloMiniDress.ts. The
+    // legacy shape (without namedSlots) gets a clean default from
+    // INITIAL_PRODUCTS > imageRoles above.
+    isLimitedEdition: true,
+    editionSize: 50,
+    pricingTiers: [
+      { untilCount: 10, price: 50 },
+      { untilCount: 25, price: 60 },
+      { untilCount: null, price: 75 }
+    ]
+  },
   // Hoodie ships in 1-2 weeks (faster than the original 4-6 week pre-order
-  // commitment). Lives in PRODUCT_LOCAL_OVERRIDES rather than only in
-  // INITIAL_PRODUCTS so applyLocalProductOverrides wins the AppContext merge
-  // after the Supabase fetch — the live Supabase row was added before
-  // `shippingFulfillment` existed, so a `{...local, ...sp}` spread would
-  // otherwise clobber the local value with `undefined`.
+  // commitment). The `category: 'sweatshirt'` override is also pinned here so
+  // the SWEATSHIRTS filter on /shop surfaces the hoodie even though the live
+  // Supabase row was originally seeded with `category: 'apparel'` (see
+  // scripts/addOverwhelminglyPatientHoodie.ts — drift source). Lives in
+  // PRODUCT_LOCAL_OVERRIDES rather than only in INITIAL_PRODUCTS so
+  // applyLocalProductOverrides wins the AppContext merge after the Supabase
+  // fetch — the live Supabase row was added before these fields existed, so
+  // a `{...local, ...sp}` spread would otherwise clobber the local values
+  // with `undefined` or the stale DB category.
   prod_hoodie_overwhelmingly_patient: {
     shippingFulfillment: 'Ships in 1-2 weeks',
+    category: 'sweatshirt',
+  },
+  Coalition_Above_As_Below_Wallet_1_1: {
+    makingVideoUrl: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL,
+    makingVideoLinks: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_LINKS,
   },
   Coalition_Grey_Wave_Wallet_1_2: {
     archived: true,
@@ -386,6 +662,7 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
     soldAt: '2026-06-25T02:40:12.191+00:00',
     sizes: ['One Size'],
     sizeInventory: { 'One Size': 0 },
+    makingVideoUrl: 'https://www.instagram.com/p/DZ3wBL_z0sd/',
     archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop."
   },
   SKYYBLUEWALLET1_2: {

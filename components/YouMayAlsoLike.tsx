@@ -54,9 +54,9 @@ const YouMayAlsoLike: React.FC<YouMayAlsoLikeProps> = ({ currentProduct }) => {
                 className="flex gap-6 overflow-x-auto scrollbar-hide scroll-smooth pb-4"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-                {recommendations.map(product => (
+                {recommendations.map((product, idx) => (
                     <div key={product.id} className="flex-shrink-0 w-64">
-                        <ProductCard product={product} />
+                        <ProductCard product={product} priority={idx === 0} />
                     </div>
                 ))}
             </div>

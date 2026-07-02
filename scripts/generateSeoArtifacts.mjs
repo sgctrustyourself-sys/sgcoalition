@@ -405,6 +405,7 @@ const buildSitemap = (products) => {
   const staticPages = [
     { loc: '/', priority: '1.0', changefreq: 'weekly' },
     { loc: '/shop', priority: '0.9', changefreq: 'daily' },
+    { loc: '/custom-wallets', priority: '0.8', changefreq: 'weekly' },
     { loc: '/archive', priority: '0.7', changefreq: 'weekly' },
     { loc: '/about', priority: '0.5', changefreq: 'monthly' },
     { loc: '/membership', priority: '0.5', changefreq: 'monthly' },
@@ -449,6 +450,9 @@ const main = () => {
   }
 
   const baseHtml = fs.readFileSync(DIST_INDEX, 'utf8');
+  const walletProducts = products.filter((product) =>
+    product.category === 'wallet' || product.name.toLowerCase().includes('wallet')
+  );
   writeTextFile(DIST_DIR, 'sitemap.xml', sitemap);
   writeTextFile(DIST_DIR, 'robots.txt', robots);
 
@@ -463,6 +467,19 @@ const main = () => {
       type: 'website',
     },
     collectionJsonLd(products.filter((product) => !product.archived), 'Coalition Shop', '/shop')
+  );
+
+  writeStaticPage(
+    baseHtml,
+    '/custom-wallets',
+    {
+      title: 'Coalition | Custom Wallets',
+      description: 'Shop and request Coalition custom wallets: handmade one-of-one wallet builds, process videos, archive pieces, and Baltimore streetwear accessories.',
+      image: absoluteUrl('https://i.imgur.com/9NF3LzM.jpg'),
+      url: absoluteUrl('/custom-wallets'),
+      type: 'website',
+    },
+    collectionJsonLd(walletProducts, 'Coalition Custom Wallets', '/custom-wallets')
   );
 
   writeStaticPage(
@@ -491,7 +508,7 @@ const main = () => {
     );
   }
 
-  console.log(`[seo] Generated sitemap, robots, and ${products.length + 2} static preview pages.`);
+  console.log(`[seo] Generated sitemap, robots, and ${products.length + 3} static preview pages.`);
 };
 
 main();

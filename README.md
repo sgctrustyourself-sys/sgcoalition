@@ -74,6 +74,8 @@ Use Stripe test cards:
 
 PayPal checkout is server-verified before an order is saved. The browser SDK uses `VITE_PAYPAL_CLIENT_ID`; `/api/paypal-order` creates/captures the PayPal order; `/api/complete-order` verifies the capture against PayPal and Supabase product pricing before writing `orders`.
 
+Pay Later / BNPL is enabled in the PayPal browser SDK with `components=buttons,messages&enable-funding=paylater`. There is no extra BNPL env var; PayPal decides whether to show Pay Later for the buyer, order amount, device, and merchant account.
+
 Required environment variables:
 
 ```env
@@ -103,10 +105,12 @@ Smoke-test flow:
 1. Use a PayPal sandbox REST app and set all PayPal variables from the same sandbox app. Do not mix sandbox browser IDs with live server secrets.
 2. Run `npm run build`.
 3. Run the app through Vercel dev or a Vercel preview so `/api/paypal-order` and `/api/complete-order` execute as serverless functions.
-4. Add a physical product to cart, fill all shipping fields, leave partial store credit off, choose PayPal, and approve with a PayPal sandbox personal buyer account.
-5. Confirm the app lands on `/order/success?payment_method=paypal`.
-6. In Supabase, confirm one `orders` row exists with `payment_method = paypal`, `payment_status = paid`, `paypal_order_id` populated, `payment_reference` populated with the capture ID, and `total` equal to the PayPal capture amount.
-7. In the PayPal sandbox dashboard, confirm the order is `COMPLETED` and the captured amount matches the Supabase order total.
+4. Add a physical product to cart, fill all shipping fields, leave partial store credit off, and choose PayPal.
+5. Check the checkout page for the Pay Later message. If the sandbox buyer/order is eligible, Pay Later messaging or a Pay Later funding button appears; if it does not appear, continue with the normal PayPal sandbox buyer flow.
+6. Click `Continue to PayPal`, approve with a PayPal sandbox personal buyer account, and let the app return from PayPal.
+7. Confirm the app lands on `/order/success?payment_method=paypal`.
+8. In Supabase, confirm one `orders` row exists with `payment_method = paypal`, `payment_status = paid`, `paypal_order_id` populated, `payment_reference` populated with the capture ID, and `total` equal to the PayPal capture amount.
+9. In the PayPal sandbox dashboard, confirm the order is `COMPLETED` and the captured amount matches the Supabase order total.
 
 For production, switch to live PayPal credentials and set `PAYPAL_ENV=live`, then redeploy so the Vite `VITE_PAYPAL_CLIENT_ID` is rebuilt into `index.html`.
 

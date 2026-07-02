@@ -1,0 +1,72 @@
+name: vitest
+
+# Run the test suite on every push to main and on every PR targeting main or release.
+# Posts results as a PR check, with GitHub annotations on test failures via
+# the `github-actions` reporter. Catches regressions like the rimraf cascade
+# (commit fe8acec) and the ENOENT crash (commit 74b9817) before they land.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, release]
+
+# Cancel in-flight runs for the same ref so a force-push or a flurry of
+# PR commits doesn't pile up redundant CI jobs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Run vitest
+    runs-on: ubuntu-latest
+    env:
+      VITE_SALES_FINAL: "true"
+    # rendererSmoke runs `npm run reveal` (story-reveal) end-to-end and
+    # takes ~40s on a fast box; 15 minutes is comfortable headroom for the
+    # full suite including any future tests.
+    timeout-minutes: 15
+    # Minimal permissions: this workflow only reads code, so the default
+    # GITHUB_TOKEN's broad scopes are unnecessary. Best practice for
+    # GitHub Actions security (also surfaces as a repo warning under
+    # Settings -> Code security and analysis when overly broad).
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Node 20 is the lowest LTS that satisfies twilio@^6.0.2's
+      # `engines.node: ">=20.0.0"` requirement and is the most
+      # universally-available LTS on GitHub Actions. The `20` string
+      # resolves to the latest 20.x release (currently 20.19.x), not a
+      # pinned 20.0.0. Bump to 22 or 24 later if a future dep raises
+      # the floor.
+      - name: Setup Node 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # `npm ci` is deterministic (uses the lockfile exactly) and faster
+      # than `npm install` on a clean checkout, which is what CI gets.
+      - name: Install dependencies
+        run: npm ci
+
+      # rendererSmoke launches Playwright Chromium through scripts/render-story.ts.
+      # npm installs the Playwright package, but GitHub's clean runners still need
+      # the browser binary and Linux system dependencies downloaded explicitly.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      # `npx vitest run` (no --project flags) runs BOTH projects in
+      # vitest.config.ts -- `react-components` (jsdom + tests/setup.ts)
+      # and `jsdom-utils` (jsdom only) -- mirroring the local command.
+      # Two `--reporter` flags are passed so the CI log is human-readable
+      # (`default`) AND test failures surface as inline PR annotations
+      # (`github-actions`). Without the `default` reporter, the CI log
+      # is terse and developers have to read the GitHub annotations
+      # separately to understand which assertion failed.
+      - name: Run vitest
+        run: npx vitest run --reporter=default --reporter=github-actions

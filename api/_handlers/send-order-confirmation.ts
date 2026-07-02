@@ -1,4 +1,13 @@
 import { Resend } from 'resend';
+import { EXTENDED_CORS_HEADERS, setCorsHeaders } from '../_helpers';
+import type {
+    ApiRequest,
+    ApiResponse,
+    OrderInput,
+    OrderItemInput,
+    ResendEmailPayload,
+    ShippingAddress,
+} from '../_types';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const DEFAULT_ORDER_NOTIFICATION_EMAIL = 'sgctrustyourself@gmail.com';
@@ -14,13 +23,13 @@ function getResendFromAddress() {
     return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>';
 }
 
-async function sendResendEmail(payload: any) {
+async function sendResendEmail(payload: ResendEmailPayload) {
     const result = await resend.emails.send({
         ...payload,
         from: getResendFromAddress(),
-    });
+    } as Parameters<Resend['emails']['send']>[0]);
 
-    const error = (result as any)?.error;
+    const error = result?.error;
     if (error) {
         throw new Error(error.message || 'Resend rejected the email request.');
     }
@@ -37,12 +46,12 @@ function escapeHtml(value: unknown) {
         .replace(/'/g, '&#39;');
 }
 
-async function sendAdminOrderNotification(order: any) {
+async function sendAdminOrderNotification(order: OrderInput): Promise<void> {
     const recipients = getOrderNotificationRecipients();
     if (recipients.length === 0) return;
 
-    const itemsHtml = (order.items || []).map((item: any) => {
-        const unitPrice = Number(item.price || 0);
+    const itemsHtml = (order.items ?? []).map((item: OrderItemInput) => {
+        const unitPrice = Number(item.price) || 0;
         const quantity = Math.max(1, Number(item.quantity || 1));
         return `
         <tr>
@@ -56,8 +65,9 @@ async function sendAdminOrderNotification(order: any) {
     `;
     }).join('');
 
-    const shipping = order.shippingInfo || order.shippingAddress || {};
-    return await sendResendEmail({
+    const shippingRaw = order.shippingInfo || order.shippingAddress || {};
+    const shipping = (typeof shippingRaw === 'object' && shippingRaw !== null ? shippingRaw : {}) as ShippingAddress;
+    await sendResendEmail({
         to: recipients,
         subject: `ACTION REQUIRED: Prepare Coalition order ${order.id}`,
         html: `
@@ -106,15 +116,12 @@ async function sendAdminOrderNotification(order: any) {
     });
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
     // Set CORS headers
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-    res.setHeader(
-        'Access-Control-Allow-Headers',
-        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-    );
+    setCorsHeaders(req, res, {
+        methods: 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
+        allowedHeaders: EXTENDED_CORS_HEADERS,
+    });
 
     if (req.method === 'OPTIONS') {
         res.status(200).end();
@@ -127,7 +134,8 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const { order } = req.body;
+        const body = (req.body ?? {}) as { order?: OrderInput };
+        const order = body.order;
 
         if (!order || !order.customerEmail) {
             res.status(400).json({ error: 'Order and customer email required' });
@@ -135,14 +143,14 @@ export default async function handler(req: any, res: any) {
         }
 
         // Generate order items HTML
-        const itemsHtml = order.items.map((item: any) => `
+        const itemsHtml = (order.items || []).map((item: OrderItemInput) => `
             <tr>
                 <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
-                    <strong>${item.name}</strong><br>
-                    <span style="color: #6b7280; font-size: 14px;">Size: ${item.size} • Qty: ${item.quantity}</span>
+                    <strong>${item.name || item.productName || 'Item'}</strong><br>
+                    <span style="color: #6b7280; font-size: 14px;">Size: ${item.size || item.selectedSize || 'One Size'} • Qty: ${item.quantity || 1}</span>
                 </td>
                 <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">
-                    $${item.price.toFixed(2)}
+                    $${(Number(item.price) || 0).toFixed(2)}
                 </td>
             </tr>
         `).join('');
@@ -198,7 +206,7 @@ export default async function handler(req: any, res: any) {
                                     </td>
                                     <td style="padding-bottom: 15px; text-align: right;">
                                         <strong style="color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Order Total</strong><br>
-                                        <span style="font-size: 24px; font-weight: bold; color: #111827;">$${order.total.toFixed(2)}</span>
+                                        <span style="font-size: 24px; font-weight: bold; color: #111827;">$${(Number(order.total) || 0).toFixed(2)}</span>
                                     </td>
                                 </tr>
 <tr>
@@ -224,14 +232,14 @@ export default async function handler(req: any, res: any) {
                                         <strong>Total</strong>
                                     </td>
                                     <td style="padding: 12px; background-color: #f9fafb; text-align: right;">
-                                        <strong>$${order.total.toFixed(2)}</strong>
+                                        <strong>$${(Number(order.total) || 0).toFixed(2)}</strong>
                                     </td>
                                 </tr>
                             </table>
                         </td>
                     </tr>
 
-                    ${order.sgCoinReward > 0 ? `
+                    ${(order.sgCoinReward ?? 0) > 0 ? `
                     <!-- SGCoin Reward -->
                     <tr>
                         <td style="padding: 0 40px 40px 40px;">
@@ -240,7 +248,7 @@ export default async function handler(req: any, res: any) {
                                     SGCoin Reward Earned
                                 </p>
                                 <p style="margin: 0; color: #ffffff; font-size: 32px; font-weight: bold;">
-                                    +${order.sgCoinReward.toLocaleString()}
+                                    +${Number(order.sgCoinReward ?? 0).toLocaleString()}
                                 </p>
                             </div>
                         </td>
@@ -294,13 +302,14 @@ export default async function handler(req: any, res: any) {
         let adminNotification = null;
         try {
             adminNotification = await sendAdminOrderNotification(order);
-        } catch (emailError) {
+        } catch (emailError: unknown) {
             console.warn('Admin order notification failed:', emailError);
         }
 
         res.status(200).json({ success: true, data, adminNotification });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Email send error:', err);
-        res.status(500).json({ error: err.message || 'Failed to send email' });
+        const message = err instanceof Error ? err.message : 'Failed to send email';
+        res.status(500).json({ error: message });
     }
 }

@@ -100,7 +100,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, onFilterChange, avai
                         <div>
                             <h4 className="font-bold text-sm uppercase tracking-wider text-gray-400 mb-3">Category</h4>
                             <div className="space-y-2">
-                                {['apparel', 'accessory'].map(category => (
+                                {['apparel', 'accessory', 'dress'].map(category => (
                                     <label key={category} className="flex items-center gap-2 cursor-pointer group">
                                         <input
                                             type="checkbox"

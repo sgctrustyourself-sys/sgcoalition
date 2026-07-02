@@ -8,12 +8,45 @@ export const PRODUCT_IMAGE_URLS = {
     aboveAsBelowTee: {
         front: '/images/above-as-below-tee-front.png',
         back: '/images/above-as-below-tee-back.png',
+        modelFront: '/images/above-as-below-tee-model-front.png',
+        modelBack: '/images/above-as-below-tee-model-back.png',
     },
     aboveAsBelowShorts: {
         front: '/images/shorts%201.webp',
         back: '/images/short%201%20back.png',
         setFront: '/images/above-as-below-set-front.png',
         setBack: '/images/above-as-below-set-back.png',
+    },
+    womensAboveAsBelowContrastShorts: {
+        front: 'https://i.imgur.com/juuQ8jz.png',
+        back: 'https://i.imgur.com/IXvoGU6.png',
+        setAngledFront: 'https://i.imgur.com/coiMyd6.png',
+        setFront: 'https://i.imgur.com/DpkQWuU.png',
+        setBack: 'https://i.imgur.com/BoayHw0.png',
+    },
+    womensAboveAsBelowCropTank: {
+        front: 'https://i.imgur.com/HFMfNYr.png',
+        back: 'https://i.imgur.com/EqDgC3h.png',
+    },
+    haloMiniDress: {
+        // Album https://imgur.com/a/XD73nPS ships only 4 verified dress
+        // photos (visual audit 2026-07-01: each Imgur hash was loaded and
+        // classified). Wiring the 4 to their natural pose slots and
+        // duplicating the nearest neighbour for the two angles the album
+        // does NOT include, until those angles upload:
+        //   nzsauOz  = face/chest close-up
+        //   wYR7Nfx = front full-body   (covers modelFront + modelAngledFront)
+        //   v4xVrou = side-profile
+        //   OKefysC = back-angled       (covers modelBackAngled + modelBack)
+        // The remaining 5 album hashes (vAB30az cartoon, eO01k3Z cat photo,
+        // KbE6CVj army-induction video, t4HJ1gI unverified, 8hDRjjl wrestling
+        // video) are NOT dress photography and are intentionally not wired.
+        modelFaceFront: 'https://i.imgur.com/nzsauOz.jpg',
+        modelFront: 'https://i.imgur.com/wYR7Nfx.jpg',
+        modelAngledFront: 'https://i.imgur.com/wYR7Nfx.jpg',
+        modelSide: 'https://i.imgur.com/v4xVrou.jpg',
+        modelBackAngled: 'https://i.imgur.com/OKefysC.jpg',
+        modelBack: 'https://i.imgur.com/OKefysC.jpg',
     },
     overwhelminglyPatientHoodie: {
         flatFront: '/images/front.png',
@@ -169,3 +202,40 @@ export const rewriteImageSrcs = (html: string = '') => {
         html
     );
 };
+
+/**
+ * Resolve per-product "named slot" defaults from the `PRODUCT_IMAGE_URLS`
+ * asset map for products whose slot taxonomy doesn't fit the default
+ * primary/hover/gallery flow (e.g. the Halo Mini Dress has 6 named slots:
+ * modelFaceFront / modelFront / modelAngledFront / modelSide /
+ * modelBackAngled / modelBack).
+ *
+ * Caller passes the productId stored on the row / on
+ * `editForm.id`. The function returns the canonical slot list (in source
+ * order) with each entry's hardcoded default URL. The admin
+ * components/admin/ProductManager.tsx renderer overlays the operator's
+ * current edits on top so slot i reads from `images[i]` (see
+ * ImageRoles.namedSlots).
+ *
+ * To add a new "named-slot" product: drop a slot map into `PRODUCT_IMAGE_URLS`
+ * whose keys are all `model*`-prefixed (or whatever convention this helper
+ * scans) AND add an alias here. Today: only prod_halo_mini_dress.
+ */
+export interface NamedSlotDefault {
+    slotName: string;
+    defaultUrl: string;
+}
+
+const NAMED_SLOT_PRODUCT_ALIASES: Record<string, keyof typeof PRODUCT_IMAGE_URLS> = {
+    prod_halo_mini_dress: 'haloMiniDress',
+};
+
+export function getNamedSlotDefaults(productId: string | undefined | null): NamedSlotDefault[] {
+    if (!productId) return [];
+    const key = NAMED_SLOT_PRODUCT_ALIASES[productId];
+    if (!key) return [];
+    const block = PRODUCT_IMAGE_URLS[key] as unknown as Record<string, string>;
+    return Object.entries(block)
+        .filter(([slotName, url]) => slotName.toLowerCase().startsWith('model') && typeof url === 'string')
+        .map(([slotName, defaultUrl]) => ({ slotName, defaultUrl }));
+}

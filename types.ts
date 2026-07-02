@@ -1,12 +1,50 @@
+// Per-product image-role mapping. Stored as URL strings (not indices) so
+// admin reorders / deletes don't silently corrupt the assignment. Older
+// products without an imageRoles field fall through to position-based
+// defaults (images[0] = primary, images[1] = hover, rest = gallery) via
+// utils/productImage.getProductRoles.
+export interface ImageRoles {
+  /** URL of the cover image shown on cards and as the PDP hero. */
+  primaryUrl?: string;
+  /** URL of the alt-view shown on ProductCard hover. Explicit `null` = no hover. */
+  hoverUrl?: string | null;
+  /** PDP thumbnail URLs. Optional; derived from images[2..n] when omitted. */
+  galleryUrls?: string[];
+  /**
+   * Per-product image-role "named slots" for products whose slot taxonomy
+   * doesn't fit the default primary/hover/gallery shape (e.g. the Halo
+   * Mini Dress has modelFaceFront / modelFront / modelAngledFront /
+   * modelSide / modelBackAngled / modelBack).
+   *
+   * Map: slot identifier → public URL. Synced positionally with the
+   * product's `images[]` array — slot `i` corresponds to `images[i]` —
+   * so the admin upload-replace flow in components/admin/ProductManager.tsx
+   * writes to a deterministic index in both arrays at once.
+   * forwarded by reconcileImageRoles (utils/productImage.ts).
+   */
+  namedSlots?: Record<string, string>;
+}
+
+export type MakingVideoPlatform = 'instagram' | 'youtube' | 'tiktok' | 'external';
+
+export interface MakingVideoLink {
+  platform: MakingVideoPlatform;
+  label: string;
+  url: string;
+}
+
 export interface Product {
   id: string;
   name: string;
   price: number;
   images: string[];
+  // Explicit image-role mapping. See ImageRoles above.
+  imageRoles?: ImageRoles;
   description: string;
   makingVideoUrl?: string;
+  makingVideoLinks?: MakingVideoLink[];
   createdAt?: string; // ISO timestamp for when the product was added
-  category: 'apparel' | 'accessory' | 'shirt' | 'shorts' | 'sweatshirt' | 'wallet' | 'jeans' | 'hat';
+  category: 'apparel' | 'accessory' | 'shirt' | 'shorts' | 'sweatshirt' | 'wallet' | 'jeans' | 'hat' | 'dress';
   isFeatured?: boolean;
   // Free shipping when this product is in the cart AND a distinct other
   // product is also in the cart. Used for the Coalition 'Overwhelmingly

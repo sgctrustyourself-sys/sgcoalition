@@ -5,6 +5,13 @@
 // the link works in browsers and markdown email clients alike.
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type {
+    ApiRequest,
+    ApiResponse,
+    UnsubscribeBody,
+} from '../_types';
+
+const DEFAULT_PUBLIC_ORIGIN = 'https://sgcoalition.xyz';
 
 let cachedAdminClient: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient | null {
@@ -55,8 +62,48 @@ Coalition &middot; Baltimore, Maryland
 </html>`;
 }
 
-export default async function handler(req: any, res: any) {
-    const appUrl = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
+function readToken(req: ApiRequest): string {
+    // Channel 1: ?token=<uuid> in the URL (email-client friendly).
+    const queryTokenRaw = req.query?.token;
+    const queryToken = Array.isArray(queryTokenRaw)
+        ? queryTokenRaw[0]
+        : queryTokenRaw;
+
+    if (typeof queryToken === 'string' && queryToken.trim()) {
+        return queryToken.trim();
+    }
+
+    // Channel 2: future in-app Unsubscribe buttons POST with body.token.
+    if (req.body && typeof req.body === 'object' && req.body !== null) {
+        const bodyToken = (req.body as UnsubscribeBody).token;
+        if (typeof bodyToken === 'string' && bodyToken.trim()) {
+            return bodyToken.trim();
+        }
+    }
+
+    return '';
+}
+
+async function performUnsubscribe(token: string): Promise<'unsubscribed' | 'already_off'> {
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+        throw new Error('Subscription service is not configured.');
+    }
+
+    const { data, error } = await admin
+        .from('subscribe_emails')
+        .update({ unsubscribe_at: new Date().toISOString() })
+        .eq('unsubscribe_token', token)
+        .is('unsubscribe_at', null)
+        .select('id')
+        .maybeSingle();
+
+    if (error) throw error;
+    return data ? 'unsubscribed' : 'already_off';
+}
+
+export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
+    const appUrl = process.env.VITE_APP_URL || DEFAULT_PUBLIC_ORIGIN;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Access-Control-Allow-Origin', appUrl);
 
@@ -65,8 +112,6 @@ export default async function handler(req: any, res: any) {
         return;
     }
 
-    // The unsubscribe link is GET-friendly (works in any email client). We also
-    // accept POST so a future "Unsubscribe" button on /account can call us.
     if (req.method !== 'GET' && req.method !== 'POST') {
         res.status(405).send(renderHtml({
             ok: false,
@@ -77,8 +122,7 @@ export default async function handler(req: any, res: any) {
         return;
     }
 
-    const tokenRaw = (req.query?.token ?? req.body?.token) as unknown;
-    const token = typeof tokenRaw === 'string' ? tokenRaw.trim() : '';
+    const token = readToken(req);
     if (!token) {
         res.status(400).send(renderHtml({
             ok: false,
@@ -88,29 +132,10 @@ export default async function handler(req: any, res: any) {
         }));
         return;
     }
-    const admin = getSupabaseAdmin();
-    if (!admin) {
-        console.error('[unsubscribe] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured');
-        res.status(500).send(renderHtml({
-            ok: false,
-            title: 'Service temporarily unavailable',
-            body: 'The unsubscribe service is not configured right now. Reply STOP to any of our emails and we will remove you by hand.',
-            appUrl,
-        }));
-        return;
-    }
 
     try {
-        const { data, error } = await admin
-            .from('subscribe_emails')
-            .update({ unsubscribe_at: new Date().toISOString() })
-            .eq('unsubscribe_token', token)
-            .is('unsubscribe_at', null)
-            .select('id')
-            .maybeSingle();
-
-        if (error) throw error;
-        if (!data) {
+        const outcome = await performUnsubscribe(token);
+        if (outcome === 'already_off') {
             // Already unsubscribed OR token doesn't match a row. Same response:
             // we never confirm whether an email exists for security reasons.
             res.status(200).send(renderHtml({
@@ -128,8 +153,22 @@ export default async function handler(req: any, res: any) {
             body: 'Your email has been removed from the Coalition drop list. We will not email you again until you sign up from the site.',
             appUrl,
         }));
-    } catch (err: any) {
-        console.error('[unsubscribe] failed:', err);
+    } catch (error: unknown) {
+        // Distinguish the explicit "service not configured" throw from an
+        // upstream Supabase/network error so the rendered page matches the
+        // previous operator-facing message.
+        const message = (error as { message?: string } | null)?.message || '';
+        if (message.includes('not configured')) {
+            console.error('[unsubscribe] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured');
+            res.status(503).send(renderHtml({
+                ok: false,
+                title: 'Service temporarily unavailable',
+                body: 'The unsubscribe service is not configured right now. Reply STOP to any of our emails and we will remove you by hand.',
+                appUrl,
+            }));
+            return;
+        }
+        console.error('[unsubscribe] failed:', error);
         res.status(500).send(renderHtml({
             ok: false,
             title: 'Unsubscribe could not complete',

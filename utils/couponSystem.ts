@@ -1,17 +1,60 @@
 import { supabase } from '../services/supabase';
 import { getReferralStatsByCode } from './referralSystem';
+import { getPromoCodeDiscount, normalizePromoCode } from './promoCodes';
+
+type CouponValidationResult = {
+    valid: boolean;
+    error?: string;
+    referrerName?: string;
+    code?: string;
+    discountPercentage?: number;
+    type?: 'promo' | 'referral';
+};
 
 /**
- * Validate if a coupon code exists as a referral code
+ * Validate if a coupon code exists as a promo or referral code. Both BADDIES
+ * and EARLYACCESS validate like any normal code — anyone with the code can
+ * apply it. Visibility / gating is the responsibility of the public UI, not
+ * this validation path.
  */
-export const validateCouponCode = async (code: string): Promise<{ valid: boolean; error?: string; referrerName?: string }> => {
+export const validateCouponCode = async (code: string): Promise<CouponValidationResult> => {
     try {
-        if (!code || code.trim() === '') {
+        const normalizedCode = normalizePromoCode(code);
+
+        if (!normalizedCode) {
             return { valid: false, error: 'Please enter a coupon code' };
         }
 
+        const promo = getPromoCodeDiscount(normalizedCode);
+        if (promo) {
+            // Cap pre-check for promo codes that have a `max_uses` row in
+            // the `coupons` table (e.g. EARLYACCESS first-4-orders cap).
+            // The code itself is still valid for anyone who knows it — it
+            // just yields a 0% discount after the cap is met, per the user's
+            // "if they use the code than cool" spec. Server-side validation
+            // still re-checks this in api/_handlers (authoritative).
+            const { data: couponRow } = await supabase
+                .from('coupons')
+                .select('used_count, max_uses')
+                .eq('code', promo.code)
+                .maybeSingle();
+
+            const capReached = Boolean(
+                couponRow
+                    && couponRow.max_uses !== null
+                    && Number(couponRow.used_count || 0) >= Number(couponRow.max_uses),
+            );
+
+            return {
+                valid: true,
+                code: promo.code,
+                discountPercentage: capReached ? 0 : promo.discountPercentage,
+                type: 'promo',
+            };
+        }
+
         // Check if code exists in referral_stats
-        const stats = await getReferralStatsByCode(code.toUpperCase());
+        const stats = await getReferralStatsByCode(normalizedCode);
 
         if (!stats) {
             return { valid: false, error: 'Invalid coupon code' };
@@ -28,7 +71,9 @@ export const validateCouponCode = async (code: string): Promise<{ valid: boolean
 
         return {
             valid: true,
-            referrerName
+            code: normalizedCode,
+            referrerName,
+            type: 'referral',
         };
     } catch (error) {
         console.error('Error validating coupon code:', error);
@@ -40,7 +85,7 @@ export const validateCouponCode = async (code: string): Promise<{ valid: boolean
  * Apply a coupon code (store in sessionStorage for tracking)
  */
 export const applyCouponCode = (code: string): void => {
-    sessionStorage.setItem('referralCode', code.toUpperCase());
+    sessionStorage.setItem('referralCode', normalizePromoCode(code));
 };
 
 /**
@@ -48,7 +93,8 @@ export const applyCouponCode = (code: string): void => {
  */
 export const getAppliedCouponCode = (): string | null => {
     // Check both sessionStorage (from coupon input) and localStorage (from URL)
-    return sessionStorage.getItem('referralCode') || localStorage.getItem('referral_code');
+    const code = sessionStorage.getItem('referralCode') || localStorage.getItem('referral_code');
+    return code ? normalizePromoCode(code) : null;
 };
 
 /**
@@ -56,4 +102,5 @@ export const getAppliedCouponCode = (): string | null => {
  */
 export const clearCouponCode = (): void => {
     sessionStorage.removeItem('referralCode');
+    localStorage.removeItem('referral_code');
 };

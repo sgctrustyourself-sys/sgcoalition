@@ -9,6 +9,7 @@ import {
     ABOVE_AS_BELOW_SET_BONUS_CENTS,
 } from '../utils/aboveAsBelowSet';
 import { resolveLocalImageUrl } from '../utils/localImageAssets';
+import { getProductImage, getProductImageSrcSet, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
 
 interface CompleteTheFitCartProps {
     // drawer (default): compact single-row card sized for the slide-in drawer.
@@ -140,10 +141,23 @@ const CompleteTheFitCart: React.FC<CompleteTheFitCartProps> = ({ variant = 'draw
                     className="h-16 w-16 flex-shrink-0 overflow-hidden border border-white/10 bg-white block"
                 >
                     <img
-                        src={missingImage}
+                        src={getProductImage(missingImage, 'thumb')}
+                        srcSet={getProductImageSrcSet(missingImage)}
+                        sizes={PRODUCT_IMAGE_SIZES.thumb}
                         alt={missingProduct.name}
-                        className="h-full w-full object-contain"
+                        width={96}
+                        height={120}
                         loading="lazy"
+                        fetchPriority="auto"
+                        decoding="async"
+                        onError={(event) => {
+                            const img = event.currentTarget;
+                            if (img.getAttribute('data-fallback-applied') === '1') return;
+                            img.setAttribute('data-fallback-applied', '1');
+                            img.src = missingImage;
+                            img.removeAttribute('srcset');
+                        }}
+                        className="h-full w-full object-contain"
                     />
                 </Link>
                 <div className="min-w-0 flex-1">

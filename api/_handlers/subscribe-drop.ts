@@ -8,11 +8,23 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { createHttpError, parseBody, setCorsHeaders, type HttpError } from '../_helpers';
+import type {
+    ApiRequest,
+    ApiResponse,
+    SubscribeDropBody,
+    SubscribeDropResponse,
+    SubscribeEmailRow,
+} from '../_types';
 
-const ALLOWED_SOURCES = new Set(['home', 'shop', 'about', 'footer']);
+const ALLOWED_SOURCES = new Set<string>(['home', 'shop', 'about', 'footer']);
+const DEFAULT_PUBLIC_ORIGIN = 'https://sgcoalition.xyz';
+const DEFAULT_FROM_ADDRESS = 'SG Coalition <onboarding@resend.dev>';
+const DEFAULT_SOURCE = 'footer';
 
 // Cache the admin client across warm Lambda / Vercel function invocations so we
-// don't re-initialize on every request.
+// don't re-initialize on every request. Returns null when env is missing so the
+// caller can respond with a 503 rather than crashing the Lambda cold-start.
 let cachedAdminClient: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient | null {
     if (cachedAdminClient) return cachedAdminClient;
@@ -34,7 +46,7 @@ function validateEmail(value: unknown): string | null {
 }
 
 function getResendFromAddress(): string {
-    return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>';
+    return process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_ADDRESS;
 }
 
 // Reviewer NITPICK 1: redact the email before logging so an unconfigured prod
@@ -55,8 +67,6 @@ async function sendConfirmationEmail(opts: {
 }): Promise<void> {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-        // Dev / unconfigured: log so the operator sees why the email didn't
-        // go out, but do not 500 the user - the row is already persisted.
         console.warn(
             '[subscribe-drop] RESEND_API_KEY not set; skipping confirmation email for source=',
             opts.source,
@@ -66,7 +76,7 @@ async function sendConfirmationEmail(opts: {
         return;
     }
     const resend = new Resend(apiKey);
-    const appUrl = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
+    const appUrl = process.env.VITE_APP_URL || DEFAULT_PUBLIC_ORIGIN;
     const unsubscribeUrl = `${appUrl}/api/unsubscribe?token=${encodeURIComponent(opts.unsubscribeToken)}`;
     const subject = 'You are on the Coalition drop list';
     const html = confirmationEmailHtml({ source: opts.source, unsubscribeUrl });
@@ -78,15 +88,13 @@ async function sendConfirmationEmail(opts: {
         html,
         text,
     });
-    const error = (result as any)?.error;
+    const error = (result as { error?: { message?: string } | null } | null)?.error;
     if (error) {
         throw new Error(error.message || 'Resend rejected the confirmation email.');
     }
 }
 
 function confirmationEmailHtml(opts: { source: string; unsubscribeUrl: string }): string {
-    // PLACEHOLDER copy pending operator review per the feature brief.
-    // Voice: personal, anti-spam, founder-tone. One email per drop.
     const sourceLabel = opts.source && opts.source !== 'footer'
         ? ` from the ${opts.source} page of the storefront`
         : ' from the Coalition storefront';
@@ -152,11 +160,75 @@ function escapeHtml(value: string): string {
         .replace(/'/g, '&#39;');
 }
 
-export default async function handler(req: any, res: any) {
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
-    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+async function subscribeDrop(req: ApiRequest): Promise<SubscribeDropResponse> {
+    const bodyRaw = parseBody(req);
+    const body = bodyRaw as SubscribeDropBody;
+
+    const email = validateEmail(body.email);
+    if (!email) {
+        throw createHttpError(400, 'A valid email address is required.');
+    }
+    const source = typeof body.source === 'string' && ALLOWED_SOURCES.has(body.source)
+        ? body.source
+        : DEFAULT_SOURCE;
+
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+        console.error('[subscribe-drop] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured');
+        throw createHttpError(500, 'Subscription service is not configured. Please try again later.');
+    }
+
+    // Idempotent subscribe: on previously-unsubscribed emails, treat as a
+    // re-subscribe (clear unsubscribe_at, reuse the row's token).
+    const { data: existing } = await admin
+        .from('subscribe_emails')
+        .select('id, unsubscribe_token, unsubscribe_at')
+        .eq('email', email)
+        .maybeSingle();
+
+    let unsubscribeToken: string;
+    let alreadySubscribed: boolean;
+
+    if (existing && !existing.unsubscribe_at) {
+        unsubscribeToken = String((existing as Pick<SubscribeEmailRow, 'unsubscribe_token'>).unsubscribe_token || '');
+        alreadySubscribed = true;
+    } else if (existing && existing.unsubscribe_at) {
+        // Re-subscribe path: clear unsubscribe_at, update source, keep token.
+        const { data: reactivated, error: reactivateError } = await admin
+            .from('subscribe_emails')
+            .update({ unsubscribe_at: null, source })
+            .eq('id', existing.id)
+            .select('unsubscribe_token')
+            .single();
+        if (reactivateError || !reactivated) {
+            throw new Error(reactivateError?.message || 'Could not re-subscribe existing email.');
+        }
+        unsubscribeToken = String((reactivated as Pick<SubscribeEmailRow, 'unsubscribe_token'>).unsubscribe_token || '');
+        alreadySubscribed = false;
+    } else {
+        const { data: inserted, error: insertError } = await admin
+            .from('subscribe_emails')
+            .insert({ email, source })
+            .select('unsubscribe_token')
+            .single();
+        if (insertError || !inserted) {
+            throw new Error(insertError?.message || 'Could not save subscription.');
+        }
+        unsubscribeToken = String((inserted as Pick<SubscribeEmailRow, 'unsubscribe_token'>).unsubscribe_token || '');
+        alreadySubscribed = false;
+    }
+
+    let emailDelivered = false;
+    if (!alreadySubscribed) {
+        await sendConfirmationEmail({ to: email, source, unsubscribeToken });
+        emailDelivered = true;
+    }
+
+    return { success: true, alreadySubscribed, emailDelivered, source };
+}
+
+export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
+    setCorsHeaders(req, res, { methods: 'POST,OPTIONS', allowedHeaders: 'Content-Type' });
 
     if (req.method === 'OPTIONS') {
         res.status(200).end();
@@ -167,92 +239,13 @@ export default async function handler(req: any, res: any) {
         return;
     }
 
-    // Vercel sometimes hands us a string body when Content-Type slips.
-    let body: any = req.body ?? {};
-    if (typeof body === 'string') {
-        try { body = JSON.parse(body); } catch { body = {}; }
-    }
-
-    const rawEmail = body?.email;
-    const rawSource = body?.source;
-
-    const email = validateEmail(rawEmail);
-    if (!email) {
-        res.status(400).json({ error: 'A valid email address is required.' });
-        return;
-    }
-    const source = typeof rawSource === 'string' && ALLOWED_SOURCES.has(rawSource)
-        ? rawSource
-        : 'footer';
-
-    const admin = getSupabaseAdmin();
-    if (!admin) {
-        console.error('[subscribe-drop] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured');
-        res.status(500).json({
-            error: 'Subscription service is not configured. Please try again later.',
-        });
-        return;
-    }
-
     try {
-        // Idempotent subscribe: on previously-unsubscribed emails, treat as a
-        // re-subscribe (clear unsubscribe_at, reuse the row's token).
-        const { data: existing } = await admin
-            .from('subscribe_emails')
-            .select('id, unsubscribe_token, unsubscribe_at')
-            .eq('email', email)
-            .maybeSingle();
-
-        let unsubscribeToken: string;
-        let alreadySubscribed: boolean;
-
-        if (existing && !existing.unsubscribe_at) {
-            unsubscribeToken = existing.unsubscribe_token;
-            alreadySubscribed = true;
-        } else if (existing && existing.unsubscribe_at) {
-            // Re-subscribe path: clear unsubscribe_at, update source, keep token.
-            const { data: reactivated, error: reactivateError } = await admin
-                .from('subscribe_emails')
-                .update({ unsubscribe_at: null, source })
-                .eq('id', existing.id)
-                .select('unsubscribe_token')
-                .single();
-            if (reactivateError || !reactivated) {
-                throw new Error(reactivateError?.message || 'Could not re-subscribe existing email.');
-            }
-            unsubscribeToken = reactivated.unsubscribe_token;
-            alreadySubscribed = false;
-        } else {
-            const { data: inserted, error: insertError } = await admin
-                .from('subscribe_emails')
-                .insert({ email, source })
-                .select('unsubscribe_token')
-                .single();
-            if (insertError || !inserted) {
-                throw new Error(insertError?.message || 'Could not save subscription.');
-            }
-            unsubscribeToken = inserted.unsubscribe_token;
-            alreadySubscribed = false;
-        }
-
-        // Only fire the confirmation email on first-time (or reactivated) subscribe
-        // so a refresh doesn't pile up duplicate "you're on the list" messages.
-        let emailDelivered = false;
-        if (!alreadySubscribed) {
-            await sendConfirmationEmail({ to: email, source, unsubscribeToken });
-            emailDelivered = true;
-        }
-
-        res.status(200).json({
-            success: true,
-            alreadySubscribed,
-            emailDelivered,
-            source,
-        });
-    } catch (err: any) {
-        console.error('[subscribe-drop] failed:', err);
-        res.status(500).json({
-            error: err?.message || 'Could not save subscription. Please try again.',
-        });
+        res.status(200).json(await subscribeDrop(req));
+    } catch (error: unknown) {
+        const httpError = error as HttpError | null;
+        const status = Number(httpError?.status || 500);
+        const message = (error as { message?: string } | null)?.message;
+        console.error('[subscribe-drop] failed:', error);
+        res.status(status).json({ error: message || 'Could not save subscription. Please try again.' });
     }
 }
