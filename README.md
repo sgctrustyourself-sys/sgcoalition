@@ -22,9 +22,113 @@ Premium streetwear e-commerce platform built with React, Vite, and Stripe.
 - **Frontend**: React 19, TypeScript, Vite
 - **Styling**: Vanilla CSS with modern design
 - **Payments**: Stripe (Card + Crypto)
+- **Backend**: Vercel serverless functions under `api/`
+- **Database/Auth/Realtime**: Supabase
 - **Email**: Resend API
 - **Blockchain**: Ethers.js for Web3 integration
 - **Deployment**: Vercel
+
+## Backend Architecture
+
+The production backend is not a long-running Express server. It is a Vercel serverless API plus Supabase.
+
+### Request flow
+
+1. Browser routes are served by Vite/React from `dist/`.
+2. `vercel.json` rewrites non-API page requests back to `index.html`.
+3. Requests that start with `/api/` go to `api/[...slug].ts`.
+4. `api/[...slug].ts` is the API router. It lazy-loads one file from `api/_handlers/` based on the route name.
+5. Shared request utilities live in `api/_helpers.ts`; shared request/row types live in `api/_types.ts`.
+
+When adding a new API handler, do both steps:
+
+1. Add the handler file in `api/_handlers/<route-name>.ts`.
+2. Add `<route-name>` to the `handlers` map in `api/[...slug].ts`.
+
+If step 2 is missed, the frontend can call a real-looking endpoint and still get `404 Endpoint not found`.
+
+### Main backend routes
+
+| Route | Handler | Purpose |
+| --- | --- | --- |
+| `/api/complete-order` | `api/_handlers/complete-order.ts` | Final order write, admin order reads/updates, PayPal capture verification, server-side price checks, order email sends. |
+| `/api/paypal-order` | `api/_handlers/paypal-order.ts` | Creates/captures PayPal orders after re-checking product prices, inventory, coupons, and set discounts. |
+| `/api/create-payment-intent` | `api/_handlers/create-payment-intent.ts` | Creates Stripe PaymentIntents and applies store credit when requested. |
+| `/api/create-checkout-session` | `api/_handlers/create-checkout-session.ts` | Legacy Stripe Checkout Session path. |
+| `/api/marketing-subscribe` | `api/_handlers/marketing-subscribe.ts` | Unified email/SMS opt-in. Writes `marketing_contacts` and attribution metadata. |
+| `/api/marketing-optout` | `api/_handlers/marketing-optout.ts` | Email unsubscribe links and Twilio STOP webhook handling. |
+| `/api/marketing-send` | `api/_handlers/marketing-send.ts` | Admin marketing send path for email/SMS audiences. |
+| `/api/marketing-stats` | `api/_handlers/marketing-stats.ts` | Marketing dashboard counts. |
+| `/api/subscribe-drop` | `api/_handlers/subscribe-drop.ts` | Older drop email list signup. |
+| `/api/unsubscribe` | `api/_handlers/unsubscribe.ts` | Older drop email unsubscribe route. |
+| `/api/create-subscription-session` | `api/_handlers/create-subscription-session.ts` | Stripe VIP/subscription checkout. |
+| `/api/verify-subscription` | `api/_handlers/verify-subscription.ts` | Verifies Stripe subscription checkout and updates profile fields. |
+| `/api/ai-chat` | `api/_handlers/ai-chat.ts` | AI chat endpoint. |
+
+### Supabase data model in practice
+
+`context/AppContext.tsx` is the frontend data bridge. It reads Supabase directly for normal catalog/admin data, then calls serverless APIs for operations that need service-role access or payment verification.
+
+Products load in this order:
+
+1. `INITIAL_PRODUCTS` from `constants.ts` gives the local fallback catalog.
+2. Supabase `products` rows replace matching local rows when the database is available.
+3. Local-only products are appended so a successful Supabase fetch does not hide drops that are still only in code.
+4. `PRODUCT_LOCAL_OVERRIDES` is applied last for pinned local fixes such as image roles, copy, archive notes, and shipping copy.
+
+Because of that merge order, product bugs usually need two checks:
+
+1. Static fallback: `constants.ts` and `PRODUCT_LOCAL_OVERRIDES`.
+2. Live database: the matching script in `scripts/` or the admin product manager.
+
+### Payment and order rules
+
+The client can display prices, but the backend is the source of truth when money moves.
+
+1. PayPal order creation re-loads products from Supabase, verifies item IDs, prices, inventory, keychain clip add-ons, promo discounts, and Above as Below set discounts.
+2. PayPal order completion re-checks the PayPal capture ID, capture status, reference ID, and captured amount before writing the order.
+3. Stripe PaymentIntent creation applies store credit server-side before creating a payment intent.
+4. `/api/complete-order` writes orders with the Supabase service-role key, then sends customer/admin emails through Resend when configured.
+
+### Marketing and lead capture
+
+Lead capture forms call `/api/marketing-subscribe`. The frontend captures UTM/referrer/click IDs in `utils/trafficAttribution.ts`, and `DropLeadCapture` includes that payload in the subscribe request. The handler stores it in `marketing_contacts.metadata` so traffic sources can be reviewed later.
+
+The marketing backend depends on these tables/migrations:
+
+1. `supabase/migrations/20260701_create_marketing_schema.sql`
+2. `marketing_contacts`
+3. `marketing_consent_log`
+4. `marketing_campaigns`
+5. Legacy `subscribe_emails` for the older drop list
+
+## Backend Bug-Fix Checklist
+
+Use this when something disappears, prices are wrong, checkout fails, or a form silently stops working.
+
+1. Reproduce the exact URL and action first. Record route, product ID, size, cart contents, coupon, and payment method.
+2. Check whether the bug is frontend-only or backend/data:
+   - Frontend-only: broken render, wrong component branch, missing link, wrong local copy.
+   - Backend/data: endpoint 404/500, wrong Supabase row, missing migration, payment verification mismatch.
+3. If a frontend call hits `/api/<name>`, confirm `<name>` exists in `api/[...slug].ts`.
+4. If product data is wrong, update both `constants.ts` and the matching Supabase upsert script when needed.
+5. If a Supabase column is missing, add or run the migration under `supabase/migrations/` before relying on that column in code.
+6. If checkout totals are wrong, inspect shared pricing helpers first:
+   - `utils/aboveAsBelowSet.ts`
+   - `utils/promoCodes.ts`
+   - `utils/walletAddOns.ts`
+   - `api/_handlers/paypal-order.ts`
+   - `api/_handlers/complete-order.ts`
+7. If a lead form fails, check the router entry, `marketing-subscribe` env vars, and `marketing_contacts` schema.
+8. Add or update a focused test for the bug before pushing. Keep tests near the failing behavior, for example `tests/CompleteTheFit.test.tsx` for PDP set cards.
+9. Run focused tests first, then the production build:
+
+```bash
+npx.cmd vitest run tests/<changed-area>.test.tsx
+npm.cmd run build
+```
+
+10. If the build runs `scripts/generateSeoArtifacts.mjs`, check `git status` afterward so generated files are not accidentally missed or staged when unchanged.
 
 ## Local Development
 
@@ -51,17 +155,17 @@ Premium streetwear e-commerce platform built with React, Vite, and Stripe.
    VITE_APP_URL=http://localhost:3000
    ```
 
-4. Start the API server:
-   ```bash
-   node server.js
-   ```
-
-5. Start the dev server (in a new terminal):
+4. Start the frontend dev server:
    ```bash
    npm run dev
    ```
 
-6. Open http://localhost:3000
+5. For API testing, run through Vercel dev so `/api/*` routes execute like production:
+   ```bash
+   npx vercel dev
+   ```
+
+6. Open the local URL printed by the command you are running. Vite defaults to http://localhost:3000 in this project.
 
 ### Testing Checkout
 
@@ -189,15 +293,17 @@ vercel
 ## Project Structure
 
 ```
-├── api/                    # Vercel serverless functions
-├── components/             # React components
-├── context/               # React context providers
-├── pages/                 # Page components
-├── public/                # Static assets
-├── services/              # API services
-├── server.js              # Local API server
-├── vite.config.ts         # Vite configuration
-└── vercel.json            # Vercel deployment config
+api/                    # Vercel serverless functions
+api/_handlers/          # One file per API endpoint loaded by api/[...slug].ts
+components/             # React components
+context/                # React context providers
+pages/                  # Page components
+public/                 # Static assets
+services/               # Client-side service wrappers
+supabase/migrations/    # Database schema changes
+utils/                  # Shared frontend/backend helpers
+vite.config.ts          # Vite configuration
+vercel.json             # Vercel deployment config and rewrites
 ```
 
 ## Environment Variables
