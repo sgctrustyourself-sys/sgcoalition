@@ -20,25 +20,59 @@ export interface ActiveTierInfo {
 }
 
 /**
+ * Module-level session state used by fetchPaidCountsByProduct. PGRST202
+ * ("function not in schema cache") is a deterministic miss -- once we
+ * see it, retrying per page load only spams the operator's console with
+ * the same answer. The flag persists for the lifetime of the page so
+ * subsequent calls short-circuit immediately. Reset from vitest via
+ * __resetRpcFallbackForTests.
+ */
+let _paidCountRpcMissing = false;
+let _paidCountRpcMissingWarned = false;
+
+/**
  * Batch-fetch paid-quantity counts for the given product ids via the
  * public.get_product_paid_count RPC. Used by AppContext.fetchProducts to
  * enrich the cached Product list with editionSoldCount so the storefront
  * can render "X/44 minted at $75" without re-querying every PDP render.
  *
- * Failures on individual ids degrade to 0 + a console warning so a single
- * bad rpc doesn't break the whole products list.
+ * Failure handling:
+ *   * PGRST202 (function missing from Supabase schema cache) -- flagged
+ *     for the session; the FIRST occurrence logs a single warn with the
+ *     remediation step ("run scripts/createGetProductPaidCountRpc.cjs"),
+ *     and every subsequent call short-circuits without hitting the
+ *     network. Reset the database by running that script and refresh.
+ *   * Other errors / throws -- per-id console.error as before, so a
+ *     transient RPC outage still surfaces per product and the operator
+ *     dashboard picks it up.
  */
 export async function fetchPaidCountsByProduct(productIds: string[]): Promise<PaidCountsByProduct> {
     const out: PaidCountsByProduct = {};
     if (productIds.length === 0) return out;
+    // Permanent RPC absence confirmed earlier in this session -- return
+    // zeros immediately without consuming a network round-trip per id.
+    if (_paidCountRpcMissing) {
+        for (const id of productIds) out[id] = 0;
+        return out;
+    }
     await Promise.all(productIds.map(async (id) => {
         try {
             const { data, error } = await supabase.rpc('get_product_paid_count', { p_id: id });
             if (error) {
-                // Bumped from console.warn to console.error so a Supabase outage
-                // surfaces in operator dashboards. The PDP will still render "0/N
-                // minted" as a safe-degradation copy; the loud log is what the
-                // operator needs.
+                if (error.code === 'PGRST202') {
+                    _paidCountRpcMissing = true;
+                    if (!_paidCountRpcMissingWarned) {
+                        _paidCountRpcMissingWarned = true;
+                        console.warn(
+                            '[numberedPieces] get_product_paid_count RPC missing from Supabase (PGRST202). Cohort counters will read 0/N until scripts/createGetProductPaidCountRpc.cjs is run. First id triggered:',
+                            id
+                        );
+                    }
+                    out[id] = 0;
+                    return;
+                }
+                // Other errors keep the per-id console.error so a transient
+                // Supabase outage still surfaces in the operator dashboard.
                 console.error('[numberedPieces] get_product_paid_count failed for', id, error);
                 out[id] = 0;
                 return;
@@ -50,6 +84,16 @@ export async function fetchPaidCountsByProduct(productIds: string[]): Promise<Pa
         }
     }));
     return out;
+}
+
+/**
+ * Test-only helper that clears the per-session "RPC confirmed missing"
+ * flag so a freshly-mocked supabase.rpc can be exercised by subsequent
+ * calls inside a vitest spec. Not part of the public API.
+ */
+export function __resetRpcFallbackForTests(): void {
+    _paidCountRpcMissing = false;
+    _paidCountRpcMissingWarned = false;
 }
 
 /**

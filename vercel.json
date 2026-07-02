@@ -3,11 +3,13 @@
     "outputDirectory": "dist",
     "devCommand": "npm run dev",
     "installCommand": "npm install",
-    "framework": "vite",
-    "rewrites": [
+    "framework": "vite",    "rewrites": [
+        {
+            "source": "/favicon.ico",
+            "destination": "/favicon.svg"
+        },
         {
             "source": "/((?!api/|assets/|sw.js|favicon.svg|images/|.*\\..*).*)",
             "destination": "/index.html"
         }
-    ]
-}
+    ]}
