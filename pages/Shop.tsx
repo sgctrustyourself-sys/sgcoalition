@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Filter, Check, Zap, TrendingUp } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
@@ -9,12 +10,16 @@ import Newsletter from '../components/Newsletter';
 import { buildItemListJsonLd } from '../utils/seo';
 
 const Shop = () => {
+    const location = useLocation();
     const { products, isLoading, isConfigError } = useApp();
     const [isFiltersOpen, setFiltersOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
     // Filter States
-    const [category, setCategory] = useState<string>('all');
+    const [category, setCategory] = useState<string>(() => {
+        if (typeof window === 'undefined') return 'all';
+        return new URLSearchParams(window.location.search).get('category') || 'all';
+    });
     const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
     const [priceRange, setPriceRange] = useState<{ min: number, max: number }>({ min: 0, max: 1000 });
     const [sortOption, setSortOption] = useState<string>('newest');
@@ -55,6 +60,13 @@ const Shop = () => {
         ),
         [products]
     );
+
+    React.useEffect(() => {
+        const nextCategory = new URLSearchParams(location.search).get('category');
+        if (nextCategory && categories.includes(nextCategory)) {
+            setCategory(nextCategory);
+        }
+    }, [location.search]);
 
     const toggleSize = (size: string) => {
         setSelectedSizes(prev =>

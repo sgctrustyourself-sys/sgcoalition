@@ -10,6 +10,7 @@ import ImageCropperModal from '../components/ui/ImageCropperModal';
 import PageLoader from '../components/ui/PageLoader';
 import Seo from '../components/Seo';
 import CompleteTheFit from '../components/CompleteTheFit';
+import DropLeadCapture from '../components/DropLeadCapture';
 import { INITIAL_PRODUCTS, PRODUCT_LOCAL_OVERRIDES } from '../constants';
 import { ethers } from 'ethers';
 import { checkNftOwnership, switchToPolygon } from '../services/web3Service';
@@ -1044,6 +1045,16 @@ const ProductDetails = () => {
 
                                     {/* Local Impact Message */}
                                     <ImpactMessage className="mt-2" />
+
+                                    <DropLeadCapture
+                                        source="product"
+                                        productId={product.id}
+                                        heading={isUnavailable ? 'Get the next version first' : 'Get the next drop first'}
+                                        subheading={isUnavailable
+                                            ? 'Join the list for future customs and archive-inspired builds.'
+                                            : 'New pieces move fast. Get one note when the next drop goes live.'}
+                                        className="mt-2"
+                                    />
 
                                     {/* Founder's Note - anti-tricky-brand voice at the conviction moment.
                                         Renders only when product.founderNote is set and non-whitespace.

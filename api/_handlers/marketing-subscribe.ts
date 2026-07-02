@@ -7,7 +7,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
-const ALLOWED_SOURCES = new Set(['home', 'shop', 'about', 'footer', 'sms_signup']);
+const ALLOWED_SOURCES = new Set(['home', 'shop', 'about', 'footer', 'sms_signup', 'product', 'custom_wallets']);
 
 let cachedAdminClient: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient | null {
@@ -167,6 +167,8 @@ export default async function handler(req: any, res: any) {
     const rawPhone = body?.phone;
     const rawSource = body?.source ?? 'sms_signup';
     const rawConsentText = body?.consentText;
+    const rawProductId = body?.productId;
+    const rawPagePath = body?.pagePath;
 
     const email = rawEmail == null ? null : validateEmail(rawEmail);
     const phone = rawPhone == null ? null : validatePhone(rawPhone);
@@ -179,6 +181,8 @@ export default async function handler(req: any, res: any) {
     const source = typeof rawSource === 'string' && ALLOWED_SOURCES.has(rawSource) ? rawSource : 'sms_signup';
     const channel: 'sms' | 'email' | 'both' = email && phone ? 'both' : (email ? 'email' : 'sms');
     const consentText = typeof rawConsentText === 'string' && rawConsentText.length > 0 && rawConsentText.length <= 1000 ? rawConsentText : null;
+    const productId = typeof rawProductId === 'string' && rawProductId.length <= 120 ? rawProductId : null;
+    const pagePath = typeof rawPagePath === 'string' && rawPagePath.length <= 240 ? rawPagePath : null;
 
     const ipHeader = req.headers?.['x-forwarded-for'];
     const ip = typeof ipHeader === 'string' ? ipHeader.split(',')[0]?.trim() || null : null;
@@ -228,7 +232,7 @@ export default async function handler(req: any, res: any) {
                 country_code: extractCountryCode(phone),
                 channel,
                 source,
-                metadata: { ip, userAgent, consentText },
+                metadata: { ip, userAgent, consentText, productId, pagePath },
             }).select('*').single();
             if (error || !inserted) throw new Error(error?.message || 'Could not save subscription.');
             row = inserted;

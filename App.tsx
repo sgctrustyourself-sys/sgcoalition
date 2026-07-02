@@ -25,6 +25,7 @@ import { supabase } from './services/supabase';
 const Home = React.lazy(() => import('./pages/Home'));
 const Shop = React.lazy(() => import('./pages/Shop'));
 const ProductDetails = React.lazy(() => import('./pages/ProductDetails'));
+const CustomWallets = React.lazy(() => import('./pages/CustomWallets'));
 const About = React.lazy(() => import('./pages/About'));
 const Profile = React.lazy(() => import('./pages/Profile'));
 const Membership = React.lazy(() => import('./pages/Membership'));
@@ -169,6 +170,7 @@ const App = () => {
                     <Route path="/sgminiwizards/dashboard" element={<WizardsDashboard />} />
                     <Route path="/sgminiwizards/treasury" element={<TreasuryPage />} />
                     <Route path="/shop" element={<Shop />} />
+                    <Route path="/custom-wallets" element={<CustomWallets />} />
                     <Route path="/search" element={<SearchResults />} />
                     <Route path="/product/:id" element={<ProductDetails />} />
                     <Route path="/about" element={<About />} />
