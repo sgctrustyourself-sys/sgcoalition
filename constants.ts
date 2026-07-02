@@ -224,7 +224,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     isFeatured: false,
     archived: true,
     soldAt: '2025-01-01T00:00:00Z'
-  },  {
+  },
+  {
     id: 'prod_tee_distortion',
     founderNote: `[PLACEHOLDER · prod_tee_distortion] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION DISTORTION TEE',
@@ -475,7 +476,7 @@ One size selection covers both pieces. Sized S through XL. Set price: $75.`,
     id: 'prod_halo_mini_dress',
     founderNote: `The Halo Mini Dress is a clean black bodycon silhouette with the Coalition halo mark placed high on the chest and the cross-backed Coalition hit sitting low on the back.
 
-Numbered cohort of 50 — first ten buyers lock in $50, the next fifteen get $60, every piece after that $75. Same fabric run, same hand-finished back graphic — late buyers pay a small premium for landing later in the cohort. Sized S through XL.`,
+This is a standard live catalog release, not a numbered or limited drop. Keep the price at $50 unless the live product row is intentionally updated. Sized S through XL.`,
     name: 'COALITION HALO MINI DRESS',
     price: 50,
     createdAt: '2026-07-01T00:00:00-04:00',
@@ -491,20 +492,13 @@ Numbered cohort of 50 — first ten buyers lock in $50, the next fifteen get $60
       primaryUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
       hoverUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled
     },
-    description: 'Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Numbered edition of 50: tier-priced $50 / $60 / $75 as the cohort fills.',
+    description: 'Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Standard live catalog release priced at $50.',
     category: 'dress',
     isFeatured: false,
-    isLimitedEdition: true,
-    editionSize: 50,
-    pricingTiers: [
-      { untilCount: 10, price: 50 },
-      { untilCount: 25, price: 60 },
-      { untilCount: null, price: 75 }
-    ],
+    isLimitedEdition: false,
     sizes: ['S', 'M', 'L', 'XL'],
-    // Total 50 across all sizes; matches the numbered cohort.
+    // Total 50 across all sizes.
     sizeInventory: { S: 12, M: 13, L: 13, XL: 12 },
-    editionSoldCount: 0
   },
   {
     id: 'prod_hoodie_overwhelmingly_patient',
@@ -629,14 +623,8 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
     // at runtime via components/admin/ProductManager.tsx > Named Slot Targets
     // and mirrored through the upsert in scripts/addHaloMiniDress.ts. The
     // legacy shape (without namedSlots) gets a clean default from
-    // INITIAL_PRODUCTS > imageRoles above.
-    isLimitedEdition: true,
-    editionSize: 50,
-    pricingTiers: [
-      { untilCount: 10, price: 50 },
-      { untilCount: 25, price: 60 },
-      { untilCount: null, price: 75 }
-    ]
+    // INITIAL_PRODUCTS > imageRoles above. Do not pin limited-edition or
+    // tier-pricing fields here; this dress is a standard live catalog item.
   },
   // Hoodie ships in 1-2 weeks (faster than the original 4-6 week pre-order
   // commitment). The `category: 'sweatshirt'` override is also pinned here so

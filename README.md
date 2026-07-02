@@ -130,6 +130,52 @@ npm.cmd run build
 
 10. If the build runs `scripts/generateSeoArtifacts.mjs`, check `git status` afterward so generated files are not accidentally missed or staged when unchanged.
 
+## Current Product Catalog Baseline
+
+Last verified on July 2, 2026 against the live Supabase `products` table, then compared with `INITIAL_PRODUCTS` and `PRODUCT_LOCAL_OVERRIDES`.
+
+Use this section as the starting point when a product disappears, has the wrong price, lands in the wrong category, or shows the wrong badge. The app's catalog merge order is:
+
+1. Live Supabase row wins for matching product IDs.
+2. Local-only `INITIAL_PRODUCTS` rows are appended so code-only products do not vanish.
+3. `PRODUCT_LOCAL_OVERRIDES` is applied last.
+
+If a live Supabase row exists, the Supabase price is the current storefront price. If no live row exists, the local fallback price is the current storefront price. This baseline has 24 merged products: 13 active and 11 archived/sold. The live Supabase query returned 17 rows with 17 unique product IDs.
+
+### Active Products
+
+| ID | Product | Price | Category | Status | Inventory | Source |
+| --- | --- | ---: | --- | --- | --- | --- |
+| `Coalition_Above_As_Below_Wallet_1_1` | COALITION ABOVE AS BELOW 1/1 WALLET | $85 | wallet | Live | stock 1; One Size: 1 | Supabase + local overrides |
+| `Coalition_Grey_Wave_Wallet_2_2` | Coalition 'Grey Wave' Wallet 2/2 | $75 | wallet | Live | stock 1; One Size: 1 | Supabase + local |
+| `Coalition_NF_Tee` | COALITION NF-TEE | $40 | shirt | Live | stock 350; size map S:1 M:1 L:1 XL:1 | Supabase + local |
+| `prod_1773860269374` | Coalition Shark Tee - 1/1 Exclusive | $60 | shirt | Live | stock 1; S:1 M:0 L:0 XL:0 | Supabase + local |
+| `prod_halo_mini_dress` | COALITION HALO MINI DRESS | $50 | dress | Live, standard release | stock 50; S:12 M:13 L:13 XL:12 | Supabase + local overrides |
+| `prod_hoodie_overwhelmingly_patient` | COALITION OVERWHELMINGLY PATIENT HOODIE | $100 | sweatshirt | Live pre-order | stock 5; S:1 M:1 L:1 XL:1 2XL:1 | Supabase + local overrides |
+| `prod_set_above_as_below` | COALITION ABOVE AS BELOW SET | $120 | apparel | Live set offer | stock 20; S:4 M:4 L:4 XL:4 2XL:4 | Supabase + local overrides |
+| `prod_shorts_above_as_below` | COALITION ABOVE AS BELOW SHORTS | $75 | shorts | Live | stock 44; S:9 M:9 L:9 XL:9 2XL:8 | Supabase + local |
+| `prod_tee_above_as_below` | COALITION ABOVE AS BELOW TEE | $75 | shirt | Live | stock 44; S:9 M:9 L:9 XL:9 2XL:8 | Supabase + local overrides |
+| `prod_tee_distortion` | COALITION DISTORTION TEE | $60 | shirt | Live local fallback only | no live stock row | Local fallback only |
+| `prod_womens_above_as_below_contrast_shorts` | WOMEN'S COALITION ABOVE AS BELOW CONTRAST SHORTS | $40 | shorts | Live | stock 4; S:1 M:1 L:1 XL:1 | Supabase + local overrides |
+| `prod_womens_above_as_below_crop_tank` | WOMEN'S COALITION ABOVE AS BELOW CREWNECK CROP TANK | $40 | shirt | Live | stock 4; S:1 M:1 L:1 XL:1 | Supabase + local overrides |
+| `prod_womens_above_as_below_set` | WOMEN'S COALITION ABOVE AS BELOW SET | $75 | apparel | Live set offer | stock 4; S:1 M:1 L:1 XL:1 | Supabase + local overrides |
+
+### Archived Or Sold Products
+
+| ID | Product | Price | Category | Status | Inventory | Source |
+| --- | --- | ---: | --- | --- | --- | --- |
+| `Coalition_Grey_Wave_Wallet_1_2` | Coalition 'Grey Wave' Wallet 1/2 | $75 | wallet | Archived/sold | stock 0; One Size: 0 | Supabase + local overrides |
+| `Coalition_Racing_Team_Wallet_1_4` | Coalition 'Racing Team' Wallet 1/4 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
+| `Coalition_Racing_Team_Wallet_2_4` | Coalition 'Racing Team' Wallet 2/4 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
+| `Coalition_Racing_Team_Wallet_3_4` | Coalition 'Racing Team' Wallet 3/4 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
+| `Coalition_Racing_Team_Wallet_4_4` | Coalition 'Racing Team' Wallet 4/4 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
+| `Coalition_x_True_Religion_S1` | Coalition x True Religion 1/1 Jeans S1 | $240 | jeans | Archived/sold | stock 0; 33: 0 | Supabase + local |
+| `GreenCamoWallet` | Coalition Green Camo Wallet | $75 | accessory | Archived/sold | stock 0; One Size: 0 | Supabase + local |
+| `SKYYBLUEWALLET1_2` | COALITION SKYY BLUE WALLET 1/2 | $75 | wallet | Archived/sold | stock 0; One Size: 0 | Supabase + local overrides |
+| `prod_trust_yourself_hat_01` | Trust Yourself Custom Trucker (1/1) | $50 | headwear | Archived/sold | stock 0; One Size: 0 | Supabase + local |
+| `prod_wallet_004` | COALITION SKYY BLUE WALLET 2/2 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
+| `prod_wallet_chrome_hearts` | CUSTOM COALITION X CHROME HEARTS WALLET | $450 | wallet | Archived/sold | no size map | Local fallback only |
+
 ## Local Development
 
 ### Prerequisites

@@ -19,12 +19,10 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Confirmed-live columns only. The optional columns below are stripped on
-// retry if the live schema doesn't yet have them. Once `pricing_tiers` +
-// `edition_size` migrate, the row picks them up server-side automatically.
+// retry if the live schema doesn't yet have them.
 const BASE_SELECT_COLUMNS = 'id,name,price,stock,images,description,category,is_featured,sizes,size_inventory,archived,created_at';
 
-// Total inventory across all sizes equals editionSize (50) so the cohort
-// is consumed at exactly 1:1 with unit sales.
+// Standard live catalog release, not a numbered or limited drop.
 const sizeInventory = { S: 12, M: 13, L: 13, XL: 12 };
 
 async function addHaloMiniDress() {
@@ -41,7 +39,7 @@ async function addHaloMiniDress() {
             PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled,
             PRODUCT_IMAGE_URLS.haloMiniDress.modelBack
         ],
-        description: 'Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Numbered edition of 50: tier-priced $50 / $60 / $75 as the cohort fills.',
+        description: 'Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Standard live catalog release priced at $50.',
         category: 'dress',
         is_featured: false,
         sizes: ['S', 'M', 'L', 'XL'],
@@ -50,17 +48,13 @@ async function addHaloMiniDress() {
     };
 
     const optionalColumns: Record<string, unknown> = {
-        is_limited_edition: true,
+        is_limited_edition: false,
         image_roles: {
             primaryUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
             hoverUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled
         },
-        edition_size: 50,
-        pricing_tiers: [
-            { untilCount: 10, price: 50 },
-            { untilCount: 25, price: 60 },
-            { untilCount: null, price: 75 }
-        ],
+        edition_size: null,
+        pricing_tiers: null,
         created_at: '2026-07-01T00:00:00-04:00'
     };
 
@@ -91,7 +85,7 @@ async function addHaloMiniDress() {
         process.exit(1);
     }
 
-    console.log('Upserted Coalition Halo Mini Dress (numbered cohort of 50):', data);
+    console.log('Upserted Coalition Halo Mini Dress (standard live catalog release):', data);
 }
 
 addHaloMiniDress();
