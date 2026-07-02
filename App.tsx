@@ -16,6 +16,7 @@ import SignalAlert from './components/SignalAlert';
 import ProtectedRoute from './components/ProtectedRoute';
 import { TutorialProvider } from './context/TutorialContext';
 import { storeReferralCode } from './utils/referralSystem';
+import { captureTrafficAttribution } from './utils/trafficAttribution';
 
 const AIChatWidget = React.lazy(() => import('./components/AIChatWidget'));
 import { trackReferralEvent } from './utils/referralAnalytics';
@@ -79,6 +80,8 @@ const ReferralTracker = () => {
   const location = useLocation();
 
   useEffect(() => {
+    captureTrafficAttribution(location.pathname, location.search);
+
     const params = new URLSearchParams(location.search);
     const refCode = params.get('ref');
 
@@ -89,7 +92,7 @@ const ReferralTracker = () => {
       // Track the click
       trackReferralEvent(refCode, 'click');
     }
-  }, [location]);
+  }, [location.pathname, location.search]);
 
   return null;
 };

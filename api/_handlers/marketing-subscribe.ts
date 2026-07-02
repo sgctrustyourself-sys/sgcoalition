@@ -61,6 +61,42 @@ function escapeHtml(value: string): string {
         .replace(/'/g, '&#39;');
 }
 
+const ATTRIBUTION_FIELDS = [
+    'utmSource',
+    'utmMedium',
+    'utmCampaign',
+    'utmTerm',
+    'utmContent',
+    'gclid',
+    'fbclid',
+    'ttclid',
+    'ref',
+    'landingPath',
+    'landingSearch',
+    'referrer',
+    'capturedAt',
+] as const;
+
+function optionalString(body: any, field: string, maxLength = 240): string | null {
+    const value = body?.[field];
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    return trimmed.slice(0, maxLength);
+}
+
+function buildMetadata(body: any, base: Record<string, unknown>): Record<string, unknown> {
+    const metadata = { ...base };
+
+    for (const field of ATTRIBUTION_FIELDS) {
+        const maxLength = field === 'referrer' ? 500 : 240;
+        const value = optionalString(body, field, maxLength);
+        if (value) metadata[field] = value;
+    }
+
+    return metadata;
+}
+
 async function sendEmailConfirmation(opts: { to: string; source: string; unsubscribeToken: string }): Promise<void> {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
@@ -188,6 +224,7 @@ export default async function handler(req: any, res: any) {
     const ip = typeof ipHeader === 'string' ? ipHeader.split(',')[0]?.trim() || null : null;
     const uaHeader = req.headers?.['user-agent'];
     const userAgent = typeof uaHeader === 'string' ? uaHeader.slice(0, 500) : null;
+    const metadata = buildMetadata(body, { ip, userAgent, consentText, productId, pagePath });
 
     const admin = getSupabaseAdmin();
     if (!admin) {
@@ -213,6 +250,20 @@ export default async function handler(req: any, res: any) {
         if (existing && !existing.unsubscribed_at) {
             row = existing;
             alreadySubscribed = true;
+            try {
+                const { error } = await admin.from('marketing_contacts').update({
+                    source,
+                    metadata: {
+                        ...(existing.metadata && typeof existing.metadata === 'object' ? existing.metadata : {}),
+                        ...metadata,
+                    },
+                }).eq('id', existing.id);
+                if (error) {
+                    console.warn('[marketing-subscribe] failed to refresh active contact metadata:', error.message);
+                }
+            } catch (err) {
+                console.warn('[marketing-subscribe] failed to refresh active contact metadata:', err);
+            }
         } else if (existing && existing.unsubscribed_at) {
             const { data: updated, error } = await admin.from('marketing_contacts').update({
                 email: email || existing.email,
@@ -220,6 +271,10 @@ export default async function handler(req: any, res: any) {
                 country_code: extractCountryCode(phone) || existing.country_code,
                 channel,
                 source,
+                metadata: {
+                    ...(existing.metadata && typeof existing.metadata === 'object' ? existing.metadata : {}),
+                    ...metadata,
+                },
                 unsubscribed_at: null,
             }).eq('id', existing.id).select('*').single();
             if (error || !updated) throw new Error(error?.message || 'Could not re-subscribe.');
@@ -232,7 +287,7 @@ export default async function handler(req: any, res: any) {
                 country_code: extractCountryCode(phone),
                 channel,
                 source,
-                metadata: { ip, userAgent, consentText, productId, pagePath },
+                metadata,
             }).select('*').single();
             if (error || !inserted) throw new Error(error?.message || 'Could not save subscription.');
             row = inserted;

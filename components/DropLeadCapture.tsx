@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AlertCircle, BellRing, CheckCircle2, Loader2, Mail, Send, Smartphone } from 'lucide-react';
+import { getTrafficAttributionPayload } from '../utils/trafficAttribution';
 
 type CaptureMode = 'email' | 'sms';
 type CaptureSource = 'product' | 'custom_wallets' | 'shop' | 'home';
@@ -58,6 +59,7 @@ const DropLeadCapture: React.FC<DropLeadCaptureProps> = ({
         setStatus('submitting');
 
         try {
+            const attribution = getTrafficAttributionPayload();
             const response = await fetch('/api/marketing-subscribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -69,6 +71,7 @@ const DropLeadCapture: React.FC<DropLeadCaptureProps> = ({
                     source,
                     productId: productId || null,
                     pagePath: typeof window !== 'undefined' ? window.location.pathname : null,
+                    ...attribution,
                     consentText: isEmailMode
                         ? 'Coalition drop list: email updates for new drops, early access, and exclusive offers. Unsubscribe any time.'
                         : 'Coalition Signal: SMS notifications for drops, early access, and exclusive offers. Standard message rates may apply. Reply STOP to opt out at any time.',
