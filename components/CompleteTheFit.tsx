@@ -8,6 +8,10 @@ import {
     ABOVE_AS_BELOW_TEE_ID,
     ABOVE_AS_BELOW_SHORTS_ID,
     ABOVE_AS_BELOW_SET_BONUS_CENTS,
+    WOMENS_ABOVE_AS_BELOW_CONTRAST_SHORTS_ID,
+    WOMENS_ABOVE_AS_BELOW_CROP_TANK_ID,
+    WOMENS_ABOVE_AS_BELOW_SET_ID,
+    WOMENS_ABOVE_AS_BELOW_SET_STANDALONE_VALUE_CENTS,
 } from '../utils/aboveAsBelowSet';
 import { resolveLocalImageUrl } from '../utils/localImageAssets';
 import { getProductImage, getProductImageSrcSet, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
@@ -19,6 +23,7 @@ interface CompleteTheFitProps {
 }
 
 const setBonusDollars = ABOVE_AS_BELOW_SET_BONUS_CENTS / 100;
+const womensSetStandaloneValueDollars = WOMENS_ABOVE_AS_BELOW_SET_STANDALONE_VALUE_CENTS / 100;
 
 const CompleteTheFit: React.FC<CompleteTheFitProps> = ({
     currentProduct,
@@ -30,9 +35,171 @@ const CompleteTheFit: React.FC<CompleteTheFitProps> = ({
 
     const isTee = currentProduct.id === ABOVE_AS_BELOW_TEE_ID;
     const isShorts = currentProduct.id === ABOVE_AS_BELOW_SHORTS_ID;
+    const shouldSuggestStandaloneSet = currentProduct.id === WOMENS_ABOVE_AS_BELOW_CROP_TANK_ID
+        || currentProduct.id === WOMENS_ABOVE_AS_BELOW_CONTRAST_SHORTS_ID;
 
-    if (!isTee && !isShorts) return null;
+    if (!isTee && !isShorts && !shouldSuggestStandaloneSet) return null;
     if (isUnavailable) return null;
+
+    if (shouldSuggestStandaloneSet) {
+        const setProduct = products.find(p => p.id === WOMENS_ABOVE_AS_BELOW_SET_ID);
+        if (!setProduct) return null;
+
+        const setArchived = !!setProduct.archived;
+        const setTotalStock = Object.values(setProduct.sizeInventory || {}).reduce(
+            (sum, count) => sum + Number(count || 0),
+            0
+        );
+        const setSoldOut = !setArchived && setTotalStock === 0;
+        if (setArchived || setSoldOut) return null;
+
+        const setSize = (() => {
+            if (setProduct.sizes && setProduct.sizes.length === 1) return setProduct.sizes[0];
+            if (selectedSize && setProduct.sizes?.includes(selectedSize)) return selectedSize;
+            return setProduct.sizes?.[0] || 'One Size';
+        })();
+
+        const existingSetCartItem = cart.find(item => item.id === setProduct.id);
+        const setAlreadyInCart = !!existingSetCartItem;
+        const setAtSameSizeInCart =
+            setAlreadyInCart && existingSetCartItem?.selectedSize === setSize;
+        const setSavings = Math.max(0, womensSetStandaloneValueDollars - setProduct.price);
+        const setImage = resolveLocalImageUrl(setProduct.images?.[0] || '');
+        const setHref = `/product/${setProduct.id}`;
+
+        const handleAddSet = () => {
+            if (setAtSameSizeInCart) {
+                addToast(
+                    `${setProduct.name} (size ${setSize}) already in cart.`,
+                    'success'
+                );
+                return;
+            }
+            addToCart(setProduct, setSize);
+            addToast(
+                `Added ${setProduct.name} (size ${setSize}) - $${setProduct.price.toFixed(0)} set added.`,
+                'success'
+            );
+        };
+
+        return (
+            <div className="pt-8 border-t border-white/10 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-brand-accent" />
+                        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+                            Women's Above as Below Set - ${setProduct.price.toFixed(0)}
+                        </h3>
+                    </div>
+                    <span className="border border-brand-accent/40 bg-brand-accent/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent">
+                        Set Option
+                    </span>
+                </div>
+
+                <div className="border border-brand-accent/30 bg-gradient-to-br from-brand-accent/[0.08] via-transparent to-transparent p-4 transition-all hover:border-brand-accent/60">
+                    <div className="flex items-center gap-4">
+                        <div className="h-20 w-20 shrink-0 overflow-hidden border border-white/10 bg-white">
+                            <img
+                                src={getProductImage(setImage, 'thumb')}
+                                srcSet={getProductImageSrcSet(setImage)}
+                                sizes={PRODUCT_IMAGE_SIZES.thumb}
+                                alt={setProduct.name}
+                                width={120}
+                                height={150}
+                                loading="lazy"
+                                fetchPriority="auto"
+                                decoding="async"
+                                onError={(event) => {
+                                    const img = event.currentTarget;
+                                    if (img.getAttribute('data-fallback-applied') === '1') return;
+                                    img.setAttribute('data-fallback-applied', '1');
+                                    img.src = setImage;
+                                    img.removeAttribute('srcset');
+                                }}
+                                className="h-full w-full object-contain"
+                            />
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-1">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
+                                Suggested Set
+                            </p>
+                            <Link
+                                to={setHref}
+                                className="block text-sm font-bold uppercase tracking-widest text-white transition-colors hover:text-brand-accent"
+                            >
+                                {setProduct.name}
+                            </Link>
+                            <p className="text-xs text-gray-400">
+                                Crop tank + contrast shorts together in one set SKU.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/10 pt-3">
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
+                                Separate Pieces
+                            </p>
+                            <p
+                                className="mt-1 text-sm font-bold uppercase tracking-widest text-gray-500 line-through"
+                                aria-label={`Separate pieces total $${womensSetStandaloneValueDollars.toFixed(2)}`}
+                            >
+                                ${womensSetStandaloneValueDollars.toFixed(2)}
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent">
+                                Set Price (-${setSavings.toFixed(0)})
+                            </p>
+                            <p className="mt-1 text-sm font-bold uppercase tracking-widest text-white">
+                                ${setProduct.price.toFixed(2)}
+                            </p>
+                        </div>
+                    </div>
+
+                    {setAtSameSizeInCart ? (
+                        <div className="mt-4 flex items-center justify-center gap-2 border border-green-500/40 bg-green-500/10 px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] text-green-300">
+                            <Check className="h-4 w-4" />
+                            Set (size {setSize}) in cart
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={handleAddSet}
+                            className="group mt-4 flex w-full items-center justify-center gap-3 bg-brand-accent py-3.5 px-6 text-xs font-bold uppercase tracking-[0.2em] text-white transition-all hover:bg-white hover:text-black"
+                            aria-label={
+                                setAlreadyInCart
+                                    ? `Add another ${setProduct.name} at size ${setSize} to your cart`
+                                    : `Add ${setProduct.name} at size ${setSize} for $${setProduct.price.toFixed(2)}`
+                            }
+                        >
+                            {setAlreadyInCart ? (
+                                <>
+                                    <Plus className="h-4 w-4" />
+                                    Add Another Set (size {setSize})
+                                </>
+                            ) : (
+                                <>
+                                    <ShoppingBag className="h-4 w-4" />
+                                    Add Set (size {setSize}) - ${setProduct.price.toFixed(2)}
+                                </>
+                            )}
+                        </button>
+                    )}
+                    <Link
+                        to={setHref}
+                        className="mt-3 block text-center text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 transition-colors hover:text-white"
+                    >
+                        View Set details -&gt;
+                    </Link>
+                </div>
+
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
+                    Direct set SKU. One size selection covers both pieces.
+                </p>
+            </div>
+        );
+    }
 
     const matchId = isTee ? ABOVE_AS_BELOW_SHORTS_ID : ABOVE_AS_BELOW_TEE_ID;
     const match = products.find(p => p.id === matchId);

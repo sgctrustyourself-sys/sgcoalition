@@ -9,10 +9,16 @@
 
 export const ABOVE_AS_BELOW_TEE_ID = 'prod_tee_above_as_below';
 export const ABOVE_AS_BELOW_SHORTS_ID = 'prod_shorts_above_as_below';
+export const ABOVE_AS_BELOW_SET_ID = 'prod_set_above_as_below';
+export const WOMENS_ABOVE_AS_BELOW_CROP_TANK_ID = 'prod_womens_above_as_below_crop_tank';
+export const WOMENS_ABOVE_AS_BELOW_CONTRAST_SHORTS_ID = 'prod_womens_above_as_below_contrast_shorts';
+export const WOMENS_ABOVE_AS_BELOW_SET_ID = 'prod_womens_above_as_below_set';
 // One-shot auto-applied bonus for the Above-as-Below tee+shorts set. Caps at
 // $30 per cart — extra quantities of either piece do not stack additional
 // bonuses, matching the spirit of the original $120 bundle SKU we replaced.
 export const ABOVE_AS_BELOW_SET_BONUS_CENTS = 3000;
+export const ABOVE_AS_BELOW_SET_STANDALONE_VALUE_CENTS = 15000;
+export const WOMENS_ABOVE_AS_BELOW_SET_STANDALONE_VALUE_CENTS = 8000;
 
 export type SetBonusItemInput = {
     productId?: string;

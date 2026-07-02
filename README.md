@@ -124,6 +124,59 @@ npm run bootstrap:brain
 
 Set either `SUPABASE_DB_URL`, or `VITE_SUPABASE_URL` plus `SUPABASE_DB_PASSWORD`, before running it. The script executes `supabase/migrations/20240611_seed_brain_entries.sql` through Postgres admin credentials, so it does not rely on anon-key writes against RLS-protected tables.
 
+## Above As Below Set Offers
+
+Use this checklist before changing the Above as Below tees, shorts, crop tank, or set pricing.
+
+### Current set math
+
+1. Men's tee: `prod_tee_above_as_below` is `$75`.
+2. Men's shorts: `prod_shorts_above_as_below` is `$75`.
+3. Men's set behavior: adding tee + shorts individually applies a `$30` cart bonus, so `$150` becomes `$120`.
+4. Women's crop tank: `prod_womens_above_as_below_crop_tank` is `$40`.
+5. Women's contrast shorts: `prod_womens_above_as_below_contrast_shorts` is `$40`.
+6. Women's set SKU: `prod_womens_above_as_below_set` is `$75`, so `$80` separately becomes `$75` together.
+
+### Where the feature lives
+
+1. Product IDs and set math constants live in `utils/aboveAsBelowSet.ts`.
+2. Static fallback product data lives in `constants.ts`.
+3. Live Supabase upserts live in:
+   - `scripts/addAboveAsBelowSet.ts` for the men's `$120` set SKU.
+   - `scripts/addWomensAboveAsBelowProducts.ts` for the women's crop tank, shorts, and `$75` set SKU.
+4. Product-page set suggestions render from `components/CompleteTheFit.tsx`.
+   - Men's tee/shorts pages suggest the missing individual piece and rely on the cart bonus.
+   - Women's crop tank/shorts pages suggest the direct women's set SKU at `$75`.
+5. Cart-side men's tee/shorts suggestions render from `components/CompleteTheFitCart.tsx`.
+6. Cart totals display the men's `$30` bonus from `components/CartDrawer.tsx` and checkout/order handlers through `calculateAboveAsBelowSetBonusCents`.
+
+### Change checklist
+
+1. Update `constants.ts` first so local fallback and static previews have the right product names, prices, descriptions, images, sizes, and inventory.
+2. Update the matching Supabase script in `scripts/` so live data can be re-upserted.
+3. Update `utils/aboveAsBelowSet.ts` if any product ID, individual total, or bonus amount changes.
+4. Update `components/CompleteTheFit.tsx` only if the PDP suggestion rules change.
+5. Update `components/CompleteTheFitCart.tsx` only if the cart-side tee/shorts bonus behavior changes.
+6. Add or update tests in `tests/CompleteTheFit.test.tsx` and `tests/CompleteTheFitCart.test.tsx`.
+7. Run the live upsert only when the product row or price needs to change in Supabase:
+
+```bash
+npx.cmd tsx scripts/addWomensAboveAsBelowProducts.ts
+npx.cmd tsx scripts/addAboveAsBelowSet.ts
+```
+
+8. Verify locally before pushing:
+
+```bash
+npx.cmd vitest run tests/CompleteTheFit.test.tsx tests/CompleteTheFitCart.test.tsx
+npm.cmd run build
+```
+
+9. Check these URLs after deploy:
+   - `/product/prod_womens_above_as_below_crop_tank` shows the women's `$75` set suggestion.
+   - `/product/prod_womens_above_as_below_contrast_shorts` shows the women's `$75` set suggestion.
+   - `/product/prod_tee_above_as_below` and `/product/prod_shorts_above_as_below` still show the men's missing-piece set bonus.
+
 ## Production Deployment
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
