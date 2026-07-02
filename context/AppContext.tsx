@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderStatus, OrderItem, Giveaway, GiveawayEntry, GiveawayStatus, Review, SocialAccount, CustomInquiry, SGCoinPurchaseRequest, ImageRoles } from '../types';
 import { INITIAL_SECTIONS, COIN_REWARD_RATE, INITIAL_PRODUCTS, ADMIN_WALLETS, INITIAL_ORDERS, PRODUCT_LOCAL_OVERRIDES } from '../constants';
+import { applyLocalProductOverrides, withoutUndefinedFields } from '../utils/productMerge';
 import { supabase } from '../services/supabase';
 import { signOut } from '../services/auth';
 import { useToast } from './ToastContext';
@@ -98,12 +99,6 @@ const safeJsonParse = (key: string, defaultValue: any) => {
 
 const loadWalletActions = () => import('../services/walletActions');
 const loadWalletBalances = () => import('../services/walletBalances');
-
-const applyLocalProductOverrides = (items: Product[]) =>
-    items.map(product => ({
-        ...product,
-        ...(PRODUCT_LOCAL_OVERRIDES[product.id] || {}),
-    }));
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { addToast } = useToast();
@@ -460,11 +455,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 // them rename / merge / archive the offending row directly.
                 // First occurrence wins so realtime appends don't clobber edits.
                 const localProductsById = new Map(INITIAL_PRODUCTS.map(product => [product.id, product]));
-                const withoutUndefinedFields = (product: Product) => (
-                    Object.fromEntries(
-                        Object.entries(product).filter(([, value]) => value !== undefined)
-                    ) as Product
-                );
                 const uniqueProducts = mapped.reduce((acc: any[], current) => {
                     const x = acc.find(item => item.id === current.id);
                     if (!x) {

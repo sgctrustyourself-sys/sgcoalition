@@ -639,13 +639,18 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
     ]
   },
   // Hoodie ships in 1-2 weeks (faster than the original 4-6 week pre-order
-  // commitment). Lives in PRODUCT_LOCAL_OVERRIDES rather than only in
-  // INITIAL_PRODUCTS so applyLocalProductOverrides wins the AppContext merge
-  // after the Supabase fetch — the live Supabase row was added before
-  // `shippingFulfillment` existed, so a `{...local, ...sp}` spread would
-  // otherwise clobber the local value with `undefined`.
+  // commitment). The `category: 'sweatshirt'` override is also pinned here so
+  // the SWEATSHIRTS filter on /shop surfaces the hoodie even though the live
+  // Supabase row was originally seeded with `category: 'apparel'` (see
+  // scripts/addOverwhelminglyPatientHoodie.ts — drift source). Lives in
+  // PRODUCT_LOCAL_OVERRIDES rather than only in INITIAL_PRODUCTS so
+  // applyLocalProductOverrides wins the AppContext merge after the Supabase
+  // fetch — the live Supabase row was added before these fields existed, so
+  // a `{...local, ...sp}` spread would otherwise clobber the local values
+  // with `undefined` or the stale DB category.
   prod_hoodie_overwhelmingly_patient: {
     shippingFulfillment: 'Ships in 1-2 weeks',
+    category: 'sweatshirt',
   },
   Coalition_Above_As_Below_Wallet_1_1: {
     makingVideoUrl: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL,

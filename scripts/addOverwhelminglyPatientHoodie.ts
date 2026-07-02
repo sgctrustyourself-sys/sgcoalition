@@ -43,7 +43,12 @@ async function addOverwhelminglyPatientHoodie() {
             PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.modelBack
         ],
         description: 'Pre-order release of the Coalition Overwhelmingly Patient Hoodie at $100. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Free shipping when paired with any other item. Reservations capped at one per size; ships in 4-6 weeks from the close of the pre-order window.',
-        category: 'apparel',
+        // Must match constants.ts INITIAL_PRODUCTS for prod_hoodie_overwhelmingly_patient
+        // (and PRODUCT_LOCAL_OVERRIDES, which pins the same value). Was 'apparel'
+        // originally — that drift caused the hoodie to surface under the APPAREL
+        // parent filter on /shop but NOT under the SWEATSHIRTS sub-filter. Mirror
+        // this in scripts/syncProductCategories.cjs if you add or remove products.
+        category: 'sweatshirt',
         is_featured: false,
         sizes: ['S', 'M', 'L', 'XL', '2XL'],
         size_inventory: sizeInventory,
