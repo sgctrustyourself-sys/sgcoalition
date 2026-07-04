@@ -818,31 +818,76 @@ export const ADMIN_WALLETS = [
 
 export const INITIAL_ORDERS: any[] = [
   {
-    id: 'order_wholesale_wallets_2026_05_22',
-    orderNumber: 'ORD-SG-WHOLESALE-1002',
+    id: 'order_grey_wave_wallet_2_2_york_pa_2026_07_02',
+    orderNumber: 'ORD-SG-GREY-WAVE-2001',
     isGuest: true,
-    customerName: 'Wholesale Customer',
-    customerEmail: 'wholesale@example.com',
+    customerName: 'York Customer',
+    customerEmail: 'customer@example.com',
     items: [
       {
-        productId: 'prod_wallet_004',
-        productName: 'COALITION WALLETS WHOLESALE (7x)',
-        productImage: 'https://i.imgur.com/v5y7tPa.jpg',
+        productId: 'Coalition_Grey_Wave_Wallet_2_2',
+        productName: "Coalition 'Grey Wave' Wallet 2/2",
+        productImage: 'https://i.imgur.com/FVMHZoq.jpeg',
         selectedSize: 'One Size',
-        quantity: 7,
-        price: 25,
-        total: 175
+        quantity: 1,
+        price: 75,
+        total: 75
       }
     ],
-    subtotal: 175,
+    subtotal: 75,
     tax: 0,
     discount: 0,
-    total: 175,
+    total: 75,
     paymentMethod: 'cash',
     paymentStatus: 'paid',
     orderType: 'manual',
-    createdAt: '2026-05-22T22:48:11-04:00',
-    paidAt: '2026-05-22T22:48:11-04:00'
+    shippingAddress: {
+      address1: '',
+      city: 'York',
+      state: 'PA',
+      zip: '',
+      country: 'US',
+      shippingMethod: 'standard',
+      shippingCost: 0
+    },
+    createdAt: '2026-07-02T10:00:00-04:00',
+    paidAt: '2026-07-02T10:00:00-04:00'
+  },
+  {
+    id: 'order_grey_wave_wallet_1_2_york_pa_2026_06_25',
+    orderNumber: 'ORD-SG-GREY-WAVE-2000',
+    isGuest: true,
+    customerName: 'York Customer',
+    customerEmail: 'customer@example.com',
+    items: [
+      {
+        productId: 'Coalition_Grey_Wave_Wallet_1_2',
+        productName: "Coalition 'Grey Wave' Wallet 1/2",
+        productImage: 'https://i.imgur.com/7z2h8u6.jpeg',
+        selectedSize: 'One Size',
+        quantity: 1,
+        price: 75,
+        total: 75
+      }
+    ],
+    subtotal: 75,
+    tax: 0,
+    discount: 0,
+    total: 75,
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    orderType: 'manual',
+    shippingAddress: {
+      address1: '',
+      city: 'York',
+      state: 'PA',
+      zip: '',
+      country: 'US',
+      shippingMethod: 'standard',
+      shippingCost: 0
+    },
+    createdAt: '2026-06-25T10:00:00-04:00',
+    paidAt: '2026-06-25T10:00:00-04:00'
   }
 ];
 

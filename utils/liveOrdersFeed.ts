@@ -14,6 +14,7 @@ export interface LiveOrdersTickerItem {
     text: string;
     time: string;
     image: string;
+    productUrl?: string;
 }
 
 export interface LiveOrdersSummary {
@@ -24,8 +25,10 @@ export interface LiveOrdersSummary {
         id: string;
         productName: string;
         stateName: string;
+        locationLabel: string;
         timeLabel: string;
         image: string;
+        productUrl?: string;
     } | null;
 }
 
@@ -50,6 +53,7 @@ interface TrackedLiveOrder {
     timestamp: number;
     stateCode: string;
     stateName: string;
+    locationLabel: string;
     firstItem: NormalizedLiveOrderItem | null;
     image: string;
 }
@@ -122,16 +126,32 @@ const RANGE_MS: Record<LiveOrdersTimeRange, number> = {
 const EXCLUDED_STATUSES = new Set(['cancelled', 'failed', 'refunded']);
 const DEFAULT_IMAGE = '/images/logo.png';
 const DEMO_FEED_ENABLED = import.meta.env.DEV;
-const DEMO_TRACKED_ORDER_SEEDS = [
+const PUBLIC_RECENT_ORDER_SEEDS = [
     {
-        id: 'demo-md-1',
-        stateCode: 'MD',
-        stateName: 'Maryland',
-        productName: 'COALITION NF-TEE',
-        productImage: '/images/coalition-nf-tee-lifestyle.jpg',
+        id: 'public-pa-grey-wave-wallet-1-2',
+        stateCode: 'PA',
+        stateName: 'Pennsylvania',
+        city: 'York',
+        productId: 'Coalition_Grey_Wave_Wallet_1_2',
+        productName: "Coalition 'Grey Wave' Wallet 1/2",
+        productImage: 'https://i.imgur.com/7z2h8u6.jpeg',
+        minutesAgo: 7 * 24 * 60,
+        itemCount: 1,
+    },
+    {
+        id: 'public-pa-grey-wave-wallet-2-2',
+        stateCode: 'PA',
+        stateName: 'Pennsylvania',
+        city: 'York',
+        productId: 'Coalition_Grey_Wave_Wallet_2_2',
+        productName: "Coalition 'Grey Wave' Wallet 2/2",
+        productImage: 'https://i.imgur.com/FVMHZoq.jpeg',
         minutesAgo: 12,
         itemCount: 1,
     },
+] as const;
+
+const DEMO_TRACKED_ORDER_SEEDS = [
     {
         id: 'demo-ny-1',
         stateCode: 'NY',
@@ -208,6 +228,28 @@ function getShippingState(order: any) {
     );
 }
 
+function getShippingCity(order: any) {
+    return (
+        order?.shippingAddress?.city ||
+        order?.shippingInfo?.city ||
+        order?.shipping_info?.city ||
+        order?.shipping_city ||
+        order?.shippingCity ||
+        order?.city ||
+        null
+    );
+}
+
+function formatLocationLabel(city: string | null | undefined, stateCode: string, stateName: string) {
+    const trimmedCity = typeof city === 'string' ? city.trim() : '';
+    return trimmedCity ? `${trimmedCity}, ${stateCode}` : stateName;
+}
+
+function getProductUrl(productId?: string | null) {
+    if (!productId) return undefined;
+    return `/product/${encodeURIComponent(productId)}`;
+}
+
 function normalizeOrderItems(order: any): NormalizedLiveOrderItem[] {
     const rawItems = Array.isArray(order?.items) ? order.items : Array.isArray(order?.lineItems) ? order.lineItems : [];
 
@@ -240,6 +282,7 @@ function buildTrackedOrder(order: any, now: number): TrackedLiveOrder | null {
 
     const normalizedItems = normalizeOrderItems(order);
     const stateName = STATE_CODE_TO_NAME.get(stateCode) ?? stateCode;
+    const locationLabel = formatLocationLabel(getShippingCity(order), stateCode, stateName);
     const firstItem = normalizedItems[0] || null;
 
     return {
@@ -250,16 +293,31 @@ function buildTrackedOrder(order: any, now: number): TrackedLiveOrder | null {
         timestamp,
         stateCode,
         stateName,
+        locationLabel,
         firstItem,
         image: firstItem?.productImage || DEFAULT_IMAGE,
     };
 }
 
-function createDemoTrackedOrders(now: number): TrackedLiveOrder[] {
-    return DEMO_TRACKED_ORDER_SEEDS.map((seed) => {
+function createSeedTrackedOrders(
+    seeds: readonly {
+        id: string;
+        stateCode: string;
+        stateName: string;
+        city?: string;
+        productId?: string;
+        productName: string;
+        productImage: string;
+        minutesAgo: number;
+        itemCount: number;
+    }[],
+    now: number,
+): TrackedLiveOrder[] {
+    return seeds.map((seed) => {
         const timestamp = now - seed.minutesAgo * 60 * 1000;
         const items = Array.from({ length: seed.itemCount }, (_, index) => ({
             productId: `${seed.id}-${index + 1}`,
+            ...(index === 0 && seed.productId ? { productId: seed.productId } : {}),
             productName: index === 0 ? seed.productName : `${seed.productName} ${index + 1}`,
             productImage: seed.productImage,
             selectedSize: 'One Size',
@@ -274,6 +332,7 @@ function createDemoTrackedOrders(now: number): TrackedLiveOrder[] {
                 items,
                 paymentStatus: 'paid',
                 shippingAddress: {
+                    city: seed.city,
                     state: seed.stateCode,
                 },
                 createdAt: new Date(timestamp).toISOString(),
@@ -281,6 +340,7 @@ function createDemoTrackedOrders(now: number): TrackedLiveOrder[] {
             timestamp,
             stateCode: seed.stateCode,
             stateName: seed.stateName,
+            locationLabel: formatLocationLabel(seed.city, seed.stateCode, seed.stateName),
             firstItem: items[0] || null,
             image: items[0]?.productImage || DEFAULT_IMAGE,
         };
@@ -315,13 +375,21 @@ export function buildLiveOrdersFeed(orders: Order[], timeRange: LiveOrdersTimeRa
         .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
         .sort((a, b) => b.timestamp - a.timestamp);
 
-    const activeTrackedOrders = trackedOrders.length > 0
-        ? trackedOrders
-        : (DEMO_FEED_ENABLED ? createDemoTrackedOrders(now) : trackedOrders);
+    const publicTrackedOrders = createSeedTrackedOrders(PUBLIC_RECENT_ORDER_SEEDS, now)
+        .filter(entry => entry.timestamp >= windowStart);
+    const trackedOrderIds = new Set(trackedOrders.map(entry => entry.order.id));
+    const activeTrackedOrders = [
+        ...trackedOrders,
+        ...publicTrackedOrders.filter(entry => !trackedOrderIds.has(entry.order.id)),
+    ].sort((a, b) => b.timestamp - a.timestamp);
+
+    const displayTrackedOrders = activeTrackedOrders.length > 0
+        ? activeTrackedOrders
+        : (DEMO_FEED_ENABLED ? createSeedTrackedOrders(DEMO_TRACKED_ORDER_SEEDS, now) : activeTrackedOrders);
 
     const stateTotals = new Map<string, { count: number; latestTimestamp: number }>();
 
-    for (const entry of activeTrackedOrders) {
+    for (const entry of displayTrackedOrders) {
         const current = stateTotals.get(entry.stateCode) || {
             count: 0,
             latestTimestamp: entry.timestamp,
@@ -342,11 +410,11 @@ export function buildLiveOrdersFeed(orders: Order[], timeRange: LiveOrdersTimeRa
         .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
     const topState = states[0] || null;
-    const latestTrackedOrder = activeTrackedOrders[0] || null;
+    const latestTrackedOrder = displayTrackedOrders[0] || null;
 
     return {
         states,
-        recentActivity: activeTrackedOrders.slice(0, 6).map((entry) => {
+        recentActivity: displayTrackedOrders.slice(0, 6).map((entry) => {
             const extraCount = Math.max((entry.order.items?.length || 0) - 1, 0);
             const productName = entry.firstItem?.productName || 'Order';
             const productLabel = extraCount > 0
@@ -355,9 +423,10 @@ export function buildLiveOrdersFeed(orders: Order[], timeRange: LiveOrdersTimeRa
 
             return {
                 id: entry.order.id,
-                text: `${productLabel} ordered in ${entry.stateName}`,
+                text: `${productLabel} ordered in ${entry.locationLabel}`,
                 time: formatRelativeTime(entry.timestamp, now),
                 image: entry.image,
+                productUrl: getProductUrl(entry.firstItem?.productId),
             };
         }),
         summary: {
@@ -369,8 +438,10 @@ export function buildLiveOrdersFeed(orders: Order[], timeRange: LiveOrdersTimeRa
                     id: latestTrackedOrder.order.id,
                     productName: latestTrackedOrder.firstItem?.productName || 'Order',
                     stateName: latestTrackedOrder.stateName,
+                    locationLabel: latestTrackedOrder.locationLabel,
                     timeLabel: formatRelativeTime(latestTrackedOrder.timestamp, now),
                     image: latestTrackedOrder.image,
+                    productUrl: getProductUrl(latestTrackedOrder.firstItem?.productId),
                 }
                 : null,
         },

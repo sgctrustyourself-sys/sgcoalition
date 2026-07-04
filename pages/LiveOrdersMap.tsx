@@ -112,7 +112,7 @@ const LiveOrdersMap = () => {
                             Real orders, real people - moving SG Coalition across the country.
                             <br />
                             <span className="mt-1 block text-xs font-bold uppercase tracking-wider text-gray-600">
-                                * Locations shown at state level only. No personal data.
+                                * Locations shown at city/state level when available. No addresses or personal data.
                             </span>
                         </p>
                     </div>
@@ -179,7 +179,20 @@ const LiveOrdersMap = () => {
                                             initial={{ opacity: 0, x: 20 }}
                                             animate={{ opacity: 1, x: 0 }}
                                             transition={{ delay: index * 0.1 }}
-                                            className="group flex items-center gap-4 rounded-xl border border-gray-800 bg-black p-3 transition hover:border-purple-500/30"
+                                            onClick={() => item.productUrl && navigate(item.productUrl)}
+                                            onKeyDown={(event) => {
+                                                if (!item.productUrl) return;
+                                                if (event.key === 'Enter' || event.key === ' ') {
+                                                    event.preventDefault();
+                                                    navigate(item.productUrl);
+                                                }
+                                            }}
+                                            role={item.productUrl ? 'link' : undefined}
+                                            tabIndex={item.productUrl ? 0 : undefined}
+                                            aria-label={item.productUrl ? `View ${item.text}` : undefined}
+                                            className={`group flex items-center gap-4 rounded-xl border border-gray-800 bg-black p-3 transition hover:border-purple-500/30 ${
+                                                item.productUrl ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/60' : ''
+                                            }`}
                                         >
                                             <div className="relative h-12 w-12 overflow-hidden rounded-lg border border-gray-800 transition group-hover:border-purple-500/50">
                                                 <img
