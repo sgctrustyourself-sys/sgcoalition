@@ -1238,46 +1238,60 @@ export const INITIAL_ORDERS: any[] = [
     // and the live map ticker can show the first wallet + "6 more
     // items" copy via the existing buildLiveOrdersFeed "+ N more"
     // helper.
-    //
-    // OPEN FOLLOW-UPS:
-    // 1. Supabase sync - DONE 2026-07-04 (pending the operator
-    //    running `npm run seed:friiqy-wholesale`). The matching
-    //    Supabase row is upserted by the script
-    //    (scripts/upsertFriiqyWholesale.ts), which imports this
-    //    INITIAL_ORDERS row as the single source of truth so the
-    //    script can never drift from the canonical local-fallback
-    //    data. The script requires the
-    //    20260704_add_instagram_username_to_orders.sql migration
-    //    to be applied first; it points at the migration file if
-    //    the column is missing.
-    // 2. Verified-customer filter - DONE 2026-07-04 (pending
-    //    `npm run seed:verified-customers`). The dedicated
-    //    script (scripts/seedVerifiedCustomers.ts) registers
-    //    friiqy in marketing_contacts with
-    //    source='past_customer', status='active', no email, no
-    //    phone, and metadata.instagram_username='friiqy'. The
-    //    test-campaign guard in api/_handlers/marketing-send.ts
-    //    keys on marketing_contacts.source in
-    //    {manual_seed, past_customer}, so friiqy is now
-    //    automatically excluded from any campaign whose name
-    //    contains "test" (case-insensitive). For non-test
-    //    campaigns, the email send loop bails out on null
-    //    recipients, so friiqy is never actually emailed.
-    // 3. Address privacy - DONE 2026-07-04. The full street
-    //    address was moved out of the git-tracked codebase into
-    //    shipping_internal.json at the repo root (gitignored,
-    //    admin-only). The template at
-    //    shipping_internal.example.json is committed so the
-    //    schema is documented; the real shipping_internal.json
-    //    holds the actual address and is loaded at runtime by
-    //    scripts/upsertFriiqyWholesale.ts when this row is
-    //    mirrored to Supabase. The Vercel deploy never has the
-    //    file in its build output, so production has no access to
-    //    the full address. Local dev / seed scripts need to copy
-    //    the example file to the real path to populate the
-    //    address; the seed script falls back to empty strings
-    //    (privacy contract default) if the file is missing, so a
-    //    missing entry never blocks the upsert.
+    //      // OPEN FOLLOW-UPS (as of the 2026-07-04 schema recovery
+      // round — three prod migrations that were silently missing,
+      // orders.id migrated to TEXT, and the seed-script
+      // paypal_capture_id mismatch all resolved):
+      // 1. Supabase sync — SCRIPT TOOLING DONE 2026-07-04.
+      //    scripts/upsertFriiqyDenimPatchwork.ts and
+      //    scripts/upsertFriiqyWholesale.ts no longer emit the
+      //    non-existent `paypal_capture_id` column; they write
+      //    `payment_reference` + `paypal_order_id`, matching
+      //    supabase/migrations/20260617_add_paypal_order_fields.sql
+      //    (which was a fresh prod apply this round — three
+      //    migrations had silently drifted from disk). production
+      //    orders.id is now TEXT (supabase/migrations/
+      //    20260705_change_orders_id_to_text.sql applied
+      //    2026-07-04), so the offline-sale rows keyed on
+      //    `public-...` upsert directly without inventing UUIDs.
+      //    Open: operator runs `npm run seed:friiqy-denim-patchwork`
+      //    and `npm run seed:friiqy-wholesale` to land both rows.
+      //    The denim-patchwork script mirrors this row's id
+      //    `public-md-denim-patchwork-2024_11_08`; the wholesale
+      //    script mirrors `public-md-wholesale-wallets-2026_05_22`.
+      //    Both scripts read shipping_internal.json at runtime
+      //    for the full address (see item 3 below).
+      // 2. Verified-customer filter — SCRIPT TOOLING DONE 2026-07-04.
+      //    scripts/seedVerifiedCustomers.ts registers friiqy in
+      //    marketing_contacts with source='past_customer'. The
+      //    test-campaign guard in api/_handlers/marketing-send.ts
+      //    keys on marketing_contacts.source ∈ {manual_seed,
+      //    past_customer}, so friiqy is automatically excluded
+      //    from any campaign whose name contains "test"
+      //    (case-insensitive). Open: the script still needs the
+      //    marketing_contacts_has_channel CHECK constraint shape
+      //    captured (paste `SELECT pg_get_constraintdef(oid) FROM
+      //    pg_constraint WHERE conname='marketing_contacts_has_channel'`
+      //    in the Supabase SQL editor and apply whatever payload
+      //    adjustment the constraint requires) before the
+      //    operator runs `npm run seed:verified-customers`. The
+      //    production schema recovery this round confirmed
+      //    customer_reward_credits + the 6 profile columns + the
+      //    social_accounts_platform_check constraint are all in
+      //    place on production.
+      // 3. Address privacy — DONE 2026-07-04. Full street address
+      //    lives in shipping_internal.json at the repo root
+      //    (gitignored, admin-only). Both seed scripts read that
+      //    file at runtime and fall back to empty strings if the
+      //    file is missing or has no entry for the order id. The
+      //    template at shipping_internal.example.json is committed
+      //    so the schema is documented. The Vercel deploy never has
+      //    shipping_internal.json in its build output, so
+      //    production has no access to the full address. This
+      //    INITIAL_ORDERS row keeps address1 + zip as empty
+      //    strings so the git-tracked codebase never carries the
+      //    full street address — city + state are what the live
+      //    map surfaces.
     id: 'public-md-wholesale-wallets-2026_05_22',
     orderNumber: 'ORD-SG-WHOLESALE-1002',
     isGuest: true,

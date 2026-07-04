@@ -110,7 +110,6 @@ function toOrdersRow(row: any) {
         payment_status: row.paymentStatus,
         payment_reference: row.paymentReference ?? null,
         paypal_order_id: row.paypalOrderId ?? null,
-        paypal_capture_id: row.paypalCaptureId ?? null,
         order_type: row.orderType ?? 'manual',
         shipping_address: row.shippingAddress ?? null,
         notes: row.notes ?? '',
