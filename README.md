@@ -102,6 +102,59 @@ The marketing backend depends on these tables/migrations:
 4. `marketing_campaigns`
 5. Legacy `subscribe_emails` for the older drop list
 
+### Seeding operator-added SMS contacts
+
+Use `npm run seed:sms` to insert phone numbers the operator adds manually (e.g. a buyer who texted to be added to the SMS list). The script is idempotent: it skips numbers already active, re-subscribes previously unsubscribed numbers, and inserts new ones. Each subscribe/re-subscribe writes a `marketing_consent_log` row.
+
+```bash
+npm run seed:sms
+```
+
+The script reads `SUPABASE_URL` (or `VITE_SUPABASE_URL`) and `SUPABASE_SERVICE_ROLE_KEY` from `.env`. Phone numbers are defined in `scripts/seedSmsContact.ts > CONTACTS_TO_SEED` and auto-normalized to E.164 (+1 prefix for US). `source` is set to `'manual_seed'` to distinguish operator-added contacts from form submissions.
+
+To add a new number, append an entry to `CONTACTS_TO_SEED` and re-run the script. Verify in Supabase:
+
+```sql
+SELECT id, phone_e164, status, source FROM marketing_contacts WHERE phone_e164 IS NOT NULL;
+```
+
+### Test-campaign guard
+
+`POST /api/marketing-send` filters verified buyers out of any campaign whose **name contains the substring `test` (case-insensitive)** before the Resend / Twilio send loop. Verified buyers are contacts whose `source` is one of:
+
+- `manual_seed` (operator-added offline sale, written by `npm run seed:sms`)
+- `past_customer` (anyone who placed an order through the storefront)
+
+Form leads (`sms_signup`, `sms_signup_email`, `drop_list`, `marketing_contacts`) are NOT verified buyers - they only opted in, never purchased, and ARE still reachable from test campaigns so devs can verify Resend + Twilio wiring.
+
+```
+campaign name = "Spring Drop"   -> audience: all (verified + leads)
+campaign name = "Test Drop"     -> audience: leads only (verified excluded)
+```
+
+#### Why substring, not whole-word
+
+The filter uses substring match on purpose. Words like **latest**, **contest**, **attest**, **detest** therefore _also_ flip the switch - by design. If you are sending to a verified buyer and your campaign title could even glance at `test`, rename it. This is the firmest mid-process enforcement without rejecting legitimate sends out of hand. The unit tests in `tests/marketingAudience.test.ts` lock both halves: the intended matches and the documented edge-case matches (the test file also pins a negative case for visually-similar words like `restock` and `festive` that _do not_ flip the switch, so a future "make this whole-word" refactor cannot silently drift which campaigns get filtered).
+
+#### How to send to a verified customer anyway
+
+There is no override. To deliver a campaign to a verified customer, rename it so the name does NOT contain `test`. The Composer view in `components/admin/MarketingManager.tsx` shows an amber advisory banner the moment the field contains `test` so the operator can catch it before clicking Send.
+
+#### Auditability
+
+Every test campaign that drops verified customers writes `excluded_verified_customers: <n>` into `marketing_campaigns.stats` (only present when the count is greater than zero). The `/api/marketing-send` response also surfaces the same count under `excludedVerifiedCustomers`. The server-side console emits:
+
+```
+[marketing-send] test campaign excluded N verified-customer rows (manual_seed/past_customer)
+```
+
+#### Where to read it
+
+- Helper (predicate + filter): `utils/marketingAudience.ts` exporting `VERIFIED_CUSTOMER_SOURCES`, `isVerifiedCustomerSource`, `isTestCampaignName`, `filterVerifiedCustomers`.
+- Server enforcement: `api/_handlers/marketing-send.ts` (`fetchAudience` derives `excludeVerified` from the campaign name via `isTestCampaignName`, then drops matching rows).
+- UI advisory: `components/admin/MarketingManager.tsx` `ComposerView` Campaign Name field.
+- Helper tests: `tests/marketingAudience.test.ts` (covers the constants, the predicate, the substring match with documented edge-cases, and the filter in both on/off modes).
+
 ## Backend Bug-Fix Checklist
 
 Use this when something disappears, prices are wrong, checkout fails, or a form silently stops working.
@@ -140,14 +193,15 @@ Use this section as the starting point when a product disappears, has the wrong 
 2. Local-only `INITIAL_PRODUCTS` rows are appended so code-only products do not vanish.
 3. `PRODUCT_LOCAL_OVERRIDES` is applied last.
 
-If a live Supabase row exists, the Supabase price is the current storefront price. If no live row exists, the local fallback price is the current storefront price. This baseline has 24 merged products: 13 active and 11 archived/sold. The live Supabase query returned 17 rows with 17 unique product IDs.
+If a live Supabase row exists, the Supabase price is the current storefront price. If no live row exists, the local fallback price is the current storefront price. This baseline has 25 merged products: 13 active and 12 archived/sold. The live Supabase query returned 17 rows with 17 unique product IDs.
+
+> `INITIAL_ORDERS` rows feed the [Recently Ordered Live Map](#recently-ordered-live-map); the `id`-dedup contract lives there, so any new seed id has to be mirrored in `PUBLIC_RECENT_ORDER_SEEDS` to avoid double-counting.
 
 ### Active Products
 
 | ID | Product | Price | Category | Status | Inventory | Source |
 | --- | --- | ---: | --- | --- | --- | --- |
 | `Coalition_Above_As_Below_Wallet_1_1` | COALITION ABOVE AS BELOW 1/1 WALLET | $85 | wallet | Live | stock 1; One Size: 1 | Supabase + local overrides |
-| `Coalition_Grey_Wave_Wallet_2_2` | Coalition 'Grey Wave' Wallet 2/2 | $75 | wallet | Live | stock 1; One Size: 1 | Supabase + local |
 | `Coalition_NF_Tee` | COALITION NF-TEE | $40 | shirt | Live | stock 350; size map S:1 M:1 L:1 XL:1 | Supabase + local |
 | `prod_1773860269374` | Coalition Shark Tee - 1/1 Exclusive | $60 | shirt | Live | stock 1; S:1 M:0 L:0 XL:0 | Supabase + local |
 | `prod_halo_mini_dress` | COALITION HALO MINI DRESS | $50 | dress | Live, standard release | stock 50; S:12 M:13 L:13 XL:12 | Supabase + local overrides |
@@ -159,12 +213,14 @@ If a live Supabase row exists, the Supabase price is the current storefront pric
 | `prod_womens_above_as_below_contrast_shorts` | WOMEN'S COALITION ABOVE AS BELOW CONTRAST SHORTS | $40 | shorts | Live | stock 4; S:1 M:1 L:1 XL:1 | Supabase + local overrides |
 | `prod_womens_above_as_below_crop_tank` | WOMEN'S COALITION ABOVE AS BELOW CREWNECK CROP TANK | $40 | shirt | Live | stock 4; S:1 M:1 L:1 XL:1 | Supabase + local overrides |
 | `prod_womens_above_as_below_set` | WOMEN'S COALITION ABOVE AS BELOW SET | $75 | apparel | Live set offer | stock 4; S:1 M:1 L:1 XL:1 | Supabase + local overrides |
+| `prod_womens_coalition_halo_contrast_tee` | WOMEN'S COALITION HALO CONTRAST TEE | $40 | shirt | Live, standard release | stock 4; S:1 M:1 L:1 XL:1 | Supabase + local overrides |
 
 ### Archived Or Sold Products
 
 | ID | Product | Price | Category | Status | Inventory | Source |
 | --- | --- | ---: | --- | --- | --- | --- |
 | `Coalition_Grey_Wave_Wallet_1_2` | Coalition 'Grey Wave' Wallet 1/2 | $75 | wallet | Archived/sold | stock 0; One Size: 0 | Supabase + local overrides |
+| `Coalition_Grey_Wave_Wallet_2_2` | Coalition 'Grey Wave' Wallet 2/2 | $75 | wallet | Archived/sold | stock 0; One Size: 0 | Supabase + local overrides |
 | `Coalition_Racing_Team_Wallet_1_4` | Coalition 'Racing Team' Wallet 1/4 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
 | `Coalition_Racing_Team_Wallet_2_4` | Coalition 'Racing Team' Wallet 2/4 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
 | `Coalition_Racing_Team_Wallet_3_4` | Coalition 'Racing Team' Wallet 3/4 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
@@ -274,6 +330,280 @@ npm run bootstrap:brain
 
 Set either `SUPABASE_DB_URL`, or `VITE_SUPABASE_URL` plus `SUPABASE_DB_PASSWORD`, before running it. The script executes `supabase/migrations/20240611_seed_brain_entries.sql` through Postgres admin credentials, so it does not rely on anon-key writes against RLS-protected tables.
 
+### Bundle analyzer and lazy-loaded chunks
+
+The eager `index-*.js` chunk sits at ~696 KB raw / ~196 KB gzipped under the pre-refactor baseline. Two off-screen overlays are now deferred via `React.lazy` + `<Suspense fallback={null}>`, and a developer utility extracts per-module bytes from a rollup-plugin-visualizer report so future regressions are measured, not estimated.
+
+#### Off-screen overlays now lazy
+
+- `components/CartDrawer` (`App.tsx`): always-mounted, but the chunk only downloads after first paint when the user opens the cart. Pulled out of eager so its own code plus the transitive `framer-motion` internals it imports (`create-projection-node.mjs`, `VisualElementDragControls.mjs`, `animation-state.mjs`, `tslib.es6.mjs`) no longer count against the initial bundle as long as no other eager consumer remains.
+- `components/ProfileModal` (`components/Navbar.tsx`): loaded only on first `isProfileOpen === true` interaction. The emirpical parser confirms `ProfileModal.tsx` (~15.8 KB raw / ~3.3 KB gzipped) is no longer in the eager bucket after the refactor.
+
+Both wrappers use `fallback={null}` because the surfaces are off-screen by default; the chunk only enters memory after auth hydration or first click, so the user sees no perceptible delay.
+
+#### Empirical carve-out (post-refactor, July 2026)
+
+Running `node scripts/parseStatsHtml.mjs` against a fresh `vite build --mode analyze` reports the eager chunk dropping from **696 KB to ~678 KB** on-disk. `ProfileModal.tsx` is fully carved out. The three `framer-motion` internals (totaling ~104 KB raw / ~22 KB gzipped) **stay** in the eager chunk because `SignalAlert`, `RewardActivation`, and `components/ui/ToastContainer` still import `framer-motion` synchronously. Tracked as the next-largest lever; lazy-loading those three would drop the eager chunk by another ~22 KB gzipped with no AppContext/Supabase impact (none of them touch auth or realtime state).
+
+#### Bundle analyzer workflow
+
+```bash
+npm.cmd run build                                   # regular production build, NO dist/stats.html
+npx.cmd vite build --mode analyze                   # emits dist/stats.html (~1.55 MB treemap HTML)
+node scripts/parseStatsHtml.mjs                     # prints top contributors (raw | gzip | brotli)
+```
+
+`scripts/parseStatsHtml.mjs` bracket-matches the inline `const data = {...}` literal in `dist/stats.html`, walks the tree (inline objects down to leaves that carry a `uid`), and reads byte weights from `data.nodeParts[uid].{renderedLength,gzipLength,brotliLength}`. It outputs raw / gzipped / brotli bytes per module, ranked by raw size, split into the eager `index-*.js` bucket vs. lazy-loaded chunks. Use it whenever you do a meaningful dependency bump or add a new global UI surface.
+
+Vite's chunk-size warning limit sits at 800 KB (`vite.config.ts > build.chunkSizeWarningLimit`) to suppress the pre-existing 500 KB noise without masking future 800+ KB regressions. The analyzer only emits `dist/stats.html` when invoked with `--mode analyze`; regular `npm.cmd run build` skips it.
+
+#### Hard constraints preserved
+
+- `vite.config.ts` still rejects `build.rollupOptions.output.manualChunks` because reintroducing it previously OOM-killed Vercel's build worker (lucide-react / ethers / framer-motion full-AST path). The lazy-load refactor uses only `React.lazy` + Vite's automatic code-splitting at the `import()` boundary; no manual chunk config.
+- `supabase` import in `App.tsx` stays synchronous so `context/AppContext.tsx`'s mount-time `onAuthStateChange` and realtime channel subscriptions queue correctly. Lazy-loading the supabase client would race against session restore on slow connections.
+- `context/AppContext.tsx`'s synchronous `INITIAL_PRODUCTS` state init (see "Current Product Catalog Baseline") is preserved; `constants.ts` is NOT lazy.
+
+## Cross-cut category filters on /shop
+
+The `/shop` page exposes two cross-cut gender filters on top of the existing apparel-type filters:
+
+- **`?category=women`** (alias: `?category=womens`): surfaces the women's product family.
+- **`?category=men`** (alias: `?category=mens`): surfaces men's and unisex products.
+
+Both filters are wired in `pages/Shop.tsx > categoryGroups / categories` and resolved by the same predicate in `utils/categoryFilter.ts > matchesCategoryFilter`. They are NOT a `Product.category` value because the Supabase `products.category` column is a single varchar — flipping that string would collapse the apparel-type filters (`?category=shirts`, `?category=dresses`) on the same products. Anchoring on the product ID namespace keeps every existing filter surface working unchanged.
+
+### Filter contracts
+
+| Filter | Match rule | Always excluded |
+|---|---|---|
+| `women` / `womens` | `product.id.startsWith('prod_womens_')` | `prod_halo_mini_dress` (predates the `prod_womens_*` naming) |
+| `men` / `mens` | NOT `prod_womens_*` AND NOT `prod_halo_mini_dress` | All `prod_womens_*` products; halo mini dress |
+| `all` and falsy filters | All products | — |
+
+### Symmetry between women + men
+
+The women's match is a single-direction prefix check. The men's match is the symmetric inverse — every `prod_womens_*` product is dropped, plus the halo mini dress carve-out. The carve-out is paired: if a maintainer ever renames `prod_halo_mini_dress` → `prod_womens_halo_mini_dress` (or otherwise brings it under the `prod_womens_*` umbrella), the explicit denylist in the men's branch becomes a no-op and can be deleted in the same commit. The carve-out is documented inline at the men's branch in `utils/categoryFilter.ts`.
+
+### Adding a new women's product
+
+1. Use the `prod_womens_` ID prefix.
+2. Keep its apparel-type category (`shirt`, `shorts`, etc.) unchanged so existing apparel filters keep surfacing it.
+3. Drop it into `constants.ts > INITIAL_PRODUCTS` and the matching Supabase upsert script (`scripts/<slug>.ts`).
+4. Extend `tests/categoryFilter.test.ts` if the new product opens a category pattern that the umbrella regression test doesn't yet cover.
+
+### Adding a new men's / unisex product
+
+1. Drop the ID into `constants.ts > INITIAL_PRODUCTS` and the matching Supabase upsert script.
+2. The product surfaces under `/shop?category=men` automatically since it isn't in the `prod_womens_*` namespace.
+3. If the product is genuinely unisex (e.g. a wallet or hat), `?category=wallets` / `?category=hats` keep working as before.
+
+### Tests
+
+The filter contract is locked in `tests/categoryFilter.test.ts` (currently 14 assertions):
+
+- 5 women's describe assertions: prefix match + halo-dress exclusion + mens/unisex exclusion + `womens` alias + case-insensitivity.
+- 5 men's describe assertions: paired-probe inclusion + `prod_womens_*` exclusion + halo-dress carve-out + `mens` alias + case-insensitivity.
+- 4 backward-compat assertions: womens_* products still under their apparel type, halo dress still under `?category=dresses`, `all` / falsy passthrough, and an umbrella regression test that locks both sides of the cross-cut pair against the apparel umbrella with real paired probes (`shirts`, `shorts`, `apparel`), the women's side (`dresses`), and the men's side (`jeans`, `sweatshirt`).
+
+A regression in either cross-cut filter or in any apparel sub-bucket flips the test red.
+
+## Recently Ordered Live Map
+
+The `/live-orders` page (`pages/LiveOrdersMap.tsx`) renders a state-level map, four summary cards, and a Recent Activity ticker driven by `buildLiveOrdersFeed()` in `utils/liveOrdersFeed.ts`. The map is intentionally built from three overlapping data surfaces so it always has something honest to show - no loaders, no "we'll get back to you", no fake billboard copy.
+
+### Data flow at a glance
+
+```
+                              /live-orders
+                                   |
+                                   v
+                  buildLiveOrdersFeed(orders, timeRange)
+                                   |
+            +----------+----------+----------+----------+
+            |          |          |          |          |
+            v          v          v          v          v
+       Supabase    PUBLIC_    DEMO_        Display      Drop if
+       orders in   RECENT     TRACKED      sort +       any of
+       useApp()    ORDER_     ORDER_       dedup        those
+                   SEEDS      SEEDS        + window     return
+                              (DEV only)   filter       empty
+```
+
+The result is one of three shapes:
+
+- **Live state** when at least one real Supabase order or `PUBLIC_RECENT_ORDER_SEEDS` row survives the window filter.
+- **DEV-only fallback** when the production environment serves no orders AND the current `import.meta.env.DEV` flag is true; `DEMO_TRACKED_ORDER_SEEDS` then lights up the map visually for local testing.
+- **Empty state** when production has no orders and DEV is false - the ticker prints the "No live orders in this window yet" panel.
+
+Each layer is filtered, deduplicated, and re-sorted on its way through, so the timestamp inside `INITIAL_ORDERS` and the `minutesAgo` inside `PUBLIC_RECENT_ORDER_SEEDS` always need to be in lock-step.
+
+### The three data surfaces in detail
+
+**Layer 1 - Real Supabase orders.** The `Order[]` array handed to `buildLiveOrdersFeed` comes from `useApp().orders`. `AppContext.tsx` fetches it from the Supabase `orders` table. Orders are dropped if:
+
+- Status is `cancelled`, `failed`, or `refunded` (`EXCLUDED_STATUSES`).
+- `createdAt` is missing or unparseable.
+- `shippingAddress.state` (or any of the legacy shipping-field aliases `getShippingState` reads) cannot be resolved to a US state code.
+
+State and city come out of `shippingAddress.{state, city}` directly - these are buyer data and live on the Supabase row.
+
+**Layer 2 - `PUBLIC_RECENT_ORDER_SEEDS` in `utils/liveOrdersFeed.ts`.** A small `as const` literal array of real offline sales. Every seed runs the same render pipeline as a Supabase order (`createSeedTrackedOrders`) so it produces an identical `TrackedLiveOrder`. Deduplication against Layer 1 happens by `order.id`; a Supabase row with the same `id` as a public seed will REPLACE the seed in the feed, not append.
+
+**Layer 3 - `DEMO_TRACKED_ORDER_SEEDS`.** The same shape, populated with plausible US-state sales. This layer is gated by `DEMO_FEED_ENABLED = import.meta.env.DEV`, so a production build (`npm run build`) bakes the flag to `false` and these seeds are never reachable. They exist so a developer with an empty Supabase local environment still sees the visual layout working.
+
+### The five currently shipping real-sale seeds
+
+| `id` | Product | Location | `minutesAgo` | Surfaces in |
+| --- | --- | --- | ---: | --- |
+| `public-pa-grey-wave-wallet-2-2` | Coalition 'Grey Wave' Wallet 2/2 | York, PA | 12 | 24h, 7d, 30d, 90d, all |
+| `public-pa-grey-wave-wallet-1-2` | Coalition 'Grey Wave' Wallet 1/2 | York, PA | 10_080 (7d) | 7d, 30d, 90d |
+| `public-md-wholesale-wallets-2026_05_22` | 7-wallet wholesale bundle (friiqy) — ticker shows GreenCamo + 6 more | Abingdon, MD | 58_284 (40d) | 90d, all |
+| `public-md-trust-yourself-hat-01` | TRUST YOURSELF CUSTOM TRUCKER (1/1) | Owings Mills, MD | 120_960 (84d) | 90d, all |
+| `public-md-denim-patchwork-2024_11_08` | Coalition Denim Patchwork 1/1 Jeans S1 | Abingdon, MD | 865_440 (601d) | all only |
+| `public-ny-true-religion-s1` | Coalition x True Religion 1/1 Jeans S1 | New York, NY | 1_219_680 (121w) | all only |
+
+The wholesale bundle (`public-md-wholesale-wallets-2026_05_22`) is split into 7 separate `OrderItem` rows in `INITIAL_ORDERS` (one per wallet: `GreenCamoWallet`, `SKYYBLUEWALLET1_2`, `prod_wallet_004`, Coalition Racing Team 1/4 through 4/4) at $25 each = $175 total. The buyer is `@friiqy` on Instagram — the same Instagram account that bought the `Coalition_x_True_Religion_S1` row, joined via `instagramUsername: 'friiqy'` on both `INITIAL_ORDERS` rows. The full shipping address lives in the gitignored `shipping_internal.json` (see the "Admin-only shipping data" subsection below) for internal fulfillment; the public seed only carries `city: 'Abingdon'` + `state: 'MD'` per the live map privacy contract. The ticker link points to `/product/GreenCamoWallet` (the first wallet in catalog order); the other 6 wallets surface through the `+ 6 more items` copy.
+
+The "Surfaces in" column comes from the `entry.timestamp >= windowStart` filter that runs after `createSeedTrackedOrders`:
+
+```
+windowStart = Date.now() - RANGE_MS[timeRange]
+```
+
+A seed drops out of a window when `now - seed.minutesAgo_minutes < windowStart`. The wallet seeds are inside 24h/7d/30d; the hat drops out of 30d (it's at 84d, past `30 * 24 * 60`); the True Religion S1 drops out of 90d (it's at 121w, past `90 * 24 * 60`). Only the 'All time' window holds every seed.
+
+### Time-range tuple
+
+`LiveOrdersTimeRange = '24h' | '7d' | '30d' | '90d' | 'all'`. Three places enumerate that exact tuple and must stay in lock-step:
+
+1. `LiveOrdersTimeRange` and `RANGE_MS` in `utils/liveOrdersFeed.ts` - the source of truth. `RANGE_MS['all']` is a `Number.POSITIVE_INFINITY` sentinel that disables the window filter entirely so every real sale (including the 121-week True Religion S1) becomes visible.
+2. `RANGE_LABELS` in `pages/LiveOrdersMap.tsx` - human-readable chip text.
+3. The inline button list `(['24h', '7d', '30d', '90d', 'all'] as const)` in `pages/LiveOrdersMap.tsx` - drives the selector UI.
+
+The default selected range on first render is `7d`. When `all` is active, the Orders summary card swaps its helper text to "Showing all real sales since the first drop" so the broader view doesn't read as a live pulse - it's a deliberate archive.
+
+`formatRelativeTime` is also tiered above 24h so the "All time" view doesn't print "847d ago" for the 121-week sale: `<7d` -> `Xd ago`, `<30d` -> `Xw ago`, `<365d` -> `Xmo ago`, `>=365d` -> `Xy ago`. Tests in `tests/liveOrdersFeed.test.ts` pin all four tiers.
+
+### Privacy contract - non-negotiable
+
+- The ticker renders `"<product> ordered in <locationLabel>"` only. No address line, no ZIP, no customer name, no order number is exposed.
+- All `shippingAddress.address1` and `shippingAddress.zip` values in seed orders are empty strings.
+- Customer email in seed rows is `customer@example.com` - never a real address.
+- `formatLocationLabel` only shows a city when it was set on the originating row; never fill in a city you cannot verify. The matcher reads `shippingAddress.city` plus several legacy shipping-field aliases, so older row shapes still surface correctly.
+
+### The `id` contract
+
+`buildLiveOrdersFeed` dedupes Layer 2 against Layer 1 with a `Set<string>` keyed on `order.id` per render. The seed format is:
+
+```
+public-<state>-<short-product-slug>
+```
+
+Three rules keep the contract sound:
+
+1. Every entry in `PUBLIC_RECENT_ORDER_SEEDS` MUST have a sibling row in `INITIAL_ORDERS` whose `id` is byte-for-byte the same string. Comments in both files call this out so a future edit doesn't drift.
+2. `INITIAL_ORDERS` rows use the seed id; new Supabase orders should not be assigned to a `public-...` id by the seed scripts (`scripts/add*Wallet.ts`, `scripts/listBuckets.ts`, etc.) unless the intent is exactly "this offline sale is now an online sale". Otherwise Layer 1 will collide with Layer 2.
+3. The dedup test in `tests/liveOrdersFeed.test.ts` (`deduplicates when an INITIAL_ORDERS row carries the same id as a public seed`) is the regression guard. If a future refactor accidentally breaks dedup, this test fails first.
+
+A drift between the two id columns will surface as a duplicated row in the ticker AND a double-count in `feed.states`, which is what the Grey Wave wallet seeds were originally written to catch.
+
+### minutesAgo drift vs `createdAt`
+
+`PUBLIC_RECENT_ORDER_SEEDS.minutesAgo` is a *floating* offset from "now" - it produces a stable relative time at build time, but it does not stay anchored to the real sale date as days pass. The corresponding `INITIAL_ORDERS.createdAt` is an *anchored* ISO timestamp that drifts in the opposite direction (it stays correct forever but its distance from "now" grows). This is acceptable today because:
+
+- The public seed is the surface any visitor sees, and "12m ago" / "3mo ago" reads honestly.
+- The `INITIAL_ORDERS` row is only used as the AppContext fallback when Supabase orders have not yet loaded, and the page tolerates a mismatch until then.
+
+If a maintainer wants both surfaces to stay aligned forever, the seed record should grow an optional `absoluteTimestamp` field that wins over `minutesAgo` when present. Tracked as a follow-up; not part of the current contract.
+
+### Worked example - adding the Trust Yourself hat sale
+
+The Maintainer received a new offline sale ("hat sold in Baltimore MD, Owings Mills, April 9, 2026") and wired it in this section. The full edit went through three files:
+
+**1. `utils/liveOrdersFeed.ts`** (`PUBLIC_RECENT_ORDER_SEEDS`, appended after the Grey Wave 2/2 seed):
+
+```ts
+{
+    id: 'public-md-trust-yourself-hat-01',
+    stateCode: 'MD',
+    stateName: 'Maryland',
+    city: 'Owings Mills',
+    productId: 'prod_trust_yourself_hat_01',
+    productName: 'TRUST YOURSELF CUSTOM TRUCKER (1/1)',
+    productImage: 'https://i.imgur.com/iYBlwm8.png',
+    minutesAgo: 84 * 24 * 60,
+    itemCount: 1,
+},
+```
+
+Key choices documented inline: image resolves through `PRODUCT_IMAGE_URLS.trustYourselfHat.cover` so the storefront PDP and the ticker share one canonical URL; city is the specific CDP, not "Baltimore" generically, because the buyer data contained it; `minutesAgo` lines up with the recorded April 9 sell date from a July 2 viewer.
+
+**2. `constants.ts` `INITIAL_ORDERS`** (new row, id matched byte-for-byte):
+
+```ts
+{
+    id: 'public-md-trust-yourself-hat-01',
+    orderNumber: 'ORD-SG-TRUST-YOURSELF-HAT-9500',
+    isGuest: true,
+    customerName: 'Owings Mills Customer',
+    customerEmail: 'customer@example.com',
+    items: [{
+        productId: 'prod_trust_yourself_hat_01',
+        productName: 'TRUST YOURSELF CUSTOM TRUCKER (1/1)',
+        productImage: 'https://i.imgur.com/iYBlwm8.png',
+        selectedSize: 'One Size',
+        quantity: 1,
+        price: 50,
+        total: 50,
+    }],
+    subtotal: 50, tax: 0, discount: 0, total: 50,
+    paymentMethod: 'cash', paymentStatus: 'paid', orderType: 'manual',
+    shippingAddress: {
+        address1: '', city: 'Owings Mills', state: 'MD', zip: '',
+        country: 'US', shippingMethod: 'standard', shippingCost: 0,
+    },
+    createdAt: '2026-04-09T15:00:00-04:00',
+    paidAt:   '2026-04-09T15:00:00-04:00',
+},
+```
+
+The empty `address1` and `zip`, the `customer@example.com` placeholder, and the missing order number display on the public site all uphold the privacy contract.
+
+**3. `tests/liveOrdersFeed.test.ts`** extended the assertions so:
+
+- The 90d window now expects 4 ticker entries in this exact order: 2/2, 1/2, S1, hat (jsdom sorts by timestamp descending).
+- The 30d window still expects just 2 entries (the hat and S1 are both outside 30d).
+- The 24h and 7d exclusion test now also asserts the hat does not appear in either window.
+
+### Step-by-step recipe for adding a new real sale
+
+1. Decide on the `minutesAgo`. If the sale is older than 90d from today, plan to add a new range literal (`'180d'`, `'1y'`) before doing anything else - see the time-range tuple section.
+2. Edit `utils/liveOrdersFeed.ts > PUBLIC_RECENT_ORDER_SEEDS`. Pick the seed `id` as `public-<state>-<product-slug>` so it can never collide with an `Order.id` minted by `AppContext`.
+3. Pin the city/state/product fields from the buyer data. If a field is missing or unverified, leave `city` undefined and let the ticker fall back to the state name.
+4. Mirror the entry in `constants.ts > INITIAL_ORDERS` with the same `id`. Set all PII fields to safe placeholders (`''` for address, `customer@example.com` for email).
+5. Extend `tests/liveOrdersFeed.test.ts` with one assertion for each time window the seed appears in, plus an exclusion assertion for each window the seed does NOT appear in.
+6. Run tests + check the live page:
+
+```bash
+npx.cmd vitest run tests/liveOrdersFeed.test.ts
+```
+
+Open `/live-orders` in dev, click through every range button, and confirm the new sale shows up exactly once with the right product image.
+
+### Editing or removing an existing sale
+
+**Edit** - update the same entry in both `PUBLIC_RECENT_ORDER_SEEDS` and `INITIAL_ORDERS`. If only the timestamp changed, the tests will still pass because they freeze "now" via `vi.useFakeTimers`; update the assertions to match if the seed crossed a boundary into a different window.
+
+**Remove** - drop the matching row from `INITIAL_ORDERS` first (it's the safe delete), then the matching entry from `PUBLIC_RECENT_ORDER_SEEDS`. Tests should drop naturally if the seed vanishes from the relevant window assertions - if a test is left checking for a now-absent entry, that is a sign the test was wrong.
+
+### Common errors and what they mean
+
+- **The same sale appears twice in the ticker.** The `id` in `INITIAL_ORDERS` does not match the `id` in `PUBLIC_RECENT_ORDER_SEEDS`. Diff the two arrays and copy one `id` into the other.
+- **The sale appears but the state leaderboard count is off by one.** Same root cause as above. The leaderboard dedups using the same id set.
+- **The sale is missing from a window it should fit in.** `minutesAgo` is larger than the window's `RANGE_MS`. Either bump the window or lower `minutesAgo`.
+- **Clicking a ticker row does nothing.** Either `productId` is missing/wrong or the PDP doesn't exist at `/product/<productId>`. Verify with `utils/localImageAssets.ts` and the matching `scripts/add<slug>.ts`.
+- **The "city" line says only the state name.** `city` was never set on the seed; verify the buyer data really did record a city, otherwise the state-only rendering is correct.
+
 ## Above As Below Set Offers
 
 Use this checklist before changing the Above as Below tees, shorts, crop tank, or set pricing.
@@ -371,3 +701,254 @@ This is a private project. For questions, contact the development team.
 ## License
 
 All rights reserved © 2024 Coalition Brand
+
+
+## Customer Profile
+
+The customer-profile feature lets the maintainer (a) credit a customer's SGCoin
+balance with an audit trail, and (b) attribute an existing order to a social
+account (Facebook initially; Instagram/Twitter/TikTok slots already existed).
+It does NOT auto-issue any bonus on first wallet link — credits are
+intentionally manual so the operator controls the roll-out.
+
+### How a profile is built
+
+1. **profiles** row is created by Supabase on first signup (`auth.users` →
+   public trigger). New columns added by
+   `supabase/migrations/20260702_add_customer_profile_rewards.sql`:
+   * `wallet_linked_at TIMESTAMPTZ` — first crypto-wallet link stamp
+   * `lifetime_spend_usd NUMERIC` — Σ orders.total across PAID orders
+   * `lifetime_orders INT` — count of PAID orders
+   * `last_reward_credit_at / last_reward_credit_amount` — mirrors the latest audit row
+   * `customer_notes TEXT` — admin-only via RLS
+2. **social_accounts.platform** CHECK widened to include `'facebook'`
+   alongside `instagram|twitter|tiktok`.
+3. **orders.facebook_username** — written by the admin attribution tool, never
+   by the customer.
+4. **customer_reward_credits** — append-only `id, profile_id, order_id,
+   amount_sgc, amount_usd, awarded_by_user_id, reason, created_at`. Every credit
+   produces a new row.
+
+### Admin tools
+
+There are two API endpoints, both POST-only, both backed by the service-role
+Supabase client:
+
+* `POST /api/credit-customer-reward`
+  Body: `{ profileId, amountSgc, reason, orderId?, amountUsd? }`
+  Writes a `customer_reward_credits` row first (audit-first), then bumps
+  `profiles.sg_coin_balance` and the `last_reward_credit_*` mirrors.
+* `POST /api/attribute-order-to-facebook`
+  Body: `{ orderId, facebookUsername, note? }`
+  Normalizes `facebook.com/foo` / `@foo` / `foo` → `foo`, validates handle
+  rules, stamps `orders.facebook_username` plus a stamp line in `orders.notes`.
+
+The admin UI lives in `components/admin/CustomerProfileAdmin.tsx` and is
+surfaced under the `/admin` "Customers" tab (added in `pages/Admin.tsx`).
+
+### Where to read it
+
+* Schema: `supabase/migrations/20260702_add_customer_profile_rewards.sql`
+* Handlers: `api/_handlers/credit-customer-reward.ts`,
+  `api/_handlers/attribute-order-to-facebook.ts`
+* Router wire-up: `api/[...slug].ts`
+* Type surfaces: `types.ts` (UserProfile, Order, SocialAccount); `api/_types.ts`
+* Service-side platform union: `services/socialLinking.ts`
+* App context actions + first-link stamp: `context/AppContext.tsx`
+* Admin UI: `components/admin/CustomerProfileAdmin.tsx`
+* Tests: `tests/creditCustomerReward.test.ts`,
+  `tests/attributeOrderToFacebook.test.ts`,
+  `tests/apiRouterCustomerProfile.test.ts`
+
+### Adding a new social-attribution endpoint later
+
+The pattern is intentionally tiny: a 90-line handler file that fetches the
+existing rows, normalizes the new platform's handle format, validates it
+against the platform's safe-character set, and writes a copy of the value
+into the matching `orders.<platform>_username` column. The admin UI gains
+one button row per panel. RLS already covers the read/write via the
+`admin_users` table.
+
+### Instagram attribution (added 2026-07-04)
+
+The `instagram_username` column was added to `public.orders` by
+`supabase/migrations/20260704_add_instagram_username_to_orders.sql`,
+mirroring the `facebook_username` column from 20260702. The TypeScript
+mirror lives in `types.ts > Order.instagramUsername`. Both are
+admin-attributed, never set by the customer.
+
+#### Seeding the @friiqy offline sales (wholesale + denim patchwork + verified-customer)
+
+There are THREE scripts to run, in order, to fully mirror all of
+@friiqy's offline sales into production. Each script has a single
+responsibility and lives in its own file:
+
+1. **`npm run seed:friiqy-wholesale`**
+   (`scripts/upsertFriiqyWholesale.ts`) - writes the wholesale orders
+   row (7 archived wallets, $175 total, 2026-05-22). Imports
+   `INITIAL_ORDERS` from `constants.ts` as the single source of truth
+   (finds the wholesale row by
+   `id === 'public-md-wholesale-wallets-2026_05_22'`), transforms the
+   camelCase `Order` shape into the snake_case `orders` table columns,
+   and calls `upsert(payload, { onConflict: 'id' })`. Re-running
+   rewrites the existing row with the canonical data; the script can
+   never drift from `constants.ts` because it imports the row instead
+   of redefining it. The same id is the dedup key used by
+   `buildLiveOrdersFeed` in `utils/liveOrdersFeed.ts`.
+
+2. **`npm run seed:friiqy-denim-patchwork`**
+   (`scripts/upsertFriiqyDenimPatchwork.ts`) - writes the 1/1 Denim
+   Patchwork jeans orders row (size 30, $140, 2024-11-08, posted on
+   Instagram at https://www.instagram.com/p/DCIqPY4Msk_/?img_index=1).
+   Same single-source-of-truth pattern as the wholesale script: finds
+   the row by `id === 'public-md-denim-patchwork-2024_11_08'` from
+   `INITIAL_ORDERS`, mirrors the same snake_case columns (including
+   `instagram_username: 'friiqy'` so the admin Orders dashboard can
+   filter by Instagram handle), and reads the full street address from
+   `shipping_internal.json` at runtime. The seed script prints the
+   expected admin-dashboard verification steps at the end
+   (lifetime spend = $140 + $140 + $175 = $455 across 3 orders).
+
+3. **`npm run seed:verified-customers`**
+   (`scripts/seedVerifiedCustomers.ts`) - registers @friiqy as a
+   verified past_customer so the test-campaign guard fires. Mirrors
+   `scripts/seedSmsContact.ts`'s structure (idempotent lookup-then-insert
+   via the service role key) but is purpose-built for verified
+   past_customers WITHOUT a phone number: no `phone_e164`, no
+   `country_code`, no `marketing_consent_log` write. The instagram
+   handle lives in `metadata.instagram_username` for
+   join / reconciliation. The script enforces `source in
+   {manual_seed, past_customer}` at runtime - any other value is
+   rejected with a clear error so the test-campaign guard can never
+   silently fail to exclude the contact. The single row's
+   `metadata.related_order_ids` is auto-derived by joining
+   `metadata->>instagram_username` against the `orders.instagram_username`
+   column populated by scripts 1 and 2 above.
+
+The orders row alone is NOT enough to suppress friiqy from test
+campaigns. `api/_handlers/marketing-send.ts` derives the
+`source='past_customer'` tag at audience-fetch time by joining
+`orders.customer_email` to the audience - it is NOT stored on the
+orders row itself. A dedicated `marketing_contacts` row is what gives
+friiqy a stable identity for the test-campaign filter across sends.
+Run ALL THREE scripts to fully mirror all of @friiqy's offline sales.
+
+All three scripts read `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` from
+`.env` (same pattern as `npm run seed:sms`). All are idempotent - re-
+running any one is safe; the orders upserts overwrite by `id`, the
+marketing_contacts insert looks up by `metadata.instagram_username` and
+is a no-op when the row already exists.
+
+The wholesale row carries 7 separate `OrderItem` entries (one per
+wallet: GreenCamoWallet, SKYYBLUEWALLET1_2, prod_wallet_004, Coalition
+Racing Team 1/4 through 4/4) at $25 each = $175 total. Same buyer as
+the public-ny-true-religion-s1 row, joined via `instagram_username:
+'friiqy'`. The full Abingdon shipping address (address1 + zip) is
+populated at runtime from the gitignored `shipping_internal.json` —
+see the next subsection for the privacy contract + setup steps. The
+`INITIAL_ORDERS` row in `constants.ts` keeps `address1` + `zip` as
+empty strings so the full street address is never committed to the
+codebase; the live map privacy contract also strips address1 + zip
+from the `PUBLIC_RECENT_ORDER_SEED`.
+
+**Prerequisite**: apply the 20260704 migration first
+(`supabase db push` or paste into the Supabase SQL editor). The orders
+script's error message points at the migration file if the
+`instagram_username` column is missing.
+
+After running BOTH scripts, verify the two writes:
+
+```sql
+-- orders row present, total $175, instagram_username = friiqy
+SELECT id, order_number, total, instagram_username
+FROM orders WHERE id = 'public-md-wholesale-wallets-2026_05_22';
+
+-- marketing_contacts row present, source = past_customer
+SELECT id, status, source, metadata->>'instagram_username' AS instagram
+FROM marketing_contacts
+WHERE metadata->>'instagram_username' = 'friiqy';
+```
+
+Then verify the Live Orders Map surfaces the wholesale at
+https://sgcoalition.xyz/live-orders under the 90d or all-time chip.
+
+To test the suppression, send a campaign whose name contains "test"
+from the admin Marketing Manager UI - friiqy should NOT appear in the
+sent log. The `[marketing-send] test campaign excluded N verified-customer
+rows` line on the server console will tick up by 1 for each test send.
+
+#### Admin-only shipping data (shipping_internal.json)
+
+The full street address for an offline-cash order (e.g. an offline
+wholesale shipped to a buyer's home address) is never committed to the
+codebase. It lives in `shipping_internal.json` at the repo root, which
+is gitignored. The template at `shipping_internal.example.json` IS
+committed and shows the schema (with `REDACTED` placeholder values so
+the real address never appears in a committed file):
+
+```json
+{
+  "<INITIAL_ORDERS id>": {
+    "address1": "REDACTED — see shipping_internal.json for the real address",
+    "zip": "REDACTED"
+  }
+}
+```
+
+The key is the `INITIAL_ORDERS` `id` value; the value is the
+fulfillment address to write to `orders.shipping_address.address1` /
+`.zip` in Supabase. `city` and `state` are NOT in this file because
+they're safe to commit — they're what the live map surfaces and they
+live on the public seed.
+
+**Setup (operator):**
+
+```bash
+cp shipping_internal.example.json shipping_internal.json
+# Then edit shipping_internal.json to fill in the real addresses.
+```
+
+`scripts/upsertFriiqyWholesale.ts` reads the file at runtime:
+
+- If the file is missing → the script logs a warning and falls back
+  to empty address fields. The Supabase row is still upserted (the
+  upsert never blocks on a missing fulfillment address).
+- If the file is present but has no entry for the order id → same
+  fallback: warning + empty address fields.
+- If the file is present and has an entry → the script populates
+  `address1` + `zip` from the JSON and logs a one-line confirmation.
+
+The Vercel deploy never has `shipping_internal.json` in its build
+output, so production has no access to the full address. The
+storefront never reads the file — it only ever sees the public seed
+which strips address1 + zip per the live map privacy contract.
+
+**Hard rules:**
+
+- The full street address MUST live in `shipping_internal.json` only.
+  Never in `constants.ts`, never in an `INITIAL_ORDERS` row, never
+  in `PUBLIC_RECENT_ORDER_SEEDS`, never in a Supabase row that's
+  reachable by anon-key RLS.
+- `shipping_internal.example.json` is the only place a sample
+  address may appear (and only as `REDACTED` placeholders). Update
+  the template when you add a new offline-cash order, not the real
+  file (the real file is gitignored).
+- Do not commit `shipping_internal.json`. If you accidentally do,
+  treat the address as compromised: notify the buyer, move the
+  address, and rewrite the file under a new path.
+
+### Worked example: starrboii067 Grey Wave Wallet 1/2 sale
+
+Context: customer bought Coalition 'Grey Wave' Wallet 1/2 over FB DM with
+the handle `starrboii067`. To record this in the admin tool:
+
+1. Open `/admin` → **Customers** tab.
+2. Find the buyer by email (`customer@example.com`) or `wallet_address`.
+3. **Attribute Order to Facebook** panel: paste `orderId`, paste
+   `facebook.com/starrboii067` (URL form is normalized), add a note like
+   "Confirmed via DM 2026-07-02", click **Attribute order**.
+4. The order row now has `facebook_username = 'starrboii067'` and a
+   `[fb @<ts>] attributed to @starrboii067` line in `notes`.
+5. To thank the buyer, **Credit SGC Reward** panel: `50` SGC, reason
+   `"Starrboii067 — wallet bonus"`, click **Credit reward**. The customer's
+   `sg_coin_balance` jumps and a `customer_reward_credits` row is appended.

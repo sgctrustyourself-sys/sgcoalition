@@ -1,6 +1,14 @@
 import { Product, Section } from './types';
 import { PRODUCT_IMAGE_URLS } from './utils/localImageAssets';
 
+// Vite's import.meta.env is undefined when constants.ts is loaded by
+// tsx (seed scripts, future Node tests). The frontend (Vite) populates
+// it at build time; the script path needs the values to default to
+// safe fallbacks so the module evaluation doesn't throw.
+// Guard the read so the same module can be imported from both.
+const viteEnv: Record<string, string | undefined> =
+  ((import.meta as any)?.env) ?? {};
+
 const ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL = 'https://www.instagram.com/p/DaQpKS9EXT8/';
 const ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_LINKS: NonNullable<Product['makingVideoLinks']> = [
   {
@@ -278,6 +286,31 @@ export const INITIAL_PRODUCTS: Product[] = [
     sizeInventory: { '33': 0 }
   },
   {
+    id: 'Coalition_Denim_Patchwork_S1',
+    founderNote: `[PLACEHOLDER · Coalition_Denim_Patchwork_S1] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
+    name: 'Coalition Denim Patchwork 1/1 Jeans S1',
+    price: 140,
+    // The Instagram post (https://www.instagram.com/p/DCIqPY4Msk_/?img_index=1)
+    // is the canonical hero shot; the imgur album
+    // (https://imgur.com/a/6iKV2Tu) hosts the additional detail crops.
+    // If the storefront can't render the IG URL in an <img> tag, swap
+    // in the direct CDN equivalents when the operator has them.
+    images: [
+      'https://www.instagram.com/p/DCIqPY4Msk_/?img_index=1',
+      'https://imgur.com/a/6iKV2Tu',
+    ],
+    description: "One-of-one Coalition Denim Patchwork jeans. Hand-pieced from multiple denim panels, raw-hem finished, with the SG mark on the back pocket. Featuring X Meks. Size 30. Once it's gone, it's gone.",
+    category: 'jeans',
+    isFeatured: false,
+    isLimitedEdition: true,
+    archived: true,
+    archivedAt: '2024-11-08T15:00:00-05:00',
+    soldAt: '2024-11-08T15:00:00-05:00',
+    sizes: ['30'],
+    sizeInventory: { '30': 0 },
+    archiveNote: "This exact Denim Patchwork has sold. Hand-pieced from multiple denim panels in a single build — no two alike, no restocks."
+  },
+  {
     id: 'Coalition_Grey_Wave_Wallet_1_2',
     founderNote: `[PLACEHOLDER · Coalition_Grey_Wave_Wallet_1_2] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Grey Wave' Wallet 1/2",
@@ -314,8 +347,12 @@ export const INITIAL_PRODUCTS: Product[] = [
     category: 'wallet',
     freeShipping: true,
     isLimitedEdition: true,
+    archived: true,
+    archivedAt: '2026-07-02T10:00:00-04:00',
+    soldAt: '2026-07-02T10:00:00-04:00',
     sizes: ['One Size'],
-    sizeInventory: { 'One Size': 1 }
+    sizeInventory: { 'One Size': 0 },
+    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same storm-grey direction rebuilt for a future drop."
   },
   {
     id: 'Coalition_Above_As_Below_Wallet_1_1',
@@ -473,6 +510,52 @@ One size selection covers both pieces. Sized S through XL. Set price: $75.`,
     sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
   },
   {
+    id: 'prod_womens_coalition_halo_contrast_tee',
+    founderNote: `Women's bodycon raglan sleeve tee using the same gold Coalition halo chest logo as the Coalition Halo Mini Dress, with a TRUST YOURSELF hit on the back. The contrast stripes on the raglan sleeves are the defining visual feature of the blank, so the tee reads as a Coalition women's staple rather than a generic raglan.
+
+Standard live catalog release, not a numbered or limited drop. Keep the price at $40 unless the live product row is intentionally updated. Sized S through XL.`,
+    name: "WOMEN'S COALITION HALO CONTRAST TEE",
+    price: 40,
+    createdAt: '2026-07-03T00:00:00-04:00',
+    images: [
+      PRODUCT_IMAGE_URLS.womensHaloContrastTee.front,
+      PRODUCT_IMAGE_URLS.womensHaloContrastTee.back,
+      PRODUCT_IMAGE_URLS.womensHaloContrastTee.modelFront,
+      PRODUCT_IMAGE_URLS.womensHaloContrastTee.frontDetail,
+      PRODUCT_IMAGE_URLS.womensHaloContrastTee.backDetail
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.womensHaloContrastTee.front,
+      hoverUrl: PRODUCT_IMAGE_URLS.womensHaloContrastTee.back
+    },
+    description: "Women's Coalition Halo Contrast Tee in bodycon raglan sleeve cut with contrast sleeve stripes, the same gold Coalition halo chest logo as the Coalition Halo Mini Dress, and a TRUST YOURSELF hit on the back. $40, sized S-M-L-XL.",
+    category: 'shirt',
+    isFeatured: false,
+    isLimitedEdition: false,
+    freeShipping: true,
+    sizes: ['S', 'M', 'L', 'XL'],
+    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 },
+    specs: {
+      attributes: [
+        { label: 'Gender', value: 'Female' },
+        { label: 'Fit', value: 'Bodycon' },
+        { label: 'Style', value: 'Raglan Sleeve Tee' },
+      ],
+      care: [
+        'Machine wash cold on gentle cycle',
+        'Do not bleach',
+        'Tumble dry low',
+        'Iron inside-out on low heat, avoid ironing on print',
+      ],
+      material: {
+        composition: 'Cotton / spandex blend (bodycon stretch)',
+        fabricWeight: 'Mid-weight',
+        thickness: 'Semi-sheer at seams',
+        breathability: 'High',
+      },
+    },
+  },
+  {
     id: 'prod_halo_mini_dress',
     founderNote: `The Halo Mini Dress is a clean black bodycon silhouette with the Coalition halo mark placed high on the chest and the cross-backed Coalition hit sitting low on the back.
 
@@ -499,6 +582,30 @@ This is a standard live catalog release, not a numbered or limited drop. Keep th
     sizes: ['S', 'M', 'L', 'XL'],
     // Total 50 across all sizes.
     sizeInventory: { S: 12, M: 13, L: 13, XL: 12 },
+    specs: {
+      attributes: [
+        { label: 'Gender', value: 'Female' },
+        { label: 'Effects', value: 'Backless' },
+        { label: 'Fit', value: 'Bodycon' },
+        { label: 'Neckline', value: 'U-Neck' },
+        { label: 'Sleeve Length', value: 'Sleeveless' },
+        { label: 'Season', value: 'Spring / Summer' },
+        { label: 'Style', value: 'Basics / Casual / Sexy' },
+      ],
+      care: [
+        'Machine wash at 30°C (gentle cycle)',
+        'Do not bleach',
+        'Tumble dry low',
+        'Iron at low temperature, avoid ironing on print',
+        'Do not dry clean',
+      ],
+      material: {
+        composition: '92% rayon, 8% spandex',
+        fabricWeight: '260 gsm (7.7 oz)',
+        thickness: 'Thin',
+        breathability: 'Moderate',
+      },
+    },
   },
   {
     id: 'prod_hoodie_overwhelmingly_patient',
@@ -608,6 +715,43 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
       hoverUrl: null
     }
   },
+  // Halo Contrast Tee images + imageRoles + specs pinned here so
+  // applyLocalProductOverrides wins the AppContext merge against any future
+  // Supabase row that pre-dates these slots. Same defensive pattern the
+  // womens above-as-below products use for images/imageRoles, and the halo
+  // mini dress override uses for specs.
+  prod_womens_coalition_halo_contrast_tee: {
+    images: [
+      PRODUCT_IMAGE_URLS.womensHaloContrastTee.front,
+      PRODUCT_IMAGE_URLS.womensHaloContrastTee.back,
+      PRODUCT_IMAGE_URLS.womensHaloContrastTee.modelFront,
+      PRODUCT_IMAGE_URLS.womensHaloContrastTee.frontDetail,
+      PRODUCT_IMAGE_URLS.womensHaloContrastTee.backDetail
+    ],
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.womensHaloContrastTee.front,
+      hoverUrl: PRODUCT_IMAGE_URLS.womensHaloContrastTee.back
+    },
+    specs: {
+      attributes: [
+        { label: 'Gender', value: 'Female' },
+        { label: 'Fit', value: 'Bodycon' },
+        { label: 'Style', value: 'Raglan Sleeve Tee' },
+      ],
+      care: [
+        'Machine wash cold on gentle cycle',
+        'Do not bleach',
+        'Tumble dry low',
+        'Iron inside-out on low heat, avoid ironing on print',
+      ],
+      material: {
+        composition: 'Cotton / spandex blend (bodycon stretch)',
+        fabricWeight: 'Mid-weight',
+        thickness: 'Semi-sheer at seams',
+        breathability: 'High',
+      },
+    }
+  },
   prod_halo_mini_dress: {
     images: [
       PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
@@ -617,6 +761,33 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
       PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled,
       PRODUCT_IMAGE_URLS.haloMiniDress.modelBack
     ],
+    // Pinned here so applyLocalProductOverrides wins the merge — the live
+    // Supabase row predates the specs column and would clobber it with
+    // `undefined` via the `{...local, ...sp}` spread.
+    specs: {
+      attributes: [
+        { label: 'Gender', value: 'Female' },
+        { label: 'Effects', value: 'Backless' },
+        { label: 'Fit', value: 'Bodycon' },
+        { label: 'Neckline', value: 'U-Neck' },
+        { label: 'Sleeve Length', value: 'Sleeveless' },
+        { label: 'Season', value: 'Spring / Summer' },
+        { label: 'Style', value: 'Basics / Casual / Sexy' },
+      ],
+      care: [
+        'Machine wash at 30°C (gentle cycle)',
+        'Do not bleach',
+        'Tumble dry low',
+        'Iron at low temperature, avoid ironing on print',
+        'Do not dry clean',
+      ],
+      material: {
+        composition: '92% rayon, 8% spandex',
+        fabricWeight: '260 gsm (7.7 oz)',
+        thickness: 'Thin',
+        breathability: 'Moderate',
+      },
+    },
     // imageRoles is intentionally NOT in this override so the Supabase row's
     // imageRoles.{primaryUrl, hoverUrl, namedSlots} wins after the
     // AppContext fetchProducts merge. Halo image roles are operator-curated
@@ -652,6 +823,39 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
     sizeInventory: { 'One Size': 0 },
     makingVideoUrl: 'https://www.instagram.com/p/DZ3wBL_z0sd/',
     archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop."
+  },
+  // Mirrors the 1/2 override above. The live Supabase row for 2/2 still
+  // shows stock 1 because the sale was offline (York, PA). This override
+  // ensures applyLocalProductOverrides wins the AppContext merge so the
+  // storefront PDP renders "Sold Out" / archived regardless of the DB row.
+  // The buyer's identity is NOT stored anywhere in the codebase — the
+  // INITIAL_ORDERS row uses customerName: 'York Customer' and
+  // customerEmail: 'customer@example.com' per the privacy contract.
+  Coalition_Grey_Wave_Wallet_2_2: {
+    archived: true,
+    archivedAt: '2026-07-02T10:00:00-04:00',
+    soldAt: '2026-07-02T10:00:00-04:00',
+    sizes: ['One Size'],
+    sizeInventory: { 'One Size': 0 },
+    makingVideoUrl: 'https://www.instagram.com/p/DZ8z0t0Tfws/',
+    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same storm-grey direction rebuilt for a future drop."
+  },
+  // Mirrors the True Religion S1 + Grey Wave archive pattern. The live
+  // Supabase row may still show stock 1 because the sale was offline
+  // (Abingdon, MD) and was never pushed as a Supabase decrement. This
+  // override ensures applyLocalProductOverrides wins the AppContext
+  // merge so the storefront PDP renders "Sold Out" / archived
+  // regardless of the DB row. The buyer's identity is stamped on the
+  // matching INITIAL_ORDERS row (instagramUsername: 'friiqy') so the
+  // operator can join this sale to friiqy's customer profile without
+  // storing any PII in the product row itself.
+  Coalition_Denim_Patchwork_S1: {
+    archived: true,
+    archivedAt: '2024-11-08T15:00:00-05:00',
+    soldAt: '2024-11-08T15:00:00-05:00',
+    sizes: ['30'],
+    sizeInventory: { '30': 0 },
+    archiveNote: "This exact Denim Patchwork has sold. Hand-pieced from multiple denim panels in a single build \u2014 no two alike, no restocks."
   },
   SKYYBLUEWALLET1_2: {
     archived: true,
@@ -713,7 +917,7 @@ export const V2_REWARD_RATE = 0.25; // Legacy reference, can be deprecated or us
 // NO REFUNDS POLICY CONFIGURATION
 // =====================================
 
-export const SALES_FINAL_ENABLED = import.meta.env.VITE_SALES_FINAL === 'true';
+export const SALES_FINAL_ENABLED = viteEnv.VITE_SALES_FINAL === 'true';
 
 export const CONSENT_TEXT = "All sales are final. No returns, exchanges, or refunds will be accepted.";
 
@@ -731,8 +935,8 @@ If you have questions about a product before purchasing, please contact us at su
 // SGCOIN DISCOUNT CONFIGURATION
 // =====================================
 
-export const SGCOIN_DISCOUNT_ENABLED = import.meta.env.VITE_SGCOIN_DISCOUNT_ENABLED === 'true';
-export const SGCOIN_DISCOUNT_PERCENTAGE = parseFloat(import.meta.env.VITE_SGCOIN_DISCOUNT_PERCENTAGE || '10');
+export const SGCOIN_DISCOUNT_ENABLED = viteEnv.VITE_SGCOIN_DISCOUNT_ENABLED === 'true';
+export const SGCOIN_DISCOUNT_PERCENTAGE = parseFloat(viteEnv.VITE_SGCOIN_DISCOUNT_PERCENTAGE || '10');
 
 export const SGCOIN_PAYMENT_METHODS = ['sgcoin', 'gmoney'] as const;
 export type SGCoinPaymentMethod = typeof SGCOIN_PAYMENT_METHODS[number];
@@ -818,7 +1022,11 @@ export const ADMIN_WALLETS = [
 
 export const INITIAL_ORDERS: any[] = [
   {
-    id: 'order_grey_wave_wallet_2_2_york_pa_2026_07_02',
+    // MUST stay in lock-step with PUBLIC_RECENT_ORDER_SEEDS in
+    // utils/liveOrdersFeed.ts. buildLiveOrdersFeed dedupes by `id`,
+    // so any drift here causes duplicate rows in the live map feed.
+    // Documented in the 'Recently Ordered Live Map' section of README.md.
+    id: 'public-pa-grey-wave-wallet-2-2',
     orderNumber: 'ORD-SG-GREY-WAVE-2001',
     isGuest: true,
     customerName: 'York Customer',
@@ -854,7 +1062,10 @@ export const INITIAL_ORDERS: any[] = [
     paidAt: '2026-07-02T10:00:00-04:00'
   },
   {
-    id: 'order_grey_wave_wallet_1_2_york_pa_2026_06_25',
+    // MUST stay in lock-step with PUBLIC_RECENT_ORDER_SEEDS in
+    // utils/liveOrdersFeed.ts. See Grey Wave 2/2 note above for the
+    // dedup-by-id contract.
+    id: 'public-pa-grey-wave-wallet-1-2',
     orderNumber: 'ORD-SG-GREY-WAVE-2000',
     isGuest: true,
     customerName: 'York Customer',
@@ -888,6 +1099,374 @@ export const INITIAL_ORDERS: any[] = [
     },
     createdAt: '2026-06-25T10:00:00-04:00',
     paidAt: '2026-06-25T10:00:00-04:00'
+  },
+  {
+    // MUST stay in lock-step with PUBLIC_RECENT_ORDER_SEEDS in
+    // utils/liveOrdersFeed.ts. See Grey Wave 2/2 note above for the
+    // dedup-by-id contract. Coalition_x_True_Religion_S1 was sold in
+    // New York, NY on 2024-02-14 (~121 weeks before a July 2026
+    // viewer); PUBLIC_RECENT_ORDER_SEEDS uses minutesAgo = 121 * 7 * 24 * 60
+    // to match. The public Instagram post
+    // (https://www.instagram.com/p/C2v4MMxs9TX/) is dated 2024-01-30;
+    // the "SOLD ❌" comment lands ~2 weeks later. The $140 sale price
+    // reflects an offline-cash deal - the $240 catalog list is the
+    // listed value, not the actual transaction. This seed is the
+    // oldest public sale; it only surfaces when the viewer picks the
+    // "All time" chip because 121w is past every other time range.
+    // No shipped address is recorded - only city + state, matching
+    // the live map privacy contract.
+    id: 'public-ny-true-religion-s1',
+    orderNumber: 'ORD-SG-TRUE-RELIGION-S1-9001',
+    isGuest: true,
+    customerName: 'New York Customer',
+    customerEmail: 'customer@example.com',
+    items: [
+      {
+        productId: 'Coalition_x_True_Religion_S1',
+        productName: 'Coalition x True Religion 1/1 Jeans S1',
+        // Mirrors PRODUCT_IMAGE_URLS.trueReligionJeans.front1 so the
+        // Supabase merge for INITIAL_ORDERS keeps the same image the
+        // live seed uses and the storefront PDP shows on this row.
+        productImage: 'https://i.imgur.com/2VU7MEr.jpg',
+        selectedSize: '33',
+        quantity: 1,
+        price: 140,
+        total: 140
+      }
+    ],
+    subtotal: 140,
+    tax: 0,
+    discount: 0,
+    total: 140,
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    orderType: 'manual',
+    shippingAddress: {
+      address1: '',
+      city: 'New York',
+      state: 'NY',
+      zip: '',
+      country: 'US',
+      shippingMethod: 'standard',
+      shippingCost: 0
+    },
+    createdAt: '2024-02-14T15:00:00-05:00',
+    paidAt: '2024-02-14T15:00:00-05:00',
+    // Friiqy is the buyer of this offline-cash deal. The same
+    // @friiqy Instagram account also bought the wholesale wallets
+    // row below (public-md-wholesale-wallets-2026_05_22). Stamped
+    // here so the operator can join the two offline sales to the
+    // same buyer when reconciling the marketing contacts list.
+    instagramUsername: 'friiqy'
+  },
+  {
+    // MUST stay in lock-step with PUBLIC_RECENT_ORDER_SEEDS in
+    // utils/liveOrdersFeed.ts. See Grey Wave 2/2 note at the top of
+    // INITIAL_ORDERS for the dedup-by-id contract. The 'Trust Yourself'
+    // hat (`prod_trust_yourself_hat_01`) sold in Owings Mills, MD on
+    // 2026-04-09; PUBLIC_RECENT_ORDER_SEEDS places this sale ~84 days
+    // before "now", so it only surfaces when the viewer picks the 90d
+    // window. Like the TrueReligion NY row above, no shipped address
+    // is recorded - only city + state, matching the live map privacy
+    // contract documented in pages/LiveOrdersMap.tsx.
+    id: 'public-md-trust-yourself-hat-01',
+    orderNumber: 'ORD-SG-TRUST-HAT-9002',
+    isGuest: true,
+    customerName: 'Owings Mills Customer',
+    customerEmail: 'customer@example.com',
+    items: [
+      {
+        productId: 'prod_trust_yourself_hat_01',
+        productName: 'TRUST YOURSELF CUSTOM TRUCKER (1/1)',
+        // Mirrors PRODUCT_IMAGE_URLS.trustYourselfHat.cover so the
+        // storefront PDP + live map share the same canonical hat image.
+        productImage: 'https://i.imgur.com/iYBlwm8.png',
+        selectedSize: 'One Size',
+        quantity: 1,
+        price: 50,
+        total: 50
+      }
+    ],
+    subtotal: 50,
+    tax: 0,
+    discount: 0,
+    total: 50,
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    orderType: 'manual',
+    shippingAddress: {
+      address1: '',
+      city: 'Owings Mills',
+      state: 'MD',
+      zip: '',
+      country: 'US',
+      shippingMethod: 'standard',
+      shippingCost: 0
+    },
+    createdAt: '2026-04-09T15:00:00-04:00',
+    paidAt: '2026-04-09T15:00:00-04:00'
+  },
+  {
+    // MUST stay in lock-step with PUBLIC_RECENT_ORDER_SEEDS in
+    // utils/liveOrdersFeed.ts. See Grey Wave 2/2 note at the top
+    // of INITIAL_ORDERS for the dedup-by-id contract. The friiqy
+    // wholesale: 7 archived wallets (GreenCamoWallet,
+    // SKYYBLUEWALLET1_2, prod_wallet_004, Coalition Racing Team
+    // 1/4 through 4/4) sold to @friiqy on Instagram in a single
+    // offline cash deal at $25/wallet = $175 total, shipped to
+    // Abingdon, MD. The buyer is the same @friiqy who bought the
+    // True Religion S1 jeans (see public-ny-true-religion-s1
+    // above); instagramUsername on both rows lets the operator
+    // join the two offline sales to the same person when
+    // reconciling the marketing contacts list.
+    //
+    // The full street address lives in shipping_internal.json at the
+    // repo root (gitignored, admin-only) and is loaded at runtime by
+    // scripts/upsertFriiqyWholesale.ts when this row is mirrored to
+    // Supabase. This INITIAL_ORDERS row keeps address1 + zip as
+    // empty strings to match the privacy contract default — the live
+    // map only ever sees city + state via PUBLIC_RECENT_ORDER_SEED,
+    // which also strips address1 + zip. PUBLIC_RECENT_ORDER_SEEDS
+    // uses minutesAgo = 58,284 (~40d 11h) to mirror the createdAt
+    // timestamp below; the sale surfaces in the 90d and all-time
+    // windows only (it's past the 30d cutoff).
+    //
+    // The wholesale is split into 7 separate OrderItems (one per
+    // wallet) rather than a single quantity-7 line so the order
+    // detail page shows every wallet in the bundle, the storefront
+    // PDP / Order History pages keep their per-product rendering,
+    // and the live map ticker can show the first wallet + "6 more
+    // items" copy via the existing buildLiveOrdersFeed "+ N more"
+    // helper.
+    //
+    // OPEN FOLLOW-UPS:
+    // 1. Supabase sync - DONE 2026-07-04 (pending the operator
+    //    running `npm run seed:friiqy-wholesale`). The matching
+    //    Supabase row is upserted by the script
+    //    (scripts/upsertFriiqyWholesale.ts), which imports this
+    //    INITIAL_ORDERS row as the single source of truth so the
+    //    script can never drift from the canonical local-fallback
+    //    data. The script requires the
+    //    20260704_add_instagram_username_to_orders.sql migration
+    //    to be applied first; it points at the migration file if
+    //    the column is missing.
+    // 2. Verified-customer filter - DONE 2026-07-04 (pending
+    //    `npm run seed:verified-customers`). The dedicated
+    //    script (scripts/seedVerifiedCustomers.ts) registers
+    //    friiqy in marketing_contacts with
+    //    source='past_customer', status='active', no email, no
+    //    phone, and metadata.instagram_username='friiqy'. The
+    //    test-campaign guard in api/_handlers/marketing-send.ts
+    //    keys on marketing_contacts.source in
+    //    {manual_seed, past_customer}, so friiqy is now
+    //    automatically excluded from any campaign whose name
+    //    contains "test" (case-insensitive). For non-test
+    //    campaigns, the email send loop bails out on null
+    //    recipients, so friiqy is never actually emailed.
+    // 3. Address privacy - DONE 2026-07-04. The full street
+    //    address was moved out of the git-tracked codebase into
+    //    shipping_internal.json at the repo root (gitignored,
+    //    admin-only). The template at
+    //    shipping_internal.example.json is committed so the
+    //    schema is documented; the real shipping_internal.json
+    //    holds the actual address and is loaded at runtime by
+    //    scripts/upsertFriiqyWholesale.ts when this row is
+    //    mirrored to Supabase. The Vercel deploy never has the
+    //    file in its build output, so production has no access to
+    //    the full address. Local dev / seed scripts need to copy
+    //    the example file to the real path to populate the
+    //    address; the seed script falls back to empty strings
+    //    (privacy contract default) if the file is missing, so a
+    //    missing entry never blocks the upsert.
+    id: 'public-md-wholesale-wallets-2026_05_22',
+    orderNumber: 'ORD-SG-WHOLESALE-1002',
+    isGuest: true,
+    customerName: 'Abingdon Customer',
+    customerEmail: 'customer@example.com',
+    items: [
+      {
+        productId: 'GreenCamoWallet',
+        productName: 'COALITION GREEN CAMO WALLET',
+        // Mirrors PRODUCT_IMAGE_URLS.walletGreen.front from
+        // utils/localImageAssets.ts so the storefront PDP + live
+        // map share one canonical GreenCamoWallet cover.
+        productImage: 'https://i.imgur.com/kzIWQzA.jpg',
+        selectedSize: 'One Size',
+        quantity: 1,
+        price: 25,
+        total: 25
+      },
+      {
+        productId: 'SKYYBLUEWALLET1_2',
+        productName: 'COALITION SKYY BLUE WALLET 1/2',
+        // Mirrors PRODUCT_IMAGE_URLS.walletSkyyBlue.front so the
+        // storefront PDP + live map share one canonical Skyy Blue
+        // 1/2 cover.
+        productImage: 'https://i.imgur.com/rJSCmHu.jpg',
+        selectedSize: 'One Size',
+        quantity: 1,
+        price: 25,
+        total: 25
+      },
+      {
+        productId: 'prod_wallet_004',
+        productName: 'COALITION SKYY BLUE WALLET 2/2',
+        // Mirrors PRODUCT_IMAGE_URLS.walletSkyyBlueArchive.front
+        // (the archived Skyy Blue 2/2 cover) so the storefront
+        // PDP + live map share one canonical Skyy Blue 2/2 cover.
+        productImage: 'https://i.imgur.com/Z5K3JZ0.png',
+        selectedSize: 'One Size',
+        quantity: 1,
+        price: 25,
+        total: 25
+      },
+      {
+        productId: 'Coalition_Racing_Team_Wallet_1_4',
+        productName: "Coalition 'Racing Team' Wallet 1/4",
+        productImage: 'https://i.imgur.com/3UUmYQa.jpg',
+        selectedSize: 'One Size',
+        quantity: 1,
+        price: 25,
+        total: 25
+      },
+      {
+        productId: 'Coalition_Racing_Team_Wallet_2_4',
+        productName: "Coalition 'Racing Team' Wallet 2/4",
+        productImage: 'https://i.imgur.com/IRhVbhN.jpg',
+        selectedSize: 'One Size',
+        quantity: 1,
+        price: 25,
+        total: 25
+      },
+      {
+        productId: 'Coalition_Racing_Team_Wallet_3_4',
+        productName: "Coalition 'Racing Team' Wallet 3/4",
+        productImage: 'https://i.imgur.com/dcw5qLQ.jpg',
+        selectedSize: 'One Size',
+        quantity: 1,
+        price: 25,
+        total: 25
+      },
+      {
+        productId: 'Coalition_Racing_Team_Wallet_4_4',
+        productName: "Coalition 'Racing Team' Wallet 4/4",
+        productImage: 'https://i.imgur.com/EylCpDU.jpg',
+        selectedSize: 'One Size',
+        quantity: 1,
+        price: 25,
+        total: 25
+      }
+    ],
+    subtotal: 175,
+    tax: 0,
+    discount: 0,
+    total: 175,
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    orderType: 'manual',
+    shippingAddress: {
+      // address1 + zip live in shipping_internal.json at the repo
+      // root (gitignored, admin-only). The seed script
+      // scripts/upsertFriiqyWholesale.ts reads that file at runtime
+      // and populates these fields when mirroring this row to
+      // Supabase. Kept as empty strings here so the codebase never
+      // carries the full street address. City + state are safe to
+      // commit — they're what the live map surfaces.
+      address1: '',
+      city: 'Abingdon',
+      state: 'MD',
+      zip: '',
+      country: 'US',
+      shippingMethod: 'standard',
+      shippingCost: 0
+    },
+    createdAt: '2026-05-22T22:48:11-04:00',
+    paidAt: '2026-05-22T22:48:11-04:00',
+    // Same buyer as the public-ny-true-religion-s1 row above.
+    // Stamped here so the operator can reconcile both friiqy
+    // sales (True Religion S1 + wholesale wallets) to the same
+    // Instagram account when building the marketing contacts
+    // list.
+    instagramUsername: 'friiqy'
+  },
+  {
+    // MUST stay in lock-step with PUBLIC_RECENT_ORDER_SEEDS in
+    // utils/liveOrdersFeed.ts. See Grey Wave 2/2 note at the top
+    // of INITIAL_ORDERS for the dedup-by-id contract. The friiqy
+    // denim patchwork sale: 1/1 Coalition Denim Patchwork jeans
+    // (Coalition_Denim_Patchwork_S1) sold to @friiqy on Instagram
+    // on 2024-11-08 (the date of the canonical Instagram post
+    // https://www.instagram.com/p/DCIqPY4Msk_/?img_index=1) for
+    // $140, shipped to Abingdon, MD. This is friiqy's third known
+    // offline-cash sale to Coalition (alongside the True Religion
+    // S1 jeans on 2024-02-14 and the 7-wallet wholesale on
+    // 2026-05-22). instagramUsername is stamped so the operator
+    // can join all three sales to the same Instagram account when
+    // reconciling the marketing contacts list.
+    //
+    // The full street address lives in shipping_internal.json at
+    // the repo root (gitignored, admin-only) and is loaded at
+    // runtime by scripts/upsertFriiqyDenimPatchwork.ts when
+    // mirroring this row to the production Supabase orders table.
+    // This INITIAL_ORDERS row keeps address1 + zip as empty
+    // strings to match the privacy contract default; the live map
+    // only ever sees city + state via PUBLIC_RECENT_ORDER_SEED,
+    // which also strips address1 + zip. PUBLIC_RECENT_ORDER_SEEDS
+    // uses minutesAgo = 601 * 24 * 60 to mirror the createdAt
+    // timestamp below; the sale surfaces in the "all" window only
+    // (~601 days back is well past every other time range).
+    id: 'public-md-denim-patchwork-2024_11_08',
+    orderNumber: 'ORD-SG-DENIM-PATCH-S1-9003',
+    isGuest: true,
+    customerName: 'Abingdon Customer',
+    customerEmail: 'customer@example.com',
+    items: [
+      {
+        productId: 'Coalition_Denim_Patchwork_S1',
+        productName: 'Coalition Denim Patchwork 1/1 Jeans S1',
+        // Mirrors the product row's primary image
+        // (constants.ts > INITIAL_PRODUCTS > Coalition_Denim_Patchwork_S1)
+        // so the storefront PDP + live map share one canonical
+        // denim-patchwork cover.
+        productImage: 'https://www.instagram.com/p/DCIqPY4Msk_/?img_index=1',
+        selectedSize: '30',
+        quantity: 1,
+        price: 140,
+        total: 140
+      }
+    ],
+    subtotal: 140,
+    tax: 0,
+    discount: 0,
+    total: 140,
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    orderType: 'manual',
+    shippingAddress: {
+      // address1 + zip live in shipping_internal.json at the repo
+      // root (gitignored, admin-only). The seed script
+      // scripts/upsertFriiqyDenimPatchwork.ts reads that file at
+      // runtime and populates these fields when mirroring this row
+      // to Supabase. Kept as empty strings here so the codebase
+      // never carries the full street address. City + state are
+      // safe to commit - they're what the live map surfaces.
+      address1: '',
+      city: 'Abingdon',
+      state: 'MD',
+      zip: '',
+      country: 'US',
+      shippingMethod: 'standard',
+      shippingCost: 0
+    },
+    createdAt: '2024-11-08T15:00:00-05:00',
+    paidAt: '2024-11-08T15:00:00-05:00',
+    // Same buyer as the public-ny-true-religion-s1 row AND the
+    // public-md-wholesale-wallets-2026_05_22 row above. Stamped
+    // here so the operator can reconcile all three friiqy sales
+    // (True Religion S1 + wholesale wallets + denim patchwork) to
+    // the same Instagram account when building the marketing
+    // contacts list.
+    instagramUsername: 'friiqy'
   }
 ];
 

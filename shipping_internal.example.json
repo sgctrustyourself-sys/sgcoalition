@@ -1,0 +1,12 @@
+{
+  "_comment": "Template for shipping_internal.json. The real file shipping_internal.json is gitignored (see .gitignore > 'Admin-only shipping data') and never committed. The seed scripts scripts/upsertFriiqyWholesale.ts and scripts/upsertFriiqyDenimPatchwork.ts read shipping_internal.json at runtime to populate the address1 + zip fields for offline-cash orders whose full street address is not safe to commit to the codebase. Schema: keys are INITIAL_ORDERS > id values; values are { address1: string, zip: string }. The placeholder values below are obviously fake - replace them with the real address for each order id when you copy this file to shipping_internal.json. The seed script falls back to empty strings (the privacy contract default) if the file is missing or has no entry for the order id, so a missing entry never blocks the upsert. To set up locally: cp shipping_internal.example.json shipping_internal.json, then fill in the real address for each order id.",
+
+  "public-md-wholesale-wallets-2026_05_22": {
+    "address1": "REDACTED — see shipping_internal.json for the real address",
+    "zip": "REDACTED"
+  },
+  "public-md-denim-patchwork-2024_11_08": {
+    "address1": "REDACTED — see shipping_internal.json for the real address",
+    "zip": "REDACTED"
+  }
+}

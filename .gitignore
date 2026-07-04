@@ -42,3 +42,10 @@ yarn-error.log*
 
 # Vercel
 .vercel
+
+# Admin-only shipping data (private fulfillment addresses for offline-cash
+# orders). The template at shipping_internal.example.json IS committed so
+# the schema is documented; the real file shipping_internal.json is
+# operator-only and must never be committed.
+# scripts/upsertFriiqyWholesale.ts reads it at runtime.
+shipping_internal.json
