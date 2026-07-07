@@ -149,4 +149,57 @@ describe('/api/credit-customer-reward handler', () => {
 
         expect(res.statusCode).toBe(200);
     });
+
+    // Batch B deferred-fix verification (flag (b), negative path #1):
+    // audit-first contract requires that if the customer_reward_credits
+    // audit insert fails, the profile update MUST NOT be attempted. A
+    // future refactor that swapped the two steps would silently bump
+    // balances without an audit row -- the test locks the order.
+    it('returns 500 when the audit insert fails; profile update is NEVER attempted', async () => {
+        mockFromChain.single.mockResolvedValueOnce({ data: { id: 'profile-3', sg_coin_balance: 100 }, error: null });
+        mockFromChain.single.mockResolvedValueOnce({ data: null, error: { message: 'audit insert failed' } });
+
+        const res = makeRes();
+        await handler(
+            makeReq({ profileId: 'profile-3', amountSgc: 50, reason: 'audit-step failure scenario' }),
+            res as any
+        );
+
+        expect(res.statusCode).toBe(500);
+        expect(res.body.error).toMatch(/customer_reward_credits audit row/);
+        expect(mockFromChain.update).not.toHaveBeenCalled();
+    });
+
+    // Batch B deferred-fix verification (flag (b), negative path #2):
+    // partial-write surface. Audit row was committed (step 3) BEFORE the
+    // profile update (step 4), so if step 4 fails the audit row is the
+    // source of truth for reconciliation. The handler surfaces this in
+    // the operator-readable 500 message so a manual reconcile can recover.
+    // The test asserts (a) the partial-write message is returned, (b) the
+    // update WAS called (so a future swap would NOT silently succeed),
+    // and (c) invocation order stays insert < update.
+    it('returns 500 with partial-write message when the balance update fails AFTER audit row was written', async () => {
+        mockFromChain.single.mockResolvedValueOnce({ data: { id: 'profile-4', sg_coin_balance: 100 }, error: null });
+        mockFromChain.single.mockResolvedValueOnce({ data: { id: 'credit-row-2', created_at: '2026-07-02T15:00:00Z' }, error: null });
+        mockFromChain.update.mockReturnValueOnce({
+            error: { message: 'balance update failed' },
+            eq: () => ({ error: { message: 'balance update failed' } }),
+        });
+
+        const res = makeRes();
+        await handler(
+            makeReq({ profileId: 'profile-4', amountSgc: 50, reason: 'partial-write scenario' }),
+            res as any
+        );
+
+        expect(res.statusCode).toBe(500);
+        expect(res.body.error).toMatch(/Audit row written but balance update failed/);
+        // The update WAS called (it just returned an error). The audit-first
+        // contract is satisfied because the audit row precedes the update
+        // attempt -- not because the update is skipped on failure.
+        expect(mockFromChain.update).toHaveBeenCalledTimes(1);
+        const insertOrder = mockFromChain.insert.mock.invocationCallOrder[0];
+        const updateOrder = mockFromChain.update.mock.invocationCallOrder[0];
+        expect(insertOrder).toBeLessThan(updateOrder);
+    });
 });

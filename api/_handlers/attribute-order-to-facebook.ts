@@ -64,11 +64,15 @@ async function attributeOrderToFacebook(req: ApiRequest): Promise<AttributeOrder
         throw createHttpError(400, 'facebookUsername must be a valid Facebook handle (letters, digits, dots, underscores)');
     }
 
-    // 1. Fetch the existing row so we can append the note without clobbering
-    //    any operator-recorded notes that already live there.
+    // 1. Fetch the existing row INCLUDING its current facebook_username so
+    //    we can detect no-op re-runs (same handle) and avoid appending
+    //    duplicate [fb @<ts>] stamp lines. The orders.updated_at bump is
+    //    harmless but the notes audit trail must NOT show duplicate
+    //    stamps for the same attribution -- this is the audit-duplication
+    //    risk the Batch B code-reviewer flagged (deferred from 8ac4d7b).
     const { data: existing, error: fetchError } = await supabaseAdmin
         .from('orders')
-        .select('id, notes')
+        .select('id, notes, facebook_username')
         .eq('id', orderId)
         .single();
 
@@ -77,6 +81,23 @@ async function attributeOrderToFacebook(req: ApiRequest): Promise<AttributeOrder
     }
 
     const existingNotes = String((existing as { notes?: string | null }).notes || '');
+    const existingHandle = String(
+        (existing as { facebook_username?: string | null }).facebook_username || ''
+    );
+    // Idempotency guard (Batch B deferred-fix, flag (a)): a re-run with the
+    // same handle is a no-op -- return success WITHOUT appending a duplicate
+    // [fb @<ts>] stamp line. The header docstring already promises this;
+    // this branch enforces the promise. A DIFFERENT handle falls through
+    // here and overwrites facebook_username + appends a new stamp (per the
+    // docstring's override intent -- a single order can only be attributed
+    // to one person in the campaign log).
+    if (existingHandle === username) {
+        return {
+            success: true,
+            orderId,
+            facebookUsername: username,
+        };
+    }
     const stampedAt = new Date().toISOString();
     const stampLine = `[fb @${stampedAt}] attributed to @${username}`;
     const mergedNotes = note

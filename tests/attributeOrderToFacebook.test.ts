@@ -129,4 +129,69 @@ describe('/api/attribute-order-to-facebook handler', () => {
 
         expect(res.statusCode).toBe(405);
     });
+
+    // Batch B deferred-fix verification (flag (a)): idempotency under
+    // re-runs. A re-run with the SAME handle must NOT append a duplicate
+    // [fb @<ts>] stamp line and must NOT call update() at all. Without
+    // this guard the handler would accumulate stale stamps on every
+    // operator re-click, silently corrupting the audit view.
+    it('is idempotent under re-runs: same handle produces no second [fb @<ts>] stamp', async () => {
+        const previousStamp = '[fb @2026-07-02T15:00:00Z] attributed to @starrboii067\nfirst-time note';
+        mockFromChain.single.mockResolvedValueOnce({
+            data: {
+                id: 'order-x',
+                notes: previousStamp,
+                facebook_username: 'starrboii067',
+            },
+            error: null,
+        });
+
+        const res = makeRes();
+        await handler(
+            makeReq({ orderId: 'order-x', facebookUsername: '@starrboii067' }),
+            res as any
+        );
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toMatchObject({
+            success: true,
+            orderId: 'order-x',
+            facebookUsername: 'starrboii067',
+        });
+        // CRITICAL invariant: under the idempotency branch the update() path
+        // is never reached, so no second stamp line ever lands in orders.notes.
+        expect(mockFromChain.update).not.toHaveBeenCalled();
+    });
+
+    // Batch B deferred-fix verification (flag (a), override surface): a
+    // re-run with a DIFFERENT handle still appends a new stamp line +
+    // overwrites facebook_username (per the header docstring's override
+    // intent). Without this branch the idempotency check could swallow
+    // legitimate handle corrections.
+    it('overrides + re-stamps when a different handle is submitted', async () => {
+        mockFromChain.single.mockResolvedValueOnce({
+            data: {
+                id: 'order-y',
+                notes: 'pre-existing operator NOTE',
+                facebook_username: 'starrboii067',
+            },
+            error: null,
+        });
+        mockFromChain.update.mockReturnValueOnce({ error: null, eq: () => ({ error: null }) });
+
+        const res = makeRes();
+        await handler(
+            makeReq({ orderId: 'order-y', facebookUsername: 'facebook.com/someone_else' }),
+            res as any
+        );
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toMatchObject({ success: true, facebookUsername: 'someone_else' });
+        expect(mockFromChain.update).toHaveBeenCalledTimes(1);
+        const updateArg = mockFromChain.update.mock.calls[0][0] as Record<string, unknown>;
+        expect(updateArg.facebook_username).toBe('someone_else');
+        const mergedNotes = String(updateArg.notes || '');
+        expect(mergedNotes).toMatch(/pre-existing operator NOTE/);
+        expect(mergedNotes).toMatch(/someone_else/);
+    });
 });
