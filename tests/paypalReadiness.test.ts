@@ -221,6 +221,7 @@ describe('PayPal LIVE readiness contract', () => {
         });
     });
 
+    // Locked test: 'sends referenceId + expectedTotal in the createOrder payload (dedupe key + tamper guard)' -- chain: file > describe('Checkout createOrder contract') > it(...); reverse pinned in pages/Checkout.tsx LOCK ('Locked by tests/paypalReadiness.test.ts.').
     describe('Checkout createOrder contract', () => {
         it('sends referenceId + expectedTotal in the createOrder payload (dedupe key + tamper guard)', () => {
             // The unique index on orders.paypal_order_id is what stops a double-write when
