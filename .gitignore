@@ -17,6 +17,23 @@ docs/story-reveal/
 docs/grid-reveal/
 docs/x-reveal/
 
+# Housekeeping: dev-time scratch artifacts that should never enter version
+# control. The originals were hard-deleted from the working tree (Batch
+# Housekeeping commit) -- these rules prevent future reintroduction. If
+# a future operator wants to regenerate one of these (e.g. for a one-off
+# debug pass), reproduce locally rather than committing the artifact
+# back. Explicit dotfile variants are listed alongside the standard
+# `*` glob patterns as defense-in-depth against any future gitignore
+# behavior change re: hidden files.
+_patches/
+/nul
+scripts/*.log
+scripts/*.migrate-output.log
+scripts/*.vitest-catalog.out
+scripts/.catalog-baseline.log
+scripts/.migrate-output.log
+scripts/.vitest-catalog.out
+
 # Misc
 .DS_Store
 .env.local
