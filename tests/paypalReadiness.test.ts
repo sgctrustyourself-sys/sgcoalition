@@ -237,8 +237,7 @@ describe('PayPal LIVE readiness contract', () => {
             expect(hook?.[0]).toMatch(/expectedTotal\s*:/);
             // Pin exact LHS->RHS pairs so a future loosen-up can't pass a stale value.
             expect(hook?.[0]).toMatch(/shipping\s*:\s*shippingCost/);
-            // `discountEffective` is the NO-STACK winner of resolveEffectiveDiscount();
-            // see pages/Checkout.tsx around the createOrder hook for the full reason.
+            // `discountEffective` is the NO-STACK winner. See pages/Checkout.tsx for the exact Shark Tee math.
             // \b boundaries lock the identifiers so a future `discountEffective2` or
             // `cartBonusDollarsFoo` sibling does not silently satisfy this regex.
             expect(hook?.[0]).toMatch(/discount\s*:\s*\bcartBonusDollars\b\s*\+\s*\bdiscountEffective\b/);

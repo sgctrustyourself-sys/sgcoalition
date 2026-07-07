@@ -993,7 +993,10 @@ const Checkout: React.FC = () => {
                                                                         description: `Coalition ${paypalOrderSeed.orderNumber} - ${cart.length} item(s)`,
                                                                         expectedTotal: finalTotal,
                                                                         shipping: shippingCost,
-                                                                        // LOCK: this is `discountEffective` (the no-stack winner of resolveEffectiveDiscount(productDiscountSum, promoDiscount)), NOT raw `promoDiscount`. PayPal re-derives the figure server-side; do not "fix" back to `promoDiscount`. Locked by tests/paypalReadiness.test.ts > `sends referenceId + expectedTotal in the createOrder payload (dedupe key + tamper guard)`.
+                                                                        // LOCK: emit `discountEffective` (the no-stack winner), NOT raw `promoDiscount`.
+                                                                        // If the product discount wins the no-stack match (e.g. Shark Tee at $40 x 50% = $20 off when no competing coupon is applied),
+                                                                        // promoDiscount alone would understate the line and PayPal would fail the server-side
+                                                                        // total mismatch re-check. Locked by tests/paypalReadiness.test.ts.
                                                                         discount: cartBonusDollars + discountEffective,
                                                                         couponCode: appliedCoupon,
                                                                         items: cart.map(item => ({
