@@ -1,0 +1,129 @@
+// /api/attribute-order-to-facebook
+// Admin-only: stamp orders.facebook_username onto an existing order row. The
+// maintainer supplies the FB handle (the URL starrboii067 resolves to the
+// username "starrboii067") and optionally a free-text note that gets appended
+// to orders.notes.
+//
+// Idempotency: re-stamping the same order with the same username is a no-op
+// for the actual data; the orders.updated_at bump is fine. If you stamp a
+// DIFFERENT username on top of an existing one, the row's facebook_username
+// overwrites — this is intentional (a single order can only be attributed to
+// one person in the campaign log).
+
+import { createClient } from '@supabase/supabase-js';
+import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, setCorsHeaders, type HttpError } from '../_helpers';
+import type {
+    ApiRequest,
+    ApiResponse,
+    AttributeOrderToFacebookBody,
+    AttributeOrderToFacebookResponse,
+    SupabaseClient,
+} from '../_types';
+
+const supabaseAdmin: SupabaseClient = createClient(
+    process.env.VITE_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+);
+
+// Strip the protocol + domain so the operator can paste either
+// 'facebook.com/starrboii067' or '@starrboii067' or just 'starrboii067' and
+// we still write the canonical 'starrboii067' row.
+function normalizeFacebookUsername(raw: string): string {
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+    let cleaned = trimmed;
+    cleaned = cleaned.replace(/^https?:\/\/(www\.)?facebook\.com\//i, '');
+    cleaned = cleaned.replace(/^facebook\.com\//i, '');
+    cleaned = cleaned.replace(/^@/, '');
+    // Drop trailing slashes/paths so 'profile.php?id=...' reduces cleanly if it ever comes up.
+    cleaned = cleaned.split('?')[0].replace(/\/$/, '');
+    return cleaned;
+}
+
+async function attributeOrderToFacebook(req: ApiRequest): Promise<AttributeOrderToFacebookResponse> {
+    const rawBody = parseBody(req);
+    const body = rawBody as AttributeOrderToFacebookBody;
+
+    const orderId = String(body.orderId || '').trim();
+    const rawUsername = String(body.facebookUsername || '').trim();
+    const note = body.note ? String(body.note).trim() : '';
+
+    if (!orderId) {
+        throw createHttpError(400, 'orderId is required');
+    }
+    if (!rawUsername) {
+        throw createHttpError(400, 'facebookUsername is required');
+    }
+
+    const username = normalizeFacebookUsername(rawUsername);
+    if (!username) {
+        throw createHttpError(400, 'facebookUsername must contain a non-empty handle');
+    }
+    // Match lowercase letters/digits/dots/underscores — Facebook handle rules.
+    if (!/^[a-z0-9._]{1,50}$/i.test(username)) {
+        throw createHttpError(400, 'facebookUsername must be a valid Facebook handle (letters, digits, dots, underscores)');
+    }
+
+    // 1. Fetch the existing row so we can append the note without clobbering
+    //    any operator-recorded notes that already live there.
+    const { data: existing, error: fetchError } = await supabaseAdmin
+        .from('orders')
+        .select('id, notes')
+        .eq('id', orderId)
+        .single();
+
+    if (fetchError || !existing) {
+        throw createHttpError(404, 'Order not found');
+    }
+
+    const existingNotes = String((existing as { notes?: string | null }).notes || '');
+    const stampedAt = new Date().toISOString();
+    const stampLine = `[fb @${stampedAt}] attributed to @${username}`;
+    const mergedNotes = note
+        ? `${existingNotes ? existingNotes + '\n' : ''}${stampLine}\n${note}`
+        : `${existingNotes ? existingNotes + '\n' : ''}${stampLine}`;
+
+    // 2. Update facebook_username + append to notes. We do NOT bump the row's
+    //    paidAt or paymentStatus — attribution is purely metadata.
+    const updateResult = await supabaseAdmin
+        .from('orders')
+        .update({
+            facebook_username: username,
+            notes: mergedNotes,
+        })
+        .eq('id', orderId);
+
+    if (updateResult.error) {
+        throw createHttpError(500, 'Failed to attribute order to Facebook');
+    }
+
+    return {
+        success: true,
+        orderId,
+        facebookUsername: username,
+    };
+}
+
+export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
+    setCorsHeaders(req, res, { methods: 'POST,OPTIONS', allowedHeaders: EXTENDED_CORS_HEADERS });
+
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
+    if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+
+    try {
+        res.status(200).json(await attributeOrderToFacebook(req));
+    } catch (error: unknown) {
+        const httpError = error as HttpError | null;
+        const message = (error as { message?: string } | null)?.message;
+        const status = Number(httpError?.status || 500);
+        console.error('Attribute-order-to-facebook error:', error);
+        res.status(status).json({ error: message || 'Attribution failed' });
+    }
+}

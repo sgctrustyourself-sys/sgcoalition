@@ -1,9 +1,20 @@
 // /api/marketing-send
 // Admin-only POST: dispatch a campaign through Resend (email) + Twilio (SMS).
 // Writes marketing_campaigns + per-recipient marketing_sends rows.
+//
+// 2026-07-02 — verified-customer guard: campaigns whose NAME contains
+// "test" (case-insensitive) automatically drop every contact whose
+// `source` is in ['manual_seed', 'past_customer']. Form leads
+// (sms_signup, drop_list, sms_signup_email, marketing_contacts) still
+// receive test campaigns so devs can verify Resend + Twilio wiring
+// without paying the real-customer trust cost. No override. The
+// `excluded_verified_customers` count lands on the campaign's stats
+// column so the filter is auditable per send. Helpers and the policy
+// rationale live in ../../utils/marketingAudience.
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { setCorsHeaders } from '../_helpers';
+import { filterVerifiedCustomers, isTestCampaignName } from '../../utils/marketingAudience';
 import type { ApiRequest, ApiResponse, MarketingAudienceRow, MarketingChannel, ResendEmailPayload } from '../_types';
 
 let cachedAdminClient: SupabaseClient | null = null;
@@ -34,7 +45,8 @@ function isAdminAuthorized(authHeader: string | undefined): boolean {
 async function fetchAudience(
     admin: SupabaseClient,
     channel: MarketingChannel,
-): Promise<MarketingAudienceRow[]> {
+    options: { excludeVerified?: boolean } = {},
+): Promise<{ rows: MarketingAudienceRow[]; excludedVerifiedCustomers: number }> {
     const rows = new Map<string, MarketingAudienceRow>();
 
     if (channel === 'email' || channel === 'both') {
@@ -82,7 +94,15 @@ async function fetchAudience(
         }
     }
 
-    return Array.from(rows.values());
+    const rawAudience = Array.from(rows.values());
+    if (!options.excludeVerified) {
+        return { rows: rawAudience, excludedVerifiedCustomers: 0 };
+    }
+    const { rows: filtered, excluded } = filterVerifiedCustomers(rawAudience, { excludeVerified: true });
+    if (excluded > 0) {
+        console.warn(`[marketing-send] test campaign excluded ${excluded} verified-customer rows (manual_seed/past_customer)`);
+    }
+    return { rows: filtered, excludedVerifiedCustomers: excluded };
 }
 async function sendEmails(opts: {
     recipients: Array<{ id?: string; email: string; unsubscribe_url?: string }>;
@@ -268,7 +288,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
         }).select('*').single();
         if (cErr || !campaign) throw new Error(cErr?.message || 'Could not create campaign.');
 
-        const audience = await fetchAudience(admin, channel);
+        const { rows: audience, excludedVerifiedCustomers } = await fetchAudience(admin, channel, {
+            excludeVerified: isTestCampaignName(name),
+        });
 
         // CRITICAL 2: consent re-verification right before dispatch. Pull the
         // active contact set in one batch query and skip any audience row whose
@@ -339,6 +361,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
                 total_sent: totalSent,
                 total_failed: totalFailed,
                 audience_count: audience.length,
+                ...(excludedVerifiedCustomers > 0 ? { excluded_verified_customers: excludedVerifiedCustomers } : {}),
             },
         }).eq('id', campaign.id);
 
@@ -346,6 +369,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
             success: true,
             campaignId: campaign.id,
             audienceCount: audience.length,
+            excludedVerifiedCustomers,
             email: emailResult,
             sms: smsResult,
             status,

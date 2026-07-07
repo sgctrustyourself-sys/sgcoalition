@@ -189,6 +189,11 @@ export class RetryQueue {
      * Keep this list in lockstep with the AppContext.tsx addProduct /
      * updateProduct insert/update payloads and the seedProducts.ts script
      * so Supabase-sourced products retain the Limited Edition badge.
+     *
+     * NOTE: discount_percent column was added in
+     * supabase/migrations/20260704_add_discount_percent_to_products.sql.
+     * Round-trip clause only - the Shark Tee seeds carry the 50 value so
+     * the storefront stays in lockstep with constants.ts > INITIAL_PRODUCTS.
      */
     private mapProductToDb(p: Product) {
         return {
@@ -203,6 +208,8 @@ export class RetryQueue {
             // Numbered-edition tier-pricing columns (migration 20261101).
             pricing_tiers: p.pricingTiers ?? null,
             edition_size: p.editionSize ?? null,
+            // Auto-discount (migration 20260704). 0 means no discount.
+            discount_percent: p.discountPercent ?? 0,
             sizes: p.sizes,
             size_inventory: p.sizeInventory || {},
             nft_metadata: p.nft,

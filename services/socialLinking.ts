@@ -3,7 +3,11 @@ import { supabase } from './supabase';
 export interface SocialAccount {
     id: string;
     user_id: string;
-    platform: 'instagram' | 'twitter' | 'tiktok';
+    // Widened to include 'facebook' alongside the original three. The CHECK
+    // constraint on social_accounts.platform was dropped + recreated in the
+    // 20260702_add_customer_profile_rewards migration so this union is now
+    // valid for INSERTs.
+    platform: 'instagram' | 'twitter' | 'tiktok' | 'facebook';
     username: string;
     verified: boolean;
     linked_at: string;
@@ -16,7 +20,7 @@ export interface SocialAccount {
  * Link a social media account for the current user
  */
 export const linkSocialAccount = async (
-    platform: 'instagram' | 'twitter' | 'tiktok',
+    platform: 'instagram' | 'twitter' | 'tiktok' | 'facebook',
     username: string,
     walletAddress?: string
 ): Promise<{ success: boolean; error?: string }> => {
@@ -110,7 +114,7 @@ export const getSocialAccounts = async (): Promise<SocialAccount[]> => {
  * Get a specific social account for current user
  */
 export const getSocialAccount = async (
-    platform: 'instagram' | 'twitter' | 'tiktok'
+    platform: 'instagram' | 'twitter' | 'tiktok' | 'facebook'
 ): Promise<SocialAccount | null> => {
     try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -144,7 +148,7 @@ export const getSocialAccount = async (
  * Unlink a social media account
  */
 export const unlinkSocialAccount = async (
-    platform: 'instagram' | 'twitter' | 'tiktok'
+    platform: 'instagram' | 'twitter' | 'tiktok' | 'facebook'
 ): Promise<{ success: boolean; error?: string }> => {
     try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -167,6 +171,51 @@ export const unlinkSocialAccount = async (
     } catch (error: any) {
         return { success: false, error: error.message || 'Unknown error' };
     }
+};
+
+/**
+ * Admin: Get all pending links for a given platform (reward not sent).
+ * Facebook is now alongside instagram; any future platform can be passed
+ * through the same template.
+ */
+export const getPendingSocialLinksAsync = async (
+    platform: 'instagram' | 'twitter' | 'tiktok' | 'facebook',
+): Promise<any[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('social_accounts')
+            .select(`
+                *,
+                user:user_id (
+                    email
+                ),
+                wallet:wallet_accounts!user_id (
+                    wallet_address
+                )
+            `)
+            .eq('platform', platform)
+            .eq('reward_sent', false)
+            .order('linked_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching pending links:', error);
+            return [];
+        }
+
+        return data || [];
+    } catch (error) {
+        console.error('Error in getPendingSocialLinksAsync:', error);
+        return [];
+    }
+};
+
+/**
+ * Admin: Get all pending Facebook links (reward not sent). Thin shim over
+ * getPendingSocialLinksAsync('facebook') — kept so the admin tool reference
+ * reads cleanly in the components/admin panel.
+ */
+export const getPendingFacebookLinks = async (): Promise<any[]> => {
+    return getPendingSocialLinksAsync('facebook');
 };
 
 /**
