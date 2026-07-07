@@ -38,6 +38,11 @@ const ProductManager: React.FC = () => {
             id: `prod_${Date.now()}`,
             name: '',
             price: 0,
+            // discount_percent field (migration 20260704). Default 0 keeps the
+            // column NOT NULL constraint satisfied; the admin form lets the
+            // operator dial it up to 100. numeric input so it round-trips
+            // through the service-role upsert payload verbatim.
+            discountPercent: 0,
             images: [],
             imageRoles: undefined,
             description: '',
@@ -93,6 +98,10 @@ const ProductManager: React.FC = () => {
                 id: editForm.id || `prod_${Date.now()}`,
                 name: editForm.name,
                 price: Number(editForm.price),
+                // Clamp to 0-100 defensively; the CHECK constraint on the DB
+                // would also catch out-of-range writes but clamping here keeps
+                // the admin UI graceful if the operator types a stray value.
+                discountPercent: Math.min(100, Math.max(0, Number(editForm.discountPercent) || 0)),
                 images,
                 imageRoles,
                 description: editForm.description || '',
@@ -430,6 +439,27 @@ const ProductManager: React.FC = () => {
                                         step="0.01"
                                         title="Product Price"
                                         aria-label="Product Price"
+                                    />
+                                </div>
+                                <div>
+                                    {/* Auto-discount percent (migration 20260704). Sits
+                                        next to Price in the same 2-column row so the
+                                        operator sees the list price + the discount in one
+                                        glance. 0-100 numeric input; the helper clamps above
+                                        100 anyway. The Shark Tee ships at $40 + 50. */}
+                                    <label className="block text-xs font-bold uppercase text-gray-400 mb-2">
+                                        Discount (%)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="1"
+                                        value={editForm.discountPercent ?? 0}
+                                        onChange={(e) => updateField('discountPercent', parseFloat(e.target.value))}
+                                        className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-white/30 outline-none"
+                                        title="Auto discount percent (0-100). Displayed as strikethrough $X -> $Y on PDP / card; checkout applies no-stack rule vs. cart-wide coupons."
+                                        aria-label="Auto Discount Percent"
                                     />
                                 </div>
                                 <div>

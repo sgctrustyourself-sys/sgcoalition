@@ -386,6 +386,44 @@ const Home = () => {
 
     return (
         <div className="min-h-screen pb-20">
+            {/* Category quick-bar — six top-level destinations for the
+                shopper who lands on the home page without first going
+                through /shop. Order matches the Shop page sidebar top-
+                to-bottom: default ALL, then WOMEN -> MEN (the two cross-
+                cut filters), then APPAREL (its sub-categories live in
+                the Shop sidebar), then WALLETS + HATS. Each tile routes
+                via `?category=...` so /shop's existing URL-param effect
+                picks the matching radio on mount - no parallel state
+                machine needed. Built as inline JSX (not a Section admin
+                type) because the labels are not data - they're a literal
+                mirror of the Shop sidebar structure, and on-the-fly
+                admin re-ordering would silently desync the two routes. */}
+            <section
+                aria-label="Browse by category"
+                className="border-b border-white/10 bg-black/60 backdrop-blur supports-[backdrop-filter]:bg-black/40"
+            >
+                <div className="max-w-6xl mx-auto px-4 py-4 sm:py-5">
+                    <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-[10px] sm:text-xs">
+                        {[
+                            { value: 'all', label: 'ALL', href: '/shop' },
+                            { value: 'women', label: 'WOMEN', href: '/shop?category=women' },
+                            { value: 'men', label: 'MEN', href: '/shop?category=men' },
+                            { value: 'apparel', label: 'APPAREL', href: '/shop?category=apparel' },
+                            { value: 'wallets', label: 'WALLETS', href: '/shop?category=wallets' },
+                            { value: 'hats', label: 'HATS', href: '/shop?category=hats' },
+                        ].map(tile => (
+                            <Link
+                                key={tile.value}
+                                to={tile.href}
+                                className="px-3 sm:px-5 py-2 border border-white/20 text-white font-bold uppercase tracking-widest hover:bg-white hover:text-black hover:border-white focus:outline-none focus:ring-2 focus:ring-white/60 transition-all duration-200"
+                                aria-label={`Shop ${tile.label}`}
+                            >
+                                {tile.label}
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            </section>
             {sections.map((s, i) => (
                 <React.Fragment key={s.id}>
                     {renderSection(s, i)}

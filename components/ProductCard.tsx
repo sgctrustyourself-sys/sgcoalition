@@ -228,7 +228,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, priority = false }) 
                             <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-brand-accent">Free Shipping</p>
                         )}
                     </div>
-                    <PriceDisplay basePrice={product.price} size="small" showDiscount={true} className="w-full max-w-full" />
+                    <PriceDisplay basePrice={product.price} size="small" showDiscount={true} className="w-full max-w-full" product={product} />
                 </div>
             </div>
             {

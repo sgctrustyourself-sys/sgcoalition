@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Share2, Shield, Plus, Trash2, X, Upload, ExternalLink, Smartphone, Scan, Heart, MessageSquare, ChevronLeft, ChevronRight, GripVertical, Star, CheckCircle2, Clock3, Ruler, Truck, Instagram, Youtube } from 'lucide-react';
+import { ArrowLeft, Share2, Shield, Plus, Trash2, X, Upload, ExternalLink, Smartphone, Scan, Heart, MessageSquare, ChevronLeft, ChevronRight, GripVertical, Star, CheckCircle2, Clock3, Ruler, Truck, Instagram, Youtube, Sparkles, Layers } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { Product, AuthProvider } from '../types';
@@ -22,8 +22,14 @@ import { isWalletProduct, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE
 import { buildProductJsonLd, getProductSeo } from '../utils/seo';
 import { isNumberedEdition, getActiveTierPrice } from '../types';
 import { formatTierCalloutCopy } from '../services/numberedPieces';
+import { getDiscountedUnitPrice, getEffectiveDiscountPercent } from '../utils/productDiscount';
 import { Lock, Unlock, Loader } from 'lucide-react';
 import { getProductImage, getProductImageSrcSet, getProductRoleImage, getProductRoles, reconcileImageRoles, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
+import ProductReviews from '../components/ProductReviews';
+import TrustRibbon from '../components/TrustRibbon';
+import ScarcityNarrative from '../components/ScarcityNarrative';
+import SizeChartModal from '../components/ui/SizeChartModal';
+import { getScarcityCopy } from '../utils/pdpScarcity';
 
 const formatProductDate = (value?: string) => {
     if (!value) return '';
@@ -77,6 +83,7 @@ const ProductDetails = () => {
     const [unlockMessage, setUnlockMessage] = useState('');
 
     const [showRequestModal, setShowRequestModal] = useState(false);
+    const [showSizeGuide, setShowSizeGuide] = useState(false);
     const [referralCode, setReferralCode] = useState<string | null>(null);
 
     const handleUnlockPerks = async () => {
@@ -204,7 +211,14 @@ const ProductDetails = () => {
     const soldCount = product.editionSoldCount ?? 0;
     const tierActivePrice = isNumbered ? getActiveTierPrice(product, soldCount) : null;
     const basePrice = tierActivePrice ?? product.price;
-    const displayPrice = basePrice + (walletProduct && includeKeychainClipOn ? WALLET_KEYCHAIN_CLIP_PRICE : 0);
+    // Auto-discount: when product.discountPercent > 0, the price the customer
+    // pays and the price the shopper sees on the PDP is the discounted unit,
+    // not the list price. Wallet add-on (keychain clip-on) still stacks AFTER
+    // the discount so a discounted wallet can still upgrade with a clip-on.
+    const productDiscountPct = getEffectiveDiscountPercent(product);
+    const hasProductDiscount = productDiscountPct > 0;
+    const saleUnitPrice = hasProductDiscount ? getDiscountedUnitPrice(product) : basePrice;
+    const displayPrice = saleUnitPrice + (walletProduct && includeKeychainClipOn ? WALLET_KEYCHAIN_CLIP_PRICE : 0);
     const tierInfo = isNumbered ? formatTierCalloutCopy(product, soldCount) : null;
     const editableSizes = getProductEditableSizes(editForm.sizes, editForm.sizeInventory);
     // Gallery is role-aware: when imageRoles maps galleryUrls explicitly, use
@@ -268,6 +282,7 @@ const ProductDetails = () => {
                 : displayPrice >= 200
                     ? 'Free shipping unlocked'
                     : 'Ships in 1-2 business days';
+    const scarcityCopy = getScarcityCopy(product, totalStock);
     const makingVideoUrl = product.makingVideoUrl?.trim();
     const makingVideoLinks = (product.makingVideoLinks || [])
         .map(link => ({ ...link, url: link.url.trim() }))
@@ -804,7 +819,17 @@ const ProductDetails = () => {
                                         </div>
                                     )}
                                     <div className="space-y-1">
-                                        <p className="text-3xl text-brand-accent font-bold font-mono tracking-tighter">${displayPrice}</p>
+                                        {hasProductDiscount ? (
+                                            <p className="text-3xl font-bold font-mono tracking-tighter">
+                                                <span className="text-brand-accent">${(displayPrice).toFixed(2)}</span>
+                                                <span className="ml-3 text-gray-500 line-through text-base font-medium">${basePrice}</span>
+                                                <span className="ml-3 rounded-full border border-green-500/40 bg-green-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-green-300 align-middle">
+                                                    {productDiscountPct}% off
+                                                </span>
+                                            </p>
+                                        ) : (
+                                            <p className="text-3xl text-brand-accent font-bold font-mono tracking-tighter">${displayPrice}</p>
+                                        )}
                                         {product.freeShipping && (
                                             <p className="inline-flex border border-brand-accent/30 bg-brand-accent/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent">
                                                 Free Shipping
@@ -812,7 +837,7 @@ const ProductDetails = () => {
                                         )}
                                         {walletProduct && includeKeychainClipOn && (
                                             <p className="text-xs uppercase tracking-[0.2em] text-gray-400">
-                                                Base ${product.price} + {WALLET_KEYCHAIN_CLIP_LABEL} ${WALLET_KEYCHAIN_CLIP_PRICE}
+                                                Base ${hasProductDiscount ? saleUnitPrice.toFixed(2) : product.price} + {WALLET_KEYCHAIN_CLIP_LABEL} ${WALLET_KEYCHAIN_CLIP_PRICE}
                                             </p>
                                         )}
                                     </div>
@@ -842,6 +867,10 @@ const ProductDetails = () => {
                                     </div>
                                 </div>
 
+                                {!isArchived && (
+                                    <TrustRibbon product={product} displayPrice={displayPrice} />
+                                )}
+
                                 <div className="pt-8 border-t border-white/10">
                                     <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Description</h3>
                                     <div className="prose prose-invert prose-sm text-gray-400 leading-relaxed font-light">
@@ -870,6 +899,81 @@ const ProductDetails = () => {
                                     )}
                                 </div>
 
+                                {product.specs && (
+                                    <div className="pt-8 border-t border-white/10">
+                                        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">Product Details</h3>
+
+                                        {product.specs.attributes && product.specs.attributes.length > 0 && (
+                                            <div className="mb-6">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <Ruler className="h-3.5 w-3.5 text-brand-accent" />
+                                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent">Fit & Style</span>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                                                    {product.specs.attributes.map((attr, i) => (
+                                                        <div key={i} className="flex items-center justify-between border-b border-white/5 py-1.5">
+                                                            <span className="text-xs uppercase tracking-wider text-gray-500">{attr.label}</span>
+                                                            <span className="text-xs font-bold uppercase tracking-wider text-white text-right">{attr.value}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {product.specs.care && product.specs.care.length > 0 && (
+                                            <div className="mb-6">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <Sparkles className="h-3.5 w-3.5 text-brand-accent" />
+                                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent">Care Instructions</span>
+                                                </div>
+                                                <ul className="space-y-2">
+                                                    {product.specs.care.map((instruction, i) => (
+                                                        <li key={i} className="flex items-start gap-2 text-xs leading-relaxed text-gray-400">
+                                                            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-brand-accent/60" />
+                                                            {instruction}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+
+                                        {product.specs.material && (
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <Layers className="h-3.5 w-3.5 text-brand-accent" />
+                                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent">Material</span>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                                                    {product.specs.material.composition && (
+                                                        <div className="flex items-center justify-between border-b border-white/5 py-1.5">
+                                                            <span className="text-xs uppercase tracking-wider text-gray-500">Composition</span>
+                                                            <span className="text-xs font-bold uppercase tracking-wider text-white text-right">{product.specs.material.composition}</span>
+                                                        </div>
+                                                    )}
+                                                    {product.specs.material.fabricWeight && (
+                                                        <div className="flex items-center justify-between border-b border-white/5 py-1.5">
+                                                            <span className="text-xs uppercase tracking-wider text-gray-500">Fabric Weight</span>
+                                                            <span className="text-xs font-bold uppercase tracking-wider text-white text-right">{product.specs.material.fabricWeight}</span>
+                                                        </div>
+                                                    )}
+                                                    {product.specs.material.thickness && (
+                                                        <div className="flex items-center justify-between border-b border-white/5 py-1.5">
+                                                            <span className="text-xs uppercase tracking-wider text-gray-500">Thickness</span>
+                                                            <span className="text-xs font-bold uppercase tracking-wider text-white text-right">{product.specs.material.thickness}</span>
+                                                        </div>
+                                                    )}
+                                                    {product.specs.material.breathability && (
+                                                        <div className="flex items-center justify-between border-b border-white/5 py-1.5">
+                                                            <span className="text-xs uppercase tracking-wider text-gray-500">Breathability</span>
+                                                            <span className="text-xs font-bold uppercase tracking-wider text-white text-right">{product.specs.material.breathability}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 {isSold ? (
                                     <div className="pt-8 space-y-4 border-t border-white/10">
                                         <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">Archived Size</h3>
@@ -886,7 +990,7 @@ const ProductDetails = () => {
                                     <div className="pt-8 space-y-4">
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">Select Size</h3>
-                                            <a href="#" className="text-xs font-bold uppercase tracking-widest text-brand-accent hover:text-white transition-colors border-b border-brand-accent/30 hover:border-white">Size guide</a>
+                                            <button type="button" onClick={() => setShowSizeGuide(true)} className="text-xs font-bold uppercase tracking-widest text-brand-accent hover:text-white transition-colors border-b border-brand-accent/30 hover:border-white" aria-haspopup="dialog">Size guide</button>
                                         </div>
 
                                         {product.sizes && product.sizes.length === 1 && product.sizes[0].toLowerCase().includes('one') ? (
@@ -970,6 +1074,7 @@ const ProductDetails = () => {
                                 />
 
                                 <div className="pt-10 flex flex-col gap-4">
+                                    <ScarcityNarrative copy={scarcityCopy} />
                                     {isUnavailable ? (
                                         /* Sold / Archived State */
                                         <div className="flex flex-col gap-3">
@@ -1111,6 +1216,8 @@ const ProductDetails = () => {
                                     })()}
                                 </div>
 
+                                <ProductReviews productId={product.id} />
+
                                 {product.nft && (
                                     <div className="mt-12 pt-8 border-t border-white/10">
                                         <h3 className="font-display text-xl font-bold uppercase mb-6 flex items-center text-white text-glow">
@@ -1218,6 +1325,11 @@ const ProductDetails = () => {
             {showRequestModal && product && (
                 <RequestSimilarModal product={product} onClose={() => setShowRequestModal(false)} />
             )}
+            <SizeChartModal
+                open={showSizeGuide}
+                onClose={() => setShowSizeGuide(false)}
+                product={product}
+            />
             </div>
         </>
     );

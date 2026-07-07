@@ -115,6 +115,31 @@ const Story = () => {
                 </div>
             </section>
 
+            {/* Founder's Note — the founder's verbatim reason for keeping
+                drops small. Lands between the "What Gets Made Here" cards
+                and the journey timeline so the founder's personal voice
+                closes the "why we do this" half of the page before the
+                "when this happened" timeline takes over. Verbatim copy
+                (one sentence, lowercase quoted) per the founder's own
+                instruction - do not paraphrase without checking back. */}
+            <section
+                data-testid="founder-note"
+                className="py-24 bg-white border-t border-gray-100"
+            >
+                <div className="max-w-4xl mx-auto px-4 text-center">
+                    <p className="font-display text-xs font-bold uppercase tracking-[0.4em] text-brand-accent mb-10">
+                        From the Founder
+                    </p>
+                    <blockquote className="font-display text-3xl md:text-5xl font-medium leading-tight text-gray-900 mb-10">
+                        &ldquo;I want to keep items limited for now so I can get my hands on each piece directly.&rdquo;
+                    </blockquote>
+                    <div className="w-16 h-0.5 bg-black mx-auto mb-4"></div>
+                    <p className="text-sm uppercase tracking-[0.3em] text-gray-500 font-bold">
+                        &mdash; Gmoneyworld
+                    </p>
+                </div>
+            </section>
+
             {/* Timeline Section */}
             <section className="py-24 px-4 max-w-5xl mx-auto">
                 <h2 className="font-display text-4xl font-bold uppercase mb-16 text-center">The Journey</h2>

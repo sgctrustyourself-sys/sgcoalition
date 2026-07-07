@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Clock, MapPin, Activity, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import Seo from '../components/Seo';
 import LiveMap from '../components/LiveMap';
 import StateLeaderboard from '../components/StateLeaderboard';
 import DropCountdown from '../components/DropCountdown';
@@ -45,6 +46,8 @@ const RANGE_LABELS: Record<LiveOrdersTimeRange, string> = {
     '24h': 'Last 24 hours',
     '7d': 'Last 7 days',
     '30d': 'Last 30 days',
+    '90d': 'Last 90 days',
+    'all': 'All time',
 };
 
 const LiveOrdersMap = () => {
@@ -58,7 +61,9 @@ const LiveOrdersMap = () => {
         {
             label: 'Orders',
             value: feed.summary.totalOrders.toLocaleString(),
-            helper: `Live window: ${RANGE_LABELS[timeRange]}`,
+            helper: timeRange === 'all'
+                ? 'Showing every public real-sale seed on record'
+                : `Live window: ${RANGE_LABELS[timeRange]}`,
             icon: <Activity className="w-5 h-5 text-purple-300" />,
             accentClass: 'from-purple-500/20 via-purple-500/5 to-transparent',
         },
@@ -67,7 +72,7 @@ const LiveOrdersMap = () => {
             value: feed.summary.activeStates.toString(),
             helper: feed.summary.topState
                 ? `${feed.summary.topState.name} is leading right now`
-                : 'Waiting for live order data',
+                : 'Waiting for recent order data',
             icon: <MapPin className="w-5 h-5 text-sky-300" />,
             accentClass: 'from-sky-500/20 via-sky-500/5 to-transparent',
         },
@@ -92,6 +97,12 @@ const LiveOrdersMap = () => {
     ];
 
     return (
+        <>
+            <Seo
+                title="Recently Ordered"
+                description="See where Coalition orders are shipping across the US. A live map of recent orders, top states, and recent activity — city and state only, no personal data."
+                canonicalPath="/live-orders"
+            />
         <div className="min-h-screen bg-black px-4 py-12 text-white selection:bg-purple-500/30">
             <div className="mx-auto max-w-7xl">
                 {/* Header */}
@@ -118,8 +129,8 @@ const LiveOrdersMap = () => {
                     </div>
 
                     {/* Filters */}
-                    <div className="flex rounded-xl border border-gray-800 bg-gray-900 p-1">
-                        {(['24h', '7d', '30d'] as const).map((range) => (
+                    <div className="flex flex-wrap rounded-xl border border-gray-800 bg-gray-900 p-1">
+                        {(['24h', '7d', '30d', '90d', 'all'] as const).map((range) => (
                             <button
                                 key={range}
                                 onClick={() => setTimeRange(range)}
@@ -213,7 +224,7 @@ const LiveOrdersMap = () => {
                                     ))
                                 ) : (
                                     <div className="rounded-2xl border border-dashed border-gray-800 bg-black/40 p-6 text-center">
-                                        <p className="text-sm font-medium text-gray-300">No live orders in this window yet.</p>
+                                        <p className="text-sm font-medium text-gray-300">No recent orders in this window yet.</p>
                                         <p className="mt-2 text-xs uppercase tracking-widest text-gray-600">
                                             Orders will appear here once they are placed.
                                         </p>
@@ -231,6 +242,7 @@ const LiveOrdersMap = () => {
                 </div>
             </div>
         </div>
+        </>
     );
 };
 

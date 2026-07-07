@@ -1,11 +1,11 @@
 import React from 'react';
-import { Activity, Package, ShoppingCart, GitBranch, Gift, Settings, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3, TrendingUp, Instagram, Megaphone, Users, Brain, Send } from 'lucide-react';
+import { Activity, Package, ShoppingCart, GitBranch, Gift, Settings, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3, TrendingUp, Instagram, Megaphone, Users, Brain, Send, UserCheck } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'marketing' | 'users' | 'brain' | 'settings';
-    onTabChange: (tab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'marketing' | 'users' | 'brain' | 'settings') => void;
+    activeTab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'marketing' | 'users' | 'brain' | 'customers' | 'verified-buyers' | 'settings';
+    onTabChange: (tab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'marketing' | 'users' | 'brain' | 'customers' | 'verified-buyers' | 'settings') => void;
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange }) => {
@@ -30,6 +30,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
         { id: 'marketing', label: 'Marketing', icon: Send },
         { id: 'brain', label: 'Coalition Brain', icon: Brain },
         { id: 'users', label: 'User Directory', icon: Users },
+        { id: 'verified-buyers', label: 'Verified Buyers', icon: UserCheck },
         // { id: 'settings', label: 'Settings', icon: Settings },
     ] as const;
 

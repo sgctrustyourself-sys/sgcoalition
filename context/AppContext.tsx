@@ -61,6 +61,9 @@ interface AppState {
     linkSocialAccount: (platform: SocialAccount['platform'], username: string) => Promise<void>;
     submitCustomInquiry: (data: Omit<CustomInquiry, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => Promise<void>;
     submitPurchaseRequest: (data: Omit<SGCoinPurchaseRequest, 'id' | 'createdAt' | 'status'>) => Promise<void>;
+    // Customer-profile admin actions (20260702_add_customer_profile_rewards.sql).
+    adminCreditCustomerReward: (profileId: string, amountSgc: number, reason: string, options?: { orderId?: string; amountUsd?: number }) => Promise<{ success: boolean; newBalance?: number; error?: string }>;
+    adminAttributeOrderToFacebook: (orderId: string, facebookUsername: string, note?: string) => Promise<{ success: boolean; error?: string }>;
     unlinkSocialAccount: (platform: SocialAccount['platform']) => Promise<{ success: boolean; error?: string }>;
     refreshBalances: () => Promise<void>;
     signals: Signal[];
@@ -318,7 +321,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             // Parallel fetch for database-only items (fast)
                             const [linkedWalletRes, profileRes, adminRes, socialsRes] = await Promise.all([
                                 supabase.from('wallet_accounts').select('wallet_address').eq('user_id', userId).maybeSingle(),
-                                supabase.from('profiles').select('is_vip, store_credit, sg_coin_balance').eq('id', userId).maybeSingle(),
+                                // 20260702_add_customer_profile_rewards.sql added wallet_linked_at,
+                // lifetime_spend_usd, lifetime_orders, last_reward_credit_at, last_reward_credit_amount,
+                // customer_notes. Including them here so a CustomerProfileAdmin tab render
+                // doesn't have to re-fetch the row.
+                // customer_notes is EXCLUDED from this select: the user-side row-level
+                // RLS ('id = auth.uid()') would otherwise expose the operator's
+                // private notes back to the row owner. The admin CustomerProfileAdmin
+                // tab uses a service-role profile fetch so admin users still see it.
+                supabase.from('profiles').select('is_vip, store_credit, sg_coin_balance, wallet_linked_at, lifetime_spend_usd, lifetime_orders, last_reward_credit_at, last_reward_credit_amount').eq('id', userId).maybeSingle(),
                                 supabase.from('admin_users').select('role').eq('user_id', userId).maybeSingle(),
                                 supabase.from('social_accounts').select('*').eq('user_id', userId)
                             ]);
@@ -346,6 +357,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                     isAdmin,
                                     isVIP: profile?.is_vip || false,
                                     storeCredit: profile?.store_credit || 0,
+                                    // 20260702_add_customer_profile_rewards.sql rollups; null until back-fill.
+                                    // customerNotes is intentionally NOT mirrored into UserProfile here — that
+                                    // column is admin-only via RLS and must not flow into the row-owner's state.
+                                    walletLinkedAt: profile?.wallet_linked_at || null,
+                                    lifetimeSpendUsd: Number(profile?.lifetime_spend_usd || 0),
+                                    lifetimeOrders: Number(profile?.lifetime_orders || 0),
+                                    lastRewardCreditAt: profile?.last_reward_credit_at || null,
+                                    lastRewardCreditAmount: profile?.last_reward_credit_amount ?? null,
                                     favorites: savedFavorites,
                                     socialAccounts: socialsRes.data || []
                                 });
@@ -443,7 +462,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         // PRODUCT_LOCAL_OVERRIDES still wins when set, so legacy overrides
                         // (pre-migration constants.ts entries) keep rendering until the
                         // operator explicitly clears them from constants.ts.
-                        archiveNote: item.archive_note ?? PRODUCT_LOCAL_OVERRIDES[item.id]?.archiveNote
+                        archiveNote: item.archive_note ?? PRODUCT_LOCAL_OVERRIDES[item.id]?.archiveNote,
+                        // discount_percent column added in supabase/migrations/20260704_add_discount_percent_to_products.sql.
+                        // Read as a number so the PDP / Checkout / ProductCard math in
+                        // utils/productDiscount.ts sees a clean number, not the Supabase
+                        // NUMERIC string round-trip. Defaults to 0 for rows that pre-date
+                        // the migration (same default the migration applies server-side).
+                        discountPercent: Number(item.discount_percent ?? 0)
                     };
                 });
                 // Deduplicate by ID only. The previous (name + images[1]) collision
@@ -766,7 +791,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 image_roles: normalizedProduct.imageRoles ?? null,
                 // Archive note column (migration 20260701). Operator-authored copy shown
                 // beneath the buy button on sold/archived PDPs.
-                archive_note: normalizedProduct.archiveNote ?? null
+                archive_note: normalizedProduct.archiveNote ?? null,
+                // Auto-discount column (migration 20260704). 0 means no discount.
+                discount_percent: normalizedProduct.discountPercent ?? 0
             }]);
             if (error) throw error;
             if (normalizedProduct.isFeatured) {
@@ -812,7 +839,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 sizes: normalizedUpdated.sizes,
                 size_inventory: normalizedUpdated.sizeInventory, nft_metadata: normalizedUpdated.nft, archived: normalizedUpdated.archived,
                 image_roles: normalizedUpdated.imageRoles ?? null,
-                archive_note: updated.archiveNote ?? null
+                archive_note: updated.archiveNote ?? null,
+                discount_percent: normalizedUpdated.discountPercent ?? 0
             }).eq('id', normalizedUpdated.id);
             if (error) throw error;
             if (normalizedUpdated.isFeatured) {
@@ -830,7 +858,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     sizes: original.sizes,
                     size_inventory: original.sizeInventory, nft_metadata: original.nft, archived: original.archived,
                     image_roles: original.imageRoles ?? null,
-                    archive_note: original.archiveNote ?? null
+                    archive_note: original.archiveNote ?? null,
+                    discount_percent: original.discountPercent ?? 0
                 }).eq('id', original.id);
                 } catch (rollbackErr) {
                     console.warn('Failed to rollback featured product update:', rollbackErr);
@@ -1087,6 +1116,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setUser({ ...user, walletAddress: addr, connectedWalletAddress: addr, walletConnectionMethod: 'metamask', walletConnectedAt: Date.now(), isAdmin: user.isAdmin || isAdmin });
             if (isSupabaseConfigured && !user.uid.startsWith('user_eth_')) {
                 await supabase.from('wallet_accounts').upsert({ user_id: user.uid, wallet_address: addr, method: 'metamask' }, { onConflict: 'user_id' });
+                // First-time wallet-link stamp (20260702_add_customer_profile_rewards.sql).
+                // Using `.is('wallet_linked_at', null)` keeps this idempotent: subsequent
+                // reconnects do not clobber the original link timestamp.
+                await supabase
+                    .from('profiles')
+                    .update({ wallet_linked_at: new Date().toISOString() })
+                    .eq('id', user.uid)
+                    .is('wallet_linked_at', null);
             }
         } catch (e) { console.error('Connect wallet error:', e); }
     };
@@ -1131,6 +1168,87 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         catch (err) { addToast('Failed.', 'error'); }
     };
 
+    // Customer-profile admin actions (20260702_add_customer_profile_rewards.sql mirror).
+    // Backed by api/_handlers/credit-customer-reward.ts (writes audit + bumps balance)
+    // and api/_handlers/attribute-order-to-facebook.ts (stamps orders.facebook_username).
+    // Both endpoints use the service-role Supabase client; the only gating here is the
+    // sessionStorage admin-token so a non-admin browser request receives a 401 instead.
+    const adminCreditCustomerReward = async (
+        profileId: string,
+        amountSgc: number,
+        reason: string,
+        options?: { orderId?: string; amountUsd?: number }
+    ): Promise<{ success: boolean; newBalance?: number; error?: string }> => {
+        try {
+            const token = sessionStorage.getItem('coalition_admin_token');
+            const response = await fetch('/api/credit-customer-reward', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                    profileId,
+                    amountSgc,
+                    reason,
+                    orderId: options?.orderId ?? null,
+                    amountUsd: options?.amountUsd,
+                }),
+            });
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                return { success: false, error: payload.error || 'Credit failed' };
+            }
+            const payload = await response.json();
+            setUser(prev => prev && prev.uid === profileId ? {
+                ...prev,
+                sgCoinBalance: Number(payload.newSgCoinBalance || prev.sgCoinBalance || 0),
+                lastRewardCreditAt: payload.awardedAt || prev.lastRewardCreditAt || null,
+                lastRewardCreditAmount: amountSgc,
+            } : prev);
+            addToast(`Credited ${amountSgc} SGC. New balance: ${payload.newSgCoinBalance}`, 'success');
+            return { success: true, newBalance: Number(payload.newSgCoinBalance) };
+        } catch (err: any) {
+            const msg = err?.message || 'Credit failed';
+            addToast(msg, 'error');
+            return { success: false, error: msg };
+        }
+    };
+
+    const adminAttributeOrderToFacebook = async (
+        orderId: string,
+        facebookUsername: string,
+        note?: string
+    ): Promise<{ success: boolean; error?: string }> => {
+        try {
+            const token = sessionStorage.getItem('coalition_admin_token');
+            const response = await fetch('/api/attribute-order-to-facebook', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                    orderId,
+                    facebookUsername,
+                    note: note ?? '',
+                }),
+            });
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                return { success: false, error: payload.error || 'Attribution failed' };
+            }
+            const payload = await response.json();
+            setOrders(prev => prev.map(o => o.id === orderId ? { ...o, facebookUsername: payload.facebookUsername } : o));
+            addToast(`Order @${payload.facebookUsername}`, 'success');
+            return { success: true };
+        } catch (err: any) {
+            const msg = err?.message || 'Attribution failed';
+            addToast(msg, 'error');
+            return { success: false, error: msg };
+        }
+    };
+
     return (
         <AppContext.Provider value={{
             products, cart, user, sections, orders, isCartOpen, isAdminMode, isSupabaseConfigured,
@@ -1142,6 +1260,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             addGiveawayEntry, pickGiveawayWinner, connectMetaMaskWallet, connectManualWallet,
             disconnectWallet, chainId, switchToPolygon: handleSwitchToPolygon, addReview,
             linkSocialAccount, unlinkSocialAccount, submitCustomInquiry, submitPurchaseRequest,
+            adminCreditCustomerReward,
+            adminAttributeOrderToFacebook,
             refreshBalances, signals, fetchSignals
         }}>
             {children}

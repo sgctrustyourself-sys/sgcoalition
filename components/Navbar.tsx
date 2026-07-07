@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ShoppingBag, Menu, X, Shield, Hexagon, User, Heart, Star, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { AuthProvider } from '../types';
 import SearchBar from './SearchBar';
-import ProfileModal from './ProfileModal';
+// Off-screen modal: deferred until the user clicks "MY PROFILE". Both the chunk
+// load (lazy import) and the prop change (isOpen=true) happen on first interaction
+// so the chunk only enters memory when actually needed.
+const ProfileModal = React.lazy(() => import('./ProfileModal'));
 import { getBadgesForWallet } from '../data/badges';
 
 const Navbar = () => {
@@ -202,6 +205,7 @@ const Navbar = () => {
                                 <Link to="/brain" className="block text-md font-bold uppercase tracking-widest text-purple-400" onClick={() => setMobileMenuOpen(false)}>Coalition Brain</Link>
                             )}
                             <Link to="/inquire" className="block text-md font-bold uppercase tracking-widest text-gray-400" onClick={() => setMobileMenuOpen(false)}>Custom Inquiry</Link>
+                            <Link to="/live-orders" className="block text-md font-bold uppercase tracking-widest text-gray-400" onClick={() => setMobileMenuOpen(false)}>Recently Ordered</Link>
                         </div>
 
                         {!user ? (
@@ -255,15 +259,17 @@ const Navbar = () => {
                     </div>
                 )}
             </nav>
-            <ProfileModal
-                badges={getBadgesForWallet(user?.walletAddress || '')}
-                isOpen={isProfileOpen}
-                onClose={() => setIsProfileOpen(false)}
-                walletAddress={user?.walletAddress || '0x...'}
-                sgCoinBalance={user?.sgCoinBalance || 0}
-                v2Balance={user?.v2Balance || 0}
-                totalMigrated={user?.totalMigrated || 0}
-            />
+            <Suspense fallback={null}>
+                <ProfileModal
+                    badges={getBadgesForWallet(user?.walletAddress || '')}
+                    isOpen={isProfileOpen}
+                    onClose={() => setIsProfileOpen(false)}
+                    walletAddress={user?.walletAddress || '0x...'}
+                    sgCoinBalance={user?.sgCoinBalance || 0}
+                    v2Balance={user?.v2Balance || 0}
+                    totalMigrated={user?.totalMigrated || 0}
+                />
+            </Suspense>
         </>
     );
 };

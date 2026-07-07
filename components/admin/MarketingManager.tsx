@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../../services/supabase';
 import { useToast } from '../../context/ToastContext';
+import { isTestCampaignName } from '../../utils/marketingAudience';
 import {
     Send, Users, Mail, MessageSquare, Download, Trash2, AlertTriangle,
     BarChart3, Edit2,
@@ -345,6 +346,14 @@ const ComposerView: React.FC<{ onSent: () => void }> = ({ onSent }) => {
       <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
         <Field label="Campaign Name">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Spring drop reminder" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600" />
+          {isTestCampaignName(name) && (
+            <p data-testid="test-campaign-advisory" className="text-amber-400 text-xs mt-1 flex items-start gap-1">
+              <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+              <span>
+                Test campaign — verified customers (<span className="font-mono">manual_seed</span> + <span className="font-mono">past_customer</span>) will be excluded automatically. Rename before sending to real buyers.
+              </span>
+            </p>
+          )}
         </Field>
         <Field label="Channel">
           <div className="flex gap-2">

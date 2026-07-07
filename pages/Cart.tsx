@@ -3,9 +3,14 @@ import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Trash2, ArrowRight, Sparkles } from 'lucide-react';
+// Product auto-discounts (migration 20260704): we render the discount total
+// in the order summary next to the set bonus so shoppers can see both stacked
+// savings. Pages/Checkout.tsx evaluates max(thisSum, couponDiscount) - the
+// no-stack rule still applies; this line is informational on /cart only.
 import { COIN_REWARD_RATE } from '../constants';
 import { getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
+import { getCartProductDiscountTotal } from '../utils/productDiscount';
 import CompleteTheFitCart from '../components/CompleteTheFitCart';
 
 // Named export keeps symbol-search by `Cart` working; default export lets
@@ -24,7 +29,12 @@ export const Cart: React.FC = () => {
         [cart],
     );
     const setBonusDollars = setBonusCents / 100;
-    const displayTotal = Math.max(0, total - setBonusDollars);
+    // Per-product auto-discounts ($20 off the Shark Tee at 50%, etc.). Cart
+    // page does NOT enforce the no-stack rule vs coupons (the cart page has
+    // no coupon input); checkout re-runs resolveEffectiveDiscount and may
+    // swap one for the other. /cart is informational only.
+    const productDiscountDollars = getCartProductDiscountTotal(cart);
+    const displayTotal = Math.max(0, total - setBonusDollars - productDiscountDollars);
 
     if (cart.length === 0) {
         return <div className="min-h-[60vh] flex items-center justify-center text-gray-500">Your cart is empty.</div>;
@@ -88,6 +98,20 @@ export const Cart: React.FC = () => {
                                     </p>
                                 </div>
                                 <span className="font-bold whitespace-nowrap">-${setBonusDollars.toFixed(2)}</span>
+                            </div>
+                        )}
+                        {productDiscountDollars > 0 && (
+                            <div className="flex items-start gap-2 p-3 mb-4 rounded-md bg-green-50 border border-green-200 text-green-800 text-sm">
+                                <Sparkles className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                    <p className="font-bold">
+                                        Product discount
+                                    </p>
+                                    <p>
+                                        Auto-applied to qualifying items at checkout.
+                                    </p>
+                                </div>
+                                <span className="font-bold whitespace-nowrap">-${productDiscountDollars.toFixed(2)}</span>
                             </div>
                         )}
                         <div className="flex justify-between mb-4 text-gray-600">
