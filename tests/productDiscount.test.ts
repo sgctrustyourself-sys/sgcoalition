@@ -105,7 +105,51 @@ describe('productDiscount helpers', () => {
         });
 
         it('rounds cents to 2dp', () => {
-            expect(getDiscountedUnitPrice({ price: 33, discountPercent: 33 })).toBe(22.11);
+        expect(getDiscountedUnitPrice({ price: 33, discountPercent: 33 })).toBe(22.11);
+    });
+
+    // No-stack invariant locked at the Shark Tee level (the auto-discount SKU).
+    // The Shark Tee carries products.discount_percent = 50 -> $20 off.
+    // If a cart-wide coupon of $5 is also applied, the smaller layer must be
+    // silently dropped by resolveEffectiveDiscount (Math.max wins, no compound).
+    // This locks axis #3 of the Batch C code-reviewer's Stripe -- a $25 answer
+    // would mean the no-stack rule regressed; a $20 answer means Shark Tee
+    // auto-discount survives intact alongside a smaller coupon.
+    describe('Shark Tee no-stack with coupon (Batch C hardening)', () => {
+        const SHARK = { id: 'prod_1773860269374', price: 40, discountPercent: 50 } as any;
+        const NF = { id: 'Coalition_NF_Tee', price: 40, discountPercent: 0 } as any;
+
+        it('Shark Tee alone: cart discount sum is exactly $20', () => {
+            expect(getCartProductDiscountTotal([{ ...SHARK, quantity: 1 }])).toBe(20);
+        });
+
+        it('Shark Tee + NF Tee: only Shark Tee discount applies, not doubled', () => {
+            // NF Tee has no discount -> contributes $0. Shark Tee contributes $20.
+            // The math must NOT add up to $40 (would imply stacking).
+            expect(
+                getCartProductDiscountTotal([
+                    { ...SHARK, quantity: 1 },
+                    { ...NF, quantity: 1 },
+                ])
+            ).toBe(20);
+        });
+
+        it('resolveEffectiveDiscount: a $5 coupon does NOT stack on top of the Shark Tee $20', () => {
+            // couponDiscount = 5 (smaller), productDiscountSum = 20 (larger).
+            // Math.max returns 20 -- the coupon is silently dropped, no $25 total.
+            expect(resolveEffectiveDiscount(20, 5)).toBe(20);
+        });
+
+        it('resolveEffectiveDiscount: the LARGER layer wins regardless of source (no-stack invariant)', () => {
+            // The no-stack rule is layer-source-agnostic: whichever layer is larger
+            // wins, the smaller is silently dropped. So a $30 coupon over a $20 product
+            // discount resolves to $30 -- NEVER $50 (which would imply stacking). A
+            // $20/30 answer means the invariant regressed to algebraic sum; a $30
+            // answer (the actual expected) means Math.max keeps the dominant layer.
+            // Source direction does NOT matter: product-dominant over coupon wins same
+            // as coupon-dominant over product.
+            expect(resolveEffectiveDiscount(20, 30)).toBe(30);
         });
     });
+});
 });

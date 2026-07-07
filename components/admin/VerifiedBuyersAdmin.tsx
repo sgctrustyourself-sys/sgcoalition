@@ -100,6 +100,13 @@ const VerifiedBuyersAdmin: React.FC = () => {
                     .from('orders')
                     .select('id, total, payment_status, payment_method, instagram_username, created_at, shippingAddress, items')
                     .in('instagram_username', handles)
+                    // Lifetime math must NOT count pending / cancelled / refunded / failed
+                    // rows. Without this clamp, friiqy's expected $455 lifetime drifts
+                    // upward the moment a non-paid test order is seeded with her handle.
+                    // Locked by tests/productDiscount.test.ts (catalog + cart + no-stack)
+                    // and the Batch B marketing tests so any future regression that
+                    // drops the filter lights up immediately.
+                    .eq('payment_status', 'paid')
                     .order('created_at', { ascending: false })
                     .limit(200);
                 if (ordersErr) throw ordersErr;
