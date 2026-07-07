@@ -144,7 +144,7 @@ const PUBLIC_RECENT_ORDER_SEEDS = [
         // Mirrors PRODUCT_IMAGE_URLS.trueReligionJeans.front1 from
         // utils/localImageAssets.ts so the live map surface shows the
         // actual product photo for this archived 1/1 collaboration.
-        productImage: 'https://i.imgur.com/2VU7MEr.jpg',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_2VU7MEr.jpg',
         // 121 weeks = the actual sale date the user marked "SOLD" in
         // the Instagram comments on the Jan 30, 2024 post
         // (https://www.instagram.com/p/C2v4MMxs9TX/). The row in
@@ -163,7 +163,7 @@ const PUBLIC_RECENT_ORDER_SEEDS = [
         city: 'York',
         productId: 'Coalition_Grey_Wave_Wallet_1_2',
         productName: "Coalition 'Grey Wave' Wallet 1/2",
-        productImage: 'https://i.imgur.com/7z2h8u6.jpeg',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_7z2h8u6.jpg',
         // 7 * 24 * 60 = exactly one week, anchoring the seed to the same
         // day-of-week the user said "a week before the last one".
         minutesAgo: 7 * 24 * 60,
@@ -176,7 +176,7 @@ const PUBLIC_RECENT_ORDER_SEEDS = [
         city: 'York',
         productId: 'Coalition_Grey_Wave_Wallet_2_2',
         productName: "Coalition 'Grey Wave' Wallet 2/2",
-        productImage: 'https://i.imgur.com/FVMHZoq.jpeg',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_FVMHZoq.jpg',
         minutesAgo: 12,
         itemCount: 1,
     },
@@ -244,7 +244,7 @@ const PUBLIC_RECENT_ORDER_SEEDS = [
         // Bundle cover image used for the live map preview; mirrors
         // the original deleted wholesale row's v5y7tPa.jpg so
         // existing screenshots / social links still resolve.
-        productImage: 'https://i.imgur.com/v5y7tPa.jpg',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_v5y7tPa.jpg',
         // ~58,284 min = 40d 11h 23m 49s before 2026-07-02T14:12:00Z
         // (the test's frozen "now"). Mirrors the 2026-05-22T22:48:11-04:00
         // createdAt in constants.ts so the seed timestamp and the
@@ -270,7 +270,7 @@ const PUBLIC_RECENT_ORDER_SEEDS = [
         // Mirrors PRODUCT_IMAGE_URLS.trustYourselfHat.cover from
         // utils/localImageAssets.ts so the storefront and live map
         // share one canonical hat image.
-        productImage: 'https://i.imgur.com/iYBlwm8.png',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_iYBlwm8.png',
         // 84 days back from a fresh July 2026 viewer lines up with
         // the seller's recorded date of 2026-04-09. Like the
         // TrueReligion NY seed, this stays outside 24h / 7d / 30d so

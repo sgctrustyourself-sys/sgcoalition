@@ -203,7 +203,7 @@ If a live Supabase row exists, the Supabase price is the current storefront pric
 | --- | --- | ---: | --- | --- | --- | --- |
 | `Coalition_Above_As_Below_Wallet_1_1` | COALITION ABOVE AS BELOW 1/1 WALLET | $85 | wallet | Live | stock 1; One Size: 1 | Supabase + local overrides |
 | `Coalition_NF_Tee` | COALITION NF-TEE | $40 | shirt | Live | stock 350; size map S:1 M:1 L:1 XL:1 | Supabase + local |
-| `prod_1773860269374` | Coalition Shark Tee - 1/1 Exclusive | $60 | shirt | Live | stock 1; S:1 M:0 L:0 XL:0 | Supabase + local |
+| `prod_1773860269374` | Coalition Shark Tee - 1/1 Exclusive | $40 (with 50% auto-discount → $20) | shirt | Live | stock 1; S:1 M:0 L:0 XL:0 | Supabase + local |
 | `prod_halo_mini_dress` | COALITION HALO MINI DRESS | $50 | dress | Live, standard release | stock 50; S:12 M:13 L:13 XL:12 | Supabase + local overrides |
 | `prod_hoodie_overwhelmingly_patient` | COALITION OVERWHELMINGLY PATIENT HOODIE | $100 | sweatshirt | Live pre-order | stock 5; S:1 M:1 L:1 XL:1 2XL:1 | Supabase + local overrides |
 | `prod_set_above_as_below` | COALITION ABOVE AS BELOW SET | $120 | apparel | Live set offer | stock 20; S:4 M:4 L:4 XL:4 2XL:4 | Supabase + local overrides |
@@ -530,7 +530,7 @@ The Maintainer received a new offline sale ("hat sold in Baltimore MD, Owings Mi
     city: 'Owings Mills',
     productId: 'prod_trust_yourself_hat_01',
     productName: 'TRUST YOURSELF CUSTOM TRUCKER (1/1)',
-    productImage: 'https://i.imgur.com/iYBlwm8.png',
+    productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_iYBlwm8.png',
     minutesAgo: 84 * 24 * 60,
     itemCount: 1,
 },
@@ -550,7 +550,7 @@ Key choices documented inline: image resolves through `PRODUCT_IMAGE_URLS.trustY
     items: [{
         productId: 'prod_trust_yourself_hat_01',
         productName: 'TRUST YOURSELF CUSTOM TRUCKER (1/1)',
-        productImage: 'https://i.imgur.com/iYBlwm8.png',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_iYBlwm8.png',
         selectedSize: 'One Size',
         quantity: 1,
         price: 50,
@@ -950,5 +950,207 @@ the handle `starrboii067`. To record this in the admin tool:
 4. The order row now has `facebook_username = 'starrboii067'` and a
    `[fb @<ts>] attributed to @starrboii067` line in `notes`.
 5. To thank the buyer, **Credit SGC Reward** panel: `50` SGC, reason
-   `"Starrboii067 — wallet bonus"`, click **Credit reward**. The customer's
-   `sg_coin_balance` jumps and a `customer_reward_credits` row is appended.
+   `"Starrboii067 — wallet bonus"`, click **Credit reward**.The customer's `sg_coin_balance` jumps and a `customer_reward_credits` row is appended.
+
+## /admin Verified Buyers tab
+
+The Verified Buyers tab (`components/admin/VerifiedBuyersAdmin.tsx`) is the operator's view for every `marketing_contacts` row whose `source ∈ {past_customer, manual_seed}` plus the orders joined by `instagram_username`. It exists so that @friiqy's $455 / 3-orders tuple, the York PA Grey Wave wallet sales, and any other operator-seeded offline cash purchase are first-class surface area in `/admin` without requiring an existing `profiles` row for the buyer.
+
+### Data flow
+
+Two-step in-component aggregate - no PostgREST RPC, no new migration. The verified-row count is small enough that the join + sum path lives in `useMemo`:
+
+1. `marketing_contacts` `.in('source', ['past_customer','manual_seed'])`, ordered by `created_at` desc.
+2. For each contact, read `metadata.instagram_username`; union into a deduplicated `handles` list.
+3. `orders` `.in('instagram_username', handles)`, ordered by `created_at` desc, `limit(200)`.
+4. Memo `ordersByHandle` keyed on `instagram_username` -> `lifetime = Σ orders.total`, `orderCount = orders.length`, `lastAt = orders[0].created_at`.
+5. Rows sorted `lifetime DESC -> orderCount DESC -> handle ASC`. friiqy tops the list at an **expected $455 / 3 orders** once all three friiqy seed scripts have run (`seed:friiqy-wholesale` + `seed:friiqy-denim-patchwork` + `seed:true-religion-s1`). Verify on prod with `SELECT sum(total) FROM orders WHERE instagram_username = 'friiqy' AND payment_status = 'paid';` - if it returns 455, all three seeds are online; a lower value means a row is still missing. The York PA Grey Wave wallets and the Abingdon Denim Patchwork follow, then any manual_seed row with no profile.
+
+### Contract
+
+- Search across `handle`, `metadata.customer_name`, `email`, and `source` - case-insensitive partial.
+- Each row expands to show the joined `orders` rows with a `paid` / `pending` / `cancelled-or-refunded` palette (paid = emerald, pending = amber, anything else = muted gray), city + state, product name, total. No `address1` / `zip` / email-raw is rendered; only `shippingAddress.city + state` is surfaced.
+- If a contact lacks `metadata.instagram_username`, the handle pill reads `(no handle)` and the row shows `0` orders / lifetime $0; it is still search-able by `email` / `customer_name` / `source`.
+- Suppression footer: the rail at the bottom of the tab repeats the suppression contract from `utils/marketingAudience.ts > filterVerifiedCustomers()` - contacts in this tab are filtered out of any campaign whose name contains the substring `test` (case-insensitive). Use this footer as the answer when an operator asks "why didn't everyone receive this campaign?".
+
+### Wiring
+
+- `components/admin/AdminLayout.tsx` adds `'verified-buyers'` to the `activeTab` union and the `navItems` entry, with a `UserCheck` icon from `lucide-react`.
+- `pages/Admin.tsx` adds `React.lazy(() => import('../components/admin/VerifiedBuyersAdmin'))` and a `case 'verified-buyers': return <VerifiedBuyersAdmin />` branch in `renderContent`. The lazy import keeps the eager `index-*.js` chunk from absorbing `VerifiedBuyersAdmin`'s markdown + table JSX.
+
+### Adding a new verified-buyer seeding
+
+Use `npm run seed:verified-customers` (`scripts/seedVerifiedCustomers.ts`). The Verified Buyers tab picks up the new row on the operator's next Refresh click (or any other `customers` / `marketing_contacts` change that re-renders the component). See [Customer Profile](#customer-profile) for the three-step friiqy seed runbook.
+
+## /admin Instagram-handle filter chips
+
+Two existing `/admin` tabs (Orders + Customer Profiles) now carry a second filter input beside the existing search field. Both accept an Instagram handle with or without the leading `@`, do case-insensitive partial match, and bypass cleanly when the input is empty. They share the same prefix-stripping utility but read from different sources - they are not backed by one shared predicate.
+
+### OrderManager - `components/admin/OrderManager.tsx`
+
+- Reads `order.instagramUsername` (TS field) with a single scoped `as any` bridge for runtime resilience if a future row comes back snake_case from the supabase-js client. The DB column is `instagram_username`, added by `supabase/migrations/20260704_add_instagram_username_to_orders.sql`.
+- AND-combines with the existing `searchTerm` / `filterStatus` / `filterType` clauses.
+- A pink `@` icon (lucide `AtSign`) marks the input; the helper text on the right edge of the row reads `Reads orders.instagram_username - case-insensitive partial` so the operator knows exactly which column is hit. Type `friiqy` -> all 3 sales render side-by-side; type `@friiqy` -> same set (the `@` is stripped).
+
+### CustomerProfileAdmin - `components/admin/CustomerProfileAdmin.tsx`
+
+The IG filter walks two sources so a buyer is discoverable even without a matching `profiles` row:
+
+1. **Per profile** - `social_accounts.username` joined via `social_accounts.user_id = profile.id`, restricted to `platform = 'instagram'`. Fetched once after `profiles` loads, snapshotted into `instaHandlesByProfile: Record<profileId, string[]>`. The in-memory table filter runs synchronously on this map so the operator sees instant feedback as they type.
+2. **Marketing contacts fallback** - when the IG filter is non-empty, a debounced ~`300ms` `useEffect` fires a single `marketing_contacts` query via `.ilike('metadata->>instagram_username', '%<escaped_handle>%')` against the JSONB-extracted handle. ILIKE pattern is run through a `/[%_\\]/g` escape first so a future handle containing `%` / `_` / `\` cannot broaden the match. Email-join: the row is "matched" if `marketing_contacts.email` lowercases into the `profileEmailsRef.current` set; otherwise it surfaces in the pink rail banner with a pointer to `/admin Verified Buyers`.
+
+A pink rail banner surfaces the matched marketing contacts whose email is **not** linked to a profile row - they are reachable via the `/admin Verified Buyers` tab instead.
+
+### Debounce + ref snapshot for perf
+
+- The marketing_contacts lookup is debounced through a `debouncedIgFilter` state with a `setTimeout(..., 300)` reset, then a separate `useEffect` keyed on `[debouncedIgFilter]` fires one query per pause-typing burst. Typing `friiqy` produces 1 query, not 6.
+- The `profileEmailsRef` snapshots the profile-email set on every `customers` change without invalidating the marketing_contacts effect's deps, so a profile refresh (clicking the Refresh button) does NOT re-fire the ILIKE query. The race-guard `cancelled` flag drops late returns if the operator clicks Refresh mid-typing.
+
+### Privacy
+
+Both chips preserve the live-map privacy contract: no `address1`, no `zip`, no real email-raw. The CustomerProfileAdmin unmatched-handles rail shows only the instagram handle (`@friiqy`), never the buyer email or address. Operator-only data goes through the existing RLS admin gate.
+
+### Tests
+
+No new vitest required - both filters are in-component `useMemo` predicates, not exported functions. If a future refactor extracts them to `utils/instagramFilter.ts` (recommended for shared reuse), add a focused test file then.
+
+## Reel + post recipe (1/1 process videos)
+
+My playbook for posting any reel that shows a hand-built process — wallet, patch, custom piece — and drives a 1/1 sale. This is what I run every time I have B-roll of the build with a song on in the background. Followed top-to-bottom, this lands an IG drop and a delayed FB cross-post without re-deciding anything.
+
+### When this applies
+
+- Item is a one-of-one (1/1) or hard-cap drop, not evergreen catalog.
+- I have process B-roll I'm cutting into a reel.
+- I'm running an audio track on top — usually unreleased or snippet-only.
+
+If any of those is missing, this is not the right recipe — pick the matching template triple:
+
+- **Visual drop** (5-slide Story thread or Grid carousel) → [the Grey-Wave-style triple in `docs/README.md`](docs/README.md)
+- **Reel drop** (process video, which is almost always what brings you here) → the **reel template triple** under [`docs/templates/reel/`](docs/templates/reel/) — clone the three master files into `docs/drop-{kit,copy,storyboard}-{slug}.{md,html}` at the top of `docs/`, find-replace every `{{ }}` token, then return here for the pre-publish audit gate.
+
+The triple captures the *what to fill in*. This recipe captures the *why* and the gate. They live in different docs on purpose.
+
+### The 5-step chain
+
+1. **Title** — keep the same shape every time so followers recognize it as part of the build series. Default: `<Product type> 1/1` (e.g., "Custom Coalition Wallet 1/1"). Only swap if the audio is unreleased + snippet-only and the song hook deserves the real estate; then the song hook IS the title.
+2. **Caption** — IG-tuned. Hook line = song phrase welded to the craft verb, ≤125 chars so it lands above the "...more" fold. Body mirrors my last reel's closing triptych (*No factory. No shortcuts. Just the process. Trust Yourself.*). Hashtags go in the **first comment**, not inline — cleaner read, IG indexes them either way.
+3. **Timing** — IG first, FB **48h later**. Never same-day cross-post; the algorithm splits the engagement signal in half and amplifies neither. IG fires at the **6–8pm evening window** (when Gen-Z streetwear buyers scroll, not lunchtime). FB fires at the platform's suggested time (1pm weekday, derived from my historical follower activity).
+4. **Cover frame** — needle-pierce moment. Tightest crop possible, single point of action, red thread against leather = natural focal accent. **Square-safe composition** — keep focal action in the middle horizontal band so it still reads at 1:1 grid thumbnail. On-screen text ≤4 words, all caps, white + drop shadow, bottom-right.
+5. **Cross-post variant** — FB and TikTok get the IG caption with **~10% drift**: swap one word, swap one emoji. Otherwise the platform flags it as duplicate content and suppresses reach. Same reel, different headline surface.
+
+### Default templates (paste-ready)
+
+**Title** (auto-pick up from the item at hand — don't overthink):
+```
+Custom Coalition <Item Type> 1/1
+```
+
+**IG caption** (worked example: 1huemoney — Balling Like the Pacers, item = Custom Coalition Wallet):
+```
+Balling like the Pacers… stitch by stitch.🪡🫡
+
+The next 1/1 Custom Coalition Wallet is coming together from scratch — balling like the Pacers, stitch by stitch. Same no-factory energy as the last build, rebuilt into an everyday carry piece. Hand-cut, hand-finished, red and white Coalition mark, one bag only. No second copy. No factory. No shortcuts. Just the process.
+
+Trust Yourself — available now at sgcoalition.xyz
+```
+
+**First comment hashtags** (paste within 5 sec of posting IG):
+```
+#sgcoalition #coalition #trustyourself #unity #gmoneyworld #1huemoney #ballinglikethepacers #wallet #madebyhand #1of1
+```
+
+**Cover frame on-screen text** — default `HANDMADE · 1/1`:
+```
+HANDMADE · 1/1
+```
+Fallbacks (only swap if I A/B'd and Default underperformed on grid-tap rate):
+```
+NO FACTORY · 1/1
+BUILT · 1/1
+```
+
+**FB cross-post variant** — ≥10% drift from IG so duplicate-content penalty doesn't kill reach. Two swaps minimum: one verb, one emoji.
+```
+Balling like the Pacers… stitch by stitch.🪡🔥
+
+The next 1/1 Custom Coalition Wallet is pulling together from scratch — Pacers tempo, one stitch at a time. Same no-factory energy as the last build, rebuilt into an everyday carry piece. Hand-cut, hand-finished, red and white Coalition mark, one bag only. No second copy. No factory. No shortcuts. Just the process.
+
+Trust Yourself — live at sgcoalition.xyz
+```
+
+### Pre-publish audit (the gate)
+
+The final 30 seconds between "build ready" and tapping Post. This table runs every time. Every row is a hard gate — if the read fails, do not post. Don't argue with it, don't tap past it, don't "fix in the DMs later." Fail means stop, repair, re-audit.
+
+| # | Gate | What good looks like | Fail → fix |
+|---|---|---|---|
+| 1.1 | Title | Reads `<Product type> 1/1` exactly. No emoji in the title; emoji lives in the caption. | Stop. Rename. Only swap title to the song hook if the audio is unreleased snippet-only. |
+| 1.2 | Title | Matches last week's series shape (drops read as a series, not one-offs). | Pick a series anchor from the last 2 reels and rename. |
+| 2.1 | Caption hook | Line 1 ≤125 chars. Lands the song phrase + a craft verb in one breath. | Rewrite line 1. Pull the song hook + the action verb from the audio. |
+| 2.2 | Caption body | Closing triptych present verbatim: `No factory. No shortcuts. Just the process. Trust Yourself.` | Restore verbatim from the recipe template. Don't paraphrase, don't abbreviate. |
+| 2.3 | Caption CTA | `Trust Yourself` line + `sgcoalition.xyz` URL present at the bottom. | Append both. Without these the post is a vibe post, not a sale post. |
+| 2.4 | Caption → CTA resolves | The `sgcoalition.xyz` URL resolves to a live PDP: 200, stock=1, price matches the caption. | Hard-fix the PDP before posting. A 404 link makes the whole post a vibe post. |
+| 2.5 | Hashtags | First comment only. NOT inline in the caption body. | Move inline tags to the first comment within 5 sec of posting. |
+| 3.1 | Timing — IG | Inside the 6–8pm evening window. Not lunch, not midnight. | Schedule for the next evening window. Don't post against this gate. |
+| 3.2 | Timing — FB | Cross-post scheduled ≥48h after IG. | Pull same-day FB; reschedule to the 48h slot. Same-day splits the algorithm signal. |
+| 4.1 | Cover frame | Process shot — needle pierces leather, hands mid-stitch, thread under tension. NOT a finished product flat-lay. | Select a different frame from the timeline. Static finished frames read as commerce, suppress in Reels. |
+| 4.2 | Cover text | ≤4 words, all caps, bottom-right placement. | Trim to ≤4 words. Force caps. Move to bottom-right. Everything longer is unreadable at thumbnail size. |
+| 4.3 | Cover crop — square-safe | Focal action sits in the middle horizontal band (still readable at 1:1 grid thumbnail). | Re-crop. Center the action vertically so the platform's 1:1 crop doesn't lop off hands or thread. |
+| 5.1 | Cross-post drift | FB / TikTok caption has ≥10% drift from IG (minimum: one verb swap + one emoji swap). NOT the same headline. | Rewrite the FB caption. Two swaps minimum so the duplicate-content penalty doesn't kill reach. |
+| 5.2 | Cross-post queued | FB post scheduled at the 48h mark, not in a "I'll remember" mental note. | Queue it now in-platform. If the post fails 5.2 tomorrow, it fails 3.2 too — both want queue, not memory. |
+
+**Soft notes (do not gate Post, but check):**
+
+- **Audio uniqueness** — if the audio matches the last reel, expect lower velocity + reach suppression. Reuse only if the snippet *is* the value prop.
+- **First-comment taxonomy** — 7–10 hashtags is the proven band. Going to 25+ triggers IG spam heuristics; under 5 sacrifices discovery. Use the bank from the recipe; do not freestyle.
+
+**Time budget:** under 90 seconds. Going over means I'm arguing with myself on a row that already failed — drop back, repair, and re-audit.
+
+### First-30-minute litmus test
+
+The minute I post IG I watch velocity for 30 min. It's the only honest A/B test and it tells me whether the FB cross-post is worth firing 48h later:
+
+- **<5 likes in first 15 min** — cover frame or hook weak. Pull + re-cut **before** the FB crosspost so FB doesn't inherit a bad asset.
+- **5–15 likes / first 15 min** — healthy. Let it ride.
+- **>15 likes / first 15 min** — algorithm amplifies. Crosspost FB at the 48h mark with confidence.
+
+### Why this works (don't drift from it)
+
+- **Pattern-matching beats creativity for 1/1s.** Same title shape, same closing triptych, same hashtags = my audience sees each drop as part of a series, not one-offs. Series = repeat buyers knowing what to expect.
+- **Two platforms, 48h apart.** Same-day cross-posting splits the engagement signal in half — the algorithm can't tell which platform to amplify on, so it amplifies neither. 48h gives the winning platform time to seed, then the crosspost carries proven social proof, not a cold asset.
+- **Mute-thumbs need visual proof.** The needle-pierce frame proves "this is a video, this is a real build" **before** the audio plays. Static finished-product frames read as commerce → IG suppresses in Reels feed.
+- **3-second readability.** Everything below 4 words on the cover frame is unreadable at thumbnail size. `HANDMADE · 1/1` stacks both my best signals — craft + scarcity — inside that window.
+- **Evening over lunch.** Streetwear buyers impulse-buy when scrolling in bed, not at 1pm weekday. IG platform suggestions often default to mid-day; I override for this SKU type.
+
+### Common failures + fixes
+
+| Symptom | Root cause | Fix |
+|---|---|---|
+| Reel title doesn't match last week's series | Title drift | Stop and switch back to `<Product type> 1/1` shape |
+| Hashtags are inline in the body | First-comment rule forgotten | Move them to the first comment within 5 sec of posting |
+| Same audio as the last reel | Audio reuse | Algorithm treats as duplicate. Pick fresh or unreleased snippet |
+| Cover frame is the finished product flat-lay | Wrong frame picked | Read as commerce, suppresses in Reels. Use a process shot |
+| IG + FB posted same day | Timing shortcut | Pull FB, repost at the 48h mark |
+| Engagement dies after 2 hours | Hook line weak above the fold | Rewrite line 1 with the song hook welded to the craft verb |
+
+### Worked example (Balling Like the Pacers — Custom Wallet 1/1, 2026-07-06)
+
+This is the recipe was extracted from. Use it as a reference when in doubt:
+
+- **Audio:** unreleased 1huemoney snippet; hook = `Balling Like the Pacers`
+- **Item:** Custom Coalition Wallet, hand-sewn
+- **Title:** `Custom Coalition Wallet 1/1` (default shape, not swapped — series recognition won out)
+- **IG caption hook:** `Balling like the Pacers… stitch by stitch.🪡🫡` — song phrase + sewing verb in one breath
+- **Closing triptych:** unchanged from last week's "Above as Below" wallet caption (`No factory. No shortcuts. Just the process.`)
+- **Hashtags:** first comment, 7 brand + 2 product-discovery tags + audio tags
+- **Cover frame:** needle piercing leather, tight crop, `HANDMADE · 1/1` burned bottom-right
+- **Timing:** IG dropped 2026-07-06 ~6–8pm; FB cross-post scheduled for 2026-07-09 ~1pm
+- **First 30 min velocity:** healthy 5–15 band → ride original, no re-cut
+
+### When to fork this recipe
+
+- **One-of-many limited run (not 1/1)** — still use this recipe but expect lower velocity; cover frame text drops the `· 1/1` suffix (`HANDMADE`) because scarcity isn't the lead signal.
+- **Sneaker / apparel drop with hero image instead of B-roll** — this recipe doesn't fit. Use the `docs/drop-copy-grey-wave.md` template trio instead.
+- **Pre-order sale (no inventory)** — keep everything but flip the closing triptych to lead with `Locked in.` so the buyer knows their slot is reserved, not shipped.
+

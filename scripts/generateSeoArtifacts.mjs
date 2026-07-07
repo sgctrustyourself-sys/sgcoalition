@@ -411,6 +411,7 @@ const buildSitemap = (products) => {
     { loc: '/membership', priority: '0.5', changefreq: 'monthly' },
     { loc: '/sgcoin', priority: '0.5', changefreq: 'monthly' },
     { loc: '/help', priority: '0.4', changefreq: 'monthly' },
+    { loc: '/live-orders', priority: '0.5', changefreq: 'weekly' },
   ];
   const productPages = products.map((product) => ({
     loc: productPath(product.id),
@@ -475,7 +476,7 @@ const main = () => {
     {
       title: 'Coalition | Custom Wallets',
       description: 'Shop and request Coalition custom wallets: handmade one-of-one wallet builds, process videos, archive pieces, and Baltimore streetwear accessories.',
-      image: absoluteUrl('https://i.imgur.com/9NF3LzM.jpg'),
+      image: absoluteUrl('https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_9NF3LzM.jpg'),
       url: absoluteUrl('/custom-wallets'),
       type: 'website',
     },
@@ -495,6 +496,18 @@ const main = () => {
     collectionJsonLd(products.filter((product) => product.archived), 'Coalition Archive', '/archive')
   );
 
+  writeStaticPage(
+    baseHtml,
+    '/live-orders',
+    {
+      title: 'Coalition | Recently Ordered',
+      description: 'See where Coalition orders are shipping across the US. A live map of recent orders, top states, and recent activity — city and state only, no personal data.',
+      image: absoluteUrl(DEFAULT_IMAGE),
+      url: absoluteUrl('/live-orders'),
+      type: 'website',
+    },
+  );
+
   for (const product of products) {
     const seo = getProductSeo(product);
     writeStaticPage(
@@ -508,7 +521,7 @@ const main = () => {
     );
   }
 
-  console.log(`[seo] Generated sitemap, robots, and ${products.length + 3} static preview pages.`);
+  console.log(`[seo] Generated sitemap, robots, and ${products.length + 4} static preview pages.`);
 };
 
 main();

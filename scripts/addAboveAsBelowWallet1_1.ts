@@ -20,8 +20,8 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const BASE_SELECT_COLUMNS = 'id,name,price,stock,images,description,category,is_featured,sizes,size_inventory,archived,created_at';
 const MAKING_VIDEO_URL = 'https://www.instagram.com/p/DaQpKS9EXT8/';
 const PRODUCT_IMAGES = [
-    'https://i.imgur.com/9NF3LzM.jpg',
-    'https://i.imgur.com/UoY42bg.jpg'
+    'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_9NF3LzM.jpg',
+    'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_UoY42bg.jpg'
 ];
 
 async function addAboveAsBelowWallet1_1() {

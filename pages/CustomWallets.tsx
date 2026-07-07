@@ -7,7 +7,7 @@ import Seo from '../components/Seo';
 import { useApp } from '../context/AppContext';
 import { absoluteUrl, buildItemListJsonLd } from '../utils/seo';
 
-const HERO_IMAGE = 'https://i.imgur.com/9NF3LzM.jpg';
+const HERO_IMAGE = 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_9NF3LzM.jpg';
 
 const faqs = [
     {

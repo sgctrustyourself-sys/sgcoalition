@@ -43,8 +43,8 @@ For any drop, you'll have two CDN URLs:
 - `image_back_url` — secondary detail shot, used in Slide 2
 
 **Worked values for Grey Wave:**
-- `image_front_url` = `https://i.imgur.com/7z2h8u6.jpeg`
-- `image_back_url` = `https://i.imgur.com/UqtbJCq.jpeg`
+- `image_front_url` = `https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_7z2h8u6.jpg`
+- `image_back_url` = `https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_UqtbJCq.jpg`
 
 **Local PNG copies (for direct Canva upload, alpha-free):**
 - `public/images/grey-wave-wallet-1-2-front.png`

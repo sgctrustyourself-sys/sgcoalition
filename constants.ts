@@ -133,8 +133,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 85,
     createdAt: '2026-04-07T00:00:00Z',
     images: [
-      'https://i.imgur.com/3UUmYQa.jpg',
-      'https://i.imgur.com/vRqjRG4.jpg'
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_3UUmYQa.jpg',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_vRqjRG4.jpg'
     ],
     description: "First release in the Coalition 'Racing Team' wallet run. Built as a limited 1/4 collectible with custom team graphics and everyday-carry function.",
     category: 'wallet',
@@ -152,8 +152,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 85,
     createdAt: '2026-04-07T06:57:00Z',
     images: [
-      'https://i.imgur.com/IRhVbhN.jpg',
-      'https://i.imgur.com/7ScdBnE.jpg'
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IRhVbhN.jpg',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_7ScdBnE.jpg'
     ],
     description: "Second release in the Coalition 'Racing Team' wallet run. Built as a limited 2/4 collectible with custom team graphics and everyday-carry function.",
     category: 'wallet',
@@ -171,8 +171,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 85,
     createdAt: '2026-04-07T07:08:00Z',
     images: [
-      'https://i.imgur.com/dcw5qLQ.jpg',
-      'https://i.imgur.com/hmPBbY3.jpg'
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_dcw5qLQ.jpg',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_hmPBbY3.jpg'
     ],
     description: "Third release in the Coalition 'Racing Team' wallet run. Built as a limited 3/4 collectible with custom team graphics and everyday-carry function.",
     category: 'wallet',
@@ -190,8 +190,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 85,
     createdAt: '2026-04-07T07:25:00Z',
     images: [
-      'https://i.imgur.com/EylCpDU.jpg',
-      'https://i.imgur.com/w8dahYm.jpg'
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EylCpDU.jpg',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_w8dahYm.jpg'
     ],
     description: "Final release in the Coalition 'Racing Team' wallet run. Built as a limited 4/4 collectible with custom team graphics and everyday-carry function.",
     category: 'wallet',
@@ -252,7 +252,17 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'prod_1773860269374',
     founderNote: `[PLACEHOLDER · prod_1773860269374] Replace with founder's note: 1-2 paragraphs covering what this 1/1 build is, where it sits in the Coalition shark arc, and what's worth noticing in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'Coalition Shark Tee - 1/1 Exclusive',
-    price: 60,
+    // 2026-07-04: base price lowered from $60 -> $40, and a 50% auto-discount
+    // applied permanently to the row so the storefront surfaces strikethrough
+    // "$40 -> $20" without a coupon code. The discountPercent field is read
+    // by components/PriceDisplay.tsx on PDP/ProductCard, by pages/Checkout.tsx
+    // for cart math, and round-trips through services/retryQueue.ts ->
+    // mapProductToDb -> public.products.discount_percent (migration
+    // 20260704_add_discount_percent_to_products.sql). Checkout applies the
+    // no-stack rule vs cart-wide coupons (max() of the two wins) per the user's
+    // "Replace them (no stack)" spec.
+    price: 40,
+    discountPercent: 50,
     createdAt: '2026-03-18T19:00:00-04:00',
     images: [
       PRODUCT_IMAGE_URLS.sharkTee.main,
@@ -361,8 +371,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 85,
     createdAt: '2026-06-28T00:00:00-04:00',
     images: [
-      'https://i.imgur.com/9NF3LzM.jpg',
-      'https://i.imgur.com/UoY42bg.jpg'
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_9NF3LzM.jpg',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_UoY42bg.jpg'
     ],
     description: '1/1 Above as Below wallet. Hand-finished with the same storm-and-balance motif as the matching Above as Below tee — single piece, one red-and-white Coalition mark, scaled for everyday carry. Once sold, gone forever.',
     makingVideoUrl: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL,
@@ -1035,7 +1045,7 @@ export const INITIAL_ORDERS: any[] = [
       {
         productId: 'Coalition_Grey_Wave_Wallet_2_2',
         productName: "Coalition 'Grey Wave' Wallet 2/2",
-        productImage: 'https://i.imgur.com/FVMHZoq.jpeg',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_FVMHZoq.jpg',
         selectedSize: 'One Size',
         quantity: 1,
         price: 75,
@@ -1074,7 +1084,7 @@ export const INITIAL_ORDERS: any[] = [
       {
         productId: 'Coalition_Grey_Wave_Wallet_1_2',
         productName: "Coalition 'Grey Wave' Wallet 1/2",
-        productImage: 'https://i.imgur.com/7z2h8u6.jpeg',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_7z2h8u6.jpg',
         selectedSize: 'One Size',
         quantity: 1,
         price: 75,
@@ -1127,7 +1137,7 @@ export const INITIAL_ORDERS: any[] = [
         // Mirrors PRODUCT_IMAGE_URLS.trueReligionJeans.front1 so the
         // Supabase merge for INITIAL_ORDERS keeps the same image the
         // live seed uses and the storefront PDP shows on this row.
-        productImage: 'https://i.imgur.com/2VU7MEr.jpg',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_2VU7MEr.jpg',
         selectedSize: '33',
         quantity: 1,
         price: 140,
@@ -1180,7 +1190,7 @@ export const INITIAL_ORDERS: any[] = [
         productName: 'TRUST YOURSELF CUSTOM TRUCKER (1/1)',
         // Mirrors PRODUCT_IMAGE_URLS.trustYourselfHat.cover so the
         // storefront PDP + live map share the same canonical hat image.
-        productImage: 'https://i.imgur.com/iYBlwm8.png',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_iYBlwm8.png',
         selectedSize: 'One Size',
         quantity: 1,
         price: 50,
@@ -1304,7 +1314,7 @@ export const INITIAL_ORDERS: any[] = [
         // Mirrors PRODUCT_IMAGE_URLS.walletGreen.front from
         // utils/localImageAssets.ts so the storefront PDP + live
         // map share one canonical GreenCamoWallet cover.
-        productImage: 'https://i.imgur.com/kzIWQzA.jpg',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_kzIWQzA.png',
         selectedSize: 'One Size',
         quantity: 1,
         price: 25,
@@ -1316,7 +1326,7 @@ export const INITIAL_ORDERS: any[] = [
         // Mirrors PRODUCT_IMAGE_URLS.walletSkyyBlue.front so the
         // storefront PDP + live map share one canonical Skyy Blue
         // 1/2 cover.
-        productImage: 'https://i.imgur.com/rJSCmHu.jpg',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_rJSCmHu.png',
         selectedSize: 'One Size',
         quantity: 1,
         price: 25,
@@ -1328,7 +1338,7 @@ export const INITIAL_ORDERS: any[] = [
         // Mirrors PRODUCT_IMAGE_URLS.walletSkyyBlueArchive.front
         // (the archived Skyy Blue 2/2 cover) so the storefront
         // PDP + live map share one canonical Skyy Blue 2/2 cover.
-        productImage: 'https://i.imgur.com/Z5K3JZ0.png',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_Z5K3JZ0.png',
         selectedSize: 'One Size',
         quantity: 1,
         price: 25,
@@ -1337,7 +1347,7 @@ export const INITIAL_ORDERS: any[] = [
       {
         productId: 'Coalition_Racing_Team_Wallet_1_4',
         productName: "Coalition 'Racing Team' Wallet 1/4",
-        productImage: 'https://i.imgur.com/3UUmYQa.jpg',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_3UUmYQa.jpg',
         selectedSize: 'One Size',
         quantity: 1,
         price: 25,
@@ -1346,7 +1356,7 @@ export const INITIAL_ORDERS: any[] = [
       {
         productId: 'Coalition_Racing_Team_Wallet_2_4',
         productName: "Coalition 'Racing Team' Wallet 2/4",
-        productImage: 'https://i.imgur.com/IRhVbhN.jpg',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IRhVbhN.jpg',
         selectedSize: 'One Size',
         quantity: 1,
         price: 25,
@@ -1355,7 +1365,7 @@ export const INITIAL_ORDERS: any[] = [
       {
         productId: 'Coalition_Racing_Team_Wallet_3_4',
         productName: "Coalition 'Racing Team' Wallet 3/4",
-        productImage: 'https://i.imgur.com/dcw5qLQ.jpg',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_dcw5qLQ.jpg',
         selectedSize: 'One Size',
         quantity: 1,
         price: 25,
@@ -1364,7 +1374,7 @@ export const INITIAL_ORDERS: any[] = [
       {
         productId: 'Coalition_Racing_Team_Wallet_4_4',
         productName: "Coalition 'Racing Team' Wallet 4/4",
-        productImage: 'https://i.imgur.com/EylCpDU.jpg',
+        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EylCpDU.jpg',
         selectedSize: 'One Size',
         quantity: 1,
         price: 25,

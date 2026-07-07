@@ -32,8 +32,8 @@ async function updateWalletProduct() {
         sizes: ['One Size'],
         size_inventory: { 'One Size': 1 },
         images: [
-            'https://i.imgur.com/aphcZ2t.jpg',
-            'https://i.imgur.com/e7M0POe.jpg'
+            'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_aphcZ2t.jpg',
+            'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_e7M0POe.jpg'
         ],
         is_featured: true
     };

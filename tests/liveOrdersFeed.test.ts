@@ -180,7 +180,7 @@ describe('buildLiveOrdersFeed public recent order seeds', () => {
                     {
                         productId: 'Coalition_Grey_Wave_Wallet_2_2',
                         productName: "Coalition 'Grey Wave' Wallet 2/2",
-                        productImage: 'https://i.imgur.com/FVMHZoq.jpeg',
+                        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_FVMHZoq.jpg',
                         selectedSize: 'One Size',
                         quantity: 1,
                         price: 75,
