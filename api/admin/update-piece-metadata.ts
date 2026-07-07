@@ -13,40 +13,37 @@ import { createClient } from '@supabase/supabase-js';
 // SUPABASE_SERVICE_ROLE_KEY doing the actual write so RLS is bypassed on
 // the data side. Mirrors api/complete-order.ts's order-write pattern.
 //
+// 2026-07-07 `withAdminAuth` migration: the inline 5-setHeader CORS block,
+// 405 method guard + OPTIONS preflight, and Bearer-token check are now
+// handled by the shared `withAdminAuth` wrapper. Auth gate uses the
+// 3-token canonical surface (`ADMIN_SESSION_TOKEN` -> `FULL_AI_PASSWORD`
+// -> `AI_SESSION_SECRET`) and the wrapper also re-sets the OPTIONS
+// preflight + CORS echo so the Vite SPA post still works.
+//
 // ENV VARS REQUIRED:
 //   ADMIN_SESSION_TOKEN       -- bearer token (same secret as /api/admin/verify)
 //   SUPABASE_URL              -- database URL (server env)
 //   SUPABASE_SERVICE_ROLE_KEY -- service role JWT (server only)
 // =============================================================================
+// 2026-07-07: `Cache-Control: no-store` was previously a 5th setHeader on the
+// inline CORS block. It's preserved inside the wrapped handler below so
+// the admin tooling doesn't see stale numbered_pieces rows after a
+// successful update.
+import { withAdminAuth, parseBody } from '../_helpers';
+import type { ApiRequest, ApiResponse } from '../_types';
 
-export default async function handler(req: any, res: any) {
-    // CORS so the Vite-served SPA can post; mirror the rest of /api/.
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Cache-Control', 'no-store');
+export default withAdminAuth(async (req: ApiRequest, res: ApiResponse) => {
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
-    if (req.method === 'OPTIONS') {
-        res.status(204).end();
-        return;
-    }
-
-    if (req.method !== 'POST') {
-        res.status(405).json({ error: 'Method not allowed' });
-        return;
-    }
-
-    const expected = process.env.ADMIN_SESSION_TOKEN || '';
-    const authHeader = req.headers.authorization || req.headers.Authorization || '';
-    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-    if (!expected || !bearer || bearer !== expected) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-    }
-
-    const { pieceId, nftTokenId, nfcTagUrl } = req.body || {};
-    if (typeof pieceId !== 'string' || !pieceId) {
+    // 2026-07-07 wrapper migration: route req.body through `parseBody` (the
+    // shared `_helpers` function) so the JSON-string fallback + the strict
+    // `Record<string, unknown>` cast + the 400-on-invalid-JSON behavior all
+    // come for free instead of being duplicated here. Code-review blocker.
+    const body = parseBody(req);
+    const pieceId = typeof body.pieceId === 'string' ? body.pieceId : '';
+    const nftTokenId = body.nftTokenId;
+    const nfcTagUrl = body.nfcTagUrl;
+    if (!pieceId) {
         res.status(400).json({ error: 'pieceId required' });
         return;
     }
@@ -63,10 +60,10 @@ export default async function handler(req: any, res: any) {
     // Only include keys the caller passed in, so a partial update doesn't
     // stomp the other field.
     const patch: Record<string, string | null> = {};
-    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'nftTokenId')) {
+    if (Object.prototype.hasOwnProperty.call(body, 'nftTokenId')) {
         patch.nft_token_id = nftTokenId == null || nftTokenId === '' ? null : String(nftTokenId);
     }
-    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'nfcTagUrl')) {
+    if (Object.prototype.hasOwnProperty.call(body, 'nfcTagUrl')) {
         patch.nfc_tag_url = nfcTagUrl == null || nfcTagUrl === '' ? null : String(nfcTagUrl);
     }
     if (Object.keys(patch).length === 0) {
@@ -92,5 +89,6 @@ export default async function handler(req: any, res: any) {
         return;
     }
 
+    res.setHeader('Cache-Control', 'no-store');
     res.status(200).json({ ok: true });
-}
+}, { cors: { methods: 'POST,OPTIONS' } });

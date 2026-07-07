@@ -13,7 +13,16 @@
 // rationale live in ../../utils/marketingAudience.
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
-import { setCorsHeaders } from '../_helpers';
+// 2026-07-07 `withAdminAuth` migration: the inline `setCorsHeaders` +
+// `isAdminAuthorized` here previously supported a 4th env var
+// `ADMIN_BROADCAST_TOKEN` (used as a marketing-broadcast-specific token,
+// checked BEFORE `ADMIN_SESSION_TOKEN`). The canonical surface is now
+// the 3-token chain in `withAdminAuth` (`ADMIN_SESSION_TOKEN` ->
+// `FULL_AI_PASSWORD` -> `AI_SESSION_SECRET`). Any caller presenting an
+// `ADMIN_BROADCAST_TOKEN` Bearer now 401s -- rotate to
+// `ADMIN_SESSION_TOKEN` at the same time you remove
+// `ADMIN_BROADCAST_TOKEN` from Vercel env.
+import { withAdminAuth } from '../_helpers';
 import { filterVerifiedCustomers, isTestCampaignName } from '../../utils/marketingAudience';
 import type { ApiRequest, ApiResponse, MarketingAudienceRow, MarketingChannel, ResendEmailPayload } from '../_types';
 
@@ -31,16 +40,9 @@ function getResendFromAddress(): string {
     return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>';
 }
 
-function isAdminAuthorized(authHeader: string | undefined): boolean {
-    const expected = process.env.ADMIN_BROADCAST_TOKEN;
-    const sessionToken = process.env.ADMIN_SESSION_TOKEN;
-    if (!authHeader) return false;
-    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
-    if (!bearer) return false;
-    if (expected && bearer === expected) return true;
-    if (sessionToken && bearer === sessionToken) return true;
-    return false;
-}
+// 2026-07-07: inline `isAdminAuthorized` removed -- admin gate is now the
+// shared 3-env `withAdminAuth` wrapper below. ADMIN_BROADCAST_TOKEN is no
+// longer accepted.
 
 async function fetchAudience(
     admin: SupabaseClient,
@@ -239,17 +241,8 @@ async function sendSmss(opts: {
     }
     return { sent, failed };
 }
-export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
-    setCorsHeaders(req, res, { methods: 'POST,OPTIONS' });
-
-    if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+export default withAdminAuth(async (req, res) => {
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
-
-    const authHeader = typeof req.headers?.authorization === 'string' ? req.headers.authorization : undefined;
-    if (!isAdminAuthorized(authHeader)) {
-        res.status(401).json({ error: 'Admin authorization required.' });
-        return;
-    }
 
     let body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
     if (typeof body === 'string') {
@@ -379,4 +372,4 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
         const message = err instanceof Error ? err.message : 'Send failed.';
         res.status(500).json({ error: message });
     }
-}
+}, { cors: { methods: 'POST,OPTIONS' } });

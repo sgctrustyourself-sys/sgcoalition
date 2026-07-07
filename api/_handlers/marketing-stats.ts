@@ -16,6 +16,13 @@
 // }
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+// 2026-07-07 `withAdminAuth` migration: marketing-stats previously had a
+// hand-rolled `isAdminAuthorized` + inline 4-setHeader CORS block. The
+// wrapper now covers both; the env-var chain matches the 3-token
+// canonical surface (ADMIN_SESSION_TOKEN -> FULL_AI_PASSWORD ->
+// AI_SESSION_SECRET) the rest of the admin surface uses.
+import { withAdminAuth } from '../_helpers';
+import type { ApiRequest, ApiResponse } from '../_types';
 
 let cachedAdminClient: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient | null {
@@ -27,32 +34,8 @@ function getSupabaseAdmin(): SupabaseClient | null {
     return cachedAdminClient;
 }
 
-function isAdminAuthorized(authHeader: string | undefined): boolean {
-    const expected = process.env.ADMIN_SESSION_TOKEN ||
-        process.env.FULL_AI_PASSWORD ||
-        process.env.AI_SESSION_SECRET ||
-        '';
-    if (!expected) return false;
-    if (!authHeader) return false;
-    const lower = authHeader.toLowerCase();
-    const token = lower.startsWith('bearer ') ? authHeader.slice(7) : authHeader;
-    return token === expected;
-}
-
-export default async function handler(req: any, res: any) {
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-    if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+export default withAdminAuth(async (req: ApiRequest, res: ApiResponse) => {
     if (req.method !== 'GET') { res.status(405).json({ error: 'Method not allowed' }); return; }
-
-    const authHeader = typeof req.headers?.authorization === 'string' ? req.headers.authorization : undefined;
-    if (!isAdminAuthorized(authHeader)) {
-        res.status(401).json({ error: 'Admin authorization required.' });
-        return;
-    }
 
     const admin = getSupabaseAdmin();
     if (!admin) {
@@ -113,4 +96,4 @@ export default async function handler(req: any, res: any) {
         console.error('[marketing-stats] error:', err);
         res.status(500).json({ error: err?.message || 'Failed to load marketing stats' });
     }
-}
+}, { cors: { methods: 'GET,OPTIONS' } });
