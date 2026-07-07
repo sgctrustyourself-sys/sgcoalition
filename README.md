@@ -6,6 +6,30 @@
 
 # Coalition Brand - E-commerce Platform
 
+## Contents
+
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Backend Architecture](#backend-architecture)
+- [Backend Bug-Fix Checklist](#backend-bug-fix-checklist)
+- [Current Product Catalog Baseline](#current-product-catalog-baseline)
+- [Local Development](#local-development)
+- [Cross-cut category filters on /shop](#cross-cut-category-filters-on-shop)
+- [Recently Ordered Live Map](#recently-ordered-live-map)
+- [Above As Below Set Offers](#above-as-below-set-offers)
+- [Production Deployment](#production-deployment)
+- [Project Structure](#project-structure)
+- [Environment Variables](#environment-variables)
+- [Contributing](#contributing)
+- [License](#license)
+- [Customer Profile](#customer-profile)
+- [/admin Verified Buyers tab](#admin-verified-buyers-tab)
+- [/admin Instagram-handle filter chips](#admin-instagram-handle-filter-chips)
+- [Reel + post recipe (1/1 process videos)](#reel--post-recipe-11-process-videos)
+- [Public site map](#public-site-map)
+- [/admin operator map](#admin-operator-map)
+
+
 Premium streetwear e-commerce platform built with React, Vite, and Stripe.
 
 ## Features
@@ -231,6 +255,7 @@ If a live Supabase row exists, the Supabase price is the current storefront pric
 | `prod_trust_yourself_hat_01` | Trust Yourself Custom Trucker (1/1) | $50 | headwear | Archived/sold | stock 0; One Size: 0 | Supabase + local |
 | `prod_wallet_004` | COALITION SKYY BLUE WALLET 2/2 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
 | `prod_wallet_chrome_hearts` | CUSTOM COALITION X CHROME HEARTS WALLET | $450 | wallet | Archived/sold | no size map | Local fallback only |
+| `Coalition_Denim_Patchwork_S1` | Coalition Denim Patchwork 1/1 Jeans S1 | $140 | jeans | Archived/sold | stock 0; 30: 0 | Supabase + local overrides |
 
 ## Local Development
 
@@ -1153,4 +1178,88 @@ This is the recipe was extracted from. Use it as a reference when in doubt:
 - **One-of-many limited run (not 1/1)** — still use this recipe but expect lower velocity; cover frame text drops the `· 1/1` suffix (`HANDMADE`) because scarcity isn't the lead signal.
 - **Sneaker / apparel drop with hero image instead of B-roll** — this recipe doesn't fit. Use the `docs/drop-copy-grey-wave.md` template trio instead.
 - **Pre-order sale (no inventory)** — keep everything but flip the closing triptych to lead with `Locked in.` so the buyer knows their slot is reserved, not shipped.
+
+## Public site map
+
+One H3 per page the visitor can land on. `/shop` and `/live-orders` get sections of their own above because they carry richer mechanics (catalog merge order + size inventory; live order feed + window-filter logic) that need dedicated documentation rather than a one-line summary here. `/`, `/cart`, `/checkout`, and `/product/:id` are intentionally NOT listed below because their behavior is already covered across the existing `## Current Product Catalog Baseline`, `## Backend Architecture`, and `## Backend Bug-Fix Checklist` sections (cross-link from those, not duplicated here). Routes not listed below are intentional gaps — either leaderboard-style public surfaces protected by auth, or operator-only screens surfaced under `/admin`.
+
+### Custom builds + community
+
+- **/custom-wallets** (`pages/CustomWallets.tsx`) — operator-curated custom-wallet landing page. Walks through the same intake flow as `/inquire` but pitched at the wallet category. Single intake form reuses the Custom Inquiry API.
+- **/inquire** (`pages/CustomInquiry.tsx`) — full custom-build intake form. POSTs to `/api/product-upload` (custom-inquiry branch). Buyer PII in Supabase only; inquiry upload keys live in `services/inquiryUpload.ts` at runtime.
+- **/favorites** (`pages/Favorites.tsx`) — logged-in favorited products. Renders from `profile.favorites[]` in `context/AppContext.tsx`; no separate table.
+- **/wishlist/:shareId** (`pages/PublicWishlist.tsx`) — public, share-token-only view of a buyer's favorited products. Token minted server-side; rows are filtered to a single `profile.id`.
+- **/help** (`pages/Help.tsx`) — FAQ + contact entry to the marketing `marketing_contacts` opt-in form.
+
+### Crypto + Web3
+
+- **/portal** (`pages/SGCoalitionPortal.tsx`) — gateway page for whichever Coalition-on-Polygon surface the buyer came in for. Conditional `<Navbar />` hides the storefront nav.
+- **/sgminiwizards** (`pages/WizardsPortal.tsx`) — Wizards NFT portal entry. Mirrors the SGCoin tutorial flow but pitched at the Wizards (Mini Wizards ERC-1155) collection specifically.
+- **/sgminiwizards/dashboard** (`pages/WizardsDashboard.tsx`) — Wizards owner dashboard. Pulls `mini_wizards_contract_address` from `constants.ts` and shows the buyer's holdings via `services/web3Service.ts`.
+- **/sgminiwizards/treasury** (`pages/TreasuryPage.tsx`) — SGCoin treasury + treasury wallet address display. Reads `constants.TREASURY_WALLET_ADDRESS`, `QUICKSWAP_LP_ADDRESS`, and the static `LIQUIDITY_TARGET_POL` for the live POL balance banner.
+- **/sgcoin** (`pages/BuySGCoin.tsx`) — buy SGCoin landing. CTA drives into the 6-step tutorial (/tutorial/welcome -> /tutorial/use) and Quickswap.
+- **/migrate** (`pages/MigrationPage.tsx`) — V1 → V2 SGCoin migration wizard. Drives `constants.calculateV2Amount` against the connected wallet's V1 balance; `MIGRATION_RATIO = 1_000_000:1` is the operator-set flat ratio (whale-tier worst-case fairness).
+- **/membership** (`pages/Membership.tsx`) — Coalition membership gates + perks. Currently read-only marketing surface; subscription checkout runs through `/api/create-subscription-session` if a tier is wired.
+
+### Buyer account + history
+
+- **/profile** (`pages/Profile.tsx`) — authed buyer profile. Pinned-to-wallet buyers see their SGCoin balance, wallet link status, and first-link timestamp.
+- **/order-history** (`pages/OrderHistory.tsx`) — authed order history. Pulls from Supabase `orders` filtered by `customer_email`.
+- **/order/:orderId** (`pages/OrderDetails.tsx`) — single-order detail page.
+- **/order/success** (`pages/OrderSuccess.tsx`) — Stripe + PayPal dual-mode landing. Reads `payment_method` from the URL.
+- **/order/cancel** (`pages/OrderCancel.tsx`) — Stripe/crypto/paypal handoff-cancel landing.
+- **/saved-addresses** (`pages/SavedAddresses.tsx`) — authed multi-address book. Saved addresses boost the customer's reorder flow.
+- **/my-reviews** (`pages/MyReviews.tsx`) — buyer-authored reviews list. Only visible to the buyer who wrote them; the public PDP reads from the same `reviews` table but without the buyer-side filter.
+- **/search** (`pages/SearchResults.tsx`) — full-catalog search. Matches product.name + product.description + product.category against the live merged catalog (Supabase + INITIAL_PRODUCTS + PRODUCT_LOCAL_OVERRIDES).
+- **/login, /signup, /forgot-password, /reset-password, /update-password** — Supabase Auth flow. Reset + update are reachable only via Supabase email links; the forget/reset pair shares one form pattern.
+
+### Marketing + content
+
+- **/about** (`pages/About.tsx`) — Coalition origin story. Single static render from `constants.ts > ABOUT_TEXT`.
+- **/ecosystem** (`pages/Ecosystem.tsx`) — Coalition ecosystem map. Linking tile -> external SGCoin contract + Quickswap + Treasury.
+- **/archive** (`pages/Archive.tsx`) — archived / 1-of-1-only catalog. Surfaces every `INITIAL_PRODUCTS` row with `archived: true` outside the live `/shop` flow.
+- **/blog** (`pages/Blog.tsx`) + **/blog/:slug** (`pages/BlogPostView.tsx`) — public blog list + per-post view. Admin editor lives at `/admin/blog` (BlogManager).
+- **/giveaway/:id** (`pages/GiveawayEntry.tsx`) + **/youtube-giveaway** (`pages/YoutubeGiveaway.tsx`) — giveaway entry forms. Both POST to Supabase `giveaways`; operator curation lives at `/admin/giveaways`.
+- **/privacy**, **/terms** — legal copy, no auth gate.
+- **/not-found** (`pages/NotFound.tsx`) — 404 page.
+
+## Admin operator map
+
+One H3 per `/admin/*` tab the operator can land on. The Verified Buyers and Customer Profile tabs already have their own dedicated sections above (gated contract, dedupe-by-id, privacy promises) and are referenced here for completeness. The Brain tab is authed via `ProtectedRoute` outside the admin shell — `/brain` covers the same surface for the founder wallet address.
+
+### Catalog + fulfillment
+
+- **Command Center** (`components/admin/EcosystemCommandCenter.tsx`) — operator landing tab after sign-in. Surfaces signal-broadcast status, recent orders, marketing campaigns in flight, and 4-5 at-a-glance stats.
+- **Products** (`components/admin/ProductManager.tsx`) — full CRUD over the Supabase `products` table. Image-role editor + named slot targets are wired through this tab; halo and above-as-below products ship here.
+- **Orders** (`components/admin/OrderManager.tsx`) — operator order dashboard. Now carries the IG-handle filter chip (see [that section](#admin-instagram-handle-filter-chips) above).
+- **Custom Inquiries** (`components/admin/CustomInquiryManager.tsx`) — intake queries from the `/inquire` form. CSV export + manual reply workflow.
+- **Giveaways** (`components/admin/GiveawayManager.tsx`) — operator curation for `/giveaway/:id` + YouTube giveaway flows. Draw winner + CSV export shared with Inquiries tab.
+- **Version Control** (`components/admin/GitControl.tsx`) — operator-facing thin wrapper over `services/gitService.ts`. Lists last-10 commits + a non-destructive `git status` readout; never auto-commits.
+
+### Marketing + reach
+
+- **Marketing** (`components/admin/MarketingManager.tsx`) — campaigns sender. Composer view shows an amber advisory banner the moment the campaign name contains `test` (full suppression contract is documented in [Marketing and SMS](#marketing-and-sms) above).
+- **Instagram Links** (`components/admin/InstagramLinksManager.tsx`) — `@sgcoalition` link-in-bio manager. Reads + writes through the Instagram links API.
+- **Signal Broadcast** (`components/admin/SignalManager.tsx`) — `SignalAlert` overlay + PromoBar coordination. One-shot banners the operator can fire without redeploying.
+- **Reviews** (`components/admin/ReviewManager.tsx`) — buyer-review moderation queue.
+- **Blog Manager** (`pages/admin/BlogManager.tsx`) — `/blog` post editor. Mounted at `/admin/blog` (separate route, not a tab).
+
+### Wallet + identity
+
+- **User Directory** (`components/admin/UserManager.tsx`) — Supabase `profiles` + `auth.users` directory. Read-only by default; admin wallet toggle for editing.
+- **Referrals** (`components/admin/ReferralAnalytics.tsx`) — referral-tracking dashboard. Reads `referrals` rows joined to `marketing_contacts` by `metadata.referred_by_code`.
+- **SGCoin Distribution** (`components/admin/SGCoinDistribution.tsx`) — manual SGC credit batching. Audit-first: every write produces a `customer_reward_credits` row before bumping `profiles.sg_coin_balance`.
+- **SGCoin Requests** (`components/admin/SGCoinRequestManager.tsx`) — buyer-submitted SGC requests queue. Approve toggles the matching `marketing_contacts` row to `approved`.
+- **Coalition Brain** (`components/admin/BrainManager.tsx`) + **/brain** (`pages/Brain.tsx`) — Brain table editor (mirrors the authed `/brain` route accessed by the founder wallet). One source of truth for `brain_entries` rows.
+
+### Analytics + telemetry
+
+- **Analytics** (`components/admin/AnalyticsDashboard.tsx`) — order totals + revenue + cohort counts. Reads Supabase aggregations direct.
+- **Customers** — see [Customer Profile](#customer-profile) above; also has its own IG-handle filter chip per [the IG filter section](#admin-instagram-handle-filter-chips).
+- **Verified Buyers** — see [/admin Verified Buyers tab](#admin-verified-buyers-tab) above for the suppression-contract deep dive.
+
+### Settings (placeholder)
+
+- **Settings** — placeholder tab in `AdminLayout.tsx > navItems`, currently commented out in the production nav. Reserved for future toggle surfaces (env-var preview, feature flags, rates tables). Surface via `AdminLayout.tsx > navItems` when first wired.
+
 
