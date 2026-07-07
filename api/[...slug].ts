@@ -13,10 +13,12 @@ type Loader = () => Promise<{ default: Handler }>;
 
 const handlers: Record<string, Loader> = {
     'ai-chat': () => import('./_handlers/ai-chat'),
+    'attribute-order-to-facebook': () => import('./_handlers/attribute-order-to-facebook'),
     'complete-order': () => import('./_handlers/complete-order'),
     'create-checkout-session': () => import('./_handlers/create-checkout-session'),
     'create-payment-intent': () => import('./_handlers/create-payment-intent'),
     'create-subscription-session': () => import('./_handlers/create-subscription-session'),
+    'credit-customer-reward': () => import('./_handlers/credit-customer-reward'),
     'git-operations': () => import('./_handlers/git-operations'),
     'marketing-optout': () => import('./_handlers/marketing-optout'),
     'marketing-send': () => import('./_handlers/marketing-send'),

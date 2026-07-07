@@ -154,6 +154,7 @@ export interface OrderRow {
     created_at: string;
     paid_at: string | null;
     sg_coin_reward: number;
+    facebook_username?: string | null;
 }
 
 // OrderRow without the PayPal payment columns — used when migrating legacy
@@ -325,7 +326,14 @@ export interface ProfileRow {
     id: string;
     store_credit?: number;
     is_vip?: boolean;
+    sg_coin_balance?: number;
     updated_at?: string;
+    wallet_linked_at?: string | null;
+    lifetime_spend_usd?: number;
+    lifetime_orders?: number;
+    last_reward_credit_at?: string | null;
+    last_reward_credit_amount?: number;
+    customer_notes?: string | null;
     [key: string]: unknown;
 }
 
@@ -451,4 +459,41 @@ export interface GitResetInput {
 export interface GitOperationResponse {
     success?: boolean;
     [key: string]: unknown;
+}
+
+// ---------- credit-customer-reward ----------
+// Body shape the admin CustomerProfileAdmin UI posts when crediting a customer.
+// Both amount_sgc and amount_usd are optional but at least one must be supplied
+// (handler validates that amount_sgc > 0 when present).
+export interface CreditCustomerRewardBody {
+    profileId?: string;
+    amountSgc?: number;
+    amountSgcSnake?: number;
+    amountUsd?: number;
+    orderId?: string | null;
+    reason?: string;
+    [key: string]: unknown;
+}
+
+export interface CreditCustomerRewardResponse {
+    success: boolean;
+    newSgCoinBalance: number;
+    creditId?: string;
+    awardedAt?: string;
+}
+
+// ---------- attribute-order-to-facebook ----------
+// Body shape the admin CustomerProfileAdmin UI posts when stamping a Facebook
+// attribution onto an order.
+export interface AttributeOrderToFacebookBody {
+    orderId?: string;
+    facebookUsername?: string;
+    note?: string;
+    [key: string]: unknown;
+}
+
+export interface AttributeOrderToFacebookResponse {
+    success: boolean;
+    orderId?: string;
+    facebookUsername?: string;
 }
