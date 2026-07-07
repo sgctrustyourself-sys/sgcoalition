@@ -41,11 +41,14 @@ function makeRes(): StubRes {
     return res;
 }
 
+const TEST_ADMIN_TOKEN = 'test-admin-token';
+
 function makeReq(body: unknown, method = 'POST'): any {
-    return { method, body, headers: {}, query: {} };
+    return { method, body, headers: { authorization: `Bearer ${TEST_ADMIN_TOKEN}` }, query: {} };
 }
 
 beforeEach(() => {
+    process.env.ADMIN_SESSION_TOKEN = TEST_ADMIN_TOKEN;
     mockFromChain.update.mockReset().mockImplementation(() => mockFromChain);
     mockFromChain.select.mockReset().mockImplementation(() => mockFromChain);
     mockFromChain.eq.mockReset().mockImplementation(() => mockFromChain);
@@ -58,6 +61,10 @@ beforeEach(() => {
 
 afterEach(() => {
     vi.clearAllMocks();
+    // Don't leak process.env.ADMIN_SESSION_TOKEN into the next test file --
+    // vitest shares process state across suites and the auth-failure tests
+    // set the test fixture in beforeEach.
+    delete process.env.ADMIN_SESSION_TOKEN;
 });
 
 describe('/api/attribute-order-to-facebook handler', () => {
@@ -193,5 +200,31 @@ describe('/api/attribute-order-to-facebook handler', () => {
         const mergedNotes = String(updateArg.notes || '');
         expect(mergedNotes).toMatch(/pre-existing operator NOTE/);
         expect(mergedNotes).toMatch(/someone_else/);
+    });
+
+    // Admin auth gate (2026-07-07 hardening): withAdminAuth wrapper rejects
+    // any caller that doesn't present a Bearer token matching
+    // process.env.ADMIN_SESSION_TOKEN. Mirrors the gate on credit-customer-
+    // reward so the same regression can't pass through both endpoints.
+    it('returns 401 when Authorization header is missing', async () => {
+        const res = makeRes();
+        const req = makeReq({ orderId: 'order-z', facebookUsername: 'starrboii067' });
+        delete req.headers.authorization;
+        await handler(req, res as any);
+        expect(res.statusCode).toBe(401);
+        expect(res.body.error).toMatch(/Admin authorization required/);
+        // The inner handler must NEVER be invoked when auth fails.
+        expect(mockFromChain.single).not.toHaveBeenCalled();
+        expect(mockFromChain.update).not.toHaveBeenCalled();
+    });
+
+    it('returns 401 when Bearer token does not match ADMIN_SESSION_TOKEN', async () => {
+        const res = makeRes();
+        const req = makeReq({ orderId: 'order-w', facebookUsername: 'starrboii067' });
+        req.headers.authorization = 'Bearer wrong-token';
+        await handler(req, res as any);
+        expect(res.statusCode).toBe(401);
+        expect(res.body.error).toMatch(/Admin authorization required/);
+        expect(mockFromChain.single).not.toHaveBeenCalled();
     });
 });

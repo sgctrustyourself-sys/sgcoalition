@@ -29,6 +29,64 @@ export function parseBody(req: ApiRequest): Record<string, unknown> {
     return typeof req.body === 'object' && req.body !== null ? (req.body as Record<string, unknown>) : {};
 }
 
+// Admin auth gate. Wraps a mutating handler so only callers presenting a
+// matching admin Bearer token can reach the inner body. Mirrors the
+// prior-inline admin pattern from marketing-send.ts + marketing-stats.ts
+// + api/admin/update-piece-metadata.ts so the env contract is the same
+// across the surface area: ADMIN_SESSION_TOKEN (primary canonical) with
+// FULL_AI_PASSWORD and AI_SESSION_SECRET run in parallel -- they're
+// actively in use by the marketing-* endpoints (which use the same env
+// contract in their inline bearer checks), so a future operator rotating
+// only ADMIN_SESSION_TOKEN would quietly break the marketing gates
+// while the wrapped handlers here still pass. Rotate all three on a
+// coordinated cadence, OR migrate the marketing-* handlers to the
+// wrapper first. If no admin env is set the gate returns 401 --
+// fail-closed is the right default for a write surface.
+//
+// Usage:
+//   export default withAdminAuth(async (req, res) => {
+//     try { res.status(200).json(await innerLogic(req)); }
+//     catch (err: any) { ... }
+//   }, { cors: { methods: 'POST,OPTIONS', allowedHeaders: EXTENDED_CORS_HEADERS } });
+//
+// Order of operations inside the returned wrapper:
+//   1. CORS headers (so the preflight + 401 response both echo Origin/Methods/Headers).
+//   2. OPTIONS short-circuit (preflight never carries auth).
+//   3. Admin Bearer check (returns 401 on mismatch, missing header, or empty env).
+//   4. Forward to the inner handler.
+export interface WithAdminAuthOptions {
+    cors?: CorsOptions;
+}
+
+export function withAdminAuth(
+    handler: (req: ApiRequest, res: ApiResponse) => Promise<unknown>,
+    options: WithAdminAuthOptions = {}
+): (req: ApiRequest, res: ApiResponse) => Promise<void> {
+    return async (req, res) => {
+        setCorsHeaders(req, res, options.cors);
+        if (req.method === 'OPTIONS') {
+            res.status(200).end();
+            return;
+        }
+
+        const expected = process.env.ADMIN_SESSION_TOKEN
+            || process.env.FULL_AI_PASSWORD
+            || process.env.AI_SESSION_SECRET
+            || '';
+        const headerRaw = req.headers?.authorization ?? req.headers?.Authorization;
+        const authHeader = typeof headerRaw === 'string' ? headerRaw : '';
+        const bearer = authHeader.toLowerCase().startsWith('bearer ')
+            ? authHeader.slice(7).trim()
+            : authHeader.trim();
+        if (!expected || !bearer || bearer !== expected) {
+            res.status(401).json({ error: 'Admin authorization required.' });
+            return;
+        }
+
+        await handler(req, res);
+    };
+}
+
 export interface CorsOptions {
     /**
      * When set and non-empty, the request's `Origin` header is echoed back

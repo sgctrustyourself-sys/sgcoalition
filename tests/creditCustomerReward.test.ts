@@ -50,11 +50,14 @@ function makeRes(): StubRes {
     return res;
 }
 
+const TEST_ADMIN_TOKEN = 'test-admin-token';
+
 function makeReq(body: unknown, method = 'POST'): any {
-    return { method, body, headers: {}, query: {} };
+    return { method, body, headers: { authorization: `Bearer ${TEST_ADMIN_TOKEN}` }, query: {} };
 }
 
 beforeEach(() => {
+    process.env.ADMIN_SESSION_TOKEN = TEST_ADMIN_TOKEN;
     mockFromChain.insert.mockReset().mockImplementation(() => mockFromChain);
     mockFromChain.update.mockReset().mockImplementation(() => mockFromChain);
     mockFromChain.select.mockReset().mockImplementation(() => mockFromChain);
@@ -70,6 +73,10 @@ beforeEach(() => {
 
 afterEach(() => {
     vi.clearAllMocks();
+    // Don't leak process.env.ADMIN_SESSION_TOKEN into the next test file --
+    // vitest shares process state across suites and the auth-failure tests
+    // set the test fixture in beforeEach.
+    delete process.env.ADMIN_SESSION_TOKEN;
 });
 
 describe('/api/credit-customer-reward handler', () => {
@@ -201,5 +208,35 @@ describe('/api/credit-customer-reward handler', () => {
         const insertOrder = mockFromChain.insert.mock.invocationCallOrder[0];
         const updateOrder = mockFromChain.update.mock.invocationCallOrder[0];
         expect(insertOrder).toBeLessThan(updateOrder);
+    });
+
+    // Admin auth gate (2026-07-07 hardening): withAdminAuth wrapper rejects
+    // any caller that doesn't present a Bearer token matching
+    // process.env.ADMIN_SESSION_TOKEN. The two negative cases below lock
+    // the gate so a future regression that drops the wrapper is caught
+    // immediately even though every positive test already exercises the
+    // happy path implicitly.
+    it('returns 401 when Authorization header is missing', async () => {
+        const res = makeRes();
+        const req = makeReq({ profileId: 'p1', amountSgc: 50, reason: 'missing-auth scenario' });
+        delete req.headers.authorization;
+        await handler(req, res as any);
+        expect(res.statusCode).toBe(401);
+        expect(res.body.error).toMatch(/Admin authorization required/);
+        // The inner handler must NEVER be invoked when auth fails. Locking
+        // this means a future regression that skips the gate cannot pass.
+        expect(mockFromChain.single).not.toHaveBeenCalled();
+        expect(mockFromChain.insert).not.toHaveBeenCalled();
+        expect(mockFromChain.update).not.toHaveBeenCalled();
+    });
+
+    it('returns 401 when Bearer token does not match ADMIN_SESSION_TOKEN', async () => {
+        const res = makeRes();
+        const req = makeReq({ profileId: 'p1', amountSgc: 50, reason: 'wrong-token scenario' });
+        req.headers.authorization = 'Bearer wrong-token';
+        await handler(req, res as any);
+        expect(res.statusCode).toBe(401);
+        expect(res.body.error).toMatch(/Admin authorization required/);
+        expect(mockFromChain.single).not.toHaveBeenCalled();
     });
 });

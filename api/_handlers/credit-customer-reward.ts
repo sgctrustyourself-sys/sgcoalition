@@ -9,7 +9,7 @@
 // (button-disabled-while-loading) to avoid double-credits.
 
 import { createClient } from '@supabase/supabase-js';
-import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, setCorsHeaders, type HttpError } from '../_helpers';
+import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, withAdminAuth, type HttpError } from '../_helpers';
 import type {
     ApiRequest,
     ApiResponse,
@@ -112,14 +112,7 @@ async function creditCustomerReward(req: ApiRequest): Promise<CreditCustomerRewa
     };
 }
 
-export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
-    setCorsHeaders(req, res, { methods: 'POST,OPTIONS', allowedHeaders: EXTENDED_CORS_HEADERS });
-
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-
+export default withAdminAuth(async (req, res) => {
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'Method not allowed' });
         return;
@@ -134,4 +127,4 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
         console.error('Customer reward credit error:', error);
         res.status(status).json({ error: message || 'Customer reward credit failed' });
     }
-}
+}, { cors: { methods: 'POST,OPTIONS', allowedHeaders: EXTENDED_CORS_HEADERS } });
