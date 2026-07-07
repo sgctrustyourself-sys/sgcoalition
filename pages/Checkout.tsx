@@ -11,6 +11,7 @@ import { validateCouponCode, applyCouponCode, getAppliedCouponCode, clearCouponC
 import { getCartItemAddOnPrice, getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
 import { calculatePromoDiscountDollars, getPromoCodeDiscount, normalizePromoCode } from '../utils/promoCodes';
+import { getCartProductDiscountTotal, resolveEffectiveDiscount } from '../utils/productDiscount';
 
 const reportErrorToAdmin = async (error: string, context: string, metadata: any = {}) => {
     try {
@@ -116,23 +117,53 @@ const Checkout: React.FC = () => {
         ? Math.round(promoDiscountBase * appliedCouponDiscountPercentage) / 100
         : 0;
 
+    // Auto-discount: per-product discountPercent (migration 20260704) summed
+    // across the cart in dollars. The Shark Tee at $40 @ 50% contributes $20,
+    // many Shark Tees multiply through, non-discounted items contribute 0.
+    const productDiscountSum = getCartProductDiscountTotal(cart);
+    // No-stack rule (per user spec "Replace them (no stack)"): the larger of
+    // (sum of product discounts, cart-wide coupon discount) wins. The smaller
+    // is dropped silently so they never compound. SGCoin payment-method
+    // savings apply AFTER this resolution on the smaller remaining base.
+    const discountEffective = resolveEffectiveDiscount(productDiscountSum, promoDiscount);
+    const productDiscountApplied = discountEffective === productDiscountSum && productDiscountSum > 0;
+    const promoDiscountApplied = discountEffective === promoDiscount && promoDiscount > 0;
+    // Discount labels for the order summary line(s). When productDiscountSum
+    // wins, call out which qualifying items contributed; when the coupon wins,
+    // keep the existing promo label.
+    const productDiscountLineLabel = productDiscountApplied
+        ? `Product discount (${cart.filter(item => (item.discountPercent ?? 0) > 0).length} item${cart.filter(item => (item.discountPercent ?? 0) > 0).length === 1 ? '' : 's'})`
+        : null;
+
     // Calculate SGCoin discount if crypto payment is selected. Apply the
-    // percentage AFTER the set bonus and promo code so discounts stack in the
-    // same order the customer sees in the summary.
+    // percentage AFTER the set bonus AND after the no-stack product-vs-coupon
+    // resolution so the discount ordering matches what the customer sees in
+    // the summary.
     const discountEnabled = isSGCoinDiscountEnabled();
-    const cryptoBase = Math.max(0, total - cartBonusDollars - promoDiscount);
+    const cryptoBase = Math.max(0, total - cartBonusDollars - discountEffective);
     const discount = (paymentMethod === 'crypto' && discountEnabled) ? calculateCartDiscount(cryptoBase) : 0;
 
     // Store Credit Logic
     const [useStoreCredit, setUseStoreCredit] = useState(false);
     const availableCredit = user?.storeCredit || 0;
-    const totalBeforeStoreCredit = Math.max(0, total - discount - promoDiscount - cartBonusDollars + shippingCost);
+    // No-stack everywhere: pay base uses discountEffective (the winner of
+    // max(productDiscountSum, promoDiscount)). Never sum raw `promoDiscount`
+    // here \u2014 doing so would silently apply both the product auto-discount
+    // AND the cart-wide coupon on top of each other and the customer would
+    // pay less than expected. The PayPal createOrder payload below mirrors
+    // this same single-winner pattern.
+    const totalBeforeStoreCredit = Math.max(0, total - discount - discountEffective - cartBonusDollars + shippingCost);
     const creditToApply = useStoreCredit ? Math.min(availableCredit, totalBeforeStoreCredit) : 0;
     const [isZeroAmount, setIsZeroAmount] = useState(false);
 
     // Final Total Calculation
     const finalTotal = Math.max(0, totalBeforeStoreCredit - creditToApply);
-    const checkoutDiscountTotal = discount + promoDiscount + creditToApply + cartBonusDollars;
+    // checkoutDiscountTotal mirrors the summary duck: includes only the
+    // discount that won the no-stack resolution (discountEffective) plus
+    // SGCoin, store credit, and the set bonus. The losing discount (either
+    // productDiscountSum or promoDiscount) is silently dropped here so the
+    // admin-order row in supabase does NOT double-count savings.
+    const checkoutDiscountTotal = discount + discountEffective + creditToApply + cartBonusDollars;
     const requiresNoExternalPayment = isZeroAmount || finalTotal <= 0;
     const paymentLabel = paymentMethod === 'paypal'
         ? 'PayPal, Pay Later, card, or Apple Pay'
@@ -962,7 +993,8 @@ const Checkout: React.FC = () => {
                                                                         description: `Coalition ${paypalOrderSeed.orderNumber} - ${cart.length} item(s)`,
                                                                         expectedTotal: finalTotal,
                                                                         shipping: shippingCost,
-                                                                        discount: cartBonusDollars + promoDiscount,
+                                                                        // LOCK: this is `discountEffective` (the no-stack winner of resolveEffectiveDiscount(productDiscountSum, promoDiscount)), NOT raw `promoDiscount`. PayPal re-derives the figure server-side; do not "fix" back to `promoDiscount`. Locked by tests/paypalReadiness.test.ts > `sends referenceId + expectedTotal in the createOrder payload (dedupe key + tamper guard)`.
+                                                                        discount: cartBonusDollars + discountEffective,
                                                                         couponCode: appliedCoupon,
                                                                         items: cart.map(item => ({
                                                                             productId: item.id,
@@ -1171,10 +1203,16 @@ const Checkout: React.FC = () => {
                                         <span>-${cartBonusDollars.toFixed(2)}</span>
                                     </div>
                                 )}
+                                {productDiscountApplied && productDiscountLineLabel && (
+                                    <div className="flex justify-between text-green-400">
+                                        <span>{productDiscountLineLabel}</span>
+                                        <span>-${productDiscountSum.toFixed(2)}</span>
+                                    </div>
+                                )}
                                 {promoDiscount > 0 && (
                                     <div className="flex justify-between text-green-400">
                                         <span>{promo?.code || 'Coupon'} Discount</span>
-                                        <span>-${promoDiscount.toFixed(2)}</span>
+                                        <span>-${promoDiscountApplied ? discountEffective.toFixed(2) : '0.00'}</span>
                                     </div>
                                 )}
                                 {discount > 0 && (
