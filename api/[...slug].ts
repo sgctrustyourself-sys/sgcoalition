@@ -22,8 +22,49 @@
 //
 // Net effect: the catch-all boots cleanly even if one handler's import
 // graph is broken. Each route self-loads on first hit. The first 503
-// response also includes the underlying import error so the next deploy
-// can target the actual root cause without digging through Vercel logs.
+// response also includes the underlying import error so the next deploy//    can target the actual root cause without digging through Vercel logs.
+//
+// ADDENDUM (force @vercel/nft trace of per-handler modules):
+// HANDLER_LOADERS[slug]() calls inside the map below are syntactic dynamic
+// imports, but the specifiers are nested inside an object value -- not
+// top-level `import` statements. @vercel/nft's trace is a syntactic AST walk
+// that seeds its reachability graph from top-level import declarations only,
+// so it does NOT follow our dynamic import specifiers into the handler
+// modules. Each handler file lives outside the Lambda output. At request
+// time, the dynamic import resolves to /var/task/api/_handlers/<slug>, Node
+// 22.x strict ESM resolution rejects the extensionless relative path, and
+// loadHandler() returns 503 for every route.
+//
+// The 19 bare side-effect imports below register each handler as a top-level
+// AST entry node, so @vercel/nft includes them in the bundle output. Runtime
+// behavior at request time is unchanged: HANDLER_LOADERS[slug]() still
+// executes lazily on first hit per slug, so the per-handler isolation
+// guarantee (a broken handler import degrades to 503 for just that route,
+// never FUNCTION_INVOCATION_FAILED for the whole Lambda) is preserved.
+//
+// Risk surface pre-commit verified: zero column-0 `throw` across the handler
+// directory. The handlers declare only function bodies + type imports at
+// module scope, so side-effect imports cannot crash cold-start.
+
+import './_handlers/ai-chat';
+import './_handlers/attribute-order-to-facebook';
+import './_handlers/complete-order';
+import './_handlers/create-checkout-session';
+import './_handlers/create-payment-intent';
+import './_handlers/create-subscription-session';
+import './_handlers/credit-customer-reward';
+import './_handlers/git-operations';
+import './_handlers/marketing-optout';
+import './_handlers/marketing-send';
+import './_handlers/marketing-stats';
+import './_handlers/marketing-subscribe';
+import './_handlers/paypal-order';
+import './_handlers/place-order-credits';
+import './_handlers/send-email';
+import './_handlers/send-order-confirmation';
+import './_handlers/subscribe-drop';
+import './_handlers/unsubscribe';
+import './_handlers/verify-subscription';
 
 type Handler = (req: any, res: any) => unknown | Promise<unknown>;
 
