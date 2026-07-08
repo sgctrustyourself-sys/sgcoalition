@@ -27,26 +27,39 @@
 
 type Handler = (req: any, res: any) => unknown | Promise<unknown>;
 
+// ============================================================================
+// HANDLER_LOADERS as authoritative slug registry:
+//
+// Production traffic goes through Vercels auto-detected api/<slug>.ts
+// Serverless Functions (precedence rule beats the catch-all). This map
+// is preserved as a single source of truth for which slugs are officially
+// supported. If you add a new handler, register it here AND in api/<slug>.ts.
+// If you remove a handler, remove it from here AND delete api/<slug>.ts.
+// Do NOT add a 19th entry and forget the file move (or vice versa) -- the
+// auto-detected function will not fall back to this catch-all in production
+// unless its auto-detection is also disabled.
+// ============================================================================
+
 const HANDLER_LOADERS = {
-    'ai-chat': () => import('./_handlers/ai-chat'),
-    'attribute-order-to-facebook': () => import('./_handlers/attribute-order-to-facebook'),
-    'complete-order': () => import('./_handlers/complete-order'),
-    'create-checkout-session': () => import('./_handlers/create-checkout-session'),
-    'create-payment-intent': () => import('./_handlers/create-payment-intent'),
-    'create-subscription-session': () => import('./_handlers/create-subscription-session'),
-    'credit-customer-reward': () => import('./_handlers/credit-customer-reward'),
-    'git-operations': () => import('./_handlers/git-operations'),
-    'marketing-optout': () => import('./_handlers/marketing-optout'),
-    'marketing-send': () => import('./_handlers/marketing-send'),
-    'marketing-stats': () => import('./_handlers/marketing-stats'),
-    'marketing-subscribe': () => import('./_handlers/marketing-subscribe'),
-    'paypal-order': () => import('./_handlers/paypal-order'),
-    'place-order-credits': () => import('./_handlers/place-order-credits'),
-    'send-email': () => import('./_handlers/send-email'),
-    'send-order-confirmation': () => import('./_handlers/send-order-confirmation'),
-    'subscribe-drop': () => import('./_handlers/subscribe-drop'),
-    'unsubscribe': () => import('./_handlers/unsubscribe'),
-    'verify-subscription': () => import('./_handlers/verify-subscription'),
+    'ai-chat': () => import('./ai-chat'),
+    'attribute-order-to-facebook': () => import('./attribute-order-to-facebook'),
+    'complete-order': () => import('./complete-order'),
+    'create-checkout-session': () => import('./create-checkout-session'),
+    'create-payment-intent': () => import('./create-payment-intent'),
+    'create-subscription-session': () => import('./create-subscription-session'),
+    'credit-customer-reward': () => import('./credit-customer-reward'),
+    'git-operations': () => import('./git-operations'),
+    'marketing-optout': () => import('./marketing-optout'),
+    'marketing-send': () => import('./marketing-send'),
+    'marketing-stats': () => import('./marketing-stats'),
+    'marketing-subscribe': () => import('./marketing-subscribe'),
+    'paypal-order': () => import('./paypal-order'),
+    'place-order-credits': () => import('./place-order-credits'),
+    'send-email': () => import('./send-email'),
+    'send-order-confirmation': () => import('./send-order-confirmation'),
+    'subscribe-drop': () => import('./subscribe-drop'),
+    'unsubscribe': () => import('./unsubscribe'),
+    'verify-subscription': () => import('./verify-subscription'),
 } as const;
 
 type HandlerSlug = keyof typeof HANDLER_LOADERS;
