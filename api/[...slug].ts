@@ -1,36 +1,59 @@
-// Lazy-load handlers via dynamic import so each route's heavy client init
-// (Stripe / Resend / Supabase / Google AI / gitService) only runs when that
-// route is actually hit. Vercel's bundler still tree-shakes into a single
-// Lambda; cold start defers per-library init to the first matching request,
-// keeping the initial Lambda well under Hobby's 50MB function-size cap.
+// Each route's heavy client init (Stripe / Resend / Supabase / Google AI /
+// gitService) only runs when that route is actually hit. We previously used
+// dynamic `import('./_handlers/<name>')` here, but Vercel's serverless
+// bundler ships the catch-all as a standalone /var/task/api/[...slug].js
+// and treats dynamic-import targets as on-disk files at /var/task/api/,
+// which they are NOT (only static-import-reachable code is included). The
+// dynamic-import path then resolves "Cannot find module ..." at runtime
+// with no fallback. Static imports at the top of this file force Vercel's
+// bundler to include every handler in the same Lambda bundle.
 //
-// Request/response are typed `any` to match the existing 13 handlers'
+// Request/response are typed `any` to match the existing handlers'
 // (req: any, res: any) signature and avoid pulling in @vercel/node as a
 // hard dependency; Vercel provides the runtime types automatically.
 
 type Handler = (req: any, res: any) => unknown | Promise<unknown>;
-type Loader = () => Promise<{ default: Handler }>;
 
-const handlers: Record<string, Loader> = {
-    'ai-chat': () => import('./_handlers/ai-chat'),
-    'attribute-order-to-facebook': () => import('./_handlers/attribute-order-to-facebook'),
-    'complete-order': () => import('./_handlers/complete-order'),
-    'create-checkout-session': () => import('./_handlers/create-checkout-session'),
-    'create-payment-intent': () => import('./_handlers/create-payment-intent'),
-    'create-subscription-session': () => import('./_handlers/create-subscription-session'),
-    'credit-customer-reward': () => import('./_handlers/credit-customer-reward'),
-    'git-operations': () => import('./_handlers/git-operations'),
-    'marketing-optout': () => import('./_handlers/marketing-optout'),
-    'marketing-send': () => import('./_handlers/marketing-send'),
-    'marketing-stats': () => import('./_handlers/marketing-stats'),
-    'marketing-subscribe': () => import('./_handlers/marketing-subscribe'),
-    'paypal-order': () => import('./_handlers/paypal-order'),
-    'place-order-credits': () => import('./_handlers/place-order-credits'),
-    'send-email': () => import('./_handlers/send-email'),
-    'send-order-confirmation': () => import('./_handlers/send-order-confirmation'),
-    'subscribe-drop': () => import('./_handlers/subscribe-drop'),
-    'unsubscribe': () => import('./_handlers/unsubscribe'),
-    'verify-subscription': () => import('./_handlers/verify-subscription'),
+import aiChat from './_handlers/ai-chat';
+import attributeOrderToFacebook from './_handlers/attribute-order-to-facebook';
+import completeOrder from './_handlers/complete-order';
+import createCheckoutSession from './_handlers/create-checkout-session';
+import createPaymentIntent from './_handlers/create-payment-intent';
+import createSubscriptionSession from './_handlers/create-subscription-session';
+import creditCustomerReward from './_handlers/credit-customer-reward';
+import gitOperations from './_handlers/git-operations';
+import marketingOptout from './_handlers/marketing-optout';
+import marketingSend from './_handlers/marketing-send';
+import marketingStats from './_handlers/marketing-stats';
+import marketingSubscribe from './_handlers/marketing-subscribe';
+import paypalOrder from './_handlers/paypal-order';
+import placeOrderCredits from './_handlers/place-order-credits';
+import sendEmail from './_handlers/send-email';
+import sendOrderConfirmation from './_handlers/send-order-confirmation';
+import subscribeDrop from './_handlers/subscribe-drop';
+import unsubscribe from './_handlers/unsubscribe';
+import verifySubscription from './_handlers/verify-subscription';
+
+const handlers: Record<string, Handler> = {
+    'ai-chat': aiChat,
+    'attribute-order-to-facebook': attributeOrderToFacebook,
+    'complete-order': completeOrder,
+    'create-checkout-session': createCheckoutSession,
+    'create-payment-intent': createPaymentIntent,
+    'create-subscription-session': createSubscriptionSession,
+    'credit-customer-reward': creditCustomerReward,
+    'git-operations': gitOperations,
+    'marketing-optout': marketingOptout,
+    'marketing-send': marketingSend,
+    'marketing-stats': marketingStats,
+    'marketing-subscribe': marketingSubscribe,
+    'paypal-order': paypalOrder,
+    'place-order-credits': placeOrderCredits,
+    'send-email': sendEmail,
+    'send-order-confirmation': sendOrderConfirmation,
+    'subscribe-drop': subscribeDrop,
+    'unsubscribe': unsubscribe,
+    'verify-subscription': verifySubscription,
 };
 
 export default async function handler(req: any, res: any) {
@@ -64,8 +87,8 @@ export default async function handler(req: any, res: any) {
         slug = fallback;
     }
 
-    const loader = handlers[slug as string];
-    if (!loader) {
+    const routeHandler = handlers[slug as string];
+    if (!routeHandler) {
         // Avoid leaking the path name in the response -- only log it server-side.
         console.info('[api] unknown endpoint:', slug);
         res.status(404).json({ error: 'Endpoint not found' });
@@ -73,19 +96,30 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const mod = await loader();
-        return mod.default(req, res);
-    } catch (loadError: unknown) {
-        // Dynamic-import of the handler threw (top-level side effect, missing
-        // module, etc.). Surface the actual cause so the next deploy reveals
-        // what's broken instead of Vercel's opaque FUNCTION_INVOCATION_FAILED.
-        // Slug is safe to echo because it was already approved by the public
-        // handlers map; full stack + message stay server-side via console.error.
-        const message = loadError instanceof Error ? loadError.message : String(loadError);
-        const stack = loadError instanceof Error ? loadError.stack : undefined;
-        console.error('[api] handler load failed for slug:', slug, '\n', message, '\n', stack || '(no stack)');
+        return routeHandler(req, res);
+    } catch (handlerError: unknown) {
+        // Live handler execution threw (e.g., third-party API failure or an
+        // unexpected runtime condition). Surface the actual cause so the
+        // next deploy shows what's broken instead of Vercel's opaque
+        // FUNCTION_INVOCATION_FAILED. Slug is safe to echo because it was
+        // already approved by the public handlers map; the stack + message
+        // stay server-side via console.error. Skip writing a 500 body if
+        // the inner handler already started streaming -- otherwise the
+        // second `res.status().json()` throws "Cannot set headers after
+        // they are sent" and masks the original error in the logs.
+        const message = handlerError instanceof Error ? handlerError.message : String(handlerError);
+        const stack = handlerError instanceof Error ? handlerError.stack : undefined;
+        console.error('[api] handler threw for slug:', slug, '\n', message, '\n', stack || '(no stack)');
+        // Streaming handlers may have already flushed response headers but
+        // not yet finished writing the body when they throw. `headersSent`
+        // alone is insufficient -- we must also destroy the response so the
+        // client doesn't hang waiting for a body that never arrives.
+        if (res.headersSent) {
+            res.destroy();
+            return;
+        }
         res.status(500).json({
-            error: 'Handler failed to load',
+            error: 'Handler failed at runtime',
             slug,
             detail: message,
         });
