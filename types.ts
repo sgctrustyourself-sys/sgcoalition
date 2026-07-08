@@ -95,6 +95,32 @@ export interface Product {
   // ("Ships in 1-2 weeks") is tighter than the storefront default. Keep the
   // string in the same brand voice as the other shipping copy lines.
   shippingFulfillment?: string;
+  // Per-product auto-discount (migration 20260704_add_discount_percent_to_products.sql).
+  // Numeric 0-100, stored as products.discount_percent NOT NULL DEFAULT 0. No coupons-and-discount
+  // stack (see utils/productDiscount.ts > resolveEffectiveDiscount: the larger of cart sum of
+  // product discounts vs cart-wide coupon wins; the smaller is dropped). Accessories / products
+  // without an auto-discount leave this undefined and the round-trip in mapProductToDb falls
+  // back to 0 (services/retryQueue.ts line 212).
+  discountPercent?: number;
+  // Free-form product-detail block rendered below the buy button on the PDP. Optional so legacy
+  // seeded products without a specs block still render cleanly. - attributes: label/value rows
+  // under "Fit & Style". - care: plain-string care-instruction bullets under "Care Instructions".
+  // - material: composition / fabricWeight / thickness / breathability rows under "Material".
+  // - sizeChart: per-product override of the category-default size chart (SizeChartModal).
+  specs?: {
+    attributes?: Array<{ label: string; value: string }>;
+    care?: string[];
+    material?: {
+      composition?: string;
+      fabricWeight?: string;
+      thickness?: string;
+      breathability?: string;
+    };
+    sizeChart?: {
+      title?: string;
+      rows?: Array<Record<string, string | number>>;
+    };
+  };
 }
 
 export interface CartItem extends Product {
