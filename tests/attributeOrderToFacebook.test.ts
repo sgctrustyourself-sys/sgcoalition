@@ -13,7 +13,7 @@ vi.mock('@supabase/supabase-js', () => ({
     createClient: () => ({ from: () => mockFromChain }),
 }));
 
-import handler from '../api/attribute-order-to-facebook';
+import handler from '../api/_handlers/attribute-order-to-facebook';
 
 type StubRes = {
     statusCode: number;

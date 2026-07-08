@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, setCorsHeaders, type HttpError } from './_helpers';
+import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, setCorsHeaders, type HttpError } from '../_helpers';
 import type {
     ApiRequest,
     ApiResponse,
@@ -8,7 +8,7 @@ import type {
     PaymentIntentResponse,
     ProfileRow,
     SupabaseClient,
-} from './_types';
+} from '../_types';
 
 const CURRENCY = 'usd';
 

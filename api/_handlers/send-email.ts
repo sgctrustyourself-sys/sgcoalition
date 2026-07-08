@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
-import { createHttpError, setCorsHeaders } from './_helpers';
-import type { ApiRequest, ApiResponse, ResendEmailPayload } from './_types';
+import { createHttpError, setCorsHeaders } from '../_helpers';
+import type { ApiRequest, ApiResponse, ResendEmailPayload } from '../_types';
 
 // Lazy Resend getter. Originally eagerly instantiated at module top, but to
 // match the Stripe handlers' cold-start-safe pattern (no process.env reads

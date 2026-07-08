@@ -11,14 +11,14 @@
 // one person in the campaign log).
 
 import { createClient } from '@supabase/supabase-js';
-import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, withAdminAuth, type HttpError } from './_helpers';
+import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, withAdminAuth, type HttpError } from '../_helpers';
 import type {
     ApiRequest,
     ApiResponse,
     AttributeOrderToFacebookBody,
     AttributeOrderToFacebookResponse,
     SupabaseClient,
-} from './_types';
+} from '../_types';
 
 // Lazy Supabase admin client. Previously eager `createClient(...)` crashed
 // the Lambda at cold start when VITE_SUPABASE_URL was unset (SDK validates

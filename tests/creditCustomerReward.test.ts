@@ -18,7 +18,7 @@ vi.mock('@supabase/supabase-js', () => ({
     createClient: () => ({ from: () => mockFromChain }),
 }));
 
-import handler from '../api/credit-customer-reward';
+import handler from '../api/_handlers/credit-customer-reward';
 
 type StubRes = {
     statusCode: number;

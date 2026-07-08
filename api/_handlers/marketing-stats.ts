@@ -21,8 +21,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 // wrapper now covers both; the env-var chain matches the 3-token
 // canonical surface (ADMIN_SESSION_TOKEN -> FULL_AI_PASSWORD ->
 // AI_SESSION_SECRET) the rest of the admin surface uses.
-import { withAdminAuth } from './_helpers';
-import type { ApiRequest, ApiResponse } from './_types';
+import { withAdminAuth } from '../_helpers';
+import type { ApiRequest, ApiResponse } from '../_types';
 
 let cachedAdminClient: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient | null {
