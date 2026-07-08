@@ -19,10 +19,23 @@ import type {
     SupabaseClient,
 } from '../_types';
 
-const supabaseAdmin: SupabaseClient = createClient(
-    process.env.VITE_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+// Lazy Supabase admin client. Previously eager `createClient(...)` crashed
+// the Lambda at cold start when VITE_SUPABASE_URL was unset (SDK validates
+// URL format immediately). Lazy-init matches paypal-order.ts + complete-order.ts
+// + create-payment-intent.ts + verify-subscription.ts + place-order-credits.ts
+// + attribute-order-to-facebook.ts convention. Callers hit this once and
+// get a 503 from the inner handler.
+let cachedAdminClient: SupabaseClient | null = null;
+function getSupabaseAdmin(): SupabaseClient {
+    if (cachedAdminClient) return cachedAdminClient;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    if (!supabaseUrl || !serviceRoleKey) {
+        throw createHttpError(503, 'Supabase is not configured on this server.');
+    }
+    cachedAdminClient = createClient(supabaseUrl, serviceRoleKey);
+    return cachedAdminClient;
+}
 
 async function creditCustomerReward(req: ApiRequest): Promise<CreditCustomerRewardResponse> {
     const rawBody = parseBody(req);
@@ -47,7 +60,7 @@ async function creditCustomerReward(req: ApiRequest): Promise<CreditCustomerRewa
 
     // 1. Fetch the profile row to read the current balance + capture the
     //    awarding admin uid.
-    const { data: profileRow, error: fetchError } = await supabaseAdmin
+    const { data: profileRow, error: fetchError } = await getSupabaseAdmin()
         .from('profiles')
         .select('id, sg_coin_balance')
         .eq('id', profileId)
@@ -70,7 +83,7 @@ async function creditCustomerReward(req: ApiRequest): Promise<CreditCustomerRewa
     const awardedByUserId = profileId; // Service-context 'actor' identifier; see comment above.
 
     // 3. Append the audit row FIRST so credit history is never lost if step 4 fails.
-    const creditInsert = await supabaseAdmin
+    const creditInsert = await getSupabaseAdmin()
         .from('customer_reward_credits')
         .insert({
             profile_id: profileId,
@@ -88,7 +101,7 @@ async function creditCustomerReward(req: ApiRequest): Promise<CreditCustomerRewa
     }
 
     // 4. Bump the live balance + mirror the latest credit fields on the profile row.
-    const updateResult = await supabaseAdmin
+    const updateResult = await getSupabaseAdmin()
         .from('profiles')
         .update({
             sg_coin_balance: newBalance,

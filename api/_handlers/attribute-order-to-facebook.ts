@@ -20,10 +20,22 @@ import type {
     SupabaseClient,
 } from '../_types';
 
-const supabaseAdmin: SupabaseClient = createClient(
-    process.env.VITE_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+// Lazy Supabase admin client. Previously eager `createClient(...)` crashed
+// the Lambda at cold start when VITE_SUPABASE_URL was unset (SDK validates
+// URL format immediately). Lazy-init matches paypal-order.ts + complete-order.ts
+// + create-payment-intent.ts + verify-subscription.ts + place-order-credits.ts
+// convention. Callers hit this once and get a 503 from the inner handler.
+let cachedAdminClient: SupabaseClient | null = null;
+function getSupabaseAdmin(): SupabaseClient {
+    if (cachedAdminClient) return cachedAdminClient;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    if (!supabaseUrl || !serviceRoleKey) {
+        throw createHttpError(503, 'Supabase is not configured on this server.');
+    }
+    cachedAdminClient = createClient(supabaseUrl, serviceRoleKey);
+    return cachedAdminClient;
+}
 
 // Strip the protocol + domain so the operator can paste either
 // 'facebook.com/starrboii067' or '@starrboii067' or just 'starrboii067' and
@@ -70,7 +82,7 @@ async function attributeOrderToFacebook(req: ApiRequest): Promise<AttributeOrder
     //    harmless but the notes audit trail must NOT show duplicate
     //    stamps for the same attribution -- this is the audit-duplication
     //    risk the Batch B code-reviewer flagged (deferred from 8ac4d7b).
-    const { data: existing, error: fetchError } = await supabaseAdmin
+    const { data: existing, error: fetchError } = await getSupabaseAdmin()
         .from('orders')
         .select('id, notes, facebook_username')
         .eq('id', orderId)
@@ -106,7 +118,7 @@ async function attributeOrderToFacebook(req: ApiRequest): Promise<AttributeOrder
 
     // 2. Update facebook_username + append to notes. We do NOT bump the row's
     //    paidAt or paymentStatus — attribution is purely metadata.
-    const updateResult = await supabaseAdmin
+    const updateResult = await getSupabaseAdmin()
         .from('orders')
         .update({
             facebook_username: username,
