@@ -72,6 +72,22 @@ export default async function handler(req: any, res: any) {
         return;
     }
 
-    const mod = await loader();
-    return mod.default(req, res);
+    try {
+        const mod = await loader();
+        return mod.default(req, res);
+    } catch (loadError: unknown) {
+        // Dynamic-import of the handler threw (top-level side effect, missing
+        // module, etc.). Surface the actual cause so the next deploy reveals
+        // what's broken instead of Vercel's opaque FUNCTION_INVOCATION_FAILED.
+        // Slug is safe to echo because it was already approved by the public
+        // handlers map; full stack + message stay server-side via console.error.
+        const message = loadError instanceof Error ? loadError.message : String(loadError);
+        const stack = loadError instanceof Error ? loadError.stack : undefined;
+        console.error('[api] handler load failed for slug:', slug, '\n', message, '\n', stack || '(no stack)');
+        res.status(500).json({
+            error: 'Handler failed to load',
+            slug,
+            detail: message,
+        });
+    }
 }
