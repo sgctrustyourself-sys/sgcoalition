@@ -14,13 +14,22 @@ const VIP_PRODUCT_NAME = 'Coalition VIP Membership';
 const VIP_PRODUCT_DESCRIPTION = 'Monthly Store Credit + Credit Building Reporting + Free Shipping';
 const VIP_METADATA_TYPE = 'coalition_vip';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY is missing');
+// Lazy Stripe getter. See api/_handlers/create-checkout-session.ts for the
+// full rationale. A missing STRIPE_SECRET_KEY env at cold start would throw
+// FUNCTION_INVOCATION_FAILED for every /api/* route, so we lazy-init.
+let stripeInstance: Stripe | null = null;
+function getStripe(): Stripe {
+    if (stripeInstance) return stripeInstance;
+    const apiKey = process.env.STRIPE_SECRET_KEY;
+    if (!apiKey) {
+        throw createHttpError(
+            503,
+            'Stripe is not configured on this server. PayPal is the live checkout flow; Stripe handlers are retained as backup infrastructure.',
+        );
+    }
+    stripeInstance = new Stripe(apiKey, {});
+    return stripeInstance;
 }
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    // apiVersion omitted
-});
 
 async function createSubscriptionSession(req: ApiRequest): Promise<CheckoutSessionResponse> {
     const rawBody = parseBody(req);
@@ -29,7 +38,7 @@ async function createSubscriptionSession(req: ApiRequest): Promise<CheckoutSessi
 
     const origin = resolvePublicOrigin(req);
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [
             {

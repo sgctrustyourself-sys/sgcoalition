@@ -15,13 +15,27 @@ import type {
     SupabaseClient,
 } from '../_types';
 
-// Eager match to the previous behavior — crashing on cold start if env vars
-// are unset matches the existing fail-fast convention for adjacent handlers
-// (verify-subscription, create-payment-intent).
-const supabaseAdmin: SupabaseClient = createClient(
-    process.env.VITE_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+// Lazy Supabase admin client. Previously eager `createClient(...)` crashed
+// the Lambda at cold start when VITE_SUPABASE_URL was unset (SDK validates
+// URL format immediately). Lazy-init matches paypal-order.ts + complete-order.ts
+// + create-payment-intent.ts + verify-subscription.ts convention. The
+// `cachedAdminClient` cache variable name matches paypal-order.ts exactly
+// so future operators reading both files land on the same mental model —
+// and so any future bulk-rename search tools don't accidentally hit a
+// substring collision with the eager-init identifier we used to have
+// here (supabaseAdmin). Callers hit this once and get a 503 from the inner
+// handler if env is unset.
+let cachedAdminClient: SupabaseClient | null = null;
+function getSupabaseAdmin(): SupabaseClient {
+    if (cachedAdminClient) return cachedAdminClient;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    if (!supabaseUrl || !serviceRoleKey) {
+        throw createHttpError(503, 'Supabase is not configured on this server.');
+    }
+    cachedAdminClient = createClient(supabaseUrl, serviceRoleKey);
+    return cachedAdminClient;
+}
 
 async function placeOrder(req: ApiRequest): Promise<PlaceOrderCreditsResponse> {
     const rawBody = parseBody(req);
@@ -35,7 +49,7 @@ async function placeOrder(req: ApiRequest): Promise<PlaceOrderCreditsResponse> {
 
     // 1. Fetch the profile; non-existent rows fail closed so a forged user
     // can't drain credit at random.
-    const { data: profileRow, error: fetchError } = await supabaseAdmin
+    const { data: profileRow, error: fetchError } = await getSupabaseAdmin()
         .from('profiles')
         .select('store_credit')
         .eq('id', userId)
@@ -53,7 +67,7 @@ async function placeOrder(req: ApiRequest): Promise<PlaceOrderCreditsResponse> {
     // 2. Deduct. updated_at is bumped so any downstream tooling that watches
     // the profile can react to balance changes.
     const newCredit = currentCredit - total;
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await getSupabaseAdmin()
         .from('profiles')
         .update({ store_credit: newCredit, updated_at: new Date().toISOString() })
         .eq('id', userId);

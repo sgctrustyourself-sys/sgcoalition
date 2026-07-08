@@ -19,19 +19,39 @@ import type {
 const VIP_METADATA_TYPE = 'coalition_vip';
 const MONTHLY_VIP_CREDIT_USD = 15;
 
-if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY is missing');
+// Lazy Stripe getter. See api/_handlers/create-checkout-session.ts for the
+// full rationale. A missing STRIPE_SECRET_KEY env at cold start would throw
+// FUNCTION_INVOCATION_FAILED for every /api/* route, so we lazy-init.
+let stripeInstance: Stripe | null = null;
+function getStripe(): Stripe {
+    if (stripeInstance) return stripeInstance;
+    const apiKey = process.env.STRIPE_SECRET_KEY;
+    if (!apiKey) {
+        throw createHttpError(
+            503,
+            'Stripe is not configured on this server. PayPal is the live checkout flow; Stripe handlers are retained as backup infrastructure.',
+        );
+    }
+    stripeInstance = new Stripe(apiKey, {});
+    return stripeInstance;
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    // apiVersion omitted
-});
-
-// Admin Supabase client to bypass RLS for the profile upsert/update.
-const supabaseAdmin: SupabaseClient = createClient(
-    process.env.VITE_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+// Lazy Supabase admin client. Was previously eagerly instantiated at module
+// top — `createClient('', '')` throws synchronously when VITE_SUPABASE_URL is
+// missing (SDK validates URL format immediately), crashing the Lambda at
+// cold start. Lazy-init matches the paypal-order.ts + complete-order.ts
+// convention. Callers hit this once and get a 503 from the inner handler.
+let supabaseAdminInstance: SupabaseClient | null = null;
+function getSupabaseAdmin(): SupabaseClient {
+    if (supabaseAdminInstance) return supabaseAdminInstance;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    if (!supabaseUrl || !serviceRoleKey) {
+        throw createHttpError(503, 'Supabase is not configured on this server.');
+    }
+    supabaseAdminInstance = createClient(supabaseUrl, serviceRoleKey);
+    return supabaseAdminInstance;
+}
 
 function readSubscriptionType(session: Stripe.Checkout.Session): string | undefined {
     // The create-subscription-session handler always writes `metadata.type`
@@ -53,12 +73,12 @@ async function promoteUserToVip(userId: string): Promise<void> {
     // store_credit so the monthly credit grant doesn't clobber an existing
     // balance. A true atomic increment belongs in a Postgres function, but
     // this read-modify-write is good enough for the MVP.
-    await supabaseAdmin
+    await getSupabaseAdmin()
         .from('profiles')
         .upsert({ id: userId, is_vip: true })
         .select();
 
-    const { data: currentProfile, error: readError } = await supabaseAdmin
+    const { data: currentProfile, error: readError } = await getSupabaseAdmin()
         .from('profiles')
         .select('store_credit')
         .eq('id', userId)
@@ -71,7 +91,7 @@ async function promoteUserToVip(userId: string): Promise<void> {
     const currentCredit = Number((currentProfile as Pick<ProfileRow, 'store_credit'>).store_credit || 0);
     const newCredit = currentCredit + MONTHLY_VIP_CREDIT_USD;
 
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await getSupabaseAdmin()
         .from('profiles')
         .update({
             is_vip: true,
@@ -94,7 +114,7 @@ async function verifySubscription(req: ApiRequest): Promise<VerifySubscriptionRe
         throw createHttpError(400, 'Missing sessionId');
     }
 
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await getStripe().checkout.sessions.retrieve(sessionId);
     if (session.payment_status !== 'paid') {
         throw createHttpError(400, 'Payment not paid');
     }

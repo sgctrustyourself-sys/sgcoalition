@@ -12,25 +12,42 @@ import type {
 
 const CURRENCY = 'usd';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY is missing');
+// Lazy Stripe getter. See api/_handlers/create-checkout-session.ts for the
+// full rationale. A missing STRIPE_SECRET_KEY env at cold start would throw
+// `function_invocation_failed` for every /api/* route, so we lazy-init.
+let stripeInstance: Stripe | null = null;
+function getStripe(): Stripe {
+    if (stripeInstance) return stripeInstance;
+    const apiKey = process.env.STRIPE_SECRET_KEY;
+    if (!apiKey) {
+        throw createHttpError(
+            503,
+            'Stripe is not configured on this server. PayPal is the live checkout flow; Stripe handlers are retained as backup infrastructure.',
+        );
+    }
+    stripeInstance = new Stripe(apiKey, {});
+    return stripeInstance;
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    // apiVersion omitted to use default
-});
-
-// Admin Supabase client (service role, bypasses RLS) — eager init matches the
-// existing create-subscription-session / place-order-credits convention. If a
-// caller hits this endpoint without SUPABASE credentials they get a 503 from
-// the request handler instead of a silent profile-less credit path.
-const supabaseAdmin: SupabaseClient = createClient(
-    process.env.VITE_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+// Lazy Supabase admin client. Was previously eagerly instantiated at module
+// top, but `createClient('', '')` throws synchronously when VITE_SUPABASE_URL
+// is missing (the SDK validates URL format immediately), crashing the Lambda
+// at cold start. Lazy-init here matches paypal-order.ts + complete-order.ts
+// pattern. Callers hit this once and get a 503 from the inner handler.
+let supabaseAdminInstance: SupabaseClient | null = null;
+function getSupabaseAdmin(): SupabaseClient {
+    if (supabaseAdminInstance) return supabaseAdminInstance;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    if (!supabaseUrl || !serviceRoleKey) {
+        throw createHttpError(503, 'Supabase is not configured on this server.');
+    }
+    supabaseAdminInstance = createClient(supabaseUrl, serviceRoleKey);
+    return supabaseAdminInstance;
+}
 
 async function loadStoreCredit(userId: string): Promise<number> {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await getSupabaseAdmin()
         .from('profiles')
         .select('store_credit')
         .eq('id', userId)
@@ -65,7 +82,7 @@ async function createPaymentIntent(req: ApiRequest): Promise<PaymentIntentRespon
         };
     }
 
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
         amount: Math.round(finalAmount * 100),
         currency: CURRENCY,
         automatic_payment_methods: {

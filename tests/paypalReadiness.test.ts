@@ -36,12 +36,17 @@ describe('PayPal LIVE readiness contract', () => {
     describe('Vercel API router', () => {
         it('exposes paypal-order as a POST handler', () => {
             const router = readText('api/[...slug].ts');
-            expect(router).toMatch(/'paypal-order'\s*:\s*\(\)\s*=>\s*import/);
+            // Accept either the legacy dynamic-import shape (`() => import(...)`)
+            // or the modern static-import shape (`paypalOrder` / `completeOrder`)
+            // — both register the route in the handlers map. The static shape is
+            // what Vercel's serverless bundler needs to keep module-init from
+            // failing on routes the test doesn't exercise.
+            expect(router).toMatch(/'paypal-order'\s*:\s*(?:paypalOrder|\(\)\s*=>\s*import)/);
         });
 
         it('exposes complete-order as a POST handler', () => {
             const router = readText('api/[...slug].ts');
-            expect(router).toMatch(/'complete-order'\s*:\s*\(\)\s*=>\s*import/);
+            expect(router).toMatch(/'complete-order'\s*:\s*(?:completeOrder|\(\)\s*=>\s*import)/);
         });
     });
 

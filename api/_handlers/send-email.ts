@@ -1,15 +1,28 @@
 import { Resend } from 'resend';
-import { setCorsHeaders } from '../_helpers';
+import { createHttpError, setCorsHeaders } from '../_helpers';
 import type { ApiRequest, ApiResponse, ResendEmailPayload } from '../_types';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy Resend getter. Originally eagerly instantiated at module top, but to
+// match the Stripe handlers' cold-start-safe pattern (no process.env reads
+// at module init) we lazy-init. Callers hit this once and get a 503 if
+// RESEND_API_KEY is unset.
+let resendInstance: Resend | null = null;
+function getResend(): Resend {
+    if (resendInstance) return resendInstance;
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+        throw createHttpError(503, 'Resend is not configured on this server.');
+    }
+    resendInstance = new Resend(apiKey);
+    return resendInstance;
+}
 
 function getResendFromAddress() {
     return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>';
 }
 
 async function sendResendEmail(payload: ResendEmailPayload) {
-    const result = await resend.emails.send({
+    const result = await getResend().emails.send({
         ...payload,
         from: getResendFromAddress(),
     } as Parameters<Resend['emails']['send']>[0]);

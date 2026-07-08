@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { EXTENDED_CORS_HEADERS, setCorsHeaders } from '../_helpers';
+import { EXTENDED_CORS_HEADERS, createHttpError, setCorsHeaders } from '../_helpers';
 import type {
     ApiRequest,
     ApiResponse,
@@ -9,7 +9,20 @@ import type {
     ShippingAddress,
 } from '../_types';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy Resend getter (see api/_handlers/send-email.ts for rationale). The
+// Resend SDK accepts undefined apiKey silently but to match the Stripe handler
+// cold-start-safe pattern we lazy-init here too.
+let resendInstance: Resend | null = null;
+function getResend(): Resend {
+    if (resendInstance) return resendInstance;
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+        throw createHttpError(503, 'Resend is not configured on this server.');
+    }
+    resendInstance = new Resend(apiKey);
+    return resendInstance;
+}
+
 const DEFAULT_ORDER_NOTIFICATION_EMAIL = 'sgctrustyourself@gmail.com';
 
 function getOrderNotificationRecipients() {
@@ -24,7 +37,7 @@ function getResendFromAddress() {
 }
 
 async function sendResendEmail(payload: ResendEmailPayload) {
-    const result = await resend.emails.send({
+    const result = await getResend().emails.send({
         ...payload,
         from: getResendFromAddress(),
     } as Parameters<Resend['emails']['send']>[0]);
