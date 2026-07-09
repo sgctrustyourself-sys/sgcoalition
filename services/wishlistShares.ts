@@ -60,7 +60,7 @@ export interface WishlistShare {
  * Returns an empty array if the user has no shares. Throws on network
  * / RLS errors so the caller can show an explicit error UI.
  */
-export async function listMyShares(): Promise<WishlistShare[]> {
+export async function listMyShares(userId: string): Promise<WishlistShare[]> {
     if (!userId) {
         // Defensive: callers MUST pass a userId. Calling without one
         // would skip the .eq() filter and return every share in the
