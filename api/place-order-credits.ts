@@ -5,7 +5,7 @@
 // still gets reconciled client-side and the orders row lives elsewhere.
 
 import { createClient } from '@supabase/supabase-js';
-import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, setCorsHeaders, type HttpError } from '../_helpers';
+import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, setCorsHeaders, type HttpError } from './_helpers';
 import type {
     ApiRequest,
     ApiResponse,
@@ -13,7 +13,7 @@ import type {
     PlaceOrderCreditsResponse,
     ProfileRow,
     SupabaseClient,
-} from '../_types';
+} from './_types';
 
 // Lazy Supabase admin client. Previously eager `createClient(...)` crashed
 // the Lambda at cold start when VITE_SUPABASE_URL was unset (SDK validates

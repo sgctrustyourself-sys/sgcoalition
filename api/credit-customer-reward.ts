@@ -9,7 +9,7 @@
 // (button-disabled-while-loading) to avoid double-credits.
 
 import { createClient } from '@supabase/supabase-js';
-import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, withAdminAuth, type HttpError } from '../_helpers';
+import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, withAdminAuth, type HttpError } from './_helpers';
 import type {
     ApiRequest,
     ApiResponse,
@@ -17,7 +17,7 @@ import type {
     CreditCustomerRewardResponse,
     ProfileRow,
     SupabaseClient,
-} from '../_types';
+} from './_types';
 
 // Lazy Supabase admin client. Previously eager `createClient(...)` crashed
 // the Lambda at cold start when VITE_SUPABASE_URL was unset (SDK validates

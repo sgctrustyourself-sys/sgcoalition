@@ -8,14 +8,14 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
-import { createHttpError, parseBody, setCorsHeaders, type HttpError } from '../_helpers';
+import { createHttpError, parseBody, setCorsHeaders, type HttpError } from './_helpers';
 import type {
     ApiRequest,
     ApiResponse,
     SubscribeDropBody,
     SubscribeDropResponse,
     SubscribeEmailRow,
-} from '../_types';
+} from './_types';
 
 const ALLOWED_SOURCES = new Set<string>(['home', 'shop', 'about', 'footer']);
 const DEFAULT_PUBLIC_ORIGIN = 'https://sgcoalition.xyz';

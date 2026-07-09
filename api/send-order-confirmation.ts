@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { EXTENDED_CORS_HEADERS, createHttpError, setCorsHeaders } from '../_helpers';
+import { EXTENDED_CORS_HEADERS, createHttpError, setCorsHeaders } from './_helpers';
 import type {
     ApiRequest,
     ApiResponse,
@@ -7,7 +7,7 @@ import type {
     OrderItemInput,
     ResendEmailPayload,
     ShippingAddress,
-} from '../_types';
+} from './_types';
 
 // Lazy Resend getter (see api/_handlers/send-email.ts for rationale). The
 // Resend SDK accepts undefined apiKey silently but to match the Stripe handler
