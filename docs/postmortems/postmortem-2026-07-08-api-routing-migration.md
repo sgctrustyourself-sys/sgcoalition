@@ -164,6 +164,8 @@ We cannot validate handler logic behavior end-to-end on the Preview URL without 
    # because that param's exact spelling has shifted between Vercel Dashboard versions.
    ```
 
+   **Inertness note:** Step 2's force-redeploy supersedes Step 1's auto-deploy. The auto-deploy remains in the deployment history but is not the live route — only the force-redeploy serves traffic.
+
    NOTE: Neither Option A nor Option B touches the Edge Cache. If the FUNCTION_INVOCATION_FAILED returns after a force-bypassed deploy, the next step is Edge Cache invalidation — see "Refined cache-bypass mechanics" section for the concrete reference.
 6. **Wait ~75s** for cold-spin-up.
 7. **Probe 4 known + 1 unknown slug:**
@@ -212,6 +214,8 @@ Researcher-docs surfaced authoritative (with caveats noted) Vercel behavior on c
 
 - **If 1450a5a regression is build-cache only (most likely):** `npx.cmd vercel deploy --prod --force --yes` is sufficient. Single command, single force-bypassed deploy.
 - **If 1450a5a regression is Edge-cache (less likely — none configured today):** additionally run the Vercel Purge API against the affected paths. Concrete API reference: https://vercel.com/docs/edge-network/caching. Fallback if Purge API doesn't help: drop the production domain's old CNAME from DNS and let it re-propagate (~5 min for `sgcoalition.xyz`).
+
+For results that don't match either of those two patterns — e.g. catch-all returning 503 (handler auto-detection didn't take effect) or mixed 400/500 across the 4 endpoints (cache invalidation was partial) — consult the full 4-row decision matrix in Step 8 of the "Retry sequence" section above.
 
 ---
 
