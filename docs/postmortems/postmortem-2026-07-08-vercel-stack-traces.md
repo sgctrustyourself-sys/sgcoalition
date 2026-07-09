@@ -57,6 +57,8 @@ This tells us the catch-all's `loadHandler()` rejected the dynamic import for `p
 
 For each of the 3 crashing endpoints, paste the **literal stack trace** shown in Vercel's Dashboard → Functions tab. Each section below is a placeholder — replace its contents with the verbatim trace.
 
+> **Operator note: two valid deploys as paste sources.** The §1–§4 blocks below reference the original `1450a5a` failure deploy (`dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc`). Today's `--force` cache-bypass retry (`dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq`, deploy URL `https://coalition-brand-axuj4ekxb-derron-byrds-projects.vercel.app`) reproduced the same regression 1-for-1, so its Dashboard panel contains the same diagnostic evidence (same `FUNCTION_INVOCATION_FAILED` shape across all 3 handlers + same catch-all-for-unknown-slugs 404). The operator can paste stack traces from EITHER deploy, whichever is more accessible in their current Vercel Dashboard session — both support the same diagnostic question. **Mark which deploy ID was used at paste time** (prepend `[source: <deploy-id>]` to each captured stack) so the postmortem can disambiguate dates and prevent downstream confusion.
+
 ### Step-by-step Dashboard capture
 
 1. Open https://vercel.com/dashboard
