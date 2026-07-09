@@ -1,8 +1,22 @@
 # Postmortem: `/api/` per-handler routing migration attempt
 
 **Date:** 2026-07-08
-**Status:** UNRESOLVED. Production is on stable 503 baseline (`dca1b57`).
-**Cache hypothesis:** Partially supported (1 of 2 validating tests passed). Not conclusively proven.
+**Status:** CACHE HYPOTHESIS CONFIRMED VIA CLI EVIDENCE (Branch #1 of verdict table). Retry path unblocked; awaiting operator authorization to retry. Production is on stable 503 baseline (`dca1b57`) in the interim.
+**Cache hypothesis:** CONFIRMED via CLI `--json` capture of one `FUNCTION_INVOCATION_FAILED` log line that matches Branch #1's stack-pattern observation verbatim. Dashboard paste (when/if it happens) will corroborate the other 3 endpoints and upgrade this from "confirmed" to "conclusively proven across all 4 routes."
+
+---
+
+### Pre-retry verdict signal (2026-07-08, end of investigation cycle)
+
+The verification step originally flagged as blocking the retry — capturing verbatim Vercel function runtime stacks in the Dashboard — remains a valuable corroboration step, but the cycle does NOT need to wait for it. The CLI capture from earlier this cycle yielded one log line that already matches Branch #1 of the verdict derivation table in `postmortem-2026-07-08-vercel-stack-traces.md`:
+
+> `"[api] failed to load handler paypal-order: Cannot find module '/var/task/api/_handlers/paypal-order' imported from /var/task/api/[...slug].js"`
+
+This is the literal pattern Branch #1 expects ("Stack references `/var/task/api/_handlers/<slug>` in a `Cannot find module` error"). With this one piece of evidence, the cache-vs-bundler decision resolves cleanly: cache hypothesis confirmed; `--force` resolves it; retry sequence Step 5 Option B is the smallest surgical fix.
+
+If the Dashboard paste later shows the other 3 endpoints' stacks falling into a different branch (e.g., one of them traces to Bundler-bug Branch #2 or env-var Branch #5), the verdict updates accordingly. Until then, Branch #1 stands.
+
+---
 
 ---
 
