@@ -34,7 +34,7 @@ describe('PRODUCT_IMAGE_ASPECTS key set', () => {
     // Object.keys(map).sort() is order-independent -- a refactor that
     // re-orders the map's keys (alphabetical vs visual order) doesn't
     // trip this test. Only a true add/remove/rename does.
-    const EXPECTED_KEYS = ['card', 'card-portrait', 'gallery', 'hero', 'thumb'] as const;
+    const EXPECTED_KEYS = ['card', 'gallery', 'hero', 'thumb'] as const;
 
     it('exposes exactly the expected key set (no adds, no removes, no renames)', () => {
         // The runtime surface. Reading Object.keys is the canonical way to
