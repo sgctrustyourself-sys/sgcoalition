@@ -334,7 +334,8 @@ The agent is now configured for **per-paste commits** per the runbook's `## Comm
 | 2 | `docs(postmortem): paste paypal-order FUNCTION_INVOCATION_FAILED stack from <deploy-id>` | §1 Field A + Field B |
 | 3 | `docs(postmortem): paste complete-order FUNCTION_INVOCATION_FAILED stack from <deploy-id>` | §2 Field A + Field B |
 | 4 | `docs(postmortem): paste ai-chat FUNCTION_INVOCATION_FAILED stack from <deploy-id>` | §3 Field A + Field B |
-| 5 | `docs(postmortem): paste marketing-subscribe empty-body probe from <deploy-id>` | §4 Field A (+ optional Field B if valid-body probe is run) |
+| 5 | `docs(postmortem): paste marketing-subscribe empty-body probe from <deploy-id>` | §4 Field A (always) |
+| 5b (conditional) | `docs(postmortem): paste marketing-subscribe valid-body probe from <deploy-id>` | §4 Field B (only if operator runs the probe-with-valid-body variant) |
 
 Each commit body follows the runbook's standard metadata template:
 
@@ -344,12 +345,36 @@ Entry-point: <entry-point-string> → H3 | H4 | inconclusive
 Cold-start: <duration> Region: <region> Lambda: <ver>, <memory>MB
 ```
 
+**Notes on metadata applicability (per-commit-type):**
+
+- **Commits #2, #3, #4** (crashing endpoints with entry-points) — use the canonical metadata template above verbatim.
+- **Commit #1** (bundle-grep, per-bundle) — use just `Source: dpl_<id>` followed by the grep output verbatim. There is NO entry-point and NO cold-start metadata because the bundle is the artifact, not a runtime invocation. Sample body for commit #1:
+
+  ```
+  Source: dpl_<deploy-id>
+  Grep: [verbatim `grep -rE '_handlers' /tmp/vfy_unzip/ | head -20` output — matches present OR empty if no matches]
+  ```
+
+- **Commit #5** (marketing-subscribe, contrast case that returns 400 not 500) — use `Source: dpl_<id>` + `Probe: empty-body → <response-code>` instead of `Entry-point: ... → H3 | H4 | inconclusive`. Marketing-subscribe's diagnostic signature is validation-gate short-circuit evidence, NOT entry-point evidence — the H3/H4/inconclusive pick-rule does NOT apply here. Sample body for commit #5:
+
+  ```
+  Source: dpl_<deploy-id>
+  Probe: empty-body → <response-code> (400 expected per runbook Step 8)
+  ```
+
+- **Commit #5b (conditional, optional)** — if the operator runs the probe-with-valid-body variant AND captures its result, the metadata is `Source: dpl_<id>` + `Probe: valid-body → <response-code>` (without `Entry-point:` line). Sample body for commit #5b:
+
+  ```
+  Source: dpl_<deploy-id>
+  Probe: valid-body → <response-code> (200 / 400-re-fires / 502 etc.)
+  ```
+
 **Edge cases:**
 
 - **Multi-deploy paste scenario** — if the operator pastes from multiple deploys (e.g., `--force` retry `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq` for §1 / §2 / §3 + Diagnostic #2 deploy `hkepnhkne-…` for §4), each per-deploy paste is its own commit per the per-paste rule. Grand total may exceed 5 commits. Still per-paste compliant.
 - **Optional §4 Field B (valid-body probe)** — if the operator runs the probe-with-valid-body variant AND captures its result, that's a separate commit appended (e.g. as commit #5b): `docs(postmortem): paste marketing-subscribe valid-body probe from <deploy-id>`. The empty-body probe is commit #5.
 - **Commit ordering** — commits do NOT need to be in the table order above. The §4 Field C cross-reference fix means any order works — the diff history just needs to record each datum's arrival time individually. The operator's natural capture order (typically §1 first, then §2, then §3, then §4) is the simplest workflow and produces commits in numerical table order anyway.
-- **Single combined commit ("all in one") mode is explicitly NOT used in this mode.** To switch to single combined, the operator must explicitly opt out per the runbook's `## Commit hygiene`. The per-paste mode is the audit-trail-preserving default.
+- **Single combined commit ("all in one") mode is explicitly NOT used.** The runbook's `## Commit hygiene` declares per-paste commits **non-negotiable** — there is no opt-out path documented. Operators must always commit per-paste per the table above; the per-paste mode is the audit-trail-preserving default. If a future investigator believes a single-combined commit is justified for an exceptional reason, surface it as a *separate* commit-and-amendment proposal (postmortem addendum); do NOT silently switch modes mid-cycle.
 
 **Why per-paste commits matter (verbatim from runbook rationale):** the diff history tells the trail of when each datum arrived. Reviewers (present and future) can jump to the commit that flipped the discriminator verdict. A single batch commit loses that audit trail — and this regression has cost enough debugging time that future investigators will thank us for granular commit metadata.
 
