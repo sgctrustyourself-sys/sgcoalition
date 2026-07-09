@@ -1,20 +1,22 @@
 # Postmortem: `/api/` per-handler routing migration attempt
 
-**Date:** 2026-07-08
-**Status:** CACHE HYPOTHESIS CONFIRMED VIA CLI EVIDENCE (Branch #1 of verdict table). Retry path unblocked; awaiting operator authorization to retry. Production is on stable 503 baseline (`dca1b57`) in the interim.
-**Cache hypothesis:** CONFIRMED via CLI `--json` capture of one `FUNCTION_INVOCATION_FAILED` log line that matches Branch #1's stack-pattern observation verbatim. Dashboard paste (when/if it happens) will corroborate the other 3 endpoints and upgrade this from "confirmed" to "conclusively proven across all 4 routes."
+**Date:** 2026-07-08 (cycle continues through end of day)
+**Status:** **CACHE HYPOTHESIS INVALIDATED** by today's (2026-07-08) `--force` retry (Branch #1 refuted; the predicted fix did NOT resolve the regression). Production rolled back to stable 503 baseline (`cb30a60` = revert of `e33df76`). New diagnostic branches documented in "Updated diagnostic branches" section below.
+**Cache hypothesis:** **INVALIDATED** via empirical force-bypass retry. The CLI evidence of `_handlers/<slug>` Cannot-find-module error remains a valid runtime observation (Vercel runtime IS asking for those paths), but the proposed fix (`vercel deploy --prod --force --yes`) did NOT reproduce a fixed prod — same 1-for-1 failure signature as the original `1450a5a`. Either the cache hypothesis is incomplete (only certain cache layers are involved) or the actual mechanism lives in a different layer entirely (route map, function dispatch, bundler-routing edge case). See Attempt 5 in Timeline for the empirical result.
 
 ---
 
-### Pre-retry verdict signal (2026-07-08, end of investigation cycle)
+### Pre-retry verdict signal (ADDENDUM 2026-07-08, end of retry sequence: invalidated)
 
-The verification step originally flagged as blocking the retry — capturing verbatim Vercel function runtime stacks in the Dashboard — remains a valuable corroboration step, but the cycle does NOT need to wait for it. The CLI capture from earlier this cycle yielded one log line that already matches Branch #1 of the verdict derivation table in `postmortem-2026-07-08-vercel-stack-traces.md`:
+Earlier today this section was titled "Pre-retry verdict signal (2026-07-08, end of investigation cycle)" and read:
 
-> `"[api] failed to load handler paypal-order: Cannot find module '/var/task/api/_handlers/paypal-order' imported from /var/task/api/[...slug].js"`
+> "The CLI capture yielded one log line that matches Branch #1 (`[api] failed to load handler paypal-order: Cannot find module '/var/task/api/_handlers/paypal-order' imported from /var/task/api/[...slug].js`). Cache hypothesis confirmed; `--force` resolves it; retry sequence Step 5 Option B is the smallest surgical fix."
 
-This is the literal pattern Branch #1 expects ("Stack references `/var/task/api/_handlers/<slug>` in a `Cannot find module` error"). With this one piece of evidence, the cache-vs-bundler decision resolves cleanly: cache hypothesis confirmed; `--force` resolves it; retry sequence Step 5 Option B is the smallest surgical fix.
+**THAT VERDICT IS NOW INVALID.** Today's force-bypass retry (Attempt 5 below) reproduced the regression 1-for-1, so the claim "`--force` resolves it" turned out to be wrong.
 
-If the Dashboard paste later shows the other 3 endpoints' stacks falling into a different branch (e.g., one of them traces to Bundler-bug Branch #2 or env-var Branch #5), the verdict updates accordingly. Until then, Branch #1 stands.
+**What remains true:** the CLI evidence "`_handlers/<slug>` Cannot-find-module" IS still a valid runtime observation — Vercel runtime IS asking for those paths at runtime. **`--force` just doesn't clear whatever holds them.**
+
+See "Updated diagnostic branches" section below for where the next investigation should target.
 
 ---
 
@@ -22,7 +24,15 @@ If the Dashboard paste later shows the other 3 endpoints' stacks falling into a 
 
 ## TL;DR
 
-We attempted to migrate from a single `api/_handlers/*` directory (silently ignored by Vercel because of the `_`-prefix convention) to per-handler Serverless Functions at `api/<slug>.ts`. Three production pushes caused different failure signatures. A Preview-deploy test shows the source compiles cleanly today, but we cannot reproduce the prod regression against the Preview environment because Vercel Authentication intercepts all probes. The most likely remaining cause is **Vercel per-function build/edge cache that didn't invalidate when the file structure changed**. We need a way to force-clear that cache (or direct Vercel support access) before the next prod attempt.
+We attempted to migrate from a single `api/_handlers/*` directory (silently ignored by Vercel because of the `_`-prefix convention) to per-handler Serverless Functions at `api/<slug>.ts`. Multiple prod pushes caused `FUNCTION_INVOCATION_FAILED` on 3 of 4 handlers (`paypal-order`, `complete-order`, `ai-chat`) while `marketing-subscribe` cleanly returned a 400 validation error and the catch-all returned 404.
+
+A CLI capture of one `FUNCTION_INVOCATION_FAILED` line suggested the cache hypothesis (Branch #1) was the cause. Today (2026-07-08) we executed the documented retry sequence with `vercel deploy --prod --force --yes` to bypass build cache.
+
+**The force-bypass retry reproduced the regression 1-for-1.** Same 3 endpoints `FUNCTION_INVOCATION_FAILED`, same 1 endpoint clean 400, same catch-all 404. **Branch #1 verdict is invalidated.**
+
+Some layer between local `npx vercel build` output and runtime invocation preserves `_handlers/<slug>` resolution that `vercel deploy --force` does not clear. New diagnostic branches documented in "Updated diagnostic branches" section below: (1) flawed migration commit, (2) catch-all precedence, (3) edge route map, (4) bundler chunking bug, (5) env-var masking. Production rolled back to stable 503 baseline (`cb30a60`).
+
+**Cache-hypothesis path is exhausted.** Next iteration must investigate the actual mechanism rather than retrying `--force` variations.
 
 ---
 
@@ -102,6 +112,61 @@ The compiled bundles do not contain stale `_handlers/` paths. The source was cle
 We cannot validate handler logic behavior end-to-end on the Preview URL without turning off Deployment Protection for that specific deployment.
 
 ---
+
+### Attempt 5 — `--force` cache-bypass retry (2026-07-08, today)
+
+**What was committed:** Restored commit `1450a5a` (the per-handler routing migration) via `git revert dca1b57 --no-commit`, pre-verified locally with `npx vercel build --yes` (clean output, 20 `.func` bundles, ZERO `_handlers` references in compiled executable code per grep). Committed as `e33df76` (`fix(api): migrate handlers to api/<slug>.ts (cache-bypass retry, Branch #1 verdict)`). Pushed to origin main. Then ran `npx.cmd vercel deploy --prod --force --yes` to deploy with explicit build-cache bypass. Force-bypassed deploy URL: `https://coalition-brand-axuj4ekxb-derron-byrds-projects.vercel.app`. Production alias re-pointed to `sgcoalition.xyz`.
+
+**Pre-push verification (passed):**
+- Git revert dry-run: 23 files staged, no conflicts, no collateral changes outside `api/` + `tests/`.
+- Local `npx.cmd vercel build --yes`: succeeded, 20 `.func` bundles emitted.
+- Grep verification on `.vercel/output/functions/`: `_handlers` appears only in stale doc-comment strings inside `create-checkout-session.js`, `create-payment-intent.js`, and `create-subscription-session.js` (Stripe-helper files). ZERO `_handlers` references in executable code, including the catch-all `[...slug].func` and per-handler bundles (`paypal-order.func`, `complete-order.func`, `ai-chat.func`, `marketing-subscribe.func`).
+- Code-reviewer-minimax-m3 verdict: clean; HANDLER_LOADERS correctly references `./<slug>`, all per-handler bundles have zero `_handlers` references in executable code.
+
+**Probe result (75s post-`--force`-deploy):**
+
+| Endpoint | Original `1450a5a` | `--force` retry | Verdict |
+|---|---|---|---|
+| `/api/paypal-order` | 500 FUNCTION_INVOCATION_FAILED | 500 FUNCTION_INVOCATION_FAILED | Same |
+| `/api/marketing-subscribe` | 400 valid email required | 400 valid email required | Same |
+| `/api/complete-order` | 500 FUNCTION_INVOCATION_FAILED | 500 FUNCTION_INVOCATION_FAILED | Same |
+| `/api/ai-chat` | 500 FUNCTION_INVOCATION_FAILED | 500 FUNCTION_INVOCATION_FAILED | Same |
+| `/api/foobar` (catch-all) | 404 Endpoint not found | 404 Endpoint not found | Same |
+
+**FINDING:** The `--force` retry reproduced the regression 1-for-1. **Branch #1 verdict invalidated.** The predicted cache-bypass fix did NOT resolve the regression. Build cache is therefore not the layer the regression lives in.
+
+**Rollback (executed):** `git revert HEAD --no-edit && git push origin main` → rollback commit `cb30a60`. After 75s wait + re-probe: all 4 known endpoints back to 503 baseline (`temporarily unavailable` marker present), foobar back to 404. Production state: stable baseline restored. HEAD = `cb30a60` on `origin/main`.
+
+---
+
+## Updated diagnostic branches (after Branch #1 invalidation, 2026-07-08)
+
+Cache invalidation is empirically ruled out: the runtime asks for `_handlers/<slug>` paths that exist in neither the source nor the cleaned local `npx vercel build` output. The mechanism is therefore in some layer between local build output and runtime invocation that `--force` does not touch.
+
+Per think-through analysis, the next diagnostic should distinguish between these candidates:
+
+| # | Hypothesis | Mechanism | Why it fits the empirical signature |
+|---|---|---|---|
+| 1 | Flawed migration commit (narrowed) | Source has an indirect/conditional `_handlers/` reference NOT reachable via direct HANDLER_LOADERS map audit (e.g., a path-rewrite helper, a default-case fallback, or a runtime string-construction utility). Direct HANDLER_LOADERS audit + clean local `npx vercel build` argue against the simple form (top-level `import('./_handlers/<slug>')`), so H1 stays plausible only via the indirect form. | Would explain why `--force` cleanly rebuilt a broken artifact throwing Cannot-find-module on `_handlers/<slug>` despite direct source + build checks coming back clean. Diagnostic #1 (ground-truth source audit + grep for indirect helpers) is the cheapest test. |
+| 2 | Catch-all precedence | Vercel's filesystem routing is routing specific `/api/<slug>` requests to `api/[...slug].ts` instead of the new individual `.ts` files | Would explain why the old dynamic-importing logic is invoked instead of the new isolated functions executing directly |
+| 3 | Edge route map state | Vercel's edge network uses a deployment route map that did not atomically update to reflect the new directory structure | Would explain how a perfectly clean compiled bundle could still behave as if it was referencing old routes at runtime |
+| 4 | Bundler chunking bug | `@vercel/nft` generates a stale chunk map for dynamic imports across project restructures that `--force` does not clear | Fits the pattern: dynamic imports fail at runtime while static analysis + local builds appear perfectly clean |
+| 5 | Env-var masking | Prod environment variables trigger an error path in a shared file that masks itself as a dynamic import module resolution failure | Explains why Preview deploys (different env or none) pass seamlessly while Prod fails consistently |
+
+**Next diagnostic steps (in order of evidence-yielding power):**
+
+| # | Diagnostic | Action | Hypothesis tested |
+|---|---|---|---|
+| 1 | Ground-truth source audit | `git checkout 1450a5a -- api/[...slug].ts` and grep for `_handlers` and check HANDLER_LOADERS map. Repeat for any `api/_handlers/`-prefixed paths. | H1 (Flawed Migration Commit). Eliminates human error from prior `git show` analysis. |
+| 2 | Delete catch-all | Create a test deploy that entirely removes `api/[...slug].ts` from the migration. | H2 & H3 (Precedence / Route Map). Forces explicit per-handler files; if it 404s wildly, filesystem routing is broken. |
+| 3 | Download prod source | Use Vercel Dashboard → Deployments → failed deploy (`dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc` is the failed `--force` retry, archived) → downloadable source zip and grep for `_handlers` in the actual production-built artifacts. | Distinguishes H1, H4, H2, H3 simultaneously: if `_handlers/` appears in Vercel-built `.func` → H4 (Bundler Bug); if not in `.func` but runtime resolves to it → H2 (Catch-all Precedence) or H3 (Edge Route Map); if neither → narrows down to H5 (env-var masking). Highest marginal information among the Dashboard-access diagnostics because it reveals what the runtime is actually given. |
+| 4 | Dashboard log tracing | Read the verbatim Function Logs in Vercel Dashboard for the failed `--force` deploy (entry-point + cold-start stack + dependency-resolution path). | H2 (Catch-all Precedence). Determines definitively which lambda bundle actually caught and processed the request. |
+
+The smallest diagnostic that could conclusively settle H1 vs H4 is Item 1 (a literal source-code ground truth check). Steps 2-4 require manual operator intervention with Vercel Dashboard access.
+
+---
+
+> **⚠️ STATUS: The hypothesis below ("Vercel per-function build/edge cache") is INVERTED.** This hypothesis predicted that `vercel deploy --prod --force --yes` would resolve the regression. Today's `--force` retry proved it does NOT. The hypothesis content below is archived as the prior analytical work that *was actually executed* today, but it should not be relied on as the source of truth going forward. See "Updated diagnostic branches" section above for the next investigation direction.
 
 ## Working hypothesis: Vercel per-function build/edge cache
 

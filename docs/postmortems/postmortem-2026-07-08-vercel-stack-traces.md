@@ -141,13 +141,17 @@ For comparison purposes, capture both: (a) the runtime invocation log for market
 
 ---
 
-## Verdict derivation (filled in once §1–§4 are populated)
+## Verdict derivation (refutation added 2026-07-08: Branch #1 inverted)
 
-The literal stack traces decide which branch of the cache-vs-bundler decision matrix applies. Once stacks are pasted, compare patterns:
+**UPDATE 2026-07-08 (Attempt 5 result):** Branch #1 (cache hypothesis) has been empirically refuted. The documented retry sequence (`vercel deploy --prod --force --yes`) was executed with full pre-push safety (clean local `npx vercel build --yes`, ZERO `_handlers` references in executable code, code-reviewer approval). The force-bypass retry reproduced FUNCTION_INVOCATION_FAILED on 3 of 4 handlers identically to the original `1450a5a` failure. **Branch #1 verdicts are NOT a viable fix path**, even when stack-pattern matches the literal CLI line that originally supported it.
+
+The Dashboard paste (when/if it happens) is now valuable for distinguishing among the *new* branches (1-5 below in "Updated diagnostic branches" section of the main postmortem), not for confirming Branch #1.
+
+The literal stack traces (when pasted) decide which branch of the cache-vs-bundler decision matrix applies. With stacks in hand, compare patterns:
 
 | Stack-pattern observation | Cache-bypass would fix? | Implication |
 |---|---|---|
-| Stack references `/var/task/api/_handlers/<slug>` in a `Cannot find module` error | **YES** — `--force` flag bypasses build cache | Cache hypothesis confirmed. Retry path is `npx vercel deploy --prod --force --yes` per postmortem §Retry sequence Step 5 Option B. |
+| Stack references `/var/task/api/_handlers/<slug>` in a `Cannot find module` error | Was: **YES** — `--force` flag bypasses build cache. **REFUTED 2026-07-08 (Attempt 5)**: `--force` cache-bypass reproduced the regression 1-for-1 (3 of 4 handlers `FUNCTION_INVOCATION_FAILED`, same signature as the original `1450a5a`). Branch #1 is NO LONGER a viable fix path. | See `postmortem-2026-07-08-api-routing-migration.md` §Updated diagnostic branches for next investigation direction. The "YES" verdict below was correct as far as the static analysis went (build cache bypass IS the right mechanic in theory) but the empirical reproduction falsified the underlying hypothesis. |
 | Stack references `/var/task/api/<slug>` but throws on import-side-effect (e.g. SDK constructor missing env, ESM/CJS mismatch, missing transitive dep) | **NO** — `--force` would not help; the source/bundler has a real defect | Bundler-bug hypothesis confirmed. Pre-fix: revert or fix the source defect first — see postmortem §Working hypothesis Counter-evidence. |
 | Stack is identical across all 3 crashing endpoints (same file:line, same error class) | Possibly **YES** (single cause) — `--force` if module-link-time; **NO** if a shared dep they all import | Look at the shared imports: `../utils/X`, `../services/X`, `./_helpers`, `./_types`. Cross-reference against the stash's `package.json` scripts section. |
 | Stack-empty / FUNCTION_INVOCATION_FAILED with no thrown error | **NO** — Vercel's wrapper caught something it can't expose | Escalate to Vercel support with this deploy ID. |
