@@ -124,6 +124,17 @@ import type { Product, ImageRoles } from '../types';
 
 export type { ImageRoles };
 
+// Centralised Tailwind class lookup for imageRoles.imageBackground values.
+// Tailwind's JIT compiler needs full class strings at build time, so dynamic
+// `bg-${value}` strings would be silently stripped from the build. Both
+// components/ProductCard.tsx and components/ProductCardSkeleton.tsx import
+// this map so a future theme-add (e.g. 'cream') is one edit here, not two.
+export const IMAGE_BACKGROUND_CLASS: Record<'gray-900' | 'white' | 'transparent', string> = {
+    'gray-900': 'bg-gray-900',
+    'white': 'bg-white',
+    'transparent': 'bg-transparent',
+};
+
 /**
  * Resolve the canonical role-aware URL set for a product. Returns a
  * (possibly empty) primaryUrl, an optional hoverUrl, and a non-overlapping

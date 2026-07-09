@@ -377,6 +377,9 @@ const Shop = () => {
                     {isLoading && products.length === 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
                             {[...Array(6)].map((_, i) => (
+                                // Skeleton intentionally stays render-time-dormant for the
+                                // per-product prop here: products is empty by precondition.
+                                // See ProductCardSkeleton comment block for full rationale.
                                 <ProductCardSkeleton key={i} />
                             ))}
                         </div>

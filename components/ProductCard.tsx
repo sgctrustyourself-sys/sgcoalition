@@ -7,7 +7,7 @@ import PriceDisplay from './PriceDisplay';
 import UrgencyBadge from './ui/UrgencyBadge';
 import { getStockUrgency, getStockCount, generateViewCount, getMintFraction } from '../utils/urgencyUtils';
 import RequestSimilarModal from './RequestSimilarModal';
-import { getProductImage, getProductImageSrcSet, getProductRoles, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
+import { getProductImage, getProductImageSrcSet, getProductRoles, IMAGE_BACKGROUND_CLASS, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
 
 interface ProductCardProps {
     product: Product;
@@ -40,16 +40,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, priority = false }) 
     const hoverImage = roleHover ?? primaryImage;
     const hasHoverImage = !!roleHover && hoverImage !== primaryImage;
     const keepImageClear = product.id === 'Coalition_NF_Tee';
-    // Tailwind's JIT compiler needs full class strings at build time, so the
-    // background-color class is resolved via a static map keyed by the new
-    // imageRoles.imageBackground token. Dynamic `bg-${value}` strings would
-    // be silently stripped from the build.
-    const BACKGROUND_CLASS: Record<'gray-900' | 'white' | 'transparent', string> = {
-        'gray-900': 'bg-gray-900',
-        'white': 'bg-white',
-        'transparent': 'bg-transparent',
-    };
-    const imageFrameClass = BACKGROUND_CLASS[renderRoles.imageBackground];
+    // imageFrameClass comes from the centralised IMAGE_BACKGROUND_CLASS map in
+    // utils/productImage.ts so adding a new theme token (e.g. 'bg-cream') is
+    // a single-file edit. Mirrored by the skeleton component to keep both in
+    // sync for every theme value.
+    const imageFrameClass = IMAGE_BACKGROUND_CLASS[renderRoles.imageBackground];
     const imageObjectClass = renderRoles.imageFit === 'contain' ? 'object-contain' : 'object-cover';
     const hoverScaleClass = renderRoles.imageFit === 'contain' ? 'group-hover:scale-[1.02]' : 'group-hover:scale-105';
 
