@@ -300,7 +300,7 @@ Aggregate panel (top of Dashboard): **Total invocations: 156** · **Total Error 
 |---|---|---|
 | H1 (Flawed migration source — narrowed to indirect form) | RULED OUT | RULED OUT |
 | H2 (Catch-all precedence) | RULED OUT | RULED OUT |
-| H3 (Edge Route Map stale state) | plausible | **HIGH AMONG SURVIVING** ← raised significantly today |
+| H3 (Edge Route Map stale state) | plausible | **HIGH CONFIDENCE AMONG SURVIVING HYPOTHESES** ← raised significantly today (matches the §header status block qualifier + the §Cache hypothesis paragraph one paragraph above) |
 | H4 (Bundler Chunking Bug) | plausible | MEDIUM-HIGH ← 0ms CPU + Command-not-found tie |
 | H5 (Env-var Masking) | plausible | MEDIUM (no new evidence; remains a candidate) |
 | **H7 (Builder / Runtime Mismatch — newly considered)** | (new hypothesis today) | MEDIUM ← `framework: "vite"` with no `builds` directive has been in `vercel.json` throughout, but the bundler output of *prior* deploys (`1450a5a`, `--force` retry) may have absorbed partial-detection differently than the rollback to `_handlers/` lineage does |
