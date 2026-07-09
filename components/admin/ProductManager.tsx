@@ -7,7 +7,7 @@ import { getNamedSlotDefaults } from '../../utils/localImageAssets';
 import ImageCropperModal from '../ui/ImageCropperModal';
 import { moveArrayItem } from '../../utils/arrayMove';
 import { getProductEditableSizes, normalizeProductSizeData } from '../../utils/productSizes';
-import { getProductRoles, reconcileImageRoles } from '../../utils/productImage';
+import { getProductRoles, reconcileImageRoles, PRODUCT_IMAGE_ASPECTS } from '../../utils/productImage';
 
 const ProductManager: React.FC = () => {
     const { products, addProduct, updateProduct, deleteProduct } = useApp();
@@ -564,7 +564,7 @@ const ProductManager: React.FC = () => {
                                                 onDragOver={(event) => handleImageDragOver(event, index)}
                                                 onDrop={() => handleImageDrop(index)}
                                                 onDragEnd={handleImageDragEnd}
-                                                className={`relative aspect-square bg-black/30 rounded-lg overflow-hidden border transition group ${isDropTarget
+                                                className={`relative ${PRODUCT_IMAGE_ASPECTS.thumb} bg-black/30 rounded-lg overflow-hidden border transition group ${isDropTarget
                                                     ? 'border-brand-accent ring-2 ring-brand-accent/40'
                                                     : 'border-white/10'
                                                     } ${isDragged ? 'opacity-50 scale-[0.98]' : ''}`}
@@ -682,7 +682,7 @@ const ProductManager: React.FC = () => {
                                         type="button"
                                         onClick={() => fileInputRef.current?.click()}
                                         disabled={isUploading}
-                                        className="aspect-square bg-white/5 border border-dashed border-white/20 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 hover:border-white/40 transition gap-1 disabled:opacity-50"
+                                        className={`${PRODUCT_IMAGE_ASPECTS.thumb} bg-white/5 border border-dashed border-white/20 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 hover:border-white/40 transition gap-1 disabled:opacity-50`}
                                     >
                                         {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
                                         <span className="text-[10px] uppercase font-bold">{isUploading ? 'Uploading...' : 'New Asset'}</span>

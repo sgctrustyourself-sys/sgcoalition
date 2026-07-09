@@ -138,21 +138,30 @@ export const IMAGE_BACKGROUND_CLASS: Record<'gray-900' | 'white' | 'transparent'
 // Centralised Tailwind aspect-ratio class lookup for storefront product
 // imagery. Tailwind's JIT compiler needs full class strings at build time, so
 // dynamic `aspect-[${ratio}]` strings would be silently stripped from the
-// build. The four consumers below (ProductCard, ProductCardSkeleton,
-// ProductDetails, CartUpsells, BlogPostView, ImageCropperModal) import this
-// map so a future ratio change (e.g. switching cards to 3/4) is one edit
-// here, not six. Pair with IMAGE_BACKGROUND_CLASS above for the bg-side
-// theme-add single source of truth.
+// build. The importers below (ProductCard, ProductCardSkeleton,
+// ProductDetails, CartUpsells, BlogPostView, admin/ProductManager,
+// admin/BlogManager, ProductPage, Archive) pull this map so a future ratio
+// change (e.g. switching cards to 3/4) is one edit here, not nine. Pair
+// with IMAGE_BACKGROUND_CLASS above for the bg-side theme-add single source
+// of truth.
 //   card    — shop/home/favorites/wishlist grid cards (ProductCard,
 //             ProductCardSkeleton image frame). 4:5 portrait.
-//   thumb   — small square thumbnails (CartUpsells, admin grid).
-//             1:1 square.
+//   thumb   — small square thumbnails (CartUpsells, admin image-edit grid
+//             + upload placeholder, ProductPage gallery sub-images,
+//             Archive card cover). 1:1 square.
 //   gallery — PDP main image + admin image-edit grid. Same shape as card
 //             (4:5) but kept as a separate key so the semantic intent
 //             (gallery vs card) survives refactors that change one without
 //             the other.
-//   hero    — blog post cover, hero banners, full-width featured
-//             sections. 16:9 landscape.
+//   hero    — blog post cover (admin/BlogManager), hero banners, full-width
+//             featured sections. 16:9 landscape.
+//
+// Also see (docstring pointer only — not importers, intentionally outside
+// the map because their aspect is parameterised, not a literal class):
+//   components/ui/ImageCropperModal.tsx — defaultAspectRatio is a numeric
+//     prop (e.g. 16/9 for blog covers, 4/5 for product photos).
+//   pages/Cart.tsx — line item uses a 3:4 ratio that's specific to the
+//     cart row layout, not part of the storefront product grid taxonomy.
 export const PRODUCT_IMAGE_ASPECTS = {
     card: 'aspect-[4/5]',
     thumb: 'aspect-square',

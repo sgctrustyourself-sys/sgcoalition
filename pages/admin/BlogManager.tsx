@@ -6,6 +6,7 @@ import { useToast } from '../../context/ToastContext';
 import { uploadProductImage } from '../../services/productUpload'; // Repurposing same bucket for now
 import ImageCropperModal from '../../components/ui/ImageCropperModal';
 import { PRODUCT_CROP_ASPECT_OPTIONS } from '../../utils/imageCropper';
+import { PRODUCT_IMAGE_ASPECTS } from '../../utils/productImage';
 
 const BlogManager = () => {
     const { addToast } = useToast();
@@ -228,7 +229,7 @@ const BlogManager = () => {
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 mb-2">Cover Image</label>
-                                <div className="relative group aspect-[16/9] bg-white/5 border border-white/10 rounded-xl overflow-hidden mb-4">
+                                <div className={`relative group ${PRODUCT_IMAGE_ASPECTS.hero} bg-white/5 border border-white/10 rounded-xl overflow-hidden mb-4`}>
                                     {currentPost.coverImage ? (
                                         <img src={currentPost.coverImage} className="w-full h-full object-cover" alt="Cover" />
                                     ) : (

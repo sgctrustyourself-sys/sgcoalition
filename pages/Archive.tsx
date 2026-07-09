@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import { Calendar, Package, Clock, ArrowUpRight } from 'lucide-react';
 import Seo from '../components/Seo';
 import { buildItemListJsonLd } from '../utils/seo';
+import { PRODUCT_IMAGE_ASPECTS } from '../utils/productImage';
 
 const Archive: React.FC = () => {
     const { products, isLoading } = useApp();
@@ -73,7 +74,7 @@ const Archive: React.FC = () => {
                                 className="group relative block bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-white/30 focus-visible:border-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 transition-all duration-300"
                             >
                                 {/* Image */}
-                                <div className="aspect-square overflow-hidden relative">
+                                <div className={`${PRODUCT_IMAGE_ASPECTS.thumb} overflow-hidden relative`}>
                                     <img
                                         src={product.images[0]}
                                         alt={product.name}
