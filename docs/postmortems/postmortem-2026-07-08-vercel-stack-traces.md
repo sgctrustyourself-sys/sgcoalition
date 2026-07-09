@@ -324,6 +324,37 @@ REMINDER: prepend your paste with [source: <deploy-id>] so the postmortem disamb
 
 ---
 
+## Commit hygiene for next capture cycle (per-paste mode — 5 commits expected per the runbook's `## Commit hygiene`)
+
+The agent is now configured for **per-paste commits** per the runbook's `## Commit hygiene` section (one commit per paste — non-negotiable for the granular audit trail). Five commits are anticipated for the next operator capture cycle, each subject templated as `docs(postmortem): paste <endpoint> FUNCTION_INVOCATION_FAILED stack from <deploy-id>` (or `…bundle-grep result…` for commit #1):
+
+| # | Subject (verbatim template) | Target section |
+|---|---|---|
+| 1 | `docs(postmortem): paste bundle-grep result from <deploy-id>` | §1 Field C only (per-bundle; §2/§3/§4 Field C cross-references commit #1 — no duplication) |
+| 2 | `docs(postmortem): paste paypal-order FUNCTION_INVOCATION_FAILED stack from <deploy-id>` | §1 Field A + Field B |
+| 3 | `docs(postmortem): paste complete-order FUNCTION_INVOCATION_FAILED stack from <deploy-id>` | §2 Field A + Field B |
+| 4 | `docs(postmortem): paste ai-chat FUNCTION_INVOCATION_FAILED stack from <deploy-id>` | §3 Field A + Field B |
+| 5 | `docs(postmortem): paste marketing-subscribe empty-body probe from <deploy-id>` | §4 Field A (+ optional Field B if valid-body probe is run) |
+
+Each commit body follows the runbook's standard metadata template:
+
+```
+Source: dpl_<id>
+Entry-point: <entry-point-string> → H3 | H4 | inconclusive
+Cold-start: <duration> Region: <region> Lambda: <ver>, <memory>MB
+```
+
+**Edge cases:**
+
+- **Multi-deploy paste scenario** — if the operator pastes from multiple deploys (e.g., `--force` retry `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq` for §1 / §2 / §3 + Diagnostic #2 deploy `hkepnhkne-…` for §4), each per-deploy paste is its own commit per the per-paste rule. Grand total may exceed 5 commits. Still per-paste compliant.
+- **Optional §4 Field B (valid-body probe)** — if the operator runs the probe-with-valid-body variant AND captures its result, that's a separate commit appended (e.g. as commit #5b): `docs(postmortem): paste marketing-subscribe valid-body probe from <deploy-id>`. The empty-body probe is commit #5.
+- **Commit ordering** — commits do NOT need to be in the table order above. The §4 Field C cross-reference fix means any order works — the diff history just needs to record each datum's arrival time individually. The operator's natural capture order (typically §1 first, then §2, then §3, then §4) is the simplest workflow and produces commits in numerical table order anyway.
+- **Single combined commit ("all in one") mode is explicitly NOT used in this mode.** To switch to single combined, the operator must explicitly opt out per the runbook's `## Commit hygiene`. The per-paste mode is the audit-trail-preserving default.
+
+**Why per-paste commits matter (verbatim from runbook rationale):** the diff history tells the trail of when each datum arrived. Reviewers (present and future) can jump to the commit that flipped the discriminator verdict. A single batch commit loses that audit trail — and this regression has cost enough debugging time that future investigators will thank us for granular commit metadata.
+
+---
+
 ## Verdict derivation (refutation added 2026-07-08: Branch #1 inverted)
 
 **UPDATE 2026-07-08 (Attempt 5 result):** Branch #1 (cache hypothesis) has been empirically refuted. The documented retry sequence (`vercel deploy --prod --force --yes`) was executed with full pre-push safety (clean local `npx vercel build --yes`, ZERO `_handlers` references in executable code, code-reviewer approval). The force-bypass retry reproduced FUNCTION_INVOCATION_FAILED on 3 of 4 handlers identically to the original `1450a5a` failure. **Branch #1 verdicts are NOT a viable fix path**, even when stack-pattern matches the literal CLI line that originally supported it.
