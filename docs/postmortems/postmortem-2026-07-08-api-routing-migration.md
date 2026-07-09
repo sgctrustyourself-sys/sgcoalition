@@ -118,7 +118,7 @@ We cannot validate handler logic behavior end-to-end on the Preview URL without 
 
 1. **Vercel Dashboard access** — Manual log capture from the Functions tab of the failed deployment. Verbatim stack trace of the `FUNCTION_INVOCATION_FAILED` will unambiguously identify whether it's module-link-time or runtime-invocation.
 2. **Vercel support escalation** — Send the prior timeline + log snippets to Vercel support and ask them to confirm or rule out per-function cache invalidation behavior for this case.
-3. **Documented cache bypass API** — Discover whether `vercel redeploy --force` or a Vercel REST API endpoint can flush per-function build cache before the next push.
+3. **Documented cache bypass API** — STATUS: PARTIALLY RESOLVED. `vercel deploy --force` (alias `vc deploy --force`) is documented and forces a clean build, bypassing the `node_modules` + build output cache. There is no per-function build cache (Vercel treats per-deployment builds as atomic). For Edge Cache invalidation (CDN-level response caching controlled by `Cache-Control` headers), Vercel's Purge API or Cache Tags (surrogate keys) are required — see Vercel edge-network docs at https://vercel.com/docs/edge-network/caching. There is no `vercel cache clear` command. See "Refined cache-bypass mechanics" section below for the proven tooling + open gaps.
 4. **Preview deploy without auth** — Configure Deployment Protection to allow our IP range, OR explicitly bypass auth on the new Preview. Then re-probe for full end-to-end validation.
 
 ### Steps to retry (after pre-conditions resolved)
@@ -141,7 +141,30 @@ We cannot validate handler logic behavior end-to-end on the Preview URL without 
    git commit -m 'fix(api): migrate handlers to api/<slug>.ts (cache-bypass retry)'
    git push origin main
    ```
-5. **Immediately clear build cache** (this is the differentiator from the failed attempt): Trigger a Vercel redeploy with cleared build cache from the dashboard for that commit's deployment, OR use `vercel redeploy <deployment-url> --force --yes` if that flag exists.
+5. **Push with cache bypass** (this is the differentiator from the failed attempt):
+
+   **Option B (single force-bypassed deploy via CLI — preferred):**
+
+   ```bash
+   npx.cmd vercel deploy --prod --force --yes
+   ```
+
+   Forces a clean build from scratch, ignoring the build cache. Single deployment — clean atomic transition.
+
+   **Option A (two-step: git push auto-deploy + dashboard force-redeploy — fallback if CLI not available):**
+
+   ```bash
+   # Step 1: git push triggers an auto-deploy WITHOUT force (cache state preserved)
+   git push origin main
+
+   # Step 2: from Vercel Dashboard, trigger a "Redeploy" on the most recent deployment.
+   # Look for "Clear Build Cache" / "Force" checkbox or option in the redeploy dialog.
+   # The query param for direct force-redeploy (?force=1) is documented but the operator
+   # should verify the canonical syntax against current Vercel Dashboard docs at retry time,
+   # because that param's exact spelling has shifted between Vercel Dashboard versions.
+   ```
+
+   NOTE: Neither Option A nor Option B touches the Edge Cache. If the FUNCTION_INVOCATION_FAILED returns after a force-bypassed deploy, the next step is Edge Cache invalidation — see "Refined cache-bypass mechanics" section for the concrete reference.
 6. **Wait ~75s** for cold-spin-up.
 7. **Probe 4 known + 1 unknown slug:**
    ```bash
@@ -162,6 +185,33 @@ We cannot validate handler logic behavior end-to-end on the Preview URL without 
    | Mixed (some 400, some 500) | HTTP 404 | ❌ Cache invalidation was partial. Look for Vercel-specific cache tiers that exist beyond build cache (e.g., edge CDN). |
 
 9. **If hypothesis confirmed and prod fixed:** file a follow-up to clean up the 2 uncommitted modifications (`package-lock.json`, `public/sitemap.xml`) so the working tree matches HEAD exactly. Optionally write a regression guard test (`tests/apiRuntimeLazyInit.test.ts` was attempted during the diagnostic phase but the file write failed at the time — retry once the cache issue is resolved so handler-lazy-init is locked in as a CI check).
+
+---
+
+## Refined cache-bypass mechanics (added 2026-07-08)
+
+Researcher-docs surfaced authoritative (with caveats noted) Vercel behavior on cache invalidation:
+
+| Cache layer | Bypass mechanism | CLI flag / API |
+|---|---|---|
+| Build cache (`node_modules`, build output) | Force a clean rebuild | `vercel deploy --force` (or `vercel deploy --prod --force` for prod push) |
+| Build cache | Force a clean rebuild via dashboard | "Redeploy with cleared build cache" dialog option (the canonical UI affordance; exact query param syntax has varied between Vercel Dashboard versions — verify at retry time) |
+| Edge cache (response CDN) | Purge API or Cache Tags (Surrogate Keys) | Vercel Purge API endpoint — see https://vercel.com/docs/edge-network/caching |
+| Per-function build cache | DOES NOT EXIST | Vercel treats each deployment's builds as atomic |
+
+**Critical implication for the cache hypothesis:** The `--force` flag bypasses the build cache. If the 1450a5a regression was caused by stale build cache (most likely cause per the hypothesis), `--force` will fix it on the next push. If the regression was caused by Edge Cache (`Cache-Control` headers with `s-maxage`), `--force` alone won't fix it — the Purge API is then required.
+
+**Handler-cache-surface audit:** None of the handler files in this codebase sets `Cache-Control` headers in their responses directly. `setCorsHeaders` only writes `Access-Control-Allow-*` headers, no caching directives. So Edge Cache would only apply if Vercel's default response caching behaves differently than we expect — e.g. only if a global `Cache-Control` policy is configured in `vercel.json` (it isn't currently), or if Vercel's automatic smart-cache heuristic is enabled and misclassifying a Function response as cacheable.
+
+**Known limitations of this research:**
+- researcher-docs service reported "temporary technical limitation with the documentation retrieval service" during the cache-bypass query; findings are based on canonical Vercel architecture rather than a fresh pull of the latest docs.
+- `--force` behavior, deployment atomicity, and the absence of per-function cache are well-established Vercel architecture facts (not speculative).
+- Edge Cache Purge API specifics and Dashboard force-redeploy URL params should be cross-checked against current Vercel docs at retry time before being relied on.
+
+**Updated retry path:**
+
+- **If 1450a5a regression is build-cache only (most likely):** `npx.cmd vercel deploy --prod --force --yes` is sufficient. Single command, single force-bypassed deploy.
+- **If 1450a5a regression is Edge-cache (less likely — none configured today):** additionally run the Vercel Purge API against the affected paths. Concrete API reference: https://vercel.com/docs/edge-network/caching. Fallback if Purge API doesn't help: drop the production domain's old CNAME from DNS and let it re-propagate (~5 min for `sgcoalition.xyz`).
 
 ---
 
