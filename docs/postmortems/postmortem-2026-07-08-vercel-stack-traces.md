@@ -341,7 +341,7 @@ Each commit body follows the runbook's standard metadata template:
 
 ```
 Source: dpl_<id>
-Entry-point: <entry-point-string> → [pick ONE of H3 | H4 | inconclusive] (post-§1-§3 Field A pick-rule applies here — REPLACE three-way with the single chosen hypothesis)
+Entry-point: <entry-point-string> → [pick ONE of H3 | H4 | inconclusive] (post-§1-§3 Field A pick-rule applies)
 Cold-start: <duration> Region: <region> Lambda: <ver>, <memory>MB
 ```
 
