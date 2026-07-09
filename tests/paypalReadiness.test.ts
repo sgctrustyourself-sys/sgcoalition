@@ -82,42 +82,42 @@ describe('PayPal LIVE readiness contract', () => {
 
     describe('paypal-order handler', () => {
         it('routes the create action through PayPal /v2/checkout/orders', () => {
-            const handler = readText('api/_handlers/paypal-order.ts');
+            const handler = readText('api/paypal-order.ts');
             expect(handler).toMatch(/action\s*===\s*['"]create['"]/);
             expect(handler).toMatch(/\/v2\/checkout\/orders['"`]/);
             expect(handler).toMatch(/intent\s*:\s*['"]CAPTURE['"]/);
         });
 
         it('routes the capture action through PayPal /capture endpoint', () => {
-            const handler = readText('api/_handlers/paypal-order.ts');
+            const handler = readText('api/paypal-order.ts');
             expect(handler).toMatch(/action\s*===\s*['"]capture['"]/);
             expect(handler).toMatch(/\/v2\/checkout\/orders\/\$\{[^}]+\}\/capture/);
         });
 
         it('uses client_credentials OAuth for the access token', () => {
-            const handler = readText('api/_handlers/paypal-order.ts');
+            const handler = readText('api/paypal-order.ts');
             expect(handler).toMatch(/\/v1\/oauth2\/token/);
             expect(handler).toMatch(/grant_type=client_credentials/);
         });
 
         it('selects live vs sandbox based on PAYPAL_ENV', () => {
-            const handler = readText('api/_handlers/paypal-order.ts');
+            const handler = readText('api/paypal-order.ts');
             expect(handler).toMatch(/PAYPAL_LIVE_API\s*=\s*['"]https:\/\/api-m\.paypal\.com['"]/);
             expect(handler).toMatch(/PAYPAL_SANDBOX_API\s*=\s*['"]https:\/\/api-m\.sandbox\.paypal\.com['"]/);
         });
 
         it('rejects store-credit pairing with PayPal to prevent abuse', () => {
-            const handler = readText('api/_handlers/paypal-order.ts');
+            const handler = readText('api/paypal-order.ts');
             expect(handler).toMatch(/Store credit cannot be combined with PayPal/i);
         });
 
         it('re-verifies the captured amount matches the order total before the save', () => {
-            const handler = readText('api/_handlers/complete-order.ts');
+            const handler = readText('api/complete-order.ts');
             expect(handler).toMatch(/PayPal capture amount does not match order total/i);
         });
 
         it('returns 503 when PayPal columns are missing in the orders schema', () => {
-            const handler = readText('api/_handlers/complete-order.ts');
+            const handler = readText('api/complete-order.ts');
             expect(handler).toMatch(/Order schema is missing PayPal payment columns/i);
         });
     });
@@ -256,7 +256,7 @@ describe('PayPal LIVE readiness contract', () => {
             // write to camelCase the upsert falls through to the legacy fallback,
             // which strips the PayPal IDs into `notes`. Lock the snake_case writes
             // so that retry is real, not a notes-only log line.
-            const handler = readText('api/_handlers/complete-order.ts');
+            const handler = readText('api/complete-order.ts');
             expect(handler).toMatch(/paypal_order_id\s*:\s*confirmation\.paypalOrderId/);
             expect(handler).toMatch(/payment_reference\s*:\s*confirmation\.paypalCaptureId/);
         });

@@ -6,7 +6,7 @@
 
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, setCorsHeaders, type HttpError } from '../_helpers';
+import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, setCorsHeaders, type HttpError } from './_helpers';
 import type {
     ApiRequest,
     ApiResponse,
@@ -14,7 +14,7 @@ import type {
     SupabaseClient,
     VerifySubscriptionBody,
     VerifySubscriptionResponse,
-} from '../_types';
+} from './_types';
 
 const VIP_METADATA_TYPE = 'coalition_vip';
 const MONTHLY_VIP_CREDIT_USD = 15;

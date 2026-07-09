@@ -1,8 +1,8 @@
 import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory, type Part } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
-import { setCorsHeaders, createHttpError, parseBody, type HttpError, LOCAL_DEV_ORIGINS } from '../_helpers';
-import type { ApiRequest, ApiResponse, BrainEntry, SupabaseClient } from '../_types';
+import { setCorsHeaders, createHttpError, parseBody, type HttpError, LOCAL_DEV_ORIGINS } from './_helpers';
+import type { ApiRequest, ApiResponse, BrainEntry, SupabaseClient } from './_types';
 
 type ChatMode = 'brand' | 'full';
 

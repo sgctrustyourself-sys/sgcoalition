@@ -9,7 +9,7 @@ import type {
     ApiRequest,
     ApiResponse,
     UnsubscribeBody,
-} from '../_types';
+} from './_types';
 
 const DEFAULT_PUBLIC_ORIGIN = 'https://sgcoalition.xyz';
 

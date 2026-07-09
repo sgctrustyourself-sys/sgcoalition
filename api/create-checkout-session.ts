@@ -1,12 +1,12 @@
 import Stripe from 'stripe';
-import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, resolvePublicOrigin, setCorsHeaders, type HttpError } from '../_helpers';
+import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, resolvePublicOrigin, setCorsHeaders, type HttpError } from './_helpers';
 import type {
     ApiRequest,
     ApiResponse,
     CheckoutSessionItemInput,
     CheckoutSessionResponse,
     CreateCheckoutSessionBody,
-} from '../_types';
+} from './_types';
 
 const KEYCHAIN_CLIP_PRICE_USD = 10;
 const CURRENCY = 'usd';

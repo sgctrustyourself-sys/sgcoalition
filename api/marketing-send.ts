@@ -22,9 +22,9 @@ import { Resend } from 'resend';
 // `ADMIN_BROADCAST_TOKEN` Bearer now 401s -- rotate to
 // `ADMIN_SESSION_TOKEN` at the same time you remove
 // `ADMIN_BROADCAST_TOKEN` from Vercel env.
-import { withAdminAuth } from '../_helpers';
-import { filterVerifiedCustomers, isTestCampaignName } from '../../utils/marketingAudience';
-import type { ApiRequest, ApiResponse, MarketingAudienceRow, MarketingChannel, ResendEmailPayload } from '../_types';
+import { withAdminAuth } from './_helpers';
+import { filterVerifiedCustomers, isTestCampaignName } from '../utils/marketingAudience';
+import type { ApiRequest, ApiResponse, MarketingAudienceRow, MarketingChannel, ResendEmailPayload } from './_types';
 
 let cachedAdminClient: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient | null {

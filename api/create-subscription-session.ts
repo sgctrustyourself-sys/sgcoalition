@@ -1,11 +1,11 @@
 import Stripe from 'stripe';
-import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, resolvePublicOrigin, setCorsHeaders, type HttpError } from '../_helpers';
+import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, resolvePublicOrigin, setCorsHeaders, type HttpError } from './_helpers';
 import type {
     ApiRequest,
     ApiResponse,
     CheckoutSessionResponse,
     CreateSubscriptionSessionBody,
-} from '../_types';
+} from './_types';
 
 const CURRENCY = 'usd';
 const VIP_MONTHLY_PRICE_CENTS = 1500;

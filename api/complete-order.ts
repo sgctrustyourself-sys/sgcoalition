@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
-import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet';
-import { calculatePromoDiscountCents, normalizePromoCode } from '../../utils/promoCodes';
+import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
+import { calculatePromoDiscountCents, normalizePromoCode } from '../utils/promoCodes';
 import type {
     ApiRequest,
     ApiResponse,
@@ -22,8 +22,8 @@ import type {
     SupabaseClient,
     SupabasePgError,
     UpdateOrderBody,
-} from '../_types';
-import { setCorsHeaders, createHttpError, parseBody, type HttpError, LOCAL_DEV_ORIGINS } from '../_helpers';
+} from './_types';
+import { setCorsHeaders, createHttpError, parseBody, type HttpError, LOCAL_DEV_ORIGINS } from './_helpers';
 
 const PAYPAL_LIVE_API = 'https://api-m.paypal.com';
 const PAYPAL_SANDBOX_API = 'https://api-m.sandbox.paypal.com';

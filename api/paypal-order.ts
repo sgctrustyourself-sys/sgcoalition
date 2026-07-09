@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet';
-import { calculatePromoDiscountCents, normalizePromoCode } from '../../utils/promoCodes';
+import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
+import { calculatePromoDiscountCents, normalizePromoCode } from '../utils/promoCodes';
 import type {
     ApiRequest,
     ApiResponse,
@@ -14,8 +14,8 @@ import type {
     ProductRow,
     ResendEmailPayload,
     SupabaseClient,
-} from '../_types';
-import { setCorsHeaders, createHttpError, parseBody, type HttpError, LOCAL_DEV_ORIGINS } from '../_helpers';
+} from './_types';
+import { setCorsHeaders, createHttpError, parseBody, type HttpError, LOCAL_DEV_ORIGINS } from './_helpers';
 
 type NormalizedCheckoutItem = PayPalNormalizedCheckoutItem;
 
