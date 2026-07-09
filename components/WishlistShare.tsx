@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { Share2, Link as LinkIcon, Check, X as XIcon, AlertCircle, Loader2 } from 'lucide-react';
+import { Share2, Link as LinkIcon, Check, X as XIcon, AlertCircle, Loader2, Trash2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../services/supabase';
-import { generateShareId, getPublicWishlistUrl } from '../utils/wishlistUtils';
+import { generateShareId, getPublicWishlistUrl, isActiveShare } from '../utils/wishlistUtils';
+import { listMyShares, deleteShare, type WishlistShare } from '../services/wishlistShares';
 
 interface WishlistShareProps {
     favoriteIds: string[];
@@ -19,16 +20,50 @@ const WishlistShare: React.FC<WishlistShareProps> = ({ favoriteIds }) => {
     const [shareUrl, setShareUrl] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    // Ref-based guard against the double-click race: a rapid
-    // second click on the share button would otherwise fire a
-    // second createShare() (the React state update for
-    // `isGenerating=true` is async, so the second click's closure
-    // still sees `isGenerating=false`). The ref flips synchronously
-    // so the second click short-circuits. Without this, double-
-    // clickers create 2 rows in wishlist_shares with 2 different
-    // shareIds -- wasted rows, and the displayed URL races
+    // Existing shares + their load/delete state. Fetched lazily on
+    // modal open (in handleOpen) so a user who never opens the modal
+    // never pays the SELECT cost. The list is the owner's own shares
+    // (owner_id-filtered in the WHERE clause, NOT RLS-narrowed --
+    // the SELECT RLS policy is intentionally permissive so recipients
+    // can view any share by shareId; the explicit .eq('owner_id',
+    // userId) filter in services/wishlistShares.ts > listMyShares is
+    // the only thing preventing User A from seeing User B's shares).
+    const [existingShares, setExistingShares] = useState<WishlistShare[]>([]);
+    const [isLoadingShares, setIsLoadingShares] = useState(false);
+    const [sharesError, setSharesError] = useState<string | null>(null);
+    // Inline confirm-before-delete: the shareId the user has clicked
+    // "Delete" on. The Delete button swaps to "Confirm" + "Cancel" on
+    // the same row, and a second click confirms the destruction.
+    // null = no row is in confirm mode. Reset whenever the modal
+    // closes (so a stale row isn't in "Confirm" mode the next time
+    // the modal opens), a delete succeeds/fails, or a different
+    // row's button is clicked (only one row in confirm mode at a
+    // time).
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    // The shareId whose DELETE is currently in flight. Used to swap
+    // the row's button to a spinner + disable other row buttons so
+    // the user can't fire a second delete while the first is mid-RTT.
+    const [deletingShareId, setDeletingShareId] = useState<string | null>(null);
+    // Ref-based guard against the double-click race on the create
+    // button: a rapid second click on the share button would
+    // otherwise fire a second createShare() (the React state update
+    // for `isGenerating=true` is async, so the second click's
+    // closure still sees `isGenerating=false`). The ref flips
+    // synchronously so the second click short-circuits. Without
+    // this, double-clickers create 2 rows in wishlist_shares with 2
+    // different shareIds -- wasted rows, and the displayed URL races
     // between the two.
     const isGeneratingRef = useRef(false);
+    // Ref-based guard against the double-click race on the "Confirm"
+    // button in the delete flow. Same shape as isGeneratingRef
+    // above: the React state update for `deletingShareId=id` is
+    // async, so a rapid second click on Confirm would otherwise fire
+    // a second DELETE (the second click's closure still sees
+    // `isDeleting=false` on the row's button because the state
+    // hasn't propagated). The ref flips synchronously in
+    // handleDeleteConfirm so the second click short-circuits before
+    // the supabase call.
+    const deletingShareIdRef = useRef<string | null>(null);
 
     if (favoriteIds.length === 0) return null;
 
@@ -61,9 +96,86 @@ const WishlistShare: React.FC<WishlistShareProps> = ({ favoriteIds }) => {
         return getPublicWishlistUrl(newShareId);
     };
 
+    // Fetch the owner's existing shares (owner_id-filtered in the
+    // WHERE clause). Called from handleOpen on every modal open --
+    // idempotent SELECT, costs one round-trip against the
+    // idx_wishlist_shares_owner_id index. Errors set sharesError
+    // (separate from `error` which is reserved for INSERT failures)
+    // so a user can see both problems independently if the SELECT
+    // fails AFTER a successful INSERT.
+    //
+    // Gated on !user: listMyShares(userId) requires a userId (the
+    // SELECT RLS policy is USING(true), so without the explicit
+    // owner_id filter we'd return every share in the table). For an
+    // unauthenticated user the helper would either throw or, worse,
+    // leak data. Just clear the list and skip the round-trip.
+    const loadExistingShares = async () => {
+        if (!user) {
+            setExistingShares([]);
+            return;
+        }
+        setIsLoadingShares(true);
+        setSharesError(null);
+        try {
+            const shares = await listMyShares(user.uid);
+            setExistingShares(shares);
+        } catch (err) {
+            setSharesError(err instanceof Error ? err.message : 'Failed to load your shared wishlists.');
+        } finally {
+            setIsLoadingShares(false);
+        }
+    };
+
+    // Inline confirm-before-delete handler. The UI gates the actual
+    // deletion behind a second click on the same row, so this function
+    // is what the second click calls. The full lifecycle:
+    //   1. User clicks "Delete" on row N -> setConfirmDeleteId(N)
+    //   2. UI swaps that row's button to "Confirm" + "Cancel"
+    //   3. User clicks "Cancel" -> setConfirmDeleteId(null) (no-op)
+    //   4. User clicks "Confirm" -> handleDeleteConfirm(N) is called
+    //   5. DELETE round-trip + refetch + clear shareUrl if it matched
+    // If the deleted shareId is the one currently in shareUrl, the
+    // shareUrl state is cleared so a fresh INSERT will happen on the
+    // next handleOpen call (otherwise the user would see a stale URL
+    // pointing at a row that no longer exists).
+    const handleDeleteConfirm = async (shareId: string) => {
+        // Ref-based race guard (see deletingShareIdRef declaration).
+        // The state-based check is not sufficient because the
+        // setDeletingShareId(shareId) update is async.
+        if (deletingShareIdRef.current) return;
+        deletingShareIdRef.current = shareId;
+        setDeletingShareId(shareId);
+        setSharesError(null);
+        try {
+            await deleteShare(shareId);
+            // If we just deleted the share currently displayed in
+            // shareUrl, clear it so the next handleOpen regenerates.
+            // The match lives in utils/wishlistUtils.ts > isActiveShare
+            // so the URL-shape contract is in one place.
+            if (isActiveShare(shareUrl, shareId)) {
+                setShareUrl('');
+            }
+            await loadExistingShares();
+        } catch (err) {
+            setSharesError(err instanceof Error ? err.message : 'Failed to delete share.');
+        } finally {
+            setDeletingShareId(null);
+            setConfirmDeleteId(null);
+            deletingShareIdRef.current = null;
+        }
+    };
+
     const handleOpen = async () => {
         setIsOpen(true);
         setError(null);
+        // Always refetch the owner's existing shares on modal open.
+        // Idempotent: listMyShares(userId) does a single SELECT
+        // against wishlist_shares scoped by the owner_id WHERE filter.
+        // The shareUrl early-return below does NOT skip this -- the
+        // user might have deleted the current share in another tab, or
+        // the shareUrl state could be stale, so we want the freshest
+        // list every time the modal opens.
+        void loadExistingShares();
         if (shareUrl) return; // already created this session
         // Sign-in gate is handled in the JSX (amber AlertCircle
         // below). Bail here so the error state stays reserved for
@@ -133,7 +245,12 @@ const WishlistShare: React.FC<WishlistShareProps> = ({ favoriteIds }) => {
                     {/* Backdrop */}
                     <div
                         className="fixed inset-0 bg-black/50 z-40"
-                        onClick={() => setIsOpen(false)}
+                        onClick={() => {
+                            // Also reset confirm state on backdrop
+                            // click (same leak fix as the X button).
+                            setConfirmDeleteId(null);
+                            setIsOpen(false);
+                        }}
                     />
 
                     {/* Modal */}
@@ -141,7 +258,14 @@ const WishlistShare: React.FC<WishlistShareProps> = ({ favoriteIds }) => {
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-bold">Share Your Wishlist</h3>
                             <button
-                                onClick={() => setIsOpen(false)}
+                                onClick={() => {
+                                    // Reset confirm state on close so
+                                    // a stale row isn't in "Confirm"
+                                    // mode the next time the modal
+                                    // opens. Cheap leak fix.
+                                    setConfirmDeleteId(null);
+                                    setIsOpen(false);
+                                }}
                                 className="text-gray-400 hover:text-white transition"
                             >
                                 <XIcon className="w-6 h-6" />
@@ -179,6 +303,130 @@ const WishlistShare: React.FC<WishlistShareProps> = ({ favoriteIds }) => {
                         )}
 
                         <div className="space-y-4">
+                            {/* Existing shares + delete UI. Only shown
+                                for signed-in users (the RLS INSERT
+                                policy requires auth.uid() = owner_id,
+                                so a non-logged-in user cannot own any
+                                shares anyway). The list is the
+                                owner's OWN shares, ordered by
+                                created_at desc. The user can:
+                                  (a) see the current "Active" share
+                                  (b) delete any share (with inline
+                                      confirm-before-delete)
+                                The current session's shareUrl is
+                                highlighted via the isActiveShare
+                                helper (utils/wishlistUtils.ts). */}
+                            {user && existingShares.length > 0 && (
+                                <div className="space-y-2">
+                                    <div className="text-xs uppercase tracking-wide text-gray-400 font-bold">
+                                        Your active shares
+                                    </div>
+                                    {existingShares.map((share) => {
+                                        const isActive = isActiveShare(shareUrl, share.share_id);
+                                        const isConfirming = confirmDeleteId === share.share_id;
+                                        const isDeleting = deletingShareId === share.share_id;
+                                        return (
+                                            <div
+                                                key={share.share_id}
+                                                data-testid={`share-row-${share.share_id}`}
+                                                className={`flex items-center justify-between gap-2 p-3 border rounded-lg ${
+                                                    isActive
+                                                        ? 'bg-emerald-500/10 border-emerald-500/30'
+                                                        : 'bg-white/5 border-white/10'
+                                                }`}
+                                            >
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <LinkIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                                        <span className="text-xs font-mono text-gray-300 truncate">
+                                                            /wishlist/{share.share_id}
+                                                        </span>
+                                                        {isActive && (
+                                                            <span className="text-[10px] uppercase font-bold text-emerald-400 flex-shrink-0">
+                                                                Active
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[10px] text-gray-500 mt-0.5">
+                                                        {share.items.length} {share.items.length === 1 ? 'item' : 'items'}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1 flex-shrink-0">
+                                                    {isConfirming ? (
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setConfirmDeleteId(null);
+                                                                }}
+                                                                disabled={isDeleting}
+                                                                className="px-2 py-1 text-xs text-gray-300 hover:text-white transition disabled:opacity-50"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    void handleDeleteConfirm(share.share_id);
+                                                                }}
+                                                                disabled={isDeleting}
+                                                                data-testid={`confirm-delete-${share.share_id}`}
+                                                                className="px-2 py-1 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            >
+                                                                {isDeleting ? (
+                                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                                ) : (
+                                                                    'Confirm'
+                                                                )}
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                // If a different row is in confirm mode, swap to this one
+                                                                setConfirmDeleteId(share.share_id);
+                                                            }}
+                                                            disabled={isDeleting}
+                                                            data-testid={`delete-${share.share_id}`}
+                                                            aria-label={`Delete share ${share.share_id}`}
+                                                            className="p-1.5 text-gray-400 hover:text-red-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Loading state for the existing-shares
+                                SELECT. Shown when the user has the
+                                modal open but the fetch is still in
+                                flight. */}
+                            {user && isLoadingShares && existingShares.length === 0 && (
+                                <div className="flex items-center gap-2 text-xs text-gray-400">
+                                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                    Loading your shared wishlists...
+                                </div>
+                            )}
+
+                            {/* SELECT error (separate from `error`
+                                which is reserved for INSERT failures,
+                                so a user can see both problems
+                                independently). */}
+                            {sharesError && (
+                                <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 flex items-start gap-2">
+                                    <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                                    <p className="text-xs text-red-300">{sharesError}</p>
+                                </div>
+                            )}
+
                             {/* Copy Link */}
                             <button
                                 onClick={handleCopyLink}

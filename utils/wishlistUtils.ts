@@ -22,6 +22,22 @@ export const getPublicWishlistUrl = (shareId: string): string => {
 };
 
 /**
+ * Returns true if the given shareId is the one currently displayed in
+ * shareUrl. Used by components/WishlistShare.tsx to mark the "Active"
+ * row in the existing-shares list and to decide whether to clear
+ * shareUrl after a delete. The match is by URL suffix so future
+ * URL-shape changes (e.g. adding a query param, switching to a path-
+ * less shareId) only need one update here.
+ *
+ * Returns false if either arg is falsy -- safe to call before the
+ * shareUrl state has been populated.
+ */
+export const isActiveShare = (shareUrl: string, shareId: string): boolean => {
+    if (!shareUrl || !shareId) return false;
+    return shareUrl.endsWith(`/${shareId}`);
+};
+
+/**
  * Generate QR code data URL for wishlist
  */
 export const generateWishlistQR = async (url: string): Promise<string> => {
