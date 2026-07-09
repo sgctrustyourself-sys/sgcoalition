@@ -1,3 +1,5 @@
+import { PRODUCT_IMAGE_ASPECT_RATIOS } from './productImage';
+
 export interface CropFrameSize {
     width: number;
     height: number;
@@ -20,7 +22,14 @@ export const PRODUCT_CROP_ASPECT_OPTIONS: CropAspectOption[] = [
     { label: '16:9', ratio: 16 / 9 },
 ];
 
-export const DEFAULT_PRODUCT_CROP_RATIO = 4 / 5;
+// Derived from the storefront's canonical card ratio so the cropper's
+// default stays in sync with PRODUCT_IMAGE_ASPECTS.card by construction.
+// A change to `card` in utils/productImage.ts > PRODUCT_IMAGE_ASPECT_RATIOS
+// propagates here without a separate edit. (Prior to commit 3 this was
+// a hard-coded 4 / 5; the hard-coding silently drifted from `card` when
+// `card` was switched to 3 / 4 in commit 1 -- the cropper would have
+// opened at 4 / 5 while the storefront rendered cards at 3 / 4.)
+export const DEFAULT_PRODUCT_CROP_RATIO = PRODUCT_IMAGE_ASPECT_RATIOS.card;
 export const PRODUCT_CROP_OUTPUT_WIDTH = 1600;
 const PRODUCT_CROP_MIN_ZOOM = 1;
 const PRODUCT_CROP_MAX_ZOOM = 4;

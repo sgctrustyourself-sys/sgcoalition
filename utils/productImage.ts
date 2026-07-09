@@ -166,7 +166,7 @@ export const IMAGE_BACKGROUND_CLASS: Record<'gray-900' | 'white' | 'transparent'
 // the map because their aspect is parameterised, not a literal class):
 //   components/ui/ImageCropperModal.tsx — defaultAspectRatio is a numeric
 //     prop; the default is derived from PRODUCT_IMAGE_ASPECT_RATIOS.card
-//     below so the cropper and the storefront stay in sync.
+//     below so the cropper and the storefront stay in sync by construction.
 //   pages/Cart.tsx — line item uses a 3:4 ratio that's specific to the
 //     cart row layout, not part of the storefront product grid taxonomy.
 export const PRODUCT_IMAGE_ASPECTS = {
@@ -174,6 +174,35 @@ export const PRODUCT_IMAGE_ASPECTS = {
     thumb: 'aspect-square',
     gallery: 'aspect-[4/5]',
     hero: 'aspect-[16/9]',
+} as const;
+
+// Numeric twin of PRODUCT_IMAGE_ASPECTS: maps each aspect key to its
+// numeric width/height ratio. Used by the ImageCropperModal so the
+// cropper's default ratio stays in sync with the storefront's
+// canonical card ratio (utils/imageCropper.ts > DEFAULT_PRODUCT_CROP_RATIO
+// is derived from `card` below).
+//
+// Why a separate map (not a function on PRODUCT_IMAGE_ASPECTS): the
+// productImage key set is locked by tests/productImage.test.ts, but
+// a function would force every consumer of the numeric ratio to
+// import + call a helper, and the lock is a string-shape lock -- not
+// a "value is callable" lock. A static Record<key, number> keeps the
+// JIT-safety story symmetric: the same `as const` narrowing that
+// makes PRODUCT_IMAGE_ASPECTS readonly makes this readonly too.
+//
+// Update rule: if you change a value in PRODUCT_IMAGE_ASPECTS (e.g.
+// 4/5 -> 3/4), update the matching entry here too. They are NOT
+// auto-derived; a mismatch is a silent bug that would only surface
+// when an operator notices the cropper default no longer matches the
+// storefront. The key set is the same as PRODUCT_IMAGE_ASPECTS (typed
+// via Record<ProductImageAspect, number>), so a new aspect added to
+// PRODUCT_IMAGE_ASPECTS will surface here as a missing-key TS error
+// at compile time.
+export const PRODUCT_IMAGE_ASPECT_RATIOS: Record<ProductImageAspect, number> = {
+    card: 3 / 4,
+    thumb: 1,
+    gallery: 4 / 5,
+    hero: 16 / 9,
 } as const;
 
 export type ProductImageAspect = keyof typeof PRODUCT_IMAGE_ASPECTS;

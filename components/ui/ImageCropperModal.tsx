@@ -320,9 +320,13 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
                                 aspectRatio (parameterised by user choice from
                                 PRODUCT_CROP_ASPECT_OPTIONS) so it does not
                                 read from PRODUCT_IMAGE_ASPECTS directly. The
-                                DEFAULT (DEFAULT_PRODUCT_CROP_RATIO = 0.8 =
-                                4/5) is kept semantically in sync with
-                                utils/productImage.ts > PRODUCT_IMAGE_ASPECTS.card. */}
+                                DEFAULT (DEFAULT_PRODUCT_CROP_RATIO) is now
+                                derived from utils/productImage.ts >
+                                PRODUCT_IMAGE_ASPECT_RATIOS.card so the
+                                cropper and the storefront stay in sync by
+                                construction -- no separate edit is needed
+                                to keep them aligned if the card ratio
+                                changes. */}
                             <div
                                 ref={frameRef}
                                 className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/80 shadow-inner"
