@@ -8,6 +8,7 @@ import Footer from './components/Footer';
 import Navbar from './components/Navbar';
 import AnnouncementBar from './components/AnnouncementBar';
 import CartDrawer from './components/CartDrawer';
+import ErrorBoundary from './components/ErrorBoundary';
 import RewardActivation from './components/RewardActivation';
 import PageLoader from './components/ui/PageLoader';
 import MobileBottomNav from './components/MobileBottomNav';
@@ -74,6 +75,22 @@ const SGCoalitionPortal = React.lazy(() => import('./pages/SGCoalitionPortal'));
 const WizardsPortal = React.lazy(() => import('./pages/WizardsPortal'));
 const LiveOrdersMap = React.lazy(() => import('./pages/LiveOrdersMap'));
 const Brain = React.lazy(() => import('./pages/Brain'));
+
+// Functional wrapper that resets the global ErrorBoundary's error
+// state on every route change WITHOUT remounting the children.
+// The class component exposes a `resetKey` prop; passing
+// `location.pathname` causes componentDidUpdate to flip hasError
+// back to false when the path changes, so a previous route's
+// render error doesn't keep the recovery UI visible after the
+// user navigates away. This preserves local state in CartDrawer,
+// AIChatWidget, and any in-flight forms (a `key` prop on the
+// boundary itself would remount the entire subtree -- a real UX
+// regression). See the securityInfrastructureReadiness test for
+// the lock.
+const ErrorBoundaryWithNavReset: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const location = useLocation();
+    return <ErrorBoundary resetKey={location.pathname}>{children}</ErrorBoundary>;
+};
 
 // Component to handle referral code detection
 const ReferralTracker = () => {
@@ -152,10 +169,11 @@ const App = () => {
       <AppProvider>
         <TutorialProvider>
           <BrowserRouter>
-            <LegacyHashRedirect />
-            <AuthEventHandler />
-            <ReferralTracker />
-            <div className="min-h-screen flex flex-col font-sans text-white bg-black selection:bg-brand-accent selection:text-black">
+            <ErrorBoundaryWithNavReset>
+              <LegacyHashRedirect />
+              <AuthEventHandler />
+              <ReferralTracker />
+              <div className="min-h-screen flex flex-col font-sans text-white bg-black selection:bg-brand-accent selection:text-black">
               <SignalAlert />
               <ConditionalNav />
               <CartDrawer />
@@ -245,7 +263,8 @@ const App = () => {
               <MobileBottomNav />
               <SpeedInsights />
               <Analytics />
-            </div>
+              </div>
+            </ErrorBoundaryWithNavReset>
           </BrowserRouter>
         </TutorialProvider>
       </AppProvider>

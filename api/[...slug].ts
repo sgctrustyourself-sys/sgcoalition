@@ -1,3 +1,5 @@
+import { withRateLimit } from './_helpers';
+
 // Per-handler import isolation shim.
 //
 // Why this file uses per-slug static-path dynamic imports (not static
@@ -34,6 +36,7 @@ const HANDLER_LOADERS = {
     'create-checkout-session': () => import('./_handlers/create-checkout-session'),
     'create-payment-intent': () => import('./_handlers/create-payment-intent'),
     'create-subscription-session': () => import('./_handlers/create-subscription-session'),
+    'csp-report': () => import('./_handlers/csp-report'),
     'credit-customer-reward': () => import('./_handlers/credit-customer-reward'),
     'git-operations': () => import('./_handlers/git-operations'),
     'marketing-optout': () => import('./_handlers/marketing-optout'),
@@ -118,6 +121,16 @@ export default async function handler(req: any, res: any) {
         // Avoid leaking the path name in the response -- only log it server-side.
         console.info('[api] unknown endpoint:', slug);
         res.status(404).json({ error: 'Endpoint not found' });
+        return;
+    }
+
+    // Rate limit gate. Runs AFTER slug validation (we need the
+    // slug to look up the per-endpoint budget) but BEFORE
+    // loadHandler (we don't want to pay the import cost on spam).
+    // onAllowed=false means withRateLimit has already written the
+    // 429 + headers; we just return.
+    const rateLimit = withRateLimit(slug, req, res);
+    if (!rateLimit.allowed) {
         return;
     }
 
