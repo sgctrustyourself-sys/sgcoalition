@@ -250,7 +250,7 @@ Diagnostic #1 (this section) is complete and ruled out H1. Diagnostic #3 + Diagn
 }
 ```
 
-**Conclusion: Diagnostic #4 is also blocked from the CLI/CI environment** for the same reason as Diagnostic #3 — Vercel auth cookies are not preserved in the running Chrome session. The Chrome + Dashboard boundary is the only path to capture Diagnostic #4 evidence (entry-point + cold-start stack); no CLI or REST API alternative exists.
+**Conclusion: Diagnostic #4 is also blocked from the CLI/CI environment** for the same reason as Diagnostic #3 — Vercel auth cookies are not preserved in the running Chrome session. The Chrome + Dashboard boundary is the only path to capture Diagnostic #4 evidence (entry-point + cold-start stack); no CLI or REST API alternative exists. See [Diagnostic #3 attempt result (2026-07-08): blocked end-to-end](#diagnostic-3-attempt-result-2026-07-08-blocked-end-to-end) immediately above for the parallel 3-path blocker audit — both subsections are rooted in the same Vercel-Dashboard-authentication boundary, and the diagnostic-ordering reordering (Diagnostic #2 now top, #3 and #4 future-Dashboard-operator paths) was driven by that single fact.
 
 **Net effect on the diagnostic landscape from this CLI/CI environment:**
 
