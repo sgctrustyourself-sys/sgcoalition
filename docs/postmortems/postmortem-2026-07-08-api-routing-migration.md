@@ -157,7 +157,7 @@ Per think-through analysis, the next diagnostic should distinguish between these
 
 | # | Diagnostic | Action | Hypothesis tested |
 |---|---|---|---|
-| 1 | Ground-truth source audit | `git checkout 1450a5a -- api/[...slug].ts` and grep for `_handlers` and check HANDLER_LOADERS map. Repeat for any `api/_handlers/`-prefixed paths. | H1 (Flawed Migration Commit). Eliminates human error from prior `git show` analysis. |
+| 1 | Ground-truth source audit | `git checkout 1450a5a -- api/[...slug].ts` and grep for `_handlers` and check HANDLER_LOADERS map. Repeat for any `api/_handlers/`-prefixed paths. | H1 — **RULED OUT 2026-07-08 (Diagnostic #1 result below)**. Source is genuinely clean; mechanism is downstream of source. |
 | 2 | Delete catch-all | Create a test deploy that entirely removes `api/[...slug].ts` from the migration. | H2 & H3 (Precedence / Route Map). Forces explicit per-handler files; if it 404s wildly, filesystem routing is broken. |
 | 3 | Download prod source | Use Vercel Dashboard → Deployments → the failed `--force` retry (deploy URL: `https://coalition-brand-axuj4ekxb-derron-byrds-projects.vercel.app`, archived) → downloadable source zip and grep for `_handlers` in the actual production-built artifacts. Cross-reference: the prior original-`1450a5a` failure deploy was `dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc` — both should be inspected when distinguishing H1 from H4. | Distinguishes H1, H4, H2, H3 simultaneously: if `_handlers/` appears in Vercel-built `.func` → H4 (Bundler Bug); if not in `.func` but runtime resolves to it → H2 (Catch-all Precedence) or H3 (Edge Route Map); if neither → narrows down to H5 (env-var masking). Highest marginal information among the Dashboard-access diagnostics because it reveals what the runtime is actually given. |
 | 4 | Dashboard log tracing | Read the verbatim Function Logs in Vercel Dashboard for the failed `--force` deploy (entry-point + cold-start stack + dependency-resolution path). | H2 (Catch-all Precedence). Determines definitively which lambda bundle actually caught and processed the request. |
@@ -167,6 +167,47 @@ The smallest diagnostic that could conclusively settle H1 vs H4 is Item 1 (a lit
 ---
 
 > **⚠️ STATUS: The hypothesis below ("Vercel per-function build/edge cache") is INVERTED.** This hypothesis predicted that `vercel deploy --prod --force --yes` would resolve the regression. Today's `--force` retry proved it does NOT. The hypothesis content below is archived as the prior analytical work that *was actually executed* today, but it should not be relied on as the source of truth going forward. See "Updated diagnostic branches" section above for the next investigation direction.
+
+---
+
+## Diagnostic #1 result (2026-07-08): ground-truth source audit — H1 RULED OUT
+
+**Filed under:** §Updated diagnostic branches → Diagnostic Step 1 (cheapest H1-vs-H4 discriminator).
+
+**Method:** `git show 1450a5a` (read source without modifying working tree). Dumped `api/[...slug].ts` verbatim, exhaustively grep'd `_handlers` across the full `api/` tree, audited the catch-all for indirect path-rewrite utilities (string concat / template literals / default-case fallbacks / conditional helpers / `path.resolve` / try-catch import fallbacks), inspected the HANDLER_LOADERS map exhaustively, confirmed `api/_handlers/` directory does not exist at this commit.
+
+**Findings — exhaustive `_handlers` reference count across `api/` at commit `1450a5a` (23 files):**
+
+| File | Hits | Location |
+|---|---|---|
+| `api/[...slug].ts` (catch-all) | 2 | Lines 4 + 20, both in the rationale-comment block above HANDLER_LOADERS. **HANDLER_LOADERS map (lines 43–65) — all 19 entries point at `./<slug>` static strings.** ZERO executable `_handlers` references. |
+| `api/_helpers.ts` | 1 | Line 1 comment: *"Shared helpers for /api/_handlers/* — extracted during a post-typed-migration"*. |
+| `api/_types.ts` | 2 | Lines 1 + 8, both comments documenting the cross-reference. |
+| `api/create-checkout-session.ts` | 1 | Line 20 — rationale comment cross-referencing `api/_handlers/paypal-order.ts`. |
+| `api/create-payment-intent.ts` | 1 | Line 15 — inline cross-reference comment ("See api/_handlers/create-checkout-session.ts…"). |
+| `api/create-subscription-session.ts` | 1 | Line 17 — cross-reference comment. |
+| `api/send-order-confirmation.ts` | 1 | Line 12 — cross-reference comment. |
+| `api/verify-subscription.ts` | 1 | Line 22 — cross-reference comment. |
+| **Total across entire `api/` tree** | **10** | **ALL in comments. ZERO in executable code.** |
+
+**Indirect-path-rewrite audit on catch-all:** Strings: zero string-concat in `import()` specifiers (all 19 entries are static literal `./<slug>`). Template literals: none. `path.resolve` / `path.join`: not present. `try { import(...) } catch { import(some-other-path) }` fallback pattern not present. Default-case fallback in a switch: not present. The catch-all's only fallback (when `req.query.slug` is unpopulated) parses the request URL string and never resolves to a module specifier.
+
+**`api/_handlers/` directory existence:** Does not exist at commit `1450a5a` — confirmed via `git ls-tree 1450a5a --name-only api/_handlers/` returning empty.
+
+**H1 verdict: RULED OUT.** No source-level mechanism could resolve a runtime import to `/var/task/api/_handlers/<slug>`. The mechanism is downstream of the clean source.
+
+**Architectural insight (raised by the diagnostic):** The catch-all's HANDLER_LOADERS comment block explicitly states:
+> *"Production traffic goes through Vercels auto-detected api/<slug>.ts Serverless Functions (precedence rule beats the catch-all)."*
+
+This documents the migration author's expectation that **per-handler functions take precedence over the catch-all** — i.e., the author anticipated **H2 (Catch-all Precedence)** as a known risk. The empirical failure signature (3 of 4 per-handler routes return FUNCTION_INVOCATION_FAILED, while catch-all cleanly responds 404 to unknown slugs) is consistent with H2: requests to per-handler routes are reaching the catch-all Lambda and the catch-all is bombing on the dynamic import resolution under prod conditions. **H2's profile is higher than initially suspected** because the migration author flagged this exact failure mode in source comments.
+
+**Updated next-step recommendation:** With H1 ruled out, focus narrows to **H2 (Catch-all Precedence) + H3 (Edge Route Map) + H4 (Bundler Chunking Bug)**. Order of discriminators (cheapest, lowest-risk first):
+
+1. **Diagnostic #3 (download prod source)** — cheapest, highest info, zero prod impact (Dashboard access only). Per its own cell text, distinguishes H1/H4/H2/H3 simultaneously: if `_handlers/` appears in Vercel-built `.func` → H4 (Bundler Bug); if not in `.func` but runtime resolves to `_handlers/` → H2/H3 (Precedence / Route Map); if neither → narrows to H5 (env-var masking). Highest marginal information per unit of operator effort.
+2. **Diagnostic #4 (Dashboard log tracing)** — also Dashboard-only, no prod impact. Reading the actual function-routing entry-point in Vercel Dashboard determines which lambda bundle caught each request. If the catch-all `[...slug].func` is shown as the entry-point for `/api/paypal-order`, H2 is confirmed; if `paypal-order.func` is the entry-point, H2 ruled out.
+3. **Diagnostic #2 (delete catch-all + redeploy)** — last because requires a prod push with rollback-recovery loop. If `api/[...slug].ts` is the actual route layer, removing it should route per-handler files directly to Vercel's filesystem-routing system; if per-handler files still 500 FUNCTION_INVOCATION_FAILED after catch-all is gone, the catch-all is innocent (H2 ruled out) and focus shifts to H3/H4.
+
+Diagnostic #1 (this section) is complete; Diagnostic #1 row in the table above is marked RULED OUT to reflect that.
 
 ## Working hypothesis: Vercel per-function build/edge cache
 
