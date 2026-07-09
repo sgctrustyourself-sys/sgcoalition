@@ -6,7 +6,7 @@ import { Section } from '../types';
 import ProductCard from '../components/ProductCard';
 import SmsSignup from '../components/SmsSignup';
 import Newsletter from '../components/Newsletter';
-import { getProductImage, getProductImageSrcSet, getProductRoleImage, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
+import { getProductImage, getProductImageSrcSet, getProductRoleImage, PRODUCT_IMAGE_SIZES, PRODUCT_IMAGE_ASPECTS } from '../utils/productImage';
 
 const Home = () => {
     const { sections, products, isAdminMode, updateSections, updateSection, isLoading } = useApp();
@@ -137,7 +137,7 @@ const Home = () => {
                                         <div className="h-12 bg-gray-800/50 rounded w-40"></div>
                                     </div>
                                 </div>
-                                <div className="order-1 md:order-2 bg-gray-800/50 aspect-square rounded-lg"></div>
+                                <div className={`order-1 md:order-2 bg-gray-800/50 ${PRODUCT_IMAGE_ASPECTS.thumb} rounded-lg`}></div>
                             </div>
                         </section>
                     );
@@ -175,7 +175,7 @@ const Home = () => {
                                     </Link>
                                 </div>
                             </div>
-                            <div className="order-1 md:order-2 bg-gray-900 aspect-square relative overflow-hidden border border-white/5 group">
+                            <div className={`order-1 md:order-2 bg-gray-900 ${PRODUCT_IMAGE_ASPECTS.thumb} relative overflow-hidden border border-white/5 group`}>
                                 <img
                                     src={getProductImage(getProductRoleImage(featured, 'primary') || featured.images[0], 'hero')}
                                     srcSet={getProductImageSrcSet(getProductRoleImage(featured, 'primary') || featured.images[0])}
@@ -287,7 +287,7 @@ const Home = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16">
                                 {[...Array(3)].map((_, i) => (
                                     <div key={i} className="animate-pulse">
-                                        <div className="bg-gray-800/50 aspect-[3/4] rounded-lg mb-4"></div>
+                                        <div className={`bg-gray-800/50 ${PRODUCT_IMAGE_ASPECTS['card-portrait']} rounded-lg mb-4`}></div>
                                         <div className="h-4 bg-gray-800/50 rounded w-3/4 mb-2"></div>
                                         <div className="h-4 bg-gray-800/50 rounded w-1/4"></div>
                                     </div>

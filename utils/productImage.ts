@@ -139,22 +139,30 @@ export const IMAGE_BACKGROUND_CLASS: Record<'gray-900' | 'white' | 'transparent'
 // imagery. Tailwind's JIT compiler needs full class strings at build time, so
 // dynamic `aspect-[${ratio}]` strings would be silently stripped from the
 // build. The importers below (ProductCard, ProductCardSkeleton,
-// ProductDetails, CartUpsells, BlogPostView, admin/ProductManager,
-// admin/BlogManager, ProductPage, Archive) pull this map so a future ratio
-// change (e.g. switching cards to 3/4) is one edit here, not nine. Pair
-// with IMAGE_BACKGROUND_CLASS above for the bg-side theme-add single source
-// of truth.
-//   card    — shop/home/favorites/wishlist grid cards (ProductCard,
-//             ProductCardSkeleton image frame). 4:5 portrait.
-//   thumb   — small square thumbnails (CartUpsells, admin image-edit grid
-//             + upload placeholder, ProductPage gallery sub-images,
-//             Archive card cover). 1:1 square.
-//   gallery — PDP main image + admin image-edit grid. Same shape as card
-//             (4:5) but kept as a separate key so the semantic intent
-//             (gallery vs card) survives refactors that change one without
-//             the other.
-//   hero    — blog post cover (admin/BlogManager), hero banners, full-width
-//             featured sections. 16:9 landscape.
+// ProductDetails, CartUpsells, BlogPostView, Home, CustomInquiry,
+// admin/ProductManager, admin/BlogManager, ProductPage, Archive) pull this
+// map so a future ratio change (e.g. switching cards to 3/4) is one edit
+// here, not eleven. Pair with IMAGE_BACKGROUND_CLASS above for the bg-side
+// theme-add single source of truth.
+//   card          — shop/home/favorites/wishlist grid cards (ProductCard,
+//                  ProductCardSkeleton image frame). 4:5 portrait.
+//   thumb         — small square thumbnails (CartUpsells, admin image-edit
+//                  grid + upload placeholder, ProductPage gallery
+//                  sub-images, Archive card cover, Home featured section
+//                  image + skeleton, CustomInquiry reference-image
+//                  previews). 1:1 square.
+//   card-portrait — taller-than-card product placeholders (Home grid
+//                  skeleton). 3:4 portrait. Kept as a separate key from
+//                  `card` so the skeleton-vs-real-card ratio drift is
+//                  visible in code; the real grid uses 4/5 via `card`,
+//                  the skeleton is taller (3/4) for visual emphasis on
+//                  load.
+//   gallery       — PDP main image + admin image-edit grid. Same shape as
+//                  card (4:5) but kept as a separate key so the semantic
+//                  intent (gallery vs card) survives refactors that
+//                  change one without the other.
+//   hero          — blog post cover (admin/BlogManager), hero banners,
+//                  full-width featured sections. 16:9 landscape.
 //
 // Also see (docstring pointer only — not importers, intentionally outside
 // the map because their aspect is parameterised, not a literal class):
@@ -165,6 +173,7 @@ export const IMAGE_BACKGROUND_CLASS: Record<'gray-900' | 'white' | 'transparent'
 export const PRODUCT_IMAGE_ASPECTS = {
     card: 'aspect-[4/5]',
     thumb: 'aspect-square',
+    'card-portrait': 'aspect-[3/4]',
     gallery: 'aspect-[4/5]',
     hero: 'aspect-[16/9]',
 } as const;

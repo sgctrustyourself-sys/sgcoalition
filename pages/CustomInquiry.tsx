@@ -4,6 +4,7 @@ import { Shirt, Scissors, Box, Sparkles, Upload, CheckCircle, AlertCircle, Loade
 import { uploadAllInquiryImages, validateInquiryImage } from '../services/inquiryUpload';
 import { useApp } from '../context/AppContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PRODUCT_IMAGE_ASPECTS } from '../utils/productImage';
 
 const CustomInquiry = () => {
     const navigate = useNavigate();
@@ -367,7 +368,7 @@ const CustomInquiry = () => {
 
                                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                                     {imagePreviews.map((preview, index) => (
-                                        <div key={index} className="relative group aspect-square">
+                                        <div key={index} className={`relative group ${PRODUCT_IMAGE_ASPECTS.thumb}`}>
                                             <img
                                                 src={preview}
                                                 alt={`Reference ${index + 1}`}
