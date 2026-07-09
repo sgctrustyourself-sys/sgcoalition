@@ -2,12 +2,75 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
+## Production incident: customer checkout at 503
+
+**Status (2026-07-08):** Every `/api/*` route on `sgcoalition.xyz` deliberately returns **HTTP 503** ("Handler is temporarily unavailable"). PayPal checkout, Stripe completion, AI chat, and newsletter signup are all gated. The storefront UI still browses + carts as normal, but actual **checkout buttons will not work** until this is fixed.
+
+### What broke (in plain terms)
+
+A directory-flattening refactor moved API handler files from `api/_handlers/<slug>.ts` → `api/<slug>.ts`. The build output compiled cleanly + the local Preview environment worked, but production kept trying to load handlers from the **OLD location** for 3 of 4 critical endpoints (`paypal-order`, `complete-order`, `ai-chat`), throwing Vercel's opaque `FUNCTION_INVOCATION_FAILED` error. The 4th endpoint (`marketing-subscribe`) returned 400 only because its validation gate short-circuited before the broken-import path — it isn't actually healthier than the others.
+
+**The literal runtime line captured from CLI logs:**
+
+```
+[api] failed to load handler paypal-order: Cannot find module '/var/task/api/_handlers/paypal-order' imported from /var/task/api/[...slug].js
+```
+
+The mystery: source code + freshly-rebuilt local bundle both contain ZERO references to the old `_handlers/<slug>` paths, yet Vercel's runtime insists on asking for them.
+
+### What's been ruled out (from this CLI/CI environment)
+
+- ❌ **Migration source has a bug** — Diagnostic #1 (exhaustive source grep): no `_handlers` strings in executable code.
+- ❌ **Vercel build cache held stale chunks** — `--force` cache-bypass retry reproduced the regression 1-for-1.
+- ❌ **Catch-all router is interfering** — Diagnostic #2 deploy (catch-all DELETED + only per-handler files) failed identically.
+
+### What's still in scope (only resolvable from Vercel Dashboard)
+
+- **H3 (Edge Route Map)** — Vercel's edge layer has stale route state.
+- **H4 (Bundler Chunking Bug)** — per-handler bundle is missing files it should have.
+- **H5 (Env-var Masking)** — a missing env var causes an error that masquerades as a missing-file error.
+
+These three need Vercel's per-function runtime stacks, which are only accessible from the Dashboard UI.
+
+### Run it now — the 4-click recipe (~20 minutes, one Dashboard session)
+
+**If you have Vercel Dashboard admin access** for project `coalition-brand` (team `derron-byron's projects`):
+
+**1. Pick your deploy** (paste-source for runtime stacks):
+
+| Priority | Deploy | URL |
+|---|---|---|
+| **Primary** | `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq` | https://coalition-brand-axuj4ekxb-derron-byrds-projects.vercel.app |
+| Secondary (richer — proves catch-all innocent) | — | https://coalition-brand-hkepnhkne-derron-byrds-projects.vercel.app *(paste URL into Dashboard search; deploy ID retrievable via `npx vercel inspect` only if you also want the SHA)* |
+| Skip (past Vercel retention) | `dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc` | no longer in `vercel ls` |
+
+**2. The 4 critical clicks** (Diagnostic #4 — capture entry-point + cold-start stack):
+
+- Vercel Dashboard → `coalition-brand` → Deployments → paste the URL from step 1
+- Click into the deployment → **Functions** tab (if the tab has been renamed on your Dashboard version, look for "Observability" or "Runtime" — same content)
+- Click `paypal-order` → expand the **first** invocation (cold-start, oldest) → record (a) **entry-point Lambda function name** — this is the **first half** of the H3-vs-H4 discriminator: `[...slug].func` → strongly implicates H3 (Edge Route Map); `paypal-order.func` (or another per-handler name) → narrows to H4 territory, then FULLY confirmed only after Step 4's bundle grep also shows `_handlers` strings still present in the deployed `.func`; (b) the full cold-start + dependency-resolution stack
+- Repeat for `complete-order` and `ai-chat`, and capture `marketing-subscribe`'s first invocation log too (probe-with-empty-body expected 400 response — its evidence shape is the contrast case: it failed at the validation gate BEFORE reaching the broken-import path, so it appears healthy on the surface but likely 500s with the same error under a valid email payload)
+
+**3. Paste + commit** into [`docs/postmortems/postmortem-2026-07-08-vercel-stack-traces.md`](docs/postmortems/postmortem-2026-07-08-vercel-stack-traces.md) §1–§4 blocks — they're pre-staged, just paste over the `[ PENDING — … ]` text. Prepend each paste with `[source: <deploy-id>]` and commit per paste (do NOT batch — per-paste commits preserve the audit trail).
+
+**4. (Optional, same session)** Diagnostic #3 — Source panel → download deployed zip → `mkdir -p /tmp/vfy_unzip && unzip -o <downloaded>.zip -d /tmp/vfy_unzip && grep -rE '_handlers' /tmp/vfy_unzip/ | head -20`. If `_handlers` strings appear in the deployed bundle, H4 is confirmed.
+
+**If you don't have Dashboard access:** file a Vercel support escalation with both postmortems attached (links below). Don't push speculative fixes — Vercel support can read Dashboard logs on the agency's behalf.
+
+### Full reference documents
+
+- **Full 9-step Dashboard walkthrough** with paste-target crosswalk + per-paste commit format + H4 fix-path decision matrix: [`docs/runbooks/api-routing-fallback.md`](docs/runbooks/api-routing-fallback.md)
+- **Main postmortem** (the whole investigation log): [`docs/postmortems/postmortem-2026-07-08-api-routing-migration.md`](docs/postmortems/postmortem-2026-07-08-api-routing-migration.md)
+- **Stack-traces doc** (§1–§4 paste targets + decision matrix): [`docs/postmortems/postmortem-2026-07-08-vercel-stack-traces.md`](docs/postmortems/postmortem-2026-07-08-vercel-stack-traces.md)
+- **Failed prod commit:** `1450a5ae60fb51fc297fa267013aa620fca8df4a` — **Current stable baseline:** `b632e74` — **Diagnostic #2 audit-trail branch:** `diag-2-no-catchall` (preserved on remote)
+
 > **Docs index:** [`docs/README.md`](docs/README.md) — drop template trio (kit + deck + storyboard), drops registry, project doc map.
 
 # Coalition Brand - E-commerce Platform
 
 ## Contents
 
+- [🚨 Production incident](#production-incident-customer-checkout-at-503)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Backend Architecture](#backend-architecture)
