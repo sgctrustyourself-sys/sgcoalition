@@ -68,7 +68,14 @@ const ProductCardSkeleton: React.FC<ProductCardSkeletonProps> = ({ product, imag
 
     return (
         <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
-            <Skeleton className={`aspect-[4/5] w-full ${imageFrameClass} rounded-none`} />
+            {/* data-testid="image-frame" gives the vitest spec a stable
+                selector (no DOM-order dependency). The other 3 Skeletons
+                below (title/subtitle/price/heart) also carry animate-pulse
+                from the primitive, so a class-only selector would race. */}
+            <Skeleton
+                data-testid="image-frame"
+                className={`aspect-[4/5] w-full ${imageFrameClass} rounded-none`}
+            />
             <div className="p-4 space-y-3">
                 <Skeleton className="h-6 w-3/4" />
                 <Skeleton className="h-4 w-1/2" />

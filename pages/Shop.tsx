@@ -374,13 +374,17 @@ const Shop = () => {
 
                 {/* Product Grid */}
                 <div className="flex-1">
-                    {isLoading && products.length === 0 ? (
+                    {isLoading ? (
+                        // Per-slot product=filteredProducts[i] resolves bg via
+                        // getProductRoles().imageBackground -- eliminates the
+                        // bg-mismatch jolt for the 5 once-legacy ids pinned in
+                        // constants.ts. Undefined slots (i >= filteredProducts.length)
+                        // fall through to the bg-gray-900 default.
+                        // Trade-off: skeletons visibly appear for ~1-3s during
+                        // the Supabase fetch instead of briefly flashing.
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
                             {[...Array(6)].map((_, i) => (
-                                // Skeleton intentionally stays render-time-dormant for the
-                                // per-product prop here: products is empty by precondition.
-                                // See ProductCardSkeleton comment block for full rationale.
-                                <ProductCardSkeleton key={i} />
+                                <ProductCardSkeleton key={i} product={filteredProducts[i]} />
                             ))}
                         </div>
                     ) : filteredProducts.length > 0 ? (
