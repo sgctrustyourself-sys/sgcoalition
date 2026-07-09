@@ -83,9 +83,13 @@ export const INITIAL_PRODUCTS: Product[] = [
     // Flat-lay product whose front/back shots already include a white frame —
     // the storefront card uses object-contain + bg-white so the print isn't
     // cropped. imageFit/imageBackground replaces the legacy hard-coded
-    // product-id check in components/ProductCard.tsx (utils/productImage.ts
-    // legacy-id fallback still covers it for any future Supabase row that
-    // hasn't been migrated yet).
+    // product-id check in components/ProductCard.tsx. utils/productImage.ts
+    // no longer carries a legacy-id fallback (deleted in the cleanup
+    // commit); any future id seen without imageRoles.imageFit and
+    // imageRoles.imageBackground will fall through to the default
+    // cover/gray-900 path, which is the intended behavior because all 5
+    // once-legacy ids are pinned explicitly in constants.ts and the live
+    // storefront never reaches that branch.
     imageRoles: {
       primaryUrl: PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
       hoverUrl: PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
@@ -352,7 +356,14 @@ export const INITIAL_PRODUCTS: Product[] = [
     soldAt: '2026-06-25T02:40:12.191+00:00',
     sizes: ['One Size'],
     sizeInventory: { 'One Size': 0 },
-    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop."
+    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop.",
+    // Mirrors Coalition_Grey_Wave_Wallet_2_2 (2/2 twin); flat-lay = white frame so contain + bg-white keeps the print uncropped. Defense-in-depth mirror in PRODUCT_LOCAL_OVERRIDES below.
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.greyWaveWallet.front,
+      hoverUrl: PRODUCT_IMAGE_URLS.greyWaveWallet.back,
+      imageFit: 'contain',
+      imageBackground: 'white',
+    }
   },
   {
     id: 'Coalition_Grey_Wave_Wallet_2_2',
@@ -374,7 +385,14 @@ export const INITIAL_PRODUCTS: Product[] = [
     soldAt: '2026-07-02T10:00:00-04:00',
     sizes: ['One Size'],
     sizeInventory: { 'One Size': 0 },
-    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same storm-grey direction rebuilt for a future drop."
+    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same storm-grey direction rebuilt for a future drop.",
+    // Mirrors Coalition_Grey_Wave_Wallet_1_2 (1/2 twin); flat-lay = white frame so contain + bg-white keeps the print uncropped. Defense-in-depth mirror in PRODUCT_LOCAL_OVERRIDES below.
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.greyWaveWallet22.front,
+      hoverUrl: PRODUCT_IMAGE_URLS.greyWaveWallet22.back,
+      imageFit: 'contain',
+      imageBackground: 'white',
+    }
   },
   {
     id: 'Coalition_Above_As_Below_Wallet_1_1',
@@ -883,7 +901,22 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
     sizes: ['One Size'],
     sizeInventory: { 'One Size': 0 },
     makingVideoUrl: 'https://www.instagram.com/p/DZ3wBL_z0sd/',
-    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop."
+    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop.",
+    // Pin imageFit/imageBackground alongside the archive metadata so the
+    // archive PDP renders the same flat-lay look now that the legacy-id
+    // fallback has been removed. Same defensive full-blob re-statement as
+    // prod_tee_above_as_below above so a stale Supabase row's imageRoles
+    // cannot silently wipe the primary/hover URLs via the
+    // applyLocalProductOverrides spread. A defense-in-depth mirror lives
+    // in INITIAL_PRODUCTS for Coalition_Grey_Wave_Wallet_1_2 above so
+    // any code path that bypasses applyLocalProductOverrides (seed
+    // scripts, SSG rendering) still gets the right render profile.
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.greyWaveWallet.front,
+      hoverUrl: PRODUCT_IMAGE_URLS.greyWaveWallet.back,
+      imageFit: 'contain',
+      imageBackground: 'white',
+    },
   },
   // Mirrors the 1/2 override above. The live Supabase row for 2/2 still
   // shows stock 1 because the sale was offline (York, PA). This override
@@ -899,7 +932,20 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
     sizes: ['One Size'],
     sizeInventory: { 'One Size': 0 },
     makingVideoUrl: 'https://www.instagram.com/p/DZ8z0t0Tfws/',
-    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same storm-grey direction rebuilt for a future drop."
+    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same storm-grey direction rebuilt for a future drop.",
+    // Pin imageFit/imageBackground alongside the archive metadata so the
+    // archive PDP renders the same flat-lay look now that the legacy-id
+    // fallback has been removed. Same defensive full-blob re-statement as
+    // prod_tee_above_as_below above, plus a defense-in-depth mirror in
+    // INITIAL_PRODUCTS for Coalition_Grey_Wave_Wallet_2_2 above so any
+    // code path that bypasses applyLocalProductOverrides (seed scripts,
+    // SSG rendering) still gets the right render profile.
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.greyWaveWallet22.front,
+      hoverUrl: PRODUCT_IMAGE_URLS.greyWaveWallet22.back,
+      imageFit: 'contain',
+      imageBackground: 'white',
+    },
   },
   // Mirrors the True Religion S1 + Grey Wave archive pattern. The live
   // Supabase row may still show stock 1 because the sale was offline
