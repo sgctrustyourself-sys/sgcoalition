@@ -238,13 +238,27 @@ const ProductDetails = () => {
         if (!url) return -1;
         return galleryImages.indexOf(url);
     };
-    const shouldFitFullImage = product.id === 'prod_tee_above_as_below'
-        || product.id === 'prod_shorts_above_as_below'
-        || product.id === 'prod_hoodie_overwhelmingly_patient'
-        || product.id === 'Coalition_Grey_Wave_Wallet_1_2'
-        || product.id === 'Coalition_Grey_Wave_Wallet_2_2';
-    const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-dark';
-    const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';
+    // Render profile is data-driven via utils/productImage.ts >
+    // getProductRoles — same change as components/ProductCard.tsx. The
+    // legacy product-id list there also covers the 2 grey-wave wallet ids
+    // this PDP used to hard-code, so archive pages render the same flat-lay
+    // look without a regression. Tailwind class mapped via the local
+    // BACKGROUND_CLASS table because dynamic `bg-${value}` strings would be
+    // stripped by Tailwind's JIT pass at build time.
+    const renderProfile = getProductRoles({
+        ...(product as Product),
+        ...(isEditing ? { images: editForm.images ?? [], imageRoles: editForm.imageRoles } : {}),
+    } as Product);
+    const PDP_BACKGROUND_CLASS: Record<'gray-900' | 'white' | 'transparent', string> = {
+        // PDP default uses bg-dark (brand palette) instead of the standard
+        // bg-gray-900 ProductCard uses — both render the same dark framing
+        // visually, but the brand token is what's already wired.
+        'gray-900': 'bg-dark',
+        'white': 'bg-white',
+        'transparent': 'bg-transparent',
+    };
+    const imageFrameClass = PDP_BACKGROUND_CLASS[renderProfile.imageBackground];
+    const imageObjectClass = renderProfile.imageFit === 'contain' ? 'object-contain' : 'object-cover';
     const totalStock = Object.values(product.sizeInventory || {}).reduce((sum, count) => sum + Number(count || 0), 0);
     const isArchived = Boolean(product.archived);
     const isSold = isArchived && !!product.soldAt;
@@ -551,7 +565,7 @@ const ProductDetails = () => {
                                 <button
                                     key={idx}
                                     onClick={() => setActiveImageIndex(idx)}
-                                    className={`relative w-24 h-28 flex-shrink-0 overflow-hidden rounded-sm border-2 transition-all ${shouldFitFullImage ? 'bg-white' : ''} ${activeImageIndex === idx ? 'border-brand-accent' : 'border-white/10 opacity-50 hover:opacity-100'}`}
+                                    className={`relative w-24 h-28 flex-shrink-0 overflow-hidden rounded-sm border-2 transition-all ${renderProfile.imageBackground === 'white' ? 'bg-white' : ''} ${activeImageIndex === idx ? 'border-brand-accent' : 'border-white/10 opacity-50 hover:opacity-100'}`}
                                 >
                                     <img
                                         src={getProductImage(img, 'thumb')}

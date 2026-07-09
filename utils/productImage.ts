@@ -124,6 +124,24 @@ import type { Product, ImageRoles } from '../types';
 
 export type { ImageRoles };
 
+// Legacy product IDs that pre-date imageRoles.imageFit/imageBackground.
+// When these ids appear without an explicit imageRoles.imageFit, we fall
+// back to the historical 'contain' + 'white' render profile that
+// components/ProductCard.tsx and pages/ProductDetails.tsx used to hard-
+// code. Removing this list requires migrating every Supabase row whose id
+// is still here to set the new fields explicitly — constants.ts
+// PRODUCT_LOCAL_OVERRIDES pins the new fields for the active (non-archive)
+// rows so the live storefront even before the Supabase fetch round-trips.
+// The two grey-wave ids are archived sold-out pieces; keep them on this
+// list for any PDP archive page that resolves them after Supabase prune.
+const LEGACY_FIT_FULL_IMAGE_IDS = new Set<string>([
+    'prod_tee_above_as_below',
+    'prod_shorts_above_as_below',
+    'prod_hoodie_overwhelmingly_patient',
+    'Coalition_Grey_Wave_Wallet_1_2',
+    'Coalition_Grey_Wave_Wallet_2_2',
+]);
+
 /**
  * Resolve the canonical role-aware URL set for a product. Returns a
  * (possibly empty) primaryUrl, an optional hoverUrl, and a non-overlapping
@@ -133,11 +151,18 @@ export type { ImageRoles };
  * URL strings are used (NOT indices) so admin reorders/deletes don't silently
  * corrupt the assignment. If a saved role URL no longer exists in the
  * `images` array, it is transparently replaced with the position-based fallback.
+ *
+ * The render-profile fields (imageFit, imageBackground) are always
+ * populated — explicit `imageRoles.imageFit/imageBackground` wins, with a
+ * legacy product-id fallback so the 3 contain/white products don't repaint
+ * after this commit lands before Supabase round-trips.
  */
 export function getProductRoles(product: Product | undefined | null): {
     primaryUrl: string;
     hoverUrl: string | null;
     galleryUrls: string[];
+    imageFit: 'cover' | 'contain';
+    imageBackground: 'gray-900' | 'white' | 'transparent';
 } {
     const images = product?.images ?? [];
     const roles = product?.imageRoles ?? {};
@@ -178,7 +203,18 @@ export function getProductRoles(product: Product | undefined | null): {
         if (!galleryUrls.includes(url)) galleryUrls.push(url);
     }
 
-    return { primaryUrl, hoverUrl, galleryUrls };
+    // Render profile: explicit imageRoles fields win; otherwise fall back to
+    // the legacy product-id list to preserve the historical 'contain' +
+    // 'white' rendering for the 3 affected products. Default to the most
+    // common (cover + gray-900) since the legacy list only carries the 3
+    // contain-on-white products.
+    const isLegacyFitFull = product ? LEGACY_FIT_FULL_IMAGE_IDS.has(product.id) : false;
+    const imageFit: 'cover' | 'contain' =
+        roles.imageFit ?? (isLegacyFitFull ? 'contain' : 'cover');
+    const imageBackground: 'gray-900' | 'white' | 'transparent' =
+        roles.imageBackground ?? (isLegacyFitFull ? 'white' : 'gray-900');
+
+    return { primaryUrl, hoverUrl, galleryUrls, imageFit, imageBackground };
 }
 
 /**
@@ -226,5 +262,16 @@ export function reconcileImageRoles(
         )
         : undefined;
     const namedSlotsOut = namedSlots && Object.keys(namedSlots).length > 0 ? namedSlots : undefined;
-    return { primaryUrl, hoverUrl, namedSlots: namedSlotsOut };
+    // Pass through imageFit/imageBackground unchanged — they don't depend
+    // on the trimmed images[] array so we don't strip them on reconcile.
+    // Missing keys stay missing so the read-helper's legacy-id fallback
+    // remains in play when reconcileImageRoles is called for a product
+    // that hasn't been saved via the admin editor yet.
+    return {
+        primaryUrl,
+        hoverUrl,
+        namedSlots: namedSlotsOut,
+        imageFit: roles?.imageFit,
+        imageBackground: roles?.imageBackground,
+    };
 }

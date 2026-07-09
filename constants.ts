@@ -79,7 +79,19 @@ export const INITIAL_PRODUCTS: Product[] = [
     sizes: ['S', 'M', 'L', 'XL', '2XL'],
     // Live Supabase row sums to 44. Local fallback kept honest so the storefront
     // never oversells when Supabase hasn't been hit yet.
-    sizeInventory: { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 }
+    sizeInventory: { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 },
+    // Flat-lay product whose front/back shots already include a white frame —
+    // the storefront card uses object-contain + bg-white so the print isn't
+    // cropped. imageFit/imageBackground replaces the legacy hard-coded
+    // product-id check in components/ProductCard.tsx (utils/productImage.ts
+    // legacy-id fallback still covers it for any future Supabase row that
+    // hasn't been migrated yet).
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
+      hoverUrl: PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
+      imageFit: 'contain',
+      imageBackground: 'white',
+    }
   },
   {
     id: 'GreenCamoWallet',
@@ -406,7 +418,14 @@ Hand-cut, raw-hem, deep-set pocket. Sized S through 2XL.`,
     isLimitedEdition: true,
     freeShipping: true,
     sizes: ['S', 'M', 'L', 'XL', '2XL'],
-    sizeInventory: { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 }
+    sizeInventory: { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 },
+    // Matching Above-as-Below shorts — same flat-lay render profile as the
+    // tee. See prod_tee_above_as_below for the reasoning behind
+    // imageFit='contain' + imageBackground='white'.
+    imageRoles: {
+      imageFit: 'contain',
+      imageBackground: 'white',
+    }
   },
   {
     id: 'prod_set_above_as_below',
@@ -647,7 +666,14 @@ Pre-order reservations are intentionally capped at one per size. After the close
     // is the only reliable surface for per-product shipping copy.
     saleEndDate: '2026-07-26T23:59:59.999Z',
     sizes: ['S', 'M', 'L', 'XL', '2XL'],
-    sizeInventory: { S: 1, M: 1, L: 1, XL: 1, '2XL': 1 }
+    sizeInventory: { S: 1, M: 1, L: 1, XL: 1, '2XL': 1 },
+    // Chakra-line hoodie boots the same flat-lay render profile (object-contain
+    // + bg-white) so the burnt-orange svg mark isn't cropped against the
+    // gray-900 default. See prod_tee_above_as_below for the full rationale.
+    imageRoles: {
+      imageFit: 'contain',
+      imageBackground: 'white',
+    }
   },
 ];
 
@@ -659,6 +685,19 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
       PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelFront,
       PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelBack
     ],
+    // Pin imageRoles so applyLocalProductOverrides wins the spread against
+    // any future Supabase row that pre-dates the imageFit/imageBackground
+    // migration. The whole blob is re-stated here (NOT a partial) because
+    // applyLocalProductOverrides does a property-level spread: a partial
+    // override would silently wipe the primaryUrl/hoverUrl/namedSlots the
+    // Supabase row carries. Same defensive pattern used for halo mini
+    // dress + halo contrast tee.
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
+      hoverUrl: PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
+      imageFit: 'contain',
+      imageBackground: 'white',
+    },
   },
   prod_set_above_as_below: {
     name: 'COALITION ABOVE AS BELOW SET',
@@ -820,6 +859,18 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
   prod_hoodie_overwhelmingly_patient: {
     shippingFulfillment: 'Ships in 1-2 weeks',
     category: 'sweatshirt',
+    // Chakra-line hoodie pins imageRoles alongside the other safety-net
+    // fields so the flat-lay render survives the
+    // applyLocalProductOverrides spread. Whole-blob re-statement (NOT a
+    // partial) for the same reason as prod_tee_above_as_below above: a
+    // partial would silently wipe primaryUrl/hoverUrl the Supabase row
+    // carries.
+    imageRoles: {
+      primaryUrl: PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatFront,
+      hoverUrl: PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatBack,
+      imageFit: 'contain',
+      imageBackground: 'white',
+    },
   },
   Coalition_Above_As_Below_Wallet_1_1: {
     makingVideoUrl: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL,

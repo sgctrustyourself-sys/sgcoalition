@@ -7,7 +7,7 @@ import PriceDisplay from './PriceDisplay';
 import UrgencyBadge from './ui/UrgencyBadge';
 import { getStockUrgency, getStockCount, generateViewCount, getMintFraction } from '../utils/urgencyUtils';
 import RequestSimilarModal from './RequestSimilarModal';
-import { getProductImage, getProductImageSrcSet, getProductRoleImage, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
+import { getProductImage, getProductImageSrcSet, getProductRoles, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
 
 interface ProductCardProps {
     product: Product;
@@ -29,18 +29,29 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, priority = false }) 
     // Role-aware reads: getProductRoleImage falls back to position-based
     // defaults when imageRoles isn't set, so products created before this
     // field still render correctly.
-    const rolePrimary = getProductRoleImage(product, 'primary');
-    const roleHover = getProductRoleImage(product, 'hover');
+    // Resolved once per render — getProductRoles returns URL-set fields for
+    // the primary/hover image pick AND the render-profile fields below. The
+    // legacy product-id list in utils/productImage.ts only handles the 3
+    // contain/white products; new products opt in via the admin editor.
+    const renderRoles = getProductRoles(product);
+    const rolePrimary = renderRoles.primaryUrl || null;
+    const roleHover = renderRoles.hoverUrl;
     const primaryImage = rolePrimary || (product.images && product.images.length > 0 ? product.images[0] : '/images/logo.png');
     const hoverImage = roleHover ?? primaryImage;
     const hasHoverImage = !!roleHover && hoverImage !== primaryImage;
-    const shouldFitFullImage = product.id === 'prod_tee_above_as_below'
-        || product.id === 'prod_shorts_above_as_below'
-        || product.id === 'prod_hoodie_overwhelmingly_patient';
     const keepImageClear = product.id === 'Coalition_NF_Tee';
-    const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-gray-900';
-    const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';
-    const hoverScaleClass = shouldFitFullImage ? 'group-hover:scale-[1.02]' : 'group-hover:scale-105';
+    // Tailwind's JIT compiler needs full class strings at build time, so the
+    // background-color class is resolved via a static map keyed by the new
+    // imageRoles.imageBackground token. Dynamic `bg-${value}` strings would
+    // be silently stripped from the build.
+    const BACKGROUND_CLASS: Record<'gray-900' | 'white' | 'transparent', string> = {
+        'gray-900': 'bg-gray-900',
+        'white': 'bg-white',
+        'transparent': 'bg-transparent',
+    };
+    const imageFrameClass = BACKGROUND_CLASS[renderRoles.imageBackground];
+    const imageObjectClass = renderRoles.imageFit === 'contain' ? 'object-contain' : 'object-cover';
+    const hoverScaleClass = renderRoles.imageFit === 'contain' ? 'group-hover:scale-[1.02]' : 'group-hover:scale-105';
 
     // Calculate urgency metrics
     const stockUrgency = getStockUrgency(product);

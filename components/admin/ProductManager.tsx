@@ -788,6 +788,80 @@ const ProductManager: React.FC = () => {
                                 })()}
                             </div>
 
+                            {/* Render Profile — replaces the legacy hard-coded
+                                product-id render decision that used to live in
+                                components/ProductCard.tsx. Switching any of these
+                                pills writes to imageRoles.imageFit /
+                                imageRoles.imageBackground on the next Apply
+                                Changes; the storefront reads them via
+                                utils/productImage.ts > getProductRoles, which
+                                resolves to the corresponding Tailwind classes
+                                (object-contain + bg-white vs the default
+                                object-cover + bg-gray-900). Keys off the same
+                                editForm.imageRoles blob so reconcileImageRoles
+                                preserves the values verbatim on save. */}
+                            <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-4">
+                                <div>
+                                    <h4 className="font-bold text-white uppercase text-sm">Render Profile</h4>
+                                    <p className="text-[10px] text-gray-500 mt-1 italic leading-relaxed">
+                                        Controls how the storefront card crops the primary image and what fills the
+                                        gap around a contained image. Leave on default (Cover + Dark) for
+                                        product-on-blank photos; switch to (Contain + White) for flat-lay hero shots
+                                        whose frame is already design edge-to-edge.
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-2">Fit</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button
+                                            type="button"
+                                            title="Cover — fill the frame, cropping edges if needed (default)"
+                                            onClick={() => setEditForm(prev => ({ ...prev, imageRoles: { ...prev.imageRoles, imageFit: 'cover' } }))}
+                                            className={`px-3 py-2 rounded text-xs font-bold uppercase tracking-widest border transition ${(editForm.imageRoles?.imageFit ?? 'cover') === 'cover' ? 'border-brand-accent bg-brand-accent text-black' : 'border-white/10 bg-black/30 text-gray-300 hover:border-white/30'}`}
+                                        >
+                                            Cover
+                                        </button>
+                                        <button
+                                            type="button"
+                                            title="Contain — full image on a white background (flat-lay)"
+                                            onClick={() => setEditForm(prev => ({ ...prev, imageRoles: { ...prev.imageRoles, imageFit: 'contain' } }))}
+                                            className={`px-3 py-2 rounded text-xs font-bold uppercase tracking-widest border transition ${editForm.imageRoles?.imageFit === 'contain' ? 'border-brand-accent bg-brand-accent text-black' : 'border-white/10 bg-black/30 text-gray-300 hover:border-white/30'}`}
+                                        >
+                                            Contain
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-2">Background</p>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <button
+                                            type="button"
+                                            title="Dark — bg-gray-900 (default)"
+                                            onClick={() => setEditForm(prev => ({ ...prev, imageRoles: { ...prev.imageRoles, imageBackground: 'gray-900' } }))}
+                                            className={`px-3 py-2 rounded text-xs font-bold uppercase tracking-widest border transition ${(editForm.imageRoles?.imageBackground ?? 'gray-900') === 'gray-900' ? 'border-brand-accent bg-brand-accent text-black' : 'border-white/10 bg-black/30 text-gray-300 hover:border-white/30'}`}
+                                        >
+                                            Dark
+                                        </button>
+                                        <button
+                                            type="button"
+                                            title="White — bg-white (flat-lay pairing)"
+                                            onClick={() => setEditForm(prev => ({ ...prev, imageRoles: { ...prev.imageRoles, imageBackground: 'white' } }))}
+                                            className={`px-3 py-2 rounded text-xs font-bold uppercase tracking-widest border transition ${editForm.imageRoles?.imageBackground === 'white' ? 'border-brand-accent bg-brand-accent text-black' : 'border-white/10 bg-black/30 text-gray-300 hover:border-white/30'}`}
+                                        >
+                                            White
+                                        </button>
+                                        <button
+                                            type="button"
+                                            title="Transparent — bg-transparent (banner tweaks only)"
+                                            onClick={() => setEditForm(prev => ({ ...prev, imageRoles: { ...prev.imageRoles, imageBackground: 'transparent' } }))}
+                                            className={`px-3 py-2 rounded text-xs font-bold uppercase tracking-widest border transition ${editForm.imageRoles?.imageBackground === 'transparent' ? 'border-brand-accent bg-brand-accent text-black' : 'border-white/10 bg-black/30 text-gray-300 hover:border-white/30'}`}
+                                        >
+                                            None
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div>
                                 <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Description</label>
                                 <textarea

@@ -23,6 +23,25 @@ export interface ImageRoles {
    * forwarded by reconcileImageRoles (utils/productImage.ts).
    */
   namedSlots?: Record<string, string>;
+  // Card-side render profile. Optional with safe defaults (cover + dark), so
+  // products created before this field still render the same way they did
+  // when components/ProductCard.tsx hard-coded it per product id. The two
+  // values are intentionally decoupled from the URL-set fields above —
+  // `imageFit` controls how the storefront crops the primary image, and
+  // `imageBackground` controls the gap color around a contained image.
+  // - imageFit 'cover' (default) fills the 4:5 card frame; guaranteed aspect
+  //   ratio, may crop edges. Use for product-on-blank shots.
+  // - imageFit 'contain' shows the full image on the chosen background;
+  //   aspect ratio honored but gaps appear. Use for flat-lay hero shots
+  //   (or any product whose composition already includes the background).
+  imageFit?: 'cover' | 'contain';
+  // Card frame background. Optional with safe default 'gray-900'.
+  // - 'gray-900' pairs with cover for the standard product-on-blank look.
+  // - 'white' pairs with contain for flat-lay products whose hero shot
+  //   already includes a white background.
+  // - 'transparent' exposes whatever sits behind the card; reserved for
+  //   narrow site-wide banner tweaks — do NOT use on opaque card grids.
+  imageBackground?: 'gray-900' | 'white' | 'transparent';
 }
 
 export type MakingVideoPlatform = 'instagram' | 'youtube' | 'tiktok' | 'external';
