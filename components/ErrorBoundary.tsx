@@ -36,6 +36,7 @@
 // Locked by tests/securityInfrastructureReadiness.test.ts.
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import * as Sentry from '@sentry/react';
 
 interface ErrorBoundaryProps {
     children: ReactNode;
@@ -64,15 +65,37 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-        // Side effects allowed here. Currently just console.error;
-        // once Sentry is installed, this becomes:
-        //   Sentry.captureException(error, { extra: errorInfo });
-        // The TODO keeps the integration point visible so the next
-        // "add Sentry" pass doesn't have to re-derive where to wire
-        // it in.
+        // Side effects allowed here.
+        //
+        // Sentry.captureException is a documented no-op when
+        // init did not run, which means we can call it
+        // unconditionally: DEV, PREVIEW, and any environment
+        // where VITE_SENTRY_DSN is unset will simply skip the
+        // network call.
+        //
+        // We pass context in the second argument (extra / tags /
+        // level) instead of using Sentry.withScope. The older
+        // withScope pattern mutates shared global scope state
+        // -- which under React 19's concurrent rendering races
+        // with the next componentDidCatch fired in the same
+        // commit. The capture-context form scopes the metadata
+        // to this single event and never mutates global state.
+        //
+        // Labels in the Sentry dashboard: errorBoundary: 'global'
+        // lets us filter this specific boundary; level: 'error'
+        // so the alert rules treat it as page-impacting.
+        Sentry.captureException(error, {
+            extra: { componentStack: errorInfo.componentStack ?? null },
+            tags: { errorBoundary: 'global' },
+            level: 'error',
+        });
+        // Local backup: Vercel runtime logs AND browser
+        // DevTools still see the error, so observability does
+        // not depend solely on Sentry being healthy
+        // (e.g. if a downstream ad-blocker or network policy
+        // strips the SDK's POST to ingest.sentry.io).
         // eslint-disable-next-line no-console
         console.error('[ErrorBoundary] Uncaught render error:', error, errorInfo);
-        // TODO: Sentry.captureException(error, { extra: errorInfo });
     }
 
     public componentDidUpdate(prevProps: ErrorBoundaryProps): void {

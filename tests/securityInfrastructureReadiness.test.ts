@@ -512,3 +512,163 @@ describe('Feature 4 additions: admin token rotation contract', () => {
         expect(src).toMatch(/[Rr]otate\s+(all\s+three|on\s+a\s+coordinated)/);
     });
 });
+
+describe('Feature 5: Sentry (browser error tracking)', () => {
+    it('package.json declares @sentry/react in dependencies (pinned major range)', () => {
+        const pkg = JSON.parse(readFile('package.json')) as {
+            dependencies?: Record<string, string>;
+            devDependencies?: Record<string, string>;
+        };
+        const version = pkg.dependencies?.['@sentry/react'];
+        expect(version).toBeDefined();
+        // A caret range on a major (e.g. ^9.x.x) is required so the
+        // SDK can be upgraded for patch + minor without a manual
+        // edit. A bare semver (9.x.x with no caret) is a regression
+        // because npm install will not auto-update it.
+        expect(version).toMatch(/^\^?\d+\.\d+/);
+    });
+
+    it('services/sentryInit.ts exists and exports initSentry', () => {
+        expect(fileExists('services/sentryInit.ts')).toBe(true);
+        const src = readFile('services/sentryInit.ts');
+        expect(src).toMatch(/export\s+function\s+initSentry\s*\(\s*\)/);
+    });
+
+    it('initSentry gates on import.meta.env.PROD (no Sentry traffic in DEV/PREVIEW)', () => {
+        const src = readFile('services/sentryInit.ts');
+        // Gate must be the first/largest conditional -- Vite
+        // dead-code eliminates the rest of the function in DEV so
+        // preview deploys ship NO Sentry JS at all. A failure here
+        // means a preview deploy could leak events.
+        expect(src).toMatch(/import\.meta\.env\.PROD/);
+        // The PROD check must be a return (not just a warn, not
+        // a flag flip) so Vite can drop the Sentry.init body.
+        expect(src).toMatch(/if\s*\(\s*!\s*import\.meta\.env\.PROD\s*\)\s*{\s*return\s*;\s*}/);
+    });
+
+    it('initSentry gates on VITE_SENTRY_DSN being set and non-empty (silent no-op otherwise)', () => {
+        const src = readFile('services/sentryInit.ts');
+        expect(src).toMatch(/VITE_SENTRY_DSN/);
+        // The DSN check must be a return so an unset env var
+        // yields a true no-op (no thrown boot errors, no console
+        // warnings on every preview deploy).
+        expect(src).toMatch(/if\s*\(\s*!\s*dsn\s*\|\|\s*typeof\s+dsn\s*!==\s*['"]string['"]/);
+    });
+
+    it('initSentry uses browserTracingIntegration + 0.1 tracesSampleRate (low-volume commerce default)', () => {
+        const src = readFile('services/sentryInit.ts');
+        expect(src).toMatch(/Sentry\.browserTracingIntegration\s*\(/);
+        expect(src).toMatch(/tracesSampleRate:\s*DEFAULT_TRACES_SAMPLE_RATE|tracesSampleRate:\s*0\.1/);
+        // tracesSampleRate constant must be 0.1 -- a higher value
+        // burns Sentry quota on a low-traffic site.
+        expect(src).toMatch(/DEFAULT_TRACES_SAMPLE_RATE\s*=\s*0\.1/);
+    });
+
+    it('initSentry drops browser-extension noise (denyUrls) and ResizeObserver quirk (beforeSend)', () => {
+        const src = readFile('services/sentryInit.ts');
+        expect(src).toMatch(/denyUrls:\s*SENTRY_DENY_URL_PATTERNS|denyUrls:\s*\[/);
+        // denyUrls must include a chrome-extension regex. The
+        // exact pattern is an implementation detail; this regex
+        // is the contract.
+        expect(src).toMatch(/\/chrome-extension:\\\/\\\/\/i|\/chrome-extension:/);
+        expect(src).toMatch(/beforeSend\s*\(\s*event\s*\)/);
+        expect(src).toMatch(/ResizeObserver/);
+    });
+
+    it('index.tsx imports initSentry and calls it BEFORE ReactDOM.createRoot (module-load capture)', () => {
+        const src = readFile('index.tsx');
+        expect(src).toMatch(/import\s*{\s*initSentry\s*}\s*from\s*['"]\.\/services\/sentryInit['"]/);
+        const initCallIdx = src.indexOf('initSentry()');
+        const createRootIdx = src.indexOf('ReactDOM.createRoot');
+        expect(initCallIdx).toBeGreaterThan(0);
+        expect(createRootIdx).toBeGreaterThan(0);
+        // initSentry() must run before ReactDOM.createRoot -- a
+        // module-load error happens before createRoot and would
+        // otherwise be invisible to Sentry.
+        expect(initCallIdx).toBeLessThan(createRootIdx);
+    });
+
+    it('index.tsx passes onUncaughtError + onCaughtError to createRoot (React 19 root handlers)', () => {
+        const src = readFile('index.tsx');
+        // React 19 introduced these options. They capture errors
+        // that escape every mounted ErrorBoundary (event handlers,
+        // Suspense fallbacks without a boundary above them)
+        // and errors that an ErrorBoundary ALREADY caught (under
+        // a different tag for dashboard filtering).
+        expect(src).toMatch(/onUncaughtError:/);
+        expect(src).toMatch(/onCaughtError:/);
+        // The onUncaughtError handler must forward to Sentry --
+        // otherwise React 19's new "uncaught" error class is
+        // invisible to us.
+        const uncaughtIdx = src.indexOf('onUncaughtError:');
+        const uncaughtCaptureIdx = src.indexOf('Sentry.captureException', uncaughtIdx);
+        expect(uncaughtIdx).toBeGreaterThan(0);
+        expect(uncaughtCaptureIdx).toBeGreaterThan(uncaughtIdx);
+        // Same for onCaughtError.
+        const caughtIdx = src.indexOf('onCaughtError:');
+        const caughtCaptureIdx = src.indexOf('Sentry.captureException', caughtIdx);
+        expect(caughtIdx).toBeGreaterThan(0);
+        expect(caughtCaptureIdx).toBeGreaterThan(caughtIdx);
+    });
+
+    it('ErrorBoundary imports @sentry/react and calls Sentry.captureException inside componentDidCatch', () => {
+        const src = readFile('components/ErrorBoundary.tsx');
+        expect(src).toMatch(/import\s*\*\s*as\s+Sentry\s*from\s*['"]@sentry\/react['"]/);
+        // The capture call must live INSIDE componentDidCatch --
+        // anywhere else (constructor, render, getDerived) would
+        // either fire too early or violate React lifecycle rules.
+        const catchIdx = src.indexOf('public componentDidCatch');
+        const captureIdx = src.indexOf('Sentry.captureException', catchIdx);
+        expect(catchIdx).toBeGreaterThan(0);
+        expect(captureIdx).toBeGreaterThan(catchIdx);
+    });
+
+    it('ErrorBoundary uses capture-context second arg (extra + tags + level) and NOT withScope', () => {
+        const src = readFile('components/ErrorBoundary.tsx');
+        // The second-arg capture-context form scopes metadata to
+        // this single event and never mutates global scope state.
+        // withScope mutates shared global scope, which races with
+        // React 19 concurrent rendering.
+        expect(src).toMatch(/Sentry\.captureException\s*\(\s*error\s*,\s*\{/);
+        // Extra metadata must include the componentStack so the
+        // Sentry UI shows the failing React subtree.
+        expect(src).toMatch(/extra:\s*\{\s*componentStack:/);
+        // Tags must include the boundary name for dashboard filtering.
+        expect(src).toMatch(/tags:\s*\{\s*errorBoundary:\s*['"]global['"]/);
+        expect(src).toMatch(/level:\s*['"]error['"]/);
+        // The legacy withScope API must NOT be used.
+        expect(src).not.toMatch(/Sentry\.withScope\s*\(/);
+    });
+
+    it('.env.example documents VITE_SENTRY_DSN with the [build] tag', () => {
+        const src = readFile('.env.example');
+        expect(src).toMatch(/VITE_SENTRY_DSN=/);
+        // The [build] tag means the DSN is baked into the JS
+        // bundle at `vite build` time. A future operator
+        // rotating it needs to know that means a redeploy.
+        // Search for either [build] on the same logical line or
+        // a comment flagging the [build] nature of the var.
+        expect(src).toMatch(/VITE_SENTRY_DSN\s+is\s+the\s+\[build\]/);
+    });
+
+    it('vercel.json CSP allows browser.sentry-cdn.com (script-src) + ingest.sentry.io (connect-src)', () => {
+        const headersSrc = readFile('vercel.json');
+        expect(headersSrc).toMatch(/script-src[^;]*browser\.sentry-cdn\.com/);
+        expect(headersSrc).toMatch(/connect-src[^;]*ingest\.sentry\.io/);
+    });
+
+    it('ErrorBoundary keeps console.error as a backup so logging works even if Sentry is broken', () => {
+        const src = readFile('components/ErrorBoundary.tsx');
+        // The console.error is a deliberate observability
+        // backup. If a downstream ad-blocker or network policy
+        // strips the SDK's POST to ingest.sentry.io, the
+        // console.error still surfaces in the Vercel runtime
+        // log + DevTools. Removing it makes Sentry a single
+        // point of failure for production observability.
+        const catchIdx = src.indexOf('public componentDidCatch');
+        const captureIdx = src.indexOf('Sentry.captureException', catchIdx);
+        const consoleIdx = src.indexOf('console.error', catchIdx);
+        expect(consoleIdx).toBeGreaterThan(catchIdx);
+        expect(consoleIdx).toBeGreaterThan(captureIdx);
+    });
+});
