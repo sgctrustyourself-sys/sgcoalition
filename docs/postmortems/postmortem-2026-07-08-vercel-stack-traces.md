@@ -98,6 +98,10 @@ For each function, paste below. Preserve everything — line numbers, file paths
 
 The next operator paste (runbook Step 4: "expand `/api/paypal-order` row in Vercel Dashboard → Functions tab → first FUNCTION_INVOCATION_FAILED invocation") yields THREE verbatim fields. Paste each in its own fenced block per the schema below — tagged with `[source: 2026-07-09]` so the postmortem disambiguates from the 2026-07-08 capture cycle audited in the linked main postmortem §Diagnostic #4 partial result.
 
+**→ Paste target:** replace the existing `[ PENDING — paste verbatim... ]` block below (the older CLI-side placeholder) with three fenced blocks in Field A → Field B → Field C order. The boundary-marker comments around the existing PENDING block (`<!-- PASTE STACK TRACE BELOW THIS LINE -->` etc.) MUST stay so future diffs can see where your paste landed.
+
+**Tagging convention (operator action):** the date tag `[source: 2026-07-09]` is REQUIRED. The older per-deploy tag `[source: <deploy-id>]` (per the existing PENDING-block REMINDER) is OPTIONAL but recommended when the operator knows the deploy ID — both conventions are orthogonal and can layer. Read: `[source: 2026-07-09 | dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq]` = "captured 2026-07-09 from the `--force` retry deploy." After pasting Field A, pick ONE of `H3 | H4 | inconclusive`; do NOT leave the placeholder `H3 | H4 | inconclusive` literal.
+
 **Field A — Entry-point Lambda function name (Step 5 — the H3-vs-H4 discriminator):** the FIRST line of the expanded stack shows the Lambda entry-point string the runtime resolved to before throwing. Tag the resulting paste with the implicated hypothesis:
 
 ```
@@ -150,6 +154,10 @@ REMINDER: prepend your paste with [source: <deploy-id>] so the postmortem disamb
 
 The next operator paste (runbook Step 7: "expand `/api/complete-order` row in Vercel Dashboard → Functions tab → first FUNCTION_INVOCATION_FAILED invocation") yields THREE verbatim fields. Paste each in its own fenced block per the schema below — tagged with `[source: 2026-07-09]` so the postmortem disambiguates from the 2026-07-08 capture cycle audited in the linked main postmortem §Diagnostic #4 partial result.
 
+**→ Paste target:** replace the existing `[ PENDING — paste verbatim... ]` block below (the older CLI-side placeholder) with three fenced blocks in Field A → Field B → Field C order. The boundary-marker comments around the existing PENDING block (`<!-- PASTE STACK TRACE BELOW THIS LINE -->` etc.) MUST stay so future diffs can see where your paste landed.
+
+**Tagging convention (operator action):** the date tag `[source: 2026-07-09]` is REQUIRED. The older per-deploy tag `[source: <deploy-id>]` is OPTIONAL but recommended when the operator knows the deploy ID — both conventions are orthogonal and can layer. Read: `[source: 2026-07-09 | dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq]` = "captured 2026-07-09 from the `--force` retry deploy." After pasting Field A, pick ONE of `H3 | H4 | inconclusive`; do NOT leave the placeholder `H3 | H4 | inconclusive` literal.
+
 **Field A — Entry-point Lambda function name (Step 5 — the H3-vs-H4 discriminator):** the FIRST line of the expanded stack shows the Lambda entry-point string the runtime resolved to before throwing. Tag the resulting paste with the implicated hypothesis:
 
 ```
@@ -198,6 +206,10 @@ REMINDER: prepend your paste with [source: <deploy-id>] so the postmortem disamb
 #### Operator capture schema (per runbook Steps 5/6/9) — `[source: 2026-07-09 — pending operator paste]`
 
 The next operator paste (runbook Step 7: "expand `/api/ai-chat` row in Vercel Dashboard → Functions tab → first FUNCTION_INVOCATION_FAILED invocation") yields THREE verbatim fields. Paste each in its own fenced block per the schema below — tagged with `[source: 2026-07-09]` so the postmortem disambiguates from the 2026-07-08 capture cycle audited in the linked main postmortem §Diagnostic #4 partial result.
+
+**→ Paste target:** replace the existing `[ PENDING — paste verbatim... ]` block below (the older CLI-side placeholder) with three fenced blocks in Field A → Field B → Field C order. The boundary-marker comments around the existing PENDING block (`<!-- PASTE STACK TRACE BELOW THIS LINE -->` etc.) MUST stay so future diffs can see where your paste landed.
+
+**Tagging convention (operator action):** the date tag `[source: 2026-07-09]` is REQUIRED. The older per-deploy tag `[source: <deploy-id>]` is OPTIONAL but recommended when the operator knows the deploy ID — both conventions are orthogonal and can layer. Read: `[source: 2026-07-09 | dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq]` = "captured 2026-07-09 from the `--force` retry deploy." After pasting Field A, pick ONE of `H3 | H4 | inconclusive`; do NOT leave the placeholder `H3 | H4 | inconclusive` literal.
 
 **Field A — Entry-point Lambda function name (Step 5 — the H3-vs-H4 discriminator):** the FIRST line of the expanded stack shows the Lambda entry-point string the runtime resolved to before throwing. Tag the resulting paste with the implicated hypothesis:
 
@@ -252,6 +264,10 @@ For comparison purposes, capture both: (a) the runtime invocation log for market
 
 The probe-with-empty-body invocation that returned 400 is the **contrast evidence** — marketing-subscribe's validation gate ran before the broken-import path that crashed §1–§3. The valid-body probe (if safely attemptable) extends the contrast to a full handler round-trip. Paste each field in its own fenced block per the schema below — tagged with `[source: 2026-07-09]` so the postmortem disambiguates from the 2026-07-08 capture cycle audited in the linked main postmortem §Diagnostic #4 partial result.
 
+**→ Paste target:** replace the existing `[ PENDING — paste verbatim... ]` blocks below (older CLI-side placeholders) with the relevant Field blocks in Field A → Field B → Field C order. Note: §4 has TWO `[ PENDING — paste verbatim... ]` blocks (probe-with-empty-body + optional probe-with-valid-body); replace BOTH. The boundary-marker comments around the existing PENDING blocks (`<!-- PASTE RUNTIME LOG BELOW THIS LINE -->` etc.) MUST stay.
+
+**Tagging convention (operator action):** the date tag `[source: 2026-07-09]` is REQUIRED. The per-deploy tag `[source: <deploy-id>]` is OPTIONAL but recommended when the operator knows the deploy ID — both conventions can layer: `[source: 2026-07-09 | dpl_<id>]`. For the empty-body probe, the tag should read `[source: 2026-07-09 | marketing-subscribe empty-body probe → 400]` to make the contrast-case role explicit.
+
 **Field A — Probe-with-empty-body runtime log (Step 8):** paste the literal runtime log for the first invocation with `{}` body, expected 400 response:
 
 ```
@@ -264,7 +280,7 @@ The probe-with-empty-body invocation that returned 400 is the **contrast evidenc
 [source: 2026-07-09 | marketing-subscribe valid-body probe → reached handler IF present, else 400 validation re-fires]
 ```
 
-**Field C — Bundle-grep result (Step 9 / Diagnostic #3, same-session companion):** same schema as §1–§3 — per runbook Step 9, download the deployed source zip from the same deployment's Source panel, extract to `/tmp/vfy_unzip/`, then run `grep -rE '_handlers' /tmp/vfy_unzip/ | head -20`. Paste the grep output verbatim (matches present → H4 confirmed, matches absent → H3 confirmed, binary artifacts-only → Vercel support escalation).
+**Field C — Bundle-grep result (Step 9 / Diagnostic #3, same-session companion):** see `### §1 — paypal-order stack trace` Field C for full bundle-grep mechanics. Note: a SINGLE bundle-grep result PER BUNDLE covers all 4 §1–§4 entries (H4/H3 confirmation is per-bundle, not per-endpoint) — paste the grep output ONCE in §1 Field C, then from §2/§3/§4 reference it as `[source: 2026-07-09 | see §1 Field C — bundle-grep result]`. One operator paste action, four section references.
 
 (The existing PENDING blocks below this schema remain as the older CLI-side reference — do NOT delete them. The new schema block above is the operational target for the `[source: 2026-07-09]` capture cycle.)
 
