@@ -103,7 +103,7 @@ For each function, paste below. Preserve everything — line numbers, file paths
   2. Diagnostic #2 per-handler-only-no-catch-all deploy (cleanest H3-vs-H4 discriminator; if any per-handler entry-point shows here, the catch-all routing layer was innocent): https://coalition-brand-hkepnhkne-derron-byrds-projects.vercel.app — retrieve deploy ID via `npx vercel inspect <url>` if needed
   3. Original 1450a5a failure deploy (likely past Vercel retention; skip if not visible in Dashboard history): dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc
 
-→ Functions tab → paypal-order → first FUNCTION_INVOCATION_FAILED invocation → full stack + cold-start annotations + entry-point Lambda function name (the H3-vs-H4 discriminator: entry-point = `[...slug].func` → strongly implicates H3 (Edge Route Map); entry-point = `paypal-order.func` (or any other per-handler name) → confirms H4 only after Step 9 of the runbook's bundle grep shows `_handlers` strings still present in the deployed `.func` bundle).
+→ Functions tab → paypal-order → first FUNCTION_INVOCATION_FAILED invocation → full stack + cold-start annotations + entry-point Lambda function name. The entry-point reading is the first half of the H3-vs-H4 two-stage discriminator: `entry-point = `[...slug].func` → strongly implicates H3 (Edge Route Map). entry-point = `paypal-order.func` (or any other per-handler name) → narrows to H4 territory. Full H4 confirmation requires the runbook's Diagnostic #3 (bundle-grep) step to also show `_handlers` strings still present in the deployed `.func` bundle — see the runbook's `### Step 9` for that second-stage check.)
 
 REMINDER: prepend your paste with [source: <deploy-id>] so the postmortem disambiguates dates. ]
 ```
