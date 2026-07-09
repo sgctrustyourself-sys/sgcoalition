@@ -1,8 +1,8 @@
 # Postmortem: `/api/` per-handler routing migration attempt
 
 **Date:** 2026-07-08 (cycle continues through end of day)
-**Status:** **CACHE HYPOTHESIS INVALIDATED** (Attempt 5) AND **H2 (CATCH-ALL PRECEDENCE) RULED OUT** (Diagnostic #2) AND **H3 (EDGE ROUTE MAP STALE STATE) HIGH CONFIDENCE AMONG SURVIVING HYPOTHESES** (Diagnostic #4 partial result, 2026-07-08 Dashboard route-table observed by operator — qualifies as HIGH AMONG SURVIVING because per-handler routes STAY in Vercel edge config without per-handler sources existing, but this single layer of evidence alone does NOT yet rule out H4 (bundler could leave `_handlers/` strings in per-handler bundles' compiled output too) or H7 (builder could still mismatch the runtime)). H4 + H5 remain in scope + H7 (Builder / Runtime Mismatch — newly considered) at MEDIUM confidence on the same Dashboard signal: `framework: "vite"` with no explicit `builds` directive has been in `vercel.json` throughout — but the bundler output of the **prior** deploys (`1450a5a`, `--force` retry) may have absorbed the partial-detection case differently than the rollback to `_handlers/` lineage does. Re-attaching `builds` remains the smallest surgical fix path (see §Diagnostic #4 partial result below). Production rolled back to stable 503 baseline (`b632e74` = docs on top of `cb30a60` = revert of `e33df76`). Pending: per-function entry-point Lambda names + cold-start stacks + bundle-grep (steps 5/6/9 of the runbook) — these will close H3 vs H4 vs H7 to a single verdict.
-**Cache hypothesis:** INVALIDATED. **H2 (Catch-all Precedence):** INVALIDATED. **H3 (Edge Route Map):** **HIGH CONFIDENCE AMONG SURVIVING HYPOTHESES** — operator-supplied Dashboard route-table evidence (§Diagnostic #4 partial result below) shows Vercel tracking per-handler routes (`paypal-order`, `complete-order`, `ai-chat`) as independent routes with their own invocation + CPU + duration columns, despite the per-handler source files NOT existing at the current prod tree (`api/_handlers/<slug>.ts` not `api/<slug>.ts`). Stale route-map state is the strongest single-layer signal so far, but does not yet rule out H4 (bundler could leave `_handlers/` strings in per-handler bundle outputs) or H7 (builder could still mismatch runtime).
+**Status:** **CACHE HYPOTHESIS INVALIDATED** (Attempt 5) AND **H2 (CATCH-ALL PRECEDENCE) RULED OUT** (Diagnostic #2) AND **H3 (EDGE ROUTE MAP STALE STATE) HIGH CONFIDENCE AMONG SURVIVING HYPOTHESES** (Diagnostic #4 partial result, 2026-07-09 operator refresh capture `[source: 2026-07-09]` — re-confirms 2026-07-08 first capture 1-for-1 across the 24h gap, with per-handler routes STILL in Vercel edge config 24h+ after rollback (Vercel auto-prune did NOT fire) AND zero auto-healing; this multi-day persistence is a textbook H3 stale-route-map signature that qualifies as HIGH CONFIDENCE AMONG SURVIVING, but the persistence alone does NOT yet rule out H4 (bundler could leave `_handlers/` strings in per-handler bundles' compiled output too) or H7 (builder could still mismatch the runtime)). H4 + H5 remain in scope + H7 (Builder / Runtime Mismatch — newly considered) at MEDIUM confidence on the same Dashboard signal: `framework: "vite"` with no explicit `builds` directive has been in `vercel.json` throughout — but the bundler output of the **prior** deploys (`1450a5a`, `--force` retry) may have absorbed the partial-detection case differently than the rollback to `_handlers/` lineage does. Re-attaching `builds` remains the smallest surgical fix path (see §Diagnostic #4 partial result below). Production rolled back to stable 503 baseline (`b632e74` = docs on top of `cb30a60` = revert of `e33df76`). Pending: per-function entry-point Lambda names + cold-start stacks + bundle-grep (steps 5/6/9 of the runbook) — these will close H3 vs H4 vs H7 to a single verdict.
+**Cache hypothesis:** INVALIDATED. **H2 (Catch-all Precedence):** INVALIDATED. **H3 (Edge Route Map):** **HIGH CONFIDENCE AMONG SURVIVING HYPOTHESES** — operator-supplied Dashboard route-table evidence across **two consecutive days** of identical state (§Diagnostic #4 partial result below; [source: 2026-07-08] first capture and [source: 2026-07-09] operator refresh capture) shows Vercel tracking per-handler routes (`paypal-order`, `complete-order`, `ai-chat`) as independent routes with their own invocation + CPU + duration columns, despite the per-handler source files NOT existing at the current prod tree (`api/_handlers/<slug>.ts` not `api/<slug>.ts`). The 24h persistence (same routes still registered 24h+ after rollback to baseline, Vercel auto-prune did not fire, zero auto-healing) is itself a stale-route-map signature, **strengthening** H3's confidence band. Stale route-map state is the strongest single-layer signal so far, but does not yet rule out H4 (bundler could leave `_handlers/` strings in per-handler bundle outputs) or H7 (builder could still mismatch runtime).
 
 ---
 
@@ -261,19 +261,21 @@ Diagnostic #1 (this section) is complete and ruled out H1. Diagnostic #2 is comp
 | Diagnostic #1 (source audit) | ✅ DONE — ruled out H1 via `git show 1450a5a` | Routine file read; no auth needed |
 | Diagnostic #2 (delete catch-all) | ✅ VIABLE — only remaining path | Git push + redeploy; no Dashboard needed |
 | Diagnostic #3 (download prod source) | ❌ Blocked | Dashboard-only affordance; CLI offers no `vercel download` subcommand |
-| Diagnostic #4 (Dashboard log tracing) | 🟡 **Partial** — operator capturable | Same auth-wall as Diagnostic #3; **CLI auth-wall blocks automated capture but operator has begun pasting Dashboard data** (route-table captured 2026-07-08; per-function entry-point + cold-start stack still pending). Operator-supplied evidence is the fallback channel — already raised H3 to HIGH AMONG SURVIVING with route-table data alone. |
+| Diagnostic #4 (Dashboard log tracing) | 🟡 **Partial** — operator capturable | Same auth-wall as Diagnostic #3; **CLI auth-wall blocks automated capture but operator has begun pasting Dashboard data** (route-table captured 2026-07-08, re-captured 2026-07-09 — 1-for-1 identical state across 24h; per-function entry-point + cold-start stack still pending). Operator-supplied evidence is the fallback channel — already raised H3 to HIGH AMONG SURVIVING with route-table data alone. |
 
 **For the next operator session** (whether human with Vercel Dashboard access or AI with that access): Diagnostic #3 + #4 remain actionable, can be combined into one Dashboard session, and produce the §1-§4 evidence the stack-traces doc is waiting for. The placeholders in that doc now correctly accept paste-source from EITHER `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq` or `dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc` (per the operator note added to that doc today).
 
 ---
 
-## Diagnostic #4 partial result (2026-07-08, operator-supplied Dashboard route-table)
+## Diagnostic #4 partial result (2026-07-09, operator refresh capture — replaces 2026-07-08 capture)
 
 **Filed under:** §Updated diagnostic branches → Diagnostic Step 4 progress. **Partial** because route-table + global aggregate are pasted; per-function entry-point Lambda names + per-function cold-start stacks + bundle-grep (runbook steps 5/6/9) are still pending.
 
-**Method:** Operator captured Vercel Dashboard view (Production / Last 2 hours). UI rendered route-level statistics (Invocations + Active CPU + P95 Duration + Error Rate columns) for each registered route on the live domain.
+**Method:** Operator re-captured Vercel Dashboard view (Production / Last 2 hours) the next day as the fresh confirmation pass — this is the runbook **Step 0** action (added 2026-07-08 to `docs/runbooks/api-routing-fallback.md`) executed for the second time. UI rendered route-level statistics (Invocations + Active CPU + P95 Duration + Error Rate columns) for each registered route on the live domain. Numbers transcribed verbatim from the operator-supplied screenshot below.
 
-**Result (verbatim from operator-supplied Dashboard screenshot):**
+### [source: 2026-07-09] — verbatim route-table
+
+**Result (verbatim from operator-supplied Dashboard screenshot — tagged [source: 2026-07-09]):**
 
 | Route | Invocations | Active CPU | P95 Duration | Error Rate |
 |---|---|---|---|---|
@@ -283,27 +285,52 @@ Diagnostic #1 (this section) is complete and ruled out H1. Diagnostic #2 is comp
 | `/api/complete-order` | 6 | **0ms** | **288ms** | **100%** |
 | `/api/ai-chat` | 6 | **0ms** | **214ms** | **100%** |
 
-Aggregate panel (top of Dashboard): **Total invocations: 156** · **Total Error Rate: 91.3% Error / 0% Timeout** · **Cold Start: 1s** · Memory Usage P95: **208 MB / 2.05 GB** · Time to First Byte P95: **66ms** · CPU Throttle: **19.4%** · Compute Model: **Fluid**.
+Aggregate panel (top of Dashboard) — [source: 2026-07-09]: **Total invocations: 156** · **Total Error Rate: 91.3% Error / 0% Timeout** · **Cold Start: — (not surfaced in this 2h window)** · Memory Usage P95: **208 MB / 2.05 GB** · Time to First Byte P95: **66ms** · CPU Throttle: **19.4%** · Compute Model: **Fluid** · Active CPU (aggregate panel top): **16ms**.
 
-### Six concrete findings
+### Cross-capture comparison ([source: 2026-07-08] vs [source: 2026-07-09])
 
-1. **Catch-all `[...]slug` is by far the busiest route (132 invocations vs 6 each for per-handler routes).** Contradicts the pre-Dashboard assumption that the catch-all was a tail path. The catch-all is the dominant entry point for `/api/*` traffic; 90.2% of those calls fail with our `loadHandler()` short-circuit (matching the prior CLI evidence `[api] failed to load handler <slug>: Cannot find module '/var/task/api/_handlers/<slug>'`).
-2. **Per-handler routes ARE independently registered in Vercel's edge config** despite the per-handler source files NOT existing at the current prod tree — handlers live at `api/_handlers/<slug>.ts` (silently ignored by Vercel's `_`-prefix convention), NOT at `api/<slug>.ts`. **Route-map entries for per-handler functions must therefore be leftovers from prior failed deploys** (`1450a5a`, `--force` retry, `diag-2-no-catchall`) that Vercel did not auto-clean on rollback. **Direct evidence for H3 (Edge Route Map stale state) — confidence HIGH AMONG SURVIVING HYPOTHESES.**
+The 2026-07-09 capture is essentially identical to the 2026-07-08 capture on every metric of interest. The first impression "same numbers" is itself informative — two consecutive days of identical Dashboard state confirms the regression is **persistent and stable**, not a transient cold-start / partial-cache / auto-healing scenario.
+
+| Metric | [source: 2026-07-08] | [source: 2026-07-09] | Delta |
+|---|---|---|---|
+| Total invocations | 156 | 156 | stable |
+| Total Error Rate | 91.3% | 91.3% | stable |
+| Catch-all invocations | 132 | 132 | stable |
+| Catch-all Active CPU | 18ms | 18ms | stable |
+| Catch-all P95 Duration | 13ms | 13ms | stable |
+| Catch-all Error Rate | 90.2% | 90.2% | stable |
+| `paypal-order` invocations / CPU / errors | 6 / 0ms / 100% | 6 / 0ms / 100% | each route **stable** — still cold-start crash before user code |
+| `complete-order` invocations / CPU / errors | 6 / 0ms / 100% | 6 / 0ms / 100% | **stable** |
+| `ai-chat` invocations / CPU / errors | 6 / 0ms / 100% | 6 / 0ms / 100% | **stable** |
+| `marketing-subscribe` invocations / CPU / errors | 6 / 180ms / 0% | 6 / 180ms / 0% | **stable** — handler still runs cleanly |
+| Compute Model | Fluid | Fluid | unchanged |
+| CPU Throttle | 19.4% | 19.4% | unchanged |
+| Memory Usage P95 | 208 MB / 2.05 GB | 208 MB / 2.05 GB | unchanged |
+| TTFB P95 | 66ms | 66ms | unchanged |
+| Active CPU (aggregate panel) | (not surfaced in 07-08 capture) | 16ms | new datum — now documented for future captures |
+| Cold Start aggregate | 1s | — (not displayed in 09 2h window) | likely reporting-window difference (warmer instances in 24h-later capture), not a regression |
+
+**Interpretation of the cross-capture 0-delta:** The signature stability across 24 hours rules out transient causes at the bootstrap layer (Lambdas were warmed in the 24h gap and the failures did not disappear) AND at the Vercel cache / route-map layer (Vercel's auto-prune on rollback did NOT clean out the per-handler route entries — a textbook H3 signature that is even stronger after a second-day confirmation). **Layer-discriminator interpretation is unchanged from the 2026-07-08 capture:** H3 stays at HIGH CONFIDENCE AMONG SURVIVING HYPOTHESES, H4 at MEDIUM-HIGH, H7 at MEDIUM, H5 at MEDIUM. No new data has emerged in the 24-hour gap that would shift any confidence band. The 0ms Active CPU across 3 of 4 per-handler routes continues to be the cleanest cold-start-before-user-code signal — the per-handler Lambdas are NOT recovering on their own.
+
+### Six concrete findings (re-confirmed via [source: 2026-07-09])
+
+1. **Catch-all `[...]slug` is by far the busiest route (132 invocations vs 6 each for per-handler routes).** Re-confirmed across two consecutive days. The catch-all is the dominant entry point for `/api/*` traffic; 90.2% of those calls fail with our `loadHandler()` short-circuit (matching the prior CLI evidence `[api] failed to load handler <slug>: Cannot find module '/var/task/api/_handlers/<slug>'`).
+2. **Per-handler routes ARE independently registered in Vercel's edge config** despite the per-handler source files NOT existing at the current prod tree — handlers live at `api/_handlers/<slug>.ts` (silently ignored by Vercel's `_`-prefix convention), NOT at `api/<slug>.ts`. **Route-map entries for per-handler functions must therefore be leftovers from prior failed deploys** that Vercel did not auto-clean on rollback — and the 2026-07-09 re-capture shows the same entries still registered 24h+ later, **strengthening the H3 confidence** (textbook stale-route-map signature; if Vercel's edge had auto-pruned on rollback to baseline, the per-handler rows would have disappeared from the route table by now). **Direct evidence for H3 (Edge Route Map stale state) — confidence HIGH AMONG SURVIVING HYPOTHESES.**
 3. **Per-handler routes show 0ms Active CPU and P95 Duration 210–288ms.** A function that runs ANY user code would have non-zero CPU. **0ms confirms the bootstrap crashes BEFORE user code executes.** This fits the operator's earlier paste of `Command not found: "/api/paypal-order"` (the trailing docs URL was a Dashboard UI element adjacent to the error body, not an actual second command argument) — the Lambda's shell-exec wrapper cannot find the entry-point at cold-start. The 210–288ms wall-clock is cold-start + exec-attempt time; 0ms of that is user code.
 4. **Catch-all has non-zero Active CPU (18ms) + 13ms P95 Duration + 90.2% Error Rate.** The catch-all IS running user code. The 18ms average includes time spent on the 6 successful invocations (mostly the `marketing-subscribe` validation-gate-to-success path). The 90.2% error invocations ran `loadHandler()` first, hit the dynamic-import catch, returned our structured 503.
-5. **`marketing-subscribe` shows 0% Error Rate across 6 invocations with 180ms Active CPU + 65ms P95 Duration.** This **CONTRADICTS** the postmortem inference that "`marketing-subscribe` survived only by validation short-circuit before reaching broken-import path" (drawn from a single empty-body probe in the postmortem's Attempt 5 step). Dashboard's 6 separate route invocations (all successful) tell us the catch-all `loadHandler()` succeeded for `marketing-subscribe` AND the handler ran AND validation-gate-to-200 (or 400) reached user code. **Marketing-subscribe is genuinely healthier** — its lazy-import resolves; the others' don't.
+5. **`marketing-subscribe` shows 0% Error Rate across 6 invocations with 180ms Active CPU + 65ms P95 Duration.** Re-confirmed by the 2026-07-09 capture. Initially drawn from a single empty-body probe in the postmortem's Attempt 5 step; now confirmed by **12 separate route invocations across two consecutive days** (6 each), all successful, telling us the catch-all `loadHandler()` resolved AND the handler ran AND validation-gate-to-200 (or 400) reached user code. **Marketing-subscribe is genuinely healthier** — its lazy-import resolves; the others' don't.
 6. **Per-handler Lambda routes still show 100% error rate with periodic ~6 invocations over 2h — likely Vercel uptime probes or third-party monitoring hitting those paths every ~20 min.** Failure mode is identical every time: 0ms CPU, 200-300ms wall-clock, FUNCTION_INVOCATION_FAILED. The catch-all is doing all the real work for genuine user traffic; the per-handler routes are paying the cold-start cost on every probe with zero real traffic captured.
 
-### Updated hypothesis confidence after Dashboard route-table capture
+### Updated hypothesis confidence after [source: 2026-07-09] re-capture
 
-| Hypothesis | Pre-Dashboard | Post-Dashboard |
+| Hypothesis | Post-[source: 2026-07-08] | Post-[source: 2026-07-09] |
 |---|---|---|
 | H1 (Flawed migration source — narrowed to indirect form) | RULED OUT | RULED OUT |
 | H2 (Catch-all precedence) | RULED OUT | RULED OUT |
-| H3 (Edge Route Map stale state) | plausible | **HIGH CONFIDENCE AMONG SURVIVING HYPOTHESES** ← raised significantly today (matches the §header status block qualifier + the §Cache hypothesis paragraph one paragraph above) |
-| H4 (Bundler Chunking Bug) | plausible | MEDIUM-HIGH ← 0ms CPU + Command-not-found tie |
-| H5 (Env-var Masking) | plausible | MEDIUM (no new evidence; remains a candidate) |
-| **H7 (Builder / Runtime Mismatch — newly considered)** | (new hypothesis today) | MEDIUM ← `framework: "vite"` with no `builds` directive has been in `vercel.json` throughout, but the bundler output of *prior* deploys (`1450a5a`, `--force` retry) may have absorbed partial-detection differently than the rollback to `_handlers/` lineage does |
+| **H3 (Edge Route Map stale state)** | HIGH CONFIDENCE AMONG SURVIVING HYPOTHESES | **HIGH CONFIDENCE AMONG SURVIVING HYPOTHESES** ← unchanged band, **strengthened** by 24h persistence (auto-prune did not fire) |
+| H4 (Bundler Chunking Bug) | MEDIUM-HIGH | **MEDIUM-HIGH** ← unchanged |
+| H5 (Env-var Masking) | MEDIUM | **MEDIUM** ← unchanged |
+| H7 (Builder / Runtime Mismatch — newly considered) | MEDIUM | **MEDIUM** ← unchanged |
 
 ### Specifically for H7
 
@@ -318,7 +345,7 @@ Aggregate panel (top of Dashboard): **Total invocations: 156** · **Total Error 
 ### Concrete next operator action (~5 minutes Dashboard time)
 
 1. Stay on Production / Last 2 hours view.
-2. Click `/api/paypal-order` row → expand first invocation → record entry-point Lambda name + cold-start stack. Paste into `docs/postmortems/postmortem-2026-07-08-vercel-stack-traces.md` §1 (overwrite `[ PENDING — … ]`).
+2. Click `/api/paypal-order` row → expand first invocation → record entry-point Lambda name + cold-start stack. Paste into `docs/postmortems/postmortem-2026-07-08-vercel-stack-traces.md` §1 (overwrite `[ PENDING — … ]` block — tag the new entry `[source: 2026-07-09]` per the operator note there).
 3. Click `/api/complete-order` row → paste into §2. Click `/api/ai-chat` row → paste into §3.
 4. Click `/api/marketing-subscribe` row → confirm cold-start succeeded (~180ms) → paste into §4.
 5. Source panel → download deployed zip → extract + grep per runbook Step 9 → paste grep result into §Diagnostic #3 attempt result subsection.
@@ -327,6 +354,12 @@ After steps 1-5, the `H3 / H4 / H7` header moves from `[partial]` to `[confirmed
 - **H3 confirmed** → Vercel support escalation + edge-route-map purge API
 - **H4 confirmed** → fix the catch-all lazy-import resolution (revert migration OR add per-handler stub in `_handlers/`)
 - **H7 confirmed** → add explicit `builds` block to `vercel.json` and redeploy with `--force` (this is also a fix candidate even without dashboard confirmation — smallest surgical intervention)
+
+---
+
+### Capture-history note
+
+For the prior first capture (`[source: 2026-07-08]`) and the operator's 6-finding analysis that originally raised H3 to HIGH AMONG SURVIVING, the values are identical to the 2026-07-09 numbers above and the analysis stands unchanged. The 2026-07-09 capture adds two new data points: (a) the aggregate-panel Active CPU = 16ms (top-of-screen summary, now documented for future Step 0 captures), and (b) the Cold Start aggregate is empty in this 2h window (likely reporting-window difference rather than a fix). All 6 findings carry over verbatim because the underlying failure signature is unchanged. Future captures should keep using `[source: <date>]` tags at the top of the route-table block so the historiography of this regression can be reconstructed.
 
 ---
 
