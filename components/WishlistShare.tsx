@@ -1,26 +1,95 @@
-import React, { useState } from 'react';
-import { Share2, Link as LinkIcon, Check, X as XIcon } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Share2, Link as LinkIcon, Check, X as XIcon, AlertCircle, Loader2 } from 'lucide-react';
+import { useApp } from '../context/AppContext';
+import { supabase } from '../services/supabase';
+import { generateShareId, getPublicWishlistUrl } from '../utils/wishlistUtils';
 
 interface WishlistShareProps {
     favoriteIds: string[];
 }
 
 const WishlistShare: React.FC<WishlistShareProps> = ({ favoriteIds }) => {
+    const { user } = useApp();
     const [isOpen, setIsOpen] = useState(false);
     const [copied, setCopied] = useState(false);
+    // Lazy-generated on first modal open so the shareId is created
+    // exactly once per session (re-opening the modal reuses the same
+    // slug). The wishlist_shares INSERT happens in handleOpen below;
+    // shareUrl is populated only after a successful insert.
+    const [shareUrl, setShareUrl] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    // Ref-based guard against the double-click race: a rapid
+    // second click on the share button would otherwise fire a
+    // second createShare() (the React state update for
+    // `isGenerating=true` is async, so the second click's closure
+    // still sees `isGenerating=false`). The ref flips synchronously
+    // so the second click short-circuits. Without this, double-
+    // clickers create 2 rows in wishlist_shares with 2 different
+    // shareIds -- wasted rows, and the displayed URL races
+    // between the two.
+    const isGeneratingRef = useRef(false);
 
     if (favoriteIds.length === 0) return null;
 
-    const generateShareUrl = () => {
-        const baseUrl = window.location.origin;
-        const params = new URLSearchParams({ items: favoriteIds.join(',') });
-        return `${baseUrl}/favorites?${params.toString()}`;
+    // Insert a new row into public.wishlist_shares and return the
+    // shareId-based URL. Called once per modal open (memoised via
+    // the shareUrl state). The RLS INSERT policy
+    // (20260709_add_wishlist_shares.sql) gates on auth.uid() =
+    // owner_id, so a non-logged-in user would hit the policy and
+    // the share URL never lands -- the !user guard in handleOpen
+    // short-circuits before this is ever called without a user.
+    const createShare = async (): Promise<string> => {
+        if (!user) {
+            // Defensive: handleOpen gates on !user, so this branch
+            // is unreachable. The throw + the TS non-null assertion
+            // below are belt-and-suspenders.
+            throw new Error('Please sign in to share your wishlist.');
+        }
+        const newShareId = generateShareId(user.uid);
+        const { error: insertError } = await supabase
+            .from('wishlist_shares')
+            .insert([{
+                share_id: newShareId,
+                owner_id: user.uid,
+                owner_name: user.displayName || user.email?.split('@')[0] || 'Anonymous',
+                items: favoriteIds,
+            }]);
+        if (insertError) {
+            throw new Error(insertError.message || 'Failed to create share link.');
+        }
+        return getPublicWishlistUrl(newShareId);
+    };
+
+    const handleOpen = async () => {
+        setIsOpen(true);
+        setError(null);
+        if (shareUrl) return; // already created this session
+        // Sign-in gate is handled in the JSX (amber AlertCircle
+        // below). Bail here so the error state stays reserved for
+        // actual insert failures, not the sign-in case.
+        if (!user) return;
+        // Ref-based race guard (see declaration above). The state-
+        // based check is not sufficient because the
+        // setIsGenerating(true) update is async.
+        if (isGeneratingRef.current) return;
+        isGeneratingRef.current = true;
+        setIsGenerating(true);
+        try {
+            const url = await createShare();
+            setShareUrl(url);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to create share link.');
+        } finally {
+            setIsGenerating(false);
+            isGeneratingRef.current = false;
+        }
     };
 
     const handleCopyLink = async () => {
-        const url = generateShareUrl();
+        if (!shareUrl) return;
         try {
-            await navigator.clipboard.writeText(url);
+            await navigator.clipboard.writeText(shareUrl);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch (err) {
@@ -29,29 +98,34 @@ const WishlistShare: React.FC<WishlistShareProps> = ({ favoriteIds }) => {
     };
 
     const shareToTwitter = () => {
-        const url = generateShareUrl();
+        if (!shareUrl) return;
         const text = `Check out my wishlist from Coalition!`;
-        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
     };
 
     const shareToPinterest = () => {
-        const url = generateShareUrl();
-        window.open(`https://pinterest.com/pin/create/button/?url=${encodeURIComponent(url)}&description=${encodeURIComponent('My Coalition Wishlist')}`, '_blank');
+        if (!shareUrl) return;
+        window.open(`https://pinterest.com/pin/create/button/?url=${encodeURIComponent(shareUrl)}&description=${encodeURIComponent('My Coalition Wishlist')}`, '_blank');
     };
 
     const shareToFacebook = () => {
-        const url = generateShareUrl();
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
+        if (!shareUrl) return;
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
     };
 
     return (
         <div className="relative">
             <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition"
+                onClick={handleOpen}
+                disabled={isGenerating}
+                className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-                <Share2 className="w-5 h-5" />
-                <span className="font-bold">Share Wishlist</span>
+                {isGenerating ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                    <Share2 className="w-5 h-5" />
+                )}
+                <span className="font-bold">{isGenerating ? 'Generating...' : 'Share Wishlist'}</span>
             </button>
 
             {isOpen && (
@@ -73,6 +147,36 @@ const WishlistShare: React.FC<WishlistShareProps> = ({ favoriteIds }) => {
                                 <XIcon className="w-6 h-6" />
                             </button>
                         </div>
+
+                        {/* Sign-in gate: the wishlist_shares RLS INSERT
+                            policy (20260709_add_wishlist_shares.sql)
+                            requires auth.uid() = owner_id, so a
+                            non-logged-in user would hit the policy
+                            and get a generic error. Show the
+                            explicit message up front. */}
+                        {!user && (
+                            <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                                <p className="text-sm text-amber-200">Please sign in to share your wishlist.</p>
+                            </div>
+                        )}
+
+                        {/* Error from the failed insert path (e.g.
+                            network / RLS). */}
+                        {error && (
+                            <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                                <p className="text-sm text-red-300">{error}</p>
+                            </div>
+                        )}
+
+                        {/* Loading state during the lazy INSERT. */}
+                        {isGenerating && (
+                            <div className="mb-4 flex items-center gap-2 text-sm text-gray-400">
+                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                Generating share link...
+                            </div>
+                        )}
 
                         <div className="space-y-4">
                             {/* Copy Link */}
