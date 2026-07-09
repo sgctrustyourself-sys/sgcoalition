@@ -263,6 +263,55 @@ Diagnostic #1 (this section) is complete and ruled out H1. Diagnostic #2 is comp
 
 **For the next operator session** (whether human with Vercel Dashboard access or AI with that access): Diagnostic #3 + #4 remain actionable, can be combined into one Dashboard session, and produce the §1-§4 evidence the stack-traces doc is waiting for. The placeholders in that doc now correctly accept paste-source from EITHER `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq` or `dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc` (per the operator note added to that doc today).
 
+---
+
+## Diagnostic #2 attempt result (2026-07-08): H2 RULED OUT, focus shifts to H3 + H4 + H5
+
+**Filed under:** §Updated diagnostic branches → Diagnostic Step 2 (delete the catch-all + redeploy to test whether the catch-all was the routing layer).
+
+**Method:**
+
+1. Created branch `diag-2-no-catchall` off current `main` (`b632e74`).
+2. `git checkout e33df76 -- api/ tests/` to restore the migration's per-handler function layout (19 files at `api/<slug>.ts`).
+3. `git rm -f api/[...slug].ts` to delete the catch-all (the test condition).
+4. `git rm -rf api/_handlers/` to remove the pre-migration handler directory (clean working tree).
+5. Pre-push safety: `npx.cmd vercel build --yes` succeeded; emitted 19 per-handler `.func` bundles (zero catch-all present); executable code contained zero `_handlers` references per Diagnostic #1 finding.
+6. Committed + pushed branch to remote (preserved for audit trail, NOT deleted from remote).
+7. `npx.cmd vercel deploy --prod --force --yes` — force-bypassed deploy at `https://coalition-brand-hkepnhkne-derron-byrds-projects.vercel.app`, aliased to `sgcoalition.xyz`.
+8. Waited 75s + probed 4 endpoints + 1 unknown slug with empty `{}` body.
+
+**Probe result (75s post-`--force`-deploy):**
+
+| Endpoint | Diagnostic #2 (no catch-all) | Original `1450a5a` | Verdict |
+|---|---|---|---|
+| `/api/paypal-order` | 500 FUNCTION_INVOCATION_FAILED | 500 FUNCTION_INVOCATION_FAILED | Same |
+| `/api/marketing-subscribe` | 400 valid email required | 400 valid email required | Same |
+| `/api/complete-order` | 500 FUNCTION_INVOCATION_FAILED | 500 FUNCTION_INVOCATION_FAILED | Same |
+| `/api/ai-chat` | 500 FUNCTION_INVOCATION_FAILED | 500 FUNCTION_INVOCATION_FAILED | Same |
+| `/api/foobar` (unknown slug) | 404 Endpoint not found | 404 Endpoint not found | Same |
+
+**FINDING:** Removing the catch-all did NOT change the failure signature. Per-handler functions still return 500 FUNCTION_INVOCATION_FAILED when invoked individually (Vercel's filesystem routing delivers them to per-handler lambdas, not the catch-all). The catch-all is **innocent** — H2 (Catch-all Precedence) is **RULED OUT**. The test condition's predicted discriminator responded unambiguously: requests are reaching per-handler files (not the catch-all) AND the per-handler files are themselves bombing with the same error.
+
+**Architectural insight (raises H3 + H4 profiles equally):** Cross-correlating the Diagnostic #2 finding with the source-level comments in `api/_helpers.ts` and `api/_types.ts` (header comments documenting those helpers were extracted from the old `api/_handlers/*` location) reveals that the runtime is asking for `/var/task/api/_handlers/<slug>` paths even when the per-handler file is supplied. **The runtime path-resolution is occurring at a layer below the per-handler file**, and it expects `_handlers/<slug>` regardless of what the per-handler file's location is in the filesystem. This is a strong H3 (Edge Route Map) signal AND/OR a strong H4 (Bundler Chunking Bug) signal — both candidates narrow correctly.
+
+**Rollback (executed):**
+
+1. `git checkout main` (back to `b632e74`'s tree).
+2. `npx.cmd vercel deploy --prod --force --yes` to redeploy main's tree (which contains the stable 503 baseline `api/_handlers/*` layout).
+3. Wait 75s + probe: all 4 endpoints back to 503 baseline (`temporarily unavailable` marker present), foobar 404. Production state: STABLE BASELINE RESTORED.
+4. `diag-2-no-catchall` branch preserved on remote for future audit (deploy URL `https://coalition-brand-hkepnhkne-derron-byrds-projects.vercel.app`); local checkout is back on `main`.
+
+**Updated diagnostic landscape (2026-07-08, post all CLI/CI diagnostics):**
+
+| Diagnostic | Status | Verdict |
+|---|---|---|
+| #1 (source audit) | DONE | H1 RULED OUT — source is genuinely clean |
+| #2 (delete catch-all test) | DONE | **H2 RULED OUT** — catch-all not the routing layer |
+| #3 (download prod source) | Blocked | Dashboard-only affordance, auth-wall from CLI/CI |
+| #4 (Dashboard log tracing) | Blocked | Same auth-wall; no CLI/REST alternative |
+
+**Net effect on the diagnostic funnel:** All CLI/CI-runnable diagnostics are now exhausted. **No remaining diagnostic paths in scope of this environment.** Forward motion requires either (a) a manual operator with Vercel Dashboard access for Diagnostic #3 + #4, OR (b) a Vercel support escalation with the postmortem as evidence. The previously-Dashboard-listed H5 (Env-var Masking) hypothesis remains plausible on principle but has no targeted diagnostic now.
+
 ## Working hypothesis: Vercel per-function build/edge cache
 
 **Claim:** The original prod failure was caused by Vercel serving **stale per-function cached Lambda chunks** from the prior deploy, while the new deploy's source/bundle files were being swapped in. The catch-all and `marketing-subscribe` happened to be invalidated correctly; the other 3 handlers retained chunks with `_handlers/<slug>` import paths in their dependency graphs.
