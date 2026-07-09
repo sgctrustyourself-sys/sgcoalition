@@ -176,3 +176,4 @@ The literal stack traces (when pasted) decide which branch of the cache-vs-bundl
 - **Don't redact**: copy the full stack including all paths, even if they show `/var/task/api/_handlers/...`. The postmortem depends on those exact strings to validate the cache hypothesis.
 - **Anonymize PII**: the stacks should NOT contain personal data per Vercel's runtime model, but if any user email / phone / address appears, redact before pasting into this repo. (None expected based on the catch-all's lazy-import failure path — the stack fires before request body parsing.)
 - **One commit per paste**: as each of §1–§4 is populated, commit individually (don't batch) so the diff history tells the trail of when each datum arrived.
+- **Status of CL

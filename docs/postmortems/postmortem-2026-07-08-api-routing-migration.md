@@ -160,7 +160,7 @@ Per think-through analysis, the next diagnostic should distinguish between these
 | 1 | Ground-truth source audit | `git checkout 1450a5a -- api/[...slug].ts` and grep for `_handlers` and check HANDLER_LOADERS map. Repeat for any `api/_handlers/`-prefixed paths. | H1 — **RULED OUT 2026-07-08 (Diagnostic #1 result below)**. Source is genuinely clean; mechanism is downstream of source. |
 | 2 | Delete catch-all | Create a test deploy that entirely removes `api/[...slug].ts` from the migration. | H2 & H3 (Precedence / Route Map). Forces explicit per-handler files; if it 404s wildly, filesystem routing is broken. |
 | 3 | Download prod source | Use Vercel Dashboard → Deployments → the failed `--force` retry (**deploy ID: `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq`**, deploy URL: `https://coalition-brand-axuj4ekxb-derron-byrds-projects.vercel.app`) → downloadable source zip and grep for `_handlers` in the actual production-built artifacts. Cross-reference: prior original-`1450a5a` failure was `dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc`. **Diagnostic #3 cannot be run from CLI/CI environment — see "Diagnostic #3 attempt result" subsection below for the 3-path blocker audit.** | Distinguishes H1, H4, H2, H3 simultaneously: if `_handlers/` appears in Vercel-built `.func` → H4 (Bundler Bug); if not in `.func` but runtime resolves to it → H2 (Catch-all Precedence) or H3 (Edge Route Map); if neither → narrows down to H5 (env-var masking). Highest marginal information among the Dashboard-access diagnostics because it reveals what the runtime is actually given. |
-| 4 | Dashboard log tracing | Read the verbatim Function Logs in Vercel Dashboard for the failed `--force` deploy (entry-point + cold-start stack + dependency-resolution path). | H2 (Catch-all Precedence). Determines definitively which lambda bundle actually caught and processed the request. |
+| 4 | Dashboard log tracing | Read the verbatim Function Logs in Vercel Dashboard for the failed `--force` deploy (entry-point + cold-start stack + dependency-resolution path). For either `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq` (today's --force retry) or `dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc` (original 1450a5a) — same regression either way. | H2 (Catch-all Precedence). Determines definitively which lambda bundle actually caught and processed the request. **Diagnostic #4 cannot be run from CLI/CI environment — see "Diagnostic #4 attempt result" subsection below for the auth-wall blocker audit.** |
 
 The smallest diagnostic that could conclusively settle H1 vs H4 is Item 1 (a literal source-code ground truth check). Steps 2-4 require manual operator intervention with Vercel Dashboard access.
 
@@ -201,13 +201,13 @@ The smallest diagnostic that could conclusively settle H1 vs H4 is Item 1 (a lit
 
 This documents the migration author's expectation that **per-handler functions take precedence over the catch-all** — i.e., the author anticipated **H2 (Catch-all Precedence)** as a known risk. The empirical failure signature (3 of 4 per-handler routes return FUNCTION_INVOCATION_FAILED, while catch-all cleanly responds 404 to unknown slugs) is consistent with H2: requests to per-handler routes are reaching the catch-all Lambda and the catch-all is bombing on the dynamic import resolution under prod conditions. **H2's profile is higher than initially suspected** because the migration author flagged this exact failure mode in source comments.
 
-**Updated next-step recommendation:** With H1 ruled out, focus narrows to **H2 (Catch-all Precedence) + H3 (Edge Route Map) + H4 (Bundler Chunking Bug)**. Order of discriminators (cheapest, lowest-risk first):
+**Updated next-step recommendation:** With H1 ruled out AND #3 + #4 both auth-wall-blocked from the CLI/CI session, the diagnostic landscape collapses to one: **Diagnostic #2 is the only path that can be run from this cycle's environment.** Diagnostic #3 and #4 remain available but require Dashboard access (a future manual operator pass).
 
-1. **Diagnostic #4 (Dashboard log tracing)** — Dashboard access only, no prod impact, **CAN BE COMBINED with Diagnostic #3 in a single operator pass** (same Dashboard auth). Reading the actual function-routing entry-point for the failed `--force` retry (`dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq`) determines which lambda bundle caught each request. If the catch-all `[...slug].func` is shown as the entry-point for `/api/paypal-order`, H2 is confirmed; if `paypal-order.func` is the entry-point, H2 ruled out.
-2. **Diagnostic #3 (download prod source)** — Dashboard access only, no prod impact. Use deploy ID `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq` to navigate the Dashboard. Distinguishes H1/H4/H2/H3 simultaneously by greping the Vercel-built artifacts.
-3. **Diagnostic #2 (delete catch-all + redeploy)** — last because requires a prod push with rollback-recovery loop. If `api/[...slug].ts` is the actual route layer, removing it should route per-handler files directly; if per-handler files still 500 FUNCTION_INVOCATION_FAILED after catch-all is gone, the catch-all is innocent (H2 ruled out) and focus shifts to H3/H4. This is the **only Dashboard-independent path among #2-#4**, so it remains viable for operator sessions without Vercel Dashboard access.
+1. **Diagnostic #2 (delete catch-all + redeploy)** — **the only viable diagnostic from the CLI/CI session** because it requires neither Download-source-button nor Dashboard log-tracing, only `git push` + `npx vercel deploy`. If `api/[...slug].ts` is the actual route layer, removing it should route per-handler files directly; if per-handler files still 500 FUNCTION_INVOCATION_FAILED after catch-all is gone, the catch-all is innocent (H2 ruled out) and focus shifts to H3/H4. Pre-authorize the rollback path (`git revert HEAD` if results are ambiguous) per the same user-authorized pattern as Attempt 5.
+2. **Diagnostic #3 (download prod source)** — for the next manual operator with Vercel Dashboard access. Diagnoses H1/H4/H2/H3 simultaneously by greping Vercel-built artifacts at deploy ID `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq` or `dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc`. Same failure signature either way.
+3. **Diagnostic #4 (Dashboard log tracing)** — for the same future-Dashboard-operator pass (combinable with Diagnostic #3 in one Dashboard session). Reads the function-routing entry-point for `/api/paypal-order`: if `[...slug].func` is the entry-point → H2 confirmed; if `paypal-order.func` is the entry-point → H2 ruled out.
 
-Diagnostic #1 (this section) is complete; Diagnostic #1 row in the table above is marked RULED OUT to reflect that. Diagnostic #3 cannot be run from this CLI/CI environment — see "Diagnostic #3 attempt result" subsection immediately below.
+Diagnostic #1 (this section) is complete and ruled out H1. Diagnostic #3 + Diagnostic #4 cannot be run from this CLI/CI environment — see subsections immediately below for the blocker audits.
 
 ---
 
@@ -226,6 +226,42 @@ Diagnostic #1 (this section) is complete; Diagnostic #1 row in the table above i
 **Conclusion: Diagnostic #3 is fully blocked from this CLI/CI environment.** All three capture paths exhausted; only a manual operator with Vercel Dashboard access can run this diagnostic. The blocker is authentication, not authorization — the project + deployment are correctly resolvable by `vercel inspect` and `vercel ls`, but Vercel does not expose the build-output artifacts via any of: CLI sub-command, REST API with available tokens, browser session.
 
 **Strategy note for the next operator:** Because Diagnostic #3 and Diagnostic #4 share the same prerequisite (Vercel Dashboard access), they can be combined into a single operator pass. Open the Dashboard → `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq` → (a) Functions / Runtime Logs tab for Diagnostic #4 (read entry-point for one FUNCTION_INVOCATION_FAILED invocation), then (b) Deployment panel download button for Diagnostic #3 (download source zip + grep). Both deliverables go into `docs/postmortems/postmortem-2026-07-08-vercel-stack-traces.md` §1-§4 placeholder blocks.
+
+---
+
+## Diagnostic #4 attempt result (2026-07-08): auth-wall blocker
+
+**Filed under:** §Updated diagnostic branches → Diagnostic Step 4 (Dashboard log tracing — read entry-point for the FUNCTION_INVOCATION_FAILED invocation).
+
+**Method:** Browser-use agent instructed to navigate `https://vercel.com/dashboard` → `coalition-brand` → Deployments → search for deploy ID `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq` (or fallback `dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc`) → click into deployment → click Functions / Runtime Logs tab → expand first FUNCTION_INVOCATION_FAILED invocation for `paypal-order` → read entry-point + cold-start stack.
+
+**Result:** Browser-use hit the Vercel Dashboard auth-wall immediately. Final URL after navigation: `https://vercel.com/login?next=%2Fdashboard`. Agent correctly stopped rather than attempting sign-in.
+
+```
+{
+  "auth_status": "wall",
+  "final_page_title": "Login – Vercel",
+  "final_url": "https://vercel.com/login?next=%2Fdashboard",
+  "deployments_loaded": 0,
+  "found_primary_id": false,
+  "found_secondary_id": false,
+  "first_invocation_captured": null,
+  "blocker": "AUTH-WALL: Vercel Dashboard requires authentication. Capture cannot proceed; operator must paste entry-point log lines manually into the template doc."
+}
+```
+
+**Conclusion: Diagnostic #4 is also blocked from the CLI/CI environment** for the same reason as Diagnostic #3 — Vercel auth cookies are not preserved in the running Chrome session. The Chrome + Dashboard boundary is the only path to capture Diagnostic #4 evidence (entry-point + cold-start stack); no CLI or REST API alternative exists.
+
+**Net effect on the diagnostic landscape from this CLI/CI environment:**
+
+| Diagnostic | Viable from CLI/CI? | Why / why not |
+|---|---|---|
+| Diagnostic #1 (source audit) | ✅ DONE — ruled out H1 via `git show 1450a5a` | Routine file read; no auth needed |
+| Diagnostic #2 (delete catch-all) | ✅ VIABLE — only remaining path | Git push + redeploy; no Dashboard needed |
+| Diagnostic #3 (download prod source) | ❌ Blocked | Dashboard-only affordance; CLI offers no `vercel download` subcommand |
+| Diagnostic #4 (Dashboard log tracing) | ❌ Blocked | Same auth-wall as Diagnostic #3; no CLI/REST alternative |
+
+**For the next operator session** (whether human with Vercel Dashboard access or AI with that access): Diagnostic #3 + #4 remain actionable, can be combined into one Dashboard session, and produce the §1-§4 evidence the stack-traces doc is waiting for. The placeholders in that doc now correctly accept paste-source from EITHER `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq` or `dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc` (per the operator note added to that doc today).
 
 ## Working hypothesis: Vercel per-function build/edge cache
 
