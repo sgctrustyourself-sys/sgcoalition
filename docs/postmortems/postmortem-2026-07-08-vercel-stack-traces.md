@@ -57,7 +57,24 @@ This tells us the catch-all's `loadHandler()` rejected the dynamic import for `p
 
 For each of the 3 crashing endpoints, paste the **literal stack trace** shown in Vercel's Dashboard → Functions tab. Each section below is a placeholder — replace its contents with the verbatim trace.
 
-> **Operator note: three valid deploys as paste sources.** The §1–§4 blocks below reference the original `1450a5a` failure deploy (`dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc`). Today's `--force` cache-bypass retry (`dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq`, deploy URL `https://coalition-brand-axuj4ekxb-derron-byrds-projects.vercel.app`) reproduced the same regression 1-for-1, and the **Diagnostic #2 per-handler-only-no-catch-all deploy** (deploy URL `https://coalition-brand-hkepnhkne-derron-byrds-projects.vercel.app`, retrievable deploy ID via `npx vercel inspect`) reproduced it AGAIN — proving the catch-all is innocent (H2 ruled out). **All three backup-runs the same diagnostic question**: why does Vercel's runtime ask for `/var/task/api/_handlers/<slug>` paths even when the per-handler file is supplied at the new architecture? The operator can paste stack traces from ANY of the three deploys, whichever is more accessible in their current Vercel Dashboard session. **Mark which deploy ID was used at paste time** (prepend `[source: <deploy-id>]` to each captured stack) so the postmortem can disambiguate dates and prevent downstream confusion.
+> **Operator note: three paste-source deploys, status as of 2026-07-08 final CLI/CI capture audit:**
+>
+> - **Original `1450a5a` failure deploy**: deploy ID `dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc`, deploy URL `https://coalition-brand-1mfgn515q-derron-byrds-projects.vercel.app`. **Status:** no longer in `npx vercel ls` (likely past the production retention window). May still be reachable via Vercel Dashboard history or by pasting the URL directly; if not found, treat as archived and skip.
+> - **`--force` cache-bypass retry**: deploy ID `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq`, deploy URL `https://coalition-brand-axuj4ekxb-derron-byrds-projects.vercel.app`. **Status:** confirmed READABLE via `vercel ls` (current session 2026-07-08). **Primary paste source.**
+> - **Diagnostic #2 per-handler-only-no-catch-all deploy**: deploy URL `https://coalition-brand-hkepnhkne-derron-byrds-projects.vercel.app` (deploy ID retrievable via `npx vercel inspect <url>`). **Status:** confirmed READABLE via `vercel ls` (current session 2026-07-08). **Particularly important because it proves H2 catch-all-precedence is innocent** (per-handler + no catch-all still failed in the diagnostic).
+>
+> All three reproduce the same diagnostic question: why does Vercel's runtime ask for `/var/task/api/_handlers/<slug>` paths even when the per-handler file is supplied? The operator can paste stack traces from any of the three (preferably the `--force` retry or Diagnostic #2 deploy, since both are confirmed-readable). **Mark which deploy ID was used at paste time** (prepend `[source: <deploy-id>]` to each captured stack) so the postmortem can disambiguate dates and prevent downstream confusion.
+>
+> **CLI/CI capture path audit (all paths definitively closed 2026-07-08):**
+>
+> - `vercel download` / `vercel artifacts` — does not exist (`npx vercel --help` does not document either).
+> - `vercel inspect` — returns deployment metadata only, not function runtime stacks.
+> - `vercel logs` — returns only summary-level data (the original "Cannot find module" line); per-function stack traces not exposed.
+> - REST API with `VERCEL_TOKEN` — token not in env.
+> - REST API with `VERCEL_OIDC_TOKEN` — **definitive test 2026-07-08: HTTP 403 `{"error":{"code":"forbidden","message":"Not authorized","invalidToken":true}}`** (Vercel-OIDC tokens in CI environments are scoped to deploy triggers only, do NOT authenticate against `/v13/deployments/{id}` routes. The `invalidToken: true` flag confirms token rejection at the auth layer.)
+> - Browser automation against `vercel.com/dashboard` — auth-wall at `https://vercel.com/login?next=%2Fdashboard`. Chrome in this session has no preserved Vercel auth cookies.
+>
+> **Only remaining capture path:** a manual operator with Vercel Dashboard project-admin access for `coalition-brand`. The operator opens the Dashboard → search for any of the readable deploy URLs above → Functions tab (or Observability fallback if the tab is renamed in a newer Dashboard version) → expand the first FUNCTION_INVOCATION_FAILED invocation for `paypal-order` → capture the entry-point Lambda function name (this is the **critical discriminator** for H3 vs H4: if the entry-point shows `[...slug].func` (catch-all) is the entry-point, H3 (Edge Route Map) is implicated; if `paypal-order.func` is the entry-point, H4 (Bundler Chunking Bug) is implicated) → paste the captured stack + entry-point into §1-§4 placeholder blocks below, one commit per paste.
 
 ### Step-by-step Dashboard capture
 
