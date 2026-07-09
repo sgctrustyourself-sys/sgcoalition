@@ -8,7 +8,7 @@
 
 ### What broke (in plain terms)
 
-A directory-flattening refactor moved API handler files from `api/_handlers/<slug>.ts` → `api/<slug>.ts`. The build output compiled cleanly + the local Preview environment worked, but production kept trying to load handlers from the **OLD location** for 3 of 4 critical endpoints (`paypal-order`, `complete-order`, `ai-chat`), throwing Vercel's opaque `FUNCTION_INVOCATION_FAILED` error. The 4th endpoint (`marketing-subscribe`) returned 400 only because its validation gate short-circuited before the broken-import path — it isn't actually healthier than the others.
+A directory-flattening refactor moved API handler files from `api/_handlers/<slug>.ts` → `api/<slug>.ts` (rolled back). At today's baseline, the 3 critical endpoints (`paypal-order`, `complete-order`, `ai-chat`) are failing at 100% error rate in Vercel's edge config despite their source files only existing at the `_handlers/` prefix convention (which Vercel silently ignores). Operator-confirmed Dashboard route-table (Production / Last 2 hours) shows per-handler routes with 0ms Active CPU + P95 Duration 210–288ms, consistent with cold-start bootstrap exec failure (`Command not found: "/api/paypal-order"` captured on the same Dashboard rendering). The 4th endpoint (`marketing-subscribe`) shows **0% Error Rate** + 180ms Active CPU across 6 invocations, confirming it is genuinely healthy — not narrowly surviving via validation short-circuit.
 
 **The literal runtime line captured from CLI logs:**
 
