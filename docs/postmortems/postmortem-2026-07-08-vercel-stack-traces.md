@@ -3,6 +3,12 @@
 **Date:** 2026-07-08
 **Linked postmortem:** [`postmortem-2026-07-08-api-routing-migration.md`](postmortem-2026-07-08-api-routing-migration.md)
 **Status:** PARTIALLY COMPLETE — CLI-side metadata captured; per-function runtime stack traces require Dashboard access and have not yet been pasted by a human operator. §1–§4 placeholder blocks below are now keyed to the **`[source: 2026-07-09]` capture schema** — three verbatim fields per the runbook Steps 5/6/9 (entry-point Lambda name + cold-start stack + Diagnostic #3 bundle-grep result). Operator paste target per the user's next-action cycle: `expand `/api/paypal-order` row in Vercel Dashboard` first (per §Diagnostic #4 still-pending list), then complete-order / ai-chat / marketing-subscribe. The CLI/CI capture-path audit below is unchanged — only a human operator with preserved Dashboard session can populate §1–§4 this turn.
+
+**Tagging convention (operator action — applies to all 4 §1–§4 schemas):**
+- **Date tag `[source: 2026-07-09]` is REQUIRED** on every paste (per the `[source: YYYY-MM-DD]` convention introduced in the §Diagnostic #4 partial result refresh in `postmortem-2026-07-08-api-routing-migration.md`).
+- **Per-deploy tag `[source: <deploy-id>]` is OPTIONAL** but recommended when the operator knows the deploy ID (per the older `[source: <deploy-id>]` convention in the existing PENDING-block REMINDERs).
+- **Both tags are orthogonal and can layer:** a paste with both reads `[source: 2026-07-09 | dpl_<deploy-id>]`. Worked example: `[source: 2026-07-09 | dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq]` = captured 2026-07-09 from the `--force` retry deploy URL `https://coalition-brand-axuj4ekxb-derron-byrds-projects.vercel.app` (the primary paste target per Step 2 in the runbook).
+- **Per-section variations** are documented inline in each schema's Field A pick-rule (or §4-specific tag variant for the marketing-subscribe contrast case).
 **Linked runbook (for the operator):** [`../runbooks/api-routing-fallback.md`](../runbooks/api-routing-fallback.md)
 
 ---
@@ -100,7 +106,9 @@ The next operator paste (runbook Step 4: "expand `/api/paypal-order` row in Verc
 
 **→ Paste target:** replace the existing `[ PENDING — paste verbatim... ]` block below (the older CLI-side placeholder) with three fenced blocks in Field A → Field B → Field C order. The boundary-marker comments around the existing PENDING block (`<!-- PASTE STACK TRACE BELOW THIS LINE -->` etc.) MUST stay so future diffs can see where your paste landed.
 
-**Tagging convention (operator action):** the date tag `[source: 2026-07-09]` is REQUIRED. The older per-deploy tag `[source: <deploy-id>]` (per the existing PENDING-block REMINDER) is OPTIONAL but recommended when the operator knows the deploy ID — both conventions are orthogonal and can layer. Read: `[source: 2026-07-09 | dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq]` = "captured 2026-07-09 from the `--force` retry deploy." After pasting Field A, pick ONE of `H3 | H4 | inconclusive`; do NOT leave the placeholder `H3 | H4 | inconclusive` literal.
+(See the Status block at the top of this doc for the general date + per-deploy tag-layering rules.)
+
+**Field A pick-rule (operator action):** after pasting Field A's template `[source: 2026-07-09 | entry-point → H3 | H4 | inconclusive]`, REPLACE `H3 | H4 | inconclusive` with the single chosen hypothesis — the paste reads exactly one of `[source: 2026-07-09 | entry-point → H3]`, `[source: 2026-07-09 | entry-point → H4]`, or `[source: 2026-07-09 | entry-point → inconclusive]`. Do NOT leave the three-way `H3 | H4 | inconclusive` literal.
 
 **Field A — Entry-point Lambda function name (Step 5 — the H3-vs-H4 discriminator):** the FIRST line of the expanded stack shows the Lambda entry-point string the runtime resolved to before throwing. Tag the resulting paste with the implicated hypothesis:
 
@@ -156,7 +164,9 @@ The next operator paste (runbook Step 7: "expand `/api/complete-order` row in Ve
 
 **→ Paste target:** replace the existing `[ PENDING — paste verbatim... ]` block below (the older CLI-side placeholder) with three fenced blocks in Field A → Field B → Field C order. The boundary-marker comments around the existing PENDING block (`<!-- PASTE STACK TRACE BELOW THIS LINE -->` etc.) MUST stay so future diffs can see where your paste landed.
 
-**Tagging convention (operator action):** the date tag `[source: 2026-07-09]` is REQUIRED. The older per-deploy tag `[source: <deploy-id>]` is OPTIONAL but recommended when the operator knows the deploy ID — both conventions are orthogonal and can layer. Read: `[source: 2026-07-09 | dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq]` = "captured 2026-07-09 from the `--force` retry deploy." After pasting Field A, pick ONE of `H3 | H4 | inconclusive`; do NOT leave the placeholder `H3 | H4 | inconclusive` literal.
+(See the Status block at the top of this doc for the general date + per-deploy tag-layering rules.)
+
+**Field A pick-rule (operator action):** after pasting Field A's template `[source: 2026-07-09 | entry-point → H3 | H4 | inconclusive]`, REPLACE `H3 | H4 | inconclusive` with the single chosen hypothesis — the paste reads exactly one of `[source: 2026-07-09 | entry-point → H3]`, `[source: 2026-07-09 | entry-point → H4]`, or `[source: 2026-07-09 | entry-point → inconclusive]`. Do NOT leave the three-way `H3 | H4 | inconclusive` literal.
 
 **Field A — Entry-point Lambda function name (Step 5 — the H3-vs-H4 discriminator):** the FIRST line of the expanded stack shows the Lambda entry-point string the runtime resolved to before throwing. Tag the resulting paste with the implicated hypothesis:
 
@@ -209,7 +219,9 @@ The next operator paste (runbook Step 7: "expand `/api/ai-chat` row in Vercel Da
 
 **→ Paste target:** replace the existing `[ PENDING — paste verbatim... ]` block below (the older CLI-side placeholder) with three fenced blocks in Field A → Field B → Field C order. The boundary-marker comments around the existing PENDING block (`<!-- PASTE STACK TRACE BELOW THIS LINE -->` etc.) MUST stay so future diffs can see where your paste landed.
 
-**Tagging convention (operator action):** the date tag `[source: 2026-07-09]` is REQUIRED. The older per-deploy tag `[source: <deploy-id>]` is OPTIONAL but recommended when the operator knows the deploy ID — both conventions are orthogonal and can layer. Read: `[source: 2026-07-09 | dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq]` = "captured 2026-07-09 from the `--force` retry deploy." After pasting Field A, pick ONE of `H3 | H4 | inconclusive`; do NOT leave the placeholder `H3 | H4 | inconclusive` literal.
+(See the Status block at the top of this doc for the general date + per-deploy tag-layering rules.)
+
+**Field A pick-rule (operator action):** after pasting Field A's template `[source: 2026-07-09 | entry-point → H3 | H4 | inconclusive]`, REPLACE `H3 | H4 | inconclusive` with the single chosen hypothesis — the paste reads exactly one of `[source: 2026-07-09 | entry-point → H3]`, `[source: 2026-07-09 | entry-point → H4]`, or `[source: 2026-07-09 | entry-point → inconclusive]`. Do NOT leave the three-way `H3 | H4 | inconclusive` literal.
 
 **Field A — Entry-point Lambda function name (Step 5 — the H3-vs-H4 discriminator):** the FIRST line of the expanded stack shows the Lambda entry-point string the runtime resolved to before throwing. Tag the resulting paste with the implicated hypothesis:
 
@@ -266,7 +278,9 @@ The probe-with-empty-body invocation that returned 400 is the **contrast evidenc
 
 **→ Paste target:** replace the existing `[ PENDING — paste verbatim... ]` blocks below (older CLI-side placeholders) with the relevant Field blocks in Field A → Field B → Field C order. Note: §4 has TWO `[ PENDING — paste verbatim... ]` blocks (probe-with-empty-body + optional probe-with-valid-body); replace BOTH. The boundary-marker comments around the existing PENDING blocks (`<!-- PASTE RUNTIME LOG BELOW THIS LINE -->` etc.) MUST stay.
 
-**Tagging convention (operator action):** the date tag `[source: 2026-07-09]` is REQUIRED. The per-deploy tag `[source: <deploy-id>]` is OPTIONAL but recommended when the operator knows the deploy ID — both conventions can layer: `[source: 2026-07-09 | dpl_<id>]`. For the empty-body probe, the tag should read `[source: 2026-07-09 | marketing-subscribe empty-body probe → 400]` to make the contrast-case role explicit.
+(See the Status block at the top of this doc for the general date + per-deploy tag-layering rules.)
+
+**§4-specific tag variant (operator action):** the Field A empty-body probe tag should read `[source: 2026-07-09 | marketing-subscribe empty-body probe → 400]` to make the contrast-case role explicit (this tag answers "did the validation gate short-circuit before the broken-import path?" — marketers will read this tag years later and recognize the question it answers). The Field B valid-body probe (optional) tag reads `[source: 2026-07-09 | marketing-subscribe valid-body probe → <response-code>]` with the actual response code the operator observed appended at the end.
 
 **Field A — Probe-with-empty-body runtime log (Step 8):** paste the literal runtime log for the first invocation with `{}` body, expected 400 response:
 
