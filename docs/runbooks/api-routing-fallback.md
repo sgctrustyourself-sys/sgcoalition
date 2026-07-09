@@ -31,8 +31,8 @@ Both work — pick whichever you can reach first. The Diagnostic #2 deploy is ri
 
 | Priority | Deploy | Deploy ID | URL |
 |---|---|---|---|
-| **Primary** | `--force` cache-bypass retry | `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq` | `https://coalition-brand-axuj4ekxb-derron-byron's-projects.vercel.app` |
-| Secondary | Diagnostic #2 per-handler-only | retrievable via `npx vercel inspect <url>` | `https://coalition-brand-hkepnhkne-derron-byron's-projects.vercel.app` |
+| **Primary** | `--force` cache-bypass retry | `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq` | `https://coalition-brand-axuj4ekxb-derron-byrds-projects.vercel.app` |
+| Secondary | Diagnostic #2 per-handler-only | retrievable via `npx vercel inspect <url>` | `https://coalition-brand-hkepnhkne-derron-byrds-projects.vercel.app` |
 | **Skip** | Original `1450a5a` failure | `dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc` | Past Vercel retention; no longer in `vercel ls`. Skip if not found in Dashboard history. |
 
 ---
@@ -70,12 +70,15 @@ Same flow. Same paste target. Same commit pattern.
 ### Step 8 — (Optional) Capture `marketing-subscribe`'s runtime log for §4
 `marketing-subscribe` returned **400** (not 500) for the empty-body probe. Its evidence is shaped differently: validation short-circuited before the lazy-import path that crashed the others. Read the §4 header of the stack-traces doc first to understand why it matters; capture the same way.
 
-### Step 9 — (If requested) Diagnostic #3 — download source zip for the same deploy
-If asked to also do **Diagnostic #3 in the same session**, from the deployment's detail page click the **Source** panel's download button to retrieve the deployed source zip. Then:
+### Step 9 — Diagnostic #3 (Recommended, same-session companion) — download source zip
+Per the main postmortem's strategy note, Diagnostic #3 + Diagnostic #4 share the same prerequisite (Vercel Dashboard access) and are designed to run **together in this single session** — do not split across days. From the deployment's detail page, click the **Source** panel's download button to retrieve the deployed source zip. Then extract + grep for `_handlers` (do NOT use streaming `-p`):
 
 ```bash
-unzip -p <downloaded>.zip 2>/dev/null | grep -E '_handlers' | head -20
+mkdir -p /tmp/vfy_unzip && unzip -o <downloaded>.zip -d /tmp/vfy_unzip
+grep -rE '_handlers' /tmp/vfy_unzip/ | head -20
 ```
+
+Streaming `unzip -p | grep` looks cleaner but silently loses matches against binary-blob sections of the zip (Vercel sometimes ships hashed JS + `.vercel/cache` blobs concatenated in the same archive). Extracting first guarantees a real "no matches" result is evidence, not a false negative.
 
 | Grep result | Confirms |
 |---|---|
@@ -121,7 +124,7 @@ Why per-paste commits matter: the diff history tells the trail of when each datu
 Once §1–§4 are populated, the main postmortem's `H3 (Edge Route Map) + H4 (Bundler Chunking Bug) + H5 (Env-var Masking)` header moves from `[unverified]` to `[confirmed by Dashboard capture]`. The decision matrix in the stack-traces doc (`§Verdict derivation`) then becomes a concrete fix path, not a guess:
 
 - **Entry-point was `[...slug].func`** → H3 confirmed → fix path is to restore catch-all as canonical handler-routing OR investigate why edge is misrouting per-handler files.
-- **Entry-point was `paypal-order.func` (or per-handler-named)** → H4 confirmed → fix path is to revert the migration to `api/_handlers/<slug>.ts` (rerun the rollback chain to baseline `b632e74`).
+- **Entry-point was `paypal-order.func` (or per-handler-named)** → H4 confirmed → fix path is either (a) revert the migration to `api/_handlers/<slug>.ts` (rerun the rollback chain to baseline `b632e74`), OR (b) diagnose why the bundler refused to fold per-handler `<slug>.ts` files into a single working chunk + fix it inline (preserves the new architecture). (a) is faster; (b) keeps the per-handler logic-forward target.
 - **Stacks show missing/invalid env var** → H5 confirmed → fix path is to add the missing env var to Vercel (Production scope), then redeploy. `--force` not needed (env-var changes trigger automatic redeploy).
 
 ---

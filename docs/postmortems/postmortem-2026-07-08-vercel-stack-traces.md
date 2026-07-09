@@ -3,6 +3,7 @@
 **Date:** 2026-07-08
 **Linked postmortem:** [`postmortem-2026-07-08-api-routing-migration.md`](postmortem-2026-07-08-api-routing-migration.md)
 **Status:** PARTIALLY COMPLETE — CLI-side metadata captured; per-function runtime stack traces require Dashboard access and have not yet been pasted by a human operator.
+**Linked runbook (for the operator):** [`../runbooks/api-routing-fallback.md`](../runbooks/api-routing-fallback.md)
 
 ---
 
@@ -74,14 +75,14 @@ For each of the 3 crashing endpoints, paste the **literal stack trace** shown in
 > - REST API with `VERCEL_OIDC_TOKEN` — **definitive test 2026-07-08: HTTP 403 `{"error":{"code":"forbidden","message":"Not authorized","invalidToken":true}}`** (Vercel-OIDC tokens in CI environments are scoped to deploy triggers only, do NOT authenticate against `/v13/deployments/{id}` routes. The `invalidToken: true` flag confirms token rejection at the auth layer.)
 > - Browser automation against `vercel.com/dashboard` — auth-wall at `https://vercel.com/login?next=%2Fdashboard`. Chrome in this session has no preserved Vercel auth cookies.
 >
-> **Only remaining capture path:** a manual operator with Vercel Dashboard project-admin access for `coalition-brand`. The operator opens the Dashboard → search for any of the readable deploy URLs above → Functions tab (or Observability fallback if the tab is renamed in a newer Dashboard version) → expand the first FUNCTION_INVOCATION_FAILED invocation for `paypal-order` → capture the entry-point Lambda function name (this is the **critical discriminator** for H3 vs H4: if the entry-point shows `[...slug].func` (catch-all) is the entry-point, H3 (Edge Route Map) is implicated; if `paypal-order.func` is the entry-point, H4 (Bundler Chunking Bug) is implicated) → paste the captured stack + entry-point into §1-§4 placeholder blocks below, one commit per paste.
+> **Only remaining capture path:** a manual operator with Vercel Dashboard project-admin access for `coalition-brand`. The full end-to-end runbook lives at [`../runbooks/api-routing-fallback.md`](../runbooks/api-routing-fallback.md) (new file as of 2026-07-08) — read it before pasting, since it has the H3-vs-H4 entry-point discriminator + paste-target crosswalk + per-deploy commit-message format. **Operating summary:** open Dashboard → coalition-brand → search any of the readable deploy IDs above → Functions tab → expand the first FUNCTION_INVOCATION_FAILED invocation for `paypal-order` → capture the entry-point Lambda function name (this is the **critical discriminator** for H3 vs H4: if the entry-point shows `[...slug].func` (catch-all) is the entry-point, H3 (Edge Route Map) is implicated; if `paypal-order.func` is the entry-point, H4 (Bundler Chunking Bug) is implicated) → paste the captured stack + entry-point into §1-§4 placeholder blocks below, one commit per paste.
 
 ### Step-by-step Dashboard capture
 
 1. Open https://vercel.com/dashboard
 2. Navigate to project: `coalition-brand`
 3. Click **Deployments** in the left nav
-4. Find the deployment with ID `dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc` (created 2026-07-08 19:06:06). Use the search box if necessary.
+4. Find the deployment with ID `dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc` (created 2026-07-08 19:06:06). Use the search box if necessary. **Substitute one of the 3 valid deploy IDs above if this one is no longer in the list.**
 5. Click into that deployment.
 6. Click the **Functions** tab (the FUNCTION_INVOCATION_FAILED stack lives here, NOT in the "Build Logs" / "Logs" tab which is deploy-time build output). Vercel has reorganized tab names several times in 2025–2026; if a tab named "Functions" isn't visible, look for **Observability**, **Runtime**, **Logs**, or any tab adjacent to "Source" / "Build Logs" — the same `FUNCTION_INVOCATION_FAILED` runtime-stack content is surfaced under at least one of these labels in any recent Vercel Dashboard version.
 7. In the function list, click each of: `paypal-order`, `complete-order`, `ai-chat`. For each, expand the relevant invocation that returned `FUNCTION_INVOCATION_FAILED` (the very first invocation after deploy is most informative because cold-starts preserve the most diagnostic state).
@@ -96,7 +97,15 @@ For each function, paste below. Preserve everything — line numbers, file paths
 <!-- PASTE STACK TRACE BELOW THIS LINE -->
 
 ```
-[ PENDING — paste verbatim from Vercel Dashboard → coalition-brand → deployment dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc → Functions tab → paypal-order → first invocation stack ]
+[ PENDING — paste verbatim from Vercel Dashboard → coalition-brand → one of three deploys:
+
+  1. `--force` retry (PRIMARY): deploy dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq at https://coalition-brand-axuj4ekxb-derron-byrds-projects.vercel.app (today's cache-bypass retry — still failed 1-for-1)
+  2. Diagnostic #2 per-handler-only-no-catch-all deploy (cleanest H3-vs-H4 discriminator; if any per-handler entry-point shows here, the catch-all routing layer was innocent): https://coalition-brand-hkepnhkne-derron-byrds-projects.vercel.app — retrieve deploy ID via `npx vercel inspect <url>` if needed
+  3. Original 1450a5a failure deploy (likely past Vercel retention; skip if not visible in Dashboard history): dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc
+
+→ Functions tab → paypal-order → first FUNCTION_INVOCATION_FAILED invocation → full stack + cold-start annotations + entry-point Lambda function name (the H3-vs-H4 discriminator: entry-point = `[...slug].func` → H3 Edge Route Map; entry-point = `paypal-order.func` → H4 Bundler Chunking Bug).
+
+REMINDER: prepend your paste with [source: <deploy-id>] so the postmortem disambiguates dates. ]
 ```
 
 <!-- PASTE STACK TRACE ABOVE THIS LINE -->
@@ -113,7 +122,15 @@ For each function, paste below. Preserve everything — line numbers, file paths
 <!-- PASTE STACK TRACE BELOW THIS LINE -->
 
 ```
-[ PENDING — paste verbatim from Vercel Dashboard → coalition-brand → deployment dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc → Functions tab → complete-order → first invocation stack ]
+[ PENDING — paste verbatim from Vercel Dashboard → coalition-brand → one of three deploys:
+
+  1. `--force` retry (PRIMARY): deploy dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq at https://coalition-brand-axuj4ekxb-derron-byrds-projects.vercel.app
+  2. Diagnostic #2 per-handler-only-no-catch-all deploy: https://coalition-brand-hkepnhkne-derron-byrds-projects.vercel.app — retrieve deploy ID via `npx vercel inspect <url>` if needed
+  3. Original 1450a5a failure deploy (likely past Vercel retention; skip if not visible in Dashboard history): dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc
+
+→ Functions tab → complete-order → first FUNCTION_INVOCATION_FAILED invocation → full stack + cold-start annotations.
+
+REMINDER: prepend your paste with [source: <deploy-id>] so the postmortem disambiguates dates. ]
 ```
 
 <!-- PASTE STACK TRACE ABOVE THIS LINE -->
@@ -127,7 +144,15 @@ For each function, paste below. Preserve everything — line numbers, file paths
 <!-- PASTE STACK TRACE BELOW THIS LINE -->
 
 ```
-[ PENDING — paste verbatim from Vercel Dashboard → coalition-brand → deployment dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc → Functions tab → ai-chat → first invocation stack ]
+[ PENDING — paste verbatim from Vercel Dashboard → coalition-brand → one of three deploys:
+
+  1. `--force` retry (PRIMARY): deploy dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq at https://coalition-brand-axuj4ekxb-derron-byrds-projects.vercel.app
+  2. Diagnostic #2 per-handler-only-no-catch-all deploy: https://coalition-brand-hkepnhkne-derron-byrds-projects.vercel.app — retrieve deploy ID via `npx vercel inspect <url>` if needed
+  3. Original 1450a5a failure deploy (likely past Vercel retention; skip if not visible in Dashboard history): dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc
+
+→ Functions tab → ai-chat → first FUNCTION_INVOCATION_FAILED invocation → full stack + cold-start annotations.
+
+REMINDER: prepend your paste with [source: <deploy-id>] so the postmortem disambiguates dates. ]
 ```
 
 <!-- PASTE STACK TRACE ABOVE THIS LINE -->
@@ -145,7 +170,15 @@ For comparison purposes, capture both: (a) the runtime invocation log for market
 <!-- PASTE RUNTIME LOG BELOW THIS LINE (probe-with-empty-body invocation, returned 400) -->
 
 ```
-[ PENDING — paste verbatim from Vercel Dashboard → coalition-brand → deployment dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc → Functions tab → marketing-subscribe → first invocation with empty JSON body, expected 400 response ]
+[ PENDING — paste verbatim from Vercel Dashboard → coalition-brand → one of three deploys:
+
+  1. `--force` retry (PRIMARY): deploy dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq at https://coalition-brand-axuj4ekxb-derron-byrds-projects.vercel.app
+  2. Diagnostic #2 per-handler-only-no-catch-all deploy: https://coalition-brand-hkepnhkne-derron-byrds-projects.vercel.app — retrieve deploy ID via `npx vercel inspect <url>` if needed
+  3. Original 1450a5a failure deploy (likely past Vercel retention; skip if not visible in Dashboard history): dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc
+
+→ Functions tab → marketing-subscribe → first invocation with empty JSON body, expected 400 response.
+
+REMINDER: prepend your paste with [source: <deploy-id>] so the postmortem disambiguates dates. ]
 ```
 
 <!-- PASTE RUNTIME LOG ABOVE THIS LINE -->
@@ -181,9 +214,10 @@ The literal stack traces (when pasted) decide which branch of the cache-vs-bundl
 ## Cross-references
 
 - **Main postmortem** (decision context): [`postmortem-2026-07-08-api-routing-migration.md`](postmortem-2026-07-08-api-routing-migration.md)
+- **Operator runbook** (step-by-step Dashboard capture): [`../runbooks/api-routing-fallback.md`](../runbooks/api-routing-fallback.md)
 - **Cache-bypass mechanics + retry sequence**: same main postmortem, §Refined cache-bypass mechanics + §Retry sequence
 - **Failed deploy Git commit**: `1450a5ae60fb51fc297fa267013aa620fca8df4a`
-- **Baseline commit (current prod)**: `dca1b57`
+- **Baseline commit (current prod)**: `b632e74` (docs on top of `cb30a60` which reverted `e33df76`)
 - **Diagnostic Preview deploy URL** (clean-compile proof — Vercel Preview URLs typically have ~7-day retention; verify with `npx.cmd vercel ls` before referencing): `worktree-preview-test-i32ge4a0z-derron-byrds-projects.vercel.app`
 
 ---
@@ -192,5 +226,5 @@ The literal stack traces (when pasted) decide which branch of the cache-vs-bundl
 
 - **Don't redact**: copy the full stack including all paths, even if they show `/var/task/api/_handlers/...`. The postmortem depends on those exact strings to validate the cache hypothesis.
 - **Anonymize PII**: the stacks should NOT contain personal data per Vercel's runtime model, but if any user email / phone / address appears, redact before pasting into this repo. (None expected based on the catch-all's lazy-import failure path — the stack fires before request body parsing.)
-- **One commit per paste**: as each of §1–§4 is populated, commit individually (don't batch) so the diff history tells the trail of when each datum arrived.
-- **Status of CL
+- **One commit per paste**: as each of §1–§4 is populated, commit individually (don't batch) so the diff history tells the trail of when each datum arrived. See the runbook for the canonical commit-message format.
+- **Status of CLI/CI capture paths**: all 6 paths definitively closed 2026-07-08 (see operator note above + runbook for the formal audit).
