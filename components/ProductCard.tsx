@@ -7,7 +7,7 @@ import PriceDisplay from './PriceDisplay';
 import UrgencyBadge from './ui/UrgencyBadge';
 import { getStockUrgency, getStockCount, generateViewCount, getMintFraction } from '../utils/urgencyUtils';
 import RequestSimilarModal from './RequestSimilarModal';
-import { getProductImage, getProductImageSrcSet, getProductRoles, IMAGE_BACKGROUND_CLASS, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
+import { getProductImage, getProductImageSrcSet, getProductRoles, IMAGE_BACKGROUND_CLASS, PRODUCT_IMAGE_ASPECTS, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
 
 interface ProductCardProps {
     product: Product;
@@ -81,7 +81,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, priority = false }) 
     return (
         <>
             <div className={`group relative bg-transparent ${isSold ? 'opacity-60' : ''}`}>
-                <div className={`aspect-[4/5] overflow-hidden ${imageFrameClass} relative border border-white/5`}>
+                <div className={`${PRODUCT_IMAGE_ASPECTS.card} overflow-hidden ${imageFrameClass} relative border border-white/5`}>
                     <img
                         src={getProductImage(primaryImage, 'card')}
                         srcSet={getProductImageSrcSet(primaryImage)}

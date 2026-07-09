@@ -135,6 +135,33 @@ export const IMAGE_BACKGROUND_CLASS: Record<'gray-900' | 'white' | 'transparent'
     'transparent': 'bg-transparent',
 };
 
+// Centralised Tailwind aspect-ratio class lookup for storefront product
+// imagery. Tailwind's JIT compiler needs full class strings at build time, so
+// dynamic `aspect-[${ratio}]` strings would be silently stripped from the
+// build. The four consumers below (ProductCard, ProductCardSkeleton,
+// ProductDetails, CartUpsells, BlogPostView, ImageCropperModal) import this
+// map so a future ratio change (e.g. switching cards to 3/4) is one edit
+// here, not six. Pair with IMAGE_BACKGROUND_CLASS above for the bg-side
+// theme-add single source of truth.
+//   card    — shop/home/favorites/wishlist grid cards (ProductCard,
+//             ProductCardSkeleton image frame). 4:5 portrait.
+//   thumb   — small square thumbnails (CartUpsells, admin grid).
+//             1:1 square.
+//   gallery — PDP main image + admin image-edit grid. Same shape as card
+//             (4:5) but kept as a separate key so the semantic intent
+//             (gallery vs card) survives refactors that change one without
+//             the other.
+//   hero    — blog post cover, hero banners, full-width featured
+//             sections. 16:9 landscape.
+export const PRODUCT_IMAGE_ASPECTS = {
+    card: 'aspect-[4/5]',
+    thumb: 'aspect-square',
+    gallery: 'aspect-[4/5]',
+    hero: 'aspect-[16/9]',
+} as const;
+
+export type ProductImageAspect = keyof typeof PRODUCT_IMAGE_ASPECTS;
+
 /**
  * Resolve the canonical role-aware URL set for a product. Returns a
  * (possibly empty) primaryUrl, an optional hoverUrl, and a non-overlapping

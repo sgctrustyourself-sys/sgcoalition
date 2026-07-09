@@ -316,6 +316,13 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
                         </div>
 
                         <div className="px-6 pb-6">
+                            {/* The crop frame uses inline style with a numeric
+                                aspectRatio (parameterised by user choice from
+                                PRODUCT_CROP_ASPECT_OPTIONS) so it does not
+                                read from PRODUCT_IMAGE_ASPECTS directly. The
+                                DEFAULT (DEFAULT_PRODUCT_CROP_RATIO = 0.8 =
+                                4/5) is kept semantically in sync with
+                                utils/productImage.ts > PRODUCT_IMAGE_ASPECTS.card. */}
                             <div
                                 ref={frameRef}
                                 className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/80 shadow-inner"

@@ -1,18 +1,18 @@
 import React from 'react';
 import Skeleton from './ui/Skeleton';
 import { Product } from '../types';
-import { getProductRoles, IMAGE_BACKGROUND_CLASS } from '../utils/productImage';
+import { getProductRoles, IMAGE_BACKGROUND_CLASS, PRODUCT_IMAGE_ASPECTS } from '../utils/productImage';
 
-// Skeleton status: matches the real ProductCard image frame so the /shop
-// grid stops reflowing ~95px when products hydrate. Three things had to
-// align for this to actually work instead of leaking a height jolt:
+// Skeleton status: matches the real ProductCard so the /shop grid stops
+// reflowing when products hydrate. Four things align for the no-jolt case:
 //
-// 1. aspect ratio. ProductCard's <div className="aspect-[4/5] ... bg-gray-900">
-//    sets the image frame via aspect ratio, not h-64. The old h-64 (=256px)
-//    was fixed regardless of grid column width, so a 4-col desktop card
-//    (~280px wide ⇒ aspect-[4/5] = 350px tall) grew ~95px on hydrate and
-//    pushed every card below it down. New: aspect-[4/5] w-full matches the
-//    real card at every breakpoint.
+// 1. aspect ratio. ProductCard's image frame uses an aspect ratio, not
+//    h-64. The old h-64 (=256px) was fixed regardless of grid column
+//    width, so a 4-col desktop card (~280px wide ⇒ aspect-[4/5] = 350px
+//    tall) grew ~95px on hydrate and pushed every card below it down.
+//    New: PRODUCT_IMAGE_ASPECTS.card (read from utils/productImage.ts
+//    so a future ratio change is one edit) + w-full matches the real
+//    card at every breakpoint.
 //
 // 2. background color. There are now TWO modes:
 //    a. props-free (no `product` prop): bg-gray-900. Faithful for the
@@ -37,6 +37,17 @@ import { getProductRoles, IMAGE_BACKGROUND_CLASS } from '../utils/productImage';
 //
 // 3. corner radius. ProductCard's image frame has no rounding; the Skeleton
 //    primitive defaults to `rounded`, so pass `rounded-none` to match.
+//
+// 4. outer root. ProductCard's root is `group relative bg-transparent`
+//    (no border, no rounded, no overflow-hidden at the root). The
+//    skeleton's previous root was `bg-white rounded-lg overflow-hidden
+//    border border-gray-200` -- a literal non-match that added a visible
+//    white card chrome around the skeleton (white background + rounded
+//    border). New root matches the real card. The text Skeleton alignment
+//    drift (real card uses `mt-4 grid gap-3` for text below the image;
+//    skeleton uses `p-4` for text padding) is intentionally NOT in this
+//    commit -- a future pass can align if the visual delta becomes
+//    user-noticeable.
 interface ProductCardSkeletonProps {
     /**
      * When set, the skeleton's image-frame bg is derived from
@@ -67,14 +78,15 @@ const ProductCardSkeleton: React.FC<ProductCardSkeletonProps> = ({ product, imag
     const imageFrameClass = IMAGE_BACKGROUND_CLASS[imageBackground];
 
     return (
-        <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
+        <div className="group relative bg-transparent">
+            {/* See #4 in the comment block above. */}
             {/* data-testid="image-frame" gives the vitest spec a stable
                 selector (no DOM-order dependency). The other 3 Skeletons
                 below (title/subtitle/price/heart) also carry animate-pulse
                 from the primitive, so a class-only selector would race. */}
             <Skeleton
                 data-testid="image-frame"
-                className={`aspect-[4/5] w-full ${imageFrameClass} rounded-none`}
+                className={`${PRODUCT_IMAGE_ASPECTS.card} w-full ${imageFrameClass} rounded-none`}
             />
             <div className="p-4 space-y-3">
                 <Skeleton className="h-6 w-3/4" />

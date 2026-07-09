@@ -48,6 +48,13 @@ export const Cart: React.FC = () => {
                 <div className="lg:col-span-8 space-y-8">
                     {cart.map((item) => (
                         <div key={item.cartId} className="flex gap-6 py-6 border-b border-gray-100">
+                            {/* Cart line items use fixed 24x32 (3:4) sizing for
+                                line-item density, intentionally outside the
+                                centralised PRODUCT_IMAGE_ASPECTS map (which
+                                covers 4/5, 1:1, and 16:9). If the cart adopts
+                                a standard ratio, swap to
+                                ${'{PRODUCT_IMAGE_ASPECTS.gallery}'} (4/5) and
+                                drop h-32. */}
                             <div className="w-24 h-32 bg-gray-100 flex-shrink-0">
                                 <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover" />
                             </div>

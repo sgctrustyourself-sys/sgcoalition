@@ -2,6 +2,11 @@ import React from 'react';
 import { CartItem, Product } from '../types';
 import { useApp } from '../context/AppContext';
 import { getUpsellProducts, getProductsToReachThreshold, getNextShippingThreshold } from '../utils/upsellUtils';
+// PRODUCT_IMAGE_ASPECTS.thumb = 'aspect-square' -- 1:1 thumb sizing for
+// storefront product imagery. Pulling from the centralised map so a future
+// ratio change is one edit, not 6+ consumers. (The admin image grid uses
+// literal `aspect-square` -- a followup can migrate it to this map too.)
+import { PRODUCT_IMAGE_ASPECTS } from '../utils/productImage';
 import { ShoppingBag, TrendingUp, Sparkles } from 'lucide-react';
 
 interface CartUpsellsProps {
@@ -65,7 +70,7 @@ const CartUpsells: React.FC<CartUpsellsProps> = ({ cartItems, cartTotal, classNa
                         <img
                             src={product.images[0]}
                             alt={product.name}
-                            className="w-16 h-16 object-cover rounded border border-white/10"
+                            className={`w-16 h-16 ${PRODUCT_IMAGE_ASPECTS.thumb} object-cover rounded border border-white/10`}
                         />
 
                         {/* Product Info */}

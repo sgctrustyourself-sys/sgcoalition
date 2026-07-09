@@ -8,6 +8,7 @@ import { format, isValid } from 'date-fns';
 import VotingSystem from '../components/VotingSystem';
 import CommentsSection from '../components/CommentsSection';
 import { getBlogPostBySlug, mapBlogRowToPost } from '../data/blogPosts';
+import { PRODUCT_IMAGE_ASPECTS } from '../utils/productImage';
 
 const safeDate = (dateStr: any) => {
     if (!dateStr) return new Date();
@@ -122,11 +123,11 @@ const BlogPostView = () => {
 
                 {/* Cover Image */}
                 {post.coverImage && (
-                    <div className="mb-12 rounded-3xl overflow-hidden border border-white/5">
+                    <div className={`${PRODUCT_IMAGE_ASPECTS.hero} mb-12 rounded-3xl overflow-hidden border border-white/5`}>
                         <img
                             src={post.coverImage}
                             alt={post.title}
-                            className="w-full h-auto object-cover max-h-[500px]"
+                            className="w-full h-full object-cover"
                         />
                     </div>
                 )}

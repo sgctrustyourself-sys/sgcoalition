@@ -24,7 +24,7 @@ import { isNumberedEdition, getActiveTierPrice } from '../types';
 import { formatTierCalloutCopy } from '../services/numberedPieces';
 import { getDiscountedUnitPrice, getEffectiveDiscountPercent } from '../utils/productDiscount';
 import { Lock, Unlock, Loader } from 'lucide-react';
-import { getProductImage, getProductImageSrcSet, getProductRoleImage, getProductRoles, reconcileImageRoles, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
+import { getProductImage, getProductImageSrcSet, getProductRoleImage, getProductRoles, reconcileImageRoles, PRODUCT_IMAGE_ASPECTS, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
 import ProductReviews from '../components/ProductReviews';
 import TrustRibbon from '../components/TrustRibbon';
 import ScarcityNarrative from '../components/ScarcityNarrative';
@@ -512,7 +512,7 @@ const ProductDetails = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                     {/* Image Gallery */}
                     <div className="space-y-4">
-                        <div className={`aspect-[4/5] ${imageFrameClass} overflow-hidden rounded-sm relative border border-white/5 box-glow`}>
+                        <div className={`${PRODUCT_IMAGE_ASPECTS.gallery} ${imageFrameClass} overflow-hidden rounded-sm relative border border-white/5 box-glow`}>
                             <img
                                 src={getProductImage(galleryImages[activeImageIndex], 'gallery')}
                                 srcSet={getProductImageSrcSet(galleryImages[activeImageIndex])}
@@ -707,7 +707,7 @@ const ProductDetails = () => {
                                                     onDragOver={(event) => handleImageDragOver(event, idx)}
                                                     onDrop={() => handleImageDrop(idx)}
                                                     onDragEnd={handleImageDragEnd}
-                                                    className={`relative group aspect-[4/5] overflow-hidden rounded-sm border transition ${isDropTarget
+                                                    className={`relative group ${PRODUCT_IMAGE_ASPECTS.card} overflow-hidden rounded-sm border transition ${isDropTarget
                                                         ? 'border-brand-accent ring-2 ring-brand-accent/40'
                                                         : 'border-white/10'
                                                         } ${isDragged ? 'opacity-50 scale-[0.98]' : ''}`}

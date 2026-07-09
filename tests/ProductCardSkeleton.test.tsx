@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import ProductCardSkeleton from '../components/ProductCardSkeleton';
+import { PRODUCT_IMAGE_ASPECTS } from '../utils/productImage';
 import type { Product, ImageRoles } from '../types';
 
 // Locks the per-product skeleton resolution precedence shipped in commit
@@ -132,9 +133,9 @@ describe('ProductCardSkeleton image-frame class fidelity', () => {
     // The fidelity classes keep the skeleton DOM footprint matched to the
     // real ProductCard image frame, so hydration doesn't grow the leaf
     // element (~95px jolt on 4-col desktop grids was the original bug).
-    it('always emits aspect-[4/5] (matches ProductCard image frame)', () => {
+    it('always emits PRODUCT_IMAGE_ASPECTS.card (matches ProductCard image frame, locked via the centralised map)', () => {
         const { container } = render(<ProductCardSkeleton />);
-        expect(findImageFrame(container).className).toContain('aspect-[4/5]');
+        expect(findImageFrame(container).className).toContain(PRODUCT_IMAGE_ASPECTS.card);
     });
 
     it('always emits w-full', () => {
