@@ -39,6 +39,39 @@ Both work — pick whichever you can reach first. The Diagnostic #2 deploy is ri
 
 ## End-to-end steps
 
+### Step 0 — Capture the global route-table view FIRST (30-second screenshot, highest signal)
+
+**Cost:** ~30 seconds. **Signal:** surfaces H3 (Edge Route Map stale state) + per-handler cold-start crash signature + marketing-subscribe contrast all in one capture, before any per-function work begins. **Run this BEFORE any of Steps 1–7** — it locks in the layer discriminator (H3 vs H4 vs H7) faster than the 5–7-minute per-function deep-dive.
+
+1. On the Vercel Dashboard landing page (`vercel.com/dashboard`), click project `coalition-brand`.
+2. Set the time-filter dropdown (top-right of the dashboard) to **"Last 2 hours"**.
+3. Screenshot the entire page. Focus is the aggregate `Invocations` + `Error Rate` panel + the per-route table below it (every Lambda registered on the live domain, with columns: **Invocations · Active CPU · P95 Duration · Error Rate**).
+4. Paste the screenshot + verbatim number transcription into `docs/postmortems/postmortem-2026-07-08-api-routing-migration.md` §Diagnostic #4 partial result section, replacing the operator-supplied 2026-07-08 capture that's there now with the new fresh capture (prepend each one with `[source: <date>]` so a future reader can disambiguate sequential captures).
+
+**What the route-table surfaces (per the 2026-07-08 evidence shape):**
+
+| Signal | What it tells you | Implicates |
+|---|---|---|
+| Catch-all `[...]slug` is the highest-invocation route | Catch-all is the dominant runtime entry point, not a tail | Sets caller expectations — 90%+ of `/api/*` traffic error rate lives at THIS layer even if per-handler Lambda routes look identical from the outside |
+| Per-handler routes tracked independently of catch-all AND the per-handler source files only exist at `api/_handlers/<slug>.ts` (which Vercel's `_`-prefix convention should hide) | Stale edge route-map entries from prior failed deploys (`e33df76`, `--force` retry, `diag-2-no-catchall`) are real | **H3 (Edge Route Map) — HIGH CONFIDENCE AMONG SURVIVING HYPOTHESES** in one screenshot |
+| Per-handler routes show `Active CPU = 0ms` AND `P95 Duration > 200ms` | Lambda bootstrap crashes BEFORE user code runs | H4 (Bundler Chunking Bug) OR H7 (Builder / Runtime Mismatch) both fit this signature — disambiguated by Step 5 entry-point Lambda name + Step 9 bundle-grep |
+| `marketing-subscribe` shows `Error Rate = 0%` with non-zero `Active CPU` | Marketing-subscribe genuinely succeeded — catch-all resolved its `loadHandler()` + handler ran + validation gate reached | Refutes the postmortem's earlier inference that "marketing-subscribe survived only by validation short-circuit"; clarifies that marketing-subscribe is the contrast case, not a narrow survivor |
+| Per-handler routes show exactly N invocations at regular intervals (e.g. ~6 over 2h) | Vercel uptime probes or third-party monitors hitting those paths on a fixed cadence | Explains why per-handler Lambdas rack up error counts even when no real user traffic hits those paths — important for "is this a customer-impacting incident" framing |
+
+**Why Step 0 first (cost / signal ranking, ascending by signal per minute):**
+
+| Action | Cost | Signal |
+|---|---|---|
+| **Step 0 (route-table screenshot)** | **~30s** | **HIGH** — locks in H3 / H4 / H7 layer discriminator in one capture |
+| Step 1 (open Dashboard, locate failed deploy) | ~30s | LOW (navigation only) |
+| Step 2–3 (paste URL into search, open Functions tab) | ~1 min | LOW (UI plumbing only) |
+| Step 4–7 (per-function cold-start stacks for the 4 handlers × ~5 min each) | ~20 min | MEDIUM — narrows to exact fix path |
+| Step 9 (download zip + bundle-grep) | ~3 min | MEDIUM-HIGH — confirms or rules out H4 specifically |
+
+If Step 0 already locks in H3 + H7 (e.g., the route-table catches a fully-broken bundler output or a missing `@vercel/node` attachment on per-handler handlers), Steps 4–7 become **confirmatory** instead of **discovery** — total session time drops from ~25 min (Step 1–7 sequentially) to ~5 min (Step 0 + Step 9 minimum).
+
+### Step 1 — Open the Dashboard
+
 ### Step 1 — Open the Dashboard
 Go to **`https://vercel.com/dashboard`** → team `derron-byron's projects` → project `coalition-brand`. You should land on the **Deployments** tab.
 
