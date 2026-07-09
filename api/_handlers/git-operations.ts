@@ -14,16 +14,16 @@ import {
     getCurrentBranch,
     isGitRepository,
     getStatus,
-} from '../services/gitService';
-import type { GitBranch, GitCommit } from '../services/gitService';
-import { createHttpError, parseBody, setCorsHeaders, type HttpError } from './_helpers';
+} from '../../services/gitService';
+import type { GitBranch, GitCommit } from '../../services/gitService';
+import { createHttpError, parseBody, setCorsHeaders, type HttpError } from '../_helpers';
 import type {
     ApiRequest,
     ApiResponse,
     GitCheckoutInput,
     GitCommitInput,
     GitResetInput,
-} from './_types';
+} from '../_types';
 
 const DEFAULT_LOG_LIMIT = 50;
 
