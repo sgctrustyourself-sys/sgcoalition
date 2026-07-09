@@ -71,9 +71,8 @@ Both work — pick whichever you can reach first. The Diagnostic #2 deploy is ri
 If Step 0 already locks in H3 + H7 (e.g., the route-table catches a fully-broken bundler output or a missing `@vercel/node` attachment on per-handler handlers), Steps 4–7 become **confirmatory** instead of **discovery** — total session time drops from ~25 min (Step 1–7 sequentially) to ~5 min (Step 0 + Step 9 minimum).
 
 ### Step 1 — Open the Dashboard
-
-### Step 1 — Open the Dashboard
-Go to **`https://vercel.com/dashboard`** → team `derron-byron's projects` → project `coalition-brand`. You should land on the **Deployments** tab.
+Go to **`https://vercel.com/dashboard`**
+ → team `derron-byron's projects` → project `coalition-brand`. You should land on the **Deployments** tab.
 
 ### Step 2 — Locate the failed deploy
 **Paste** one of the deploy URLs from the table above into the Deployments search box. The deploy row should appear at the top. Click into it.
