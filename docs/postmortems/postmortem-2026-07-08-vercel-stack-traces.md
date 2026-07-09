@@ -341,7 +341,7 @@ Each commit body follows the runbook's standard metadata template:
 
 ```
 Source: dpl_<id>
-Entry-point: <entry-point-string> → <ONE_OF: H3 | H4 | inconclusive>
+Entry-point: <entry-point-string> → [pick ONE of H3 | H4 | inconclusive] (post-§1-§3 Field A pick-rule applies here — REPLACE three-way with the single chosen hypothesis)
 Cold-start: <duration> Region: <region> Lambda: <ver>, <memory>MB
 ```
 
@@ -353,7 +353,7 @@ Cold-start: <duration> Region: <region> Lambda: <ver>, <memory>MB
   ```
   Source: dpl_<deploy-id>
   Command: grep -rE '_handlers' /tmp/vfy_unzip/ | head -20
-  Output: [paste command's full stdout verbatim — either matched lines (one per line) if the bundler shipped stale `_handlers` references, or empty result (no output between the surrounding lines) if the bundle is clean]
+  Output: [paste command's full stdout verbatim — either matched lines (one per line) if the bundler shipped stale _handlers references, or empty result (no output between the surrounding lines) if the bundle is clean]
   ```
 
 - **Commit #5** (marketing-subscribe, contrast case that returns 400 not 500) — use `Source: dpl_<id>` + `Probe: empty-body → <response-code>` instead of `Entry-point: ... → H3 | H4 | inconclusive`. Marketing-subscribe's diagnostic signature is validation-gate short-circuit evidence, NOT entry-point evidence — the H3/H4/inconclusive pick-rule does NOT apply here. Sample body for commit #5:
@@ -374,7 +374,7 @@ Cold-start: <duration> Region: <region> Lambda: <ver>, <memory>MB
 
 - **Multi-deploy paste scenario** — if the operator pastes from multiple deploys (e.g., `--force` retry `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq` for §1 / §2 / §3 + Diagnostic #2 deploy `hkepnhkne-…` for §4), each per-deploy paste is its own commit per the per-paste rule. Grand total may exceed 5 commits. Still per-paste compliant.
 - **Optional §4 Field B (valid-body probe)** — if the operator runs the probe-with-valid-body variant AND captures its result, that's a separate commit appended (e.g. as commit #5b): `docs(postmortem): paste marketing-subscribe valid-body probe from <deploy-id>`. The empty-body probe is commit #5.
-- **Commit ordering** — commits do NOT need to be in the table order above. The §4 Field C cross-reference fix means any order works — the diff history just needs to record each datum's arrival time individually. The operator's natural Dashboard-capture order (paste §1 Field A/B first, then §2, §3, §4, then run the bundle-grep at the very end via the Source panel download) arrives in **document-section order** — commit #2 lands first, then #3, #4, #5, #5b (conditional), then #1 bundle-grep last. This is NOT numeric table order (which would put #1 first), but BOTH orders are valid per-paste. The numeric indices in the table above are documentation labels for the field-set, not commit-sequence instructions.
+- **Commit ordering** — commits do NOT need to be in the table order above. The §4 Field C cross-reference fix means any order works — the diff history just needs to record each datum's arrival time individually. Operator Dashboard-capture order (paste §1 Field A/B first, then §2, §3, §4; bundle-grep last) produces commits in **document-section order** (#2 first, then #3, #4, #5, #5b, finally #1) — NOT numeric table order. Either is valid per-paste.
 - **Single combined commit ("all in one") mode is explicitly NOT used.** The runbook's `## Commit hygiene` declares per-paste commits **non-negotiable** — there is no opt-out path documented. Operators must always commit per-paste per the table above; the per-paste mode is the audit-trail-preserving default. If a future investigator believes a single-combined commit is justified for an exceptional reason, surface it as a *separate* commit-and-amendment proposal (postmortem addendum); do NOT silently switch modes mid-cycle.
 
 **Why per-paste commits matter (verbatim from runbook rationale):** the diff history tells the trail of when each datum arrived. Reviewers (present and future) can jump to the commit that flipped the discriminator verdict. A single batch commit loses that audit trail — and this regression has cost enough debugging time that future investigators will thank us for granular commit metadata.
