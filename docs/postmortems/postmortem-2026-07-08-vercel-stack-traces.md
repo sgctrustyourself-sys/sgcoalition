@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-08
 **Linked postmortem:** [`postmortem-2026-07-08-api-routing-migration.md`](postmortem-2026-07-08-api-routing-migration.md)
-**Status:** PARTIALLY COMPLETE — CLI-side metadata captured; per-function runtime stack traces require Dashboard access and have not yet been pasted by a human operator.
+**Status:** PARTIALLY COMPLETE — CLI-side metadata captured; per-function runtime stack traces require Dashboard access and have not yet been pasted by a human operator. §1–§4 placeholder blocks below are now keyed to the **`[source: 2026-07-09]` capture schema** — three verbatim fields per the runbook Steps 5/6/9 (entry-point Lambda name + cold-start stack + Diagnostic #3 bundle-grep result). Operator paste target per the user's next-action cycle: `expand `/api/paypal-order` row in Vercel Dashboard` first (per §Diagnostic #4 still-pending list), then complete-order / ai-chat / marketing-subscribe. The CLI/CI capture-path audit below is unchanged — only a human operator with preserved Dashboard session can populate §1–§4 this turn.
 **Linked runbook (for the operator):** [`../runbooks/api-routing-fallback.md`](../runbooks/api-routing-fallback.md)
 
 ---
@@ -94,6 +94,33 @@ For each function, paste below. Preserve everything — line numbers, file paths
 
 ### §1 — `paypal-order` stack trace
 
+#### Operator capture schema (per runbook Steps 5/6/9) — `[source: 2026-07-09 — pending operator paste]`
+
+The next operator paste (runbook Step 4: "expand `/api/paypal-order` row in Vercel Dashboard → Functions tab → first FUNCTION_INVOCATION_FAILED invocation") yields THREE verbatim fields. Paste each in its own fenced block per the schema below — tagged with `[source: 2026-07-09]` so the postmortem disambiguates from the 2026-07-08 capture cycle audited in the linked main postmortem §Diagnostic #4 partial result.
+
+**Field A — Entry-point Lambda function name (Step 5 — the H3-vs-H4 discriminator):** the FIRST line of the expanded stack shows the Lambda entry-point string the runtime resolved to before throwing. Tag the resulting paste with the implicated hypothesis:
+
+```
+[source: 2026-07-09 | entry-point → H3 | H4 | inconclusive]
+```
+
+Decision matrix (verbatim from `../runbooks/api-routing-fallback.md` Step 5):
+
+| Entry-point shown by the runtime | Implicates |
+|---|---|
+| `[...slug].func` — the **catch-all** Lambda bundle | **H3 (Edge Route Map)** |
+| `paypal-order.func` — the **per-handler** Lambda bundle | **H4 (Bundler Chunking Bug)** |
+
+**Field B — Full cold-start + dependency-resolution stack (Step 6):** paste the full literal stack below. Do NOT redact line numbers, file paths, or error messages. Include the cold-start metadata block at top (Cold Start ~<duration>, Region, Lambda version, Memory size).
+
+**Field C — Bundle-grep result (Step 9 / Diagnostic #3, same-session companion):** per runbook Step 9, download the deployed source zip from the same deployment's Source panel, extract to `/tmp/vfy_unzip/`, then run `grep -rE '_handlers' /tmp/vfy_unzip/ | head -20`. Paste the grep output verbatim:
+
+- If matches present → **H4 confirmed**. Paste the grep output verbatim.
+- If matches absent → **H3 confirmed**. Paste the empty grep output verbatim.
+- If zip contains binary artifacts only → escalate to Vercel support. Paste the `file -i` listing of the zip.
+
+(The existing PENDING block below this schema remains as the older CLI-side reference — do NOT delete it. The new schema block above is the operational target for the `[source: 2026-07-09]` capture cycle.)
+
 <!-- PASTE STACK TRACE BELOW THIS LINE -->
 
 ```
@@ -119,6 +146,33 @@ REMINDER: prepend your paste with [source: <deploy-id>] so the postmortem disamb
 
 ### §2 — `complete-order` stack trace
 
+#### Operator capture schema (per runbook Steps 5/6/9) — `[source: 2026-07-09 — pending operator paste]`
+
+The next operator paste (runbook Step 7: "expand `/api/complete-order` row in Vercel Dashboard → Functions tab → first FUNCTION_INVOCATION_FAILED invocation") yields THREE verbatim fields. Paste each in its own fenced block per the schema below — tagged with `[source: 2026-07-09]` so the postmortem disambiguates from the 2026-07-08 capture cycle audited in the linked main postmortem §Diagnostic #4 partial result.
+
+**Field A — Entry-point Lambda function name (Step 5 — the H3-vs-H4 discriminator):** the FIRST line of the expanded stack shows the Lambda entry-point string the runtime resolved to before throwing. Tag the resulting paste with the implicated hypothesis:
+
+```
+[source: 2026-07-09 | entry-point → H3 | H4 | inconclusive]
+```
+
+Decision matrix (verbatim from `../runbooks/api-routing-fallback.md` Step 5):
+
+| Entry-point shown by the runtime | Implicates |
+|---|---|
+| `[...slug].func` — the **catch-all** Lambda bundle | **H3 (Edge Route Map)** |
+| `complete-order.func` — the **per-handler** Lambda bundle | **H4 (Bundler Chunking Bug)** |
+
+**Field B — Full cold-start + dependency-resolution stack (Step 6):** paste the full literal stack below. Do NOT redact line numbers, file paths, or error messages. Include the cold-start metadata block at top (Cold Start ~<duration>, Region, Lambda version, Memory size).
+
+**Field C — Bundle-grep result (Step 9 / Diagnostic #3, same-session companion):** per runbook Step 9, download the deployed source zip from the same deployment's Source panel, extract to `/tmp/vfy_unzip/`, then run `grep -rE '_handlers' /tmp/vfy_unzip/ | head -20`. Paste the grep output verbatim:
+
+- If matches present → **H4 confirmed**. Paste the grep output verbatim.
+- If matches absent → **H3 confirmed**. Paste the empty grep output verbatim.
+- If zip contains binary artifacts only → escalate to Vercel support. Paste the `file -i` listing of the zip.
+
+(The existing PENDING block below this schema remains as the older CLI-side reference — do NOT delete it. The new schema block above is the operational target for the `[source: 2026-07-09]` capture cycle.)
+
 <!-- PASTE STACK TRACE BELOW THIS LINE -->
 
 ```
@@ -140,6 +194,33 @@ REMINDER: prepend your paste with [source: <deploy-id>] so the postmortem disamb
 ---
 
 ### §3 — `ai-chat` stack trace
+
+#### Operator capture schema (per runbook Steps 5/6/9) — `[source: 2026-07-09 — pending operator paste]`
+
+The next operator paste (runbook Step 7: "expand `/api/ai-chat` row in Vercel Dashboard → Functions tab → first FUNCTION_INVOCATION_FAILED invocation") yields THREE verbatim fields. Paste each in its own fenced block per the schema below — tagged with `[source: 2026-07-09]` so the postmortem disambiguates from the 2026-07-08 capture cycle audited in the linked main postmortem §Diagnostic #4 partial result.
+
+**Field A — Entry-point Lambda function name (Step 5 — the H3-vs-H4 discriminator):** the FIRST line of the expanded stack shows the Lambda entry-point string the runtime resolved to before throwing. Tag the resulting paste with the implicated hypothesis:
+
+```
+[source: 2026-07-09 | entry-point → H3 | H4 | inconclusive]
+```
+
+Decision matrix (verbatim from `../runbooks/api-routing-fallback.md` Step 5):
+
+| Entry-point shown by the runtime | Implicates |
+|---|---|
+| `[...slug].func` — the **catch-all** Lambda bundle | **H3 (Edge Route Map)** |
+| `ai-chat.func` — the **per-handler** Lambda bundle | **H4 (Bundler Chunking Bug)** |
+
+**Field B — Full cold-start + dependency-resolution stack (Step 6):** paste the full literal stack below. Do NOT redact line numbers, file paths, or error messages. Include the cold-start metadata block at top (Cold Start ~<duration>, Region, Lambda version, Memory size).
+
+**Field C — Bundle-grep result (Step 9 / Diagnostic #3, same-session companion):** per runbook Step 9, download the deployed source zip from the same deployment's Source panel, extract to `/tmp/vfy_unzip/`, then run `grep -rE '_handlers' /tmp/vfy_unzip/ | head -20`. Paste the grep output verbatim:
+
+- If matches present → **H4 confirmed**. Paste the grep output verbatim.
+- If matches absent → **H3 confirmed**. Paste the empty grep output verbatim.
+- If zip contains binary artifacts only → escalate to Vercel support. Paste the `file -i` listing of the zip.
+
+(The existing PENDING block below this schema remains as the older CLI-side reference — do NOT delete it. The new schema block above is the operational target for the `[source: 2026-07-09]` capture cycle.)
 
 <!-- PASTE STACK TRACE BELOW THIS LINE -->
 
@@ -166,6 +247,26 @@ REMINDER: prepend your paste with [source: <deploy-id>] so the postmortem disamb
 The 1 endpoint that returned 400 instead of 500 is just as diagnostically important as the 3 that crashed — but its evidence is shaped differently. `marketing-subscribe`'s survival is NOT proof the migration worked for it; it's proof the handler's input validation short-circuited before reaching the lazy-import path that crashed the others. If `marketing-subscribe` had been probed with a payload that passes its validation (instead of the empty `{}` body the probe used), it might still have crashed at the same lazy-import error. So §4 evidence should be read carefully: it tells us "validation gate ran first and 400'd before the broken-import path", not "marketing-subscribe is healthier than the others."
 
 For comparison purposes, capture both: (a) the runtime invocation log for marketing-subscribe's first probe-with-empty-body invocation (which returned 400), AND (b) if a subsequent probe-with-valid-body invocation is feasible and safe, that runtime log too.
+
+#### Operator capture schema (per runbook Step 8) — `[source: 2026-07-09 — pending operator paste]`
+
+The probe-with-empty-body invocation that returned 400 is the **contrast evidence** — marketing-subscribe's validation gate ran before the broken-import path that crashed §1–§3. The valid-body probe (if safely attemptable) extends the contrast to a full handler round-trip. Paste each field in its own fenced block per the schema below — tagged with `[source: 2026-07-09]` so the postmortem disambiguates from the 2026-07-08 capture cycle audited in the linked main postmortem §Diagnostic #4 partial result.
+
+**Field A — Probe-with-empty-body runtime log (Step 8):** paste the literal runtime log for the first invocation with `{}` body, expected 400 response:
+
+```
+[source: 2026-07-09 | marketing-subscribe empty-body probe → 400 → confirms validation gate ran first, did NOT reach lazy-import path]
+```
+
+**Field B — (Optional) Probe-with-valid-body runtime log (Step 8 extension):** if the operator runs a marketing-subscribe probe with a valid email payload and captures the result, paste here:
+
+```
+[source: 2026-07-09 | marketing-subscribe valid-body probe → reached handler IF present, else 400 validation re-fires]
+```
+
+**Field C — Bundle-grep result (Step 9 / Diagnostic #3, same-session companion):** same schema as §1–§3 — per runbook Step 9, download the deployed source zip from the same deployment's Source panel, extract to `/tmp/vfy_unzip/`, then run `grep -rE '_handlers' /tmp/vfy_unzip/ | head -20`. Paste the grep output verbatim (matches present → H4 confirmed, matches absent → H3 confirmed, binary artifacts-only → Vercel support escalation).
+
+(The existing PENDING blocks below this schema remain as the older CLI-side reference — do NOT delete them. The new schema block above is the operational target for the `[source: 2026-07-09]` capture cycle.)
 
 <!-- PASTE RUNTIME LOG BELOW THIS LINE (probe-with-empty-body invocation, returned 400) -->
 
