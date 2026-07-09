@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-08 (cycle continues through end of day)
 **Status:** **CACHE HYPOTHESIS INVALIDATED** (Attempt 5) AND **H2 (CATCH-ALL PRECEDENCE) RULED OUT** (Diagnostic #2) AND **H3 (EDGE ROUTE MAP STALE STATE) HIGH CONFIDENCE AMONG SURVIVING HYPOTHESES** (Diagnostic #4 partial result, 2026-07-08 Dashboard route-table observed by operator — qualifies as HIGH AMONG SURVIVING because per-handler routes STAY in Vercel edge config without per-handler sources existing, but this single layer of evidence alone does NOT yet rule out H4 (bundler could leave `_handlers/` strings in per-handler bundles' compiled output too) or H7 (builder could still mismatch the runtime)). H4 + H5 remain in scope + H7 (Builder / Runtime Mismatch — newly considered) at MEDIUM confidence on the same Dashboard signal: `framework: "vite"` with no explicit `builds` directive has been in `vercel.json` throughout — but the bundler output of the **prior** deploys (`1450a5a`, `--force` retry) may have absorbed the partial-detection case differently than the rollback to `_handlers/` lineage does. Re-attaching `builds` remains the smallest surgical fix path (see §Diagnostic #4 partial result below). Production rolled back to stable 503 baseline (`b632e74` = docs on top of `cb30a60` = revert of `e33df76`). Pending: per-function entry-point Lambda names + cold-start stacks + bundle-grep (steps 5/6/9 of the runbook) — these will close H3 vs H4 vs H7 to a single verdict.
-**Cache hypothesis:** INVALIDATED. **H2 (Catch-all Precedence):** INVALIDATED. **H3 (Edge Route Map):** **HIGH CONFIDENCE** — operator-supplied Dashboard route-table evidence (§Diagnostic #4 partial result below) shows Vercel tracking per-handler routes (`paypal-order`, `complete-order`, `ai-chat`) as independent routes with their own invocation + CPU + duration columns, despite the per-handler source files NOT existing at the current prod tree (`api/_handlers/<slug>.ts` not `api/<slug>.ts`). Stale route-map state is the strongest signal so far.
+**Cache hypothesis:** INVALIDATED. **H2 (Catch-all Precedence):** INVALIDATED. **H3 (Edge Route Map):** **HIGH CONFIDENCE AMONG SURVIVING HYPOTHESES** — operator-supplied Dashboard route-table evidence (§Diagnostic #4 partial result below) shows Vercel tracking per-handler routes (`paypal-order`, `complete-order`, `ai-chat`) as independent routes with their own invocation + CPU + duration columns, despite the per-handler source files NOT existing at the current prod tree (`api/_handlers/<slug>.ts` not `api/<slug>.ts`). Stale route-map state is the strongest single-layer signal so far, but does not yet rule out H4 (bundler could leave `_handlers/` strings in per-handler bundle outputs) or H7 (builder could still mismatch runtime).
 
 ---
 
@@ -264,6 +264,69 @@ Diagnostic #1 (this section) is complete and ruled out H1. Diagnostic #2 is comp
 | Diagnostic #4 (Dashboard log tracing) | 🟡 **Partial** — operator capturable | Same auth-wall as Diagnostic #3; **CLI auth-wall blocks automated capture but operator has begun pasting Dashboard data** (route-table captured 2026-07-08; per-function entry-point + cold-start stack still pending). Operator-supplied evidence is the fallback channel — already raised H3 to HIGH AMONG SURVIVING with route-table data alone. |
 
 **For the next operator session** (whether human with Vercel Dashboard access or AI with that access): Diagnostic #3 + #4 remain actionable, can be combined into one Dashboard session, and produce the §1-§4 evidence the stack-traces doc is waiting for. The placeholders in that doc now correctly accept paste-source from EITHER `dpl_H6m4Eyh2DTKNNyZSrFzTyL8kYWSq` or `dpl_AUqeWAftrtcXNcALCpMKp5RxuaHc` (per the operator note added to that doc today).
+
+---
+
+## Diagnostic #4 partial result (2026-07-08, operator-supplied Dashboard route-table)
+
+**Filed under:** §Updated diagnostic branches → Diagnostic Step 4 progress. **Partial** because route-table + global aggregate are pasted; per-function entry-point Lambda names + per-function cold-start stacks + bundle-grep (runbook steps 5/6/9) are still pending.
+
+**Method:** Operator captured Vercel Dashboard view (Production / Last 2 hours). UI rendered route-level statistics (Invocations + Active CPU + P95 Duration + Error Rate columns) for each registered route on the live domain.
+
+**Result (verbatim from operator-supplied Dashboard screenshot):**
+
+| Route | Invocations | Active CPU | P95 Duration | Error Rate |
+|---|---|---|---|---|
+| `/api/[...]slug` (catch-all Lambda) | **132** | **18ms** | **13ms** | **90.2%** |
+| `/api/marketing-subscribe` | 6 | 180ms | 65ms | **0%** |
+| `/api/paypal-order` | 6 | **0ms** | **210ms** | **100%** |
+| `/api/complete-order` | 6 | **0ms** | **288ms** | **100%** |
+| `/api/ai-chat` | 6 | **0ms** | **214ms** | **100%** |
+
+Aggregate panel (top of Dashboard): **Total invocations: 156** · **Total Error Rate: 91.3% Error / 0% Timeout** · **Cold Start: 1s** · Memory Usage P95: **208 MB / 2.05 GB** · Time to First Byte P95: **66ms** · CPU Throttle: **19.4%** · Compute Model: **Fluid**.
+
+### Six concrete findings
+
+1. **Catch-all `[...]slug` is by far the busiest route (132 invocations vs 6 each for per-handler routes).** Contradicts the pre-Dashboard assumption that the catch-all was a tail path. The catch-all is the dominant entry point for `/api/*` traffic; 90.2% of those calls fail with our `loadHandler()` short-circuit (matching the prior CLI evidence `[api] failed to load handler <slug>: Cannot find module '/var/task/api/_handlers/<slug>'`).
+2. **Per-handler routes ARE independently registered in Vercel's edge config** despite the per-handler source files NOT existing at the current prod tree — handlers live at `api/_handlers/<slug>.ts` (silently ignored by Vercel's `_`-prefix convention), NOT at `api/<slug>.ts`. **Route-map entries for per-handler functions must therefore be leftovers from prior failed deploys** (`1450a5a`, `--force` retry, `diag-2-no-catchall`) that Vercel did not auto-clean on rollback. **Direct evidence for H3 (Edge Route Map stale state) — confidence HIGH AMONG SURVIVING HYPOTHESES.**
+3. **Per-handler routes show 0ms Active CPU and P95 Duration 210–288ms.** A function that runs ANY user code would have non-zero CPU. **0ms confirms the bootstrap crashes BEFORE user code executes.** This fits the operator's earlier paste of `Command not found: "/api/paypal-order"` (the trailing docs URL was a Dashboard UI element adjacent to the error body, not an actual second command argument) — the Lambda's shell-exec wrapper cannot find the entry-point at cold-start. The 210–288ms wall-clock is cold-start + exec-attempt time; 0ms of that is user code.
+4. **Catch-all has non-zero Active CPU (18ms) + 13ms P95 Duration + 90.2% Error Rate.** The catch-all IS running user code. The 18ms average includes time spent on the 6 successful invocations (mostly the `marketing-subscribe` validation-gate-to-success path). The 90.2% error invocations ran `loadHandler()` first, hit the dynamic-import catch, returned our structured 503.
+5. **`marketing-subscribe` shows 0% Error Rate across 6 invocations with 180ms Active CPU + 65ms P95 Duration.** This **CONTRADICTS** the postmortem inference that "`marketing-subscribe` survived only by validation short-circuit before reaching broken-import path" (drawn from a single empty-body probe in the postmortem's Attempt 5 step). Dashboard's 6 separate route invocations (all successful) tell us the catch-all `loadHandler()` succeeded for `marketing-subscribe` AND the handler ran AND validation-gate-to-200 (or 400) reached user code. **Marketing-subscribe is genuinely healthier** — its lazy-import resolves; the others' don't.
+6. **Per-handler Lambda routes still show 100% error rate with periodic ~6 invocations over 2h — likely Vercel uptime probes or third-party monitoring hitting those paths every ~20 min.** Failure mode is identical every time: 0ms CPU, 200-300ms wall-clock, FUNCTION_INVOCATION_FAILED. The catch-all is doing all the real work for genuine user traffic; the per-handler routes are paying the cold-start cost on every probe with zero real traffic captured.
+
+### Updated hypothesis confidence after Dashboard route-table capture
+
+| Hypothesis | Pre-Dashboard | Post-Dashboard |
+|---|---|---|
+| H1 (Flawed migration source — narrowed to indirect form) | RULED OUT | RULED OUT |
+| H2 (Catch-all precedence) | RULED OUT | RULED OUT |
+| H3 (Edge Route Map stale state) | plausible | **HIGH AMONG SURVIVING** ← raised significantly today |
+| H4 (Bundler Chunking Bug) | plausible | MEDIUM-HIGH ← 0ms CPU + Command-not-found tie |
+| H5 (Env-var Masking) | plausible | MEDIUM (no new evidence; remains a candidate) |
+| **H7 (Builder / Runtime Mismatch — newly considered)** | (new hypothesis today) | MEDIUM ← `framework: "vite"` with no `builds` directive has been in `vercel.json` throughout, but the bundler output of *prior* deploys (`1450a5a`, `--force` retry) may have absorbed partial-detection differently than the rollback to `_handlers/` lineage does |
+
+### Specifically for H7
+
+`vercel.json` has `framework: "vite"` + `outputDirectory: "dist"` but **NO `builds` directive**. With Vite-only config, Vercel's runtime relies on auto-detection of `api/*.ts` to attach the `@vercel/node` builder. If auto-detection ran partially (e.g., catch-all registered as Node, per-handler files emitted as raw `.ts` archives), per-handler invocations would hit the cold-start exec step and fail with the OS-layer `Command not found` shape observed. **H7's fix path is the smallest surgical intervention:** add an explicit `builds` block to `vercel.json` so `@vercel/node` is enforced for every `api/`-tree TypeScript file regardless of framework auto-detection. This is fixable from the CLI/CI session without Dashboard access.
+
+### Still pending (runbook steps 5/6/9 still required for full closure)
+
+- **Per-function entry-point Lambda name** (runbook Step 5) — discriminates H3 vs H4 vs H7 via whether the cold-start entry-point was the catch-all bundle, a per-handler bundle, or a malformed raw-handler file.
+- **Per-function cold-start stack** (runbook Step 6) — reveals the exact exec-attempt failure path (missing interpreter, exec format error, ENOENT on `.func`, etc.).
+- **Bundle-grep** (runbook Step 9) — `grep -rE '_handlers' /tmp/vfy_unzip/`. If `_handlers` strings appear in deployed bundle → H4 confirmed. If absent but runtime still asks for `_handlers/` → H3 confirmed. If bundle looks broken or half-compiled → H7 confirmed.
+
+### Concrete next operator action (~5 minutes Dashboard time)
+
+1. Stay on Production / Last 2 hours view.
+2. Click `/api/paypal-order` row → expand first invocation → record entry-point Lambda name + cold-start stack. Paste into `docs/postmortems/postmortem-2026-07-08-vercel-stack-traces.md` §1 (overwrite `[ PENDING — … ]`).
+3. Click `/api/complete-order` row → paste into §2. Click `/api/ai-chat` row → paste into §3.
+4. Click `/api/marketing-subscribe` row → confirm cold-start succeeded (~180ms) → paste into §4.
+5. Source panel → download deployed zip → extract + grep per runbook Step 9 → paste grep result into §Diagnostic #3 attempt result subsection.
+
+After steps 1-5, the `H3 / H4 / H7` header moves from `[partial]` to `[confirmed by operator Dashboard capture]` and a single fix path can be selected:
+- **H3 confirmed** → Vercel support escalation + edge-route-map purge API
+- **H4 confirmed** → fix the catch-all lazy-import resolution (revert migration OR add per-handler stub in `_handlers/`)
+- **H7 confirmed** → add explicit `builds` block to `vercel.json` and redeploy with `--force` (this is also a fix candidate even without dashboard confirmation — smallest surgical intervention)
 
 ---
 
