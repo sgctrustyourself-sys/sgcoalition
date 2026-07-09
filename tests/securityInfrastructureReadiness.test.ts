@@ -558,10 +558,28 @@ describe('Feature 5: Sentry (browser error tracking)', () => {
     it('initSentry uses browserTracingIntegration + 0.1 tracesSampleRate (low-volume commerce default)', () => {
         const src = readFile('services/sentryInit.ts');
         expect(src).toMatch(/Sentry\.browserTracingIntegration\s*\(/);
-        expect(src).toMatch(/tracesSampleRate:\s*DEFAULT_TRACES_SAMPLE_RATE|tracesSampleRate:\s*0\.1/);
+        expect(src).toMatch(/tracesSampleRate:\s*TRACES_SAMPLE_RATE/);
         // tracesSampleRate constant must be 0.1 -- a higher value
         // burns Sentry quota on a low-traffic site.
-        expect(src).toMatch(/DEFAULT_TRACES_SAMPLE_RATE\s*=\s*0\.1/);
+        expect(src).toMatch(/TRACES_SAMPLE_RATE\s*=\s*0\.1/);
+        // The old DEFAULT_ prefix is dead -- there is no override
+        // path, so the name was misleading.
+        expect(src).not.toMatch(/DEFAULT_TRACES_SAMPLE_RATE/);
+    });
+
+    it('initSentry has no dead replay config (no rate without an integration registered)', () => {
+        const src = readFile('services/sentryInit.ts');
+        // The replays rate is set in Sentry.init but only
+        // honored if a replay integration is registered. Without
+        // the integration, the SDK silently ignores the rate --
+        // so the constant was dead config. A future operator
+        // who reads "DEFAULT_REPLAY_SAMPLE_RATE" might add a
+        // replayIntegration() without realizing they're now
+        // silently enabling replays at some non-zero rate.
+        // Lock: neither the constant nor the config field
+        // appears in the source today.
+        expect(src).not.toMatch(/DEFAULT_REPLAY_SAMPLE_RATE/);
+        expect(src).not.toMatch(/replaysSessionSampleRate/);
     });
 
     it('initSentry drops browser-extension noise (denyUrls) and ResizeObserver quirk (beforeSend)', () => {
@@ -655,6 +673,45 @@ describe('Feature 5: Sentry (browser error tracking)', () => {
         const headersSrc = readFile('vercel.json');
         expect(headersSrc).toMatch(/script-src[^;]*browser\.sentry-cdn\.com/);
         expect(headersSrc).toMatch(/connect-src[^;]*ingest\.sentry\.io/);
+    });
+
+    it('both React 19 root handlers use level: error (the source tag differentiates caught vs uncaught)', () => {
+        const src = readFile('index.tsx');
+        // Both onUncaughtError and onCaughtError report at
+        // level 'error'. Caught errors still surfaced the
+        // recovery UI but they remain error-class events --
+        // downgrading to 'warning' would mask the signal from
+        // paging rules that fire on any error-level event. The
+        // source tag (react19-root-uncaught vs caught) does the
+        // caught/uncaught differentiation in the dashboard.
+        //
+        // Slice anchor: createRoot is followed by `root.render`
+        // in the source. Anchoring to `root.render` (vs. the
+        // naive '});' search) avoids matching the FIRST '});'
+        // in the file, which is the closing of the first
+        // handler's nested Sentry.captureException call -- not
+        // the createRoot call itself. Starting the search from
+        // createRootIdx ensures we only consider '});' after
+        // the createRoot call.
+        const createRootIdx = src.indexOf('ReactDOM.createRoot');
+        const renderIdx = src.indexOf('root.render');
+        expect(createRootIdx).toBeGreaterThan(0);
+        expect(renderIdx).toBeGreaterThan(createRootIdx);
+        const createRootBlock = src.slice(createRootIdx, renderIdx);
+        // Exactly 2 handlers inside createRoot -> exactly 2
+        // level: 'error' lines.
+        const errorMatches = createRootBlock.match(/level:\s*['"]error['"],/g) || [];
+        expect(errorMatches.length).toBe(2);
+        // Zero level: 'warning' lines -- downgrading caught to
+        // warning was the original design decision and we are
+        // explicitly locking the new behavior here.
+        const warningMatches = createRootBlock.match(/level:\s*['"]warning['"],/g) || [];
+        expect(warningMatches.length).toBe(0);
+        // Both handlers must carry a source tag for
+        // dashboard-filtering. Even one handler missing the
+        // tag would make caught vs uncaught indistinguishable.
+        expect(createRootBlock).toMatch(/source:\s*['"]react19-root-uncaught['"]/);
+        expect(createRootBlock).toMatch(/source:\s*['"]react19-root-caught['"]/);
     });
 
     it('ErrorBoundary keeps console.error as a backup so logging works even if Sentry is broken', () => {

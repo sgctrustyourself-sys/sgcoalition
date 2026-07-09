@@ -47,10 +47,13 @@ const root = ReactDOM.createRoot(rootElement, {
         Sentry.captureException(error, {
             extra: { componentStack: errorInfo.componentStack ?? null },
             tags: { source: 'react19-root-caught' },
-            // Caught -> the user saw the recovery UI. Sentry's
-            // default level for caught is so the dashboard can
-            // sort by impact; not as severe as uncaught.
-            level: 'warning',
+            // Both React 19 root handlers report at level 'error'.
+            // The source tag above (react19-root-uncaught vs
+            // react19-root-caught) does the caught/uncaught
+            // differentiation in the Sentry dashboard; downgrading
+            // caught to 'warning' would mask the signal from
+            // paging rules that fire on any error-level event.
+            level: 'error',
         });
     },
 });

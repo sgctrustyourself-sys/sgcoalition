@@ -31,10 +31,19 @@
 
 import * as Sentry from '@sentry/react';
 
-const DEFAULT_TRACES_SAMPLE_RATE = 0.1;
-// Replay is OFF by default. Enable in a follow-up (still gated
-// on PROD) once the operator wants session-replay coverage.
-const DEFAULT_REPLAY_SAMPLE_RATE = 0;
+const TRACES_SAMPLE_RATE = 0.1;
+// Session replay is DEFERRED. To enable later, both (a) registering
+// the replay integration in the integrations array below AND (b)
+// a matching rate config field in this Sentry.init call are
+// required -- the SDK silently drops the rate when no replay
+// integration is registered, so leaving one without the other
+// is a footgun. The current absence of both is intentional, not
+// an oversight. The readiness test in
+// tests/securityInfrastructureReadiness.test.ts makes the absence
+// a regression-catch so a future developer cannot accidentally
+// re-introduce just the rate without also wiring the integration.
+// See the alert-rule note in .env.example for the matching
+// Sentry dashboard setup that goes with the live wire-in.
 
 // denyUrls runs BEFORE beforeSend and drops events whose stack
 // frames reference any of these patterns. Browser extensions
@@ -82,8 +91,7 @@ export function initSentry(): void {
             // through Sentry quota.
             Sentry.browserTracingIntegration(),
         ],
-        tracesSampleRate: DEFAULT_TRACES_SAMPLE_RATE,
-        replaysSessionSampleRate: DEFAULT_REPLAY_SAMPLE_RATE,
+        tracesSampleRate: TRACES_SAMPLE_RATE,
         // Drop browser-extension noise early in the pipeline.
         // denyUrls docs:
         // https://docs.sentry.io/platforms/javascript/configuration/options/#deny-urls
