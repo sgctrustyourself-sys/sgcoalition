@@ -381,16 +381,18 @@ Pre-order reservations are intentionally capped at one per size. After the close
   },
   {
     id: 'prod_halo_mini_dress',
-    founderNote: '[PLACEHOLDER · prod_halo_mini_dress] Replace with founder\'s note: 1-2 paragraphs covering what this build is, why this shape, and what to notice in the seams.',
+    founderNote: '[PLACEHOLDER · prod_halo_mini_dress] Replace with founder note: 1-2 paragraphs covering what this build is, why this shape, and what to notice in the seams.',
     name: 'COALITION HALO MINI DRESS',
     price: 50,
     createdAt: '2026-07-01T00:00:00-04:00',
     images: [
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/halo-mini-dress-1.jpg',
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/halo-mini-dress-2.jpg'
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_nzsauOz.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_wYR7Nfx.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_v4xVrou.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_OKefysC.png'
     ],
     description: 'The Coalition Halo Mini Dress — a limited-edition drop that blends sharp tailoring with streetwear edge. Cut from heavyweight cotton with a sculpted silhouette and signature Coalition detailing throughout.',
-    category: 'dress',
+    category: 'apparel',
     isLimitedEdition: true,
     isFeatured: false,
     sizes: ['S', 'M', 'L', 'XL'],
@@ -403,11 +405,14 @@ Pre-order reservations are intentionally capped at one per size. After the close
     price: 40,
     createdAt: '2026-07-01T00:00:00-04:00',
     images: [
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-contrast-shorts-1.jpg',
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-contrast-shorts-2.jpg'
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_juuQ8jz.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXvoGU6.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png'
     ],
     description: 'Women\'s Coalition Above as Below Contrast Shorts — a sharp, sculpted cut designed to balance the heavyweight Above as Below tee. Premium cotton construction with contrast panel detailing.',
-    category: 'shorts',
+    category: 'apparel',
     isLimitedEdition: true,
     isFeatured: false,
     sizes: ['S', 'M', 'L', 'XL'],
@@ -420,8 +425,11 @@ Pre-order reservations are intentionally capped at one per size. After the close
     price: 40,
     createdAt: '2026-07-01T00:00:00-04:00',
     images: [
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-crop-tank-1.jpg',
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-crop-tank-2.jpg'
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HFMfNYr.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EqDgC3h.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png'
     ],
     description: 'Women\'s Coalition Above as Below Crewneck Crop Tank — a cropped silhouette cut from the same heavy-weight run as the Above as Below tee. Crewneck collar, raw-hem crop, and Coalition screen across the chest.',
     category: 'shirt',
@@ -437,8 +445,13 @@ Pre-order reservations are intentionally capped at one per size. After the close
     price: 75,
     createdAt: '2026-07-01T00:00:00-04:00',
     images: [
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-set-1.jpg',
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-set-2.jpg'
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HFMfNYr.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EqDgC3h.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_juuQ8jz.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXvoGU6.png'
     ],
     description: 'Women\'s Coalition Above as Below Set — the crop tank and contrast shorts bundled at $75 ($80 individually, save $5). Cut from the same heavy-weight run with matched Coalition screen across both pieces.',
     category: 'apparel',
@@ -454,8 +467,11 @@ Pre-order reservations are intentionally capped at one per size. After the close
     price: 40,
     createdAt: '2026-07-03T00:00:00-04:00',
     images: [
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-halo-contrast-tee-1.jpg',
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-halo-contrast-tee-2.jpg'
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_X4it3yW.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXJsUIn.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DJJY3LT.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_AAW60N3.png',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_k3cZbA3.png'
     ],
     description: 'Women\'s Coalition Halo Contrast Tee — a limited-edition tee with sharp contrast paneling and the Coalition Halo motif across the chest. Heavyweight cotton construction.',
     category: 'shirt',
