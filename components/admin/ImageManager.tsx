@@ -4,12 +4,82 @@ import { Product } from '../../types';
 import {
     Upload, Plus, X, ChevronLeft, ChevronRight, Star, GripVertical,
     Search, Save, Loader2, AlertCircle, CheckCircle, Image as ImageIcon,
-    ExternalLink
+    ExternalLink, Globe, AlertTriangle
 } from 'lucide-react';
 import { uploadProductImage } from '../../services/productUpload';
 import ImageCropperModal from '../ui/ImageCropperModal';
 import { moveArrayItem } from '../../utils/arrayMove';
 import { normalizeProductSizeData } from '../../utils/productSizes';
+
+// Types of image URL accessibility
+const IMAGE_URL_TYPE = {
+    SUPABASE_STORAGE: 'supabase',   // https://*.supabase.co/storage/* — globally accessible
+    CDN_ABSOLUTE: 'cdn',            // https://i.imgur.com, https://imgur.com — globally accessible
+    LOCAL_PATH: 'local',            // /images/* — served from Vercel CDN, globally accessible
+    OTHER_ABSOLUTE: 'other',        // Any other https:// URL — depends on the source
+    INSECURE: 'insecure',           // http:// (no SSL) — might be blocked by some browsers/regions
+    INVALID: 'invalid',             // Not a valid image URL format
+} as const;
+
+type ImageUrlType = typeof IMAGE_URL_TYPE[keyof typeof IMAGE_URL_TYPE];
+
+function classifyImageUrl(url: string): { type: ImageUrlType; label: string; warning?: string } {
+    if (!url || typeof url !== 'string') {
+        return { type: IMAGE_URL_TYPE.INVALID, label: 'Invalid', warning: 'Empty or invalid URL' };
+    }
+
+    if (url.startsWith('/')) {
+        return {
+            type: IMAGE_URL_TYPE.LOCAL_PATH,
+            label: 'Local (Vercel CDN)',
+            warning: undefined,
+        };
+    }
+
+    if (url.startsWith('http://')) {
+        return {
+            type: IMAGE_URL_TYPE.INSECURE,
+            label: 'HTTP (No SSL)',
+            warning: 'Non-HTTPS URLs may be blocked by some browsers and regions. Use HTTPS or upload via the crop tool.'
+        };
+    }
+
+    if (url.startsWith('https://')) {
+        if (url.includes('supabase.co/storage')) {
+            return {
+                type: IMAGE_URL_TYPE.SUPABASE_STORAGE,
+                label: 'Supabase CDN',
+                warning: undefined,
+            };
+        }
+        if (url.includes('imgur.com') || url.includes('i.imgur.com') || url.includes('i.ibb.co')) {
+            return {
+                type: IMAGE_URL_TYPE.CDN_ABSOLUTE,
+                label: 'Image CDN',
+                warning: undefined,
+            };
+        }
+        // Check for localhost or private IPs
+        if (url.includes('localhost') || url.includes('127.0.0.1') || url.includes('192.168.') || url.includes('10.')) {
+            return {
+                type: IMAGE_URL_TYPE.OTHER_ABSOLUTE,
+                label: '⚠ Private URL',
+                warning: 'This URL points to a local or private network address. It will not be accessible to visitors outside your network.'
+            };
+        }
+        return {
+            type: IMAGE_URL_TYPE.OTHER_ABSOLUTE,
+            label: 'External HTTPS',
+            warning: undefined,
+        };
+    }
+
+    return {
+        type: IMAGE_URL_TYPE.INVALID,
+        label: 'Invalid',
+        warning: 'This does not appear to be a valid image URL. Use a full https:// URL or a /images/ path.'
+    };
+}
 
 const ImageManager: React.FC = () => {
     const { products, updateProduct } = useApp();
@@ -144,12 +214,40 @@ const ImageManager: React.FC = () => {
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
+    // Validate all image URLs before saving
+    const validateImageUrls = (urls: string[]): { valid: boolean; warnings: string[] } => {
+        const warnings: string[] = [];
+        for (let i = 0; i < urls.length; i++) {
+            const result = classifyImageUrl(urls[i]);
+            if (result.type === IMAGE_URL_TYPE.INVALID) {
+                warnings.push(`Image #${i + 1}: ${result.warning}`);
+            } else if (result.type === IMAGE_URL_TYPE.INSECURE) {
+                warnings.push(`Image #${i + 1}: ${result.warning}`);
+            } else if (result.warning) {
+                warnings.push(`Image #${i + 1}: ${result.warning}`);
+            }
+        }
+        return { valid: warnings.length === 0, warnings };
+    };
+
     const saveImages = async () => {
         if (!selectedProduct || !editImages) return;
         if (editImages.length === 0) {
             setError('Product must have at least one image.');
             return;
         }
+
+        // Pre-save validation
+        const validation = validateImageUrls(editImages);
+        if (!validation.valid) {
+            const confirmed = window.confirm(
+                'Some images may not be globally accessible:\n\n' +
+                validation.warnings.join('\n') +
+                '\n\nClick OK to save anyway, or Cancel to fix them first.'
+            );
+            if (!confirmed) return;
+        }
+
         setIsSaving(true);
         setError(null);
         setSuccess(null);
@@ -164,8 +262,13 @@ const ImageManager: React.FC = () => {
                 sizes: normalizedSizes.sizes,
                 sizeInventory: normalizedSizes.sizeInventory,
             });
-            setSuccess('Images saved to Supabase!');
-            setTimeout(() => setSuccess(null), 3000);
+            const accessibleCount = editImages.filter(img =>
+                classifyImageUrl(img).type !== IMAGE_URL_TYPE.INVALID &&
+                classifyImageUrl(img).type !== IMAGE_URL_TYPE.INSECURE &&
+                !classifyImageUrl(img).warning
+            ).length;
+            setSuccess(`Saved! ${accessibleCount}/${editImages.length} images use globally accessible URLs.`);
+            setTimeout(() => setSuccess(null), 4000);
         } catch (err) {
             console.error('Save failed:', err);
             setError('Failed to save images. Check console for details.');
@@ -321,6 +424,20 @@ const ImageManager: React.FC = () => {
                                             </span>
                                         )}
                                     </div>
+                                    {/* Global accessibility badge */}
+                                    <div className="absolute right-1 bottom-10" title={classifyImageUrl(img).warning || classifyImageUrl(img).label}>
+                                        {classifyImageUrl(img).warning ? (
+                                            <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/40 bg-yellow-500/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-yellow-300">
+                                                <AlertTriangle className="w-2.5 h-2.5" />
+                                                {classifyImageUrl(img).label}
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 rounded-full border border-green-500/30 bg-green-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-green-300">
+                                                <Globe className="w-2.5 h-2.5" />
+                                                {classifyImageUrl(img).label}
+                                            </span>
+                                        )}
+                                    </div>
                                     <button
                                         onClick={() => removeImage(index)}
                                         className="absolute top-1 right-1 bg-red-500/90 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition shadow-lg hover:bg-red-600"
@@ -380,8 +497,29 @@ const ImageManager: React.FC = () => {
                         </button>
                     </div>
 
+                    {/* Accessibility Summary */}
+                    <div className="mb-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {['supabase', 'cdn', 'local'].map(type => {
+                            const count = editImages.filter(img => {
+                                const t = classifyImageUrl(img);
+                                return t.type === type && !t.warning;
+                            }).length;
+                            const label = type === 'supabase' ? 'Supabase CDN' : type === 'cdn' ? 'Image CDN' : 'Local (Vercel)';
+                            return count > 0 ? (
+                                <div key={type} className="rounded-lg border border-green-500/20 bg-green-500/5 px-3 py-2 text-center">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-green-400">
+                                        <Globe className="w-3 h-3 inline mr-1" />
+                                        {count} {label}
+                                    </p>
+                                    <p className="text-[9px] text-gray-500 mt-0.5">Global CDN ✓</p>
+                                </div>
+                            ) : null;
+                        })}
+                    </div>
+
                     <p className="text-[10px] text-gray-500 mb-6 text-center italic font-mono uppercase tracking-tighter">
                         Drag tiles or use the arrow buttons to reorder. Click the star to set as cover. First image is the storefront cover image.
+                        Uploaded images are stored on Supabase CDN for global accessibility. Local paths are served via Vercel CDN.
                     </p>
 
                     <div className="flex gap-4 pt-4 border-t border-white/10">
