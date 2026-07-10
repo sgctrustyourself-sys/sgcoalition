@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
-import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet';
+import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet.js';
 
 interface HttpError extends Error {
     status?: number;

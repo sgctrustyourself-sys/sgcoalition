@@ -12,21 +12,21 @@ type Handler = (req: any, res: any) => unknown | Promise<unknown>;
 type Loader = () => Promise<{ default: Handler }>;
 
 const handlers: Record<string, Loader> = {
-    'ai-chat': () => import('./_handlers/ai-chat'),
-    'complete-order': () => import('./_handlers/complete-order'),
-    'create-checkout-session': () => import('./_handlers/create-checkout-session'),
-    'create-payment-intent': () => import('./_handlers/create-payment-intent'),
-    'create-subscription-session': () => import('./_handlers/create-subscription-session'),
-    'git-operations': () => import('./_handlers/git-operations'),
-    'paypal-order': () => import('./_handlers/paypal-order'),
-    'place-order-credits': () => import('./_handlers/place-order-credits'),
-    'send-email': () => import('./_handlers/send-email'),
-    'send-order-confirmation': () => import('./_handlers/send-order-confirmation'),
-    'stripe-checkout': () => import('./_handlers/stripe-checkout'),
-    'stripe-webhook': () => import('./_handlers/stripe-webhook'),
-    'subscribe-drop': () => import('./_handlers/subscribe-drop'),
-    'unsubscribe': () => import('./_handlers/unsubscribe'),
-    'verify-subscription': () => import('./_handlers/verify-subscription'),
+    'ai-chat': () => import('./_handlers/ai-chat.js'),
+    'complete-order': () => import('./_handlers/complete-order.js'),
+    'create-checkout-session': () => import('./_handlers/create-checkout-session.js'),
+    'create-payment-intent': () => import('./_handlers/create-payment-intent.js'),
+    'create-subscription-session': () => import('./_handlers/create-subscription-session.js'),
+    'git-operations': () => import('./_handlers/git-operations.js'),
+    'paypal-order': () => import('./_handlers/paypal-order.js'),
+    'place-order-credits': () => import('./_handlers/place-order-credits.js'),
+    'send-email': () => import('./_handlers/send-email.js'),
+    'send-order-confirmation': () => import('./_handlers/send-order-confirmation.js'),
+    'stripe-checkout': () => import('./_handlers/stripe-checkout.js'),
+    'stripe-webhook': () => import('./_handlers/stripe-webhook.js'),
+    'subscribe-drop': () => import('./_handlers/subscribe-drop.js'),
+    'unsubscribe': () => import('./_handlers/unsubscribe.js'),
+    'verify-subscription': () => import('./_handlers/verify-subscription.js'),
 };
 
 export default async function handler(req: any, res: any) {
