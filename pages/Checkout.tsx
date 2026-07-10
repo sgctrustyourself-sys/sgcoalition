@@ -42,7 +42,7 @@ const Checkout: React.FC = () => {
     const { addToast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [paymentMethod, setPaymentMethod] = useState<'paypal' | 'crypto' | 'card'>('paypal');
+    const [paymentMethod, setPaymentMethod] = useState<'paypal' | 'crypto' | 'card'>('card');
     const [copied, setCopied] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
     const [clientSecret, setClientSecret] = useState<string>('');
@@ -164,16 +164,8 @@ const Checkout: React.FC = () => {
 
     const WALLET_ADDRESS = '0x0F4A0466C2a1d3FA6Ed55a20994617F0533fbf74';
 
-    useEffect(() => {
-        if (cart.length > 0 && paymentMethod === 'card') {
-            createPaymentIntent();
-        }
-        // If payment method is crypto, we don't need payment intent
-        if (paymentMethod === 'crypto') {
-            setClientSecret('');
-            setIsZeroAmount(false);
-        }
-    }, [cart, paymentMethod, useStoreCredit, shippingMethod]);
+    // (createPaymentIntent removed -- Stripe uses hosted Checkout Session, created server-side
+    //  via /api/stripe-checkout. No client-side Stripe Elements or payment intent needed.)
 
     // Check for existing coupon on mount
     useEffect(() => {
@@ -712,9 +704,9 @@ const Checkout: React.FC = () => {
                             ) : (
                                 <>
                                     <div className="space-y-3 mb-6">
-                                        {/* PayPal / Card / Apple Pay Option - PRIMARY */}
-                                        <label className={`flex items-center justify-between p-5 rounded-xl border-2 cursor-pointer transition group relative overflow-hidden ${paymentMethod === 'paypal' ? 'bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-purple-500 shadow-lg shadow-purple-500/20' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30'}`}>
-                                            {paymentMethod === 'paypal' && (
+                                        {/* Card Option (Stripe Hosted Checkout) - PRIMARY */}
+                                        <label className={`flex items-center justify-between p-5 rounded-xl border-2 cursor-pointer transition group relative overflow-hidden ${paymentMethod === 'card' ? 'bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30'}`}>
+                                            {paymentMethod === 'card' && (
                                                 <div className="absolute top-2 right-2">
                                                     <span className="text-[9px] bg-green-500 text-white px-2 py-0.5 rounded-full font-black tracking-wider">RECOMMENDED</span>
                                                 </div>
@@ -723,20 +715,16 @@ const Checkout: React.FC = () => {
                                                 <input
                                                     type="radio"
                                                     name="paymentMethod"
-                                                    checked={paymentMethod === 'paypal'}
-                                                    onChange={() => setPaymentMethod('paypal')}
-                                                    className="w-5 h-5 border-gray-500 text-purple-600 focus:ring-purple-500"
+                                                    checked={paymentMethod === 'card'}
+                                                    onChange={() => setPaymentMethod('card')}
+                                                    className="w-5 h-5 border-gray-500 text-blue-600 focus:ring-blue-500"
                                                 />
                                                 <div className="flex flex-col">
-                                                    <span className="font-black text-base text-white">PayPal, Cards & Apple Pay</span>
-                                                    <span className="text-xs text-gray-400">Pay securely with PayPal, Credit/Debit Card, or Apple Pay</span>
+                                                    <span className="font-black text-base text-white">Credit / Debit Card (Stripe)</span>
+                                                    <span className="text-xs text-gray-400">Pay securely on Stripe's hosted checkout. Visa, Mastercard, Amex, Discover.</span>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2 opacity-80">
-                                                <svg className="h-6" viewBox="0 0 100 32" fill="currentColor">
-                                                    <path d="M12 4.917v.583c0 1.78-1.4 3.5-3.5 3.5h-2C5.67 9 5 9.67 5 10.5v.583c0 .83.67 1.5 1.5 1.5h2c3.59 0 6.5-2.91 6.5-6.5V4.917c0-.83-.67-1.5-1.5-1.5h-2c-.83 0-1.5.67-1.5 1.5z" fill="#003087" />
-                                                    <path d="M35 4h-5c-.55 0-1 .45-1 1v14c0 .55.45 1 1 1h5c2.76 0 5-2.24 5-5v-6c0-2.76-2.24-5-5-5zm2 11c0 1.1-.9 2-2 2h-2V7h2c1.1 0 2 .9 2 2v6z" fill="#0070BA" />
-                                                </svg>
                                                 <CreditCard className="w-5 h-5 text-white" />
                                             </div>
                                         </label>
@@ -792,6 +780,89 @@ const Checkout: React.FC = () => {
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Stripe Hosted Checkout */}
+                                    {paymentMethod === 'card' && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                            <div className="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/30 p-4 rounded-lg">
+                                                <div className="flex items-start gap-3">
+                                                    <Sparkles className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <h4 className="font-bold text-blue-400 text-sm uppercase tracking-wide mb-1">Secure Stripe Checkout</h4>
+                                                        <p className="text-sm text-gray-300">
+                                                            You'll be redirected to <span className="text-white font-bold">Stripe's hosted checkout</span> to enter your card details. We never see or store your card number.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={async () => {
+                                                    if (!validateShipping()) return;
+                                                    setIsLoading(true);
+                                                    setError(null);
+
+                                                    try {
+                                                        if (creditToApply > 0) {
+                                                            throw new Error('Store credit cannot be combined with Stripe yet. Turn off store credit or use it to cover the full order.');
+                                                        }
+
+                                                        const orderSeed = createOrderSeed();
+                                                        const response = await fetch('/api/stripe-checkout', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({
+                                                                userId: user?.uid,
+                                                                orderSeed,
+                                                                shippingInfo,
+                                                                shippingMethod,
+                                                                shipping: shippingCost,
+                                                                discount: discount + creditToApply + cartBonusDollars,
+                                                                expectedTotal: finalTotal,
+                                                                items: cart.map(item => ({
+                                                                    productId: item.id,
+                                                                    name: item.name,
+                                                                    selectedSize: item.selectedSize || 'One Size',
+                                                                    keychainClipOn: Boolean(item.keychainClipOn),
+                                                                    quantity: item.quantity,
+                                                                })),
+                                                            }),
+                                                        });
+
+                                                        const data = await response.json().catch(() => ({}));
+                                                        if (!response.ok || !data.url) {
+                                                            throw new Error(data.error || 'Failed to initialize Stripe checkout.');
+                                                        }
+
+                                                        sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
+                                                        sessionStorage.setItem('orderNumber', orderSeed.orderNumber);
+                                                        window.location.href = data.url;
+                                                    } catch (err: any) {
+                                                        console.error('Stripe initialization error:', err);
+                                                        setError(err.message || 'Failed to initialize Card payment. Please try again.');
+                                                        setIsLoading(false);
+                                                    }
+                                                }}
+                                                disabled={isLoading}
+                                                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-black uppercase tracking-widest hover:from-blue-700 hover:to-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20"
+                                            >
+                                                {isLoading ? (
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <Loader className="w-5 h-5 animate-spin" />
+                                                        Loading Secure Checkout...
+                                                    </div>
+                                                ) : (
+                                                    'Pay Securely With Card'
+                                                )}
+                                            </button>
+
+                                            {error && (
+                                                <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-lg text-red-400 text-sm">
+                                                    {error}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {/* PayPal Payment */}
                                     {paymentMethod === 'paypal' && (
