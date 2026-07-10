@@ -76,36 +76,49 @@ export function initSentry(): void {
         return;
     }
 
-    Sentry.init({
-        dsn,
-        // production / preview / development shows up in the
-        // Sentry dashboard so the operator can split real prod
-        // traffic from preview noise.
-        environment: import.meta.env.MODE,
-        integrations: [
-            // BrowserTracing captures page loads + navigations
-            // as transactions. Combined with tracesSampleRate
-            // equal to 0.1, a small-volume commerce site gets
-            // roughly ten percent sample coverage which is
-            // enough to surface regressions without burning
-            // through Sentry quota.
-            Sentry.browserTracingIntegration(),
-        ],
-        tracesSampleRate: TRACES_SAMPLE_RATE,
-        // Drop browser-extension noise early in the pipeline.
-        // denyUrls docs:
-        // https://docs.sentry.io/platforms/javascript/configuration/options/#deny-urls
-        denyUrls: SENTRY_DENY_URL_PATTERNS,
-        // Run AFTER denyUrls. ResizeObserver loop limit
-        // exceeded is a known browser quirk (it overflows on
-        // benign resize cycles) and is not actionable; drop it
-        // before the SDK ships it to the ingest server.
-        beforeSend(event) {
-            const message = event.exception?.values?.[0]?.value ?? '';
-            if (message.includes('ResizeObserver loop')) {
-                return null;
-            }
-            return event;
-        },
-    });
+    try {
+        Sentry.init({
+            dsn,
+            // production / preview / development shows up in the
+            // Sentry dashboard so the operator can split real prod
+            // traffic from preview noise.
+            environment: import.meta.env.MODE,
+            integrations: [
+                // BrowserTracing captures page loads + navigations
+                // as transactions. Combined with tracesSampleRate
+                // equal to 0.1, a small-volume commerce site gets
+                // roughly ten percent sample coverage which is
+                // enough to surface regressions without burning
+                // through Sentry quota.
+                Sentry.browserTracingIntegration(),
+            ],
+            tracesSampleRate: TRACES_SAMPLE_RATE,
+            // Drop browser-extension noise early in the pipeline.
+            // denyUrls docs:
+            // https://docs.sentry.io/platforms/javascript/configuration/options/#deny-urls
+            denyUrls: SENTRY_DENY_URL_PATTERNS,
+            // Run AFTER denyUrls. ResizeObserver loop limit
+            // exceeded is a known browser quirk (it overflows on
+            // benign resize cycles) and is not actionable; drop it
+            // before the SDK ships it to the ingest server.
+            beforeSend(event) {
+                const message = event.exception?.values?.[0]?.value ?? '';
+                if (message.includes('ResizeObserver loop')) {
+                    return null;
+                }
+                return event;
+            },
+        });
+    } catch (err) {
+        // Sentry.init is an observability layer -- it must NEVER be
+        // load-bearing for the React app. If init throws (bad DSN,
+        // network failure during SDK handshake, a real SDK bug), we
+        // log a warning and let React mount anyway. The
+        // ErrorBoundary + React 19 root handlers will still call
+        // Sentry.captureException, which is a documented no-op when
+        // init didn't complete, so observability degrades gracefully
+        // rather than the app going dark.
+        // eslint-disable-next-line no-console
+        console.warn('[sentryInit] Sentry.init failed; continuing without error tracking:', err);
+    }
 }
