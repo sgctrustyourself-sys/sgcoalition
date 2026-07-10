@@ -480,19 +480,6 @@ Pre-order reservations are intentionally capped at one per size. After the close
     sizes: ['S', 'M', 'L', 'XL'],
     sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
   },
-  {
-    id: 'prod_paypal_test_001',
-    name: 'PayPal Test Item - $0.50',
-    price: 0.5,
-    createdAt: '2026-07-10T00:00:00-04:00',
-    images: [],
-    description: '**TEST SKU — DO NOT PURCHASE FOR FULFILLMENT.** This is a $0.50 PayPal test item used to verify the live PayPal checkout flow end-to-end. It is active in the public shop so the full Add-to-Cart -> PayPal path is exercisable, and the name + description mark it as a test SKU. No physical or digital goods will ship. If you found this organically, please contact sgctrustyourself@gmail.com so we can refund.',
-    category: 'accessory',
-    isFeatured: false,
-    isLimitedEdition: false,
-    sizes: ['One Size'],
-    sizeInventory: { 'One Size': 999 }
-  },
 ];
 
 export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {

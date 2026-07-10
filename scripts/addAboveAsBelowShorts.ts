@@ -27,6 +27,8 @@ async function addAboveAsBelowShorts() {
         price: 75,
         stock: Object.values(sizeInventory).reduce((sum, count) => sum + count, 0),
         images: [
+            '/images/above-as-below-shorts-front.png',
+            '/images/above-as-below-shorts-back.png',
             '/images/above-as-below-set-front.png',
             '/images/above-as-below-set-back.png'
         ],
@@ -68,7 +70,52 @@ async function addAboveAsBelowShorts() {
         process.exit(1);
     }
 
+    // Fix the live Supabase record in case it still has the old wrong images
+    await fixLiveSupabaseRecord(supabase, product.id, [
+        '/images/above-as-below-shorts-front.png',
+        '/images/above-as-below-shorts-back.png',
+        '/images/above-as-below-set-front.png',
+        '/images/above-as-below-set-back.png'
+    ]);
+
     console.log('Upserted Above as Below Shorts:', data);
+}
+
+async function fixLiveSupabaseRecord(client: any, productId: string, correctImages: string[]) {
+    const { data: existing, error: fetchError } = await client
+        .from('products')
+        .select('images')
+        .eq('id', productId)
+        .single();
+
+    if (fetchError) {
+        console.warn('Could not verify existing Supabase images:', fetchError.message);
+        return;
+    }
+
+    const currentImages = JSON.stringify(existing?.images);
+    const targetImages = JSON.stringify(correctImages);
+
+    if (currentImages === targetImages) {
+        console.log('Supabase images already correct ✓');
+        return;
+    }
+
+    console.log('Fixing live Supabase images...');
+    console.log('  Current:', currentImages);
+    console.log('  Target:', targetImages);
+
+    const { error: updateError } = await client
+        .from('products')
+        .update({ images: correctImages })
+        .eq('id', productId);
+
+    if (updateError) {
+        console.error('Failed to fix Supabase images:', updateError.message);
+        return;
+    }
+
+    console.log('Supabase images fixed ✓');
 }
 
 addAboveAsBelowShorts();
