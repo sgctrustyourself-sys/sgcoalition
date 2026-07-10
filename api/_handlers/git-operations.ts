@@ -22,7 +22,7 @@ import {
     getCurrentBranch,
     isGitRepository,
     getStatus
-} from '../services/gitService';
+} from '../../services/gitService.js';
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
     // Enable CORS - restricted to our domain
