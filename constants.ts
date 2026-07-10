@@ -361,6 +361,122 @@ Pre-order reservations are intentionally capped at one per size. After the close
     sizes: ['S', 'M', 'L', 'XL', '2XL'],
     sizeInventory: { S: 1, M: 1, L: 1, XL: 1, '2XL': 1 }
   },
+  {
+    id: 'prod_set_above_as_below',
+    founderNote: '[PLACEHOLDER · prod_set_above_as_below] Replace with set bundling rationale: why the tee + shorts belong together, the $30 savings logic, and what changes at the production level when they ship as one unit.',
+    name: 'COALITION ABOVE AS BELOW SET (TEE + SHORTS)',
+    price: 120,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      '/images/above-as-below-set-front.png',
+      '/images/above-as-below-set-back.png'
+    ],
+    description: 'Above as Below tee and shorts together in one bundle. Each piece is $75 on its own ($150 total); the set is $120, saving you $30 off the combined price. Hand-crafted in small batches. Once this drop is sold, it will not be restocked.',
+    category: 'apparel',
+    isLimitedEdition: true,
+    isFeatured: false,
+    freeShipping: true,
+    sizes: ['S', 'M', 'L', 'XL', '2XL'],
+    sizeInventory: { S: 4, M: 4, L: 4, XL: 4, '2XL': 4 }
+  },
+  {
+    id: 'prod_halo_mini_dress',
+    founderNote: '[PLACEHOLDER · prod_halo_mini_dress] Replace with founder\'s note: 1-2 paragraphs covering what this build is, why this shape, and what to notice in the seams.',
+    name: 'COALITION HALO MINI DRESS',
+    price: 50,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/halo-mini-dress-1.jpg',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/halo-mini-dress-2.jpg'
+    ],
+    description: 'The Coalition Halo Mini Dress — a limited-edition drop that blends sharp tailoring with streetwear edge. Cut from heavyweight cotton with a sculpted silhouette and signature Coalition detailing throughout.',
+    category: 'dress',
+    isLimitedEdition: true,
+    isFeatured: false,
+    sizes: ['S', 'M', 'L', 'XL'],
+    sizeInventory: { S: 12, M: 13, L: 13, XL: 12 }
+  },
+  {
+    id: 'prod_womens_above_as_below_contrast_shorts',
+    founderNote: '[PLACEHOLDER · prod_womens_above_as_below_contrast_shorts] Replace with founder\'s note: 1-2 paragraphs covering what this build is, why the contrast cut, and what to look for in the seams.',
+    name: 'WOMEN\'S COALITION ABOVE AS BELOW CONTRAST SHORTS',
+    price: 40,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-contrast-shorts-1.jpg',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-contrast-shorts-2.jpg'
+    ],
+    description: 'Women\'s Coalition Above as Below Contrast Shorts — a sharp, sculpted cut designed to balance the heavyweight Above as Below tee. Premium cotton construction with contrast panel detailing.',
+    category: 'shorts',
+    isLimitedEdition: true,
+    isFeatured: false,
+    sizes: ['S', 'M', 'L', 'XL'],
+    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
+  },
+  {
+    id: 'prod_womens_above_as_below_crop_tank',
+    founderNote: '[PLACEHOLDER · prod_womens_above_as_below_crop_tank] Replace with founder\'s note: 1-2 paragraphs covering what this build is, why the cropped crewneck shape, and what to look for in the seams.',
+    name: 'WOMEN\'S COALITION ABOVE AS BELOW CREWNECK CROP TANK',
+    price: 40,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-crop-tank-1.jpg',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-crop-tank-2.jpg'
+    ],
+    description: 'Women\'s Coalition Above as Below Crewneck Crop Tank — a cropped silhouette cut from the same heavy-weight run as the Above as Below tee. Crewneck collar, raw-hem crop, and Coalition screen across the chest.',
+    category: 'shirt',
+    isLimitedEdition: true,
+    isFeatured: false,
+    sizes: ['S', 'M', 'L', 'XL'],
+    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
+  },
+  {
+    id: 'prod_womens_above_as_below_set',
+    founderNote: '[PLACEHOLDER · prod_womens_above_as_below_set] Replace with set bundling rationale: why the crop tank + contrast shorts together, the $15 savings logic, and what changes when they ship as one unit.',
+    name: 'WOMEN\'S COALITION ABOVE AS BELOW SET',
+    price: 75,
+    createdAt: '2026-07-01T00:00:00-04:00',
+    images: [
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-set-1.jpg',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-set-2.jpg'
+    ],
+    description: 'Women\'s Coalition Above as Below Set — the crop tank and contrast shorts bundled at $75 ($80 individually, save $5). Cut from the same heavy-weight run with matched Coalition screen across both pieces.',
+    category: 'apparel',
+    isLimitedEdition: true,
+    isFeatured: false,
+    sizes: ['S', 'M', 'L', 'XL'],
+    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
+  },
+  {
+    id: 'prod_womens_coalition_halo_contrast_tee',
+    founderNote: '[PLACEHOLDER · prod_womens_coalition_halo_contrast_tee] Replace with founder\'s note: 1-2 paragraphs covering what this build is, why the contrast, and what to look for in the seams.',
+    name: 'WOMEN\'S COALITION HALO CONTRAST TEE',
+    price: 40,
+    createdAt: '2026-07-03T00:00:00-04:00',
+    images: [
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-halo-contrast-tee-1.jpg',
+      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/womens-halo-contrast-tee-2.jpg'
+    ],
+    description: 'Women\'s Coalition Halo Contrast Tee — a limited-edition tee with sharp contrast paneling and the Coalition Halo motif across the chest. Heavyweight cotton construction.',
+    category: 'shirt',
+    isLimitedEdition: true,
+    isFeatured: false,
+    sizes: ['S', 'M', 'L', 'XL'],
+    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
+  },
+  {
+    id: 'prod_paypal_test_001',
+    name: 'PayPal Test Item - $0.50',
+    price: 0.5,
+    createdAt: '2026-07-10T00:00:00-04:00',
+    images: [],
+    description: '**TEST SKU — DO NOT PURCHASE FOR FULFILLMENT.** This is a $0.50 PayPal test item used to verify the live PayPal checkout flow end-to-end. It is active in the public shop so the full Add-to-Cart -> PayPal path is exercisable, and the name + description mark it as a test SKU. No physical or digital goods will ship. If you found this organically, please contact sgctrustyourself@gmail.com so we can refund.',
+    category: 'accessory',
+    isFeatured: false,
+    isLimitedEdition: false,
+    sizes: ['One Size'],
+    sizeInventory: { 'One Size': 999 }
+  },
 ];
 
 export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
