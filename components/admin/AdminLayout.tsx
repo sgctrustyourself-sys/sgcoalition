@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Package, ShoppingCart, GitBranch, Gift, Settings, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3, TrendingUp, Instagram, Megaphone, Users, Brain, Image as ImageIcon } from 'lucide-react';
+import { Activity, Package, ShoppingCart, GitBranch, Gift, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3, TrendingUp, Instagram, Megaphone, Users, Brain, Image as ImageIcon } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 interface AdminLayoutProps {
