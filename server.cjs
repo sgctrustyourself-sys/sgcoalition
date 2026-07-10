@@ -1,12 +1,16 @@
+const path = require('path');
+
+// Load .env for local development (Vercel injects env vars directly in production)
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 
 // Import Git service functions
 const gitService = require('./services/gitService.cjs');
 
 const app = express();
-const PORT = 3001;
+const PORT = 4242;
 
 // Middleware
 app.use(cors({ 
@@ -113,6 +117,184 @@ app.all('/api/git-operations', async (req, res) => {
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'Git API server is running' });
+});
+
+// ---------------------------------------------------------------------------
+// Admin verify — mirrors api/_handlers/admin-verify.ts
+// ---------------------------------------------------------------------------
+app.all('/api/admin-verify', (req, res) => {
+    // CORS preflight
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
+    if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+
+    const password = String(req.body?.password || '').trim();
+    if (!password) {
+        res.status(400).json({ error: 'Password is required.' });
+        return;
+    }
+
+    const adminPassphrase = (process.env.ADMIN_PASSPHRASE || '').trim();
+    const adminApiToken = (process.env.ADMIN_API_TOKEN || '').trim();
+
+    if (!adminPassphrase && !adminApiToken) {
+        console.error('[admin-verify] Neither ADMIN_PASSPHRASE nor ADMIN_API_TOKEN is set.');
+        res.status(503).json({ error: 'Admin authentication is not configured on this server.' });
+        return;
+    }
+
+    const isValid = password === adminPassphrase || password === adminApiToken;
+    if (!isValid) {
+        console.warn('[admin-verify] Failed admin login attempt.');
+        res.status(401).json({ error: 'Invalid admin passphrase.' });
+        return;
+    }
+
+    const token = adminApiToken || adminPassphrase;
+    console.log('[admin-verify] Admin login successful.');
+    res.status(200).json({ token, success: true });
+});
+
+// ---------------------------------------------------------------------------
+// Admin product CRUD — mirrors api/_handlers/admin-products.ts
+// These run locally via Express (Vite proxies /api -> localhost:4242).
+// In production, Vercel serves the api/_handlers/*.ts serverless functions.
+// ---------------------------------------------------------------------------
+
+async function getSupabaseAdmin() {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    if (!supabaseUrl || !serviceRoleKey) {
+        throw Object.assign(new Error('Supabase admin service is not configured.'), { status: 503 });
+    }
+    return createClient(supabaseUrl, serviceRoleKey);
+}
+
+function getBearerToken(req) {
+    const header = req.headers?.authorization || req.headers?.Authorization || '';
+    const match = String(header).match(/^Bearer\s+(.+)$/i);
+    return match?.[1] || null;
+}
+
+function isAdminAuthorized(req) {
+    const token = getBearerToken(req);
+    if (!token) return false;
+    const adminToken = (process.env.ADMIN_API_TOKEN || '').trim();
+    return adminToken.length > 0 && token === adminToken;
+}
+
+app.all('/api/admin-products', async (req, res) => {
+    try {
+        if (!isAdminAuthorized(req)) {
+            return res.status(401).json({ error: 'Admin authorization required.' });
+        }
+
+        const supabase = await getSupabaseAdmin();
+
+        if (req.method === 'POST') {
+            const product = req.body?.product;
+            if (!product || !product.id || !product.name) {
+                return res.status(400).json({ error: 'Product with id and name is required.' });
+            }
+            const dbProduct = {
+                id: product.id, name: product.name, price: Number(product.price || 0),
+                category: product.category || 'apparel', images: product.images || [],
+                description: product.description || '', is_featured: !!product.isFeatured,
+                is_limited_edition: product.isLimitedEdition ?? false,
+                pricing_tiers: product.pricingTiers ?? null,
+                edition_size: product.editionSize ?? null,
+                sizes: product.sizes || [], size_inventory: product.sizeInventory || {},
+                nft_metadata: product.nft || null, archived: product.archived || false,
+            };
+            const { data, error } = await supabase.from('products').insert([dbProduct]).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            if (dbProduct.is_featured) {
+                await supabase.from('products').update({ is_featured: false }).eq('is_featured', true).neq('id', product.id);
+            }
+            return res.status(200).json(data);
+        }
+
+        if (req.method === 'PATCH') {
+            const product = req.body?.product;
+            if (!product || !product.id) {
+                return res.status(400).json({ error: 'Product with id is required.' });
+            }
+            // Non-destructive PATCH: only update fields the client actually sent.
+            // Using `?? null` fallbacks on every field was silently wiping
+            // pricing_tiers/edition_size to NULL whenever the admin saved a
+            // product via a form that didn't include those fields.
+            const dbProduct = {};
+            if (product.name !== undefined) dbProduct.name = product.name;
+            if (product.price !== undefined) dbProduct.price = Number(product.price || 0);
+            if (product.category !== undefined) dbProduct.category = product.category;
+            if (product.images !== undefined) dbProduct.images = product.images;
+            if (product.description !== undefined) dbProduct.description = product.description;
+            if (product.isFeatured !== undefined) dbProduct.is_featured = !!product.isFeatured;
+            if (product.isLimitedEdition !== undefined) dbProduct.is_limited_edition = product.isLimitedEdition;
+            if (product.pricingTiers !== undefined) dbProduct.pricing_tiers = product.pricingTiers;
+            if (product.editionSize !== undefined) dbProduct.edition_size = product.editionSize;
+            if (product.sizes !== undefined) dbProduct.sizes = product.sizes;
+            if (product.sizeInventory !== undefined) dbProduct.size_inventory = product.sizeInventory;
+            if (product.nft !== undefined) dbProduct.nft_metadata = product.nft;
+            if (product.archived !== undefined) dbProduct.archived = product.archived;
+            const { data, error } = await supabase.from('products').update(dbProduct).eq('id', product.id).select().single();
+            if (error) return res.status(500).json({ error: error.message });
+            if (dbProduct.is_featured) {
+                await supabase.from('products').update({ is_featured: false }).eq('is_featured', true).neq('id', product.id);
+            }
+            return res.status(200).json(data);
+        }
+
+        if (req.method === 'DELETE') {
+            const id = String(req.body?.id || '').trim();
+            if (!id) return res.status(400).json({ error: 'Product ID is required.' });
+            const { error } = await supabase.from('products').delete().eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.status(200).json({ deleted: true, id });
+        }
+
+        res.status(405).json({ error: 'Method not allowed' });
+    } catch (error) {
+        console.error('[admin-products]', error?.message || error);
+        res.status(error?.status || 500).json({ error: error?.message || 'Product request failed.' });
+    }
+});
+
+app.all('/api/update-piece-metadata', async (req, res) => {
+    try {
+        if (!isAdminAuthorized(req)) {
+            return res.status(401).json({ error: 'Admin authorization required.' });
+        }
+
+        const supabase = await getSupabaseAdmin();
+        const pieceId = String(req.body?.pieceId || '').trim();
+        if (!pieceId) return res.status(400).json({ error: 'pieceId is required.' });
+
+        const updates = {};
+        if (req.body?.nftTokenId !== undefined) {
+            updates.nft_token_id = String(req.body.nftTokenId || '').trim() || null;
+        }
+        if (req.body?.nfcTagUrl !== undefined) {
+            updates.nfc_tag_url = String(req.body.nfcTagUrl || '').trim() || null;
+        }
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ error: 'At least one field (nftTokenId, nfcTagUrl) is required.' });
+        }
+
+        const { data, error } = await supabase.from('numbered_pieces').update(updates).eq('id', pieceId).select().single();
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json(data);
+    } catch (error) {
+        console.error('[update-piece-metadata]', error?.message || error);
+        res.status(error?.status || 500).json({ error: error?.message || 'Piece metadata update failed.' });
+    }
 });
 
 app.listen(PORT, () => {

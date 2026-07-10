@@ -400,7 +400,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         // Mirrors services/retryQueue.ts mapProductToDb write path.
                         // Column added in supabase/migrations/20260620_add_is_limited_edition_to_products.sql
                         isLimitedEdition: item.is_limited_edition ?? false,
-                        // Numbered-edition tier-pricing fields (migration 20261101).
+                        // Numbered-edition tier-pricing fields (migration 20260710).
                         pricingTiers: item.pricing_tiers ?? null,
                         editionSize: item.edition_size ?? null,
                         editionSoldCount: null,
@@ -705,6 +705,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setGiveaways(prev => ensureSubscriberGiveawayEntries(prev, user));
     }, [user, giveaways]);
 
+    // Helper: get admin token for server-side API calls that bypass RLS
+    const getAdminToken = () => {
+        if (typeof sessionStorage !== 'undefined') {
+            return sessionStorage.getItem('coalition_admin_token');
+        }
+        return null;
+    };
+
     const addProduct = async (p: Product) => {
         if (!isSupabaseConfigured) return;
         const originalProducts = products;
@@ -722,31 +730,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         setProducts(nextProducts);
         try {
-            const { error } = await supabase.from('products').insert([{
-                id: normalizedProduct.id, name: normalizedProduct.name, price: normalizedProduct.price, category: normalizedProduct.category, images: normalizedProduct.images,
-                description: normalizedProduct.description, is_featured: normalizedProduct.isFeatured,
-                is_limited_edition: normalizedProduct.isLimitedEdition ?? false,
-                // Numbered-edition tier-pricing columns (migration 20261101).
-                pricing_tiers: normalizedProduct.pricingTiers ?? null,
-                edition_size: normalizedProduct.editionSize ?? null,
-                sizes: normalizedProduct.sizes,
-                size_inventory: normalizedProduct.sizeInventory, nft_metadata: normalizedProduct.nft
-            }]);
-            if (error) throw error;
-            if (normalizedProduct.isFeatured) {
-                await clearOtherFeaturedProductsInDb(normalizedProduct.id);
+            const adminToken = getAdminToken();
+            if (adminToken) {
+                // Route through server-side API to bypass RLS (admin-verify login
+                // doesn't create a Supabase auth session, so direct client writes
+                // fail the "Only admins can..." RLS policies.)
+                const response = await fetch('/api/admin-products', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminToken}`
+                    },
+                    body: JSON.stringify({ product: normalizedProduct })
+                });
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => ({}));
+                    throw new Error(payload.error || 'Failed to add product via API');
+                }
+            } else {
+                const { error } = await supabase.from('products').insert([{
+                    id: normalizedProduct.id, name: normalizedProduct.name, price: normalizedProduct.price, category: normalizedProduct.category, images: normalizedProduct.images,
+                    description: normalizedProduct.description, is_featured: normalizedProduct.isFeatured,
+                    is_limited_edition: normalizedProduct.isLimitedEdition ?? false,
+                    pricing_tiers: normalizedProduct.pricingTiers ?? null,
+                    edition_size: normalizedProduct.editionSize ?? null,
+                    sizes: normalizedProduct.sizes,
+                    size_inventory: normalizedProduct.sizeInventory, nft_metadata: normalizedProduct.nft
+                }]);
+                if (error) throw error;
+                if (normalizedProduct.isFeatured) {
+                    await clearOtherFeaturedProductsInDb(normalizedProduct.id);
+                }
             }
             await autoCommit({ message: generateProductAddedMessage(p.name) });
         } catch (err) {
-            try {
-                if (normalizedProduct.isFeatured) {
-                    await supabase.from('products').delete().eq('id', normalizedProduct.id);
-                }
-            } catch (rollbackErr) {
-                console.warn('Failed to rollback featured product insert:', rollbackErr);
-            }
             setProducts(originalProducts);
             addToast('Failed to add product.', 'error');
+            throw err;
         }
     };
 
@@ -766,51 +786,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         setProducts(nextProducts);
         try {
-            const { error } = await supabase.from('products').update({
-                name: normalizedUpdated.name, price: normalizedUpdated.price, category: normalizedUpdated.category, images: normalizedUpdated.images,
-                description: normalizedUpdated.description,
-                is_featured: normalizedUpdated.isFeatured,
-                is_limited_edition: normalizedUpdated.isLimitedEdition ?? false,
-                pricing_tiers: normalizedUpdated.pricingTiers ?? null,
-                edition_size: normalizedUpdated.editionSize ?? null,
-                sizes: normalizedUpdated.sizes,
-                size_inventory: normalizedUpdated.sizeInventory, nft_metadata: normalizedUpdated.nft, archived: normalizedUpdated.archived
-            }).eq('id', normalizedUpdated.id);
-            if (error) throw error;
-            if (normalizedUpdated.isFeatured) {
-                await clearOtherFeaturedProductsInDb(normalizedUpdated.id);
+            const adminToken = getAdminToken();
+            if (adminToken) {
+                // Route through server-side API to bypass RLS (see addProduct comment)
+                const response = await fetch('/api/admin-products', {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminToken}`
+                    },
+                    body: JSON.stringify({ product: normalizedUpdated })
+                });
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => ({}));
+                    throw new Error(payload.error || 'Failed to update product via API');
+                }
+            } else {
+                const { error } = await supabase.from('products').update({
+                    name: normalizedUpdated.name, price: normalizedUpdated.price, category: normalizedUpdated.category, images: normalizedUpdated.images,
+                    description: normalizedUpdated.description,
+                    is_featured: normalizedUpdated.isFeatured,
+                    is_limited_edition: normalizedUpdated.isLimitedEdition ?? false,
+                    pricing_tiers: normalizedUpdated.pricingTiers ?? null,
+                    edition_size: normalizedUpdated.editionSize ?? null,
+                    sizes: normalizedUpdated.sizes,
+                    size_inventory: normalizedUpdated.sizeInventory, nft_metadata: normalizedUpdated.nft, archived: normalizedUpdated.archived
+                }).eq('id', normalizedUpdated.id);
+                if (error) throw error;
+                if (normalizedUpdated.isFeatured) {
+                    await clearOtherFeaturedProductsInDb(normalizedUpdated.id);
+                }
             }
             await autoCommit({ message: generateProductUpdatedMessage(updated.name) });
         } catch (err) {
-            if (original) {
-                try {
-                    await supabase.from('products').update({
-                        name: original.name, price: original.price, category: original.category, images: original.images,
-                        description: original.description,
-                        is_featured: original.isFeatured,
-                        is_limited_edition: original.isLimitedEdition ?? false,
-                        pricing_tiers: original.pricingTiers ?? null,
-                        edition_size: original.editionSize ?? null,
-                        sizes: original.sizes,
-                        size_inventory: original.sizeInventory, nft_metadata: original.nft, archived: original.archived
-                    }).eq('id', original.id);
-                } catch (rollbackErr) {
-                    console.warn('Failed to rollback featured product update:', rollbackErr);
-                }
-            }
             setProducts(prev => prev.map(p => p.id === updated.id && original ? original : p));
             addToast('Update failed.', 'error');
+            throw err;
         }
     };
 
     const deleteProduct = async (id: string) => {
         const product = products.find(p => p.id === id);
-        if (isSupabaseConfigured) {
-            const { error } = await supabase.from('products').delete().eq('id', id);
-            if (!error) {
-                setProducts(prev => prev.filter(p => p.id !== id));
-                await autoCommit({ message: generateProductDeletedMessage(product?.name || id) });
+        if (!isSupabaseConfigured) return;
+        try {
+            const adminToken = getAdminToken();
+            if (adminToken) {
+                const response = await fetch('/api/admin-products', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminToken}`
+                    },
+                    body: JSON.stringify({ id })
+                });
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => ({}));
+                    throw new Error(payload.error || 'Failed to delete product via API');
+                }
+            } else {
+                const { error } = await supabase.from('products').delete().eq('id', id);
+                if (error) throw error;
             }
+            setProducts(prev => prev.filter(p => p.id !== id));
+            await autoCommit({ message: generateProductDeletedMessage(product?.name || id) });
+        } catch (err) {
+            addToast('Failed to delete product.', 'error');
+            throw err;
         }
     };
 
@@ -883,7 +924,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         try {
             console.log('🔐 Attempting secure admin login...');
-            const response = await fetch('/api/admin/verify', {
+            const response = await fetch('/api/admin-verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password: pwd })

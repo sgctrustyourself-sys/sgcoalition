@@ -12,6 +12,8 @@ type Handler = (req: any, res: any) => unknown | Promise<unknown>;
 type Loader = () => Promise<{ default: Handler }>;
 
 const handlers: Record<string, Loader> = {
+    'admin-products': () => import('./_handlers/admin-products.js'),
+    'admin-verify': () => import('./_handlers/admin-verify.js'),
     'ai-chat': () => import('./_handlers/ai-chat.js'),
     'complete-order': () => import('./_handlers/complete-order.js'),
     'create-checkout-session': () => import('./_handlers/create-checkout-session.js'),
@@ -23,6 +25,7 @@ const handlers: Record<string, Loader> = {
     'send-email': () => import('./_handlers/send-email.js'),
     'send-order-confirmation': () => import('./_handlers/send-order-confirmation.js'),
     'subscribe-drop': () => import('./_handlers/subscribe-drop.js'),
+    'update-piece-metadata': () => import('./_handlers/update-piece-metadata.js'),
     'unsubscribe': () => import('./_handlers/unsubscribe.js'),
     'verify-subscription': () => import('./_handlers/verify-subscription.js'),
 };
