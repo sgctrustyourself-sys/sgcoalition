@@ -1351,12 +1351,22 @@ One H3 per page the visitor can land on. `/shop` and `/live-orders` get sections
 
 ## Admin operator map
 
-One H3 per `/admin/*` tab the operator can land on. The Verified Buyers and Customer Profile tabs already have their own dedicated sections above (gated contract, dedupe-by-id, privacy promises) and are referenced here for completeness. The Brain tab is authed via `ProtectedRoute` outside the admin shell — `/brain` covers the same surface for the founder wallet address.
+One H3 per `/admin/*` tab the operator can land on. The sidebar navigation is organized into five grouped sections:
+
+| Group | Tabs |
+|---|---|
+| **Commerce** | Products, Orders, Reviews |
+| **Content** | Blog Manager, Image Manager |
+| **Community** | Giveaways, Custom Inquiries, Instagram Links, Signal Broadcast, User Directory |
+| **Finance** | SGCoin Distribution, SGCoin Requests, Referral Analytics |
+| **System** | Command Center, Analytics, Version Control, Coalition Brain |
+
+Each group has a section header in the sidebar. The active tab is indicated by a bold white background and a pulsing dot indicator. The mobile menu mirrors the same grouped structure with a backdrop blur overlay. The Verified Buyers and Customer Profile tabs already have their own dedicated sections above (gated contract, dedupe-by-id, privacy promises) and are referenced here for completeness. The Brain tab is authed via `ProtectedRoute` outside the admin shell — `/brain` covers the same surface for the founder wallet address.
 
 ### Catalog + fulfillment
 
 - **Command Center** (`components/admin/EcosystemCommandCenter.tsx`) — operator landing tab after sign-in. Surfaces signal-broadcast status, recent orders, marketing campaigns in flight, and 4-5 at-a-glance stats.
-- **Products** (`components/admin/ProductManager.tsx`) — full CRUD over the Supabase `products` table. Image-role editor + named slot targets are wired through this tab; halo and above-as-below products ship here.
+- **Products** (`components/admin/ProductManager.tsx`) — full CRUD over the Supabase `products` table. Action buttons (Edit, Duplicate, Delete) are always visible (opacity-60, full on hover) for one-click access on any device. Image-role editor + named slot targets are wired through this tab; halo and above-as-below products ship here.
 - **Orders** (`components/admin/OrderManager.tsx`) — operator order dashboard. Now carries the IG-handle filter chip (see [that section](#admin-instagram-handle-filter-chips) above).
 - **Custom Inquiries** (`components/admin/CustomInquiryManager.tsx`) — intake queries from the `/inquire` form. CSV export + manual reply workflow.
 - **Giveaways** (`components/admin/GiveawayManager.tsx`) — operator curation for `/giveaway/:id` + YouTube giveaway flows. Draw winner + CSV export shared with Inquiries tab.

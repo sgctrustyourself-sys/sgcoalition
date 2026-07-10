@@ -679,7 +679,7 @@ const ProductManager: React.FC = () => {
                                 </tr>
                             ) : (
                                 filteredProducts.map(product => (
-                                    <tr key={product.id} className="hover:bg-white/5 transition group">
+                                    <tr key={product.id} className="hover:bg-white/5 transition group hover:ring-1 hover:ring-white/10">
                                         <td className="p-4">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-12 h-12 rounded bg-black/40 overflow-hidden flex-shrink-0 border border-white/10 group-hover:border-white/30 transition">
@@ -720,7 +720,7 @@ const ProductManager: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="p-4 text-right">
-                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition">
+                                            <div className="flex items-center justify-end gap-2 opacity-60 hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={() => duplicateProduct(product)}
                                                     className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition"
