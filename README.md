@@ -75,6 +75,8 @@ These three need Vercel's per-function runtime stacks, which are only accessible
 - [Tech Stack](#tech-stack)
 - [Backend Architecture](#backend-architecture)
 - [Backend Bug-Fix Checklist](#backend-bug-fix-checklist)
+- [Security & resilience](#security--resilience)
+- [Sentry error monitoring](#sentry-error-monitoring)
 - [Current Product Catalog Baseline](#current-product-catalog-baseline)
 - [Local Development](#local-development)
 - [Cross-cut category filters on /shop](#cross-cut-category-filters-on-shop)
@@ -269,6 +271,98 @@ npm.cmd run build
 ```
 
 10. If the build runs `scripts/generateSeoArtifacts.mjs`, check `git status` afterward so generated files are not accidentally missed or staged when unchanged.
+
+## Security & resilience
+
+Three defensive layers were added this session without changing feature surface. They are: a global ErrorBoundary that catches unhandled render errors, an in-memory API rate limiter that gates every `/api/*` route, and a strict CSP header on every page response with a stub `/api/csp-report` endpoint that acknowledges browser reports. All three are observability-agnostic; they work even if downstream services (Sentry, Supabase) are unconfigured. Each layer is locked by `tests/securityInfrastructureReadiness.test.ts` so a future refactor cannot silently regress any of them.
+
+### Global ErrorBoundary
+
+A single class-component error boundary in `components/ErrorBoundary.tsx` wraps the entire `<App>` tree in `App.tsx > ErrorBoundaryWithNavReset`. Any unhandled render error renders a recovery UI (a centered card with Reload + Go Home) instead of a white screen; the user always has one-click paths back to a working page.
+
+Reset semantics matter here: the parent forwards `location.pathname` as `resetKey`. When the user navigates to a new route after the boundary fired, `componentDidUpdate` flips `hasError` back to false and re-renders the children WITHOUT remounting. This is the correct hook because remounting the children would clobber local state in `CartDrawer`, `AIChatWidget`, and every in-flight form. Anyone passing `key={pathname}` instead will silently break that contract; the readiness test pins the wrapper shape (`App.tsx > ErrorBoundaryWithNavReset` exposes `resetKey={location.pathname}`, NOT `key={...}`).
+
+When `ENABLE_SENTRY` (i.e. `VITE_SENTRY_DSN` set + on prod) the boundary's `componentDidCatch` also forwards the error to `Sentry.captureException` under `tags.errorBoundary = 'global'`. See [Sentry error monitoring](#sentry-error-monitoring) for the full capture path. `console.error` is always called as a local backup so observability never depends solely on Sentry being healthy.
+
+Locked by `tests/securityInfrastructureReadiness.test.ts > Feature 1`.
+
+### API rate limiter
+
+Every `/api/*` route through `api/[...slug].ts` runs through `withRateLimit(slug, req, res)` from `api/_helpers.ts` after slug validation, before handler load. The default budget is 30 requests per minute per IP per slug; per-endpoint overrides live in `SLUG_LIMITS_PER_MINUTE` in the same file. The gate runs before `loadHandler` so a slug under spam never pays the import cost on the broken path.
+
+When the gate trips, `withRateLimit` writes a 429 + `Retry-After` header and returns `{ allowed: false }`. The router just `return`s — the handler never gets a chance to start. When the gate passes, `RateLimitResult { allowed, remaining, limit, resetAt, retryAfterSeconds }` is returned for logging at the handler edge.
+
+Caveat: in-memory state survives within the warm Lambda container but dies on cold start. For per-IP throttling that outlives a restart, a shared counter (e.g., Upstash Redis) would need a small change — tracked in [FOLLOWUPS.md](./FOLLOWUPS.md).
+
+Kill switch: set `DISABLE_RATE_LIMIT=1` in Vercel env to turn the gate off — only do this during a load test or an operator smoke run.
+
+Locked by `tests/securityInfrastructureReadiness.test.ts > Feature 2` (25 assertions including per-IP isolation, per-slug boundaries, and a sorted-rate-window model).
+
+### CSP header + csp-report endpoint
+
+`vercel.json > headers[0].value` ships a strict Content-Security-Policy on every page response, with violations reported to `/api/csp-report`. The policy explicitly denies `script-src` and `frame-ancestors` outside the small allow-list, and uses `report-uri /api/csp-report` so the operator can watch for unexpected inline scripts or third-party iframes that snuck past review. Notable allowlist entries from this session: `https://browser.sentry-cdn.com` in `script-src`, `https://*.ingest.sentry.io` and `https://*.ingest.us.sentry.io` in `connect-src`.
+
+The handler at `api/_handlers/csp-report.ts` parses the browser POST body in CSP-report-spec shape, logs the structured violation server-side (`[csp-report] { document, directive, blocked, source, line, col }`), and returns 204. The intent: the report is acknowledged; the browser does not retry-flood the 404 case. 400 on garbage bodies — browsers do not retry 4xx so the report is effectively dropped without a log line on misbehaving clients (the per-slug rate-limit caps the abuse surface further). CORS is set globally by the catch-all in `api/[...slug].ts` before this handler runs, so the handler does not call `setCorsHeaders` itself.
+
+The handler is intentionally minimal today — a future pass will write rows to a `csp_reports` Supabase table and surface counts in the Admin dashboard. The minimum viable contract is "endpoint exists and returns 204" so the browser does not retry-flood the 404 case.
+
+Locked by `tests/securityInfrastructureReadiness.test.ts > Feature 3 + Feature 4`.
+
+### Where to read it
+
+- Class component: `components/ErrorBoundary.tsx`
+- App wrapper: `App.tsx > ErrorBoundaryWithNavReset`
+- Rate-limit helper: `api/_helpers.ts > withRateLimit`
+- Rate-limit gate wiring: `api/[...slug].ts`
+- CSP header: `vercel.json > headers[0] > value`
+- CSP report endpoint: `api/_handlers/csp-report.ts`
+- Operator kill switch + env template: `.env.example` (`DISABLE_RATE_LIMIT` flag, callouts on response cadence)
+- Lock: `tests/securityInfrastructureReadiness.test.ts` (Features 1–4)
+
+## Sentry error monitoring
+
+Sentry is wired into the browser bundle for unhandled error capture in production. The init is double-gated so a missing DSN or a non-prod build is a silent no-op — never an exception, never console spam, never a dev rethrow loop. The defensive layers in [Security & resilience](#security--resilience) are observability-agnostic and work even if Sentry is unconfigured; Sentry is the upstream dashboard story that ties them together.
+
+### Where it lives
+
+- `services/sentryInit.ts` — sole `initSentry()` call. Imports `@sentry/react`, runs two gates (`import.meta.env.PROD` + `VITE_SENTRY_DSN` non-empty). Configures `Sentry.browserTracingIntegration()`, `tracesSampleRate: 0.1`, `denyUrls` for browser extensions (`chrome-extension://`, `extensions/`, `moz-extension://`), `beforeSend` to drop `ResizeObserver loop` noise.
+- `components/ErrorBoundary.tsx` — global class component. `componentDidCatch` calls `Sentry.captureException(error, { extra: { componentStack }, tags: { errorBoundary: 'global' }, level: 'error' })`. `console.error` is kept as a local backup so observability does not depend solely on Sentry being healthy.
+- `App.tsx > ErrorBoundaryWithNavReset` — parent that forwards `location.pathname` as `resetKey` so route changes drop the recovery UI without remounting children.
+- `index.tsx` — `initSentry()` runs at module-load (before `ReactDOM.createRoot`) so module-link errors that throw before React mounts are still captured. Then `createRoot()` registers both React 19 error options: `onUncaughtError` (escaped every boundary → `tags.source = react19-root-uncaught`) and `onCaughtError` (caught by a boundary but forwarded → `tags.source = react19-root-caught`). Both at `level: 'error'`.
+- `vercel.json` — CSP `script-src` allows `https://browser.sentry-cdn.com`; `connect-src` allows `https://*.ingest.sentry.io` and `https://*.ingest.us.sentry.io` so the SDK can POST events.
+
+### The two gates (the safety property itself)
+
+Both gates are deliberate. Don't remove either — the two-gate design IS the safety property:
+
+1. `if (!import.meta.env.PROD) return;` — Vite dead-code eliminates the entire init body in DEV and PREVIEW. So a preview deploy cannot accidentally leak events to Sentry's ingest even if the DSN is set.
+2. `if (!dsn || typeof dsn !== 'string' || dsn.trim() === '') return;` — silent no-op when `VITE_SENTRY_DSN` is unset. Deliberately no console warning in the boot path so the operator can deploy without configuring the var.
+
+When both pass, every `Sentry.captureException` call becomes a real network post. When either fails, every call site is a documented no-op (the SDK never initialized) — so `ErrorBoundary` and the React 19 root handlers don't need per-call guards.
+
+### Why `level: 'error'` for both React 19 root handlers
+
+`caught` vs `uncaught` is differentiated via `tags.source`, not via level. Reasoning:
+
+- Downgrading caught to `warning` would mask the signal from any Sentry alert rule that fires on `error`-level events — the default SaaS rule.
+- The operator configures one manual alert rule that asserts `tags.source = react19-root-uncaught` so caught errors don't page on-call.
+
+This trade-off is documented in `.env.example` under the Sentry section. If the alert rule is not set up, caught errors will page just as loudly as uncaught ones — by design. See [FOLLOWUPS.md](./FOLLOWUPS.md) for the operator steps.
+
+### Session replay — intentionally deferred
+
+Replay is intentionally NOT wired. To enable later, BOTH `Sentry.replayIntegration()` in the `integrations: []` array AND a matching `replaysSessionSampleRate: ...` config field must be added together. The SDK silently drops the rate when no integration is registered, so leaving one without the other is a footgun. The readiness test makes the absence a regression-catch so a future developer cannot accidentally re-introduce just the rate without also wiring the integration.
+
+### Where to read it
+
+- Init: `services/sentryInit.ts`
+- Boundary: `components/ErrorBoundary.tsx`
+- App.tsx wrapper: `App.tsx > ErrorBoundaryWithNavReset`
+- React 19 root handlers: `index.tsx`
+- CSP additions: `vercel.json > headers[0].value > script-src / connect-src`
+- Env template: `.env.example > ---------- Sentry ----------`
+- Lock: `tests/securityInfrastructureReadiness.test.ts` (Feature 5 + onCaughtError level consistency — 15 assertions)
+- Operator follow-ups: [FOLLOWUPS.md](./FOLLOWUPS.md) — provision the Sentry project + configure the alert rule.
 
 ## Current Product Catalog Baseline
 

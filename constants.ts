@@ -1,33 +1,6 @@
 import { Product, Section } from './types';
 import { PRODUCT_IMAGE_URLS } from './utils/localImageAssets';
 
-// Vite's import.meta.env is undefined when constants.ts is loaded by
-// tsx (seed scripts, future Node tests). The frontend (Vite) populates
-// it at build time; the script path needs the values to default to
-// safe fallbacks so the module evaluation doesn't throw.
-// Guard the read so the same module can be imported from both.
-const viteEnv: Record<string, string | undefined> =
-  ((import.meta as any)?.env) ?? {};
-
-const ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL = 'https://www.instagram.com/p/DaQpKS9EXT8/';
-const ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_LINKS: NonNullable<Product['makingVideoLinks']> = [
-  {
-    platform: 'instagram',
-    label: 'Instagram Reel',
-    url: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL
-  },
-  {
-    platform: 'youtube',
-    label: 'YouTube Short',
-    url: 'https://www.youtube.com/shorts/YN82FCNhNJ8'
-  },
-  {
-    platform: 'tiktok',
-    label: 'TikTok',
-    url: 'https://www.tiktok.com/@sgcoalition/video/7657634047572593933'
-  }
-];
-
 export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'Coalition_NF_Tee',
@@ -67,9 +40,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     createdAt: '2026-06-17T00:00:00-04:00',
     images: [
       PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
-      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
-      PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelFront,
-      PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelBack
+      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back
     ],
     description: 'The Above as Below tee features a heavyweight black body with red-and-white Coalition artwork across the front and a full back graphic built around the Above as Below concept.',
     category: 'shirt',
@@ -79,29 +50,13 @@ export const INITIAL_PRODUCTS: Product[] = [
     sizes: ['S', 'M', 'L', 'XL', '2XL'],
     // Live Supabase row sums to 44. Local fallback kept honest so the storefront
     // never oversells when Supabase hasn't been hit yet.
-    sizeInventory: { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 },
-    // Flat-lay product whose front/back shots already include a white frame —
-    // the storefront card uses object-contain + bg-white so the print isn't
-    // cropped. imageFit/imageBackground replaces the legacy hard-coded
-    // product-id check in components/ProductCard.tsx. utils/productImage.ts
-    // no longer carries a legacy-id fallback (deleted in the cleanup
-    // commit); any future id seen without imageRoles.imageFit and
-    // imageRoles.imageBackground will fall through to the default
-    // cover/gray-900 path, which is the intended behavior because all 5
-    // once-legacy ids are pinned explicitly in constants.ts and the live
-    // storefront never reaches that branch.
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
-      hoverUrl: PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
-      imageFit: 'contain',
-      imageBackground: 'white',
-    }
+    sizeInventory: { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 }
   },
   {
     id: 'GreenCamoWallet',
     founderNote: `[PLACEHOLDER · GreenCamoWallet] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION GREEN CAMO WALLET',
-    price: 85,
+    price: 75,
     images: [PRODUCT_IMAGE_URLS.walletGreen.front, PRODUCT_IMAGE_URLS.walletGreen.back],
     description: 'Tactical accessory designed for the modern collector. Spec-camo pattern with multiple card slots and RFID protection.',
     category: 'wallet',
@@ -116,7 +71,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'SKYYBLUEWALLET1_2',
     founderNote: `[PLACEHOLDER · SKYYBLUEWALLET1_2] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION SKYY BLUE WALLET 1/2',
-    price: 85,
+    price: 75,
     images: [PRODUCT_IMAGE_URLS.walletSkyyBlue.front, PRODUCT_IMAGE_URLS.walletSkyyBlue.back],
     description: 'Electric blue variant of our signature tactical wallet. Sleek, durable, and ready for any mission.',
     category: 'wallet',
@@ -131,7 +86,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'prod_wallet_004',
     founderNote: `[PLACEHOLDER · prod_wallet_004] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION SKYY BLUE WALLET 2/2',
-    price: 85,
+    price: 75,
     images: [PRODUCT_IMAGE_URLS.walletSkyyBlueArchive.front, PRODUCT_IMAGE_URLS.walletSkyyBlueArchive.back],
     description: 'Second piece of the Skyy Blue collection. Hand-crafted tie-dye wallet with silver stitched border. Each piece unique — no two alike.',
     category: 'wallet',
@@ -146,11 +101,11 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'Coalition_Racing_Team_Wallet_1_4',
     founderNote: `[PLACEHOLDER · Coalition_Racing_Team_Wallet_1_4] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Racing Team' Wallet 1/4",
-    price: 85,
+    price: 75,
     createdAt: '2026-04-07T00:00:00Z',
     images: [
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_3UUmYQa.jpg',
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_vRqjRG4.jpg'
+      'https://i.imgur.com/3UUmYQa.jpg',
+      'https://i.imgur.com/vRqjRG4.jpg'
     ],
     description: "First release in the Coalition 'Racing Team' wallet run. Built as a limited 1/4 collectible with custom team graphics and everyday-carry function.",
     category: 'wallet',
@@ -165,11 +120,11 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'Coalition_Racing_Team_Wallet_2_4',
     founderNote: `[PLACEHOLDER · Coalition_Racing_Team_Wallet_2_4] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Racing Team' Wallet 2/4",
-    price: 85,
+    price: 75,
     createdAt: '2026-04-07T06:57:00Z',
     images: [
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IRhVbhN.jpg',
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_7ScdBnE.jpg'
+      'https://i.imgur.com/IRhVbhN.jpg',
+      'https://i.imgur.com/7ScdBnE.jpg'
     ],
     description: "Second release in the Coalition 'Racing Team' wallet run. Built as a limited 2/4 collectible with custom team graphics and everyday-carry function.",
     category: 'wallet',
@@ -184,11 +139,11 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'Coalition_Racing_Team_Wallet_3_4',
     founderNote: `[PLACEHOLDER · Coalition_Racing_Team_Wallet_3_4] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Racing Team' Wallet 3/4",
-    price: 85,
+    price: 75,
     createdAt: '2026-04-07T07:08:00Z',
     images: [
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_dcw5qLQ.jpg',
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_hmPBbY3.jpg'
+      'https://i.imgur.com/dcw5qLQ.jpg',
+      'https://i.imgur.com/hmPBbY3.jpg'
     ],
     description: "Third release in the Coalition 'Racing Team' wallet run. Built as a limited 3/4 collectible with custom team graphics and everyday-carry function.",
     category: 'wallet',
@@ -203,11 +158,11 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'Coalition_Racing_Team_Wallet_4_4',
     founderNote: `[PLACEHOLDER · Coalition_Racing_Team_Wallet_4_4] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Racing Team' Wallet 4/4",
-    price: 85,
+    price: 75,
     createdAt: '2026-04-07T07:25:00Z',
     images: [
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EylCpDU.jpg',
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_w8dahYm.jpg'
+      'https://i.imgur.com/EylCpDU.jpg',
+      'https://i.imgur.com/w8dahYm.jpg'
     ],
     description: "Final release in the Coalition 'Racing Team' wallet run. Built as a limited 4/4 collectible with custom team graphics and everyday-carry function.",
     category: 'wallet',
@@ -248,8 +203,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     isFeatured: false,
     archived: true,
     soldAt: '2025-01-01T00:00:00Z'
-  },
-  {
+  },  {
     id: 'prod_tee_distortion',
     founderNote: `[PLACEHOLDER · prod_tee_distortion] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION DISTORTION TEE',
@@ -268,17 +222,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'prod_1773860269374',
     founderNote: `[PLACEHOLDER · prod_1773860269374] Replace with founder's note: 1-2 paragraphs covering what this 1/1 build is, where it sits in the Coalition shark arc, and what's worth noticing in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'Coalition Shark Tee - 1/1 Exclusive',
-    // 2026-07-04: base price lowered from $60 -> $40, and a 50% auto-discount
-    // applied permanently to the row so the storefront surfaces strikethrough
-    // "$40 -> $20" without a coupon code. The discountPercent field is read
-    // by components/PriceDisplay.tsx on PDP/ProductCard, by pages/Checkout.tsx
-    // for cart math, and round-trips through services/retryQueue.ts ->
-    // mapProductToDb -> public.products.discount_percent (migration
-    // 20260704_add_discount_percent_to_products.sql). Checkout applies the
-    // no-stack rule vs cart-wide coupons (max() of the two wins) per the user's
-    // "Replace them (no stack)" spec.
-    price: 40,
-    discountPercent: 50,
+    price: 60,
     createdAt: '2026-03-18T19:00:00-04:00',
     images: [
       PRODUCT_IMAGE_URLS.sharkTee.main,
@@ -312,42 +256,16 @@ export const INITIAL_PRODUCTS: Product[] = [
     sizeInventory: { '33': 0 }
   },
   {
-    id: 'Coalition_Denim_Patchwork_S1',
-    founderNote: `[PLACEHOLDER · Coalition_Denim_Patchwork_S1] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
-    name: 'Coalition Denim Patchwork 1/1 Jeans S1',
-    price: 140,
-    // The Instagram post (https://www.instagram.com/p/DCIqPY4Msk_/?img_index=1)
-    // is the canonical hero shot; the imgur album
-    // (https://imgur.com/a/6iKV2Tu) hosts the additional detail crops.
-    // If the storefront can't render the IG URL in an <img> tag, swap
-    // in the direct CDN equivalents when the operator has them.
-    images: [
-      'https://www.instagram.com/p/DCIqPY4Msk_/?img_index=1',
-      'https://imgur.com/a/6iKV2Tu',
-    ],
-    description: "One-of-one Coalition Denim Patchwork jeans. Hand-pieced from multiple denim panels, raw-hem finished, with the SG mark on the back pocket. Featuring X Meks. Size 30. Once it's gone, it's gone.",
-    category: 'jeans',
-    isFeatured: false,
-    isLimitedEdition: true,
-    archived: true,
-    archivedAt: '2024-11-08T15:00:00-05:00',
-    soldAt: '2024-11-08T15:00:00-05:00',
-    sizes: ['30'],
-    sizeInventory: { '30': 0 },
-    archiveNote: "This exact Denim Patchwork has sold. Hand-pieced from multiple denim panels in a single build — no two alike, no restocks."
-  },
-  {
     id: 'Coalition_Grey_Wave_Wallet_1_2',
     founderNote: `[PLACEHOLDER · Coalition_Grey_Wave_Wallet_1_2] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Grey Wave' Wallet 1/2",
-    price: 85,
+    price: 75,
     createdAt: '2026-06-20T00:00:00-04:00',
     images: [
       PRODUCT_IMAGE_URLS.greyWaveWallet.front,
       PRODUCT_IMAGE_URLS.greyWaveWallet.back
     ],
     description: "First piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a custom charcoal-grey dye pattern inspired by Baltimore harbor at dawn. Built as a limited 1/2 collectible \u2014 once sold, it's gone forever.",
-    makingVideoUrl: 'https://www.instagram.com/p/DZ3wBL_z0sd/',
     category: 'wallet',
     freeShipping: true,
     isLimitedEdition: true,
@@ -356,20 +274,13 @@ export const INITIAL_PRODUCTS: Product[] = [
     soldAt: '2026-06-25T02:40:12.191+00:00',
     sizes: ['One Size'],
     sizeInventory: { 'One Size': 0 },
-    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop.",
-    // Mirrors Coalition_Grey_Wave_Wallet_2_2 (2/2 twin); flat-lay = white frame so contain + bg-white keeps the print uncropped. Defense-in-depth mirror in PRODUCT_LOCAL_OVERRIDES below.
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.greyWaveWallet.front,
-      hoverUrl: PRODUCT_IMAGE_URLS.greyWaveWallet.back,
-      imageFit: 'contain',
-      imageBackground: 'white',
-    }
+    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop."
   },
   {
     id: 'Coalition_Grey_Wave_Wallet_2_2',
     founderNote: `[PLACEHOLDER · Coalition_Grey_Wave_Wallet_2_2] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: "Coalition 'Grey Wave' Wallet 2/2",
-    price: 85,
+    price: 75,
     createdAt: '2026-06-28T00:00:00-04:00',
     images: [
       PRODUCT_IMAGE_URLS.greyWaveWallet22.front,
@@ -380,33 +291,20 @@ export const INITIAL_PRODUCTS: Product[] = [
     category: 'wallet',
     freeShipping: true,
     isLimitedEdition: true,
-    archived: true,
-    archivedAt: '2026-07-02T10:00:00-04:00',
-    soldAt: '2026-07-02T10:00:00-04:00',
     sizes: ['One Size'],
-    sizeInventory: { 'One Size': 0 },
-    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same storm-grey direction rebuilt for a future drop.",
-    // Mirrors Coalition_Grey_Wave_Wallet_1_2 (1/2 twin); flat-lay = white frame so contain + bg-white keeps the print uncropped. Defense-in-depth mirror in PRODUCT_LOCAL_OVERRIDES below.
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.greyWaveWallet22.front,
-      hoverUrl: PRODUCT_IMAGE_URLS.greyWaveWallet22.back,
-      imageFit: 'contain',
-      imageBackground: 'white',
-    }
+    sizeInventory: { 'One Size': 1 }
   },
   {
     id: 'Coalition_Above_As_Below_Wallet_1_1',
     founderNote: `[PLACEHOLDER · Coalition_Above_As_Below_Wallet_1_1] Replace with founder's note: 1-2 paragraphs covering what this build is, why this one was made, and what to look for in the seams. Anti-tricky-brand voice, ~120 words.`,
     name: 'COALITION ABOVE AS BELOW 1/1 WALLET',
-    price: 85,
+    price: 75,
     createdAt: '2026-06-28T00:00:00-04:00',
     images: [
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_9NF3LzM.jpg',
-      'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_UoY42bg.jpg'
+      'https://i.imgur.com/9NF3LzM.jpg',
+      'https://i.imgur.com/UoY42bg.jpg'
     ],
     description: '1/1 Above as Below wallet. Hand-finished with the same storm-and-balance motif as the matching Above as Below tee — single piece, one red-and-white Coalition mark, scaled for everyday carry. Once sold, gone forever.',
-    makingVideoUrl: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL,
-    makingVideoLinks: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_LINKS,
     category: 'wallet',
     isLimitedEdition: true,
     isFeatured: false,
@@ -425,234 +323,18 @@ Hand-cut, raw-hem, deep-set pocket. Sized S through 2XL.`,
     price: 75,
     createdAt: '2026-06-28T00:00:00-04:00',
     images: [
-      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.front,
-      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.back,
-      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
-      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setBack
+      '/images/above-as-below-shorts-front.png',
+      '/images/above-as-below-shorts-back.png',
+      '/images/above-as-below-set-front.png',
+      '/images/above-as-below-set-back.png'
     ],
     description: "The matching Above as Below shorts. Same hand-crafted red-and-white Coalition lineage as the tee - heavyweight cotton, deep set pocket, raw-hem finished. Sold at $75 individually, or grab the set with the tee for $120 and save $30.",
-    category: 'shorts',
-    isFeatured: false,
-    isLimitedEdition: true,
-    freeShipping: true,
-    sizes: ['S', 'M', 'L', 'XL', '2XL'],
-    sizeInventory: { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 },
-    // Matching Above-as-Below shorts — same flat-lay render profile as the
-    // tee. See prod_tee_above_as_below for the reasoning behind
-    // imageFit='contain' + imageBackground='white'.
-    imageRoles: {
-      imageFit: 'contain',
-      imageBackground: 'white',
-    }
-  },
-  {
-    id: 'prod_set_above_as_below',
-    founderNote: `The full Above as Below uniform: tee and shorts together, priced as the set instead of two separate pieces.
-
-One size selection covers both pieces. Sized S through 2XL. Set price: $120.`,
-    name: 'COALITION ABOVE AS BELOW SET',
-    price: 120,
-    createdAt: '2026-07-01T00:00:00-04:00',
-    images: [
-      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
-      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setBack,
-      PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
-      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
-      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.front,
-      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.back
-    ],
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
-      hoverUrl: null
-    },
-    description: "Above as Below tee and shorts together in one set. Each piece is $75 on its own ($150 total); the set is $120, saving $30 off the combined price. Sized S-M-L-XL-2XL.",
     category: 'apparel',
     isFeatured: false,
     isLimitedEdition: true,
     freeShipping: true,
     sizes: ['S', 'M', 'L', 'XL', '2XL'],
-    sizeInventory: { S: 4, M: 4, L: 4, XL: 4, '2XL': 4 }
-  },
-  {
-    id: 'prod_womens_above_as_below_contrast_shorts',
-    founderNote: `Cut as the women's counterpart to the Above as Below drop. Black body, white contrast trim, and the red Coalition artwork placed low on the leg so it reads with the crop tank instead of fighting it.
-
-$40 on its own. Sized S through XL. Built to pair with the crewneck crop tank as the $75 women's set.`,
-    name: "WOMEN'S COALITION ABOVE AS BELOW CONTRAST SHORTS",
-    price: 40,
-    createdAt: '2026-07-01T00:00:00-04:00',
-    images: [
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.back,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront
-    ],
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
-      hoverUrl: null
-    },
-    description: "Women's Above as Below contrast shorts in black with white trim, red Coalition artwork, and a red waistband label. Available S-M-L-XL. $40 separately, or grab the matching crop tank and shorts set for $75.",
-    category: 'shorts',
-    isFeatured: false,
-    isLimitedEdition: true,
-    freeShipping: true,
-    sizes: ['S', 'M', 'L', 'XL'],
-    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
-  },
-  {
-    id: 'prod_womens_above_as_below_crop_tank',
-    founderNote: `A crewneck crop tank built for the women's Above as Below set. Front SG mark, full back Above as Below figure, and the red Coalition label at the hem.
-
-$40 on its own. Sized S through XL. Pair it with the contrast shorts for the $75 set.`,
-    name: "WOMEN'S COALITION ABOVE AS BELOW CREWNECK CROP TANK",
-    price: 40,
-    createdAt: '2026-07-01T00:00:00-04:00',
-    images: [
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.back,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront
-    ],
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
-      hoverUrl: null
-    },
-    description: "Women's Above as Below crewneck crop tank in black with front SG artwork, back Above as Below graphic, and red Coalition hem label. $40 separately, or pair it with the contrast shorts as a $75 set.",
-    category: 'shirt',
-    isFeatured: false,
-    isLimitedEdition: true,
-    freeShipping: true,
-    sizes: ['S', 'M', 'L', 'XL'],
-    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
-  },
-  {
-    id: 'prod_womens_above_as_below_set',
-    founderNote: `The full women's Above as Below uniform: crewneck crop tank and contrast shorts together, priced as the set instead of two separate pieces.
-
-One size selection covers both pieces. Sized S through XL. Set price: $75.`,
-    name: "WOMEN'S COALITION ABOVE AS BELOW SET",
-    price: 75,
-    createdAt: '2026-07-01T00:00:00-04:00',
-    images: [
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.back,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.back
-    ],
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
-      hoverUrl: null
-    },
-    description: "Women's Above as Below set with the crewneck crop tank and contrast shorts together. Black body, red-and-white Coalition artwork, and matching set styling. $75 as a set, sized S-M-L-XL.",
-    category: 'apparel',
-    isFeatured: false,
-    isLimitedEdition: true,
-    freeShipping: true,
-    sizes: ['S', 'M', 'L', 'XL'],
-    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 }
-  },
-  {
-    id: 'prod_womens_coalition_halo_contrast_tee',
-    founderNote: `Women's bodycon raglan sleeve tee using the same gold Coalition halo chest logo as the Coalition Halo Mini Dress, with a TRUST YOURSELF hit on the back. The contrast stripes on the raglan sleeves are the defining visual feature of the blank, so the tee reads as a Coalition women's staple rather than a generic raglan.
-
-Standard live catalog release, not a numbered or limited drop. Keep the price at $40 unless the live product row is intentionally updated. Sized S through XL.`,
-    name: "WOMEN'S COALITION HALO CONTRAST TEE",
-    price: 40,
-    createdAt: '2026-07-03T00:00:00-04:00',
-    images: [
-      PRODUCT_IMAGE_URLS.womensHaloContrastTee.front,
-      PRODUCT_IMAGE_URLS.womensHaloContrastTee.back,
-      PRODUCT_IMAGE_URLS.womensHaloContrastTee.modelFront,
-      PRODUCT_IMAGE_URLS.womensHaloContrastTee.frontDetail,
-      PRODUCT_IMAGE_URLS.womensHaloContrastTee.backDetail
-    ],
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.womensHaloContrastTee.front,
-      hoverUrl: PRODUCT_IMAGE_URLS.womensHaloContrastTee.back
-    },
-    description: "Women's Coalition Halo Contrast Tee in bodycon raglan sleeve cut with contrast sleeve stripes, the same gold Coalition halo chest logo as the Coalition Halo Mini Dress, and a TRUST YOURSELF hit on the back. $40, sized S-M-L-XL.",
-    category: 'shirt',
-    isFeatured: false,
-    isLimitedEdition: false,
-    freeShipping: true,
-    sizes: ['S', 'M', 'L', 'XL'],
-    sizeInventory: { S: 1, M: 1, L: 1, XL: 1 },
-    specs: {
-      attributes: [
-        { label: 'Gender', value: 'Female' },
-        { label: 'Fit', value: 'Bodycon' },
-        { label: 'Style', value: 'Raglan Sleeve Tee' },
-      ],
-      care: [
-        'Machine wash cold on gentle cycle',
-        'Do not bleach',
-        'Tumble dry low',
-        'Iron inside-out on low heat, avoid ironing on print',
-      ],
-      material: {
-        composition: 'Cotton / spandex blend (bodycon stretch)',
-        fabricWeight: 'Mid-weight',
-        thickness: 'Semi-sheer at seams',
-        breathability: 'High',
-      },
-    },
-  },
-  {
-    id: 'prod_halo_mini_dress',
-    founderNote: `The Halo Mini Dress is a clean black bodycon silhouette with the Coalition halo mark placed high on the chest and the cross-backed Coalition hit sitting low on the back.
-
-This is a standard live catalog release, not a numbered or limited drop. Keep the price at $50 unless the live product row is intentionally updated. Sized S through XL.`,
-    name: 'COALITION HALO MINI DRESS',
-    price: 50,
-    createdAt: '2026-07-01T00:00:00-04:00',
-    images: [
-      PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
-      PRODUCT_IMAGE_URLS.haloMiniDress.modelFront,
-      PRODUCT_IMAGE_URLS.haloMiniDress.modelAngledFront,
-      PRODUCT_IMAGE_URLS.haloMiniDress.modelSide,
-      PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled,
-      PRODUCT_IMAGE_URLS.haloMiniDress.modelBack
-    ],
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
-      hoverUrl: PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled
-    },
-    description: 'Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Standard live catalog release priced at $50.',
-    category: 'dress',
-    isFeatured: false,
-    isLimitedEdition: false,
-    sizes: ['S', 'M', 'L', 'XL'],
-    // Total 50 across all sizes.
-    sizeInventory: { S: 12, M: 13, L: 13, XL: 12 },
-    specs: {
-      attributes: [
-        { label: 'Gender', value: 'Female' },
-        { label: 'Effects', value: 'Backless' },
-        { label: 'Fit', value: 'Bodycon' },
-        { label: 'Neckline', value: 'U-Neck' },
-        { label: 'Sleeve Length', value: 'Sleeveless' },
-        { label: 'Season', value: 'Spring / Summer' },
-        { label: 'Style', value: 'Basics / Casual / Sexy' },
-      ],
-      care: [
-        'Machine wash at 30°C (gentle cycle)',
-        'Do not bleach',
-        'Tumble dry low',
-        'Iron at low temperature, avoid ironing on print',
-        'Do not dry clean',
-      ],
-      material: {
-        composition: '92% rayon, 8% spandex',
-        fabricWeight: '260 gsm (7.7 oz)',
-        thickness: 'Thin',
-        breathability: 'Moderate',
-      },
-    },
+    sizeInventory: { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 }
   },
   {
     id: 'prod_hoodie_overwhelmingly_patient',
@@ -667,302 +349,28 @@ Pre-order reservations are intentionally capped at one per size. After the close
     price: 100,
     createdAt: '2026-06-28T00:00:00-04:00',
     images: [
-      PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatFront,
-      PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatBack,
-      PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.modelFront,
-      PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.modelBack
+      '/images/coalition-overwhelmingly-patient-hoodie-front.png',
+      '/images/coalition-overwhelmingly-patient-hoodie-back.png'
     ],
-    description: "Pre-order release of the Coalition Overwhelmingly Patient Hoodie at $100. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Free shipping when paired with any other item. Reservations capped at one per size; ships in 1-2 weeks from the close of the pre-order window.",
-    category: 'sweatshirt',
+    description: "Pre-order release of the Coalition Overwhelmingly Patient Hoodie at $100. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Free shipping when paired with any other item. Reservations capped at one per size; ships in 4-6 weeks from the close of the pre-order window.",
+    category: 'apparel',
     isFeatured: false,
     isLimitedEdition: true,
     freeShippingWhenPaired: true,
-    // shippingFulfillment lives in PRODUCT_LOCAL_OVERRIDES below, NOT here.
-    // The AppContext fetch spreads `{...local, ...sp}` so Supabase wins
-    // for any field present in the row, which would clobber this value
-    // back to `undefined`. applyLocalProductOverrides (which runs LAST)
-    // is the only reliable surface for per-product shipping copy.
     saleEndDate: '2026-07-26T23:59:59.999Z',
     sizes: ['S', 'M', 'L', 'XL', '2XL'],
-    sizeInventory: { S: 1, M: 1, L: 1, XL: 1, '2XL': 1 },
-    // Chakra-line hoodie boots the same flat-lay render profile (object-contain
-    // + bg-white) so the burnt-orange svg mark isn't cropped against the
-    // gray-900 default. See prod_tee_above_as_below for the full rationale.
-    imageRoles: {
-      imageFit: 'contain',
-      imageBackground: 'white',
-    }
+    sizeInventory: { S: 1, M: 1, L: 1, XL: 1, '2XL': 1 }
   },
 ];
 
 export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
-  prod_tee_above_as_below: {
-    images: [
-      PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
-      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
-      PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelFront,
-      PRODUCT_IMAGE_URLS.aboveAsBelowTee.modelBack
-    ],
-    // Pin imageRoles so applyLocalProductOverrides wins the spread against
-    // any future Supabase row that pre-dates the imageFit/imageBackground
-    // migration. The whole blob is re-stated here (NOT a partial) because
-    // applyLocalProductOverrides does a property-level spread: a partial
-    // override would silently wipe the primaryUrl/hoverUrl/namedSlots the
-    // Supabase row carries. Same defensive pattern used for halo mini
-    // dress + halo contrast tee.
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
-      hoverUrl: PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
-      imageFit: 'contain',
-      imageBackground: 'white',
-    },
-  },
-  prod_set_above_as_below: {
-    name: 'COALITION ABOVE AS BELOW SET',
-    price: 120,
-    createdAt: '2026-07-01T00:00:00-04:00',
-    images: [
-      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
-      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setBack,
-      PRODUCT_IMAGE_URLS.aboveAsBelowTee.front,
-      PRODUCT_IMAGE_URLS.aboveAsBelowTee.back,
-      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.front,
-      PRODUCT_IMAGE_URLS.aboveAsBelowShorts.back
-    ],
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
-      hoverUrl: null
-    },
-    description: "Above as Below tee and shorts together in one set. Each piece is $75 on its own ($150 total); the set is $120, saving $30 off the combined price. Sized S-M-L-XL-2XL.",
-    category: 'apparel',
-    isFeatured: false,
-    isLimitedEdition: true,
-    freeShipping: true,
-    sizes: ['S', 'M', 'L', 'XL', '2XL'],
-    sizeInventory: { S: 4, M: 4, L: 4, XL: 4, '2XL': 4 }
-  },
-  prod_womens_above_as_below_contrast_shorts: {
-    images: [
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.back,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront
-    ],
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
-      hoverUrl: null
-    }
-  },
-  prod_womens_above_as_below_crop_tank: {
-    images: [
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.back,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront
-    ],
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
-      hoverUrl: null
-    }
-  },
-  prod_womens_above_as_below_set: {
-    images: [
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setBack,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setAngledFront,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.front,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowCropTank.back,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.front,
-      PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.back
-    ],
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.womensAboveAsBelowContrastShorts.setFront,
-      hoverUrl: null
-    }
-  },
-  // Halo Contrast Tee images + imageRoles + specs pinned here so
-  // applyLocalProductOverrides wins the AppContext merge against any future
-  // Supabase row that pre-dates these slots. Same defensive pattern the
-  // womens above-as-below products use for images/imageRoles, and the halo
-  // mini dress override uses for specs.
-  prod_womens_coalition_halo_contrast_tee: {
-    images: [
-      PRODUCT_IMAGE_URLS.womensHaloContrastTee.front,
-      PRODUCT_IMAGE_URLS.womensHaloContrastTee.back,
-      PRODUCT_IMAGE_URLS.womensHaloContrastTee.modelFront,
-      PRODUCT_IMAGE_URLS.womensHaloContrastTee.frontDetail,
-      PRODUCT_IMAGE_URLS.womensHaloContrastTee.backDetail
-    ],
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.womensHaloContrastTee.front,
-      hoverUrl: PRODUCT_IMAGE_URLS.womensHaloContrastTee.back
-    },
-    specs: {
-      attributes: [
-        { label: 'Gender', value: 'Female' },
-        { label: 'Fit', value: 'Bodycon' },
-        { label: 'Style', value: 'Raglan Sleeve Tee' },
-      ],
-      care: [
-        'Machine wash cold on gentle cycle',
-        'Do not bleach',
-        'Tumble dry low',
-        'Iron inside-out on low heat, avoid ironing on print',
-      ],
-      material: {
-        composition: 'Cotton / spandex blend (bodycon stretch)',
-        fabricWeight: 'Mid-weight',
-        thickness: 'Semi-sheer at seams',
-        breathability: 'High',
-      },
-    }
-  },
-  prod_halo_mini_dress: {
-    images: [
-      PRODUCT_IMAGE_URLS.haloMiniDress.modelFaceFront,
-      PRODUCT_IMAGE_URLS.haloMiniDress.modelFront,
-      PRODUCT_IMAGE_URLS.haloMiniDress.modelAngledFront,
-      PRODUCT_IMAGE_URLS.haloMiniDress.modelSide,
-      PRODUCT_IMAGE_URLS.haloMiniDress.modelBackAngled,
-      PRODUCT_IMAGE_URLS.haloMiniDress.modelBack
-    ],
-    // Pinned here so applyLocalProductOverrides wins the merge — the live
-    // Supabase row predates the specs column and would clobber it with
-    // `undefined` via the `{...local, ...sp}` spread.
-    specs: {
-      attributes: [
-        { label: 'Gender', value: 'Female' },
-        { label: 'Effects', value: 'Backless' },
-        { label: 'Fit', value: 'Bodycon' },
-        { label: 'Neckline', value: 'U-Neck' },
-        { label: 'Sleeve Length', value: 'Sleeveless' },
-        { label: 'Season', value: 'Spring / Summer' },
-        { label: 'Style', value: 'Basics / Casual / Sexy' },
-      ],
-      care: [
-        'Machine wash at 30°C (gentle cycle)',
-        'Do not bleach',
-        'Tumble dry low',
-        'Iron at low temperature, avoid ironing on print',
-        'Do not dry clean',
-      ],
-      material: {
-        composition: '92% rayon, 8% spandex',
-        fabricWeight: '260 gsm (7.7 oz)',
-        thickness: 'Thin',
-        breathability: 'Moderate',
-      },
-    },
-    // imageRoles is intentionally NOT in this override so the Supabase row's
-    // imageRoles.{primaryUrl, hoverUrl, namedSlots} wins after the
-    // AppContext fetchProducts merge. Halo image roles are operator-curated
-    // at runtime via components/admin/ProductManager.tsx > Named Slot Targets
-    // and mirrored through the upsert in scripts/addHaloMiniDress.ts. The
-    // legacy shape (without namedSlots) gets a clean default from
-    // INITIAL_PRODUCTS > imageRoles above. Do not pin limited-edition or
-    // tier-pricing fields here; this dress is a standard live catalog item.
-  },
-  // Hoodie ships in 1-2 weeks (faster than the original 4-6 week pre-order
-  // commitment). The `category: 'sweatshirt'` override is also pinned here so
-  // the SWEATSHIRTS filter on /shop surfaces the hoodie even though the live
-  // Supabase row was originally seeded with `category: 'apparel'` (see
-  // scripts/addOverwhelminglyPatientHoodie.ts — drift source). Lives in
-  // PRODUCT_LOCAL_OVERRIDES rather than only in INITIAL_PRODUCTS so
-  // applyLocalProductOverrides wins the AppContext merge after the Supabase
-  // fetch — the live Supabase row was added before these fields existed, so
-  // a `{...local, ...sp}` spread would otherwise clobber the local values
-  // with `undefined` or the stale DB category.
-  prod_hoodie_overwhelmingly_patient: {
-    shippingFulfillment: 'Ships in 1-2 weeks',
-    category: 'sweatshirt',
-    // Chakra-line hoodie pins imageRoles alongside the other safety-net
-    // fields so the flat-lay render survives the
-    // applyLocalProductOverrides spread. Whole-blob re-statement (NOT a
-    // partial) for the same reason as prod_tee_above_as_below above: a
-    // partial would silently wipe primaryUrl/hoverUrl the Supabase row
-    // carries.
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatFront,
-      hoverUrl: PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatBack,
-      imageFit: 'contain',
-      imageBackground: 'white',
-    },
-  },
-  Coalition_Above_As_Below_Wallet_1_1: {
-    makingVideoUrl: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_URL,
-    makingVideoLinks: ABOVE_AS_BELOW_WALLET_MAKING_VIDEO_LINKS,
-  },
   Coalition_Grey_Wave_Wallet_1_2: {
     archived: true,
     archivedAt: '2026-06-25T02:40:12.191+00:00',
     soldAt: '2026-06-25T02:40:12.191+00:00',
     sizes: ['One Size'],
     sizeInventory: { 'One Size': 0 },
-    makingVideoUrl: 'https://www.instagram.com/p/DZ3wBL_z0sd/',
-    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop.",
-    // Pin imageFit/imageBackground alongside the archive metadata so the
-    // archive PDP renders the same flat-lay look now that the legacy-id
-    // fallback has been removed. Same defensive full-blob re-statement as
-    // prod_tee_above_as_below above so a stale Supabase row's imageRoles
-    // cannot silently wipe the primary/hover URLs via the
-    // applyLocalProductOverrides spread. A defense-in-depth mirror lives
-    // in INITIAL_PRODUCTS for Coalition_Grey_Wave_Wallet_1_2 above so
-    // any code path that bypasses applyLocalProductOverrides (seed
-    // scripts, SSG rendering) still gets the right render profile.
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.greyWaveWallet.front,
-      hoverUrl: PRODUCT_IMAGE_URLS.greyWaveWallet.back,
-      imageFit: 'contain',
-      imageBackground: 'white',
-    },
-  },
-  // Mirrors the 1/2 override above. The live Supabase row for 2/2 still
-  // shows stock 1 because the sale was offline (York, PA). This override
-  // ensures applyLocalProductOverrides wins the AppContext merge so the
-  // storefront PDP renders "Sold Out" / archived regardless of the DB row.
-  // The buyer's identity is NOT stored anywhere in the codebase — the
-  // INITIAL_ORDERS row uses customerName: 'York Customer' and
-  // customerEmail: 'customer@example.com' per the privacy contract.
-  Coalition_Grey_Wave_Wallet_2_2: {
-    archived: true,
-    archivedAt: '2026-07-02T10:00:00-04:00',
-    soldAt: '2026-07-02T10:00:00-04:00',
-    sizes: ['One Size'],
-    sizeInventory: { 'One Size': 0 },
-    makingVideoUrl: 'https://www.instagram.com/p/DZ8z0t0Tfws/',
-    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same storm-grey direction rebuilt for a future drop.",
-    // Pin imageFit/imageBackground alongside the archive metadata so the
-    // archive PDP renders the same flat-lay look now that the legacy-id
-    // fallback has been removed. Same defensive full-blob re-statement as
-    // prod_tee_above_as_below above, plus a defense-in-depth mirror in
-    // INITIAL_PRODUCTS for Coalition_Grey_Wave_Wallet_2_2 above so any
-    // code path that bypasses applyLocalProductOverrides (seed scripts,
-    // SSG rendering) still gets the right render profile.
-    imageRoles: {
-      primaryUrl: PRODUCT_IMAGE_URLS.greyWaveWallet22.front,
-      hoverUrl: PRODUCT_IMAGE_URLS.greyWaveWallet22.back,
-      imageFit: 'contain',
-      imageBackground: 'white',
-    },
-  },
-  // Mirrors the True Religion S1 + Grey Wave archive pattern. The live
-  // Supabase row may still show stock 1 because the sale was offline
-  // (Abingdon, MD) and was never pushed as a Supabase decrement. This
-  // override ensures applyLocalProductOverrides wins the AppContext
-  // merge so the storefront PDP renders "Sold Out" / archived
-  // regardless of the DB row. The buyer's identity is stamped on the
-  // matching INITIAL_ORDERS row (instagramUsername: 'friiqy') so the
-  // operator can join this sale to friiqy's customer profile without
-  // storing any PII in the product row itself.
-  Coalition_Denim_Patchwork_S1: {
-    archived: true,
-    archivedAt: '2024-11-08T15:00:00-05:00',
-    soldAt: '2024-11-08T15:00:00-05:00',
-    sizes: ['30'],
-    sizeInventory: { '30': 0 },
-    archiveNote: "This exact Denim Patchwork has sold. Hand-pieced from multiple denim panels in a single build \u2014 no two alike, no restocks."
+    archiveNote: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop."
   },
   SKYYBLUEWALLET1_2: {
     archived: true,
@@ -1024,7 +432,7 @@ export const V2_REWARD_RATE = 0.25; // Legacy reference, can be deprecated or us
 // NO REFUNDS POLICY CONFIGURATION
 // =====================================
 
-export const SALES_FINAL_ENABLED = viteEnv.VITE_SALES_FINAL === 'true';
+export const SALES_FINAL_ENABLED = import.meta.env.VITE_SALES_FINAL === 'true';
 
 export const CONSENT_TEXT = "All sales are final. No returns, exchanges, or refunds will be accepted.";
 
@@ -1042,8 +450,8 @@ If you have questions about a product before purchasing, please contact us at su
 // SGCOIN DISCOUNT CONFIGURATION
 // =====================================
 
-export const SGCOIN_DISCOUNT_ENABLED = viteEnv.VITE_SGCOIN_DISCOUNT_ENABLED === 'true';
-export const SGCOIN_DISCOUNT_PERCENTAGE = parseFloat(viteEnv.VITE_SGCOIN_DISCOUNT_PERCENTAGE || '10');
+export const SGCOIN_DISCOUNT_ENABLED = import.meta.env.VITE_SGCOIN_DISCOUNT_ENABLED === 'true';
+export const SGCOIN_DISCOUNT_PERCENTAGE = parseFloat(import.meta.env.VITE_SGCOIN_DISCOUNT_PERCENTAGE || '10');
 
 export const SGCOIN_PAYMENT_METHODS = ['sgcoin', 'gmoney'] as const;
 export type SGCoinPaymentMethod = typeof SGCOIN_PAYMENT_METHODS[number];
@@ -1129,353 +537,20 @@ export const ADMIN_WALLETS = [
 
 export const INITIAL_ORDERS: any[] = [
   {
-    // MUST stay in lock-step with PUBLIC_RECENT_ORDER_SEEDS in
-    // utils/liveOrdersFeed.ts. buildLiveOrdersFeed dedupes by `id`,
-    // so any drift here causes duplicate rows in the live map feed.
-    // Documented in the 'Recently Ordered Live Map' section of README.md.
-    id: 'public-pa-grey-wave-wallet-2-2',
-    orderNumber: 'ORD-SG-GREY-WAVE-2001',
-    isGuest: true,
-    customerName: 'York Customer',
-    customerEmail: 'customer@example.com',
-    items: [
-      {
-        productId: 'Coalition_Grey_Wave_Wallet_2_2',
-        productName: "Coalition 'Grey Wave' Wallet 2/2",
-        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_FVMHZoq.jpg',
-        selectedSize: 'One Size',
-        quantity: 1,
-        price: 75,
-        total: 75
-      }
-    ],
-    subtotal: 75,
-    tax: 0,
-    discount: 0,
-    total: 75,
-    paymentMethod: 'cash',
-    paymentStatus: 'paid',
-    orderType: 'manual',
-    shippingAddress: {
-      address1: '',
-      city: 'York',
-      state: 'PA',
-      zip: '',
-      country: 'US',
-      shippingMethod: 'standard',
-      shippingCost: 0
-    },
-    createdAt: '2026-07-02T10:00:00-04:00',
-    paidAt: '2026-07-02T10:00:00-04:00'
-  },
-  {
-    // MUST stay in lock-step with PUBLIC_RECENT_ORDER_SEEDS in
-    // utils/liveOrdersFeed.ts. See Grey Wave 2/2 note above for the
-    // dedup-by-id contract.
-    id: 'public-pa-grey-wave-wallet-1-2',
-    orderNumber: 'ORD-SG-GREY-WAVE-2000',
-    isGuest: true,
-    customerName: 'York Customer',
-    customerEmail: 'customer@example.com',
-    items: [
-      {
-        productId: 'Coalition_Grey_Wave_Wallet_1_2',
-        productName: "Coalition 'Grey Wave' Wallet 1/2",
-        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_7z2h8u6.jpg',
-        selectedSize: 'One Size',
-        quantity: 1,
-        price: 75,
-        total: 75
-      }
-    ],
-    subtotal: 75,
-    tax: 0,
-    discount: 0,
-    total: 75,
-    paymentMethod: 'cash',
-    paymentStatus: 'paid',
-    orderType: 'manual',
-    shippingAddress: {
-      address1: '',
-      city: 'York',
-      state: 'PA',
-      zip: '',
-      country: 'US',
-      shippingMethod: 'standard',
-      shippingCost: 0
-    },
-    createdAt: '2026-06-25T10:00:00-04:00',
-    paidAt: '2026-06-25T10:00:00-04:00'
-  },
-  {
-    // MUST stay in lock-step with PUBLIC_RECENT_ORDER_SEEDS in
-    // utils/liveOrdersFeed.ts. See Grey Wave 2/2 note above for the
-    // dedup-by-id contract. Coalition_x_True_Religion_S1 was sold in
-    // New York, NY on 2024-02-14 (~121 weeks before a July 2026
-    // viewer); PUBLIC_RECENT_ORDER_SEEDS uses minutesAgo = 121 * 7 * 24 * 60
-    // to match. The public Instagram post
-    // (https://www.instagram.com/p/C2v4MMxs9TX/) is dated 2024-01-30;
-    // the "SOLD ❌" comment lands ~2 weeks later. The $140 sale price
-    // reflects an offline-cash deal - the $240 catalog list is the
-    // listed value, not the actual transaction. This seed is the
-    // oldest public sale; it only surfaces when the viewer picks the
-    // "All time" chip because 121w is past every other time range.
-    // No shipped address is recorded - only city + state, matching
-    // the live map privacy contract.
-    id: 'public-ny-true-religion-s1',
-    orderNumber: 'ORD-SG-TRUE-RELIGION-S1-9001',
-    isGuest: true,
-    customerName: 'New York Customer',
-    customerEmail: 'customer@example.com',
-    items: [
-      {
-        productId: 'Coalition_x_True_Religion_S1',
-        productName: 'Coalition x True Religion 1/1 Jeans S1',
-        // Mirrors PRODUCT_IMAGE_URLS.trueReligionJeans.front1 so the
-        // Supabase merge for INITIAL_ORDERS keeps the same image the
-        // live seed uses and the storefront PDP shows on this row.
-        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_2VU7MEr.jpg',
-        selectedSize: '33',
-        quantity: 1,
-        price: 140,
-        total: 140
-      }
-    ],
-    subtotal: 140,
-    tax: 0,
-    discount: 0,
-    total: 140,
-    paymentMethod: 'cash',
-    paymentStatus: 'paid',
-    orderType: 'manual',
-    shippingAddress: {
-      address1: '',
-      city: 'New York',
-      state: 'NY',
-      zip: '',
-      country: 'US',
-      shippingMethod: 'standard',
-      shippingCost: 0
-    },
-    createdAt: '2024-02-14T15:00:00-05:00',
-    paidAt: '2024-02-14T15:00:00-05:00',
-    // Friiqy is the buyer of this offline-cash deal. The same
-    // @friiqy Instagram account also bought the wholesale wallets
-    // row below (public-md-wholesale-wallets-2026_05_22). Stamped
-    // here so the operator can join the two offline sales to the
-    // same buyer when reconciling the marketing contacts list.
-    instagramUsername: 'friiqy'
-  },
-  {
-    // MUST stay in lock-step with PUBLIC_RECENT_ORDER_SEEDS in
-    // utils/liveOrdersFeed.ts. See Grey Wave 2/2 note at the top of
-    // INITIAL_ORDERS for the dedup-by-id contract. The 'Trust Yourself'
-    // hat (`prod_trust_yourself_hat_01`) sold in Owings Mills, MD on
-    // 2026-04-09; PUBLIC_RECENT_ORDER_SEEDS places this sale ~84 days
-    // before "now", so it only surfaces when the viewer picks the 90d
-    // window. Like the TrueReligion NY row above, no shipped address
-    // is recorded - only city + state, matching the live map privacy
-    // contract documented in pages/LiveOrdersMap.tsx.
-    id: 'public-md-trust-yourself-hat-01',
-    orderNumber: 'ORD-SG-TRUST-HAT-9002',
-    isGuest: true,
-    customerName: 'Owings Mills Customer',
-    customerEmail: 'customer@example.com',
-    items: [
-      {
-        productId: 'prod_trust_yourself_hat_01',
-        productName: 'TRUST YOURSELF CUSTOM TRUCKER (1/1)',
-        // Mirrors PRODUCT_IMAGE_URLS.trustYourselfHat.cover so the
-        // storefront PDP + live map share the same canonical hat image.
-        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_iYBlwm8.png',
-        selectedSize: 'One Size',
-        quantity: 1,
-        price: 50,
-        total: 50
-      }
-    ],
-    subtotal: 50,
-    tax: 0,
-    discount: 0,
-    total: 50,
-    paymentMethod: 'cash',
-    paymentStatus: 'paid',
-    orderType: 'manual',
-    shippingAddress: {
-      address1: '',
-      city: 'Owings Mills',
-      state: 'MD',
-      zip: '',
-      country: 'US',
-      shippingMethod: 'standard',
-      shippingCost: 0
-    },
-    createdAt: '2026-04-09T15:00:00-04:00',
-    paidAt: '2026-04-09T15:00:00-04:00'
-  },
-  {
-    // MUST stay in lock-step with PUBLIC_RECENT_ORDER_SEEDS in
-    // utils/liveOrdersFeed.ts. See Grey Wave 2/2 note at the top
-    // of INITIAL_ORDERS for the dedup-by-id contract. The friiqy
-    // wholesale: 7 archived wallets (GreenCamoWallet,
-    // SKYYBLUEWALLET1_2, prod_wallet_004, Coalition Racing Team
-    // 1/4 through 4/4) sold to @friiqy on Instagram in a single
-    // offline cash deal at $25/wallet = $175 total, shipped to
-    // Abingdon, MD. The buyer is the same @friiqy who bought the
-    // True Religion S1 jeans (see public-ny-true-religion-s1
-    // above); instagramUsername on both rows lets the operator
-    // join the two offline sales to the same person when
-    // reconciling the marketing contacts list.
-    //
-    // The full street address lives in shipping_internal.json at the
-    // repo root (gitignored, admin-only) and is loaded at runtime by
-    // scripts/upsertFriiqyWholesale.ts when this row is mirrored to
-    // Supabase. This INITIAL_ORDERS row keeps address1 + zip as
-    // empty strings to match the privacy contract default — the live
-    // map only ever sees city + state via PUBLIC_RECENT_ORDER_SEED,
-    // which also strips address1 + zip. PUBLIC_RECENT_ORDER_SEEDS
-    // uses minutesAgo = 58,284 (~40d 11h) to mirror the createdAt
-    // timestamp below; the sale surfaces in the 90d and all-time
-    // windows only (it's past the 30d cutoff).
-    //
-    // The wholesale is split into 7 separate OrderItems (one per
-    // wallet) rather than a single quantity-7 line so the order
-    // detail page shows every wallet in the bundle, the storefront
-    // PDP / Order History pages keep their per-product rendering,
-    // and the live map ticker can show the first wallet + "6 more
-    // items" copy via the existing buildLiveOrdersFeed "+ N more"
-    // helper.
-    //      // OPEN FOLLOW-UPS (as of the 2026-07-04 schema recovery
-      // round — three prod migrations that were silently missing,
-      // orders.id migrated to TEXT, and the seed-script
-      // paypal_capture_id mismatch all resolved):
-      // 1. Supabase sync — SCRIPT TOOLING DONE 2026-07-04.
-      //    scripts/upsertFriiqyDenimPatchwork.ts and
-      //    scripts/upsertFriiqyWholesale.ts no longer emit the
-      //    non-existent `paypal_capture_id` column; they write
-      //    `payment_reference` + `paypal_order_id`, matching
-      //    supabase/migrations/20260617_add_paypal_order_fields.sql
-      //    (which was a fresh prod apply this round — three
-      //    migrations had silently drifted from disk). production
-      //    orders.id is now TEXT (supabase/migrations/
-      //    20260705_change_orders_id_to_text.sql applied
-      //    2026-07-04), so the offline-sale rows keyed on
-      //    `public-...` upsert directly without inventing UUIDs.
-      //    Open: operator runs `npm run seed:friiqy-denim-patchwork`
-      //    and `npm run seed:friiqy-wholesale` to land both rows.
-      //    The denim-patchwork script mirrors this row's id
-      //    `public-md-denim-patchwork-2024_11_08`; the wholesale
-      //    script mirrors `public-md-wholesale-wallets-2026_05_22`.
-      //    Both scripts read shipping_internal.json at runtime
-      //    for the full address (see item 3 below).
-      // 2. Verified-customer filter — SCRIPT TOOLING DONE 2026-07-04.
-      //    scripts/seedVerifiedCustomers.ts registers friiqy in
-      //    marketing_contacts with source='past_customer'. The
-      //    test-campaign guard in api/_handlers/marketing-send.ts
-      //    keys on marketing_contacts.source ∈ {manual_seed,
-      //    past_customer}, so friiqy is automatically excluded
-      //    from any campaign whose name contains "test"
-      //    (case-insensitive). Open: the script still needs the
-      //    marketing_contacts_has_channel CHECK constraint shape
-      //    captured (paste `SELECT pg_get_constraintdef(oid) FROM
-      //    pg_constraint WHERE conname='marketing_contacts_has_channel'`
-      //    in the Supabase SQL editor and apply whatever payload
-      //    adjustment the constraint requires) before the
-      //    operator runs `npm run seed:verified-customers`. The
-      //    production schema recovery this round confirmed
-      //    customer_reward_credits + the 6 profile columns + the
-      //    social_accounts_platform_check constraint are all in
-      //    place on production.
-      // 3. Address privacy — DONE 2026-07-04. Full street address
-      //    lives in shipping_internal.json at the repo root
-      //    (gitignored, admin-only). Both seed scripts read that
-      //    file at runtime and fall back to empty strings if the
-      //    file is missing or has no entry for the order id. The
-      //    template at shipping_internal.example.json is committed
-      //    so the schema is documented. The Vercel deploy never has
-      //    shipping_internal.json in its build output, so
-      //    production has no access to the full address. This
-      //    INITIAL_ORDERS row keeps address1 + zip as empty
-      //    strings so the git-tracked codebase never carries the
-      //    full street address — city + state are what the live
-      //    map surfaces.
-    id: 'public-md-wholesale-wallets-2026_05_22',
+    id: 'order_wholesale_wallets_2026_05_22',
     orderNumber: 'ORD-SG-WHOLESALE-1002',
     isGuest: true,
-    customerName: 'Abingdon Customer',
-    customerEmail: 'customer@example.com',
+    customerName: 'Wholesale Customer',
+    customerEmail: 'wholesale@example.com',
     items: [
       {
-        productId: 'GreenCamoWallet',
-        productName: 'COALITION GREEN CAMO WALLET',
-        // Mirrors PRODUCT_IMAGE_URLS.walletGreen.front from
-        // utils/localImageAssets.ts so the storefront PDP + live
-        // map share one canonical GreenCamoWallet cover.
-        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_kzIWQzA.png',
-        selectedSize: 'One Size',
-        quantity: 1,
-        price: 25,
-        total: 25
-      },
-      {
-        productId: 'SKYYBLUEWALLET1_2',
-        productName: 'COALITION SKYY BLUE WALLET 1/2',
-        // Mirrors PRODUCT_IMAGE_URLS.walletSkyyBlue.front so the
-        // storefront PDP + live map share one canonical Skyy Blue
-        // 1/2 cover.
-        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_rJSCmHu.png',
-        selectedSize: 'One Size',
-        quantity: 1,
-        price: 25,
-        total: 25
-      },
-      {
         productId: 'prod_wallet_004',
-        productName: 'COALITION SKYY BLUE WALLET 2/2',
-        // Mirrors PRODUCT_IMAGE_URLS.walletSkyyBlueArchive.front
-        // (the archived Skyy Blue 2/2 cover) so the storefront
-        // PDP + live map share one canonical Skyy Blue 2/2 cover.
-        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_Z5K3JZ0.png',
+        productName: 'COALITION WALLETS WHOLESALE (7x)',
+        productImage: 'https://i.imgur.com/v5y7tPa.jpg',
         selectedSize: 'One Size',
-        quantity: 1,
+        quantity: 7,
         price: 25,
-        total: 25
-      },
-      {
-        productId: 'Coalition_Racing_Team_Wallet_1_4',
-        productName: "Coalition 'Racing Team' Wallet 1/4",
-        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_3UUmYQa.jpg',
-        selectedSize: 'One Size',
-        quantity: 1,
-        price: 25,
-        total: 25
-      },
-      {
-        productId: 'Coalition_Racing_Team_Wallet_2_4',
-        productName: "Coalition 'Racing Team' Wallet 2/4",
-        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IRhVbhN.jpg',
-        selectedSize: 'One Size',
-        quantity: 1,
-        price: 25,
-        total: 25
-      },
-      {
-        productId: 'Coalition_Racing_Team_Wallet_3_4',
-        productName: "Coalition 'Racing Team' Wallet 3/4",
-        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_dcw5qLQ.jpg',
-        selectedSize: 'One Size',
-        quantity: 1,
-        price: 25,
-        total: 25
-      },
-      {
-        productId: 'Coalition_Racing_Team_Wallet_4_4',
-        productName: "Coalition 'Racing Team' Wallet 4/4",
-        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EylCpDU.jpg',
-        selectedSize: 'One Size',
-        quantity: 1,
-        price: 25,
-        total: 25
+        total: 175
       }
     ],
     subtotal: 175,
@@ -1485,109 +560,8 @@ export const INITIAL_ORDERS: any[] = [
     paymentMethod: 'cash',
     paymentStatus: 'paid',
     orderType: 'manual',
-    shippingAddress: {
-      // address1 + zip live in shipping_internal.json at the repo
-      // root (gitignored, admin-only). The seed script
-      // scripts/upsertFriiqyWholesale.ts reads that file at runtime
-      // and populates these fields when mirroring this row to
-      // Supabase. Kept as empty strings here so the codebase never
-      // carries the full street address. City + state are safe to
-      // commit — they're what the live map surfaces.
-      address1: '',
-      city: 'Abingdon',
-      state: 'MD',
-      zip: '',
-      country: 'US',
-      shippingMethod: 'standard',
-      shippingCost: 0
-    },
     createdAt: '2026-05-22T22:48:11-04:00',
-    paidAt: '2026-05-22T22:48:11-04:00',
-    // Same buyer as the public-ny-true-religion-s1 row above.
-    // Stamped here so the operator can reconcile both friiqy
-    // sales (True Religion S1 + wholesale wallets) to the same
-    // Instagram account when building the marketing contacts
-    // list.
-    instagramUsername: 'friiqy'
-  },
-  {
-    // MUST stay in lock-step with PUBLIC_RECENT_ORDER_SEEDS in
-    // utils/liveOrdersFeed.ts. See Grey Wave 2/2 note at the top
-    // of INITIAL_ORDERS for the dedup-by-id contract. The friiqy
-    // denim patchwork sale: 1/1 Coalition Denim Patchwork jeans
-    // (Coalition_Denim_Patchwork_S1) sold to @friiqy on Instagram
-    // on 2024-11-08 (the date of the canonical Instagram post
-    // https://www.instagram.com/p/DCIqPY4Msk_/?img_index=1) for
-    // $140, shipped to Abingdon, MD. This is friiqy's third known
-    // offline-cash sale to Coalition (alongside the True Religion
-    // S1 jeans on 2024-02-14 and the 7-wallet wholesale on
-    // 2026-05-22). instagramUsername is stamped so the operator
-    // can join all three sales to the same Instagram account when
-    // reconciling the marketing contacts list.
-    //
-    // The full street address lives in shipping_internal.json at
-    // the repo root (gitignored, admin-only) and is loaded at
-    // runtime by scripts/upsertFriiqyDenimPatchwork.ts when
-    // mirroring this row to the production Supabase orders table.
-    // This INITIAL_ORDERS row keeps address1 + zip as empty
-    // strings to match the privacy contract default; the live map
-    // only ever sees city + state via PUBLIC_RECENT_ORDER_SEED,
-    // which also strips address1 + zip. PUBLIC_RECENT_ORDER_SEEDS
-    // uses minutesAgo = 601 * 24 * 60 to mirror the createdAt
-    // timestamp below; the sale surfaces in the "all" window only
-    // (~601 days back is well past every other time range).
-    id: 'public-md-denim-patchwork-2024_11_08',
-    orderNumber: 'ORD-SG-DENIM-PATCH-S1-9003',
-    isGuest: true,
-    customerName: 'Abingdon Customer',
-    customerEmail: 'customer@example.com',
-    items: [
-      {
-        productId: 'Coalition_Denim_Patchwork_S1',
-        productName: 'Coalition Denim Patchwork 1/1 Jeans S1',
-        // Mirrors the product row's primary image
-        // (constants.ts > INITIAL_PRODUCTS > Coalition_Denim_Patchwork_S1)
-        // so the storefront PDP + live map share one canonical
-        // denim-patchwork cover.
-        productImage: 'https://www.instagram.com/p/DCIqPY4Msk_/?img_index=1',
-        selectedSize: '30',
-        quantity: 1,
-        price: 140,
-        total: 140
-      }
-    ],
-    subtotal: 140,
-    tax: 0,
-    discount: 0,
-    total: 140,
-    paymentMethod: 'cash',
-    paymentStatus: 'paid',
-    orderType: 'manual',
-    shippingAddress: {
-      // address1 + zip live in shipping_internal.json at the repo
-      // root (gitignored, admin-only). The seed script
-      // scripts/upsertFriiqyDenimPatchwork.ts reads that file at
-      // runtime and populates these fields when mirroring this row
-      // to Supabase. Kept as empty strings here so the codebase
-      // never carries the full street address. City + state are
-      // safe to commit - they're what the live map surfaces.
-      address1: '',
-      city: 'Abingdon',
-      state: 'MD',
-      zip: '',
-      country: 'US',
-      shippingMethod: 'standard',
-      shippingCost: 0
-    },
-    createdAt: '2024-11-08T15:00:00-05:00',
-    paidAt: '2024-11-08T15:00:00-05:00',
-    // Same buyer as the public-ny-true-religion-s1 row AND the
-    // public-md-wholesale-wallets-2026_05_22 row above. Stamped
-    // here so the operator can reconcile all three friiqy sales
-    // (True Religion S1 + wholesale wallets + denim patchwork) to
-    // the same Instagram account when building the marketing
-    // contacts list.
-    instagramUsername: 'friiqy'
+    paidAt: '2026-05-22T22:48:11-04:00'
   }
 ];
 

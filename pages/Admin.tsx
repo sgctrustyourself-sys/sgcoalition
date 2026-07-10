@@ -19,15 +19,6 @@ const BlogManager = lazy(() => import('./admin/BlogManager'));
 const SignalManager = lazy(() => import('../components/admin/SignalManager'));
 const BrainManager = lazy(() => import('../components/admin/BrainManager'));
 const UserManager = lazy(() => import('../components/admin/UserManager'));
-// 20260702_add_customer_profile_rewards.sql — admin tool to credit SGC rewards
-// and stamp orders.facebook_username.
-const CustomerProfileAdmin = lazy(() => import('../components/admin/CustomerProfileAdmin'));
-const MarketingManager = lazy(() => import('../components/admin/MarketingManager'));
-// 20260704_add_instagram_username_to_orders.sql + scripts/seedVerifiedCustomers.ts
-// -> lists marketing_contacts rows where source is in (past_customer, manual_seed)
-// and joins orders by instagram_username. Computes lifetime in-component so
-// offline / non-auth buyers (e.g. @friiqy) surface without a profile row.
-const VerifiedBuyersAdmin = lazy(() => import('../components/admin/VerifiedBuyersAdmin'));
 
 // Loading component for Suspense fallback
 const LoadingSpinner = () => (
@@ -43,7 +34,7 @@ const LoadingSpinner = () => (
 
 const Admin: React.FC = () => {
     const { user } = useApp();
-    const [activeTab, setActiveTab] = useState<'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'marketing' | 'users' | 'brain' | 'customers' | 'verified-buyers' | 'settings'>('command-center');
+    const [activeTab, setActiveTab] = useState<'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'users' | 'brain' | 'settings'>('command-center');
 
     const renderContent = () => {
         switch (activeTab) {
@@ -75,16 +66,10 @@ const Admin: React.FC = () => {
                 return <SGCoinRequestManager adminWalletAddress={user?.walletAddress || ''} />;
             case 'signals':
                 return <SignalManager />;
-            case 'marketing':
-                return <MarketingManager />;
             case 'brain':
                 return <BrainManager />;
             case 'users':
                 return <UserManager />;
-            case 'customers':
-                return <CustomerProfileAdmin />;
-            case 'verified-buyers':
-                return <VerifiedBuyersAdmin />;
             case 'settings':
                 return (
                     <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">

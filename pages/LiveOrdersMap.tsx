@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Clock, MapPin, Activity, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import Seo from '../components/Seo';
 import LiveMap from '../components/LiveMap';
 import StateLeaderboard from '../components/StateLeaderboard';
 import DropCountdown from '../components/DropCountdown';
@@ -46,8 +45,6 @@ const RANGE_LABELS: Record<LiveOrdersTimeRange, string> = {
     '24h': 'Last 24 hours',
     '7d': 'Last 7 days',
     '30d': 'Last 30 days',
-    '90d': 'Last 90 days',
-    'all': 'All time',
 };
 
 const LiveOrdersMap = () => {
@@ -61,9 +58,7 @@ const LiveOrdersMap = () => {
         {
             label: 'Orders',
             value: feed.summary.totalOrders.toLocaleString(),
-            helper: timeRange === 'all'
-                ? 'Showing every public real-sale seed on record'
-                : `Live window: ${RANGE_LABELS[timeRange]}`,
+            helper: `Live window: ${RANGE_LABELS[timeRange]}`,
             icon: <Activity className="w-5 h-5 text-purple-300" />,
             accentClass: 'from-purple-500/20 via-purple-500/5 to-transparent',
         },
@@ -72,7 +67,7 @@ const LiveOrdersMap = () => {
             value: feed.summary.activeStates.toString(),
             helper: feed.summary.topState
                 ? `${feed.summary.topState.name} is leading right now`
-                : 'Waiting for recent order data',
+                : 'Waiting for live order data',
             icon: <MapPin className="w-5 h-5 text-sky-300" />,
             accentClass: 'from-sky-500/20 via-sky-500/5 to-transparent',
         },
@@ -97,12 +92,6 @@ const LiveOrdersMap = () => {
     ];
 
     return (
-        <>
-            <Seo
-                title="Recently Ordered"
-                description="See where Coalition orders are shipping across the US. A live map of recent orders, top states, and recent activity — city and state only, no personal data."
-                canonicalPath="/live-orders"
-            />
         <div className="min-h-screen bg-black px-4 py-12 text-white selection:bg-purple-500/30">
             <div className="mx-auto max-w-7xl">
                 {/* Header */}
@@ -123,14 +112,14 @@ const LiveOrdersMap = () => {
                             Real orders, real people - moving SG Coalition across the country.
                             <br />
                             <span className="mt-1 block text-xs font-bold uppercase tracking-wider text-gray-600">
-                                * Locations shown at city/state level when available. No addresses or personal data.
+                                * Locations shown at state level only. No personal data.
                             </span>
                         </p>
                     </div>
 
                     {/* Filters */}
-                    <div className="flex flex-wrap rounded-xl border border-gray-800 bg-gray-900 p-1">
-                        {(['24h', '7d', '30d', '90d', 'all'] as const).map((range) => (
+                    <div className="flex rounded-xl border border-gray-800 bg-gray-900 p-1">
+                        {(['24h', '7d', '30d'] as const).map((range) => (
                             <button
                                 key={range}
                                 onClick={() => setTimeRange(range)}
@@ -190,20 +179,7 @@ const LiveOrdersMap = () => {
                                             initial={{ opacity: 0, x: 20 }}
                                             animate={{ opacity: 1, x: 0 }}
                                             transition={{ delay: index * 0.1 }}
-                                            onClick={() => item.productUrl && navigate(item.productUrl)}
-                                            onKeyDown={(event) => {
-                                                if (!item.productUrl) return;
-                                                if (event.key === 'Enter' || event.key === ' ') {
-                                                    event.preventDefault();
-                                                    navigate(item.productUrl);
-                                                }
-                                            }}
-                                            role={item.productUrl ? 'link' : undefined}
-                                            tabIndex={item.productUrl ? 0 : undefined}
-                                            aria-label={item.productUrl ? `View ${item.text}` : undefined}
-                                            className={`group flex items-center gap-4 rounded-xl border border-gray-800 bg-black p-3 transition hover:border-purple-500/30 ${
-                                                item.productUrl ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/60' : ''
-                                            }`}
+                                            className="group flex items-center gap-4 rounded-xl border border-gray-800 bg-black p-3 transition hover:border-purple-500/30"
                                         >
                                             <div className="relative h-12 w-12 overflow-hidden rounded-lg border border-gray-800 transition group-hover:border-purple-500/50">
                                                 <img
@@ -224,7 +200,7 @@ const LiveOrdersMap = () => {
                                     ))
                                 ) : (
                                     <div className="rounded-2xl border border-dashed border-gray-800 bg-black/40 p-6 text-center">
-                                        <p className="text-sm font-medium text-gray-300">No recent orders in this window yet.</p>
+                                        <p className="text-sm font-medium text-gray-300">No live orders in this window yet.</p>
                                         <p className="mt-2 text-xs uppercase tracking-widest text-gray-600">
                                             Orders will appear here once they are placed.
                                         </p>
@@ -242,7 +218,6 @@ const LiveOrdersMap = () => {
                 </div>
             </div>
         </div>
-        </>
     );
 };
 

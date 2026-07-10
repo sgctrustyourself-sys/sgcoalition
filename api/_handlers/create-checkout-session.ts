@@ -1,91 +1,24 @@
 import Stripe from 'stripe';
-import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, resolvePublicOrigin, setCorsHeaders, type HttpError } from '../_helpers';
-import type {
-    ApiRequest,
-    ApiResponse,
-    CheckoutSessionItemInput,
-    CheckoutSessionResponse,
-    CreateCheckoutSessionBody,
-} from '../_types';
 
-const KEYCHAIN_CLIP_PRICE_USD = 10;
-const CURRENCY = 'usd';
-
-// Lazy Stripe getter. Originally eagerly instantiated at module top, but a
-// missing STRIPE_SECRET_KEY env on Vercel would throw on first module load
-// and surface as a Lambda-wide FUNCTION_INVOCATION_FAILED — even for routes
-// that never touch Stripe. We keep Stripe wired as the documented backup
-// payment flow but lazy-init so a PayPal-only deploy doesn't cold-start-crash
-// the Lambda. Mirrors the existing `getSupabaseAdmin()` / `getPaypalCredentials()`
-// pattern in api/_handlers/paypal-order.ts and api/_handlers/complete-order.ts.
-let stripeInstance: Stripe | null = null;
-function getStripe(): Stripe {
-    if (stripeInstance) return stripeInstance;
-    const apiKey = process.env.STRIPE_SECRET_KEY;
-    if (!apiKey) {
-        throw createHttpError(
-            503,
-            'Stripe is not configured on this server. PayPal is the live checkout flow; Stripe handlers are retained as backup infrastructure.',
-        );
-    }
-    stripeInstance = new Stripe(apiKey, {});
-    return stripeInstance;
+if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('STRIPE_SECRET_KEY is missing');
 }
 
-function absoluteImages(images: unknown, origin: string): string[] {
-    if (!Array.isArray(images) || images.length === 0) return [];
-    return images.map((raw: unknown) => {
-        const img = String(raw ?? '');
-        if (!img) return '';
-        return img.startsWith('/') ? `${origin}${img}` : img;
-    }).filter(Boolean);
-}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    // apiVersion omitted to use default
+});
 
-async function createCheckoutSession(req: ApiRequest): Promise<CheckoutSessionResponse> {
-    const rawBody = parseBody(req);
-    const body = rawBody as CreateCheckoutSessionBody;
-    const items = Array.isArray(body.items) ? (body.items as CheckoutSessionItemInput[]) : [];
+export default async function handler(req: any, res: any) {
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    );
 
-    if (items.length === 0) {
-        throw createHttpError(400, 'No items in cart');
-    }
-
-    const origin = resolvePublicOrigin(req);
-    console.log('Stripe Checkout Origin:', origin);
-
-    const session = await getStripe().checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: items.map((item: CheckoutSessionItemInput) => {
-            const itemImages = absoluteImages(item.images, origin);
-            const unitUsd = Number(item.price || 0) + (item.keychainClipOn ? KEYCHAIN_CLIP_PRICE_USD : 0);
-
-            return {
-                price_data: {
-                    currency: CURRENCY,
-                    product_data: {
-                        name: String(item.name || 'Coalition Item'),
-                        description: `Size: ${item.selectedSize || 'One Size'}${item.keychainClipOn ? ' \u2022 Keychain clip-on' : ''}`,
-                        images: itemImages,
-                    },
-                    unit_amount: Math.round(unitUsd * 100),
-                },
-                quantity: Number(item.quantity || 1),
-            };
-        }),
-        mode: 'payment',
-        success_url: `${origin}/#/order/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/#/order/cancel`,
-        shipping_address_collection: {
-            allowed_countries: ['US', 'CA'],
-        },
-    });
-
-    return { sessionId: session.id, url: session.url };
-}
-
-export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
-    setCorsHeaders(req, res, { methods: 'GET,OPTIONS,PATCH,DELETE,POST,PUT', allowedHeaders: EXTENDED_CORS_HEADERS });
-
+    // Handle preflight request
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
@@ -97,12 +30,84 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
     }
 
     try {
-        res.status(200).json(await createCheckoutSession(req));
-    } catch (error: unknown) {
-        const httpError = error as HttpError | null;
-        const message = (error as { message?: string } | null)?.message;
-        const status = Number(httpError?.status || 500);
-        console.error('Stripe error:', error);
-        res.status(status).json({ error: message || 'Internal server error' });
+        const { items } = req.body;
+
+        if (!items || items.length === 0) {
+            res.status(400).json({ error: 'No items in cart' });
+            return;
+        }
+
+        // Determine the base URL with multiple fallbacks
+        let origin = process.env.VITE_APP_URL;
+
+        // Fallback 1: VERCEL_URL (System env var, usually set by Vercel)
+        if (!origin && process.env.VERCEL_URL) {
+            origin = `https://${process.env.VERCEL_URL}`;
+        }
+
+        // Fallback 2: Request Headers
+        if (!origin) {
+            const host = req.headers.host;
+            if (host) {
+                const protocol = req.headers['x-forwarded-proto'] || 'http';
+                origin = `${protocol}://${host}`;
+            }
+        }
+
+        // Fallback 3: Hardcoded Fallback (The latest known working URL)
+        if (!origin) {
+            origin = 'https://sgcoalition.xyz';
+        }
+
+        // Remove trailing slash if present
+        origin = origin.replace(/\/$/, '');
+
+        // Ensure protocol is present (Stripe requires http:// or https://)
+        if (!origin.startsWith('http://') && !origin.startsWith('https://')) {
+            origin = `https://${origin}`;
+        }
+
+        console.log('Stripe Checkout Origin:', origin);
+
+        // Create Stripe Checkout Session
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            line_items: items.map((item: any) => {
+                // Fix image URLs: Stripe requires absolute URLs
+                let itemImages: string[] = [];
+                if (item.images && item.images.length > 0) {
+                    itemImages = item.images.map((img: string) => {
+                        if (img.startsWith('/')) {
+                            return `${origin}${img}`;
+                        }
+                        return img;
+                    });
+                }
+
+                return {
+                    price_data: {
+                        currency: 'usd',
+                        product_data: {
+                            name: item.name,
+                            description: `Size: ${item.selectedSize}${item.keychainClipOn ? ' • Keychain clip-on' : ''}`,
+                            images: itemImages,
+                        },
+                        unit_amount: Math.round((item.price + (item.keychainClipOn ? 10 : 0)) * 100), // Convert to cents
+                    },
+                    quantity: item.quantity,
+                };
+            }),
+            mode: 'payment',
+            success_url: `${origin}/#/order/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${origin}/#/order/cancel`,
+            shipping_address_collection: {
+                allowed_countries: ['US', 'CA'],
+            },
+        });
+
+        res.status(200).json({ sessionId: session.id, url: session.url });
+    } catch (err: any) {
+        console.error('Stripe error:', err);
+        res.status(500).json({ error: err.message || 'Internal server error' });
     }
 }

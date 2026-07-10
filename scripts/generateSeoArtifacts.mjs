@@ -134,24 +134,13 @@ const scanToMatching = (source, openIndex, openChar, closeChar) => {
 
 const splitTopLevelObjects = (arraySource) => {
   const objects = [];
+  let start = -1;
+  let depth = 0;
   let quote = '';
   let escaped = false;
-  let inLineComment = false;
-  let inBlockComment = false;
 
   for (let index = 0; index < arraySource.length; index += 1) {
     const char = arraySource[index];
-    const next = arraySource[index + 1];
-
-    if (inLineComment) {
-      if (char === '\n') inLineComment = false;
-      continue;
-    }
-
-    if (inBlockComment) {
-      if (char === '*' && next === '/') { inBlockComment = false; index += 1; }
-      continue;
-    }
 
     if (quote) {
       if (escaped) {
@@ -164,19 +153,22 @@ const splitTopLevelObjects = (arraySource) => {
       continue;
     }
 
-    if (char === '/' && next === '/') { inLineComment = true; index += 1; continue; }
-    if (char === '/' && next === '*') { inBlockComment = true; index += 1; continue; }
-
     if (char === '"' || char === "'" || char === '`') {
       quote = char;
       continue;
     }
 
     if (char === '{') {
-      const objectEnd = scanToMatching(arraySource, index, '{', '}');
-      if (objectEnd >= 0) {
-        objects.push(arraySource.slice(index, objectEnd + 1));
-        index = objectEnd;
+      if (depth === 0) start = index;
+      depth += 1;
+      continue;
+    }
+
+    if (char === '}') {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        objects.push(arraySource.slice(start, index + 1));
+        start = -1;
       }
     }
   }
@@ -405,13 +397,11 @@ const buildSitemap = (products) => {
   const staticPages = [
     { loc: '/', priority: '1.0', changefreq: 'weekly' },
     { loc: '/shop', priority: '0.9', changefreq: 'daily' },
-    { loc: '/custom-wallets', priority: '0.8', changefreq: 'weekly' },
     { loc: '/archive', priority: '0.7', changefreq: 'weekly' },
     { loc: '/about', priority: '0.5', changefreq: 'monthly' },
     { loc: '/membership', priority: '0.5', changefreq: 'monthly' },
     { loc: '/sgcoin', priority: '0.5', changefreq: 'monthly' },
     { loc: '/help', priority: '0.4', changefreq: 'monthly' },
-    { loc: '/live-orders', priority: '0.5', changefreq: 'weekly' },
   ];
   const productPages = products.map((product) => ({
     loc: productPath(product.id),
@@ -451,9 +441,6 @@ const main = () => {
   }
 
   const baseHtml = fs.readFileSync(DIST_INDEX, 'utf8');
-  const walletProducts = products.filter((product) =>
-    product.category === 'wallet' || product.name.toLowerCase().includes('wallet')
-  );
   writeTextFile(DIST_DIR, 'sitemap.xml', sitemap);
   writeTextFile(DIST_DIR, 'robots.txt', robots);
 
@@ -472,19 +459,6 @@ const main = () => {
 
   writeStaticPage(
     baseHtml,
-    '/custom-wallets',
-    {
-      title: 'Coalition | Custom Wallets',
-      description: 'Shop and request Coalition custom wallets: handmade one-of-one wallet builds, process videos, archive pieces, and Baltimore streetwear accessories.',
-      image: absoluteUrl('https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_9NF3LzM.jpg'),
-      url: absoluteUrl('/custom-wallets'),
-      type: 'website',
-    },
-    collectionJsonLd(walletProducts, 'Coalition Custom Wallets', '/custom-wallets')
-  );
-
-  writeStaticPage(
-    baseHtml,
     '/archive',
     {
       title: 'Coalition | Archive',
@@ -494,18 +468,6 @@ const main = () => {
       type: 'website',
     },
     collectionJsonLd(products.filter((product) => product.archived), 'Coalition Archive', '/archive')
-  );
-
-  writeStaticPage(
-    baseHtml,
-    '/live-orders',
-    {
-      title: 'Coalition | Recently Ordered',
-      description: 'See where Coalition orders are shipping across the US. A live map of recent orders, top states, and recent activity — city and state only, no personal data.',
-      image: absoluteUrl(DEFAULT_IMAGE),
-      url: absoluteUrl('/live-orders'),
-      type: 'website',
-    },
   );
 
   for (const product of products) {
@@ -521,7 +483,7 @@ const main = () => {
     );
   }
 
-  console.log(`[seo] Generated sitemap, robots, and ${products.length + 4} static preview pages.`);
+  console.log(`[seo] Generated sitemap, robots, and ${products.length + 2} static preview pages.`);
 };
 
 main();

@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { PRODUCT_IMAGE_URLS } from '../utils/localImageAssets';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,7 +17,7 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const BASE_SELECT_COLUMNS = 'id,name,price,stock,images,category,archived,size_inventory';
+const BASE_SELECT_COLUMNS = 'id,name,price,stock,images,archived,size_inventory';
 
 async function addAboveAsBelowShorts() {
     const sizeInventory = { S: 9, M: 9, L: 9, XL: 9, '2XL': 8 };
@@ -28,13 +27,11 @@ async function addAboveAsBelowShorts() {
         price: 75,
         stock: Object.values(sizeInventory).reduce((sum, count) => sum + count, 0),
         images: [
-            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.front,
-            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.back,
-            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
-            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setBack
+            '/images/above-as-below-set-front.png',
+            '/images/above-as-below-set-back.png'
         ],
         description: "The matching Above as Below shorts. Same hand-crafted red-and-white Coalition lineage as the tee - heavyweight cotton, deep set pocket, raw-hem finished. Sold at $75 individually, or grab the set with the tee for $120 and save $30.",
-        category: 'shorts',
+        category: 'apparel',
         is_featured: false,
         sizes: ['S', 'M', 'L', 'XL', '2XL'],
         size_inventory: sizeInventory,

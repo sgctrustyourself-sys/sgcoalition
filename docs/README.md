@@ -75,18 +75,6 @@ npm run story:reveal -- --slug grey-wave && npm run grid:reveal -- --slug grey-w
 
 ---
 
-## 🚑 Operator runbooks
-
-End-to-end operator procedures for recovery, paste-back, and escalations. Each runbook is a single-purpose checklist that one operator runs independently. Pair them with the postmortems they document inside `postmortems/`.
-
-| File | Purpose |
-|---|---|
-| [`runbooks/api-routing-fallback.md`](runbooks/api-routing-fallback.md) | Recovery runbook for the 2026-07-08 `/api/*` FUNCTION_INVOCATION_FAILED regression — manual Vercel Dashboard capture flow for Diagnostics #3 + #4 with H3-vs-H4 discriminator wiring + per-deploy paste-target table. |
-
-> Run if (and only if) you have project-admin access to Vercel `coalition-brand` AND `git push` to this repo. Without both, file a Vercel support escalation with the postmortems attached instead.
-
----
-
 ## 🏛 Project-level docs (root)
 
 | File | Purpose |
@@ -94,7 +82,7 @@ End-to-end operator procedures for recovery, paste-back, and escalations. Each r
 | [`../README.md`](../README.md) | Project overview · brand + feature summary · tech stack · local dev setup (Node 18+, npm install, .env.local, `npm run dev`) · Stripe test cards · Coalition Brain bootstrap (`npm run bootstrap:brain`) · project structure tree · env-var catalog (dev + prod) |
 | [`../DEPLOYMENT_CHECKLIST.md`](../DEPLOYMENT_CHECKLIST.md) | Vercel deployment runbook · Supabase env-var verification · build-time vs runtime variable distinction · clean redeploy steps · post-deploy smoke check via incognito browser session |
 
-> Start with `README.md` for the first local boot. Reach for `DEPLOYMENT_CHECKLIST.md` only when pushing to production. If something is on fire, jump to a `runbooks/*.md` first.
+> Start with `README.md` for the first local boot. Reach for `DEPLOYMENT_CHECKLIST.md` only when pushing to production.
 
 ---
 

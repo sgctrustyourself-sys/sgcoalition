@@ -2,12 +2,12 @@
   {
     "id": "Coalition_Grey_Wave_Wallet_2_2",
     "name": "Coalition 'Grey Wave' Wallet 2/2",
-    "price": 75,
+    "price": 35,
     "stock": 1,
     "category": "wallet",
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_FVMHZoq.jpg",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_LLoGORu.jpg"
+      "https://i.imgur.com/FVMHZoq.jpeg",
+      "https://i.imgur.com/LLoGORu.jpeg"
     ],
     "description": "Second and final piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a storm-grey wave pattern, raw edge stitching, copper grommet, and Coalition mark. Built as a limited 2/2 collectible - once sold, it's gone forever.",
     "is_featured": false,
@@ -23,251 +23,7 @@
     "archived_at": null,
     "released_at": null,
     "sold_at": null,
-    "updated_at": "2026-06-28T07:35:13.278139+00:00",
-    "archive_note": null,
-    "image_roles": null,
-    "is_limited_edition": false,
-    "making_video_url": null
-  },
-  {
-    "id": "GreenCamoWallet",
-    "name": "Coalition Green Camo Wallet",
-    "price": 75,
-    "stock": 0,
-    "category": "accessory",
-    "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_kzIWQzA.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_hs4lZFg.png"
-    ],
-    "description": "Exclusive 1/1 custom wallet featuring camo green aesthetic and signature Coalition branding. Hand-crafted and unique.",
-    "is_featured": false,
-    "sizes": [
-      "One Size"
-    ],
-    "nft_metadata": null,
-    "created_at": "2025-11-22T03:16:30.859647+00:00",
-    "size_inventory": {
-      "One Size": 0
-    },
-    "archived": true,
-    "archived_at": "2026-05-22T22:33:38+00:00",
-    "released_at": null,
-    "sold_at": "2026-05-22T00:00:00+00:00",
-    "updated_at": "2026-06-28T07:35:13.278139+00:00",
-    "archive_note": null,
-    "image_roles": null,
-    "is_limited_edition": false,
-    "making_video_url": null
-  },
-  {
-    "id": "prod_shorts_above_as_below",
-    "name": "COALITION ABOVE AS BELOW SHORTS",
-    "price": 75,
-    "stock": 44,
-    "category": "shorts",
-    "images": [
-      "/images/shorts%201.webp",
-      "/images/short%201%20back.png",
-      "/images/above-as-below-set-front.png",
-      "/images/above-as-below-set-back.png"
-    ],
-    "description": "The matching Above as Below shorts. Same hand-crafted red-and-white Coalition lineage as the tee - heavyweight cotton, deep set pocket, raw-hem finished. Sold at $75 individually, or grab the set with the tee for $120 and save $30.",
-    "is_featured": false,
-    "sizes": [
-      "S",
-      "M",
-      "L",
-      "XL",
-      "2XL"
-    ],
-    "nft_metadata": null,
-    "created_at": "2026-06-28T07:50:34.735166+00:00",
-    "size_inventory": {
-      "L": 9,
-      "M": 9,
-      "S": 9,
-      "XL": 9,
-      "2XL": 8
-    },
-    "archived": false,
-    "archived_at": null,
-    "released_at": null,
-    "sold_at": null,
-    "updated_at": "2026-06-29T06:03:42.770878+00:00",
-    "archive_note": null,
-    "image_roles": null,
-    "is_limited_edition": false,
-    "making_video_url": null
-  },
-  {
-    "id": "prod_tee_above_as_below",
-    "name": "COALITION ABOVE AS BELOW TEE",
-    "price": 75,
-    "stock": 44,
-    "category": "shirt",
-    "images": [
-      "/images/above-as-below-tee-front.png",
-      "/images/above-as-below-tee-back.png",
-      "/images/above-as-below-tee-model-front.png",
-      "/images/above-as-below-tee-model-back.png"
-    ],
-    "description": "The Above as Below tee features a heavyweight black body with red-and-white Coalition artwork across the front and a full back graphic built around the Above as Below concept.",
-    "is_featured": true,
-    "sizes": [
-      "S",
-      "M",
-      "L",
-      "XL",
-      "2XL"
-    ],
-    "nft_metadata": null,
-    "created_at": "2026-06-17T04:00:00+00:00",
-    "size_inventory": {
-      "L": 9,
-      "M": 9,
-      "S": 9,
-      "XL": 9,
-      "2XL": 8
-    },
-    "archived": false,
-    "archived_at": null,
-    "released_at": null,
-    "sold_at": null,
-    "updated_at": "2026-06-29T06:04:23.76298+00:00",
-    "archive_note": null,
-    "image_roles": null,
-    "is_limited_edition": false,
-    "making_video_url": null
-  },
-  {
-    "id": "prod_set_above_as_below",
-    "name": "COALITION ABOVE AS BELOW SET",
-    "price": 120,
-    "stock": 20,
-    "category": "apparel",
-    "images": [
-      "/images/above-as-below-set-front.png",
-      "/images/above-as-below-set-back.png",
-      "/images/above-as-below-tee-front.png",
-      "/images/above-as-below-tee-back.png",
-      "/images/shorts%201.webp",
-      "/images/short%201%20back.png"
-    ],
-    "description": "Above as Below tee and shorts together in one set. Each piece is $75 on its own ($150 total); the set is $120, saving $30 off the combined price. Sized S-M-L-XL-2XL.",
-    "is_featured": false,
-    "sizes": [
-      "S",
-      "M",
-      "L",
-      "XL",
-      "2XL"
-    ],
-    "nft_metadata": null,
-    "created_at": "2026-07-01T04:00:00+00:00",
-    "size_inventory": {
-      "L": 4,
-      "M": 4,
-      "S": 4,
-      "XL": 4,
-      "2XL": 4
-    },
-    "archived": false,
-    "archived_at": null,
-    "released_at": null,
-    "sold_at": null,
-    "updated_at": "2026-07-01T03:16:59.697258+00:00",
-    "archive_note": null,
-    "image_roles": {
-      "hoverUrl": null,
-      "primaryUrl": "/images/above-as-below-set-front.png"
-    },
-    "is_limited_edition": false,
-    "making_video_url": null
-  },
-  {
-    "id": "prod_womens_above_as_below_crop_tank",
-    "name": "WOMEN'S COALITION ABOVE AS BELOW CREWNECK CROP TANK",
-    "price": 40,
-    "stock": 4,
-    "category": "shirt",
-    "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HFMfNYr.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EqDgC3h.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png"
-    ],
-    "description": "Women's Above as Below crewneck crop tank in black with front SG artwork, back Above as Below graphic, and red Coalition hem label. $40 separately, or pair it with the contrast shorts as a $75 set.",
-    "is_featured": false,
-    "sizes": [
-      "S",
-      "M",
-      "L",
-      "XL"
-    ],
-    "nft_metadata": null,
-    "created_at": "2026-07-01T04:00:00+00:00",
-    "size_inventory": {
-      "L": 1,
-      "M": 1,
-      "S": 1,
-      "XL": 1
-    },
-    "archived": false,
-    "archived_at": null,
-    "released_at": null,
-    "sold_at": null,
-    "updated_at": "2026-07-02T09:31:37.343546+00:00",
-    "archive_note": null,
-    "image_roles": {
-      "hoverUrl": null,
-      "primaryUrl": "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HFMfNYr.png"
-    },
-    "is_limited_edition": true,
-    "making_video_url": null
-  },
-  {
-    "id": "prod_halo_mini_dress",
-    "name": "COALITION HALO MINI DRESS",
-    "price": 50,
-    "stock": 50,
-    "category": "dress",
-    "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_nzsauOz.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_wYR7Nfx.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_wYR7Nfx.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_v4xVrou.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_OKefysC.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_OKefysC.png"
-    ],
-    "description": "Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Standard live catalog release priced at $50.",
-    "is_featured": false,
-    "sizes": [
-      "S",
-      "M",
-      "L",
-      "XL"
-    ],
-    "nft_metadata": null,
-    "created_at": "2026-07-01T04:00:00+00:00",
-    "size_inventory": {
-      "L": 13,
-      "M": 13,
-      "S": 12,
-      "XL": 12
-    },
-    "archived": false,
-    "archived_at": null,
-    "released_at": null,
-    "sold_at": null,
-    "updated_at": "2026-07-02T09:49:08.442303+00:00",
-    "archive_note": null,
-    "image_roles": {
-      "hoverUrl": "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_OKefysC.png",
-      "primaryUrl": "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_nzsauOz.png"
-    },
-    "is_limited_edition": false,
-    "making_video_url": null
+    "updated_at": "2026-06-28T06:11:55.280753+00:00"
   },
   {
     "id": "prod_trust_yourself_hat_01",
@@ -276,11 +32,11 @@
     "stock": 0,
     "category": "headwear",
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_iYBlwm8.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_jwnVHoI.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_YNiTSFA.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HqcoV24.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_6179VgH.png"
+      "https://i.imgur.com/iYBlwm8.png",
+      "https://i.imgur.com/jwnVHoI.png",
+      "https://i.imgur.com/YNiTSFA.png",
+      "https://i.imgur.com/HqcoV24.png",
+      "https://i.imgur.com/6179VgH.png"
     ],
     "description": "A one-of-one custom trucker hat featuring 3D puff \"TRUST YOURSELF\" embroidery, hand-distressed brim, and a custom D20 pin. This piece represents the next evolution of Coalition headwear.",
     "is_featured": false,
@@ -296,11 +52,7 @@
     "archived_at": "2026-03-03T09:39:56.104+00:00",
     "released_at": null,
     "sold_at": "2025-01-01T00:00:00+00:00",
-    "updated_at": "2026-03-10T05:03:53.064948+00:00",
-    "archive_note": null,
-    "image_roles": null,
-    "is_limited_edition": false,
-    "making_video_url": null
+    "updated_at": "2026-03-10T05:03:53.064948+00:00"
   },
   {
     "id": "Coalition_x_True_Religion_S1",
@@ -309,10 +61,10 @@
     "stock": 0,
     "category": "jeans",
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_2VU7MEr.jpg",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_hJgvL2K.jpg",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EsvBcv4.jpg",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_J9EmRZq.jpg"
+      "https://i.imgur.com/2VU7MEr.jpg",
+      "https://i.imgur.com/hJgvL2K.jpg",
+      "https://i.imgur.com/EsvBcv4.jpg",
+      "https://i.imgur.com/J9EmRZq.jpg"
     ],
     "description": "One-of-one Coalition x True Religion collaboration jeans. Season 1 exclusive — custom distressed denim with premium detailing. Size 33. Once it's gone, it's gone.",
     "is_featured": false,
@@ -328,11 +80,33 @@
     "archived_at": null,
     "released_at": null,
     "sold_at": "2026-03-06T00:00:00+00:00",
-    "updated_at": "2026-03-10T08:13:47.949612+00:00",
-    "archive_note": null,
-    "image_roles": null,
-    "is_limited_edition": false,
-    "making_video_url": null
+    "updated_at": "2026-03-10T08:13:47.949612+00:00"
+  },
+  {
+    "id": "GreenCamoWallet",
+    "name": "Coalition Green Camo Wallet",
+    "price": 35,
+    "stock": 0,
+    "category": "accessory",
+    "images": [
+      "https://i.imgur.com/kzIWQzA.jpg",
+      "https://i.imgur.com/hs4lZFg.jpg"
+    ],
+    "description": "Exclusive 1/1 custom wallet featuring camo green aesthetic and signature Coalition branding. Hand-crafted and unique.",
+    "is_featured": false,
+    "sizes": [
+      "One Size"
+    ],
+    "nft_metadata": null,
+    "created_at": "2025-11-22T03:16:30.859647+00:00",
+    "size_inventory": {
+      "One Size": 0
+    },
+    "archived": true,
+    "archived_at": "2026-05-22T22:33:38+00:00",
+    "released_at": null,
+    "sold_at": "2026-05-22T00:00:00+00:00",
+    "updated_at": "2026-05-23T13:33:03.943959+00:00"
   },
   {
     "id": "Coalition_NF_Tee",
@@ -371,21 +145,51 @@
     "archived_at": null,
     "released_at": null,
     "sold_at": null,
-    "updated_at": "2026-06-23T19:44:26.815089+00:00",
-    "archive_note": null,
-    "image_roles": null,
-    "is_limited_edition": false,
-    "making_video_url": null
+    "updated_at": "2026-06-23T19:44:26.815089+00:00"
+  },
+  {
+    "id": "prod_1773860269374",
+    "name": "Coalition Shark Tee – 1/1 Exclusive ",
+    "price": 60,
+    "stock": 0,
+    "category": "shirt",
+    "images": [
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/new-product_1773860282282_tr59x.jpg",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/new-product_1773860297947_vxbrj.jpg",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/new-product_1773860317842_fobgj.jpg",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/new-product_1773860327763_lohf0.jpg"
+    ],
+    "description": "Unique SGCoalition tie‑dye “Trust Yourself” tee with a striking blue spiral pattern and the iconic crowned‑bird graphic. This one‑of‑a‑kind piece features premium print details and a motivational streetwear vibe. Size Small, in excellent condition with no flaws—ideal for collectors or anyone looking to add a standout Coalition piece to their wardrobe.",
+    "is_featured": false,
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL"
+    ],
+    "nft_metadata": null,
+    "created_at": "2026-03-18T19:00:38.440681+00:00",
+    "size_inventory": {
+      "L": 0,
+      "M": 0,
+      "S": 1,
+      "XL": 0
+    },
+    "archived": false,
+    "archived_at": null,
+    "released_at": null,
+    "sold_at": null,
+    "updated_at": "2026-06-23T22:07:54.979452+00:00"
   },
   {
     "id": "Coalition_Grey_Wave_Wallet_1_2",
     "name": "Coalition 'Grey Wave' Wallet 1/2",
-    "price": 75,
+    "price": 35,
     "stock": 0,
     "category": "wallet",
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_7z2h8u6.jpg",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_UqtbJCq.jpg"
+      "https://i.imgur.com/7z2h8u6.jpeg",
+      "https://i.imgur.com/UqtbJCq.jpeg"
     ],
     "description": "First piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a custom charcoal-grey dye pattern inspired by Baltimore harbor at dawn. Built as a limited 1/2 collectible — once sold, it's gone forever.",
     "is_featured": false,
@@ -401,16 +205,12 @@
     "archived_at": "2026-06-25T02:40:12.191+00:00",
     "released_at": null,
     "sold_at": "2026-06-25T02:40:12.191+00:00",
-    "updated_at": "2026-06-28T07:35:13.278139+00:00",
-    "archive_note": null,
-    "image_roles": null,
-    "is_limited_edition": false,
-    "making_video_url": null
+    "updated_at": "2026-06-25T02:40:10.758472+00:00"
   },
   {
     "id": "SKYYBLUEWALLET1_2",
     "name": "COALITION SKYY BLUE WALLET 1/2",
-    "price": 75,
+    "price": 35,
     "stock": 0,
     "category": "wallet",
     "images": [
@@ -431,246 +231,6 @@
     "archived_at": "2026-05-22T22:33:38+00:00",
     "released_at": null,
     "sold_at": "2026-05-22T00:00:00+00:00",
-    "updated_at": "2026-06-28T07:35:13.278139+00:00",
-    "archive_note": null,
-    "image_roles": null,
-    "is_limited_edition": false,
-    "making_video_url": null
-  },
-  {
-    "id": "prod_1773860269374",
-    "name": "Coalition Shark Tee - 1/1 Exclusive",
-    "price": 60,
-    "stock": 1,
-    "category": "shirt",
-    "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_evsuOt6.jpg",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_gaA93ug.jpg",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_cYmL6GQ.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IVmfRGx.png"
-    ],
-    "description": "Unique SGCoalition tie-dye 'Trust Yourself' tee with a striking blue spiral pattern and the iconic crowned-bird graphic. This one-of-a-kind piece features premium print details and a motivational streetwear vibe. Size Small, in excellent condition with no flaws - ideal for collectors or anyone looking to add a standout Coalition piece to their wardrobe.",
-    "is_featured": false,
-    "sizes": [
-      "S",
-      "M",
-      "L",
-      "XL"
-    ],
-    "nft_metadata": null,
-    "created_at": "2026-03-18T19:00:38.440681+00:00",
-    "size_inventory": {
-      "L": 0,
-      "M": 0,
-      "S": 1,
-      "XL": 0
-    },
-    "archived": false,
-    "archived_at": null,
-    "released_at": null,
-    "sold_at": null,
-    "updated_at": "2026-06-28T12:23:31.407337+00:00",
-    "archive_note": null,
-    "image_roles": null,
-    "is_limited_edition": false,
-    "making_video_url": null
-  },
-  {
-    "id": "prod_womens_above_as_below_contrast_shorts",
-    "name": "WOMEN'S COALITION ABOVE AS BELOW CONTRAST SHORTS",
-    "price": 40,
-    "stock": 4,
-    "category": "shorts",
-    "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_juuQ8jz.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXvoGU6.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png"
-    ],
-    "description": "Women's Above as Below contrast shorts in black with white trim, red Coalition artwork, and a red waistband label. Available S-M-L-XL. $40 separately, or grab the matching crop tank and shorts set for $75.",
-    "is_featured": false,
-    "sizes": [
-      "S",
-      "M",
-      "L",
-      "XL"
-    ],
-    "nft_metadata": null,
-    "created_at": "2026-07-01T04:00:00+00:00",
-    "size_inventory": {
-      "L": 1,
-      "M": 1,
-      "S": 1,
-      "XL": 1
-    },
-    "archived": false,
-    "archived_at": null,
-    "released_at": null,
-    "sold_at": null,
-    "updated_at": "2026-07-02T09:31:36.397028+00:00",
-    "archive_note": null,
-    "image_roles": {
-      "hoverUrl": null,
-      "primaryUrl": "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_juuQ8jz.png"
-    },
-    "is_limited_edition": true,
-    "making_video_url": null
-  },
-  {
-    "id": "Coalition_Above_As_Below_Wallet_1_1",
-    "name": "COALITION ABOVE AS BELOW 1/1 WALLET",
-    "price": 85,
-    "stock": 1,
-    "category": "wallet",
-    "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_9NF3LzM.jpg",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_UoY42bg.jpg"
-    ],
-    "description": "1/1 Above as Below wallet. Hand-finished with the same storm-and-balance motif as the matching Above as Below tee - single piece, one red-and-white Coalition mark, scaled for everyday carry. Once sold, gone forever.",
-    "is_featured": false,
-    "sizes": [
-      "One Size"
-    ],
-    "nft_metadata": null,
-    "created_at": "2026-06-28T04:00:00+00:00",
-    "size_inventory": {
-      "One Size": 1
-    },
-    "archived": false,
-    "archived_at": null,
-    "released_at": null,
-    "sold_at": null,
-    "updated_at": "2026-07-01T21:14:16.705185+00:00",
-    "archive_note": null,
-    "image_roles": null,
-    "is_limited_edition": true,
-    "making_video_url": "https://www.instagram.com/p/DaQpKS9EXT8/"
-  },
-  {
-    "id": "prod_hoodie_overwhelmingly_patient",
-    "name": "COALITION OVERWHELMINGLY PATIENT HOODIE",
-    "price": 100,
-    "stock": 5,
-    "category": "sweatshirt",
-    "images": [
-      "/images/front.png",
-      "/images/back.png",
-      "/images/ChatGPT%20Image%20Jun%2028%2C%202026%2C%2011_31_20%20AM.png",
-      "/images/ChatGPT%20Image%20Jun%2028%2C%202026%2C%2011_35_18%20AM.png"
-    ],
-    "description": "Pre-order release of the Coalition Overwhelmingly Patient Hoodie at $100. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Free shipping when paired with any other item. Reservations capped at one per size; ships in 4-6 weeks from the close of the pre-order window.",
-    "is_featured": false,
-    "sizes": [
-      "S",
-      "M",
-      "L",
-      "XL",
-      "2XL"
-    ],
-    "nft_metadata": null,
-    "created_at": "2026-06-28T04:00:00+00:00",
-    "size_inventory": {
-      "L": 1,
-      "M": 1,
-      "S": 1,
-      "XL": 1,
-      "2XL": 1
-    },
-    "archived": false,
-    "archived_at": null,
-    "released_at": null,
-    "sold_at": null,
-    "updated_at": "2026-07-02T09:13:51.244474+00:00",
-    "archive_note": null,
-    "image_roles": null,
-    "is_limited_edition": true,
-    "making_video_url": null
-  },
-  {
-    "id": "prod_womens_above_as_below_set",
-    "name": "WOMEN'S COALITION ABOVE AS BELOW SET",
-    "price": 75,
-    "stock": 4,
-    "category": "apparel",
-    "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HFMfNYr.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EqDgC3h.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_juuQ8jz.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXvoGU6.png"
-    ],
-    "description": "Women's Above as Below set with the crewneck crop tank and contrast shorts together. Black body, red-and-white Coalition artwork, and matching set styling. $75 as a set, sized S-M-L-XL.",
-    "is_featured": false,
-    "sizes": [
-      "S",
-      "M",
-      "L",
-      "XL"
-    ],
-    "nft_metadata": null,
-    "created_at": "2026-07-01T04:00:00+00:00",
-    "size_inventory": {
-      "L": 1,
-      "M": 1,
-      "S": 1,
-      "XL": 1
-    },
-    "archived": false,
-    "archived_at": null,
-    "released_at": null,
-    "sold_at": null,
-    "updated_at": "2026-07-02T09:31:37.54546+00:00",
-    "archive_note": null,
-    "image_roles": {
-      "hoverUrl": null,
-      "primaryUrl": "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png"
-    },
-    "is_limited_edition": true,
-    "making_video_url": null
-  },
-  {
-    "id": "prod_womens_coalition_halo_contrast_tee",
-    "name": "WOMEN'S COALITION HALO CONTRAST TEE",
-    "price": 40,
-    "stock": 4,
-    "category": "shirt",
-    "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_X4it3yW.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXJsUIn.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DJJY3LT.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_AAW60N3.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_k3cZbA3.png"
-    ],
-    "description": "Women's Coalition Halo Contrast Tee in bodycon raglan sleeve cut with contrast sleeve stripes, the same gold Coalition halo chest logo as the Coalition Halo Mini Dress, and a TRUST YOURSELF hit on the back. $40, sized S-M-L-XL.",
-    "is_featured": false,
-    "sizes": [
-      "S",
-      "M",
-      "L",
-      "XL"
-    ],
-    "nft_metadata": null,
-    "created_at": "2026-07-03T04:00:00+00:00",
-    "size_inventory": {
-      "L": 1,
-      "M": 1,
-      "S": 1,
-      "XL": 1
-    },
-    "archived": false,
-    "archived_at": null,
-    "released_at": null,
-    "sold_at": null,
-    "updated_at": "2026-07-03T04:47:01.640267+00:00",
-    "archive_note": null,
-    "image_roles": {
-      "hoverUrl": "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXJsUIn.png",
-      "primaryUrl": "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_X4it3yW.png"
-    },
-    "is_limited_edition": false,
-    "making_video_url": null
+    "updated_at": "2026-05-23T13:33:03.943959+00:00"
   }
 ]

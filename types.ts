@@ -1,69 +1,12 @@
-// Per-product image-role mapping. Stored as URL strings (not indices) so
-// admin reorders / deletes don't silently corrupt the assignment. Older
-// products without an imageRoles field fall through to position-based
-// defaults (images[0] = primary, images[1] = hover, rest = gallery) via
-// utils/productImage.getProductRoles.
-export interface ImageRoles {
-  /** URL of the cover image shown on cards and as the PDP hero. */
-  primaryUrl?: string;
-  /** URL of the alt-view shown on ProductCard hover. Explicit `null` = no hover. */
-  hoverUrl?: string | null;
-  /** PDP thumbnail URLs. Optional; derived from images[2..n] when omitted. */
-  galleryUrls?: string[];
-  /**
-   * Per-product image-role "named slots" for products whose slot taxonomy
-   * doesn't fit the default primary/hover/gallery shape (e.g. the Halo
-   * Mini Dress has modelFaceFront / modelFront / modelAngledFront /
-   * modelSide / modelBackAngled / modelBack).
-   *
-   * Map: slot identifier → public URL. Synced positionally with the
-   * product's `images[]` array — slot `i` corresponds to `images[i]` —
-   * so the admin upload-replace flow in components/admin/ProductManager.tsx
-   * writes to a deterministic index in both arrays at once.
-   * forwarded by reconcileImageRoles (utils/productImage.ts).
-   */
-  namedSlots?: Record<string, string>;
-  // Card-side render profile. Optional with safe defaults (cover + dark), so
-  // products created before this field still render the same way they did
-  // when components/ProductCard.tsx hard-coded it per product id. The two
-  // values are intentionally decoupled from the URL-set fields above —
-  // `imageFit` controls how the storefront crops the primary image, and
-  // `imageBackground` controls the gap color around a contained image.
-  // - imageFit 'cover' (default) fills the 4:5 card frame; guaranteed aspect
-  //   ratio, may crop edges. Use for product-on-blank shots.
-  // - imageFit 'contain' shows the full image on the chosen background;
-  //   aspect ratio honored but gaps appear. Use for flat-lay hero shots
-  //   (or any product whose composition already includes the background).
-  imageFit?: 'cover' | 'contain';
-  // Card frame background. Optional with safe default 'gray-900'.
-  // - 'gray-900' pairs with cover for the standard product-on-blank look.
-  // - 'white' pairs with contain for flat-lay products whose hero shot
-  //   already includes a white background.
-  // - 'transparent' exposes whatever sits behind the card; reserved for
-  //   narrow site-wide banner tweaks — do NOT use on opaque card grids.
-  imageBackground?: 'gray-900' | 'white' | 'transparent';
-}
-
-export type MakingVideoPlatform = 'instagram' | 'youtube' | 'tiktok' | 'external';
-
-export interface MakingVideoLink {
-  platform: MakingVideoPlatform;
-  label: string;
-  url: string;
-}
-
 export interface Product {
   id: string;
   name: string;
   price: number;
   images: string[];
-  // Explicit image-role mapping. See ImageRoles above.
-  imageRoles?: ImageRoles;
   description: string;
   makingVideoUrl?: string;
-  makingVideoLinks?: MakingVideoLink[];
   createdAt?: string; // ISO timestamp for when the product was added
-  category: 'apparel' | 'accessory' | 'shirt' | 'shorts' | 'sweatshirt' | 'wallet' | 'jeans' | 'hat' | 'dress';
+  category: 'apparel' | 'accessory' | 'shirt' | 'wallet' | 'jeans' | 'hat';
   isFeatured?: boolean;
   // Free shipping when this product is in the cart AND a distinct other
   // product is also in the cart. Used for the Coalition 'Overwhelmingly
@@ -107,39 +50,6 @@ export interface Product {
   isLimitedEdition?: boolean; // Limited edition badge
   stock?: number; // Current available stock as mirrored from the products DB row (set by AppContext.fetchProducts from public.products.stock)
   saleEndDate?: string; // ISO timestamp for flash sales
-  // Per-product shipping-fulfillment override. When set, takes precedence
-  // over the generic PDP "Fulfillment" stat (which otherwise falls through
-  // to free-shipping / $200 / "Ships in 1-2 business days" copy). Used by
-  // the Overwhelmingly Patient Hoodie pre-order, whose real ship window
-  // ("Ships in 1-2 weeks") is tighter than the storefront default. Keep the
-  // string in the same brand voice as the other shipping copy lines.
-  shippingFulfillment?: string;
-  // Per-product auto-discount (migration 20260704_add_discount_percent_to_products.sql).
-  // Numeric 0-100, stored as products.discount_percent NOT NULL DEFAULT 0. No coupons-and-discount
-  // stack (see utils/productDiscount.ts > resolveEffectiveDiscount: the larger of cart sum of
-  // product discounts vs cart-wide coupon wins; the smaller is dropped). Accessories / products
-  // without an auto-discount leave this undefined and the round-trip in mapProductToDb falls
-  // back to 0 (services/retryQueue.ts line 212).
-  discountPercent?: number;
-  // Free-form product-detail block rendered below the buy button on the PDP. Optional so legacy
-  // seeded products without a specs block still render cleanly. - attributes: label/value rows
-  // under "Fit & Style". - care: plain-string care-instruction bullets under "Care Instructions".
-  // - material: composition / fabricWeight / thickness / breathability rows under "Material".
-  // - sizeChart: per-product override of the category-default size chart (SizeChartModal).
-  specs?: {
-    attributes?: Array<{ label: string; value: string }>;
-    care?: string[];
-    material?: {
-      composition?: string;
-      fabricWeight?: string;
-      thickness?: string;
-      breathability?: string;
-    };
-    sizeChart?: {
-      title?: string;
-      rows?: Array<Record<string, string | number>>;
-    };
-  };
 }
 
 export interface CartItem extends Product {

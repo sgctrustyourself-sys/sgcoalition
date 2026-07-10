@@ -3,7 +3,6 @@ import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps
 import { scaleLinear } from 'd3-scale';
 import { motion } from 'framer-motion';
 import { Tooltip } from 'react-tooltip';
-import type { LiveOrdersTimeRange } from '../utils/liveOrdersFeed';
 
 // US GeoJSON URL (Standard Albers USA projection)
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
@@ -17,7 +16,7 @@ interface StateData {
 
 interface LiveMapProps {
     data: StateData[];
-    timeRange: LiveOrdersTimeRange;
+    timeRange: '24h' | '7d' | '30d';
 }
 
 const LiveMap: React.FC<LiveMapProps> = ({ data }) => {

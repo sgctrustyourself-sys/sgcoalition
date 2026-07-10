@@ -6,7 +6,6 @@ import { Section } from '../types';
 import ProductCard from '../components/ProductCard';
 import SmsSignup from '../components/SmsSignup';
 import Newsletter from '../components/Newsletter';
-import { getProductImage, getProductImageSrcSet, getProductRoleImage, PRODUCT_IMAGE_SIZES, PRODUCT_IMAGE_ASPECTS } from '../utils/productImage';
 
 const Home = () => {
     const { sections, products, isAdminMode, updateSections, updateSection, isLoading } = useApp();
@@ -137,7 +136,7 @@ const Home = () => {
                                         <div className="h-12 bg-gray-800/50 rounded w-40"></div>
                                     </div>
                                 </div>
-                                <div className={`order-1 md:order-2 bg-gray-800/50 ${PRODUCT_IMAGE_ASPECTS.thumb} rounded-lg`}></div>
+                                <div className="order-1 md:order-2 bg-gray-800/50 aspect-square rounded-lg"></div>
                             </div>
                         </section>
                     );
@@ -175,26 +174,8 @@ const Home = () => {
                                     </Link>
                                 </div>
                             </div>
-                            <div className={`order-1 md:order-2 bg-gray-900 ${PRODUCT_IMAGE_ASPECTS.thumb} relative overflow-hidden border border-white/5 group`}>
-                                <img
-                                    src={getProductImage(getProductRoleImage(featured, 'primary') || featured.images[0], 'hero')}
-                                    srcSet={getProductImageSrcSet(getProductRoleImage(featured, 'primary') || featured.images[0])}
-                                    sizes={PRODUCT_IMAGE_SIZES.hero}
-                                    alt={featured.name}
-                                    width={1200}
-                                    height={1200}
-                                    loading="eager"
-                                    fetchPriority="high"
-                                    decoding="sync"
-                                    onError={(event) => {
-                                        const img = event.currentTarget;
-                                        if (img.getAttribute('data-fallback-applied') === '1') return;
-                                        img.setAttribute('data-fallback-applied', '1');
-                                        img.src = getProductRoleImage(featured, 'primary') || featured.images[0];
-                                        img.removeAttribute('srcset');
-                                    }}
-                                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition duration-700"
-                                />
+                            <div className="order-1 md:order-2 bg-gray-900 aspect-square relative overflow-hidden border border-white/5 group">
+                                <img src={featured.images[0]} alt={featured.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition duration-700" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none"></div>
                             </div>
                         </div>
@@ -287,7 +268,7 @@ const Home = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16">
                                 {[...Array(3)].map((_, i) => (
                                     <div key={i} className="animate-pulse">
-                                        <div className={`bg-gray-800/50 ${PRODUCT_IMAGE_ASPECTS.card} rounded-lg mb-4`}></div>
+                                        <div className="bg-gray-800/50 aspect-[3/4] rounded-lg mb-4"></div>
                                         <div className="h-4 bg-gray-800/50 rounded w-3/4 mb-2"></div>
                                         <div className="h-4 bg-gray-800/50 rounded w-1/4"></div>
                                     </div>
@@ -295,7 +276,7 @@ const Home = () => {
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16">
-                                {products.slice(0, 6).map((p, idx) => <ProductCard key={p.id} product={p} priority={idx === 0} />)}
+                                {products.slice(0, 6).map(p => <ProductCard key={p.id} product={p} />)}
                             </div>
                         )}
                     </section>
@@ -386,44 +367,6 @@ const Home = () => {
 
     return (
         <div className="min-h-screen pb-20">
-            {/* Category quick-bar — six top-level destinations for the
-                shopper who lands on the home page without first going
-                through /shop. Order matches the Shop page sidebar top-
-                to-bottom: default ALL, then WOMEN -> MEN (the two cross-
-                cut filters), then APPAREL (its sub-categories live in
-                the Shop sidebar), then WALLETS + HATS. Each tile routes
-                via `?category=...` so /shop's existing URL-param effect
-                picks the matching radio on mount - no parallel state
-                machine needed. Built as inline JSX (not a Section admin
-                type) because the labels are not data - they're a literal
-                mirror of the Shop sidebar structure, and on-the-fly
-                admin re-ordering would silently desync the two routes. */}
-            <section
-                aria-label="Browse by category"
-                className="border-b border-white/10 bg-black/60 backdrop-blur supports-[backdrop-filter]:bg-black/40"
-            >
-                <div className="max-w-6xl mx-auto px-4 py-4 sm:py-5">
-                    <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-[10px] sm:text-xs">
-                        {[
-                            { value: 'all', label: 'ALL', href: '/shop' },
-                            { value: 'women', label: 'WOMEN', href: '/shop?category=women' },
-                            { value: 'men', label: 'MEN', href: '/shop?category=men' },
-                            { value: 'apparel', label: 'APPAREL', href: '/shop?category=apparel' },
-                            { value: 'wallets', label: 'WALLETS', href: '/shop?category=wallets' },
-                            { value: 'hats', label: 'HATS', href: '/shop?category=hats' },
-                        ].map(tile => (
-                            <Link
-                                key={tile.value}
-                                to={tile.href}
-                                className="px-3 sm:px-5 py-2 border border-white/20 text-white font-bold uppercase tracking-widest hover:bg-white hover:text-black hover:border-white focus:outline-none focus:ring-2 focus:ring-white/60 transition-all duration-200"
-                                aria-label={`Shop ${tile.label}`}
-                            >
-                                {tile.label}
-                            </Link>
-                        ))}
-                    </div>
-                </div>
-            </section>
             {sections.map((s, i) => (
                 <React.Fragment key={s.id}>
                     {renderSection(s, i)}

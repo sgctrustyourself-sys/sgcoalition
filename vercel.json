@@ -6,67 +6,8 @@
     "framework": "vite",
     "rewrites": [
         {
-            "source": "/favicon.ico",
-            "destination": "/favicon.svg"
-        },
-        {
             "source": "/((?!api/|assets/|sw.js|favicon.svg|images/|.*\\..*).*)",
             "destination": "/index.html"
-        }    ],
-    "headers": [
-        {
-            "source": "/((?!api/|assets/|sw.js|favicon.svg|images/|.*\\..*).*)",
-            "headers": [
-                {
-                    "key": "Cache-Control",
-                    "value": "no-store, max-age=0"
-                },
-                {
-                    "key": "Strict-Transport-Security",
-                    "value": "max-age=63072000; includeSubDomains; preload"
-                },
-                {
-                    "key": "X-Content-Type-Options",
-                    "value": "nosniff"
-                },
-                {
-                    "key": "X-Frame-Options",
-                    "value": "DENY"
-                },
-                {
-                    "key": "Referrer-Policy",
-                    "value": "strict-origin-when-cross-origin"
-                },
-                {
-                    "key": "Permissions-Policy",
-                    "value": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
-                },
-                {
-                    "key": "Cross-Origin-Opener-Policy",
-                    "value": "same-origin"
-                },
-                {
-                    "key": "Cross-Origin-Resource-Policy",
-                    "value": "same-site"
-                },
-                {
-                    "key": "Content-Security-Policy",
-                    "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.paypal.com https://www.paypalobjects.com https://*.supabase.co https://*.vercel-insights.com https://*.vercel-analytics.com https://*.googletagmanager.com https://browser.sentry-cdn.com https://cdn.tailwindcss.com; worker-src 'self'; manifest-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://i.imgur.com https://*.supabase.co https://*.supabase.in https://res.cloudinary.com https://*.googleusercontent.com https://polygon-rpc.com https://cdn.polygonscan.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.paypal.com https://api-m.paypal.com https://api-m.sandbox.paypal.com https://*.vercel-insights.com https://*.vercel-analytics.com https://*.google-analytics.com https://polygon-rpc.com https://*.alchemy.com https://api.resend.com https://api.twilio.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io; frame-src https://www.paypal.com https://hooks.stripe.com https://js.stripe.com https://checkout.stripe.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://www.paypal.com; object-src 'none'; report-uri /api/csp-report; upgrade-insecure-requests"
-                }
-            ]
-        },
-        {
-            "source": "/assets/(.*)",
-            "headers": [
-                {
-                    "key": "Cache-Control",
-                    "value": "public, max-age=31536000, immutable"
-                },
-                {
-                    "key": "X-Content-Type-Options",
-                    "value": "nosniff"
-                }
-            ]
         }
     ]
 }

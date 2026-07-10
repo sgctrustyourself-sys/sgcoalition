@@ -1,29 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet';
-import { calculatePromoDiscountCents, normalizePromoCode } from '../../utils/promoCodes';
-import type {
-    ApiRequest,
-    ApiResponse,
-    CreateOrderBody,
-    EmailOrder,
-    EmailOrderItem,
-    OrderInput,
-    OrderItemInput,
-    OrderItemRow,
-    OrderRow,
-    OrderRowLegacy,
-    PayPalCapture,
-    PayPalCaptureConfirmation,
-    PayPalOrderResponse,
-    PayPalVerification,
-    ProductRow,
-    ResendEmailPayload,
-    SupabaseClient,
-    SupabasePgError,
-    UpdateOrderBody,
-} from '../_types';
-import { setCorsHeaders, createHttpError, parseBody, type HttpError, LOCAL_DEV_ORIGINS } from '../_helpers';
+
+interface HttpError extends Error {
+    status?: number;
+}
 
 const PAYPAL_LIVE_API = 'https://api-m.paypal.com';
 const PAYPAL_SANDBOX_API = 'https://api-m.sandbox.paypal.com';
@@ -32,7 +13,48 @@ const CURRENCY_CODE = 'USD';
 const KEYCHAIN_CLIP_PRICE_CENTS = 1000;
 const MAX_PAYPAL_QUANTITY = 99;
 
-function getSupabaseAdmin(): SupabaseClient {
+type OrderSaveResult = {
+    record: any;
+    created: boolean;
+};
+
+function setCorsHeaders(req: any, res: any) {
+    const configuredOrigin = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
+    const allowedOrigins = new Set([
+        configuredOrigin,
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3001',
+    ]);
+    const requestOrigin = req.headers?.origin;
+    const responseOrigin = requestOrigin && allowedOrigins.has(requestOrigin) ? requestOrigin : configuredOrigin;
+
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', responseOrigin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,POST');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
+function createHttpError(status: number, message: string): HttpError {
+    const error = new Error(message) as HttpError;
+    error.status = status;
+    return error;
+}
+
+function parseBody(req: any) {
+    if (!req.body) return {};
+    if (typeof req.body === 'string') {
+        try {
+            return JSON.parse(req.body);
+        } catch {
+            throw createHttpError(400, 'Invalid JSON request body.');
+        }
+    }
+    return req.body;
+}
+
+function getSupabaseAdmin() {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
@@ -43,13 +65,13 @@ function getSupabaseAdmin(): SupabaseClient {
     return createClient(supabaseUrl, serviceRoleKey);
 }
 
-function getBearerToken(req: ApiRequest): string | null {
+function getBearerToken(req: any) {
     const header = req.headers?.authorization || req.headers?.Authorization || '';
     const match = String(header).match(/^Bearer\s+(.+)$/i);
     return match?.[1] || null;
 }
 
-async function isAdminRequest(req: ApiRequest): Promise<boolean> {
+async function isAdminRequest(req: any) {
     const token = getBearerToken(req);
     if (!token) return false;
 
@@ -79,7 +101,7 @@ async function isAdminRequest(req: ApiRequest): Promise<boolean> {
     }
 }
 
-function getPaypalBaseUrl(): string {
+function getPaypalBaseUrl() {
     const explicitBaseUrl = process.env.PAYPAL_API_BASE_URL?.trim();
     if (explicitBaseUrl) return explicitBaseUrl.replace(/\/$/, '');
 
@@ -87,14 +109,14 @@ function getPaypalBaseUrl(): string {
     return mode === 'sandbox' ? PAYPAL_SANDBOX_API : PAYPAL_LIVE_API;
 }
 
-function getPaypalCredentials(): { clientId: string; clientSecret: string } {
+function getPaypalCredentials() {
     const clientId = (process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID || '').trim();
     const clientSecret = (process.env.PAYPAL_CLIENT_SECRET || '').trim();
     if (!clientId || !clientSecret) throw createHttpError(503, 'PayPal server credentials are not configured.');
     return { clientId, clientSecret };
 }
 
-async function getPaypalAccessToken(): Promise<string> {
+async function getPaypalAccessToken() {
     const { clientId, clientSecret } = getPaypalCredentials();
     const response = await fetch(`${getPaypalBaseUrl()}/v1/oauth2/token`, {
         method: 'POST',
@@ -110,7 +132,7 @@ async function getPaypalAccessToken(): Promise<string> {
         throw createHttpError(response.status || 502, data.error_description || data.error || 'Unable to authenticate with PayPal.');
     }
 
-    return data.access_token;
+    return data.access_token as string;
 }
 
 function money(value: unknown) {
@@ -160,13 +182,13 @@ function getResendFromAddress() {
     return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>';
 }
 
-async function sendResendEmail(resend: Resend, payload: ResendEmailPayload) {
+async function sendResendEmail(resend: Resend, payload: any) {
     const result = await resend.emails.send({
         ...payload,
         from: getResendFromAddress(),
-    } as Parameters<Resend['emails']['send']>[0]);
+    });
 
-    const error = result?.error;
+    const error = (result as any)?.error;
     if (error) {
         throw new Error(error.message || 'Resend rejected the email request.');
     }
@@ -175,9 +197,9 @@ async function sendResendEmail(resend: Resend, payload: ResendEmailPayload) {
 }
 
 
-async function verifyPayPalCapture(order: OrderRow, verification: PayPalVerification | undefined): Promise<PayPalCaptureConfirmation> {
-    const paypalOrderId = String(verification?.paypalOrderId || order.paypal_order_id || '').trim();
-    const paypalCaptureId = String(verification?.paypalCaptureId || order.payment_reference || '').trim();
+async function verifyPayPalCapture(order: any, verification: any) {
+    const paypalOrderId = String(verification?.paypalOrderId || order.paypalOrderId || order.paypal_order_id || '').trim();
+    const paypalCaptureId = String(verification?.paypalCaptureId || order.paypalCaptureId || order.paymentReference || order.payment_reference || '').trim();
 
     if (!paypalOrderId || !paypalCaptureId) {
         throw createHttpError(400, 'PayPal verification IDs are required.');
@@ -191,13 +213,13 @@ async function verifyPayPalCapture(order: OrderRow, verification: PayPalVerifica
         },
     });
 
-    const data: PayPalOrderResponse = await response.json().catch(() => ({}));
+    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
         throw createHttpError(response.status || 502, data.message || data.error || 'Unable to verify PayPal order.');
     }
 
     const purchaseUnit = data.purchase_units?.[0];
-    const capture = purchaseUnit?.payments?.captures?.find((item: PayPalCapture) => item.id === paypalCaptureId);
+    const capture = purchaseUnit?.payments?.captures?.find((item: any) => item.id === paypalCaptureId);
     if (data.status !== 'COMPLETED' || capture?.status !== 'COMPLETED') {
         throw createHttpError(402, 'PayPal capture is not completed.');
     }
@@ -217,7 +239,7 @@ async function verifyPayPalCapture(order: OrderRow, verification: PayPalVerifica
     };
 }
 
-async function loadProductsForOrder(supabase: SupabaseClient, items: OrderItemInput[]): Promise<Map<string, ProductRow>> {
+async function loadProductsForOrder(supabase: any, items: any[]) {
     const productIds = [...new Set(items.map(item => String(item.productId || '').trim()).filter(Boolean))];
     if (productIds.length === 0 || productIds.length !== items.length) {
         throw createHttpError(400, 'Every PayPal order item requires a product ID.');
@@ -229,10 +251,10 @@ async function loadProductsForOrder(supabase: SupabaseClient, items: OrderItemIn
         .in('id', productIds);
 
     if (error) {
-        throw createHttpError(500, (error as { message?: string }).message || 'Unable to verify checkout products.');
+        throw createHttpError(500, error.message || 'Unable to verify checkout products.');
     }
 
-    const products = new Map<string, ProductRow>(((data ?? []) as ProductRow[]).map((product: ProductRow) => [String(product.id), product]));
+    const products = new Map<string, any>((data || []).map((product: any) => [String(product.id), product]));
     const missing = productIds.filter(id => !products.has(id));
     if (missing.length > 0) {
         throw createHttpError(409, `Order contains unavailable product(s): ${missing.join(', ')}.`);
@@ -241,9 +263,9 @@ async function loadProductsForOrder(supabase: SupabaseClient, items: OrderItemIn
     return products;
 }
 
-function getExpectedItemUnitCents(product: ProductRow | undefined, item: OrderItemInput): number {
-    if (!product || product.archived) {
-        throw createHttpError(409, `${product?.name || 'This item'} is no longer available.`);
+function getExpectedItemUnitCents(product: any, item: any) {
+    if (product?.archived) {
+        throw createHttpError(409, `${product.name || 'This item'} is no longer available.`);
     }
 
     const quantity = Number(item.quantity || 1);
@@ -251,8 +273,8 @@ function getExpectedItemUnitCents(product: ProductRow | undefined, item: OrderIt
         throw createHttpError(400, `${item.productName || 'Order item'} has an invalid quantity.`);
     }
 
-    const category = String(product.category || '').toLowerCase();
-    const basePriceCents = parseMoneyCents(product.price, 'Product price');
+    const category = String(product?.category || '').toLowerCase();
+    const basePriceCents = parseMoneyCents(product?.price, 'Product price');
     const addOnCents = item.keychainClipOn && category === 'wallet' ? KEYCHAIN_CLIP_PRICE_CENTS : 0;
 
     if (item.keychainClipOn && category !== 'wallet') {
@@ -260,7 +282,7 @@ function getExpectedItemUnitCents(product: ProductRow | undefined, item: OrderIt
     }
 
     const selectedSize = String(item.selectedSize || 'One Size');
-    const inventory = product.size_inventory || {};
+    const inventory = product?.size_inventory || {};
     if (inventory && Object.prototype.hasOwnProperty.call(inventory, selectedSize)) {
         const available = Number(inventory[selectedSize] || 0);
         if (available < quantity) {
@@ -271,8 +293,8 @@ function getExpectedItemUnitCents(product: ProductRow | undefined, item: OrderIt
     return basePriceCents + addOnCents;
 }
 
-async function validatePayPalOrderRecord(supabase: SupabaseClient, record: OrderRow): Promise<OrderRow> {
-    const items = normalizeOrderItems(Array.isArray(record.items) ? (record.items as unknown as OrderItemInput[]) : []);
+async function validatePayPalOrderRecord(supabase: any, record: any) {
+    const items = normalizeOrderItems(Array.isArray(record.items) ? record.items : []);
     if (items.length === 0) throw createHttpError(400, 'PayPal order requires at least one item.');
 
     const products = await loadProductsForOrder(supabase, items);
@@ -302,24 +324,16 @@ async function validatePayPalOrderRecord(supabase: SupabaseClient, record: Order
 
     const shippingCents = parseMoneyCents(record.shipping_address?.shippingCost || 0, 'Shipping');
     const requestedDiscountCents = parseMoneyCents(record.discount || 0, 'Discount');
-    // Same logic as paypal-order: server owns cart discounts, anything beyond
-    // the set bonus and a valid promo implies store credit abuse (since PayPal
-    // orders can't redeem SGCoin).
+    // Same logic as paypal-order: server owns the set bonus, anything else
+    // implies store credit abuse (since PayPal orders can't redeem SGCoin).
     const setBonusCents = calculateAboveAsBelowSetBonusCents(
         items.map(item => ({ productId: item.productId, quantity: item.quantity })),
     );
-    const promoCode = getOrderPromoCode(record);
-    const promoDiscountCents = await getCapAwarePromoDiscountCents(
-        supabase,
-        Math.max(0, subtotalCents - setBonusCents),
-        promoCode,
-    );
-    const allowedDiscountCents = setBonusCents + promoDiscountCents;
-    const otherDiscountCents = Math.max(0, requestedDiscountCents - allowedDiscountCents);
+    const otherDiscountCents = Math.max(0, requestedDiscountCents - setBonusCents);
     if (otherDiscountCents > 0) {
         throw createHttpError(400, 'Store credit cannot be combined with PayPal yet. Turn off store credit or use it to cover the full order.');
     }
-    const discountCents = allowedDiscountCents;
+    const discountCents = setBonusCents;
 
     if (shippingCents !== 0 && shippingCents !== 1000) {
         throw createHttpError(400, 'Invalid PayPal shipping amount.');
@@ -342,14 +356,8 @@ async function validatePayPalOrderRecord(supabase: SupabaseClient, record: Order
     };
 }
 
-function getOrderPromoCode(record: OrderRow): string | null {
-    const match = String(record.notes || '').match(/Coupon code:\s*([^\n]+)/i);
-    const normalized = normalizePromoCode(match?.[1] || '');
-    return normalized || null;
-}
-
-function normalizeOrderItems(items: OrderItemInput[] = []): OrderItemRow[] {
-    return items.map((item, index): OrderItemRow => ({
+function normalizeOrderItems(items: any[] = []) {
+    return items.map((item, index) => ({
         productId: item.productId || item.product_id || item.id || `item_${index}`,
         productName: item.productName || item.name || 'Product',
         productImage: item.productImage || item.image || '',
@@ -367,15 +375,15 @@ function normalizeOrderItems(items: OrderItemInput[] = []): OrderItemRow[] {
     }));
 }
 
-function toNullableUuid(value?: string | null): string | null {
+function toNullableUuid(value?: string | null) {
     const text = String(value || '').trim();
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text)
         ? text
         : null;
 }
 
-function toOrderRecord(order: OrderInput, paymentVerification?: PayPalVerification): OrderRow {
-    const items = normalizeOrderItems(Array.isArray(order.items) ? (order.items as OrderItemInput[]) : []);
+function toOrderRecord(order: any, paymentVerification?: any) {
+    const items = normalizeOrderItems(Array.isArray(order.items) ? order.items : []);
     const paymentMethod = String(order.paymentMethod || order.payment_method || '').toLowerCase();
     const paymentReference = paymentVerification?.paypalCaptureId || order.paymentReference || order.payment_reference || null;
     const paypalOrderId = paymentVerification?.paypalOrderId || order.paypalOrderId || null;
@@ -406,12 +414,12 @@ function toOrderRecord(order: OrderInput, paymentVerification?: PayPalVerificati
     };
 }
 
-function toEmailOrder(record: OrderRow): EmailOrder {
+function toEmailOrder(record: any) {
     return {
         id: record.order_number || record.id,
         customerName: record.customer_name,
         customerEmail: record.customer_email,
-        items: normalizeOrderItems(record.items as unknown as OrderItemInput[]).map(item => ({
+        items: normalizeOrderItems(record.items).map(item => ({
             name: item.productName,
             size: item.selectedSize,
             quantity: item.quantity,
@@ -425,7 +433,7 @@ function toEmailOrder(record: OrderRow): EmailOrder {
     };
 }
 
-function isOptionalPaymentColumnError(error: SupabasePgError | null | undefined): boolean {
+function isOptionalPaymentColumnError(error: any) {
     const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`.toLowerCase();
     return text.includes('payment_reference')
         || text.includes('paypal_order_id')
@@ -433,10 +441,13 @@ function isOptionalPaymentColumnError(error: SupabasePgError | null | undefined)
         || text.includes('column');
 }
 
-function toLegacyOrderRecord(record: OrderRow): OrderRowLegacy {
-    // Destructure-rest naturally strips payment_reference/paypal_order_id into the
-    // local variables while leaving `legacyRecord` typed as OrderRowLegacy.
-    const { payment_reference: reference, paypal_order_id: paypalOrderId, ...legacyRecord } = record;
+function toLegacyOrderRecord(record: any) {
+    const legacyRecord = { ...record };
+    const reference = legacyRecord.payment_reference;
+    const paypalOrderId = legacyRecord.paypal_order_id;
+
+    delete legacyRecord.payment_reference;
+    delete legacyRecord.paypal_order_id;
 
     const paymentNotes = [
         reference ? `Payment reference: ${reference}` : '',
@@ -450,7 +461,7 @@ function toLegacyOrderRecord(record: OrderRow): OrderRowLegacy {
     return legacyRecord;
 }
 
-async function findExistingPayPalOrder(supabase: SupabaseClient, record: OrderRow): Promise<OrderRow | null> {
+async function findExistingPayPalOrder(supabase: any, record: any) {
     if (record.payment_method !== 'paypal') return null;
 
     if (record.paypal_order_id) {
@@ -461,12 +472,12 @@ async function findExistingPayPalOrder(supabase: SupabaseClient, record: OrderRo
             .maybeSingle();
 
         if (error) {
-            if (isOptionalPaymentColumnError(error as SupabasePgError | null)) {
+            if (isOptionalPaymentColumnError(error)) {
                 throw createHttpError(503, 'Order schema is missing PayPal payment columns. Apply the PayPal order migration before accepting live PayPal orders.');
             }
-            throw createHttpError(500, (error as { message?: string }).message || 'Failed to check existing PayPal order.');
+            throw createHttpError(500, error.message || 'Failed to check existing PayPal order.');
         }
-        if (data) return data as OrderRow;
+        if (data) return data;
     }
 
     if (record.payment_reference) {
@@ -477,18 +488,18 @@ async function findExistingPayPalOrder(supabase: SupabaseClient, record: OrderRo
             .maybeSingle();
 
         if (error) {
-            if (isOptionalPaymentColumnError(error as SupabasePgError | null)) {
+            if (isOptionalPaymentColumnError(error)) {
                 throw createHttpError(503, 'Order schema is missing PayPal payment columns. Apply the PayPal order migration before accepting live PayPal orders.');
             }
-            throw createHttpError(500, (error as { message?: string }).message || 'Failed to check existing PayPal capture.');
+            throw createHttpError(500, error.message || 'Failed to check existing PayPal capture.');
         }
-        if (data) return data as OrderRow;
+        if (data) return data;
     }
 
     return null;
 }
 
-function validateExistingPaymentMatch(existing: OrderRow, record: OrderRow): void {
+function validateExistingPaymentMatch(existing: any, record: any) {
     if (money(existing.total) !== money(record.total)) {
         throw createHttpError(409, 'Existing PayPal order total does not match this checkout attempt.');
     }
@@ -497,41 +508,7 @@ function validateExistingPaymentMatch(existing: OrderRow, record: OrderRow): voi
     }
 }
 
-/**
- * Cap-aware wrapper around `calculatePromoDiscountCents` for the order
- * completion hand-off. Mirrors the client pre-check so a promo-code cap
- * (e.g. EARLYACCESS first-4-orders ceiling) drops the discount to 0
- * authoritatively on the server before we hand the order off to PayPal /
- * the order save. Mirrors paypal-order.ts so both endpoints agree.
- */
-async function getCapAwarePromoDiscountCents(
-    supabase: SupabaseClient,
-    baseCents: number,
-    code: string | null | undefined,
-): Promise<number> {
-    const defaultDiscount = calculatePromoDiscountCents(baseCents, code);
-    if (defaultDiscount <= 0) return 0;
-
-    const normalized = normalizePromoCode(code);
-    if (!normalized) return defaultDiscount;
-
-    const { data, error } = await supabase
-        .from('coupons')
-        .select('used_count, max_uses')
-        .eq('code', normalized)
-        .maybeSingle();
-
-    if (error || !data) return defaultDiscount;
-
-    const cap = Number(data.max_uses);
-    const used = Number(data.used_count || 0);
-    if (Number.isFinite(cap) && cap > 0 && used >= cap) {
-        return 0;
-    }
-    return defaultDiscount;
-}
-
-async function upsertOrderRecord(supabase: SupabaseClient, record: OrderRow, options: { requirePaymentColumns?: boolean } = {}): Promise<{ record: OrderRow; created: boolean }> {
+async function upsertOrderRecord(supabase: any, record: any, options: { requirePaymentColumns?: boolean } = {}): Promise<OrderSaveResult> {
     const existing = await findExistingPayPalOrder(supabase, record);
     if (existing) {
         validateExistingPaymentMatch(existing, record);
@@ -544,9 +521,9 @@ async function upsertOrderRecord(supabase: SupabaseClient, record: OrderRow, opt
         .select()
         .single();
 
-    if (!result.error) return { record: ((result.data as OrderRow | null) || record), created: true };
+    if (!result.error) return { record: result.data || record, created: true };
 
-    if (isOptionalPaymentColumnError(result.error as SupabasePgError | null)) {
+    if (isOptionalPaymentColumnError(result.error)) {
         if (options.requirePaymentColumns) {
             throw createHttpError(503, 'Order schema is missing PayPal payment columns. Apply the PayPal order migration before accepting live PayPal orders.');
         }
@@ -554,24 +531,24 @@ async function upsertOrderRecord(supabase: SupabaseClient, record: OrderRow, opt
         const legacyRecord = toLegacyOrderRecord(record);
         const retry = await supabase
             .from('orders')
-            .upsert(legacyRecord as unknown as OrderRow, { onConflict: 'id' })
+            .upsert(legacyRecord, { onConflict: 'id' })
             .select()
             .single();
 
-        if (!retry.error) return { record: ((retry.data as OrderRow | null) || (legacyRecord as unknown as OrderRow)), created: true };
-        throw createHttpError(500, (retry.error as { message?: string }).message || 'Failed to save order.');
+        if (!retry.error) return { record: retry.data || legacyRecord, created: true };
+        throw createHttpError(500, retry.error.message || 'Failed to save order.');
     }
 
-    throw createHttpError(500, (result.error as { message?: string }).message || 'Failed to save order.');
+    throw createHttpError(500, result.error.message || 'Failed to save order.');
 }
 
-async function sendOrderEmail(record: OrderRow): Promise<void> {
+async function sendOrderEmail(record: any) {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey || !record.customer_email) return;
 
     const resend = new Resend(apiKey);
     const order = toEmailOrder(record);
-    const itemsHtml = order.items.map((item: EmailOrderItem) => `
+    const itemsHtml = order.items.map((item: any) => `
         <tr>
             <td style="padding:12px;border-bottom:1px solid #e5e7eb;">
                 <strong>${item.name}</strong><br>
@@ -604,13 +581,13 @@ async function sendOrderEmail(record: OrderRow): Promise<void> {
     });
 }
 
-async function sendAdminOrderEmail(record: OrderRow): Promise<void> {
+async function sendAdminOrderEmail(record: any) {
     const apiKey = process.env.RESEND_API_KEY;
     const recipients = getOrderNotificationRecipients();
     if (!apiKey || recipients.length === 0) return;
 
     const resend = new Resend(apiKey);
-    const items = normalizeOrderItems(record.items as unknown as OrderItemInput[]);
+    const items = normalizeOrderItems(record.items);
     const shipping = record.shipping_address || {};
     const paymentReference = record.payment_reference || record.notes?.match(/Payment reference:\s*([^\n]+)/)?.[1] || '';
     const paypalOrderId = record.paypal_order_id || record.notes?.match(/PayPal order ID:\s*([^\n]+)/)?.[1] || '';
@@ -686,25 +663,25 @@ async function sendAdminOrderEmail(record: OrderRow): Promise<void> {
     });
 }
 
-async function createOrder(req: ApiRequest): Promise<OrderRow> {
-    const rawBody = parseBody(req);
-    const body = rawBody as CreateOrderBody;
+async function createOrder(req: any) {
+    const body = parseBody(req);
     const order = body.order;
     if (!order) throw createHttpError(400, 'Order is required.');
 
     const supabase = getSupabaseAdmin();
     const paymentMethod = String(order.paymentMethod || order.payment_method || '').toLowerCase();
-    let record: OrderRow = toOrderRecord(order);
+    let paymentVerification = null;
+    let record = toOrderRecord(order);
 
     if (paymentMethod === 'paypal') {
         record = await validatePayPalOrderRecord(supabase, record);
-        const confirmation = await verifyPayPalCapture(record, body.verification);
+        paymentVerification = await verifyPayPalCapture(record, body.verification);
         record = {
             ...record,
             payment_method: 'paypal',
             payment_status: 'paid',
-            payment_reference: confirmation.paypalCaptureId,
-            paypal_order_id: confirmation.paypalOrderId,
+            payment_reference: paymentVerification.paypalCaptureId,
+            paypal_order_id: paymentVerification.paypalOrderId,
             paid_at: record.paid_at || new Date().toISOString(),
         };
     }
@@ -712,27 +689,15 @@ async function createOrder(req: ApiRequest): Promise<OrderRow> {
     const saveResult = await upsertOrderRecord(supabase, record, { requirePaymentColumns: paymentMethod === 'paypal' });
 
     if (saveResult.created) {
-        // Bump the promo counter atomically via RPC so concurrent orders
-        // never double-count past the cap. RPC is race-safe; if it fails we
-        // log and continue — the order is already saved.
-        const promoCode = getOrderPromoCode(record);
-        if (promoCode) {
-            try {
-                await supabase.rpc('increment_coupon_usage', { p_code: promoCode });
-            } catch (rpcError: unknown) {
-                console.warn('[Order API] increment_coupon_usage failed for', promoCode, rpcError);
-            }
-        }
-
         try {
             await sendOrderEmail(saveResult.record);
-        } catch (emailError: unknown) {
+        } catch (emailError) {
             console.warn('[Order API] Confirmation email failed:', emailError);
         }
 
         try {
             await sendAdminOrderEmail(saveResult.record);
-        } catch (emailError: unknown) {
+        } catch (emailError) {
             console.warn('[Order API] Admin order notification failed:', emailError);
         }
     }
@@ -740,7 +705,7 @@ async function createOrder(req: ApiRequest): Promise<OrderRow> {
     return saveResult.record || record;
 }
 
-async function listOrders(req: ApiRequest): Promise<OrderRow[]> {
+async function listOrders(req: any) {
     if (!(await isAdminRequest(req))) throw createHttpError(401, 'Admin authorization required.');
 
     const { data, error } = await getSupabaseAdmin()
@@ -748,15 +713,14 @@ async function listOrders(req: ApiRequest): Promise<OrderRow[]> {
         .select('*')
         .order('created_at', { ascending: false });
 
-    if (error) throw createHttpError(500, (error as { message?: string }).message || 'Failed to fetch orders.');
-    return ((data as OrderRow[] | null) || []);
+    if (error) throw createHttpError(500, error.message || 'Failed to fetch orders.');
+    return data || [];
 }
 
-async function updateOrder(req: ApiRequest): Promise<OrderRow | null> {
+async function updateOrder(req: any) {
     if (!(await isAdminRequest(req))) throw createHttpError(401, 'Admin authorization required.');
 
-    const rawBody = parseBody(req);
-    const body = rawBody as UpdateOrderBody;
+    const body = parseBody(req);
     const id = String(body.id || '').trim();
     if (!id || !body.updates) throw createHttpError(400, 'Order ID and updates are required.');
 
@@ -767,12 +731,12 @@ async function updateOrder(req: ApiRequest): Promise<OrderRow | null> {
         .select()
         .single();
 
-    if (error) throw createHttpError(500, (error as { message?: string }).message || 'Failed to update order.');
-    return (data as OrderRow | null);
+    if (error) throw createHttpError(500, error.message || 'Failed to update order.');
+    return data;
 }
 
-export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
-    setCorsHeaders(req, res, { originWhitelist: LOCAL_DEV_ORIGINS });
+export default async function handler(req: any, res: any) {
+    setCorsHeaders(req, res);
 
     if (req.method === 'OPTIONS') {
         res.status(200).end();
@@ -796,10 +760,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
         }
 
         res.status(405).json({ error: 'Method not allowed' });
-    } catch (error: unknown) {
-        const httpError = error as HttpError | null;
-        const status = Number(httpError?.status || 500);
-        console.error('[Order API]', httpError?.message || String(error));
-        res.status(status).json({ error: httpError?.message || 'Order request failed.' });
+    } catch (error: any) {
+        const status = Number(error?.status || 500);
+        console.error('[Order API]', error?.message || error);
+        res.status(status).json({ error: error?.message || 'Order request failed.' });
     }
 }

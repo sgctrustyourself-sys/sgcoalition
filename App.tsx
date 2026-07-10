@@ -8,7 +8,6 @@ import Footer from './components/Footer';
 import Navbar from './components/Navbar';
 import AnnouncementBar from './components/AnnouncementBar';
 import CartDrawer from './components/CartDrawer';
-import ErrorBoundary from './components/ErrorBoundary';
 import RewardActivation from './components/RewardActivation';
 import PageLoader from './components/ui/PageLoader';
 import MobileBottomNav from './components/MobileBottomNav';
@@ -17,7 +16,6 @@ import SignalAlert from './components/SignalAlert';
 import ProtectedRoute from './components/ProtectedRoute';
 import { TutorialProvider } from './context/TutorialContext';
 import { storeReferralCode } from './utils/referralSystem';
-import { captureTrafficAttribution } from './utils/trafficAttribution';
 
 const AIChatWidget = React.lazy(() => import('./components/AIChatWidget'));
 import { trackReferralEvent } from './utils/referralAnalytics';
@@ -27,7 +25,6 @@ import { supabase } from './services/supabase';
 const Home = React.lazy(() => import('./pages/Home'));
 const Shop = React.lazy(() => import('./pages/Shop'));
 const ProductDetails = React.lazy(() => import('./pages/ProductDetails'));
-const CustomWallets = React.lazy(() => import('./pages/CustomWallets'));
 const About = React.lazy(() => import('./pages/About'));
 const Profile = React.lazy(() => import('./pages/Profile'));
 const Membership = React.lazy(() => import('./pages/Membership'));
@@ -76,29 +73,11 @@ const WizardsPortal = React.lazy(() => import('./pages/WizardsPortal'));
 const LiveOrdersMap = React.lazy(() => import('./pages/LiveOrdersMap'));
 const Brain = React.lazy(() => import('./pages/Brain'));
 
-// Functional wrapper that resets the global ErrorBoundary's error
-// state on every route change WITHOUT remounting the children.
-// The class component exposes a `resetKey` prop; passing
-// `location.pathname` causes componentDidUpdate to flip hasError
-// back to false when the path changes, so a previous route's
-// render error doesn't keep the recovery UI visible after the
-// user navigates away. This preserves local state in CartDrawer,
-// AIChatWidget, and any in-flight forms (a `key` prop on the
-// boundary itself would remount the entire subtree -- a real UX
-// regression). See the securityInfrastructureReadiness test for
-// the lock.
-const ErrorBoundaryWithNavReset: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const location = useLocation();
-    return <ErrorBoundary resetKey={location.pathname}>{children}</ErrorBoundary>;
-};
-
 // Component to handle referral code detection
 const ReferralTracker = () => {
   const location = useLocation();
 
   useEffect(() => {
-    captureTrafficAttribution(location.pathname, location.search);
-
     const params = new URLSearchParams(location.search);
     const refCode = params.get('ref');
 
@@ -109,7 +88,7 @@ const ReferralTracker = () => {
       // Track the click
       trackReferralEvent(refCode, 'click');
     }
-  }, [location.pathname, location.search]);
+  }, [location]);
 
   return null;
 };
@@ -169,11 +148,10 @@ const App = () => {
       <AppProvider>
         <TutorialProvider>
           <BrowserRouter>
-            <ErrorBoundaryWithNavReset>
-              <LegacyHashRedirect />
-              <AuthEventHandler />
-              <ReferralTracker />
-              <div className="min-h-screen flex flex-col font-sans text-white bg-black selection:bg-brand-accent selection:text-black">
+            <LegacyHashRedirect />
+            <AuthEventHandler />
+            <ReferralTracker />
+            <div className="min-h-screen flex flex-col font-sans text-white bg-black selection:bg-brand-accent selection:text-black">
               <SignalAlert />
               <ConditionalNav />
               <CartDrawer />
@@ -191,7 +169,6 @@ const App = () => {
                     <Route path="/sgminiwizards/dashboard" element={<WizardsDashboard />} />
                     <Route path="/sgminiwizards/treasury" element={<TreasuryPage />} />
                     <Route path="/shop" element={<Shop />} />
-                    <Route path="/custom-wallets" element={<CustomWallets />} />
                     <Route path="/search" element={<SearchResults />} />
                     <Route path="/product/:id" element={<ProductDetails />} />
                     <Route path="/about" element={<About />} />
@@ -263,8 +240,7 @@ const App = () => {
               <MobileBottomNav />
               <SpeedInsights />
               <Analytics />
-              </div>
-            </ErrorBoundaryWithNavReset>
+            </div>
           </BrowserRouter>
         </TutorialProvider>
       </AppProvider>

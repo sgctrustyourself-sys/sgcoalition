@@ -14,16 +14,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execSync } from 'child_process';
-// Top-level `fs` for sync + stream helpers (`readdirSync`, `rmSync`,
-// `createReadStream`); `fs.promises.X` for async ops (`rm`, `writeFile`).
-// The top-level `fs.rm` / `fs.writeFile` are callback-style and throw
-// "The 'cb' argument must be of type function. Received undefined" when
-// called without a callback (Node's internal `rimraf` validates the
-// callback up front), so async file ops must go through `fs.promises`
-// to return a Promise that `await` can wait on. Sync + stream calls
-// stay on the top-level namespace so a single `fs` import covers the
-// whole file.
-import fs from 'fs';
+import { promises as fs } from 'fs';
 import path from 'path';
 import { PNG } from 'pngjs';
 
@@ -91,43 +82,26 @@ function hasOrangeBleed(data) {
 }
 
 function listPngs(dir) {
-    // The first test legitimately expects 0 grid / 0 x PNGs even when
-    // `npm run reveal` never created those reveal dirs in the first
-    // place -- on a fresh checkout, grid-reveal/ and x-reveal/ do not
-    // exist at all. `fs.readdirSync` throws ENOENT on a missing dir, so
-    // return [] for that case and let the count assertion (0 === 0)
-    // pass. Rethrow on any other error so we don't silently swallow
-    // genuine failures (permission, EIO, etc.).
-    try {
-        return fs.readdirSync(dir).filter(f => f.endsWith('.png')).sort();
-    } catch (err) {
-        if (err && err.code === 'ENOENT') return [];
-        throw err;
-    }
+    return fs.readdirSync(dir).filter(f => f.endsWith('.png')).sort();
 }
 function listHtml(dir) {
-    try {
-        return fs.readdirSync(dir).filter(f => f.endsWith('.html')).sort();
-    } catch (err) {
-        if (err && err.code === 'ENOENT') return [];
-        throw err;
-    }
+    return fs.readdirSync(dir).filter(f => f.endsWith('.html')).sort();
 }
 
 describe('Coalition Drop Renderer smoke test', () => {
     beforeAll(async () => {
         // Clean output dirs so this run is deterministic.
         await Promise.all([
-            fs.promises.rm(DIRS.story, { recursive: true, force: true }),
-            fs.promises.rm(DIRS.grid,  { recursive: true, force: true }),
-            fs.promises.rm(DIRS.x,     { recursive: true, force: true }),
+            fs.rm(DIRS.story, { recursive: true, force: true }),
+            fs.rm(DIRS.grid,  { recursive: true, force: true }),
+            fs.rm(DIRS.x,     { recursive: true, force: true }),
         ]);
-        await fs.promises.writeFile(SPEC, THROWAWAY_SPEC, 'utf8');
+        await fs.writeFile(SPEC, THROWAWAY_SPEC, 'utf8');
     }, 60_000);
 
     afterAll(async () => {
         // Drop the synthetic spec so dev machines don't accumulate stray files.
-        await fs.promises.rm(SPEC, { force: true });
+        await fs.rm(SPEC, { force: true });
     });
 
     // REGRESSION CATCH:

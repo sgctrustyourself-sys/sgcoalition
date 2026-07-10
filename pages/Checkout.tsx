@@ -7,11 +7,9 @@ import { useToast } from '../context/ToastContext';
 import FloatingHelpButton from '../components/FloatingHelpButton';
 import { calculateCartDiscount, isSGCoinDiscountEnabled, getDiscountPercentageText } from '../utils/pricing';
 import { trackReferralEvent } from '../utils/referralAnalytics';
-import { validateCouponCode, applyCouponCode, getAppliedCouponCode, clearCouponCode } from '../utils/couponSystem';
+import { validateCouponCode, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
 import { getCartItemAddOnPrice, getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
-import { calculatePromoDiscountDollars, getPromoCodeDiscount, normalizePromoCode } from '../utils/promoCodes';
-import { getCartProductDiscountTotal, resolveEffectiveDiscount } from '../utils/productDiscount';
 
 const reportErrorToAdmin = async (error: string, context: string, metadata: any = {}) => {
     try {
@@ -52,7 +50,6 @@ const Checkout: React.FC = () => {
     // Coupon code state
     const [couponCode, setCouponCode] = useState('');
     const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
-    const [appliedCouponDiscountPercentage, setAppliedCouponDiscountPercentage] = useState(0);
     const [couponReferrerName, setCouponReferrerName] = useState<string | null>(null);
     const [couponError, setCouponError] = useState<string | null>(null);
     const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
@@ -108,65 +105,25 @@ const Checkout: React.FC = () => {
     );
     const cartBonusDollars = cartBonusCents / 100;
 
-    const promo = useMemo(() => getPromoCodeDiscount(appliedCoupon), [appliedCoupon]);
-    const promoDiscountBase = Math.max(0, total - cartBonusDollars);
-    // Discount math uses the percentage returned by `validateCouponCode` (which
-    // pre-checks the EARLYACCESS server-side cap). The engine's static
-    // `promo.discountPercentage` only feeds the display label / legacy callers.
-    const promoDiscount = appliedCoupon
-        ? Math.round(promoDiscountBase * appliedCouponDiscountPercentage) / 100
-        : 0;
-
-    // Auto-discount: per-product discountPercent (migration 20260704) summed
-    // across the cart in dollars. The Shark Tee at $40 @ 50% contributes $20,
-    // many Shark Tees multiply through, non-discounted items contribute 0.
-    const productDiscountSum = getCartProductDiscountTotal(cart);
-    // No-stack rule (per user spec "Replace them (no stack)"): the larger of
-    // (sum of product discounts, cart-wide coupon discount) wins. The smaller
-    // is dropped silently so they never compound. SGCoin payment-method
-    // savings apply AFTER this resolution on the smaller remaining base.
-    const discountEffective = resolveEffectiveDiscount(productDiscountSum, promoDiscount);
-    const productDiscountApplied = discountEffective === productDiscountSum && productDiscountSum > 0;
-    const promoDiscountApplied = discountEffective === promoDiscount && promoDiscount > 0;
-    // Discount labels for the order summary line(s). When productDiscountSum
-    // wins, call out which qualifying items contributed; when the coupon wins,
-    // keep the existing promo label.
-    const productDiscountLineLabel = productDiscountApplied
-        ? `Product discount (${cart.filter(item => (item.discountPercent ?? 0) > 0).length} item${cart.filter(item => (item.discountPercent ?? 0) > 0).length === 1 ? '' : 's'})`
-        : null;
-
-    // Calculate SGCoin discount if crypto payment is selected. Apply the
-    // percentage AFTER the set bonus AND after the no-stack product-vs-coupon
-    // resolution so the discount ordering matches what the customer sees in
-    // the summary.
-    const discountEnabled = isSGCoinDiscountEnabled();
-    const cryptoBase = Math.max(0, total - cartBonusDollars - discountEffective);
-    const discount = (paymentMethod === 'crypto' && discountEnabled) ? calculateCartDiscount(cryptoBase) : 0;
-
     // Store Credit Logic
     const [useStoreCredit, setUseStoreCredit] = useState(false);
     const availableCredit = user?.storeCredit || 0;
-    // No-stack everywhere: pay base uses discountEffective (the winner of
-    // max(productDiscountSum, promoDiscount)). Never sum raw `promoDiscount`
-    // here \u2014 doing so would silently apply both the product auto-discount
-    // AND the cart-wide coupon on top of each other and the customer would
-    // pay less than expected. The PayPal createOrder payload below mirrors
-    // this same single-winner pattern.
-    const totalBeforeStoreCredit = Math.max(0, total - discount - discountEffective - cartBonusDollars + shippingCost);
-    const creditToApply = useStoreCredit ? Math.min(availableCredit, totalBeforeStoreCredit) : 0;
+    const creditToApply = useStoreCredit ? Math.min(availableCredit, total + shippingCost) : 0;
     const [isZeroAmount, setIsZeroAmount] = useState(false);
 
+    // Calculate SGCoin discount if crypto payment is selected. Apply the
+    // percentage AFTER the set bonus so a tee+shorts shopper with USDC still
+    // sees the $30 stacked underneath the 10%, not 10% off the un-discounted
+    // $150 subtotal.
+    const discountEnabled = isSGCoinDiscountEnabled();
+    const cryptoBase = Math.max(0, total - cartBonusDollars);
+    const discount = (paymentMethod === 'crypto' && discountEnabled) ? calculateCartDiscount(cryptoBase) : 0;
+
     // Final Total Calculation
-    const finalTotal = Math.max(0, totalBeforeStoreCredit - creditToApply);
-    // checkoutDiscountTotal mirrors the summary duck: includes only the
-    // discount that won the no-stack resolution (discountEffective) plus
-    // SGCoin, store credit, and the set bonus. The losing discount (either
-    // productDiscountSum or promoDiscount) is silently dropped here so the
-    // admin-order row in supabase does NOT double-count savings.
-    const checkoutDiscountTotal = discount + discountEffective + creditToApply + cartBonusDollars;
+    const finalTotal = Math.max(0, total - discount - cartBonusDollars + shippingCost - creditToApply);
     const requiresNoExternalPayment = isZeroAmount || finalTotal <= 0;
     const paymentLabel = paymentMethod === 'paypal'
-        ? 'PayPal, Pay Later, card, or Apple Pay'
+        ? 'PayPal, card, or Apple Pay'
         : paymentMethod === 'crypto'
             ? 'USDC on Polygon'
             : 'Card';
@@ -178,7 +135,6 @@ const Checkout: React.FC = () => {
     const contactEmailLabel = shippingInfo.email.trim() || 'your checkout email';
     const paymentAvailability = [
         'PayPal secure checkout',
-        'Pay Later when PayPal offers it',
         'Credit and debit cards via PayPal',
         'Apple Pay when available',
         discountEnabled ? `USDC on Polygon saves ${getDiscountPercentageText()}` : 'USDC on Polygon available'
@@ -187,7 +143,7 @@ const Checkout: React.FC = () => {
         {
             icon: ShieldCheck,
             title: 'Secure PayPal payment',
-            detail: 'PayPal handles payment details, including Pay Later when eligible, before capture.'
+            detail: 'PayPal handles payment details before capture.'
         },
         {
             icon: Mail,
@@ -217,85 +173,15 @@ const Checkout: React.FC = () => {
             setClientSecret('');
             setIsZeroAmount(false);
         }
-    }, [cart, paymentMethod, useStoreCredit, shippingMethod, appliedCoupon]);
+    }, [cart, paymentMethod, useStoreCredit, shippingMethod]);
 
-    useEffect(() => {
-        if (paymentMethod !== 'paypal' || requiresNoExternalPayment) return;
-
-        let cancelled = false;
-        let retryTimer: number | undefined;
-        let attempts = 0;
-
-        const renderPayLaterMessage = () => {
-            if (cancelled) return;
-
-            const container = document.getElementById('paypal-pay-later-message-checkout');
-            if (!container) return;
-
-            const PayPalMessages = window.paypal?.Messages;
-            if (typeof PayPalMessages !== 'function') {
-                attempts += 1;
-                if (attempts <= 20) {
-                    retryTimer = window.setTimeout(renderPayLaterMessage, 250);
-                }
-                return;
-            }
-
-            container.innerHTML = '';
-
-            try {
-                const renderResult = PayPalMessages({
-                    amount: finalTotal.toFixed(2),
-                    placement: 'payment',
-                    style: {
-                        layout: 'text',
-                        logo: {
-                            type: 'inline',
-                        },
-                        text: {
-                            color: 'white',
-                            size: 12,
-                        },
-                    },
-                }).render('#paypal-pay-later-message-checkout');
-
-                if (renderResult && typeof renderResult.catch === 'function') {
-                    renderResult.catch((err: any) => {
-                        console.warn('PayPal Pay Later message unavailable:', err);
-                    });
-                }
-            } catch (err) {
-                console.warn('PayPal Pay Later message unavailable:', err);
-            }
-        };
-
-        renderPayLaterMessage();
-
-        return () => {
-            cancelled = true;
-            if (retryTimer) window.clearTimeout(retryTimer);
-
-            const container = document.getElementById('paypal-pay-later-message-checkout');
-            if (container) container.innerHTML = '';
-        };
-    }, [paymentMethod, requiresNoExternalPayment, finalTotal]);
-
-    // Check for existing coupon on mount (re-validate so the discount % reflects
-    // any EARLYACCESS cap-met state since the user's last session).
+    // Check for existing coupon on mount
     useEffect(() => {
         const existingCoupon = getAppliedCouponCode();
-        if (!existingCoupon) return;
-
-        setAppliedCoupon(existingCoupon);
-        setCouponCode(existingCoupon);
-
-        validateCouponCode(existingCoupon).then(result => {
-            if (result.valid) {
-                setAppliedCouponDiscountPercentage(result.discountPercentage || 0);
-            }
-        }).catch(() => {
-            // Best-effort — keep the saved code visible, fall back to engine math.
-        });
+        if (existingCoupon) {
+            setAppliedCoupon(existingCoupon);
+            setCouponCode(existingCoupon);
+        }
     }, []);
 
     const handleApplyCoupon = async () => {
@@ -305,19 +191,10 @@ const Checkout: React.FC = () => {
         const result = await validateCouponCode(couponCode);
 
         if (result.valid) {
-            const normalizedCode = result.code || normalizePromoCode(couponCode);
-            applyCouponCode(normalizedCode);
-            setAppliedCoupon(normalizedCode);
-            setCouponCode(normalizedCode);
+            applyCouponCode(couponCode);
+            setAppliedCoupon(couponCode.toUpperCase());
             setCouponReferrerName(result.referrerName || null);
-            setAppliedCouponDiscountPercentage(result.discountPercentage || 0);
-            // Soft toast for cap-met EARLYACCESS so the user knows the code
-            // was applied — just no discount this round (per "than cool" UX).
-            const appliedPct = result.discountPercentage || 0;
-            const toastMessage = appliedPct > 0
-                ? `${normalizedCode} applied: ${appliedPct}% off`
-                : `${normalizedCode} applied — early-access cap already met, no discount this round`;
-            addToast(toastMessage, 'success');
+            addToast('Coupon code applied successfully!', 'success');
         } else {
             setCouponError(result.error || 'Invalid code');
             addToast(result.error || 'Invalid coupon code', 'error');
@@ -327,11 +204,10 @@ const Checkout: React.FC = () => {
     };
 
     const handleRemoveCoupon = () => {
-        clearCouponCode();
+        sessionStorage.removeItem('referralCode');
         setAppliedCoupon(null);
         setCouponCode('');
         setCouponReferrerName(null);
-        setAppliedCouponDiscountPercentage(0);
         setCouponError(null);
         addToast('Coupon code removed', 'info');
     };
@@ -344,7 +220,7 @@ const Checkout: React.FC = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    amount: totalBeforeStoreCredit,
+                    amount: total + shippingCost,
                     userId: user?.uid,
                     useStoreCredit
                 }),
@@ -461,7 +337,7 @@ const Checkout: React.FC = () => {
                 })),
                 subtotal,
                 tax,
-                discount: checkoutDiscountTotal,
+                discount: discount + creditToApply + cartBonusDollars,
                 total: finalTotal,
                 paymentMethod: paymentMethodUsed as any,
                 paymentStatus: paymentMethodUsed === 'crypto' ? OrderStatus.PENDING : OrderStatus.PAID,
@@ -469,15 +345,6 @@ const Checkout: React.FC = () => {
                 paypalOrderId: paymentVerification?.paypalOrderId,
                 paypalCaptureId: paymentVerification?.paypalCaptureId,
                 orderType: 'online' as const,
-                // Cap-met honesty: when EARLYACCESS is applied but the server
-                // computes 0% off (cap reached), tag the notes so the admin
-                // fulfillment email doesn't show "EARLYACCESS" alongside a
-                // full-price order without context.
-                notes: appliedCoupon
-                    ? (appliedCouponDiscountPercentage > 0
-                        ? `Coupon code: ${appliedCoupon}`
-                        : `Coupon code: ${appliedCoupon} [cap-met-0%]`)
-                    : '',
                 createdAt: new Date().toISOString(),
                 paidAt: paymentMethodUsed !== 'crypto' ? new Date().toISOString() : undefined,
                 sgCoinReward: reward,
@@ -755,23 +622,13 @@ const Checkout: React.FC = () => {
                                                 Supporting {couponReferrerName}'s referral
                                             </p>
                                         )}
-                                        {promo && appliedCouponDiscountPercentage > 0 && (
-                                            <p className="text-xs text-gray-300">
-                                                {appliedCouponDiscountPercentage}% off products applied
-                                            </p>
-                                        )}
-                                        {promo && appliedCouponDiscountPercentage === 0 && (
-                                            <p className="text-xs text-gray-300">
-                                                Code acknowledged — early-access cap met (no discount this round)
-                                            </p>
-                                        )}
                                     </div>
                                 ) : (
                                     <div className="space-y-2">
                                         <div className="flex gap-2">
                                             <input
                                                 type="text"
-                                                placeholder="Enter referral or promo code"
+                                                placeholder="Enter referral code"
                                                 value={couponCode}
                                                 onChange={(e) => {
                                                     setCouponCode(e.target.value.toUpperCase());
@@ -791,7 +648,7 @@ const Checkout: React.FC = () => {
                                             <p className="text-red-400 text-xs">{couponError}</p>
                                         )}
                                         <p className="text-xs text-gray-500">
-                                            Enter a referral code from a friend, or any code from your invite.
+                                            Have a referral code from a friend? Enter it here!
                                         </p>
                                     </div>
                                 )}
@@ -871,8 +728,8 @@ const Checkout: React.FC = () => {
                                                     className="w-5 h-5 border-gray-500 text-purple-600 focus:ring-purple-500"
                                                 />
                                                 <div className="flex flex-col">
-                                                    <span className="font-black text-base text-white">PayPal, Pay Later, Cards & Apple Pay</span>
-                                                    <span className="text-xs text-gray-400">Pay securely with PayPal, Pay Later if eligible, Credit/Debit Card, or Apple Pay</span>
+                                                    <span className="font-black text-base text-white">PayPal, Cards & Apple Pay</span>
+                                                    <span className="text-xs text-gray-400">Pay securely with PayPal, Credit/Debit Card, or Apple Pay</span>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2 opacity-80">
@@ -945,14 +802,10 @@ const Checkout: React.FC = () => {
                                                     <div>
                                                         <h4 className="font-bold text-purple-400 text-sm uppercase tracking-wide mb-1">Fast & Secure Checkout</h4>
                                                         <p className="text-sm text-gray-300">
-                                                            Pay with <span className="text-white font-bold">PayPal, Pay Later, Apple Pay, or Card</span>. PayPal shows eligible wallet, pay-later, and card options for your device before any capture.
+                                                            Pay with <span className="text-white font-bold">PayPal, Apple Pay, or Card</span>. PayPal shows the available wallet and card options for your device before any capture.
                                                         </p>
                                                     </div>
                                                 </div>
-                                            </div>
-
-                                            <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                                                <div id="paypal-pay-later-message-checkout" className="min-h-[24px] text-xs text-gray-300"></div>
                                             </div>
 
                                             {/* PayPal Button Container */}
@@ -993,12 +846,7 @@ const Checkout: React.FC = () => {
                                                                         description: `Coalition ${paypalOrderSeed.orderNumber} - ${cart.length} item(s)`,
                                                                         expectedTotal: finalTotal,
                                                                         shipping: shippingCost,
-                                                                        // LOCK: emit `discountEffective` (the no-stack winner), NOT raw `promoDiscount`.
-                                                                        // If the product discount wins the no-stack match (e.g. Shark Tee at $40 x 50% = $20 off when no competing coupon is applied),
-                                                                        // promoDiscount alone would understate the line and PayPal would fail the server-side
-                                                                        // total mismatch re-check. Locked by tests/paypalReadiness.test.ts.
-                                                                        discount: cartBonusDollars + discountEffective,
-                                                                        couponCode: appliedCoupon,
+                                                                        discount: discount + creditToApply + cartBonusDollars,
                                                                         items: cart.map(item => ({
                                                                             productId: item.id,
                                                                             name: item.name,
@@ -1204,18 +1052,6 @@ const Checkout: React.FC = () => {
                                     <div className="flex justify-between text-green-400">
                                         <span>Above as Below set bonus</span>
                                         <span>-${cartBonusDollars.toFixed(2)}</span>
-                                    </div>
-                                )}
-                                {productDiscountApplied && productDiscountLineLabel && (
-                                    <div className="flex justify-between text-green-400">
-                                        <span>{productDiscountLineLabel}</span>
-                                        <span>-${productDiscountSum.toFixed(2)}</span>
-                                    </div>
-                                )}
-                                {promoDiscount > 0 && (
-                                    <div className="flex justify-between text-green-400">
-                                        <span>{promo?.code || 'Coupon'} Discount</span>
-                                        <span>-${promoDiscountApplied ? discountEffective.toFixed(2) : '0.00'}</span>
                                     </div>
                                 )}
                                 {discount > 0 && (

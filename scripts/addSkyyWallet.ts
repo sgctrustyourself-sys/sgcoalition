@@ -26,8 +26,8 @@ async function addSkyyWallet() {
         name: 'Coalition Skyy Blue Wallet',
         price: 45.0,
         images: [
-            'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_v5y7tPa.jpg',
-            'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_B72Iael.jpg'
+            'https://i.imgur.com/v5y7tPa.jpg',
+            'https://i.imgur.com/B72Iael.jpg'
         ],
         description: 'Premium custom Coalition wallet in a stunning Skyy Blue finish. Hand-crafted with high-quality materials and signature branding. A perfect blend of style and utility.',
         category: 'accessory',

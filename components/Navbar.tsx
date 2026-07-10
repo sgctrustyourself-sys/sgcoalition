@@ -1,13 +1,10 @@
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ShoppingBag, Menu, X, Shield, Hexagon, User, Heart, Star, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { AuthProvider } from '../types';
 import SearchBar from './SearchBar';
-// Off-screen modal: deferred until the user clicks "MY PROFILE". Both the chunk
-// load (lazy import) and the prop change (isOpen=true) happen on first interaction
-// so the chunk only enters memory when actually needed.
-const ProfileModal = React.lazy(() => import('./ProfileModal'));
+import ProfileModal from './ProfileModal';
 import { getBadgesForWallet } from '../data/badges';
 
 const Navbar = () => {
@@ -78,7 +75,6 @@ const Navbar = () => {
                                         <Link to="/migrate" className={`block px-4 py-3 text-[10px] font-bold uppercase tracking-widest transition-all ${isActive('/migrate') ? 'text-yellow-500 bg-white/5' : 'text-yellow-600/80 hover:text-yellow-500 hover:bg-white/5'}`}>MIGRATE TO V2</Link>
                                         <Link to="/tutorial" className={`block px-4 py-3 text-[10px] font-bold uppercase tracking-widest transition-all ${isActive('/tutorial') ? 'text-white bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>GUIDE</Link>
                                         <Link to="/giveaway/nf-tee" className={`block px-4 py-3 text-[10px] font-bold uppercase tracking-widest transition-all ${isActive('/giveaway') ? 'text-white bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>GIVEAWAY</Link>
-                                        <Link to="/custom-wallets" className={`block px-4 py-3 text-[10px] font-bold uppercase tracking-widest transition-all ${isActive('/custom-wallets') ? 'text-white bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>CUSTOM WALLETS</Link>
                                         {isAdminMode && (
                                             <Link to="/brain" className={`block px-4 py-3 text-[10px] font-bold uppercase tracking-widest transition-all ${isActive('/brain') ? 'text-purple-300 bg-white/5' : 'text-purple-400 hover:text-purple-300 hover:bg-white/5'}`}>COALITION BRAIN</Link>
                                         )}
@@ -200,12 +196,10 @@ const Navbar = () => {
                             <Link to="/migrate" className="block text-md font-bold uppercase tracking-widest text-yellow-500" onClick={() => setMobileMenuOpen(false)}>Migrate to V2</Link>
                             <Link to="/help" className="block text-md font-bold uppercase tracking-widest text-gray-400" onClick={() => setMobileMenuOpen(false)}>Help Center</Link>
                             <Link to="/giveaway/nf-tee" className="block text-md font-bold uppercase tracking-widest text-white" onClick={() => setMobileMenuOpen(false)}>Giveaway Portal</Link>
-                            <Link to="/custom-wallets" className="block text-md font-bold uppercase tracking-widest text-white" onClick={() => setMobileMenuOpen(false)}>Custom Wallets</Link>
                             {isAdminMode && (
                                 <Link to="/brain" className="block text-md font-bold uppercase tracking-widest text-purple-400" onClick={() => setMobileMenuOpen(false)}>Coalition Brain</Link>
                             )}
                             <Link to="/inquire" className="block text-md font-bold uppercase tracking-widest text-gray-400" onClick={() => setMobileMenuOpen(false)}>Custom Inquiry</Link>
-                            <Link to="/live-orders" className="block text-md font-bold uppercase tracking-widest text-gray-400" onClick={() => setMobileMenuOpen(false)}>Recently Ordered</Link>
                         </div>
 
                         {!user ? (
@@ -259,17 +253,15 @@ const Navbar = () => {
                     </div>
                 )}
             </nav>
-            <Suspense fallback={null}>
-                <ProfileModal
-                    badges={getBadgesForWallet(user?.walletAddress || '')}
-                    isOpen={isProfileOpen}
-                    onClose={() => setIsProfileOpen(false)}
-                    walletAddress={user?.walletAddress || '0x...'}
-                    sgCoinBalance={user?.sgCoinBalance || 0}
-                    v2Balance={user?.v2Balance || 0}
-                    totalMigrated={user?.totalMigrated || 0}
-                />
-            </Suspense>
+            <ProfileModal
+                badges={getBadgesForWallet(user?.walletAddress || '')}
+                isOpen={isProfileOpen}
+                onClose={() => setIsProfileOpen(false)}
+                walletAddress={user?.walletAddress || '0x...'}
+                sgCoinBalance={user?.sgCoinBalance || 0}
+                v2Balance={user?.v2Balance || 0}
+                totalMigrated={user?.totalMigrated || 0}
+            />
         </>
     );
 };

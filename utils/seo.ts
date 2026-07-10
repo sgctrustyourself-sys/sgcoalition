@@ -59,10 +59,6 @@ export const getProductSeo = (product: Product) => {
 
 export const buildProductJsonLd = (product: Product) => {
     const seo = getProductSeo(product);
-    const makingVideoUrls = Array.from(new Set([
-        ...(product.makingVideoLinks || []).map(link => link.url),
-        product.makingVideoUrl,
-    ].filter((url): url is string => Boolean(url))));
 
     return {
         '@context': 'https://schema.org',
@@ -75,7 +71,6 @@ export const buildProductJsonLd = (product: Product) => {
             '@type': 'Brand',
             name: SITE_NAME,
         },
-        ...(makingVideoUrls.length ? { sameAs: makingVideoUrls } : {}),
         category: product.category,
         url: seo.url,
         offers: {

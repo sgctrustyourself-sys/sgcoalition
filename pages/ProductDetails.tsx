@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Share2, Shield, Plus, Trash2, X, Upload, ExternalLink, Smartphone, Scan, Heart, MessageSquare, ChevronLeft, ChevronRight, GripVertical, Star, CheckCircle2, Clock3, Ruler, Truck, Instagram, Youtube, Sparkles, Layers } from 'lucide-react';
+import { ArrowLeft, Share2, Shield, Plus, Trash2, X, Upload, ExternalLink, Smartphone, Scan, Heart, MessageSquare, ChevronLeft, ChevronRight, GripVertical, Star, CheckCircle2, Clock3, Ruler, Truck, Instagram } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { Product, AuthProvider } from '../types';
@@ -9,9 +9,6 @@ import RequestSimilarModal from '../components/RequestSimilarModal';
 import ImageCropperModal from '../components/ui/ImageCropperModal';
 import PageLoader from '../components/ui/PageLoader';
 import Seo from '../components/Seo';
-import CompleteTheFit from '../components/CompleteTheFit';
-import DropLeadCapture from '../components/DropLeadCapture';
-import { INITIAL_PRODUCTS, PRODUCT_LOCAL_OVERRIDES } from '../constants';
 import { ethers } from 'ethers';
 import { checkNftOwnership, switchToPolygon } from '../services/web3Service';
 import { uploadProductImage } from '../services/productUpload';
@@ -22,14 +19,7 @@ import { isWalletProduct, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE
 import { buildProductJsonLd, getProductSeo } from '../utils/seo';
 import { isNumberedEdition, getActiveTierPrice } from '../types';
 import { formatTierCalloutCopy } from '../services/numberedPieces';
-import { getDiscountedUnitPrice, getEffectiveDiscountPercent } from '../utils/productDiscount';
 import { Lock, Unlock, Loader } from 'lucide-react';
-import { getProductImage, getProductImageSrcSet, getProductRoleImage, getProductRoles, reconcileImageRoles, PRODUCT_IMAGE_ASPECTS, PRODUCT_IMAGE_SIZES } from '../utils/productImage';
-import ProductReviews from '../components/ProductReviews';
-import TrustRibbon from '../components/TrustRibbon';
-import ScarcityNarrative from '../components/ScarcityNarrative';
-import SizeChartModal from '../components/ui/SizeChartModal';
-import { getScarcityCopy } from '../utils/pdpScarcity';
 
 const formatProductDate = (value?: string) => {
     if (!value) return '';
@@ -38,30 +28,17 @@ const formatProductDate = (value?: string) => {
     return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
 };
 
-const getMakingVideoIcon = (platform?: string) => {
-    if (platform === 'youtube') return Youtube;
-    if (platform === 'tiktok') return Smartphone;
-    if (platform === 'instagram') return Instagram;
-    return ExternalLink;
-};
-
 const ProductDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { products, addToCart, isAdminMode, updateProduct, deleteProduct, user, toggleFavorite, loginUser, isLoading } = useApp();
     const { addToast } = useToast();
 
-    // Resolve from live context first, then fall back to the static catalog so
-    // local/drop products still paint if Supabase is slow or temporarily empty.
-    const product = React.useMemo(() => {
-        const resolvedProduct = products.find(p => p.id === id);
-        if (resolvedProduct) return resolvedProduct;
-
-        const localProduct = INITIAL_PRODUCTS.find(p => p.id === id);
-        return localProduct
-            ? { ...localProduct, ...(PRODUCT_LOCAL_OVERRIDES[localProduct.id] || {}) }
-            : undefined;
-    }, [products, id]);
+    // Derive the resolved product directly from context on every render.
+    // No local copy = no risk of drift between context.products and a stale
+    // local snapshot, and no `if (!product) return null` while products=[] on
+    // the cold-load tick before AppContext finishes fetching.
+    const product = React.useMemo(() => products.find(p => p.id === id), [products, id]);
     const [selectedSize, setSelectedSize] = useState<string>('');
     const [activeImageIndex, setActiveImageIndex] = useState(0);
     const [includeKeychainClipOn, setIncludeKeychainClipOn] = useState(false);
@@ -83,7 +60,6 @@ const ProductDetails = () => {
     const [unlockMessage, setUnlockMessage] = useState('');
 
     const [showRequestModal, setShowRequestModal] = useState(false);
-    const [showSizeGuide, setShowSizeGuide] = useState(false);
     const [referralCode, setReferralCode] = useState<string | null>(null);
 
     const handleUnlockPerks = async () => {
@@ -211,54 +187,16 @@ const ProductDetails = () => {
     const soldCount = product.editionSoldCount ?? 0;
     const tierActivePrice = isNumbered ? getActiveTierPrice(product, soldCount) : null;
     const basePrice = tierActivePrice ?? product.price;
-    // Auto-discount: when product.discountPercent > 0, the price the customer
-    // pays and the price the shopper sees on the PDP is the discounted unit,
-    // not the list price. Wallet add-on (keychain clip-on) still stacks AFTER
-    // the discount so a discounted wallet can still upgrade with a clip-on.
-    const productDiscountPct = getEffectiveDiscountPercent(product);
-    const hasProductDiscount = productDiscountPct > 0;
-    const saleUnitPrice = hasProductDiscount ? getDiscountedUnitPrice(product) : basePrice;
-    const displayPrice = saleUnitPrice + (walletProduct && includeKeychainClipOn ? WALLET_KEYCHAIN_CLIP_PRICE : 0);
+    const displayPrice = basePrice + (walletProduct && includeKeychainClipOn ? WALLET_KEYCHAIN_CLIP_PRICE : 0);
     const tierInfo = isNumbered ? formatTierCalloutCopy(product, soldCount) : null;
     const editableSizes = getProductEditableSizes(editForm.sizes, editForm.sizeInventory);
-    // Gallery is role-aware: when imageRoles maps galleryUrls explicitly, use
-    // that ordering; otherwise derive from images excluding primary/hover. We
-    // intentionally keep "activeImageIndex" as a stable counter into
-    // galleryImages so the operator's last clicked thumbnail stays selected
-    // when primary/hover change.
-    const visibleImages = isEditing && editForm.images ? editForm.images : product.images;
-    const liveRoles = getProductRoles({
-        ...(product as Product),
-        ...(isEditing ? { images: editForm.images ?? [], imageRoles: editForm.imageRoles } : {}),
-    } as Product);
-    const galleryImages = isEditing
-        ? (liveRoles.primaryUrl ? [liveRoles.primaryUrl, ...liveRoles.galleryUrls] : liveRoles.galleryUrls.slice())
-        : (liveRoles.primaryUrl ? [liveRoles.primaryUrl, ...liveRoles.galleryUrls] : liveRoles.galleryUrls.slice());
-    const galleryImageIndex = (url: string | null) => {
-        if (!url) return -1;
-        return galleryImages.indexOf(url);
-    };
-    // Render profile is data-driven via utils/productImage.ts >
-    // getProductRoles — same change as components/ProductCard.tsx. The
-    // legacy product-id list there also covers the 2 grey-wave wallet ids
-    // this PDP used to hard-code, so archive pages render the same flat-lay
-    // look without a regression. Tailwind class mapped via the local
-    // BACKGROUND_CLASS table because dynamic `bg-${value}` strings would be
-    // stripped by Tailwind's JIT pass at build time.
-    const renderProfile = getProductRoles({
-        ...(product as Product),
-        ...(isEditing ? { images: editForm.images ?? [], imageRoles: editForm.imageRoles } : {}),
-    } as Product);
-    const PDP_BACKGROUND_CLASS: Record<'gray-900' | 'white' | 'transparent', string> = {
-        // PDP default uses bg-dark (brand palette) instead of the standard
-        // bg-gray-900 ProductCard uses — both render the same dark framing
-        // visually, but the brand token is what's already wired.
-        'gray-900': 'bg-dark',
-        'white': 'bg-white',
-        'transparent': 'bg-transparent',
-    };
-    const imageFrameClass = PDP_BACKGROUND_CLASS[renderProfile.imageBackground];
-    const imageObjectClass = renderProfile.imageFit === 'contain' ? 'object-contain' : 'object-cover';
+    const galleryImages = isEditing && editForm.images ? editForm.images : product.images;
+    const shouldFitFullImage = product.id === 'prod_tee_above_as_below'
+        || product.id === 'prod_shorts_above_as_below'
+        || product.id === 'Coalition_Grey_Wave_Wallet_1_2'
+        || product.id === 'Coalition_Grey_Wave_Wallet_2_2';
+    const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-dark';
+    const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';
     const totalStock = Object.values(product.sizeInventory || {}).reduce((sum, count) => sum + Number(count || 0), 0);
     const isArchived = Boolean(product.archived);
     const isSold = isArchived && !!product.soldAt;
@@ -289,37 +227,22 @@ const ProductDetails = () => {
         : `${selectedSize || resolvedSize || 'Select size'}${resolvedSize ? ` - ${selectedSizeStock} left` : ''}`;
     const shippingDetail = isArchived
         ? 'This exact piece is archived'
-        : product.shippingFulfillment
-            ? product.shippingFulfillment
-            : product.freeShipping
-                ? 'Free shipping on this item'
-                : displayPrice >= 200
-                    ? 'Free shipping unlocked'
-                    : 'Ships in 1-2 business days';
-    const scarcityCopy = getScarcityCopy(product, totalStock);
+        : product.freeShipping
+            ? 'Free shipping on this item'
+            : displayPrice >= 200
+                ? 'Free shipping unlocked'
+                : 'Ships in 1-2 business days';
     const makingVideoUrl = product.makingVideoUrl?.trim();
-    const makingVideoLinks = (product.makingVideoLinks || [])
-        .map(link => ({ ...link, url: link.url.trim() }))
-        .filter(link => link.url);
-    const processVideoLinks = makingVideoLinks.length > 0
-        ? makingVideoLinks
-        : makingVideoUrl
-            ? [{ platform: 'instagram' as const, label: 'Watch It Being Made', url: makingVideoUrl }]
-            : [];
     const productSeo = getProductSeo(product);
     const productJsonLd = buildProductJsonLd(product);
 
     const handleSave = () => {
         if (editForm.id) {
             const normalizedSizes = normalizeProductSizeData(editForm.sizes, editForm.sizeInventory);
-            const images = editForm.images ?? [];
-            const imageRoles = reconcileImageRoles(images, editForm.imageRoles);
             updateProduct({
                 ...(editForm as Product),
                 sizes: normalizedSizes.sizes,
                 sizeInventory: normalizedSizes.sizeInventory,
-                images,
-                imageRoles,
             });
             setIsEditing(false);
         }
@@ -512,24 +435,10 @@ const ProductDetails = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                     {/* Image Gallery */}
                     <div className="space-y-4">
-                        <div className={`${PRODUCT_IMAGE_ASPECTS.gallery} ${imageFrameClass} overflow-hidden rounded-sm relative border border-white/5 box-glow`}>
+                        <div className={`aspect-[4/5] ${imageFrameClass} overflow-hidden rounded-sm relative border border-white/5 box-glow`}>
                             <img
-                                src={getProductImage(galleryImages[activeImageIndex], 'gallery')}
-                                srcSet={getProductImageSrcSet(galleryImages[activeImageIndex])}
-                                sizes={PRODUCT_IMAGE_SIZES.gallery}
+                                src={galleryImages[activeImageIndex]}
                                 alt={product.name}
-                                width={800}
-                                height={1000}
-                                loading="eager"
-                                fetchPriority="high"
-                                decoding="sync"
-                                onError={(event) => {
-                                    const img = event.currentTarget;
-                                    if (img.getAttribute('data-fallback-applied') === '1') return;
-                                    img.setAttribute('data-fallback-applied', '1');
-                                    img.src = galleryImages[activeImageIndex];
-                                    img.removeAttribute('srcset');
-                                }}
                                 className={`w-full h-full ${imageObjectClass} opacity-90 hover:opacity-100 transition-opacity`}
                             />
                             <div className="absolute left-4 top-4 flex max-w-[calc(100%-2rem)] flex-wrap gap-2">
@@ -565,20 +474,9 @@ const ProductDetails = () => {
                                 <button
                                     key={idx}
                                     onClick={() => setActiveImageIndex(idx)}
-                                    className={`relative w-24 h-28 flex-shrink-0 overflow-hidden rounded-sm border-2 transition-all ${renderProfile.imageBackground === 'white' ? 'bg-white' : ''} ${activeImageIndex === idx ? 'border-brand-accent' : 'border-white/10 opacity-50 hover:opacity-100'}`}
+                                    className={`relative w-24 h-28 flex-shrink-0 overflow-hidden rounded-sm border-2 transition-all ${shouldFitFullImage ? 'bg-white' : ''} ${activeImageIndex === idx ? 'border-brand-accent' : 'border-white/10 opacity-50 hover:opacity-100'}`}
                                 >
-                                    <img
-                                        src={getProductImage(img, 'thumb')}
-                                        srcSet={getProductImageSrcSet(img)}
-                                        sizes={PRODUCT_IMAGE_SIZES.thumb}
-                                        alt={`View ${idx + 1}`}
-                                        width={96}
-                                        height={120}
-                                        loading="lazy"
-                                        fetchPriority="auto"
-                                        decoding="async"
-                                        className={`w-full h-full ${imageObjectClass}`}
-                                    />
+                                    <img src={img} alt={`View ${idx + 1}`} className={`w-full h-full ${imageObjectClass}`} />
                                 </button>
                             ))}
                         </div>
@@ -707,7 +605,7 @@ const ProductDetails = () => {
                                                     onDragOver={(event) => handleImageDragOver(event, idx)}
                                                     onDrop={() => handleImageDrop(idx)}
                                                     onDragEnd={handleImageDragEnd}
-                                                    className={`relative group ${PRODUCT_IMAGE_ASPECTS.card} overflow-hidden rounded-sm border transition ${isDropTarget
+                                                    className={`relative group aspect-[4/5] overflow-hidden rounded-sm border transition ${isDropTarget
                                                         ? 'border-brand-accent ring-2 ring-brand-accent/40'
                                                         : 'border-white/10'
                                                         } ${isDragged ? 'opacity-50 scale-[0.98]' : ''}`}
@@ -833,17 +731,7 @@ const ProductDetails = () => {
                                         </div>
                                     )}
                                     <div className="space-y-1">
-                                        {hasProductDiscount ? (
-                                            <p className="text-3xl font-bold font-mono tracking-tighter">
-                                                <span className="text-brand-accent">${(displayPrice).toFixed(2)}</span>
-                                                <span className="ml-3 text-gray-500 line-through text-base font-medium">${basePrice}</span>
-                                                <span className="ml-3 rounded-full border border-green-500/40 bg-green-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-green-300 align-middle">
-                                                    {productDiscountPct}% off
-                                                </span>
-                                            </p>
-                                        ) : (
-                                            <p className="text-3xl text-brand-accent font-bold font-mono tracking-tighter">${displayPrice}</p>
-                                        )}
+                                        <p className="text-3xl text-brand-accent font-bold font-mono tracking-tighter">${displayPrice}</p>
                                         {product.freeShipping && (
                                             <p className="inline-flex border border-brand-accent/30 bg-brand-accent/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent">
                                                 Free Shipping
@@ -851,7 +739,7 @@ const ProductDetails = () => {
                                         )}
                                         {walletProduct && includeKeychainClipOn && (
                                             <p className="text-xs uppercase tracking-[0.2em] text-gray-400">
-                                                Base ${hasProductDiscount ? saleUnitPrice.toFixed(2) : product.price} + {WALLET_KEYCHAIN_CLIP_LABEL} ${WALLET_KEYCHAIN_CLIP_PRICE}
+                                                Base ${product.price} + {WALLET_KEYCHAIN_CLIP_LABEL} ${WALLET_KEYCHAIN_CLIP_PRICE}
                                             </p>
                                         )}
                                     </div>
@@ -881,112 +769,24 @@ const ProductDetails = () => {
                                     </div>
                                 </div>
 
-                                {!isArchived && (
-                                    <TrustRibbon product={product} displayPrice={displayPrice} />
-                                )}
-
                                 <div className="pt-8 border-t border-white/10">
                                     <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Description</h3>
                                     <div className="prose prose-invert prose-sm text-gray-400 leading-relaxed font-light">
                                         <p className="text-base">{product.description}</p>
                                     </div>
-                                    {processVideoLinks.length > 0 && (
-                                        <div className="mt-5 flex flex-wrap gap-2">
-                                            {processVideoLinks.map(link => {
-                                                const Icon = getMakingVideoIcon(link.platform);
-
-                                                return (
-                                                    <a
-                                                        key={`${link.platform}-${link.url}`}
-                                                        href={link.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="inline-flex max-w-full items-center gap-2 border border-brand-accent/30 bg-brand-accent/10 px-3 py-2.5 text-[11px] font-bold uppercase tracking-[0.16em] text-brand-accent transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
-                                                    >
-                                                        <Icon className="h-4 w-4 shrink-0" />
-                                                        <span className="min-w-0 break-words">{link.label}</span>
-                                                        <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                                                    </a>
-                                                );
-                                            })}
-                                        </div>
+                                    {makingVideoUrl && (
+                                        <a
+                                            href={makingVideoUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="mt-5 inline-flex max-w-full items-center gap-3 border border-brand-accent/30 bg-brand-accent/10 px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] text-brand-accent transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
+                                        >
+                                            <Instagram className="h-4 w-4 shrink-0" />
+                                            <span className="min-w-0 break-words">Watch It Being Made</span>
+                                            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                                        </a>
                                     )}
                                 </div>
-
-                                {product.specs && (
-                                    <div className="pt-8 border-t border-white/10">
-                                        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-5">Product Details</h3>
-
-                                        {product.specs.attributes && product.specs.attributes.length > 0 && (
-                                            <div className="mb-6">
-                                                <div className="flex items-center gap-2 mb-3">
-                                                    <Ruler className="h-3.5 w-3.5 text-brand-accent" />
-                                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent">Fit & Style</span>
-                                                </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-                                                    {product.specs.attributes.map((attr, i) => (
-                                                        <div key={i} className="flex items-center justify-between border-b border-white/5 py-1.5">
-                                                            <span className="text-xs uppercase tracking-wider text-gray-500">{attr.label}</span>
-                                                            <span className="text-xs font-bold uppercase tracking-wider text-white text-right">{attr.value}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {product.specs.care && product.specs.care.length > 0 && (
-                                            <div className="mb-6">
-                                                <div className="flex items-center gap-2 mb-3">
-                                                    <Sparkles className="h-3.5 w-3.5 text-brand-accent" />
-                                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent">Care Instructions</span>
-                                                </div>
-                                                <ul className="space-y-2">
-                                                    {product.specs.care.map((instruction, i) => (
-                                                        <li key={i} className="flex items-start gap-2 text-xs leading-relaxed text-gray-400">
-                                                            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-brand-accent/60" />
-                                                            {instruction}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        )}
-
-                                        {product.specs.material && (
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-3">
-                                                    <Layers className="h-3.5 w-3.5 text-brand-accent" />
-                                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent">Material</span>
-                                                </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-                                                    {product.specs.material.composition && (
-                                                        <div className="flex items-center justify-between border-b border-white/5 py-1.5">
-                                                            <span className="text-xs uppercase tracking-wider text-gray-500">Composition</span>
-                                                            <span className="text-xs font-bold uppercase tracking-wider text-white text-right">{product.specs.material.composition}</span>
-                                                        </div>
-                                                    )}
-                                                    {product.specs.material.fabricWeight && (
-                                                        <div className="flex items-center justify-between border-b border-white/5 py-1.5">
-                                                            <span className="text-xs uppercase tracking-wider text-gray-500">Fabric Weight</span>
-                                                            <span className="text-xs font-bold uppercase tracking-wider text-white text-right">{product.specs.material.fabricWeight}</span>
-                                                        </div>
-                                                    )}
-                                                    {product.specs.material.thickness && (
-                                                        <div className="flex items-center justify-between border-b border-white/5 py-1.5">
-                                                            <span className="text-xs uppercase tracking-wider text-gray-500">Thickness</span>
-                                                            <span className="text-xs font-bold uppercase tracking-wider text-white text-right">{product.specs.material.thickness}</span>
-                                                        </div>
-                                                    )}
-                                                    {product.specs.material.breathability && (
-                                                        <div className="flex items-center justify-between border-b border-white/5 py-1.5">
-                                                            <span className="text-xs uppercase tracking-wider text-gray-500">Breathability</span>
-                                                            <span className="text-xs font-bold uppercase tracking-wider text-white text-right">{product.specs.material.breathability}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
 
                                 {isSold ? (
                                     <div className="pt-8 space-y-4 border-t border-white/10">
@@ -1004,7 +804,7 @@ const ProductDetails = () => {
                                     <div className="pt-8 space-y-4">
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">Select Size</h3>
-                                            <button type="button" onClick={() => setShowSizeGuide(true)} className="text-xs font-bold uppercase tracking-widest text-brand-accent hover:text-white transition-colors border-b border-brand-accent/30 hover:border-white" aria-haspopup="dialog">Size guide</button>
+                                            <a href="#" className="text-xs font-bold uppercase tracking-widest text-brand-accent hover:text-white transition-colors border-b border-brand-accent/30 hover:border-white">Size guide</a>
                                         </div>
 
                                         {product.sizes && product.sizes.length === 1 && product.sizes[0].toLowerCase().includes('one') ? (
@@ -1081,14 +881,7 @@ const ProductDetails = () => {
                                     </div>
                                 )}
 
-                                <CompleteTheFit
-                                    currentProduct={product}
-                                    selectedSize={resolvedSize}
-                                    isUnavailable={isUnavailable}
-                                />
-
                                 <div className="pt-10 flex flex-col gap-4">
-                                    <ScarcityNarrative copy={scarcityCopy} />
                                     {isUnavailable ? (
                                         /* Sold / Archived State */
                                         <div className="flex flex-col gap-3">
@@ -1165,16 +958,6 @@ const ProductDetails = () => {
                                     {/* Local Impact Message */}
                                     <ImpactMessage className="mt-2" />
 
-                                    <DropLeadCapture
-                                        source="product"
-                                        productId={product.id}
-                                        heading={isUnavailable ? 'Get the next version first' : 'Get the next drop first'}
-                                        subheading={isUnavailable
-                                            ? 'Join the list for future customs and archive-inspired builds.'
-                                            : 'New pieces move fast. Get one note when the next drop goes live.'}
-                                        className="mt-2"
-                                    />
-
                                     {/* Founder's Note - anti-tricky-brand voice at the conviction moment.
                                         Renders only when product.founderNote is set and non-whitespace.
                                         Whitespace-pre-line preserves the founder's intentional line breaks. */}
@@ -1229,8 +1012,6 @@ const ProductDetails = () => {
                                         );
                                     })()}
                                 </div>
-
-                                <ProductReviews productId={product.id} />
 
                                 {product.nft && (
                                     <div className="mt-12 pt-8 border-t border-white/10">
@@ -1339,11 +1120,6 @@ const ProductDetails = () => {
             {showRequestModal && product && (
                 <RequestSimilarModal product={product} onClose={() => setShowRequestModal(false)} />
             )}
-            <SizeChartModal
-                open={showSizeGuide}
-                onClose={() => setShowSizeGuide(false)}
-                product={product}
-            />
             </div>
         </>
     );

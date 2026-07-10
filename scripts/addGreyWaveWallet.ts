@@ -18,7 +18,6 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
-const MAKING_VIDEO_URL = 'https://www.instagram.com/p/DZ3wBL_z0sd/';
 
 async function addGreyWaveWallet() {
     console.log("🌊 Adding Coalition 'Grey Wave' Wallet 1/2...");
@@ -47,7 +46,6 @@ async function addGreyWaveWallet() {
         archived: true,
         archived_at: soldAt,
         sold_at: soldAt,
-        making_video_url: MAKING_VIDEO_URL,
         archive_note: "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop."
     };
 

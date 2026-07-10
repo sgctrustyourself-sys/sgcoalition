@@ -50,6 +50,25 @@ const StateLeaderboard: React.FC<StateLeaderboardProps> = ({ data }) => {
                     <Trophy className="w-5 h-5 text-purple-400" />
                     Top States
                 </h2>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-purple-400 bg-purple-500/10 px-2 py-1 rounded">
+                    Monthly Reset
+                </div>
+            </div>
+
+            {/* Perks / Stakes */}
+            <div className="mb-6 rounded-xl border border-purple-500/20 bg-gradient-to-r from-purple-900/20 to-blue-900/20 p-4">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-400">Current Stakes (Feb)</h3>
+                <div className="flex items-center gap-4 text-sm font-medium text-gray-200">
+                    <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.6)]" />
+                        <span>Early Access</span>
+                    </div>
+                    <div className="h-1 w-1 rounded-full bg-gray-700"></div>
+                    <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.6)]" />
+                        <span>500 SGCOIN Bonus</span>
+                    </div>
+                </div>
             </div>
 
             {/* List */}

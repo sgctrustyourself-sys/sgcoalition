@@ -30,7 +30,6 @@ const Footer = () => {
                     <h4 className="font-bold uppercase mb-6 text-xs tracking-[0.2em] text-gray-400">Quick Links</h4>
                     <ul className="space-y-3 text-sm text-gray-500">
                         <li><Link to="/shop" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Shop</Link></li>
-                        <li><Link to="/custom-wallets" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Custom Wallets</Link></li>
                         <li><Link to="/membership" className="hover:text-purple-400 text-purple-500 hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">VIP Membership</Link></li>
                         <li><Link to="/ecosystem" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide text-brand-accent">Ecosystem</Link></li>
                         <li><Link to="/inquire" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Custom Inquiry</Link></li>
@@ -40,7 +39,6 @@ const Footer = () => {
                             <li><Link to="/brain" className="hover:text-purple-400 text-purple-500 hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Coalition Brain</Link></li>
                         )}
                         <li><Link to="/archive" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Archive</Link></li>
-                        <li><Link to="/live-orders" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Recently Ordered</Link></li>
                         <li><a href="mailto:support@sgcoalition.xyz" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Contact Us</a></li>
                     </ul>
                 </div>

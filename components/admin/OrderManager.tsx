@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 import { Order } from '../../types';
-import { Search, Filter, Eye, Download, Trash2, X, Plus, ChevronLeft, ChevronRight, FileText, Gift, User, Mail, Phone, Calendar, Hash, DollarSign, CreditCard, CheckCircle, Clock, AlertCircle, AtSign } from 'lucide-react';
+import { Search, Filter, Eye, Download, Trash2, X, Plus, ChevronLeft, ChevronRight, FileText, Gift, User, Mail, Phone, Calendar, Hash, DollarSign, CreditCard, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import ManualOrderForm from '../ManualOrderForm';
 import Invoice from '../Invoice';
 
@@ -12,7 +12,6 @@ const OrderManager: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [filterType, setFilterType] = useState<string>('all');
-    const [instagramHandle, setInstagramHandle] = useState('');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [pendingStatus, setPendingStatus] = useState<string>('');
@@ -30,14 +29,8 @@ const OrderManager: React.FC = () => {
 
             const matchesStatus = filterStatus === 'all' || order.paymentStatus === filterStatus;
             const matchesType = filterType === 'all' || order.orderType === filterType;
-            const normalizedIg = instagramHandle.trim().replace(/^@/, '').toLowerCase();
-            // Bridge between the Order TS field (instagramUsername - camelCase at the
-            // type layer) and any runtime rows that still come back snake_case from
-            // the supabase-js client. The `as any` is scoped to this single lookup;
-            // `|| ''` already narrows undefined to a string, so no String() wrap.
-            const matchesInstagram = !normalizedIg || ((order as any).instagramUsername || '').toLowerCase().includes(normalizedIg);
 
-            return matchesSearch && matchesStatus && matchesType && matchesInstagram;
+            return matchesSearch && matchesStatus && matchesType;
         }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [orders, searchTerm, filterStatus, filterType]);
 
@@ -191,26 +184,6 @@ const OrderManager: React.FC = () => {
                     <option value="online">Online</option>
                     <option value="manual">Manual</option>
                 </select>
-            </div>
-
-            {/* Instagram-handle filter — side-by-side with the existing search so an
-                operator can drop in 'friiqy' and see all 3 sales without PostgREST.
-                Reads from orders.instagram_username (column added by
-                supabase/migrations/20260704_add_instagram_username_to_orders.sql). */}
-            <div className="bg-white/5 border border-white/10 p-4 rounded-xl flex flex-col md:flex-row gap-4 items-start md:items-center">
-                <div className="flex-1 relative">
-                    <AtSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-pink-400 w-4 h-4" />
-                    <input
-                        type="text"
-                        placeholder="Filter by Instagram handle (e.g. friiqy)"
-                        value={instagramHandle}
-                        onChange={(e) => setInstagramHandle(e.target.value)}
-                        className="w-full bg-black/30 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:border-pink-500/40 focus:outline-none"
-                    />
-                </div>
-                <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold whitespace-nowrap">
-                    Reads <span className="font-mono text-gray-400">orders.instagram_username</span> · case-insensitive partial
-                </p>
             </div>
 
             {/* Orders Table */}

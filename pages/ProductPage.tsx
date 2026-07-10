@@ -4,7 +4,6 @@ import { useApp } from '../context/AppContext';
 import { Button } from '../components/ui/Button';
 import { Heart, ChevronRight, ArrowLeft, Star, Coins } from 'lucide-react';
 import { SG_COIN_RATE } from '../constants';
-import { PRODUCT_IMAGE_ASPECTS } from '../utils/productImage';
 
 export const ProductPage: React.FC = () => {
   const { id } = useParams();
@@ -74,12 +73,12 @@ export const ProductPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24 mb-20">
           {/* Images */}
           <div className="space-y-4">
-            <div className={`${PRODUCT_IMAGE_ASPECTS.card} w-full bg-gray-100 overflow-hidden rounded-sm`}>
+            <div className="aspect-[4/5] w-full bg-gray-100 overflow-hidden rounded-sm">
               <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
             </div>
             <div className="grid grid-cols-2 gap-4">
                 {product.images.slice(1).map((img, idx) => (
-                    <img key={idx} src={img} className={`${PRODUCT_IMAGE_ASPECTS.thumb} object-cover bg-gray-100`} alt="" />
+                    <img key={idx} src={img} className="aspect-square object-cover bg-gray-100" alt="" />
                 ))}
             </div>
           </div>

@@ -1,33 +1,18 @@
 import { Resend } from 'resend';
-import { createHttpError, setCorsHeaders } from '../_helpers';
-import type { ApiRequest, ApiResponse, ResendEmailPayload } from '../_types';
 
-// Lazy Resend getter. Originally eagerly instantiated at module top, but to
-// match the Stripe handlers' cold-start-safe pattern (no process.env reads
-// at module init) we lazy-init. Callers hit this once and get a 503 if
-// RESEND_API_KEY is unset.
-let resendInstance: Resend | null = null;
-function getResend(): Resend {
-    if (resendInstance) return resendInstance;
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-        throw createHttpError(503, 'Resend is not configured on this server.');
-    }
-    resendInstance = new Resend(apiKey);
-    return resendInstance;
-}
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getResendFromAddress() {
     return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>';
 }
 
-async function sendResendEmail(payload: ResendEmailPayload) {
-    const result = await getResend().emails.send({
+async function sendResendEmail(payload: any) {
+    const result = await resend.emails.send({
         ...payload,
         from: getResendFromAddress(),
-    } as Parameters<Resend['emails']['send']>[0]);
+    });
 
-    const error = result?.error;
+    const error = (result as any)?.error;
     if (error) {
         throw new Error(error.message || 'Resend rejected the email request.');
     }
@@ -35,8 +20,11 @@ async function sendResendEmail(payload: ResendEmailPayload) {
     return result;
 }
 
-export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
-    setCorsHeaders(req, res, { methods: 'POST,OPTIONS' });
+export default async function handler(req: any, res: any) {
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
+    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     if (req.method === 'OPTIONS') {
         res.status(200).end();
@@ -49,9 +37,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
     }
 
     try {
-        interface SendEmailBody { to?: string; subject?: string; html?: string; }
-        const body = (req.body ?? {}) as SendEmailBody;
-        const { to, subject, html } = body;
+        const { to, subject, html } = req.body;
 
         if (!to || !subject || !html) {
             res.status(400).json({ error: 'Missing required fields: to, subject, html' });
@@ -65,9 +51,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
         });
 
         res.status(200).json({ success: true, data });
-    } catch (err: unknown) {
+    } catch (err: any) {
         console.error('Send email error:', err);
-        const message = err instanceof Error ? err.message : 'Failed to send email';
-        res.status(500).json({ error: message });
+        res.status(500).json({ error: err.message || 'Failed to send email' });
     }
 }

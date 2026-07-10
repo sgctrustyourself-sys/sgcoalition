@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import { Filter, Check, Zap, TrendingUp } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
@@ -8,17 +7,14 @@ import ProductCardSkeleton from '../components/ProductCardSkeleton';
 import Seo from '../components/Seo';
 import Newsletter from '../components/Newsletter';
 import { buildItemListJsonLd } from '../utils/seo';
-import { matchesCategoryFilter } from '../utils/categoryFilter';
 
 const Shop = () => {
-    const location = useLocation();
     const { products, isLoading, isConfigError } = useApp();
     const [isFiltersOpen, setFiltersOpen] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');    // Filter States
-    const [category, setCategory] = useState<string>(() => {
-        if (typeof window === 'undefined') return 'all';
-        return new URLSearchParams(window.location.search).get('category') || 'all';
-    });
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Filter States
+    const [category, setCategory] = useState<string>('all');
     const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
     const [priceRange, setPriceRange] = useState<{ min: number, max: number }>({ min: 0, max: 1000 });
     const [sortOption, setSortOption] = useState<string>('newest');
@@ -31,63 +27,22 @@ const Shop = () => {
     const dismissVIPBanner = () => {
         setShowVIPBanner(false);
         localStorage.setItem('coalition_vip_banner_dismissed', 'true');
-    };    // Category structure: top-level and sub-categories.
-    // WOMEN sits as its own top-level group (not a child of APPAREL) so
-    // that future women's-only accessories, wallets, or hats can slot in
-    // without the umbrella needing to expand. Filter logic for 'women'
-    // itself lives in utils/categoryFilter.ts > matchesCategoryFilter
-    // (cross-cut by ID prefix, NOT by mutating `category` strings).
-    //
-    // MEN sits right after WOMEN for symmetry. Both are cross-cut filters
-    // - MEN's predicate is the inverse of WOMEN's prefix match, plus an
-    //   explicit halo-mini-dress carve-out (the dress predates the
-    //   prod_womens_ naming convention but is a women's piece). See
-    //   utils/categoryFilter.ts > matchesCategoryFilter for the exact
-    //   predicate; do not move MEN under APPAREL here, that would
-    //   collapse `/shop?category=men` into the apparel umbrella and hide
-    //   unisex wallets + hats from the men's section.
+    };
+
+    // Category structure: top-level and sub-categories
     const categoryGroups = [
         { value: 'all', label: 'ALL' },
-        { value: 'women', label: 'WOMEN' },
-        { value: 'men', label: 'MEN' },
         {
             value: 'apparel', label: 'APPAREL', children: [
                 { value: 'shirts', label: 'SHIRTS' },
                 { value: 'jeans', label: 'JEANS' },
-                { value: 'shorts', label: 'SHORTS' },
-                { value: 'sweatshirt', label: 'SWEATSHIRTS' },
-                { value: 'dresses', label: 'DRESSES' },
             ]
         },
         { value: 'wallets', label: 'WALLETS' },
         { value: 'hats', label: 'HATS' },
     ];
-    // Flat list for the top dropdown. Both 'women' and 'men' are required
-    // here so the URL-param sync (`?category=women`, `?category=men`)
-    // routes through the same effect that already handles every other
-    // top-level filter.
-    const categories = ['all', 'women', 'men', 'apparel', 'shirts', 'jeans', 'shorts', 'sweatshirt', 'dresses', 'wallets', 'hats'];
-
-    // Heading-label lookup derived from `categoryGroups` so the shopper-
-    // facing h1 mirrors the sidebar radio label when the URL filter
-    // is set. /shop?category=men reads "MEN", /shop?category=apparel
-    // reads "APPAREL", and sub-categories like ?category=shirts roll
-    // up to the parent ("APPAREL") so the heading doesn't duplicate
-    // the active sub-radio label. 'all' keeps the original "Shop All"
-    // — the storefront SEO target is /shop with no filter, so the
-    // unfiltered heading should NOT flip just because ?category=all
-    // is set explicitly. Built once per render over a 6-entry constant
-    // list (cheap enough that useMemo would be noise).
-    const categoryHeadings: Record<string, string> = (() => {
-        const map: Record<string, string> = { all: 'Shop All' };
-        for (const group of categoryGroups) {
-            map[group.value] = group.label;
-            for (const child of group.children || []) {
-                map[child.value] = group.label;
-            }
-        }
-        return map;
-    })();
+    // Flat list for the top dropdown
+    const categories = ['all', 'apparel', 'shirts', 'jeans', 'wallets', 'hats'];
     const allSizes = Array.from(new Set(products.flatMap(p => p.sizes || []))) as string[];
     const shopJsonLd = React.useMemo(
         () => buildItemListJsonLd(
@@ -97,13 +52,6 @@ const Shop = () => {
         ),
         [products]
     );
-
-    React.useEffect(() => {
-        const nextCategory = new URLSearchParams(location.search).get('category');
-        if (nextCategory && categories.includes(nextCategory)) {
-            setCategory(nextCategory);
-        }
-    }, [location.search]);
 
     const toggleSize = (size: string) => {
         setSelectedSizes(prev =>
@@ -137,7 +85,15 @@ const Shop = () => {
             return p.name.toLowerCase().includes(query) ||
                 p.description.toLowerCase().includes(query);
         })
-.filter(p => matchesCategoryFilter(p, category))
+        .filter(p => {
+            if (!category || category === 'all') return true;
+            const cat = p.category?.toLowerCase();
+            if (category === 'wallets') return cat === 'wallet' || cat === 'accessory' || cat === 'accessories';
+            if (category === 'shirts') return cat === 'shirt';
+            if (category === 'hats') return cat === 'hat' || cat === 'headwear';
+            if (category === 'apparel') return cat === 'shirt' || cat === 'jeans' || cat === 'apparel';
+            return cat === category.toLowerCase();
+        })
         .filter(p => selectedSizes.length === 0 || (p.sizes && p.sizes.some(s => selectedSizes.includes(s))))
         .filter(p => p.price >= priceRange.min && p.price <= priceRange.max)
         .sort((a, b) => {
@@ -211,7 +167,7 @@ const Shop = () => {
             )}
 
             <div className="flex flex-col md:flex-row justify-between items-baseline border-b border-gray-200 pb-6 mb-8">
-                <h1 className="text-4xl font-display font-bold uppercase">{categoryHeadings[category] || category.toUpperCase()}</h1>
+                <h1 className="text-4xl font-display font-bold uppercase">Shop All</h1>
 
                 <div className="flex flex-wrap items-center gap-6 mt-4 md:mt-0">
                     <button
@@ -232,7 +188,7 @@ const Shop = () => {
                             >
                                 {categories.map(cat => (
                                     <option key={cat} value={cat} className="bg-black text-white">
-                                        {cat === 'shirts' || cat === 'jeans' || cat === 'shorts' || cat === 'sweatshirt' || cat === 'dresses' ? `  ↳ ${cat.toUpperCase()}` : cat.toUpperCase()}
+                                        {cat === 'shirts' || cat === 'jeans' ? `  ↳ ${cat.toUpperCase()}` : cat.toUpperCase()}
                                     </option>
                                 ))}
                             </select>
@@ -374,22 +330,15 @@ const Shop = () => {
 
                 {/* Product Grid */}
                 <div className="flex-1">
-                    {isLoading ? (
-                        // Per-slot product=filteredProducts[i] resolves bg via
-                        // getProductRoles().imageBackground -- eliminates the
-                        // bg-mismatch jolt for the 5 once-legacy ids pinned in
-                        // constants.ts. Undefined slots (i >= filteredProducts.length)
-                        // fall through to the bg-gray-900 default.
-                        // Trade-off: skeletons visibly appear for ~1-3s during
-                        // the Supabase fetch instead of briefly flashing.
+                    {isLoading && products.length === 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
                             {[...Array(6)].map((_, i) => (
-                                <ProductCardSkeleton key={i} product={filteredProducts[i]} />
+                                <ProductCardSkeleton key={i} />
                             ))}
                         </div>
                     ) : filteredProducts.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
-                            {filteredProducts.map((p, i) => <ProductCard key={p.id} product={p} priority={i === 0} />)}
+                            {filteredProducts.map(p => <ProductCard key={p.id} product={p} />)}
                         </div>
                     ) : isConfigError ? (
                         <div className="py-20 text-center px-4 bg-red-900/10 border border-red-500/20 rounded-lg">

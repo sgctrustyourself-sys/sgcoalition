@@ -1,80 +1,22 @@
 import Stripe from 'stripe';
-import { EXTENDED_CORS_HEADERS, createHttpError, parseBody, resolvePublicOrigin, setCorsHeaders, type HttpError } from '../_helpers';
-import type {
-    ApiRequest,
-    ApiResponse,
-    CheckoutSessionResponse,
-    CreateSubscriptionSessionBody,
-} from '../_types';
 
-const CURRENCY = 'usd';
-const VIP_MONTHLY_PRICE_CENTS = 1500;
-const VIP_INTERVAL = 'month';
-const VIP_PRODUCT_NAME = 'Coalition VIP Membership';
-const VIP_PRODUCT_DESCRIPTION = 'Monthly Store Credit + Credit Building Reporting + Free Shipping';
-const VIP_METADATA_TYPE = 'coalition_vip';
-
-// Lazy Stripe getter. See api/_handlers/create-checkout-session.ts for the
-// full rationale. A missing STRIPE_SECRET_KEY env at cold start would throw
-// FUNCTION_INVOCATION_FAILED for every /api/* route, so we lazy-init.
-let stripeInstance: Stripe | null = null;
-function getStripe(): Stripe {
-    if (stripeInstance) return stripeInstance;
-    const apiKey = process.env.STRIPE_SECRET_KEY;
-    if (!apiKey) {
-        throw createHttpError(
-            503,
-            'Stripe is not configured on this server. PayPal is the live checkout flow; Stripe handlers are retained as backup infrastructure.',
-        );
-    }
-    stripeInstance = new Stripe(apiKey, {});
-    return stripeInstance;
+if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('STRIPE_SECRET_KEY is missing');
 }
 
-async function createSubscriptionSession(req: ApiRequest): Promise<CheckoutSessionResponse> {
-    const rawBody = parseBody(req);
-    const body = rawBody as CreateSubscriptionSessionBody;
-    const userId = body.userId ? String(body.userId) : 'guest';
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    // apiVersion omitted
+});
 
-    const origin = resolvePublicOrigin(req);
-
-    const session = await getStripe().checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: [
-            {
-                price_data: {
-                    currency: CURRENCY,
-                    product_data: {
-                        name: VIP_PRODUCT_NAME,
-                        description: VIP_PRODUCT_DESCRIPTION,
-                    },
-                    unit_amount: VIP_MONTHLY_PRICE_CENTS,
-                    recurring: {
-                        interval: VIP_INTERVAL,
-                    },
-                },
-                quantity: 1,
-            },
-        ],
-        mode: 'subscription',
-        success_url: `${origin}/#/order/success?session_id={CHECKOUT_SESSION_ID}&type=membership`,
-        cancel_url: `${origin}/#/membership`,
-        subscription_data: {
-            metadata: {
-                type: VIP_METADATA_TYPE,
-                userId,
-            },
-        },
-        metadata: {
-            userId,
-        },
-    });
-
-    return { sessionId: session.id, url: session.url };
-}
-
-export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
-    setCorsHeaders(req, res, { methods: 'GET,OPTIONS,PATCH,DELETE,POST,PUT', allowedHeaders: EXTENDED_CORS_HEADERS });
+export default async function handler(req: any, res: any) {
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    );
 
     if (req.method === 'OPTIONS') {
         res.status(200).end();
@@ -87,12 +29,65 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
     }
 
     try {
-        res.status(200).json(await createSubscriptionSession(req));
-    } catch (error: unknown) {
-        const message = (error as { message?: string } | null)?.message;
-        const httpError = error as HttpError | null;
-        const status = Number(httpError?.status || 500);
-        console.error('Stripe Subscription Error:', error);
-        res.status(status).json({ error: message || 'Internal server error' });
+        const { userId } = req.body;
+
+        // Determine origin for success/cancel URLs
+        let origin = process.env.VITE_APP_URL;
+        if (!origin && process.env.VERCEL_URL) {
+            origin = `https://${process.env.VERCEL_URL}`;
+        }
+        if (!origin) {
+            const host = req.headers.host;
+            if (host) {
+                const protocol = req.headers['x-forwarded-proto'] || 'http';
+                origin = `${protocol}://${host}`;
+            }
+        }
+        if (!origin) {
+            origin = 'https://sgcoalition.xyz';
+        }
+        origin = origin.replace(/\/$/, '');
+        if (!origin.startsWith('http://') && !origin.startsWith('https://')) {
+            origin = `https://${origin}`;
+        }
+
+        // Create Checkout Session
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            line_items: [
+                {
+                    price_data: {
+                        currency: 'usd',
+                        product_data: {
+                            name: 'Coalition VIP Membership',
+                            description: 'Monthly Store Credit + Credit Building Reporting + Free Shipping',
+                            // Optional: Add logo if available
+                        },
+                        unit_amount: 1500, // $15.00
+                        recurring: {
+                            interval: 'month',
+                        },
+                    },
+                    quantity: 1,
+                },
+            ],
+            mode: 'subscription',
+            success_url: `${origin}/#/order/success?session_id={CHECKOUT_SESSION_ID}&type=membership`,
+            cancel_url: `${origin}/#/membership`,
+            subscription_data: {
+                metadata: {
+                    type: 'coalition_vip',
+                    userId: userId || 'guest',
+                },
+            },
+            metadata: {
+                userId: userId || 'guest',
+            },
+        });
+
+        res.status(200).json({ sessionId: session.id, url: session.url });
+    } catch (err: any) {
+        console.error('Stripe Subscription Error:', err);
+        res.status(500).json({ error: err.message || 'Internal server error' });
     }
 }

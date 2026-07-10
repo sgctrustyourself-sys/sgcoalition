@@ -4,7 +4,7 @@ import { resolveLocalImageUrl, rewriteImageSrcs } from '../utils/localImageAsset
 const DEFAULT_PUBLISHED_AT = '2026-03-08T16:00:00.000Z';
 
 const TRUST_YOURSELF_REMOTE_CONTENT = `
-<img src="https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_iYBlwm8.png" alt="Trust Yourself Custom Trucker Hat - Front View" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="https://i.imgur.com/iYBlwm8.png" alt="Trust Yourself Custom Trucker Hat - Front View" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 This piece is more than just a hat - it is a statement of identity and craftsmanship.
 
@@ -12,7 +12,7 @@ This piece is more than just a hat - it is a statement of identity and craftsman
 
 I wanted to create something that felt both tactile and digital. The "TRUST YOURSELF" 3D puff embroidery is the centerpiece, creating a silhouette that stands out in any light. But the real magic is in the details.
 
-<img src="https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_jwnVHoI.png" alt="Trust Yourself Hat - Close-up Detail" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="https://i.imgur.com/jwnVHoI.png" alt="Trust Yourself Hat - Close-up Detail" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 <h2>THE DETAILS</h2>
 
@@ -22,25 +22,25 @@ I wanted to create something that felt both tactile and digital. The "TRUST YOUR
 <li><strong>3D Texture</strong>: The foam front provides the perfect canvas for our signature high-density puff print.</li>
 </ul>
 
-<img src="https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_YNiTSFA.png" alt="Trust Yourself Hat - Side Profile" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="https://i.imgur.com/YNiTSFA.png" alt="Trust Yourself Hat - Side Profile" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 <h2>THE CRAFT</h2>
 
 Every 1/1 starts as a blank trucker and gets built by hand. The embroidery is punched with custom stitch files to get that aggressive 3D puff. The distressing is all manual - no shortcuts, no templates.
 
-<img src="https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HqcoV24.png" alt="Trust Yourself Hat - Back Detail" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="https://i.imgur.com/HqcoV24.png" alt="Trust Yourself Hat - Back Detail" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 <h2>SOLD OUT</h2>
 
 This specific 1/1 has already found its home, but it serves as a prototype for the next evolution of Coalition headwear. Stay tuned to the network for the next drop.
 
-<img src="https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_6179VgH.png" alt="Trust Yourself Hat - Full Display" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="https://i.imgur.com/6179VgH.png" alt="Trust Yourself Hat - Full Display" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 <em>Trust the process. Trust yourself.</em>
 `.trim();
 
 const TRUE_RELIGION_REMOTE_CONTENT = `
-<img src="https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_2VU7MEr.jpg" alt="Coalition x True Religion Jeans Front View" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="https://i.imgur.com/2VU7MEr.jpg" alt="Coalition x True Religion Jeans Front View" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 The Coalition x True Religion 1/1 jeans are the archive chapter of the lineup. We wanted the first denim story to feel collectible, wearable, and unmistakably Coalition.
 
@@ -52,9 +52,9 @@ The Coalition x True Religion 1/1 jeans are the archive chapter of the lineup. W
 <li><strong>Hand-finished details</strong> that keep the pair personal.</li>
 </ul>
 
-<img src="https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_hJgvL2K.jpg" alt="Coalition x True Religion Jeans Detail 1" style="width:100%;border-radius:16px;margin-bottom:24px;" />
-<img src="https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EsvBcv4.jpg" alt="Coalition x True Religion Jeans Detail 2" style="width:100%;border-radius:16px;margin-bottom:24px;" />
-<img src="https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_J9EmRZq.jpg" alt="Coalition x True Religion Jeans Detail 3" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="https://i.imgur.com/hJgvL2K.jpg" alt="Coalition x True Religion Jeans Detail 1" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="https://i.imgur.com/EsvBcv4.jpg" alt="Coalition x True Religion Jeans Detail 2" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="https://i.imgur.com/J9EmRZq.jpg" alt="Coalition x True Religion Jeans Detail 3" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 <h2>WHY IT MATTERS</h2>
 
@@ -72,7 +72,7 @@ export const blogFallbackPosts: BlogPost[] = [
         excerpt: 'A deep dive into the making of the 1/1 "Trust Yourself" custom trucker hat. From 3D puff embroidery to hand-distressed details.',
         author: 'Founder',
         category: 'community',
-        coverImage: resolveLocalImageUrl('https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_iYBlwm8.png'),
+        coverImage: resolveLocalImageUrl('https://i.imgur.com/iYBlwm8.png'),
         tags: ['custom', 'vlog', 'craftsmanship', '1of1'],
         isPublished: true,
         upvotePower: 100,
@@ -90,7 +90,7 @@ export const blogFallbackPosts: BlogPost[] = [
         excerpt: 'Our first denim chapter brings Coalition into a one-of-one True Religion archive release.',
         author: 'Founder',
         category: 'drop',
-        coverImage: resolveLocalImageUrl('https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_2VU7MEr.jpg'),
+        coverImage: resolveLocalImageUrl('https://i.imgur.com/2VU7MEr.jpg'),
         tags: ['denim', 'drop', 'true-religion', 'archive'],
         isPublished: true,
         upvotePower: 84,

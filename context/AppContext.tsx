@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
-import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderStatus, OrderItem, Giveaway, GiveawayEntry, GiveawayStatus, Review, SocialAccount, CustomInquiry, SGCoinPurchaseRequest, ImageRoles } from '../types';
+import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderStatus, OrderItem, Giveaway, GiveawayEntry, GiveawayStatus, Review, SocialAccount, CustomInquiry, SGCoinPurchaseRequest } from '../types';
 import { INITIAL_SECTIONS, COIN_REWARD_RATE, INITIAL_PRODUCTS, ADMIN_WALLETS, INITIAL_ORDERS, PRODUCT_LOCAL_OVERRIDES } from '../constants';
-import { applyLocalProductOverrides, withoutUndefinedFields } from '../utils/productMerge';
 import { supabase } from '../services/supabase';
+import { autoCommit, generateProductAddedMessage, generateProductUpdatedMessage, generateProductDeletedMessage } from '../services/autoCommitService';
 import { signOut } from '../services/auth';
 import { useToast } from './ToastContext';
 import { ensureSubscriberGiveawayEntries, pickWeightedGiveawayWinners } from '../utils/giveawayUtils';
@@ -61,9 +61,6 @@ interface AppState {
     linkSocialAccount: (platform: SocialAccount['platform'], username: string) => Promise<void>;
     submitCustomInquiry: (data: Omit<CustomInquiry, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => Promise<void>;
     submitPurchaseRequest: (data: Omit<SGCoinPurchaseRequest, 'id' | 'createdAt' | 'status'>) => Promise<void>;
-    // Customer-profile admin actions (20260702_add_customer_profile_rewards.sql).
-    adminCreditCustomerReward: (profileId: string, amountSgc: number, reason: string, options?: { orderId?: string; amountUsd?: number }) => Promise<{ success: boolean; newBalance?: number; error?: string }>;
-    adminAttributeOrderToFacebook: (orderId: string, facebookUsername: string, note?: string) => Promise<{ success: boolean; error?: string }>;
     unlinkSocialAccount: (platform: SocialAccount['platform']) => Promise<{ success: boolean; error?: string }>;
     refreshBalances: () => Promise<void>;
     signals: Signal[];
@@ -105,7 +102,7 @@ const loadWalletBalances = () => import('../services/walletBalances');
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { addToast } = useToast();
-    const [products, setProducts] = useState<Product[]>(() => applyLocalProductOverrides(INITIAL_PRODUCTS));
+    const [products, setProducts] = useState<Product[]>([]);
     const [sections, setSections] = useState<Section[]>(() => safeJsonParse('coalition_sections', INITIAL_SECTIONS));
     const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -131,32 +128,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isLoading, setIsLoading] = useState(true);
     const [signals, setSignals] = useState<Signal[]>([]);
     const [chainId, setChainId] = useState<number | null>(null);
+    const applyLocalProductOverrides = (items: Product[]) =>
+        items.map(product => ({
+            ...product,
+            ...(PRODUCT_LOCAL_OVERRIDES[product.id] || {}),
+        }));
 
-    // Realtime self-write guard. Supabase RT echoes our own INSERT/UPDATE/DELETE
-    // back to every client (including ours); the optimistic setProducts(...) we
-    // did BEFORE awaiting the DB write has the new state, so a re-fetch at
-    // that moment can race the SELECT cache replication and briefly blank the
-    // row. We track the product ids we just touched locally and skip
-    // fetchProducts for any realtime event whose affected id intersects this
-    // set within the TTL window. Other users / other tabs land normally.
-    //
-    // Tradeoff: if a SECOND admin edits the same product id within 3s of our
-    // own write, our client silently drops their event. Acceptable for a
-    // low-collision admin panel; the client falls back to the next
-    // SELECT cycle or the next user-initiated refresh.
-    const ignoredProductIds = useRef<Set<string>>(new Set());
-    const SELF_WRITE_TTL_MS = 3000;
-    const flagSelfWrite = (id: string) => {
-        const set = ignoredProductIds.current;
-        set.add(id);
-        window.setTimeout(() => {
-            set.delete(id);
-        }, SELF_WRITE_TTL_MS);
-    };
-    const shouldIgnoreRealtimeEvent = (recordId: string | null | undefined): boolean => {
-        if (!recordId) return false;
-        return ignoredProductIds.current.has(recordId);
-    };
     const getExclusiveFeaturedProducts = (featuredProductId: string, baseProducts: Product[]) =>
         baseProducts.map(product => ({
             ...product,
@@ -260,7 +237,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 // Await initial data fetch before hiding loader to prevent race conditions
                 console.log('🔄 Fetching initial data from Supabase...');
                 await Promise.all([
-                    fetchProducts(true),
+                    fetchProducts(),
                     fetchOrders(),
                     fetchSignals(),
                     fetchGiveaways()
@@ -321,15 +298,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             // Parallel fetch for database-only items (fast)
                             const [linkedWalletRes, profileRes, adminRes, socialsRes] = await Promise.all([
                                 supabase.from('wallet_accounts').select('wallet_address').eq('user_id', userId).maybeSingle(),
-                                // 20260702_add_customer_profile_rewards.sql added wallet_linked_at,
-                // lifetime_spend_usd, lifetime_orders, last_reward_credit_at, last_reward_credit_amount,
-                // customer_notes. Including them here so a CustomerProfileAdmin tab render
-                // doesn't have to re-fetch the row.
-                // customer_notes is EXCLUDED from this select: the user-side row-level
-                // RLS ('id = auth.uid()') would otherwise expose the operator's
-                // private notes back to the row owner. The admin CustomerProfileAdmin
-                // tab uses a service-role profile fetch so admin users still see it.
-                supabase.from('profiles').select('is_vip, store_credit, sg_coin_balance, wallet_linked_at, lifetime_spend_usd, lifetime_orders, last_reward_credit_at, last_reward_credit_amount').eq('id', userId).maybeSingle(),
+                                supabase.from('profiles').select('is_vip, store_credit, sg_coin_balance').eq('id', userId).maybeSingle(),
                                 supabase.from('admin_users').select('role').eq('user_id', userId).maybeSingle(),
                                 supabase.from('social_accounts').select('*').eq('user_id', userId)
                             ]);
@@ -357,14 +326,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                     isAdmin,
                                     isVIP: profile?.is_vip || false,
                                     storeCredit: profile?.store_credit || 0,
-                                    // 20260702_add_customer_profile_rewards.sql rollups; null until back-fill.
-                                    // customerNotes is intentionally NOT mirrored into UserProfile here — that
-                                    // column is admin-only via RLS and must not flow into the row-owner's state.
-                                    walletLinkedAt: profile?.wallet_linked_at || null,
-                                    lifetimeSpendUsd: Number(profile?.lifetime_spend_usd || 0),
-                                    lifetimeOrders: Number(profile?.lifetime_orders || 0),
-                                    lastRewardCreditAt: profile?.last_reward_credit_at || null,
-                                    lastRewardCreditAmount: profile?.last_reward_credit_amount ?? null,
                                     favorites: savedFavorites,
                                     socialAccounts: socialsRes.data || []
                                 });
@@ -404,15 +365,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
                 productSync = supabase
                     .channel('products_channel')
-                    .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload: any) => {
-                        const recordId: string | null | undefined = payload?.new?.id ?? payload?.old?.id;
-                        if (shouldIgnoreRealtimeEvent(recordId)) {
-                            // Skip: this is the realtime echo of our own just-touched id.
-                            // See ignoredProductIds ref + flagSelfWrite on each write path.
-                            return;
-                        }
-                        fetchProducts();
-                    })
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => fetchProducts())
                     .subscribe();
             } catch (err) { console.error("Critical error in AppContext initialization:", err); }
             finally { if (mounted) setIsLoading(false); }
@@ -426,8 +379,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
     }, []);
 
-    const fetchProducts = async (supabaseConfigured = isSupabaseConfigured) => {
-        if (!supabaseConfigured) {
+    const fetchProducts = async () => {
+        if (!isSupabaseConfigured) {
             const localProducts = applyLocalProductOverrides(INITIAL_PRODUCTS);
             setProducts(localProducts);
             return localProducts;
@@ -446,29 +399,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         isFeatured: item.is_featured,
                         // Mirrors services/retryQueue.ts mapProductToDb write path.
                         // Column added in supabase/migrations/20260620_add_is_limited_edition_to_products.sql
-                        isLimitedEdition: item.is_limited_edition,
-                        // Image-role mapping (column added in supabase/migrations/20260630_add_image_roles_to_products.sql).
-                        // Older rows won't have the column — Supabase returns null and
-                        // getProductRoles falls back to the position-based default.
-                        imageRoles: (item.image_roles as ImageRoles | null) ?? undefined,
+                        isLimitedEdition: item.is_limited_edition ?? false,
                         // Numbered-edition tier-pricing fields (migration 20261101).
-                        pricingTiers: item.pricing_tiers,
-                        editionSize: item.edition_size,
+                        pricingTiers: item.pricing_tiers ?? null,
+                        editionSize: item.edition_size ?? null,
                         editionSoldCount: null,
                         sizes: item.sizes || [], sizeInventory: item.size_inventory || {}, nft: item.nft_metadata,
                         reviews: savedReviews, archived: item.archived || false,
                         archivedAt: item.archived_at, releasedAt: item.released_at, soldAt: item.sold_at,
-                        // archive_note column added in supabase/migrations/20260701_add_archive_note_to_products.sql.
-                        // PRODUCT_LOCAL_OVERRIDES still wins when set, so legacy overrides
-                        // (pre-migration constants.ts entries) keep rendering until the
-                        // operator explicitly clears them from constants.ts.
-                        archiveNote: item.archive_note ?? PRODUCT_LOCAL_OVERRIDES[item.id]?.archiveNote,
-                        // discount_percent column added in supabase/migrations/20260704_add_discount_percent_to_products.sql.
-                        // Read as a number so the PDP / Checkout / ProductCard math in
-                        // utils/productDiscount.ts sees a clean number, not the Supabase
-                        // NUMERIC string round-trip. Defaults to 0 for rows that pre-date
-                        // the migration (same default the migration applies server-side).
-                        discountPercent: Number(item.discount_percent ?? 0)
+                        archiveNote: PRODUCT_LOCAL_OVERRIDES[item.id]?.archiveNote
                     };
                 });
                 // Deduplicate by ID only. The previous (name + images[1]) collision
@@ -479,48 +418,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 // operator's responsibility via admin ProductManager, which lets
                 // them rename / merge / archive the offending row directly.
                 // First occurrence wins so realtime appends don't clobber edits.
-                const localProductsById = new Map(INITIAL_PRODUCTS.map(product => [product.id, product]));
                 const uniqueProducts = mapped.reduce((acc: any[], current) => {
                     const x = acc.find(item => item.id === current.id);
                     if (!x) {
                         return acc.concat([current]);
                     } else {
+                        // id collision: keep the FIRST occurrence (acc is the
+                        // accumulator). Subsequent appends with the same id
+                        // are silently logged via console.warn so operator
+                        // dashboards surface the duplicate without breaking
+                        // the storefront render.
                         if (typeof console !== 'undefined' && console.warn) {
                             console.warn('[products] dropping duplicate id row:', current.id, current.name);
                         }
                         return acc;
                     }
-                }, []).map(product => {
-                    const localProduct = localProductsById.get(product.id);
-                    return localProduct
-                        ? { ...localProduct, ...withoutUndefinedFields(product) }
-                        : product;
+                }, []);
+
+                // Blend local defaults with database records.
+                // Database values win so admin edits like featured state persist correctly.
+                const initialProductMap = new Map(INITIAL_PRODUCTS.map(p => [p.id, p]));
+
+                const interceptedProducts = uniqueProducts.map((sp: any) => {
+                    const local = initialProductMap.get(sp.id);
+                    if (local) {
+                        return {
+                            ...local,
+                            ...sp,
+                            isFeatured: typeof sp.isFeatured === 'boolean' ? sp.isFeatured : local.isFeatured,
+                        };
+                    }
+                    return sp;
                 });
 
-                // Supabase rows win for ids that exist in the DB, but some drops
-                // still live only in constants.ts while the catalog is being
-                // reconciled. Append those local-only rows so a successful
-                // Supabase fetch does not accidentally hide live storefront items.
-                const supabaseIds = new Set(uniqueProducts.map((product: Product) => product.id));
-                const localOnlyProducts = INITIAL_PRODUCTS.filter(product => !supabaseIds.has(product.id));
-                const mergedProducts = [...uniqueProducts, ...localOnlyProducts];
+                // Merge in any INITIAL_PRODUCTS entries not already in Supabase at all
+                const supabaseIds = new Set(interceptedProducts.map((p: any) => p.id));
+                const localOnly = INITIAL_PRODUCTS.filter(p => !supabaseIds.has(p.id));
 
-                // Apply PRODUCT_LOCAL_OVERRIDES last so pinned local fields, like
-                // preview-only image arrays or archive notes, still win.
-                const withOverrides = applyLocalProductOverrides(mergedProducts);
+                const finalMerged = [...interceptedProducts, ...localOnly];
+                const finalWithOverrides = applyLocalProductOverrides(finalMerged);
 
                 // Numbered-edition enrichment: batch-fetch paid-quantity counts via
                 // the get_product_paid_count RPC so PDP can render
                 // "X/44 minted at $75" without re-querying on every render.
                 // Best-effort: a single RPC failure degrades to 0 for that
                 // product (other products still load).
-                const numberedIds = withOverrides
+                const numberedIds = finalWithOverrides
                     .filter(p => p.editionSize && p.pricingTiers && p.pricingTiers.length > 0)
                     .map(p => p.id);
                 const countsByProduct = numberedIds.length > 0
                     ? await fetchPaidCountsByProduct(numberedIds)
                     : {};
-                const enrichedProducts = withOverrides.map(p => (
+                const enrichedProducts = finalWithOverrides.map(p => (
                     countsByProduct[p.id] !== undefined
                         ? { ...p, editionSoldCount: countsByProduct[p.id] }
                         : p
@@ -772,9 +721,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             : [...originalProducts, normalizedProduct];
 
         setProducts(nextProducts);
-        // Flag our own write so the realtime echo doesn't race the SELECT
-        // cache replication and overwrite our optimistic state.
-        flagSelfWrite(normalizedProduct.id);
         try {
             const { error } = await supabase.from('products').insert([{
                 id: normalizedProduct.id, name: normalizedProduct.name, price: normalizedProduct.price, category: normalizedProduct.category, images: normalizedProduct.images,
@@ -784,21 +730,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 pricing_tiers: normalizedProduct.pricingTiers ?? null,
                 edition_size: normalizedProduct.editionSize ?? null,
                 sizes: normalizedProduct.sizes,
-                size_inventory: normalizedProduct.sizeInventory, nft_metadata: normalizedProduct.nft,
-                // Image-role mapping column (migration 20260630). Null is fine —
-                // getProductRoles fallback handles missing roles. Skipped if the
-                // column doesn't exist yet on the live schema (PGRST204 retry below).
-                image_roles: normalizedProduct.imageRoles ?? null,
-                // Archive note column (migration 20260701). Operator-authored copy shown
-                // beneath the buy button on sold/archived PDPs.
-                archive_note: normalizedProduct.archiveNote ?? null,
-                // Auto-discount column (migration 20260704). 0 means no discount.
-                discount_percent: normalizedProduct.discountPercent ?? 0
+                size_inventory: normalizedProduct.sizeInventory, nft_metadata: normalizedProduct.nft
             }]);
             if (error) throw error;
             if (normalizedProduct.isFeatured) {
                 await clearOtherFeaturedProductsInDb(normalizedProduct.id);
             }
+            await autoCommit({ message: generateProductAddedMessage(p.name) });
         } catch (err) {
             try {
                 if (normalizedProduct.isFeatured) {
@@ -827,7 +765,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             : products.map(p => p.id === normalizedUpdated.id ? normalizedUpdated : p);
 
         setProducts(nextProducts);
-        flagSelfWrite(normalizedUpdated.id);
         try {
             const { error } = await supabase.from('products').update({
                 name: normalizedUpdated.name, price: normalizedUpdated.price, category: normalizedUpdated.category, images: normalizedUpdated.images,
@@ -837,30 +774,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 pricing_tiers: normalizedUpdated.pricingTiers ?? null,
                 edition_size: normalizedUpdated.editionSize ?? null,
                 sizes: normalizedUpdated.sizes,
-                size_inventory: normalizedUpdated.sizeInventory, nft_metadata: normalizedUpdated.nft, archived: normalizedUpdated.archived,
-                image_roles: normalizedUpdated.imageRoles ?? null,
-                archive_note: updated.archiveNote ?? null,
-                discount_percent: normalizedUpdated.discountPercent ?? 0
+                size_inventory: normalizedUpdated.sizeInventory, nft_metadata: normalizedUpdated.nft, archived: normalizedUpdated.archived
             }).eq('id', normalizedUpdated.id);
             if (error) throw error;
             if (normalizedUpdated.isFeatured) {
                 await clearOtherFeaturedProductsInDb(normalizedUpdated.id);
             }
+            await autoCommit({ message: generateProductUpdatedMessage(updated.name) });
         } catch (err) {
             if (original) {
-                try {                    await supabase.from('products').update({
-                    name: original.name, price: original.price, category: original.category, images: original.images,
-                    description: original.description,
-                    is_featured: original.isFeatured,
-                    is_limited_edition: original.isLimitedEdition ?? false,
-                    pricing_tiers: original.pricingTiers ?? null,
-                    edition_size: original.editionSize ?? null,
-                    sizes: original.sizes,
-                    size_inventory: original.sizeInventory, nft_metadata: original.nft, archived: original.archived,
-                    image_roles: original.imageRoles ?? null,
-                    archive_note: original.archiveNote ?? null,
-                    discount_percent: original.discountPercent ?? 0
-                }).eq('id', original.id);
+                try {
+                    await supabase.from('products').update({
+                        name: original.name, price: original.price, category: original.category, images: original.images,
+                        description: original.description,
+                        is_featured: original.isFeatured,
+                        is_limited_edition: original.isLimitedEdition ?? false,
+                        pricing_tiers: original.pricingTiers ?? null,
+                        edition_size: original.editionSize ?? null,
+                        sizes: original.sizes,
+                        size_inventory: original.sizeInventory, nft_metadata: original.nft, archived: original.archived
+                    }).eq('id', original.id);
                 } catch (rollbackErr) {
                     console.warn('Failed to rollback featured product update:', rollbackErr);
                 }
@@ -871,25 +804,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const deleteProduct = async (id: string) => {
-        if (!isSupabaseConfigured) {
-            // No Supabase: locally remove is the only path available.
-            setProducts(prev => prev.filter(p => p.id !== id));
-            return;
+        const product = products.find(p => p.id === id);
+        if (isSupabaseConfigured) {
+            const { error } = await supabase.from('products').delete().eq('id', id);
+            if (!error) {
+                setProducts(prev => prev.filter(p => p.id !== id));
+                await autoCommit({ message: generateProductDeletedMessage(product?.name || id) });
+            }
         }
-
-        flagSelfWrite(id);
-        const { error } = await supabase.from('products').delete().eq('id', id);
-        if (error) {
-            // Backend failed — surface the error to the operator so they
-            // don't think the delete succeeded while the row still lives
-            // in the DB. Keep the row in local state until it's actually
-            // gone server-side.
-            console.error('Supabase delete failed:', error);
-            addToast('Delete failed — row still in DB. Try again.', 'error');
-            return;
-        }
-        addToast('Product deleted.', 'success');
-        setProducts(prev => prev.filter(p => p.id !== id));
     };
 
     const addToCart = (product: Product, size: string, options?: { keychainClipOn?: boolean }) => {
@@ -1116,14 +1038,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setUser({ ...user, walletAddress: addr, connectedWalletAddress: addr, walletConnectionMethod: 'metamask', walletConnectedAt: Date.now(), isAdmin: user.isAdmin || isAdmin });
             if (isSupabaseConfigured && !user.uid.startsWith('user_eth_')) {
                 await supabase.from('wallet_accounts').upsert({ user_id: user.uid, wallet_address: addr, method: 'metamask' }, { onConflict: 'user_id' });
-                // First-time wallet-link stamp (20260702_add_customer_profile_rewards.sql).
-                // Using `.is('wallet_linked_at', null)` keeps this idempotent: subsequent
-                // reconnects do not clobber the original link timestamp.
-                await supabase
-                    .from('profiles')
-                    .update({ wallet_linked_at: new Date().toISOString() })
-                    .eq('id', user.uid)
-                    .is('wallet_linked_at', null);
             }
         } catch (e) { console.error('Connect wallet error:', e); }
     };
@@ -1168,87 +1082,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         catch (err) { addToast('Failed.', 'error'); }
     };
 
-    // Customer-profile admin actions (20260702_add_customer_profile_rewards.sql mirror).
-    // Backed by api/_handlers/credit-customer-reward.ts (writes audit + bumps balance)
-    // and api/_handlers/attribute-order-to-facebook.ts (stamps orders.facebook_username).
-    // Both endpoints use the service-role Supabase client; the only gating here is the
-    // sessionStorage admin-token so a non-admin browser request receives a 401 instead.
-    const adminCreditCustomerReward = async (
-        profileId: string,
-        amountSgc: number,
-        reason: string,
-        options?: { orderId?: string; amountUsd?: number }
-    ): Promise<{ success: boolean; newBalance?: number; error?: string }> => {
-        try {
-            const token = sessionStorage.getItem('coalition_admin_token');
-            const response = await fetch('/api/credit-customer-reward', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify({
-                    profileId,
-                    amountSgc,
-                    reason,
-                    orderId: options?.orderId ?? null,
-                    amountUsd: options?.amountUsd,
-                }),
-            });
-            if (!response.ok) {
-                const payload = await response.json().catch(() => ({}));
-                return { success: false, error: payload.error || 'Credit failed' };
-            }
-            const payload = await response.json();
-            setUser(prev => prev && prev.uid === profileId ? {
-                ...prev,
-                sgCoinBalance: Number(payload.newSgCoinBalance || prev.sgCoinBalance || 0),
-                lastRewardCreditAt: payload.awardedAt || prev.lastRewardCreditAt || null,
-                lastRewardCreditAmount: amountSgc,
-            } : prev);
-            addToast(`Credited ${amountSgc} SGC. New balance: ${payload.newSgCoinBalance}`, 'success');
-            return { success: true, newBalance: Number(payload.newSgCoinBalance) };
-        } catch (err: any) {
-            const msg = err?.message || 'Credit failed';
-            addToast(msg, 'error');
-            return { success: false, error: msg };
-        }
-    };
-
-    const adminAttributeOrderToFacebook = async (
-        orderId: string,
-        facebookUsername: string,
-        note?: string
-    ): Promise<{ success: boolean; error?: string }> => {
-        try {
-            const token = sessionStorage.getItem('coalition_admin_token');
-            const response = await fetch('/api/attribute-order-to-facebook', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify({
-                    orderId,
-                    facebookUsername,
-                    note: note ?? '',
-                }),
-            });
-            if (!response.ok) {
-                const payload = await response.json().catch(() => ({}));
-                return { success: false, error: payload.error || 'Attribution failed' };
-            }
-            const payload = await response.json();
-            setOrders(prev => prev.map(o => o.id === orderId ? { ...o, facebookUsername: payload.facebookUsername } : o));
-            addToast(`Order @${payload.facebookUsername}`, 'success');
-            return { success: true };
-        } catch (err: any) {
-            const msg = err?.message || 'Attribution failed';
-            addToast(msg, 'error');
-            return { success: false, error: msg };
-        }
-    };
-
     return (
         <AppContext.Provider value={{
             products, cart, user, sections, orders, isCartOpen, isAdminMode, isSupabaseConfigured,
@@ -1260,8 +1093,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             addGiveawayEntry, pickGiveawayWinner, connectMetaMaskWallet, connectManualWallet,
             disconnectWallet, chainId, switchToPolygon: handleSwitchToPolygon, addReview,
             linkSocialAccount, unlinkSocialAccount, submitCustomInquiry, submitPurchaseRequest,
-            adminCreditCustomerReward,
-            adminAttributeOrderToFacebook,
             refreshBalances, signals, fetchSignals
         }}>
             {children}

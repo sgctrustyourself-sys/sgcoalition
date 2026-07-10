@@ -29,8 +29,8 @@ async function addChromeHeartsWallet() {
         stock: 1,
         category: 'Accessories',
         images: [
-            'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_SS6KbOQ.jpg',
-            'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_NUXZizv.jpg'
+            'https://i.imgur.com/SS6KbOQ.jpeg',
+            'https://i.imgur.com/NUXZizv.jpeg'
         ],
         sizes: ['One Size'],
         is_featured: true,

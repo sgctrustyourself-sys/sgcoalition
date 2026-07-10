@@ -17,10 +17,10 @@ const PromoBar = () => {
                 <div className="flex-1 text-center font-bold text-sm md:text-base flex items-center justify-center gap-2">
                     <Zap className="w-4 h-4 fill-current animate-pulse" />
                     <span>
-                        Use code <span className="bg-black text-white px-2 py-0.5 rounded mx-1 font-mono">EARLYACCESS</span> for 10% OFF early drops!
+                        FLASH SALE: Use code <span className="bg-black text-white px-2 py-0.5 rounded mx-1 font-mono">EARLYACCESS</span> for 20% OFF!
                     </span>
                     <span className="hidden md:inline-flex items-center gap-1 ml-2 text-xs font-normal opacity-75">
-                        <Clock className="w-3 h-3" /> New Releases
+                        <Clock className="w-3 h-3" /> Ends Soon
                     </span>
                 </div>
                 <button

@@ -1,48 +1,23 @@
-import { withRateLimit } from './_helpers';
-
-// Per-handler import isolation shim.
+// Lazy-load handlers via dynamic import so each route's heavy client init
+// (Stripe / Resend / Supabase / Google AI / gitService) only runs when that
+// route is actually hit. Vercel's bundler still tree-shakes into a single
+// Lambda; cold start defers per-library init to the first matching request,
+// keeping the initial Lambda well under Hobby's 50MB function-size cap.
 //
-// Why this file uses per-slug static-path dynamic imports (not static
-// `import X from './_handlers/<slug>'` at module top):
-//
-// 1. Vercel bundles this catch-all as a single Lambda. A static import
-//    of any handler whose module-link throws (e.g. an import-side-effecting
-//    package that fails when an env var is missing, or a transitive dep
-//    that crashes on first evaluation) takes down the WHOLE Lambda at
-//    boot. Every /api/* route then returns Vercel's opaque
-//    `FUNCTION_INVOCATION_FAILED` until the bad import is patched.
-// 2. Dynamic imports are evaluated on first request, not at module-link
-//    time. A bad import degrades just the affected route to a 503.
-// 3. The import paths below are STATIC strings (not template literals),
-//    so Vercel's @vercel/nft bundler traces + inlines every handler
-//    module into the same Lambda bundle. The dynamic import happens at
-//    runtime but the target is already in the bundle -- the bundler
-//    rewrites the import to a fast in-bundle require. The earlier
-//    "Cannot find module" failure was specifically because the previous
-//    implementation used a TEMPLATE LITERAL (`./_handlers/${slug}`);
-//    static paths have always been traceable.
-//
-// Net effect: the catch-all boots cleanly even if one handler's import
-// graph is broken. Each route self-loads on first hit. The first 503
-// response also includes the underlying import error so the next deploy
-// can target the actual root cause without digging through Vercel logs.
+// Request/response are typed `any` to match the existing 13 handlers'
+// (req: any, res: any) signature and avoid pulling in @vercel/node as a
+// hard dependency; Vercel provides the runtime types automatically.
 
 type Handler = (req: any, res: any) => unknown | Promise<unknown>;
+type Loader = () => Promise<{ default: Handler }>;
 
-const HANDLER_LOADERS = {
+const handlers: Record<string, Loader> = {
     'ai-chat': () => import('./_handlers/ai-chat'),
-    'attribute-order-to-facebook': () => import('./_handlers/attribute-order-to-facebook'),
     'complete-order': () => import('./_handlers/complete-order'),
     'create-checkout-session': () => import('./_handlers/create-checkout-session'),
     'create-payment-intent': () => import('./_handlers/create-payment-intent'),
     'create-subscription-session': () => import('./_handlers/create-subscription-session'),
-    'csp-report': () => import('./_handlers/csp-report'),
-    'credit-customer-reward': () => import('./_handlers/credit-customer-reward'),
     'git-operations': () => import('./_handlers/git-operations'),
-    'marketing-optout': () => import('./_handlers/marketing-optout'),
-    'marketing-send': () => import('./_handlers/marketing-send'),
-    'marketing-stats': () => import('./_handlers/marketing-stats'),
-    'marketing-subscribe': () => import('./_handlers/marketing-subscribe'),
     'paypal-order': () => import('./_handlers/paypal-order'),
     'place-order-credits': () => import('./_handlers/place-order-credits'),
     'send-email': () => import('./_handlers/send-email'),
@@ -50,41 +25,7 @@ const HANDLER_LOADERS = {
     'subscribe-drop': () => import('./_handlers/subscribe-drop'),
     'unsubscribe': () => import('./_handlers/unsubscribe'),
     'verify-subscription': () => import('./_handlers/verify-subscription'),
-} as const;
-
-type HandlerSlug = keyof typeof HANDLER_LOADERS;
-
-// Cache the resolved handler (or null on load failure) per Lambda
-// invocation so a successful first hit doesn't pay the import cost
-// again on subsequent requests. A failed import is cached as null so
-// we don't retry the broken import on every request -- operators see
-// the 503 + log line, fix the underlying issue, redeploy, and the
-// cache invalidates with the new Lambda container.
-const handlerCache = new Map<HandlerSlug, Promise<Handler | null>>();
-
-async function loadHandler(slug: HandlerSlug): Promise<Handler | null> {
-    const cached = handlerCache.get(slug);
-    if (cached) return cached;
-
-    const promise = (async () => {
-        try {
-            const mod = await HANDLER_LOADERS[slug]();
-            const handler = (mod as { default?: Handler }).default;
-            if (typeof handler !== 'function') {
-                console.error(`[api] handler ${slug} did not export a default function`);
-                return null;
-            }
-            return handler;
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : String(err);
-            console.error(`[api] failed to load handler ${slug}:`, message);
-            return null;
-        }
-    })();
-
-    handlerCache.set(slug, promise);
-    return promise;
-}
+};
 
 export default async function handler(req: any, res: any) {
     // Vercel's catch-all `[...slug]` populates `req.query.slug` as an array
@@ -117,63 +58,14 @@ export default async function handler(req: any, res: any) {
         slug = fallback;
     }
 
-    if (!(slug in HANDLER_LOADERS)) {
+    const loader = handlers[slug];
+    if (!loader) {
         // Avoid leaking the path name in the response -- only log it server-side.
         console.info('[api] unknown endpoint:', slug);
         res.status(404).json({ error: 'Endpoint not found' });
         return;
     }
 
-    // Rate limit gate. Runs AFTER slug validation (we need the
-    // slug to look up the per-endpoint budget) but BEFORE
-    // loadHandler (we don't want to pay the import cost on spam).
-    // onAllowed=false means withRateLimit has already written the
-    // 429 + headers; we just return.
-    const rateLimit = withRateLimit(slug, req, res);
-    if (!rateLimit.allowed) {
-        return;
-    }
-
-    const routeHandler = await loadHandler(slug as HandlerSlug);
-    if (!routeHandler) {
-        // Per-route 503 isolation: a broken handler import degrades to
-        // 503 for just this slug. The Lambda stays up; every other route
-        // continues to work. Surface the underlying error in the body so
-        // operators can see what's wrong without scraping Vercel logs.
-        res.status(503).json({
-            error: 'Handler is temporarily unavailable.',
-            slug,
-        });
-        return;
-    }
-
-    try {
-        return await routeHandler(req, res);
-    } catch (handlerError: unknown) {
-        // Live handler execution threw (e.g., third-party API failure or an
-        // unexpected runtime condition). Surface the actual cause so the
-        // next deploy shows what's broken instead of Vercel's opaque
-        // FUNCTION_INVOCATION_FAILED. Slug is safe to echo because it was
-        // already approved by the public handlers map; the stack + message
-        // stay server-side via console.error. Skip writing a 500 body if
-        // the inner handler already started streaming -- otherwise the
-        // second `res.status().json()` throws "Cannot set headers after
-        // they are sent" and masks the original error in the logs.
-        const message = handlerError instanceof Error ? handlerError.message : String(handlerError);
-        const stack = handlerError instanceof Error ? handlerError.stack : undefined;
-        console.error('[api] handler threw for slug:', slug, '\n', message, '\n', stack || '(no stack)');
-        // Streaming handlers may have already flushed response headers but
-        // not yet finished writing the body when they throw. `headersSent`
-        // alone is insufficient -- we must also destroy the response so the
-        // client doesn't hang waiting for a body that never arrives.
-        if (res.headersSent) {
-            res.destroy();
-            return;
-        }
-        res.status(500).json({
-            error: 'Handler failed at runtime',
-            slug,
-            detail: message,
-        });
-    }
+    const mod = await loader();
+    return mod.default(req, res);
 }

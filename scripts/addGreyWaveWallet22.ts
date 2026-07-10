@@ -18,8 +18,8 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 const MAKING_VIDEO_URL = 'https://www.instagram.com/p/DZ8z0t0Tfws/';
 const PRODUCT_IMAGES = [
-    'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_FVMHZoq.jpg',
-    'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_LLoGORu.jpg'
+    'https://i.imgur.com/FVMHZoq.jpeg',
+    'https://i.imgur.com/LLoGORu.jpeg'
 ];
 
 const BASE_SELECT_COLUMNS = 'id,name,price,stock,images,archived,size_inventory';
