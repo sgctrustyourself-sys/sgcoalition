@@ -242,9 +242,16 @@ async function createPaypalOrder(body: any) {
     const orderTotalCents = itemTotalCents + shippingCents - discountCents;
     if (orderTotalCents <= 0) throw createHttpError(400, 'PayPal order total must be greater than zero.');
 
-    const expectedTotalCents = body.expectedTotal === undefined ? orderTotalCents : parseMoneyCents(body.expectedTotal, 'Expected total');
-    if (expectedTotalCents !== orderTotalCents) {
-        throw createHttpError(409, 'PayPal order total changed. Refresh checkout and try again.');
+    // The server is the source of truth for the order total (computed from
+    // DB prices above). The client-sent expectedTotal is a sanity check — if
+    // it doesn't match (e.g. the cart has a stale price from before a DB
+    // update), we log the discrepancy but proceed with the server-verified
+    // total so the buyer isn't blocked.
+    if (body.expectedTotal !== undefined) {
+        const expectedTotalCents = parseMoneyCents(body.expectedTotal, 'Expected total');
+        if (expectedTotalCents !== orderTotalCents) {
+            console.warn(`[PayPal API] expectedTotal mismatch: client=${expectedTotalCents}c server=${orderTotalCents}c — using server total.`);
+        }
     }
 
     const accessToken = await getAccessToken();
