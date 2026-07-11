@@ -85,3 +85,52 @@ Not blocking; do when bundle slices accumulate.
 | 5 | Lazy-load 3 framer-motion consumers | Maintainer | n/a (code) | 30 min |
 | 6 | Wire Sentry session replay (when wanted) | Maintainer | n/a (code) | 10 min |
 | 7 | Anchor live-orders seed timestamps | Maintainer | n/a (code) | 30 min |
+
+---
+
+## Reference: runtime landmarks that already work
+
+The team depends on these flows. Each landed this session, was verified live on production, and would be expensive to reconstruct from commit history alone. Read this before "fixing" any of them.
+
+### R1. sync-constants — Supabase → `constants.ts` → `origin/main`
+
+The **Sync Code** button on the admin Products tab reconciles `constants.ts` with the current Supabase `products` table and commits the result to `origin/main`. Works in local dev AND Vercel. Verified live at commit `683f7c2` (2026-07-11).
+
+**Five required Vercel env vars** (Production + Preview each have their own values):
+
+| Var | Where to get it | Failure if missing/wrong |
+|---|---|---|
+| `SUPABASE_URL` | Supabase → Settings → API | 503 with `[missing]` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → `service_role` row, NOT `anon` | 502 "Invalid API key" |
+| `GITHUB_TOKEN` | github.com → Settings → Personal access tokens → Fine-grained tokens, scoped to **Contents: Read and write** on this repo | 503 / 502 "invalid or expired" |
+| `REPO_OWNER` | `git remote -v` (e.g. `sgctrustyourself-sys`) | 502 "repo or file not found" |
+| `REPO_NAME` | `git remote -v` (e.g. `sgcoalition`) | 502 "repo or file not found" |
+| `GITHUB_BRANCH` (optional) | — | Defaults to `main`. Each Vercel env (Production / Preview / Development) can set its own value so staging commits to a feature branch instead of main. |
+
+Same five (sans `GITHUB_BRANCH`) live in `.env` for local Express on port 4242.
+
+**Why the GitHub Contents API, not a git binary**: Vercel serverless functions have a read-only fs and no `git` binary. The only commit path is `PUT /repos/{owner}/{repo}/contents/{path}` against GitHub's Contents API with the target file's blob SHA. `services/githubSync.cjs` is the shared helper used by BOTH:
+- `api/_handlers/git-operations.ts` (Vercel serverless)
+- `server.cjs` (local Express, port 4242)
+
+The helper does GET → compare → PUT-with-SHA, single retry on 409, and returns `{ noChanges: true, hash: <blobSha> }` for idempotent re-runs (same hash on every re-run when Supabase already matches `constants.ts`). The `hash` in `noChanges` is a **blob SHA** (file content hash), NOT a commit SHA — commits only happen when content changes.
+
+**Cross-reference**: full section in `README.md > Product sync workflow (Supabase → constants.ts → GitHub)` for the full architecture diagram and step-by-step chain.
+
+### R2. Credential-pattern safety net (`.gitignore` block at line 52+)
+
+Belt-and-suspenders for any operator or LLM dropping credentials into the repo root. Verified live via `git check-ignore -v` on synthetic probes; all 9 new patterns catch their targets with zero false-positives against the tracked tree.
+
+| Pattern | What it catches |
+|---|---|
+| `github_pat*.txt` | Exact shape of the leaked file that triggered this block. |
+| `id_rsa` / `id_rsa.pub` / `id_ed25519` / `id_ed25519.pub` / `id_dsa` / `id_ecdsa` | SSH private keys. |
+| `*.pem` / `*.p12` / `*.pfx` | Certificate and key bundles. |
+| `*sk_live_*` / `*sk_test_*` | Stripe secret-key dropfiles. |
+
+**Deliberately NOT included** (rationale documented inline in `.gitignore`):
+- `*.key` — too many false-positives (`.key` is a common JSON-column-name suffix in seed scripts).
+- `pk_live_*` / `pk_test_*` — Stripe publishable keys are meant to be public.
+- `*-credentials.json` / `service-account*.json` — GCP/AWS not used in this codebase.
+
+**Future hardening**: a GitHub Action that inverts `git check-ignore -v` to scan staged files against these patterns and fails the push on any match — would catch leaks on a fresh `git add` before they reach origin. Tracked conceptually here; not yet a row in the operator task index above.
