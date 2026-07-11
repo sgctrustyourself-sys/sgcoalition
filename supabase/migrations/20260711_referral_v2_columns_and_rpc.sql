@@ -201,8 +201,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-GRANT EXECUTE ON FUNCTION track_referral_event TO authenticated;
-GRANT EXECUTE ON FUNCTION track_referral_event TO anon;
+GRANT EXECUTE ON FUNCTION track_referral_event(VARCHAR, VARCHAR, UUID, VARCHAR, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION track_referral_event(VARCHAR, VARCHAR, UUID, VARCHAR, TEXT, TEXT) TO anon;
 
 -- ---------------------------------------------------------------------------
 -- 6. Helper RPC: validate a custom-code claim in a single round-trip
@@ -233,12 +233,36 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
-GRANT EXECUTE ON FUNCTION is_referral_code_available TO authenticated;
-GRANT EXECUTE ON FUNCTION is_referral_code_available TO anon;
+GRANT EXECUTE ON FUNCTION is_referral_code_available(VARCHAR) TO authenticated;
+GRANT EXECUTE ON FUNCTION is_referral_code_available(VARCHAR) TO anon;
 
 -- ---------------------------------------------------------------------------
 -- 7. Success notice
+--    The Supabase SQL editor's parser can choke on long RAISE NOTICE strings
+--    inside DO blocks, so we keep this one short and split the detail into a
+--    second SELECT so the operator sees the full inventory in the Results tab.
 -- ---------------------------------------------------------------------------
-DO $$
+DO $sgcoalition_v2_notice$
 BEGIN
-    RAISE NOTICE 'Referral v2 migr
+    RAISE NOTICE 'Referral v2 migration complete';
+END $sgcoalition_v2_notice$;
+
+SELECT
+    'referral_stats columns'   AS what,
+    count(*) FILTER (WHERE column_name IN ('code_customized','code_customized_at','last_referral_ip','last_referral_event_at')) AS added
+FROM information_schema.columns
+WHERE table_name = 'referral_stats'
+UNION ALL SELECT
+    'referrals.visitor_ip',
+    count(*) FILTER (WHERE column_name = 'visitor_ip')
+FROM information_schema.columns
+WHERE table_name = 'referrals'
+UNION ALL SELECT
+    'referral_banned_codes rows',
+    count(*)::int
+FROM referral_banned_codes
+UNION ALL SELECT
+    'hardened RPCs',
+    count(*) FILTER (WHERE proname IN ('track_referral_event','is_referral_code_available'))::int
+FROM pg_proc
+WHERE proname IN ('track_referral_event','is_referral_code_available');
