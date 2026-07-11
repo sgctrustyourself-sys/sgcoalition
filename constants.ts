@@ -44,12 +44,12 @@ export const INITIAL_PRODUCTS: Product[] = [
       "/images/above-as-below-set-back.png",
       "/images/above-as-below-tee-front.png",
       "/images/above-as-below-tee-back.png",
-      "/images/shorts%201.webp",
-      "/images/short%201%20back.png"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-above-as-below-set_1783736765709_ppzti.jpg",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-above-as-below-set_1783736776254_6lzfr.jpg"
     ],
     "description": "Above as Below tee and shorts together in one set. Each piece is $75 on its own ($150 total); the set is $120, saving $30 off the combined price. Sized S-M-L-XL-2XL.",
     "category": "apparel",
-    "isFeatured": false,
+    "isFeatured": true,
     "isLimitedEdition": false,
     "sizes": [
       "S",
@@ -356,7 +356,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     "description": "The Above as Below tee features a heavyweight black body with red-and-white Coalition artwork across the front and a full back graphic built around the Above as Below concept.",
     "category": "shirt",
-    "isFeatured": true,
+    "isFeatured": false,
     "isLimitedEdition": false,
     "sizes": [
       "S",
