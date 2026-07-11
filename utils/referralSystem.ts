@@ -69,8 +69,92 @@ export const calculateCommissionTier = (successfulReferrals: number) => {
     };
 };
 
+// Generate a unique referral code matching the SQL trigger's format
+// (`SG-` + 6 uppercase hex chars). Mirrors the trigger's `WHILE EXISTS`
+// loop in `create_referral_system.sql`. Used as a self-heal fallback
+// when the auto-create trigger hasn't run for a given user yet (e.g.
+// legacy rows, migration drift).
+const generateUniqueReferralCode = async (maxAttempts = 5): Promise<string> => {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        // 6 hex chars in [0-9A-F], matching the SQL `UPPER(SUBSTRING(MD5(...)))` output.
+        const candidate = 'SG-' + Math.random().toString(16).substring(2, 8).toUpperCase().padStart(6, '0');
+        // Cheap existence check; collision probability is ~1/16M per try.
+        const { data } = await supabase
+            .from('referral_stats')
+            .select('referral_code')
+            .eq('referral_code', candidate)
+            .maybeSingle();
+        if (!data) return candidate;
+    }
+    // 5 collisions in a row is effectively impossible at 6 hex chars;
+    // fall back to a timestamp-based suffix so the function never hangs.
+    return 'SG-' + Date.now().toString(16).toUpperCase().slice(-6).padStart(6, '0');
+};
+
+// Self-heal a missing referral_stats row by inserting one. The RLS policy
+// `System can manage stats` (FOR ALL USING (true)) lets any authenticated
+// user insert, so no service-role key is required.
+//
+// Recognised failure modes (Postgres SQLSTATE):
+//   23505 on user_id     — race: another client just inserted; re-SELECT.
+//   23505 on code        — random collision; regenerate and retry.
+//   23503                — FK violation: userId is a valid UUID but no
+//                          matching `auth.users` row exists (e.g. stale
+//                          session). Nothing we can do client-side.
+const selfHealReferralStats = async (userId: string, attempt = 0): Promise<ReferralStats | null> => {
+    if (attempt >= 5) {
+        console.error('Error self-healing referral stats: exhausted after 5 attempts for user', userId);
+        return null;
+    }
+    const code = await generateUniqueReferralCode();
+    const { data, error } = await supabase
+        .from('referral_stats')
+        .insert({ user_id: userId, referral_code: code })
+        .select()
+        .single();
+    if (data) return data as ReferralStats;
+    if (!error) return null;
+
+    if (error.code === '23505' || /duplicate key/i.test(error.message || '')) {
+        // The `referral_stats_pkey` (user_id) collision means another
+        // concurrent load beat us to the insert — the row exists now,
+        // fall through to a plain SELECT.
+        if (/referral_stats_pkey|user_id/i.test(error.message || '')) {
+            const { data: existing } = await supabase
+                .from('referral_stats')
+                .select('*')
+                .eq('user_id', userId)
+                .single();
+            return (existing as ReferralStats) || null;
+        }
+        // Referral-code collision: regenerate and retry.
+        return selfHealReferralStats(userId, attempt + 1);
+    }
+    if (error.code === '23503' || /foreign key/i.test(error.message || '')) {
+        console.error('Error self-healing referral stats: FK violation (no auth.users row for', userId, ')');
+        return null;
+    }
+    console.error('Error self-healing referral stats:', error);
+    return null;
+};
+
 // Get user's referral stats
+//
+// Self-healing: if the user has no `referral_stats` row yet (the
+// `create_referral_stats_on_signup` trigger from
+// `create_referral_system.sql` may not have run for them, e.g. legacy
+// signups, migration drift), we INSERT one on the spot and return the
+// newly-created row. The `System can manage stats` RLS policy permits
+// this for any authenticated user.
+//
+// MetaMask users (uid starts with `user_eth_`) cannot have a row at all
+// because the `user_id` column is a UUID FK to `auth.users(id)`. We
+// short-circuit to `null` so the dashboard can render a specific
+// "sign-in required" panel instead of the generic error.
 export const getReferralStats = async (userId: string): Promise<ReferralStats | null> => {
+    if (!userId) return null;
+    if (userId.startsWith('user_eth_')) return null;
+
     try {
         const { data, error } = await supabase
             .from('referral_stats')
@@ -78,6 +162,13 @@ export const getReferralStats = async (userId: string): Promise<ReferralStats | 
             .eq('user_id', userId)
             .single();
 
+        if (data) return data as ReferralStats;
+
+        // `.single()` returns PGRST116 when no row matches. Anything else is
+        // a real error (RLS denial, network, schema mismatch) — surface it.
+        if (error && error.code === 'PGRST116') {
+            return selfHealReferralStats(userId);
+        }
         if (error) throw error;
         return data;
     } catch (error) {

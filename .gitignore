@@ -75,3 +75,5 @@ id_ecdsa
 *sk_live_*
 *sk_test_*
 bundle_analysis.txt
+.loader-fade-screenshots/
+.referral-test-screenshots/
