@@ -72,20 +72,50 @@ export const INITIAL_PRODUCTS: Product[] = [
     "soldAt": null
   },
   {
-    "id": "prod_womens_above_as_below_set",
-    "name": "WOMEN'S COALITION ABOVE AS BELOW SET",
-    "price": 75,
+    "id": "prod_halo_mini_dress",
+    "name": "COALITION HALO MINI DRESS",
+    "price": 50,
     "images": [
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_nzsauOz.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_wYR7Nfx.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_v4xVrou.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_OKefysC.png"
+    ],
+    "description": "Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Standard live catalog release priced at $50.",
+    "category": "dress",
+    "isFeatured": false,
+    "isLimitedEdition": false,
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL"
+    ],
+    "sizeInventory": {
+      "L": 13,
+      "M": 13,
+      "S": 12,
+      "XL": 12
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
+  },
+  {
+    "id": "prod_womens_above_as_below_contrast_shorts",
+    "name": "WOMEN'S COALITION ABOVE AS BELOW CONTRAST SHORTS",
+    "price": 40,
+    "images": [
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_juuQ8jz.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXvoGU6.png",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HFMfNYr.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EqDgC3h.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_juuQ8jz.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXvoGU6.png"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png"
     ],
-    "description": "Women's Above as Below set with the crewneck crop tank and contrast shorts together. Black body, red-and-white Coalition artwork, and matching set styling. $75 as a set, sized S-M-L-XL.",
-    "category": "apparel",
+    "description": "Women's Above as Below contrast shorts in black with white trim, red Coalition artwork, and a red waistband label. Available S-M-L-XL. $40 separately, or grab the matching crop tank and shorts set for $75.",
+    "category": "shorts",
     "isFeatured": false,
     "isLimitedEdition": true,
     "sizes": [
@@ -140,52 +170,20 @@ export const INITIAL_PRODUCTS: Product[] = [
     "soldAt": null
   },
   {
-    "id": "prod_halo_mini_dress",
-    "name": "COALITION HALO MINI DRESS",
-    "price": 50,
+    "id": "prod_womens_above_as_below_set",
+    "name": "WOMEN'S COALITION ABOVE AS BELOW SET",
+    "price": 75,
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_nzsauOz.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_wYR7Nfx.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_wYR7Nfx.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_v4xVrou.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_OKefysC.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_OKefysC.png"
-    ],
-    "description": "Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Standard live catalog release priced at $50.",
-    "category": "dress",
-    "isFeatured": false,
-    "isLimitedEdition": false,
-    "sizes": [
-      "S",
-      "M",
-      "L",
-      "XL"
-    ],
-    "sizeInventory": {
-      "L": 13,
-      "M": 13,
-      "S": 12,
-      "XL": 12
-    },
-    "nft": null,
-    "archived": false,
-    "archivedAt": null,
-    "releasedAt": null,
-    "soldAt": null
-  },
-  {
-    "id": "prod_womens_above_as_below_contrast_shorts",
-    "name": "WOMEN'S COALITION ABOVE AS BELOW CONTRAST SHORTS",
-    "price": 40,
-    "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_juuQ8jz.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXvoGU6.png",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HFMfNYr.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EqDgC3h.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_juuQ8jz.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXvoGU6.png"
     ],
-    "description": "Women's Above as Below contrast shorts in black with white trim, red Coalition artwork, and a red waistband label. Available S-M-L-XL. $40 separately, or grab the matching crop tank and shorts set for $75.",
-    "category": "shorts",
+    "description": "Women's Above as Below set with the crewneck crop tank and contrast shorts together. Black body, red-and-white Coalition artwork, and matching set styling. $75 as a set, sized S-M-L-XL.",
+    "category": "apparel",
     "isFeatured": false,
     "isLimitedEdition": true,
     "sizes": [
