@@ -44,3 +44,33 @@ yarn-error.log*
 # Vercel
 .vercel
 .env*
+
+# Security: leaked credential dropfiles (do NOT commit)
+# An operator previously saved a github_pat_*.txt to the project root by
+# accident. These patterns catch common credential shapes so git refuses
+# to stage them. Add more as you discover new leaks.
+
+# GitHub PAT dropfiles
+github_pat*.txt
+
+# SSH keys accidentally dropped into repo root
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+id_dsa
+id_ecdsa
+
+# Certificate / key bundles (private-key containers).
+# Generic *.key is intentionally NOT listed — it would false-positive-match
+# too many file extensions (e.g. .key was used as a data-table key column
+# in seed scripts historically).
+*.pem
+*.p12
+*.pfx
+
+# Stripe secret-key dropfiles. pk_live/pk_test are intentionally NOT
+# listed (publishable keys are meant to be public; the .env.template
+# references them by name already).
+*sk_live_*
+*sk_test_*
