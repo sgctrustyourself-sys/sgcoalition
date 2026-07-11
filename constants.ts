@@ -488,14 +488,37 @@ export const INITIAL_PRODUCTS: Product[] = [
     "soldAt": "2026-03-06T00:00:00+00:00"
   },
   {
+    "id": "GreenCamoWallet",
+    "name": "Coalition Green Camo Wallet",
+    "price": 75,
+    "images": [
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_kzIWQzA.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_hs4lZFg.png"
+    ],
+    "description": "Exclusive 1/1 custom wallet featuring camo green aesthetic and signature Coalition branding. Hand-crafted and unique.",
+    "category": "accessory",
+    "isFeatured": false,
+    "isLimitedEdition": false,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 0
+    },
+    "nft": null,
+    "archived": true,
+    "archivedAt": "2026-05-22T22:33:38+00:00",
+    "releasedAt": null,
+    "soldAt": "2026-05-22T00:00:00+00:00"
+  },
+  {
     "id": "Coalition_NF_Tee",
     "name": "COALITION NF-TEE",
     "price": 40,
     "images": [
-      "/images/products/nf-tee/model-1.jpg",
-      "/images/products/nf-tee/model-2.jpg",
-      "/images/products/nf-tee/model-3.jpg",
-      "/images/products/nf-tee/model-4.jpg"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-nf-tee_1783736436519_jk5ra.jpg",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-nf-tee_1783736481681_4gmaa.jpg",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-nf-tee_1783736602190_jm88p.jpg"
     ],
     "description": "The future of streetwear. This limited edition phy-gital tee serves as your access pass to the Coalition ecosystem. Features exclusive \"Trust Yourself\" puff print and embedded NFC technology linked to its digital twin on the Polygon blockchain.",
     "category": "shirt",
@@ -523,30 +546,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     "archivedAt": null,
     "releasedAt": null,
     "soldAt": null
-  },
-  {
-    "id": "GreenCamoWallet",
-    "name": "Coalition Green Camo Wallet",
-    "price": 75,
-    "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_kzIWQzA.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_hs4lZFg.png"
-    ],
-    "description": "Exclusive 1/1 custom wallet featuring camo green aesthetic and signature Coalition branding. Hand-crafted and unique.",
-    "category": "accessory",
-    "isFeatured": false,
-    "isLimitedEdition": false,
-    "sizes": [
-      "One Size"
-    ],
-    "sizeInventory": {
-      "One Size": 0
-    },
-    "nft": null,
-    "archived": true,
-    "archivedAt": "2026-05-22T22:33:38+00:00",
-    "releasedAt": null,
-    "soldAt": "2026-05-22T00:00:00+00:00"
   }
 ];
 
