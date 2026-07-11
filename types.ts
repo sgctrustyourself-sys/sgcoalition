@@ -6,7 +6,7 @@ export interface Product {
   description: string;
   makingVideoUrl?: string;
   createdAt?: string; // ISO timestamp for when the product was added
-  category: 'apparel' | 'accessory' | 'shirt' | 'wallet' | 'jeans' | 'hat';
+  category: 'apparel' | 'accessory' | 'shirt' | 'wallet' | 'jeans' | 'hat' | 'dress' | 'shorts' | 'headwear';
   isFeatured?: boolean;
   // Free shipping when this product is in the cart AND a distinct other
   // product is also in the cart. Used for the Coalition 'Overwhelmingly

@@ -91,7 +91,7 @@ const Shop = () => {
             if (category === 'wallets') return cat === 'wallet' || cat === 'accessory' || cat === 'accessories';
             if (category === 'shirts') return cat === 'shirt';
             if (category === 'hats') return cat === 'hat' || cat === 'headwear';
-            if (category === 'apparel') return cat === 'shirt' || cat === 'jeans' || cat === 'apparel';
+            if (category === 'apparel') return cat === 'shirt' || cat === 'jeans' || cat === 'apparel' || cat === 'dress' || cat === 'shorts';
             return cat === category.toLowerCase();
         })
         .filter(p => selectedSizes.length === 0 || (p.sizes && p.sizes.some(s => selectedSizes.includes(s))))
