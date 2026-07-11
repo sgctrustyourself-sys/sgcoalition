@@ -1,6 +1,9 @@
 // Verifies the #initial-loader fade transition in index.html by
 // loading the dev server on a throttled Slow 3G connection and
-// capturing the loader's opacity + screenshots over time.
+// recording every opacity change via a MutationObserver set up
+// BEFORE navigation (via page.addInitScript). This is deterministic
+// — the previous polling-based approach was racy because the fade
+// can start before the first sample after DCL on fast connections.
 import { chromium } from 'playwright';
 import { mkdirSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -17,6 +20,67 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 1280, height: 800 },
+  });
+
+  // Set up the MutationObserver BEFORE any page scripts run. This
+  // ensures we catch the fade from the very beginning, even if the
+  // JS bundle downloads fast enough that the fade starts before DCL
+  // (the previous polling approach missed the fade in that case).
+  await context.addInitScript(() => {
+    window.__opacityHistory = [];
+
+    const recordOpacity = () => {
+      const loader = document.getElementById('initial-loader');
+      if (!loader) return; // Loader removed (React mounted)
+      const cs = window.getComputedStyle(loader);
+      const o = parseFloat(cs.opacity);
+      if (Number.isNaN(o)) return;
+      const t = performance.now();
+      const last = window.__opacityHistory[window.__opacityHistory.length - 1];
+      // Only record if opacity changed by >1% to avoid duplicate
+      // records from the 20ms polling interval.
+      if (!last || Math.abs(last.o - o) > 0.01) {
+        window.__opacityHistory.push({ t, o });
+      }
+    };
+
+    const setupObserver = () => {
+      const loader = document.getElementById('initial-loader');
+      if (!loader) {
+        // Loader not in DOM yet — wait for it (HTML is being parsed)
+        setTimeout(setupObserver, 5);
+        return;
+      }
+
+      // Record initial opacity (should be 1)
+      recordOpacity();
+
+      // Observe style attribute changes (catches `style.opacity = '0'`
+      // set by index.tsx). This fires when the JS sets the opacity,
+      // not when the CSS transition interpolates.
+      const observer = new MutationObserver(recordOpacity);
+      observer.observe(loader, { attributes: true, attributeFilter: ['style'] });
+
+      // Also poll for opacity changes every 20ms to catch the CSS
+      // transition frames (which don't fire mutation events on the
+      // style attribute). 20ms is fast enough to capture the 500ms
+      // fade with ~25 samples.
+      const pollInterval = setInterval(() => {
+        recordOpacity();
+        if (!document.getElementById('initial-loader')) {
+          clearInterval(pollInterval);
+        }
+      }, 20);
+      // Safety net: stop polling after 15s
+      setTimeout(() => clearInterval(pollInterval), 15000);
+    };
+
+    // Set up when DOM is ready (loader is in the HTML)
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupObserver);
+    } else {
+      setupObserver();
+    }
   });
 
   const page = await context.newPage();
@@ -41,50 +105,15 @@ async function main() {
     consoleErrors.push(`pageerror: ${err.message}`);
   });
 
-  const start = Date.now();
-  page.setDefaultNavigationTimeout(120000);
   await page.goto(URL, { waitUntil: 'domcontentloaded' });
 
-  // Sample loader opacity + screenshot at fixed wall-clock times so we
-  // can see the fade progress regardless of when the JS bundle finishes.
-  const sampleTimes = [200, 600, 1200, 2000, 3000, 4000, 5000, 6500, 8000, 10000];
-  const snapshots = [];
+  // Give the fade a moment to complete (CSS transition is 500ms)
+  await page.waitForTimeout(1000);
 
-  for (const ms of sampleTimes) {
-    const elapsed = Date.now() - start;
-    const wait = ms - elapsed;
-    if (wait > 0) await page.waitForTimeout(wait);
+  // Read the opacity history captured by the init script
+  const opacityHistory = await page.evaluate(() => window.__opacityHistory || []);
 
-    const snapshot = await page.evaluate(() => {
-      const loader = document.getElementById('initial-loader');
-      if (!loader) return { inDOM: false, opacity: null };
-      const cs = window.getComputedStyle(loader);
-      return {
-        inDOM: true,
-        opacity: parseFloat(cs.opacity),
-        display: cs.display,
-        visibility: cs.visibility,
-      };
-    });
-
-    const rootChildren = await page.evaluate(() => {
-      const root = document.getElementById('root');
-      if (!root) return null;
-      return Array.from(root.children).map((c) => c.id || c.tagName);
-    });
-
-    const path = join(OUT_DIR, `loader-fade-${String(ms).padStart(5, '0')}ms.png`);
-    await page.screenshot({ path, fullPage: false });
-    snapshots.push({
-      targetMs: ms,
-      actualMs: Date.now() - start,
-      ...snapshot,
-      rootChildren,
-      screenshot: path,
-    });
-  }
-
-  // Final check: is the React app mounted (root has non-loader children)?
+  // Final state: is the React app mounted (root has non-loader children)?
   const finalState = await page.evaluate(() => {
     const root = document.getElementById('root');
     if (!root) return { rootExists: false };
@@ -99,28 +128,26 @@ async function main() {
     };
   });
 
-  // Summary: did the opacity actually decrease over time?
-  const opacities = snapshots
-    .filter((s) => s.inDOM && s.opacity !== null)
-    .map((s) => ({ t: s.actualMs, o: s.opacity }));
-  const opacityDecreased =
-    opacities.length >= 2 && opacities[opacities.length - 1].o < opacities[0].o;
+  // Check that the history shows the fade: opacity went from ~1 to ~0
+  const sawFullOpacity = opacityHistory.some((s) => s.o >= 0.9);
+  const sawLowOpacity = opacityHistory.some((s) => s.o <= 0.1);
+  const opacityDecreased = sawFullOpacity && sawLowOpacity;
+
+  // Take a final screenshot (React mounted, loader removed)
+  await page.screenshot({ path: join(OUT_DIR, 'loader-fade-final.png'), fullPage: false });
 
   const result = {
     url: URL,
-    totalTimeMs: Date.now() - start,
-    opacitySamples: opacities,
+    totalTimeMs: Date.now(),
+    opacityHistory,
     opacityDecreased,
     finalState,
     consoleErrors,
-    snapshots,
   };
 
   // Noscript visibility test: must be HIDDEN when JS is enabled and
   // VISIBLE when JS is disabled. Runs in a second browser context
   // because `javaScriptEnabled` is a context option, not a page option.
-  // Uses a fresh context without the Slow 3G throttle — the no-JS page
-  // renders instantly from the static HTML.
   const noscriptVisibleWithJs = await page.locator('#noscript-fallback').isVisible();
 
   const noJsContext = await browser.newContext({ javaScriptEnabled: false });
@@ -151,11 +178,11 @@ async function main() {
     result.noscript.correct;
 
   if (passed) {
-    const first = opacities[0];
-    const last = opacities[opacities.length - 1];
+    const first = opacityHistory[0];
+    const last = opacityHistory[opacityHistory.length - 1];
     console.log('\n✅ Loader fade test PASSED');
     if (first && last) {
-      console.log(`   opacity: ${first.o} -> ${last.o} over ${result.totalTimeMs}ms`);
+      console.log(`   opacity: ${first.o.toFixed(3)} -> ${last.o.toFixed(3)} over ${(last.t - first.t).toFixed(0)}ms (${opacityHistory.length} samples)`);
     }
     console.log(`   React mounted: ${result.finalState.reactChildCount} child(ren) in #root`);
     console.log(`   Noscript: hidden with JS, visible without JS ✓`);
@@ -166,7 +193,13 @@ async function main() {
     console.log(`   noscript.correct: ${result.noscript.correct}`);
     console.log(`   noscript.visibleWithJs: ${result.noscript.visibleWithJs}`);
     console.log(`   noscript.visibleWithoutJs: ${result.noscript.visibleWithoutJs}`);
-    console.log(`   opacitySamples: ${JSON.stringify(opacities)}`);
+    console.log(`   opacityHistory length: ${opacityHistory.length}`);
+    console.log(`   sawFullOpacity (>=0.9): ${sawFullOpacity}`);
+    console.log(`   sawLowOpacity (<=0.1): ${sawLowOpacity}`);
+    if (opacityHistory.length > 0) {
+      console.log(`   first: t=${opacityHistory[0].t.toFixed(0)}ms o=${opacityHistory[0].o.toFixed(3)}`);
+      console.log(`   last:  t=${opacityHistory[opacityHistory.length-1].t.toFixed(0)}ms o=${opacityHistory[opacityHistory.length-1].o.toFixed(3)}`);
+    }
   }
 
   if (!passed) process.exit(1);
