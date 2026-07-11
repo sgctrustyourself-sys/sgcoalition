@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ShoppingBag, Menu, X, Shield, Hexagon, User, Heart, Star, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { AuthProvider } from '../types';
@@ -15,6 +15,7 @@ const Navbar = () => {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const location = useLocation();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
 
     const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
@@ -48,6 +49,14 @@ const Navbar = () => {
     // instead of ~15 inline ones.
     const closeResources = () => setIsResourcesOpen(false);
     const closeMobile = () => setMobileMenuOpen(false);
+
+    // Active-state detection for the dropdown section header. The Shop
+    // page accepts `category=wallets` (plural) as the canonical alias;
+    // match both singular and plural so direct links AND theme-filter
+    // links both light up the pill. Non-/shop URLs with category=wallet
+    // also light up (no extra guard; matches the user's spec).
+    const activeCategory = searchParams.get('category');
+    const isWalletFilterActive = activeCategory === 'wallet' || activeCategory === 'wallets';
 
     useEffect(() => {
         const handleScroll = () => {
@@ -114,7 +123,12 @@ const Navbar = () => {
                                         {walletProducts.length > 0 && (
                                             <>
                                                 <div className="h-px border-t border-white/10 my-2 mx-4" />
-                                                <div className="px-4 py-1 text-[9px] font-bold text-gray-500 uppercase tracking-[0.2em]">Wallets & Hardware</div>
+                                                <div className="px-4 py-1 flex items-center justify-between">
+                                                    <span className={`text-[9px] font-bold uppercase tracking-[0.2em] ${isWalletFilterActive ? 'text-brand-accent' : 'text-gray-500'}`}>Wallets & Hardware</span>
+                                                    {isWalletFilterActive && (
+                                                        <span className="text-[10px] bg-brand-accent/20 text-brand-accent border border-brand-accent/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-[0.15em]">Active</span>
+                                                    )}
+                                                </div>
                                                 {walletProducts.map((w) => (
                                                     <Link
                                                         key={w.id}
@@ -262,7 +276,12 @@ const Navbar = () => {
                             <Link to="/inquire" className="block text-md font-bold uppercase tracking-widest text-gray-400" onClick={closeMobile}>Custom Inquiry</Link>
                             {walletProducts.length > 0 && (
                                 <>
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 pt-2">Wallets & Hardware</p>
+                                    <div className="flex items-center justify-between pt-2">
+                                        <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${isWalletFilterActive ? 'text-brand-accent' : 'text-gray-500'}`}>Wallets & Hardware</p>
+                                        {isWalletFilterActive && (
+                                            <span className="text-[10px] bg-brand-accent/20 text-brand-accent border border-brand-accent/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-[0.15em]">Active</span>
+                                        )}
+                                    </div>
                                     {walletProducts.map((w) => (
                                         <Link
                                             key={w.id}
