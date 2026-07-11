@@ -8,6 +8,7 @@
   },
   "scripts": {
     "lint": "eslint . --ext ts,tsx --max-warnings 0",
+    "test:fade": "node scripts/verify-loader-fade.mjs",
     "dev": "vite",
     "build": "vite build && node scripts/generateSeoArtifacts.mjs",
     "preview": "vite preview",

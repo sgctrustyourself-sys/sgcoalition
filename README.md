@@ -48,6 +48,7 @@ vercel rollback dpl_75Vza3u5F1cqwmK83qvGXV9x4ANg --yes
 - [Sentry error monitoring](#sentry-error-monitoring)
 - [Current Product Catalog Baseline](#current-product-catalog-baseline)
 - [Local Development](#local-development)
+- [Instant Loading Screen & No-JS Fallback](#instant-loading-screen--no-js-fallback)
 - [Cross-cut category filters on /shop](#cross-cut-category-filters-on-shop)
 - [Recently Ordered Live Map](#recently-ordered-live-map)
 - [Above As Below Set Offers](#above-as-below-set-offers)
@@ -514,6 +515,60 @@ Vite's chunk-size warning limit sits at 800 KB (`vite.config.ts > build.chunkSiz
 - `vite.config.ts` still rejects `build.rollupOptions.output.manualChunks` because reintroducing it previously OOM-killed Vercel's build worker (lucide-react / ethers / framer-motion full-AST path). The lazy-load refactor uses only `React.lazy` + Vite's automatic code-splitting at the `import()` boundary; no manual chunk config.
 - `supabase` import in `App.tsx` stays synchronous so `context/AppContext.tsx`'s mount-time `onAuthStateChange` and realtime channel subscriptions queue correctly. Lazy-loading the supabase client would race against session restore on slow connections.
 - `context/AppContext.tsx`'s synchronous `INITIAL_PRODUCTS` state init (see "Current Product Catalog Baseline") is preserved; `constants.ts` is NOT lazy.
+
+## Instant Loading Screen & No-JS Fallback
+
+A four-layer system that eliminates the "blank screen" on slow connections and gives crawlers/bots a meaningful response when JavaScript is disabled or unavailable. The whole system is additive — none of the layers change the React app's behavior, they only manage the window between first paint and React mount.
+
+### Layer 1 — Inline loader (HTML)
+
+`index.html` contains a `<div id="initial-loader">` inside `#root` with a spinner and the "COALITION" brand. The loader's CSS lives in the `<head>` `<style>` block (not inside `#root`) so the styles are guaranteed to be applied before the loader is painted, even on extremely slow connections where the browser would otherwise paint an unstyled loader. The loader sits at `z-index: 99999` (above the noise overlay's `9999`) so it covers the page chrome during the JS download.
+
+### Layer 2 — Fade-out hook (TypeScript)
+
+`index.tsx` finds `#initial-loader` before mounting React, sets `opacity: 0` to trigger the CSS `transition: opacity 0.5s ease`, and listens for `transitionend` to call `root.render()`. A `mounted` flag prevents double-render, and a 600ms `setTimeout` safety net catches cases where `transitionend` never fires (`prefers-reduced-motion: reduce`, hot reload, or the element is already at opacity 0 from a previous run). The 600ms must stay greater than the 0.5s CSS transition — the comment in `index.tsx` pins this dependency.
+
+### Layer 3 — No-JS fallback
+
+`index.html` contains a `<noscript>` block inside `#root` that browsers ignore when JS is enabled. When JS is disabled, it renders a "JavaScript is required" message at `z-index: 100000` (above the loader), covering the spinner so the user gets a clear message instead of an infinite loading indicator. The fallback also includes a "View our basic site" link to `/nojs.html`.
+
+### Layer 4 — Static no-JS page
+
+`public/nojs.html` is a fully self-contained static page served at `/nojs.html`. It uses a system font stack (no external font requests), contains brand info, social links (Twitter/X `@sgcoalition`), contact email, full meta tags (description, `robots: index, follow`, og:*, twitter:*, canonical pointing to `/nojs.html`), a `<link rel="alternate" href="/" title="Full site (requires JavaScript)" />` pointer back to the SPA, and JSON-LD `Organization` structured data. This is what crawlers and bots that don't execute JS see, and what JS-disabled users land on if they click the link in the noscript fallback.
+
+### Testing
+
+Local:
+
+```bash
+# Start any server on http://localhost:3000 (dev or preview)
+npm run dev
+
+# In another terminal, run the Playwright verification
+npm run test:fade
+```
+
+The `test:fade` script (`scripts/verify-loader-fade.mjs`) throttles to Slow 3G via CDP, samples `#initial-loader`'s opacity at 10 wall-clock intervals over ~10 seconds, takes screenshots, and asserts that opacity decreased AND React mounted. Pass criteria: `opacityDecreased && finalState.reactChildCount > 0`. Exit code 1 on failure, which CI consumes to fail the workflow. Output goes to `.loader-fade-screenshots/result.json` and ten `loader-fade-NNNNNms.png` files.
+
+CI: `.github/workflows/loader-fade.yml` runs the same test automatically on every PR and push to `main`. The workflow:
+
+- Uses `permissions: contents: read` (least-privilege) and `concurrency: cancel-in-progress` (kills superseded runs on rapid pushes).
+- Installs deps, then `npx playwright install --with-deps chromium`, then runs `npm run build`.
+- **Starts `vite preview` + runs the test in a single step** — the preview server MUST live in the same step as the test that uses it, because GitHub Actions kills background processes when a step ends. The earlier split-step version was a real bug caught in review.
+- Uploads the screenshots + `result.json` as an artifact on every run (including failures) so the operator can inspect what Slow 3G actually rendered.
+
+### Print and JS-disabled behavior
+
+Both `#initial-loader` and `#noscript-fallback` are hidden via `@media print { display: none !important; }` so they never appear in printouts. The noscript fallback only renders when JS is disabled, so JS-enabled browsers never see it.
+
+### Where to read it
+
+- `index.html` — loader markup, noscript block, loader + noscript CSS in the head's `<style>` block
+- `index.tsx` — fade-out hook (listener-before-style pattern, `mounted` flag, 600ms safety net)
+- `public/nojs.html` — static no-JS fallback page (self-contained, no external requests)
+- `scripts/verify-loader-fade.mjs` — Playwright verification script (Slow 3G via CDP, opacity sampling, screenshots)
+- `.github/workflows/loader-fade.yml` — GitHub Actions CI workflow (single-step preview+test, concurrency, artifact upload)
+- `package.json > "scripts" > "test:fade"` — local test command
 
 ## Cross-cut category filters on /shop
 

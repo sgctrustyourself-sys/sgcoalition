@@ -1,0 +1,70 @@
+name: Loader Fade Regression
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  loader-fade:
+    name: Verify #initial-loader fade transition
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    concurrency:
+      group: loader-fade-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Start preview + run loader fade test (Slow 3G)
+        # GitHub Actions kills background processes when a step ends, so the
+        # preview server MUST live in the same step as the test that uses it.
+        run: |
+          npm run preview -- --port 4173 --host 127.0.0.1 > /tmp/preview.log 2>&1 &
+          PREVIEW_PID=$!
+          echo "Preview server PID: $PREVIEW_PID"
+
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4173/ 2>/dev/null | grep -q 200; then
+              echo "Preview server ready on port 4173"
+              break
+            fi
+            sleep 1
+          done
+
+          if ! curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4173/ 2>/dev/null | grep -q 200; then
+            echo "Preview server failed to start. Log:"
+            cat /tmp/preview.log
+            kill $PREVIEW_PID 2>/dev/null || true
+            exit 1
+          fi
+
+          TEST_URL=http://127.0.0.1:4173 npm run test:fade
+          TEST_EXIT=$?
+          kill $PREVIEW_PID 2>/dev/null || true
+          exit $TEST_EXIT
+
+      - name: Upload screenshots + result.json
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loader-fade-screenshots
+          path: .loader-fade-screenshots/
+          if-no-files-found: ignore
