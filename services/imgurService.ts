@@ -51,9 +51,11 @@ export async function uploadToImgur(
 }
 
 /**
- * Trigger product synchronization from Supabase to local constants.ts
+ * Trigger product synchronization from Supabase to local constants.ts.
+ * Returns the full server response so ProductManager can read the
+ * `noChanges` flag when the file already matches the database.
  */
-export async function syncProductsToCode(): Promise<string> {
+export async function syncProductsToCode(): Promise<{ hash?: string; noChanges?: boolean; success?: boolean }> {
     try {
         const response = await fetch(buildGitOperationsUrl('sync-constants'), {
             method: 'POST',
@@ -63,12 +65,11 @@ export async function syncProductsToCode(): Promise<string> {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Sync failed');
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || `Sync failed (HTTP ${response.status})`);
         }
 
-        const data = await response.json();
-        return data.hash;
+        return await response.json();
     } catch (error: any) {
         console.error('Sync Service Error:', error);
         throw error;

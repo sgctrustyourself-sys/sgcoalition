@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 
 // Load .env for local development (Vercel injects env vars directly in production)
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
@@ -103,6 +104,69 @@ app.all('/api/git-operations', async (req, res) => {
                 const status = await gitService.getStatus();
                 const currentBranch = await gitService.getCurrentBranch();
                 return res.status(200).json({ status, currentBranch });
+            }
+
+            case 'sync-constants': {
+                if (req.method !== 'POST') {
+                    return res.status(405).json({ error: 'Method not allowed' });
+                }
+
+                // Fetch every product from Supabase using the service-role client
+                // so we bypass RLS (consistent with the admin-products handler).
+                const supabase = await getSupabaseAdmin();
+                const { data: dbProducts, error: fetchError } = await supabase
+                    .from('products')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                if (fetchError) return res.status(500).json({ error: fetchError.message });
+                if (!dbProducts) return res.status(500).json({ error: 'No products returned from Supabase' });
+
+                // Mirror scripts/syncProducts.ts mapping. Trimmed/camelCased
+                // keys to match the Product[] shape in types.ts.
+                const mappedProducts = dbProducts.map(p => ({
+                    id: p.id,
+                    name: (p.name || '').trim(),
+                    price: p.price,
+                    images: p.images || [],
+                    description: (p.description || '').trim(),
+                    // Normalize legacy "accessories" plural to the Product type's
+                    // accepted "accessory" to keep the storefront category filter
+                    // working.
+                    category: (() => {
+                        const c = (p.category || 'apparel').toLowerCase().trim();
+                        return c === 'accessories' ? 'accessory' : c;
+                    })(),
+                    isFeatured: !!p.is_featured,
+                    isLimitedEdition: p.is_limited_edition ?? false,
+                    sizes: p.sizes || [],
+                    sizeInventory: p.size_inventory || {},
+                    nft: p.nft_metadata || null,
+                    archived: !!p.archived,
+                    archivedAt: p.archived_at || null,
+                    releasedAt: p.released_at || null,
+                    soldAt: p.sold_at || null,
+                }));
+
+                // Build the replacement INITIAL_PRODUCTS block and diff
+                // against the current file contents. If nothing changed,
+                // skip the write+commit to avoid noise commits.
+                const constantsPath = path.resolve(__dirname, 'constants.ts');
+                const beforeContent = fs.readFileSync(constantsPath, 'utf8');
+                const replacement = `export const INITIAL_PRODUCTS: Product[] = ${JSON.stringify(mappedProducts, null, 2)};`;
+                const afterContent = beforeContent.replace(
+                    /export const INITIAL_PRODUCTS: Product\[\] = \[[\s\S]*?\];/,
+                    replacement
+                );
+
+                if (afterContent === beforeContent) {
+                    const head = await gitService.executeGitCommand('git rev-parse --short HEAD');
+                    return res.status(200).json({ noChanges: true, hash: head });
+                }
+
+                fs.writeFileSync(constantsPath, afterContent, 'utf8');
+                const commitMessage = (req.body && req.body.message) || 'Sync products from Supabase';
+                const hash = await gitService.createCommit(commitMessage, 'Coalition Admin <admin@coalition.local>');
+                return res.status(200).json({ success: true, hash });
             }
 
             default:

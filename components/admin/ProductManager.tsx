@@ -121,12 +121,20 @@ const ProductManager: React.FC = () => {
         setError(null);
         setSuccess(null);
         try {
-            const hash = await syncProductsToCode();
-            setSuccess(`Sync Complete! Constants updated and committed (${hash})`);
+            const result = await syncProductsToCode();
+            if (result && result.noChanges) {
+                const commitRef = result.hash ? ` (HEAD ${result.hash})` : '';
+                setSuccess(`Already up to date — no changes since last sync${commitRef}`);
+            } else {
+                setSuccess(`Sync Complete! Constants updated and committed (${result?.hash ?? 'ok'})`);
+            }
             setTimeout(() => setSuccess(null), 5000);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Core sync failed:', err);
-            setError('Failed to sync products to codebase. Make sure the local server is running.');
+            // Surface the actual error from the server (was previously hidden
+            // by a misleading "make sure the local server is running" message).
+            const detail = err?.message || 'Unknown error';
+            setError(`Sync failed: ${detail}. Open the browser console for the full response.`);
         } finally {
             setIsSyncing(false);
         }

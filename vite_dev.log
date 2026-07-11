@@ -28,3 +28,9 @@
 [33m[1m(!) %VITE_PAYPAL_CLIENT_ID% is not defined in env variables found in /index.html. Is the variable mistyped?[22m[39m
 [33m[1m(!) %VITE_PAYPAL_CLIENT_ID% is not defined in env variables found in /index.html. Is the variable mistyped?[22m[39m
 [33m[1m(!) %VITE_PAYPAL_CLIENT_ID% is not defined in env variables found in /index.html. Is the variable mistyped?[22m[39m
+[33m[1m(!) %VITE_PAYPAL_CLIENT_ID% is not defined in env variables found in /index.html. Is the variable mistyped?[22m[39m
+[33m[1m(!) %VITE_PAYPAL_CLIENT_ID% is not defined in env variables found in /index.html. Is the variable mistyped?[22m[39m
+[33m[1m(!) %VITE_PAYPAL_CLIENT_ID% is not defined in env variables found in /index.html. Is the variable mistyped?[22m[39m
+[2m8:41:33 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/components/admin/ProductManager.tsx[22m
+[2m8:41:50 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/components/admin/ProductManager.tsx[22m
+[2m8:42:30 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/components/CartDrawer.tsx, /context/AppContext.tsx, /components/NoRefundsBanner.tsx, /context/TutorialContext.tsx, /components/admin/EcosystemCommandCenter.tsx, /pages/ProductDetails.tsx, /components/PriceDisplay.tsx[22m
