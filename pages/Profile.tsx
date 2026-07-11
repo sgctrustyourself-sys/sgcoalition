@@ -1,14 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Hexagon, Package, Truck, CheckCircle, Clock, Settings, Wallet, Link as LinkIcon, AlertCircle, CheckCircle2, Copy, DollarSign, Star, Ticket } from 'lucide-react';
+import { Hexagon, Package, Truck, CheckCircle, Clock, Settings, Wallet, Link as LinkIcon, AlertCircle, CheckCircle2, Copy, DollarSign, Star, Ticket, Heart, Vote } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import Skeleton from '../components/ui/Skeleton';
 import ProductCardSkeleton from '../components/ProductCardSkeleton';
 import OrderSkeleton from '../components/OrderSkeleton';
-import ReferralDashboard from '../components/ReferralDashboard';
-import AccountLinking from '../components/AccountLinking';
-import PurchaseRequestsTab from '../components/profile/PurchaseRequestsTab';
+// Heavy tab bodies ship as separate chunks so the eager Profile bundle
+// drops ~63 KB raw (ReferralDashboard 22 + AccountLinking 31 +
+// PurchaseRequestsTab 10). They only download the first time their tab
+// is opened, with a skeleton fallback during the fetch.
+const ReferralDashboard = React.lazy(() => import('../components/ReferralDashboard'));
+const AccountLinking = React.lazy(() => import('../components/AccountLinking'));
+const PurchaseRequestsTab = React.lazy(() => import('../components/profile/PurchaseRequestsTab'));
 
 interface Order {
     id: string;
@@ -46,6 +50,11 @@ const Profile = () => {
 
     const favorites = products.filter(p => user.favorites.includes(p.id));
     const isVipMember = Boolean(user.isVIP || user.subscriptionStatus === 'active');
+    // Most recent in-transit order with a tracking number — used by the
+    // "Track latest order" quick-action pill in the header card. Order
+    // list is reverse-chronological (newest first), so Array#find picks
+    // the freshest one naturally.
+    const trackableOrder = orders.find(o => o.trackingNumber && o.shippingStatus !== 'delivered');
 
     const getStatusIcon = (status: string) => {
         switch (status) {
@@ -160,75 +169,115 @@ const Profile = () => {
                             </div>
                         </>
                     )}
-                </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex gap-4 mb-8 border-b border-gray-200 overflow-x-auto pb-2">
+            {!isLoading && (
+                <div className="relative z-10 mt-6 pt-6 border-t border-white/10 flex flex-wrap gap-3">
+                    <Link
+                        to="/blog/referendum-referral-program-2027"
+                        className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-200 hover:text-amber-100 hover:bg-amber-500/20 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] transition"
+                    >
+                        <Vote className="w-4 h-4" />
+                        Continue referrals in 2027?
+                    </Link>
+                    {trackableOrder && (
+                        <a
+                            href={`https://www.ups.com/track?tracknum=${encodeURIComponent(trackableOrder.trackingNumber!)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 text-blue-200 hover:text-blue-100 hover:bg-blue-500/20 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] transition"
+                        >
+                            <Truck className="w-4 h-4" />
+                            Track order #{trackableOrder.id?.slice(-6) || 'order'}
+                        </a>
+                    )}
+                </div>
+            )}
+        </div>            {/* Tabs — labels hidden below `sm:` so six icons stay compact on mobile;
+                counts stay visible at all sizes (smaller on mobile); `title` attribute
+                provides the long-press tooltip. The SGCoin Requests tab gets a
+                shorter "Requests" label under md since the full label crowds. */}
+            <div className="flex gap-2 sm:gap-4 mb-8 border-b border-gray-200 overflow-x-auto pb-2 scrollbar-hide">
                 <button
                     onClick={() => setActiveTab('orders')}
-                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 ${activeTab === 'orders'
+                    title={`Orders (${orders.length})`}
+                    aria-label={`Orders, ${orders.length} total`}
+                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'orders'
                         ? 'border-black text-black'
                         : 'border-transparent text-gray-400 hover:text-gray-600'
                         }`}
                 >
-                    <Package className="w-5 h-5 inline mr-2" />
-                    Orders ({orders.length})
+                    <Package className="w-5 h-5 flex-shrink-0" />
+                    <span className="hidden sm:inline">Orders</span>
+                    <span className="text-[10px] sm:text-base opacity-70 sm:opacity-100">({orders.length})</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('favorites')}
-                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 ${activeTab === 'favorites'
+                    title={`Favorites (${favorites.length})`}
+                    aria-label={`Favorites, ${favorites.length} total`}
+                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'favorites'
                         ? 'border-black text-black'
                         : 'border-transparent text-gray-400 hover:text-gray-600'
                         }`}
                 >
-                    ❤️ Favorites ({favorites.length})
+                    <Heart className="w-5 h-5 flex-shrink-0" />
+                    <span className="hidden sm:inline">Favorites</span>
+                    <span className="text-[10px] sm:text-base opacity-70 sm:opacity-100">({favorites.length})</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('referrals')}
-                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 ${activeTab === 'referrals'
+                    title="Referrals"
+                    aria-label="Referrals"
+                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'referrals'
                         ? 'border-black text-black'
                         : 'border-transparent text-gray-400 hover:text-gray-600'
                         }`}
                 >
-                    <DollarSign className="w-5 h-5 inline mr-2" />
-                    Referrals
+                    <DollarSign className="w-5 h-5 flex-shrink-0" />
+                    <span className="hidden sm:inline">Referrals</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('vip')}
-                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 ${activeTab === 'vip'
+                    title="VIP Membership"
+                    aria-label="VIP Membership"
+                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'vip'
                         ? 'border-black text-black'
                         : 'border-transparent text-gray-400 hover:text-gray-600'
                         }`}
                 >
-                    <Star className="w-5 h-5 inline mr-2 text-purple-500" />
-                    VIP Membership
+                    <Star className="w-5 h-5 flex-shrink-0 text-purple-500" />
+                    <span className="hidden sm:inline">VIP Membership</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('requests')}
-                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 whitespace-nowrap ${activeTab === 'requests'
+                    title="SGCoin Requests"
+                    aria-label="SGCoin Requests"
+                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'requests'
                         ? 'border-black text-black'
                         : 'border-transparent text-gray-400 hover:text-gray-600'
                         }`}
                 >
-                    <DollarSign className="w-5 h-5 inline mr-2" />
-                    SGCoin Requests
+                    <DollarSign className="w-5 h-5 flex-shrink-0" />
+                    <span className="hidden md:inline">SGCoin Requests</span>
+                    <span className="md:hidden">Requests</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('settings')}
-                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 ${activeTab === 'settings'
+                    title="Account Settings"
+                    aria-label="Account Settings"
+                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'settings'
                         ? 'border-black text-black'
                         : 'border-transparent text-gray-400 hover:text-gray-600'
                         }`}
                 >
-                    <Settings className="w-5 h-5 inline mr-2" />
-                    Account Settings
+                    <Settings className="w-5 h-5 flex-shrink-0" />
+                    <span className="hidden sm:inline">Account Settings</span>
                 </button>
             </div>
 
             {/* Orders Tab */}
             {activeTab === 'orders' && (
-                <div>
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                     <h2 className="font-display text-2xl font-bold uppercase mb-6">Your Orders</h2>
                     {isLoading ? (
                         <div className="space-y-6">
@@ -346,7 +395,7 @@ const Profile = () => {
 
             {/* Favorites Tab */}
             {activeTab === 'favorites' && (
-                <div>
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                     <h2 className="font-display text-2xl font-bold uppercase mb-6">Your Favorites</h2>
                     {isLoading ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -373,17 +422,27 @@ const Profile = () => {
                 </div>
             )}
 
-            {/* Referrals Tab */}
+            {/* Referrals Tab — lazy-loaded via React.lazy above */}
             {activeTab === 'referrals' && (
-                <div>
-                    <h2 className="font-display text-2xl font-bold uppercase mb-6">Referral Program</h2>
-                    <ReferralDashboard />
-                </div>
+                <Suspense
+                    fallback={
+                        <div className="space-y-3" aria-busy="true">
+                            <Skeleton className="h-10 w-1/3 bg-gray-200 rounded" />
+                            <Skeleton className="h-32 w-full rounded-xl bg-gray-200" />
+                            <Skeleton className="h-12 w-3/4 rounded-xl bg-gray-200" />
+                        </div>
+                    }
+                >
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                        <h2 className="font-display text-2xl font-bold uppercase mb-6">Referral Program</h2>
+                        <ReferralDashboard />
+                    </div>
+                </Suspense>
             )}
 
             {/* VIP Membership Tab */}
             {activeTab === 'vip' && (
-                <div className="max-w-4xl">
+                <div className="max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-300">
                     <h2 className="font-display text-2xl font-bold uppercase mb-6">VIP Membership Status</h2>
                     {isVipMember ? (
                         <div className="bg-gradient-to-br from-purple-900/40 to-black border-2 border-purple-500/50 rounded-2xl p-8 text-white relative overflow-hidden">
@@ -437,19 +496,41 @@ const Profile = () => {
                 </div>
             )}
 
-            {/* Purchase Requests Tab */}
+            {/* Purchase Requests Tab — lazy-loaded via React.lazy above */}
             {activeTab === 'requests' && (
-                <PurchaseRequestsTab userId={user.uid} />
+                <Suspense
+                    fallback={
+                        <div className="space-y-3" aria-busy="true">
+                            <Skeleton className="h-10 w-1/3 bg-gray-200 rounded" />
+                            <Skeleton className="h-32 w-full rounded-xl bg-gray-200" />
+                            <Skeleton className="h-12 w-3/4 rounded-xl bg-gray-200" />
+                        </div>
+                    }
+                >
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                        <PurchaseRequestsTab userId={user.uid} />
+                    </div>
+                </Suspense>
             )}
 
             {/* Settings Tab */}
             {activeTab === 'settings' && (
-                <div>
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                     <h2 className="font-display text-2xl font-bold uppercase mb-6">Account Settings</h2>
 
-                    {/* Account Linking Section */}
+                    {/* Account Linking Section — AccountLinking is lazy-loaded */}
                     <div className="mb-8">
-                        <AccountLinking />
+                        <Suspense
+                            fallback={
+                                <div className="space-y-3" aria-busy="true">
+                                    <Skeleton className="h-6 w-1/3 bg-gray-200 rounded" />
+                                    <Skeleton className="h-20 w-full rounded-xl bg-gray-200" />
+                                    <Skeleton className="h-20 w-full rounded-xl bg-gray-200" />
+                                </div>
+                            }
+                        >
+                            <AccountLinking />
+                        </Suspense>
                     </div>
 
                     {/* Wallet Connection Card */}
