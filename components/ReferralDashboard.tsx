@@ -110,10 +110,38 @@ const ReferralDashboard = () => {
         );
     }
 
+    // MetaMask (wallet-only) sign-ins can't have a referral_stats row —
+    // the `user_id` column is a UUID FK to `auth.users(id)` and MetaMask
+    // users never create a Supabase auth user. This is purely a
+    // *display* concern (the data layer already short-circuits to null);
+    // the panel here explains *why* the data is unavailable instead of
+    // showing the generic "unable to load" error.
+    if (user?.uid?.startsWith('user_eth_')) {
+        return (
+            <div className="bg-gray-900 rounded-xl p-8 text-center border border-gray-800">
+                <Award className="w-16 h-16 text-gray-700 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-white mb-2">Referrals require a Coalition account</h3>
+                <p className="text-gray-400 max-w-md mx-auto">
+                    Wallet-only sign-ins don't currently support the referral program.
+                    Sign in with email or Google to get a referral code and start earning commissions on every sale.
+                </p>
+            </div>
+        );
+    }
+
     if (!stats) {
         return (
-            <div className="bg-gray-900 rounded-xl p-8 text-center">
-                <p className="text-gray-400">Unable to load referral data</p>
+            <div className="bg-gray-900 rounded-xl p-8 text-center border border-red-900/30">
+                <h3 className="text-xl font-bold text-white mb-2">Unable to load referral data</h3>
+                <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                    We couldn't load your referral data. This usually resolves itself on retry.
+                </p>
+                <button
+                    onClick={() => loadReferralData()}
+                    className="bg-brand-accent hover:bg-brand-accent/80 text-white px-6 py-2 rounded font-bold transition"
+                >
+                    Retry
+                </button>
             </div>
         );
     }
