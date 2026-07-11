@@ -349,8 +349,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     "images": [
       "/images/above-as-below-tee-front.png",
       "/images/above-as-below-tee-back.png",
-      "/images/above-as-below-tee-model-front.png",
-      "/images/above-as-below-tee-model-back.png"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-above-as-below-tee_1783736980419_b2mdg.jpg",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-above-as-below-tee_1783737104911_6v4uf.jpg"
     ],
     "description": "The Above as Below tee features a heavyweight black body with red-and-white Coalition artwork across the front and a full back graphic built around the Above as Below concept.",
     "category": "shirt",
