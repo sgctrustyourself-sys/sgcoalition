@@ -2,15 +2,18 @@
 import { supabase } from '../services/supabase';
 
 // Commission tier configuration
+// Exponential progression so the FIRST successful sale immediately bumps the
+// referrer from 5% to 10%. Hard-coded bounds must stay in sync with the
+// `track_referral_event` RPC tier-recomputation block in the v2 migration.
 export const COMMISSION_TIERS = [
-    { tier: 1, minReferrals: 0, maxReferrals: 1, rate: 5 },
-    { tier: 2, minReferrals: 2, maxReferrals: 4, rate: 10 },
-    { tier: 3, minReferrals: 5, maxReferrals: 9, rate: 15 },
-    { tier: 4, minReferrals: 10, maxReferrals: 19, rate: 20 },
-    { tier: 5, minReferrals: 20, maxReferrals: 49, rate: 25 },
-    { tier: 6, minReferrals: 50, maxReferrals: 99, rate: 30 },
-    { tier: 7, minReferrals: 100, maxReferrals: 199, rate: 35 },
-    { tier: 8, minReferrals: 200, maxReferrals: Infinity, rate: 40 }
+    { tier: 1, minReferrals: 0, maxReferrals: 0, rate: 5 },
+    { tier: 2, minReferrals: 1, maxReferrals: 2, rate: 10 },
+    { tier: 3, minReferrals: 3, maxReferrals: 6, rate: 15 },
+    { tier: 4, minReferrals: 7, maxReferrals: 14, rate: 20 },
+    { tier: 5, minReferrals: 15, maxReferrals: 29, rate: 25 },
+    { tier: 6, minReferrals: 30, maxReferrals: 49, rate: 30 },
+    { tier: 7, minReferrals: 50, maxReferrals: 99, rate: 35 },
+    { tier: 8, minReferrals: 100, maxReferrals: Infinity, rate: 40 }
 ];
 
 export interface ReferralStats {
@@ -23,6 +26,13 @@ export interface ReferralStats {
     total_earnings: number;
     pending_earnings: number;
     paid_earnings: number;
+    total_clicks?: number;
+    total_views?: number;
+    conversion_rate?: number;
+    code_customized?: boolean;
+    code_customized_at?: string | null;
+    last_referral_ip?: string | null;
+    last_referral_event_at?: string | null;
     updated_at: string;
 }
 
@@ -122,6 +132,14 @@ export const trackReferral = async (
             return { success: false };
         }
 
+        // Self-referral guard: a user cannot create a referral row pointing
+        // at themselves, even if the caller passes their own id directly.
+        // The server-side `track_referral_event` RPC also enforces this for
+        // signup/purchase events.
+        if (referredUserId && referredUserId === stats.user_id) {
+            return { success: false };
+        }
+
         // Create referral record
         const { data, error } = await supabase
             .from('referrals')
@@ -197,48 +215,50 @@ export const completeReferral = async (
 };
 
 // Update user's referral stats (recalculate tier, earnings, etc.)
+//
+// Bug fix: prior implementation queried `status = 'completed'` three times —
+// once for `totalEarnings` and once for `pendingEarnings` — which made those
+// two numbers identical. Correct semantics:
+//   - `pendingEarnings` = commissions earned but not yet paid out (status='completed')
+//   - `paidEarnings`    = commissions already paid out       (status='paid')
+//   - `totalEarnings`   = pending + paid
+//
+// We also use a single round-trip for both buckets to halve query count.
 export const updateReferralStats = async (userId: string): Promise<void> => {
     try {
-        // Get all completed referrals
+        // Single query for the two buckets we need to sum.
         const { data: referrals, error: fetchError } = await supabase
             .from('referrals')
-            .select('*')
+            .select('commission_earned, status')
             .eq('referrer_id', userId)
-            .eq('status', 'completed');
+            .in('status', ['completed', 'paid']);
 
         if (fetchError) throw fetchError;
 
-        const successfulReferrals = referrals?.length || 0;
-        const totalEarnings = referrals?.reduce((sum, r) => sum + (r.commission_earned || 0), 0) || 0;
+        let pendingEarnings = 0;
+        let paidEarnings = 0;
+        for (const r of referrals || []) {
+            const amt = r.commission_earned || 0;
+            if (r.status === 'paid') paidEarnings += amt;
+            else if (r.status === 'completed') pendingEarnings += amt;
+        }
+        const totalEarnings = pendingEarnings + paidEarnings;
+        const successfulReferrals = (referrals || []).filter(r => r.status === 'completed' || r.status === 'paid').length;
 
-        // Get pending earnings
-        const { data: pendingReferrals } = await supabase
-            .from('referrals')
-            .select('commission_earned')
-            .eq('referrer_id', userId)
-            .eq('status', 'completed');
-
-        const pendingEarnings = pendingReferrals?.reduce((sum, r) => sum + (r.commission_earned || 0), 0) || 0;
-
-        // Get paid earnings
-        const { data: paidReferrals } = await supabase
-            .from('referrals')
-            .select('commission_earned')
-            .eq('referrer_id', userId)
-            .eq('status', 'paid');
-
-        const paidEarnings = paidReferrals?.reduce((sum, r) => sum + (r.commission_earned || 0), 0) || 0;
-
-        // Calculate new tier
-        const tierInfo = calculateCommissionTier(successfulReferrals);
+        // NOTE: tier/rate recompute intentionally NOT done here. The
+        // `track_referral_event` RPC is the single source of truth for the
+        // commission tier (see supabase/migrations/20260711_referral_v2_columns_and_rpc.sql).
+        // Keeping two copies of the table in sync is a footgun, so this
+        // client function only refreshes earnings + successful-referral
+        // counters — the next analytics event will pull the tier back in line.
+        // `calculateCommissionTier` is still imported and used by the
+        // dashboard for instant read-side display between events.
 
         // Update stats
         const { error: updateError } = await supabase
             .from('referral_stats')
             .update({
                 successful_referrals: successfulReferrals,
-                current_tier: tierInfo.tier,
-                current_commission_rate: tierInfo.rate,
                 total_earnings: totalEarnings,
                 pending_earnings: pendingEarnings,
                 paid_earnings: paidEarnings
@@ -290,6 +310,21 @@ export const getStoredReferralCode = (): string | null => {
     }
 
     return code;
+};
+
+/**
+ * Single source of truth for "what referral code should this checkout use?"
+ * sessionStorage wins (the user just typed/pasted it in the coupon box), but
+ * the URL/auto-captured localStorage entry is the fallback. Mirrors the
+ * layering used by `utils/couponSystem.getAppliedCouponCode` so the two
+ * stay in sync.
+ */
+export const getActiveReferralCode = (): string | null => {
+    if (typeof window === 'undefined') return null;
+    return (
+        sessionStorage.getItem('referralCode') ||
+        localStorage.getItem('referral_code')
+    );
 };
 
 // Clear stored referral code

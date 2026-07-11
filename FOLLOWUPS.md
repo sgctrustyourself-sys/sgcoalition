@@ -52,6 +52,29 @@ The README's top banner shows `/api/*` returning 503 in production (per-operator
 
 Until resolved: checkout is gated, but browsing + carting still work.
 
+## Active program notice
+
+### 0. Referral program sunset & community vote (Dec 31, 2026)
+
+The Coalition referral program is scheduled to run through **December 31, 2026**. A community vote in the days leading up to that date will decide whether the program continues into 2027 or wraps for the year.
+
+What's been done:
+
+- Sunset notice banner is live at the top of `components/ReferralDashboard.tsx` (visible to every user who opens the Referrals tab on their profile). Programmatic constant: `PROGRAM_SUNSET_DATE` in the same file, value `'December 31, 2026'`. Banner now links to `/blog/referendum-referral-program-2027` and reads "Cast your vote" so the dashboard never says "vote opens later" while the post is already live.
+- Notice mentions the vote is weighted by SGCoin v2 governance power — the same `VotingSystem` (in `components/VotingSystem.tsx`) handles upvotes/downvotes for blog posts, so the same RPC + `post_votes` table is reused for the one-question referendum.
+- **Referendum blog post is seeded** at slug `referendum-referral-program-2027` (id `blog-referendum-referral-program-2027`) in BOTH `data/blogPosts.ts -> blogFallbackPosts` (for local/no-backend) AND `supabase/migrations/20260711_referendum_referral_2027.sql` (idempotent `INSERT ... ON CONFLICT (slug) DO UPDATE` for production). The `VotingSystem` is auto-mounted by `BlogPostView.tsx`. Upvote = continue, Downvote = sunset. Body restates the v2 tier table and the v2 RPC hardening.
+
+What's still needed (track as operator + maintainer work):
+
+1. **Close the vote when tallying** (Operator) — the existing `VotingSystem` has no `closed_at` / `is_closed` path. To close the vote in December (recommended window Dec 15–22), run this in the Supabase SQL editor: `UPDATE posts SET is_published = false WHERE slug = 'referendum-referral-program-2027';`. The blog post falls out of the public grid, the dashboard's "Cast your vote" link 404s the post view, and any votes already on `post_votes.post_id` are preserved.
+2. ~~Seed the referendum post~~ **DONE** (see "What's been done" above).
+3. **Pre-vote eligibility check** (Maintainer) — confirm that the existing RLS policies on `post_votes` allow `v2Balance`-weighted votes; if the existing policy is one-row-per-user, add a `weight` column override path or a `referral_sunset_vote` table that allows per-user weight but enforces one row per `(user_id, referendum_id)`.
+4. **Outcomes path** (Operator) — if the vote favors sunset, set a hard cutoff in `track_referral_event` (RPC) and `validateCouponCode` so new signups after Dec 31, 2026 do not attribute to any code. If the vote favors continue, no code change needed; the dashboard banner auto-stales and can be removed in a follow-up commit.
+
+Not blocking. Schedule the vote at least 30 days before Dec 31 to give the community time to participate.
+
+---
+
 ## Tech debt (next-session commits)
 
 ### 5. Lazy-load the 3 remaining framer-motion consumers

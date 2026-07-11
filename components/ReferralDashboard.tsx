@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Copy, Check, TrendingUp, Users, DollarSign, Award, ExternalLink, Eye, MousePointerClick } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Copy, Check, TrendingUp, Users, DollarSign, Award, ExternalLink, Eye, MousePointerClick, Calendar, Clock, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import {
@@ -13,6 +14,19 @@ import {
 } from '../utils/referralSystem';
 import { getReferrerAnalytics } from '../utils/referralAnalytics';
 
+// The Coalition referral program is scheduled to sunset on Dec 31, 2026.
+// A community vote will decide whether the program continues into 2027 or
+// wraps for the year. Surfaced to users here so the timeline is unambiguous.
+const PROGRAM_SUNSET_DATE = 'December 31, 2026';
+// Recommended window for tallying the vote. The operator closes the vote
+// manually (see FOLLOWUPS.md) so this is a hint, not a hard deadline.
+const VOTE_RECOMMENDED_WINDOW = 'December 15–22';
+// The referendum blog post is live now; the dashboard surfaces that.
+const VOTE_BLOG_SLUG = '/blog/referendum-referral-program-2027';
+// localStorage key for the per-user "I've seen the notice" dismiss. Keep it
+// namespaced so we can reset it when the message materially changes.
+const SUNSET_NOTICE_DISMISSED_KEY = 'sgcoalition.referral.sunsetNoticeDismissed.v1';
+
 const ReferralDashboard = () => {
     const { user } = useApp();
     const { addToast } = useToast();
@@ -21,6 +35,25 @@ const ReferralDashboard = () => {
     const [analytics, setAnalytics] = useState({ clicks: 0, views: 0, signups: 0, purchases: 0, conversionRate: 0 });
     const [loading, setLoading] = useState(true);
     const [copied, setCopied] = useState(false);
+    // Per-user dismiss for the sunset banner. Lazy-initialized from
+    // localStorage so SSR / pre-hydration renders stay consistent.
+    const [showSunsetNotice, setShowSunsetNotice] = useState<boolean>(() => {
+        if (typeof window === 'undefined') return true;
+        try {
+            return localStorage.getItem(SUNSET_NOTICE_DISMISSED_KEY) !== 'true';
+        } catch {
+            return true;
+        }
+    });
+    const dismissSunsetNotice = () => {
+        setShowSunsetNotice(false);
+        try {
+            localStorage.setItem(SUNSET_NOTICE_DISMISSED_KEY, 'true');
+        } catch {
+            // localStorage may be disabled (private mode, quota); the
+            // in-memory state still hides the banner for this session.
+        }
+    };
 
     useEffect(() => {
         if (user) {
@@ -90,6 +123,48 @@ const ReferralDashboard = () => {
 
     return (
         <div className="space-y-6">
+            {/* Program Sunset Notice */}
+            {showSunsetNotice && (
+                <div className="relative bg-gradient-to-r from-amber-900/40 to-orange-900/40 rounded-xl p-5 pr-12 border border-amber-500/30 flex flex-col sm:flex-row items-start gap-4">
+                    <button
+                        onClick={dismissSunsetNotice}
+                        aria-label="Dismiss sunset notice"
+                        title="Dismiss"
+                        className="absolute top-3 right-3 p-1.5 rounded-md text-amber-200/70 hover:text-amber-100 hover:bg-amber-500/20 transition"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                        <Calendar className="w-5 h-5 text-amber-300" />
+                    </div>
+                    <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-bold text-amber-100 uppercase tracking-wide text-sm">
+                                Program runs through {PROGRAM_SUNSET_DATE}
+                            </h3>
+                            <span className="text-[10px] font-bold uppercase tracking-widest bg-amber-500/20 text-amber-200 px-2 py-0.5 rounded">
+                                Heads up
+                            </span>
+                        </div>                    <p className="text-sm text-amber-100/80 leading-relaxed">
+                        The Coalition referral program is scheduled to wrap at the end of this year. A community vote is now open and will decide whether we continue the program into 2027 or sunset it for the year. Keep stacking commissions — every successful referral between now and {PROGRAM_SUNSET_DATE} still pays out. Vote is weighted by SGCoin v2 governance power.
+                    </p>
+                    <Link
+                        to={VOTE_BLOG_SLUG}
+                        className="inline-flex items-center gap-1.5 text-xs text-amber-200 hover:text-amber-100 font-bold uppercase tracking-widest mt-3 underline decoration-amber-500/40 underline-offset-4"
+                    >
+                        Cast your vote →
+                    </Link>
+                    </div>
+                    <div className="flex-shrink-0 self-stretch sm:self-center flex flex-col items-end gap-1 text-xs text-amber-200/80 font-mono">
+                        <span className="flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            Vote tally {VOTE_RECOMMENDED_WINDOW}
+                        </span>
+                        <span className="text-[10px] text-amber-300/70">Sunset {PROGRAM_SUNSET_DATE}</span>
+                    </div>
+                </div>
+            )}
+
             {/* Header with Tier Info */}
             <div className="bg-gradient-to-r from-purple-900 to-blue-900 rounded-xl p-6 border border-purple-500/20">
                 <div className="flex items-center justify-between mb-4">
@@ -284,12 +359,12 @@ const ReferralDashboard = () => {
                             {COMMISSION_TIERS.map((tier) => (
                                 <tr
                                     key={tier.tier}
-                                    className={`border-b border-gray-800/50 ${tier.tier === stats.current_tier ? 'bg-purple-500/10' : ''}`}
+                                    className={`border-b border-gray-800/50 ${tier.tier === tierInfo.tier ? 'bg-purple-500/10' : ''}`}
                                 >
                                     <td className="py-3">
-                                        <span className={`font-bold ${tier.tier === stats.current_tier ? 'text-purple-400' : 'text-white'}`}>
+                                        <span className={`font-bold ${tier.tier === tierInfo.tier ? 'text-purple-400' : 'text-white'}`}>
                                             Tier {tier.tier}
-                                            {tier.tier === stats.current_tier && ' (Current)'}
+                                            {tier.tier === tierInfo.tier && ' (Current)'}
                                         </span>
                                     </td>
                                     <td className="py-3 text-gray-300">

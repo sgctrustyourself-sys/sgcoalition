@@ -188,7 +188,9 @@ const Checkout: React.FC = () => {
         setCouponError(null);
         setIsValidatingCoupon(true);
 
-        const result = await validateCouponCode(couponCode);
+        // Pass the signed-in user so the validator can reject self-referrals
+        // at the coupon-input layer (server-side RPC enforces this too).
+        const result = await validateCouponCode(couponCode, user?.uid);
 
         if (result.valid) {
             applyCouponCode(couponCode);

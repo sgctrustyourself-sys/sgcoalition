@@ -51,6 +51,7 @@ vercel rollback dpl_75Vza3u5F1cqwmK83qvGXV9x4ANg --yes
 - [Cross-cut category filters on /shop](#cross-cut-category-filters-on-shop)
 - [Recently Ordered Live Map](#recently-ordered-live-map)
 - [Above As Below Set Offers](#above-as-below-set-offers)
+- [Referral Program](#referral-program)
 - [Production Deployment](#production-deployment)
 - [Project Structure](#project-structure)
 - [Environment Variables](#environment-variables)
@@ -807,6 +808,64 @@ npm.cmd run build
    - `/product/prod_womens_above_as_below_crop_tank` shows the women's `$75` set suggestion.
    - `/product/prod_womens_above_as_below_contrast_shorts` shows the women's `$75` set suggestion.
    - `/product/prod_tee_above_as_below` and `/product/prod_shorts_above_as_below` still show the men's missing-piece set bonus.
+
+## Referral Program
+
+The Coalition referral program lives across `utils/referralSystem.ts`, `utils/referralAnalytics.ts`, `utils/couponSystem.ts`, `utils/customizeReferralCode.ts`, `data/blogPosts.ts`, and the `referral_*` Supabase tables. The user-facing dashboard is `components/ReferralDashboard.tsx` (mounted as the Referrals tab in `pages/Profile.tsx`). The admin overview is `admin/ReferralAnalytics.tsx`. Coupon input + self-referral check live in `pages/Checkout.tsx`.
+
+### Commission tier table (v2)
+
+The first successful sale immediately bumps a referrer from 5% to 10% — no more waiting for a second sale to unlock Tier 2. Bounds must stay in lock-step with the SQL CASE in `track_referral_event` (see `supabase/migrations/20260711_referral_v2_columns_and_rpc.sql`).
+
+| Tier | Successful sales | Commission |
+| ---: | --- | ---: |
+| 1 | 0 | 5% |
+| 2 | 1–2 | 10% |
+| 3 | 3–6 | 15% |
+| 4 | 7–14 | 20% |
+| 5 | 15–29 | 25% |
+| 6 | 30–49 | 30% |
+| 7 | 50–99 | 35% |
+| 8 | 100+ | 40% |
+
+### Anti-fraud hardening (v2)
+
+The `track_referral_event` RPC and the surrounding client code were hardened this session:
+
+- **Self-referral block** at three layers: the coupon input (`utils/couponSystem.ts > validateCouponCode(code, currentUserId?)`), the client `trackReferral` function (`utils/referralSystem.ts`), and the server-side `track_referral_event` RPC. A direct-API call with `p_user_id = referrer` silently no-ops.
+- **Visitor IP capture** on every event, written to `referral_analytics.visitor_ip` and snapshotted to `referral_stats.last_referral_ip`. Tracked at the `/24` (IPv4) and `/32` (IPv6) prefix level for fraud review; full-IP retention is deferred to a GDPR consent + retention job (TODO in the migration).
+- **Atomic tier recompute** in the RPC using the same exponential progression as the client. The RPC is the single source of truth for `current_tier` / `current_commission_rate`; the client's `updateReferralStats` no longer writes those fields.
+- **22 reserved words** for custom referral codes (ADMIN, SUPPORT, STAFF, HELP, INFO, ROOT, etc.) seeded into `referral_banned_codes` with RLS-locked-down mutations (anon + authenticated can SELECT, only service_role can INSERT/UPDATE/DELETE).
+- **Reserved-prefix regex** in the `is_referral_code_available` RPC blocks `ADMIN-`, `STAFF-`, `SUPPORT-`, `TEST-` prefixed codes. The same set is mirrored client-side in `utils/customizeReferralCode.ts` for instant error messages.
+- **Storage consolidation** — `getActiveReferralCode()` in `utils/referralSystem.ts` is the single source of truth for "what code should this checkout use?". `utils/couponSystem.getAppliedCouponCode` re-exports it.
+
+### Earnings accounting fix
+
+The prior `updateReferralStats` summed `status='completed'` twice (once for `totalEarnings`, once for `pendingEarnings`), making the dashboard's two numbers identical. v2 partitions a single `.in('status', ['completed', 'paid'])` query by status: `pendingEarnings = Σ completed`, `paidEarnings = Σ paid`, `totalEarnings = pendingEarnings + paidEarnings`. The dashboard's "Current tier" highlight is now computed client-side from `stats.successful_referrals` (via `calculateCommissionTier`) so it cannot drift between RPC events.
+
+### Program sunset & community vote (Dec 31, 2026)
+
+The Coalition referral program is scheduled to run through **December 31, 2026**. A community vote in mid-December will decide whether the program continues into 2027 or wraps for the year.
+
+- A dismissible amber sunset banner is live at the top of `components/ReferralDashboard.tsx` (localStorage-persisted dismiss key: `sgcoalition.referral.sunsetNoticeDismissed.v1`).
+- A referendum blog post is seeded at `/blog/referendum-referral-program-2027` in both `data/blogPosts.ts > blogFallbackPosts` AND the production `posts` table (via `supabase/migrations/20260711_referendum_referral_2027.sql` — idempotent `INSERT ... ON CONFLICT (slug) DO UPDATE`).
+- The existing `components/VotingSystem.tsx` is auto-mounted by `pages/BlogPostView.tsx` — no further wiring needed. Upvote = continue, downvote = sunset. Vote weight = `user.v2Balance`.
+- The dashboard banner's "Cast your vote →" link routes to the referendum post.
+- To close the vote when tallying, the operator runs `UPDATE posts SET is_published = false WHERE slug = 'referendum-referral-program-2027';` in the Supabase SQL editor. The `VotingSystem` has no `closed_at` path; flipping `is_published` is the canonical close.
+
+### Where to read it
+
+- Client tier math: `utils/referralSystem.ts > COMMISSION_TIERS`, `calculateCommissionTier`
+- Client stats: `getReferralStats`, `getReferralHistory`, `updateReferralStats` (earnings only — tier is RPC-owned)
+- Storage: `storeReferralCode`, `getStoredReferralCode`, `clearReferralCode`, `getActiveReferralCode`
+- Coupon validation: `utils/couponSystem.ts > validateCouponCode(code, currentUserId?)` (self-referral block on the second arg)
+- Custom code: `utils/customizeReferralCode.ts` (banned-words list, reserved-prefix regex, graceful pre-v2 fallback)
+- Event tracking: `utils/referralAnalytics.ts > trackReferralEvent`, `getReferrerAnalytics`, `getTopReferrers`
+- User dashboard: `components/ReferralDashboard.tsx` (banner + tier cards + analytics cards + code/link/tier-table/history)
+- Admin view: `admin/ReferralAnalytics.tsx`
+- DB schema + RPC: `supabase/migrations/20260711_referral_v2_columns_and_rpc.sql`
+- Referendum seed: `supabase/migrations/20260711_referendum_referral_2027.sql`
+- Operator runbook: [FOLLOWUPS.md](./FOLLOWUPS.md)
 
 ## Production Deployment
 
