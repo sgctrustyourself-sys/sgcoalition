@@ -1394,6 +1394,121 @@ Each group has a section header in the sidebar. The active tab is indicated by a
 - **Customers** — see [Customer Profile](#customer-profile) above; also has its own IG-handle filter chip per [the IG filter section](#admin-instagram-handle-filter-chips).
 - **Verified Buyers** — see [/admin Verified Buyers tab](#admin-verified-buyers-tab) above for the suppression-contract deep dive.
 
+### Product sync workflow (Supabase → constants.ts → GitHub)
+
+The **Sync Code** button on the Products admin tab reconciles `constants.ts` with the current Supabase `products` table and commits the result to `origin/main`. It works in local dev AND in production through the same admin UI.
+
+#### Step-by-step (one button click)
+
+1. Frontend `components/admin/ProductManager.tsx > handleSync` POSTs to `/api/git-operations?action=sync-constants`.
+2. The serverless handler (`api/_handlers/git-operations.ts` on Vercel, `server.cjs` locally) fetches every row from `products` via the Supabase **service-role** client — bypasses RLS.
+3. Each row is mapped to the `Product[]` shape in `types.ts` — camelCased keys, trimmed strings, normalized categories (legacy `"accessories"` → `"accessory"`). Same shape `scripts/syncProducts.ts` produces.
+4. The handler regex-replaces the `export const INITIAL_PRODUCTS: Product[] = [...]` block in `constants.ts` (everything OUTSIDE the block stays untouched).
+5. If the file is unchanged → return `{ noChanges: true, hash: <blob-sha> }`, no commit.
+6. Otherwise PUT the new content via the **GitHub Contents API** — a real commit on `origin/main` with message `Sync products from Supabase`.
+7. Return `{ success: true, hash: <commit-sha> }`. The admin toast shows the hash so the operator can verify on GitHub.
+
+#### Architecture
+
+```
+[admin ProductManager.handleSync]
+    | POST /api/git-operations?action=sync-constants
+    v
+[server.cjs]                                                [api/_handlers/git-operations.ts]
+(local dev, port 4242)                                     (Vercel serverless)
+    |                                                          |
+    |                                                          v shared module
+    +--> services/githubSync.cjs (syncFileOnGitHub) <----------+
+              |
+              +--> fetch products via SUPABASE_SERVICE_ROLE_KEY   (Supabase PostgREST)
+              +--> GET /repos/{owner}/{repo}/contents/constants.ts (GitHub Contents API)
+              +--> apply INITIAL_PRODUCTS regex replace (in-process)
+              +--> PUT constants.ts with prior sha                  (GitHub Contents API -> real commit)
+```
+
+`services/githubSync.cjs` is the shared helper used by both runtimes. Local Express falls back to `fs + gitService.cjs` only when `GITHUB_TOKEN` is unset (fast local loop, no API).
+
+#### Why GitHub Contents API, not `git commit`
+
+Vercel serverless can’t run `git` — no binary, read-only filesystem (only `/tmp` is writable, doesn’t affect deployed repo). The Contents API commits over HTTPS, so it works in any network-capable runtime — Vercel, Render, Fly, Cloudflare Workers, etc.
+
+#### Required env vars (set in BOTH `.env` locally and Vercel dashboard)
+
+| Var | Used by | Purpose |
+|---|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | both | read `products` bypassing RLS |
+| `SUPABASE_URL` (or `VITE_SUPABASE_URL` fallback) | both | the Supabase project URL |
+| `GITHUB_TOKEN` | both | fine-grained PAT with `contents:write` on this repo |
+| `REPO_OWNER` | both | `sgctrustyourself-sys` |
+| `REPO_NAME` | both | `sgcoalition` |
+| `GITHUB_BRANCH` (optional) | both | defaults to `main` |
+
+Mark `SUPABASE_SERVICE_ROLE_KEY` and `GITHUB_TOKEN` as **Sensitive** in Vercel.
+
+#### Branch behavior — what gets committed where
+
+| Runtime | Sync Code hits path | Commits to |
+|---|---|---|
+| Local dev, no `GITHUB_TOKEN` | local `fs` + `gitService.cjs` (real local commit) | local `main`, manual `git push` to publish |
+| Local dev, `GITHUB_TOKEN` set | `services/githubSync.cjs` (Contents API, dev/prod parity) | `GITHUB_BRANCH` (default `main`) |
+| Vercel preview (PR branch) | `services/githubSync.cjs` (Contents API, always) | branch the preview was built from (usually `main`) |
+| Vercel production | `services/githubSync.cjs` (Contents API, always) | `main` (or `GITHUB_BRANCH` override) |
+
+#### Error surface — what the admin toast says
+
+| HTTP | Cause | Toast text |
+|---|---|---|
+| **200** `{success, hash}` | catalog diverged → real commit landed | green: `Sync Complete! ...(hash)` |
+| **200** `{noChanges, hash}` | catalog already in sync | green: `Already up to date - no changes since last sync (HEAD <hash>)` |
+| **500** `{error:"Invalid API key", devOnly:false}` | `SUPABASE_SERVICE_ROLE_KEY` is wrong | operator-fixable: re-paste the `service_role` JWT from Supabase → Settings → API |
+| **502** `{error:"GITHUB_TOKEN is invalid or expired."}` | PAT revoked / wrong scope | re-issue the fine-grained PAT with `contents:write` |
+| **502** `{error:"GitHub repo or file not found..."}` | wrong `REPO_OWNER` / `REPO_NAME` | fix the env vars |
+| **503** `{error:"Sync requires these env vars on this server: GITHUB_TOKEN, ..."}` | one or more GitHub vars missing on Vercel | follow the message — also confirms `contents:write` scope is needed |
+| **413** | `constants.ts` would exceed 1 MB after the replace | trim INITIAL_PRODUCTS before syncing |
+| **422** | GitHub returned an unsupported encoding | structural issue — encoding value echoed in the message |
+| **409** | concurrent edit after a single 409 retry | retry in a few seconds |
+
+#### Local smoke test (Express on port 4242)
+
+```bash
+curl -s -X POST 'http://localhost:4242/api/git-operations?action=sync-constants'   -H 'Content-Type: application/json' -d '{}'
+```
+
+Returns `{ noChanges: true, hash: <git short-sha> }` when nothing has changed in Supabase, or `{ success: true, hash: <git short-sha> }` after a local git commit.
+
+#### Production verification (post-deploy)
+
+```bash
+curl -s -X POST 'https://sgcoalition.xyz/api/git-operations?action=sync-constants'   -H 'Content-Type: application/json' -d '{}'
+```
+
+- `{ noChanges: true, hash: "<40-char SHA>" }` → already in sync; hash is the GitHub blob SHA, not a git commit SHA
+- `{ success: true, hash: "<40-char SHA>" }` → a fresh commit on `origin/main`; verify at https://github.com/sgctrustyourself-sys/sgcoalition/commits/main
+
+#### One-time GitHub PAT provisioning (operator recipe)
+
+1. Open https://github.com/settings/personal-access-tokens/new
+2. Token name: `Coalition Vercel Sync` (or anything memorable)
+3. Resource owner: `sgctrustyourself-sys`
+4. Repository access: **Only select repositories** → choose `sgctrustyourself-sys/sgcoalition`
+5. Permissions → **Repository permissions** → **Contents** → **Read and write**
+6. Click **Generate token** — copy it IMMEDIATELY (GitHub only shows it once)
+7. Paste into Vercel → Settings → Environment Variables as `GITHUB_TOKEN`, mark Sensitive
+
+#### Other git actions on this endpoint stay dev-only
+
+The `commit`, `log`, `branches`, `checkout`, `reset`, `diff`, `status` actions on `/api/git-operations` still 501 on Vercel (no git binary, read-only FS). Only `sync-constants` is wired through the GitHub API path; the others require the local Express server.
+
+#### Where to read it
+
+- Shared helper: `services/githubSync.cjs`
+- Vercel handler: `api/_handlers/git-operations.ts` (`syncConstantsHandler` + the Vercel short-circuit)
+- Local handler: `server.cjs` (`case 'sync-constants'` — local priority when `GITHUB_TOKEN` is not set)
+- Mapper standalone: `scripts/syncProducts.ts` (same mapping logic, runnable as a CLI for one-off dumps; not the runtime path)
+- Product type: `types.ts > Product`
+- Client entrypoint: `components/admin/ProductManager.tsx > handleSync`
+- Sync API client: `services/imgurService.ts > syncProductsToCode`
+
 ### Settings (placeholder)
 
 - **Settings** — placeholder tab in `AdminLayout.tsx > navItems`, currently commented out in the production nav. Reserved for future toggle surfaces (env-var preview, feature flags, rates tables). Surface via `AdminLayout.tsx > navItems` when first wired.
