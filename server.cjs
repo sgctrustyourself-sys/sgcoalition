@@ -147,16 +147,36 @@ app.all('/api/git-operations', async (req, res) => {
                     soldAt: p.sold_at || null,
                 }));
 
-                // Build the replacement INITIAL_PRODUCTS block and diff
-                // against the current file contents. If nothing changed,
-                // skip the write+commit to avoid noise commits.
+                const replacement = `export const INITIAL_PRODUCTS: Product[] = ${JSON.stringify(mappedProducts, null, 2)};`;
+                const replaceRegex = /export const INITIAL_PRODUCTS: Product\[\] = \[[\s\S]*?\];/;
+                const commitMessage = (req.body && req.body.message) || 'Sync products from Supabase';
+
+                // If a GitHub token is configured locally, push through the
+                // Contents API so local and production behave identically —
+                // no "works here, doesn't work there" divergence when iterating
+                // on .env. Falls through to fs+git when no token.
+                if (process.env.GITHUB_TOKEN) {
+                    try {
+                        const { syncFileOnGitHub } = require('./services/githubSync.cjs');
+                        const result = await syncFileOnGitHub(
+                            'constants.ts',
+                            (content) => content.replace(replaceRegex, replacement),
+                            commitMessage
+                        );
+                        return res.status(200).json(result);
+                    } catch (err) {
+                        console.error('[sync-constants:github]', err?.message || err);
+                        return res.status(err?.status || 500).json({
+                            error: err?.message || 'GitHub sync failed',
+                            missing: err?.missing,
+                        });
+                    }
+                }
+
+                // Local fs + git workflow (the original implementation).
                 const constantsPath = path.resolve(__dirname, 'constants.ts');
                 const beforeContent = fs.readFileSync(constantsPath, 'utf8');
-                const replacement = `export const INITIAL_PRODUCTS: Product[] = ${JSON.stringify(mappedProducts, null, 2)};`;
-                const afterContent = beforeContent.replace(
-                    /export const INITIAL_PRODUCTS: Product\[\] = \[[\s\S]*?\];/,
-                    replacement
-                );
+                const afterContent = beforeContent.replace(replaceRegex, replacement);
 
                 if (afterContent === beforeContent) {
                     const head = await gitService.executeGitCommand('git rev-parse --short HEAD');
@@ -164,7 +184,6 @@ app.all('/api/git-operations', async (req, res) => {
                 }
 
                 fs.writeFileSync(constantsPath, afterContent, 'utf8');
-                const commitMessage = (req.body && req.body.message) || 'Sync products from Supabase';
                 const hash = await gitService.createCommit(commitMessage, 'Coalition Admin <admin@coalition.local>');
                 return res.status(200).json({ success: true, hash });
             }

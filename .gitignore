@@ -29,6 +29,7 @@ docs/x-reveal/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.log
 
 # Editor
 .vscode/*

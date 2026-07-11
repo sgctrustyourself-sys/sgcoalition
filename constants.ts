@@ -3,6 +3,38 @@ import { PRODUCT_IMAGE_URLS } from './utils/localImageAssets';
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
+    "id": "prod_1783731174155",
+    "name": "COALITION OVERWHELMINGLY PATIENT HOODIE (Copy)",
+    "price": 100,
+    "images": [
+      "/images/coalition-overwhelmingly-patient-hoodie-front.png",
+      "/images/coalition-overwhelmingly-patient-hoodie-back.png"
+    ],
+    "description": "Pre-order release of the Coalition Overwhelmingly Patient Hoodie at $100. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Free shipping when paired with any other item. Reservations capped at one per size; ships in 4-6 weeks from the close of the pre-order window.",
+    "category": "apparel",
+    "isFeatured": false,
+    "isLimitedEdition": true,
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "2XL"
+    ],
+    "sizeInventory": {
+      "L": 0,
+      "M": 0,
+      "S": 0,
+      "XL": 0,
+      "2XL": 0
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
+  },
+  {
     "id": "e2e-tier-test",
     "name": "Tier Pricing Test",
     "price": 50,
@@ -75,39 +107,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     "soldAt": null
   },
   {
-    "id": "prod_womens_above_as_below_crop_tank",
-    "name": "WOMEN'S COALITION ABOVE AS BELOW CREWNECK CROP TANK",
-    "price": 40,
-    "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HFMfNYr.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EqDgC3h.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png"
-    ],
-    "description": "Women's Above as Below crewneck crop tank in black with front SG artwork, back Above as Below graphic, and red Coalition hem label. $40 separately, or pair it with the contrast shorts as a $75 set.",
-    "category": "shirt",
-    "isFeatured": false,
-    "isLimitedEdition": true,
-    "sizes": [
-      "S",
-      "M",
-      "L",
-      "XL"
-    ],
-    "sizeInventory": {
-      "L": 1,
-      "M": 1,
-      "S": 1,
-      "XL": 1
-    },
-    "nft": null,
-    "archived": false,
-    "archivedAt": null,
-    "releasedAt": null,
-    "soldAt": null
-  },
-  {
     "id": "prod_halo_mini_dress",
     "name": "COALITION HALO MINI DRESS",
     "price": 50,
@@ -142,20 +141,18 @@ export const INITIAL_PRODUCTS: Product[] = [
     "soldAt": null
   },
   {
-    "id": "prod_womens_above_as_below_set",
-    "name": "WOMEN'S COALITION ABOVE AS BELOW SET",
-    "price": 75,
+    "id": "prod_womens_above_as_below_crop_tank",
+    "name": "WOMEN'S COALITION ABOVE AS BELOW CREWNECK CROP TANK",
+    "price": 40,
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HFMfNYr.png",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EqDgC3h.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_juuQ8jz.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXvoGU6.png"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png"
     ],
-    "description": "Women's Above as Below set with the crewneck crop tank and contrast shorts together. Black body, red-and-white Coalition artwork, and matching set styling. $75 as a set, sized S-M-L-XL.",
-    "category": "apparel",
+    "description": "Women's Above as Below crewneck crop tank in black with front SG artwork, back Above as Below graphic, and red Coalition hem label. $40 separately, or pair it with the contrast shorts as a $75 set.",
+    "category": "shirt",
     "isFeatured": false,
     "isLimitedEdition": true,
     "sizes": [
@@ -246,6 +243,41 @@ export const INITIAL_PRODUCTS: Product[] = [
     "soldAt": null
   },
   {
+    "id": "prod_womens_above_as_below_set",
+    "name": "WOMEN'S COALITION ABOVE AS BELOW SET",
+    "price": 75,
+    "images": [
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HFMfNYr.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EqDgC3h.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_juuQ8jz.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXvoGU6.png"
+    ],
+    "description": "Women's Above as Below set with the crewneck crop tank and contrast shorts together. Black body, red-and-white Coalition artwork, and matching set styling. $75 as a set, sized S-M-L-XL.",
+    "category": "apparel",
+    "isFeatured": false,
+    "isLimitedEdition": true,
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL"
+    ],
+    "sizeInventory": {
+      "L": 1,
+      "M": 1,
+      "S": 1,
+      "XL": 1
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
+  },
+  {
     "id": "prod_shorts_above_as_below",
     "name": "COALITION ABOVE AS BELOW SHORTS",
     "price": 75,
@@ -304,36 +336,12 @@ export const INITIAL_PRODUCTS: Product[] = [
     "soldAt": null
   },
   {
-    "id": "Coalition_Above_As_Below_Wallet_1_1",
-    "name": "COALITION ABOVE AS BELOW 1/1 WALLET",
-    "price": 85,
-    "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_9NF3LzM.jpg",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_UoY42bg.jpg"
-    ],
-    "description": "1/1 Above as Below wallet. Hand-finished with the same storm-and-balance motif as the matching Above as Below tee - single piece, one red-and-white Coalition mark, scaled for everyday carry. Once sold, gone forever.",
-    "category": "wallet",
-    "isFeatured": false,
-    "isLimitedEdition": true,
-    "sizes": [
-      "One Size"
-    ],
-    "sizeInventory": {
-      "One Size": 1
-    },
-    "nft": null,
-    "archived": false,
-    "archivedAt": null,
-    "releasedAt": null,
-    "soldAt": null
-  },
-  {
     "id": "prod_hoodie_overwhelmingly_patient",
     "name": "COALITION OVERWHELMINGLY PATIENT HOODIE",
     "price": 100,
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-overwhelmingly-patient-hoodie_1783730387548_kgx42.jpg",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-overwhelmingly-patient-hoodie_1783730393648_pl1c5.jpg"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-overwhelmingly-patient-hoodie_1783731190610_d0syc.jpg",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-overwhelmingly-patient-hoodie_1783731203310_oc89x.jpg"
     ],
     "description": "Pre-order release of the Coalition Overwhelmingly Patient Hoodie at $100. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Free shipping when paired with any other item. Reservations capped at one per size; ships in 4-6 weeks from the close of the pre-order window.",
     "category": "apparel",
@@ -352,6 +360,30 @@ export const INITIAL_PRODUCTS: Product[] = [
       "S": 1,
       "XL": 1,
       "2XL": 1
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
+  },
+  {
+    "id": "Coalition_Above_As_Below_Wallet_1_1",
+    "name": "COALITION ABOVE AS BELOW 1/1 WALLET",
+    "price": 85,
+    "images": [
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_9NF3LzM.jpg",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_UoY42bg.jpg"
+    ],
+    "description": "1/1 Above as Below wallet. Hand-finished with the same storm-and-balance motif as the matching Above as Below tee - single piece, one red-and-white Coalition mark, scaled for everyday carry. Once sold, gone forever.",
+    "category": "wallet",
+    "isFeatured": false,
+    "isLimitedEdition": true,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 1
     },
     "nft": null,
     "archived": false,

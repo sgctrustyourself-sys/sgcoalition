@@ -66,10 +66,6 @@ function getSupabaseAdmin() {
 // cold start on Vercel skips the git binary until needed (and never is,
 // because the devOnly path returns first).
 async function syncConstantsHandler(req: any) {
-    const fs = await import('fs');
-    const pathMod = await import('path');
-    const gitService = await import('../../services/gitService.js');
-
     const supabase = getSupabaseAdmin();
     const { data: dbProducts, error: fetchError } = await supabase
         .from('products')
@@ -101,23 +97,40 @@ async function syncConstantsHandler(req: any) {
         soldAt: p.sold_at || null,
     }));
 
+    const replacement = `export const INITIAL_PRODUCTS: Product[] = ${JSON.stringify(mappedProducts, null, 2)};`;
+    const replaceRegex = /export const INITIAL_PRODUCTS: Product\[\] = \[[\s\S]*?\];/;
+    const commitMessage = (req.body?.message) || 'Sync products from Supabase';
+
+    // Route through the GitHub Contents API when (a) we're on Vercel (no git
+    // binary, read-only FS) or (b) GITHUB_TOKEN is set anywhere. The shared
+    // githubSync.cjs module handles auth, noChanges detection, and the PUT.
+    const useGithub = isVercelRuntime() || Boolean(process.env.GITHUB_TOKEN);
+
+    if (useGithub) {
+        const { syncFileOnGitHub } = await import('../../services/githubSync.cjs');
+        return await syncFileOnGitHub(
+            'constants.ts',
+            (content: string) => content.replace(replaceRegex, replacement),
+            commitMessage
+        );
+    }
+
+    // Local dev without GITHUB_TOKEN: use the fs + git workflow which is
+    // faster and gives the operator a real git history locally.
+    const fs = await import('fs');
+    const pathMod = await import('path');
+    const gitService = await import('../../services/gitService.js');
+
     const constantsPath = pathMod.resolve(process.cwd(), 'constants.ts');
     const beforeContent = fs.readFileSync(constantsPath, 'utf8');
-    const replacement = `export const INITIAL_PRODUCTS: Product[] = ${JSON.stringify(mappedProducts, null, 2)};`;
-    const afterContent = beforeContent.replace(
-        /export const INITIAL_PRODUCTS: Product\[\] = \[[\s\S]*?\];/,
-        replacement
-    );
+    const afterContent = beforeContent.replace(replaceRegex, replacement);
 
     if (afterContent === beforeContent) {
-        // getCommitHistory(1) returns the most-recent commit; its hash is the
-        // current HEAD. Avoids needing a direct executeGitCommand export.
         const recent = await gitService.getCommitHistory(1);
         return { noChanges: true, hash: recent[0]?.hash };
     }
 
     fs.writeFileSync(constantsPath, afterContent, 'utf8');
-    const commitMessage = (req.body?.message) || 'Sync products from Supabase';
     const hash = await gitService.createCommit(commitMessage, 'Coalition Admin <admin@coalition.local>');
     return { success: true, hash };
 }
@@ -143,9 +156,11 @@ export default async function handler(req: any, res: any) {
         return;
     }
 
-    // Short-circuit on Vercel before any gitService calls so we never
-    // trip over "git: command not found" inside the serverless runtime.
-    if (isVercelRuntime()) {
+    // Vercel: only generic git ops (commit / log / branches / etc.) are
+    // dev-only. sync-constants routes through the GitHub Contents API and
+    // actually works on production — it just needs GITHUB_TOKEN / REPO_OWNER
+    // / REPO_NAME env vars.
+    if (isVercelRuntime() && action !== 'sync-constants') {
         const hint = 'Run `npm run dev` locally so Vite proxies /api/* to Express on localhost:4242.';
         res.status(501).json({
             error: `Action "${action}" requires the local dev server. ${hint}`,
@@ -156,12 +171,15 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        // Verify the git repo exists once per request so every action gets a
-        // clean 500 on a misconfigured runtime instead of raw git errors.
-        const { isGitRepository } = await import('../../services/gitService.js');
-        if (!(await isGitRepository())) {
-            res.status(500).json({ error: 'Git repository not initialized' });
-            return;
+        // Skip the local git-repo check for sync-constants on Vercel since
+        // there is no git binary there; the GitHub API does the auth check
+        // upstream.
+        if (action !== 'sync-constants') {
+            const { isGitRepository } = await import('../../services/gitService.js');
+            if (!(await isGitRepository())) {
+                res.status(500).json({ error: 'Git repository not initialized' });
+                return;
+            }
         }
 
         const body = parseBody(req);
