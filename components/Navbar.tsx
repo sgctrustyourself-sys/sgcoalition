@@ -1,18 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ShoppingBag, Menu, X, Shield, Hexagon, User, Heart, Star, ChevronDown } from 'lucide-react';
+import { ShoppingBag, Menu, X, Shield, Hexagon, Star, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { AuthProvider } from '../types';
 import SearchBar from './SearchBar';
-import ProfileModal from './ProfileModal';
-import { getBadgesForWallet } from '../data/badges';
 
 const Navbar = () => {
     const { cart, setCartOpen, user, login, logout, isAdminMode, logoutAdmin, products } = useApp();
     const [isScrolled, setIsScrolled] = useState(false);
     const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isResourcesOpen, setIsResourcesOpen] = useState(false);
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
     const location = useLocation();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -162,12 +159,12 @@ const Navbar = () => {
 
 
                             {user && (
-                                <button
-                                    onClick={() => setIsProfileOpen(true)}
-                                    className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400 hover:text-white hover:text-glow transition-all"
+                                <Link
+                                    to="/profile"
+                                    className={`text-[11px] font-bold uppercase tracking-[0.2em] transition-all ${isActive('/profile') ? 'text-white text-glow underline underline-offset-8 decoration-brand-accent decoration-2' : 'text-gray-400 hover:text-white hover:text-glow'}`}
                                 >
                                     MY PROFILE
-                                </button>
+                                </Link>
                             )}
 
                             {/* Admin Dashboard Link (only show when in admin mode) */}
@@ -335,12 +332,13 @@ const Navbar = () => {
                                         <span className="text-lg font-bold font-mono">{(user.v2Balance || 0).toLocaleString()}</span>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => { setIsProfileOpen(true); setMobileMenuOpen(false); }}
+                                <Link
+                                    to="/profile"
+                                    onClick={closeMobile}
                                     className="block w-full text-center py-3 border border-white/20 text-white font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all"
                                 >
                                     My Profile
-                                </button>
+                                </Link>
                                 <button onClick={() => { logout(); setMobileMenuOpen(false); }} className="w-full py-3 bg-red-900/50 text-red-200 border border-red-500/30 font-bold uppercase tracking-widest hover:bg-red-900 transition-all" title="Logout">
                                     Logout
                                 </button>
@@ -349,15 +347,6 @@ const Navbar = () => {
                     </div>
                 )}
             </nav>
-            <ProfileModal
-                badges={getBadgesForWallet(user?.walletAddress || '')}
-                isOpen={isProfileOpen}
-                onClose={() => setIsProfileOpen(false)}
-                walletAddress={user?.walletAddress || '0x...'}
-                sgCoinBalance={user?.sgCoinBalance || 0}
-                v2Balance={user?.v2Balance || 0}
-                totalMigrated={user?.totalMigrated || 0}
-            />
         </>
     );
 };
