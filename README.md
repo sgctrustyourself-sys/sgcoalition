@@ -489,13 +489,13 @@ The eager `index-*.js` chunk sits at ~696 KB raw / ~196 KB gzipped under the pre
 #### Off-screen overlays now lazy
 
 - `components/CartDrawer` (`App.tsx`): always-mounted, but the chunk only downloads after first paint when the user opens the cart. Pulled out of eager so its own code plus the transitive `framer-motion` internals it imports (`create-projection-node.mjs`, `VisualElementDragControls.mjs`, `animation-state.mjs`, `tslib.es6.mjs`) no longer count against the initial bundle as long as no other eager consumer remains.
-- `components/ProfileModal` (`components/Navbar.tsx`): loaded only on first `isProfileOpen === true` interaction. The emirpical parser confirms `ProfileModal.tsx` (~15.8 KB raw / ~3.3 KB gzipped) is no longer in the eager bucket after the refactor.
+- ~~`components/ProfileModal` (`components/Navbar.tsx`): loaded only on first `isProfileOpen === true` interaction.~~ **Deleted** — `components/ProfileModal.tsx` was removed entirely. The navbar's MY PROFILE button now navigates to `/profile` (the full Profile page with the tab strip), so the trigger that opened the modal is gone. The bundle drop from this entry is the full `~15.8 KB raw / ~3.3 KB gzipped` of the component, not a lazy carve-out.
 
 Both wrappers use `fallback={null}` because the surfaces are off-screen by default; the chunk only enters memory after auth hydration or first click, so the user sees no perceptible delay.
 
 #### Empirical carve-out (post-refactor, July 2026)
 
-Running `node scripts/parseStatsHtml.mjs` against a fresh `vite build --mode analyze` reports the eager chunk dropping from **696 KB to ~678 KB** on-disk. `ProfileModal.tsx` is fully carved out. The three `framer-motion` internals (totaling ~104 KB raw / ~22 KB gzipped) **stay** in the eager chunk because `SignalAlert`, `RewardActivation`, and `components/ui/ToastContainer` still import `framer-motion` synchronously. Tracked as the next-largest lever; lazy-loading those three would drop the eager chunk by another ~22 KB gzipped with no AppContext/Supabase impact (none of them touch auth or realtime state).
+Running `node scripts/parseStatsHtml.mjs` against a fresh `vite build --mode analyze` reports the eager chunk dropping from **696 KB to ~678 KB** on-disk. `ProfileModal.tsx` was later deleted entirely (its trigger in the navbar was removed; MY PROFILE now navigates to `/profile`), so the eager chunk drops an additional `~15.8 KB raw / ~3.3 KB gzipped` of the full component beyond the lazy-carve baseline. The three `framer-motion` internals (totaling ~104 KB raw / ~22 KB gzipped) **stay** in the eager chunk because `SignalAlert`, `RewardActivation`, and `components/ui/ToastContainer` still import `framer-motion` synchronously. Tracked as the next-largest lever; lazy-loading those three would drop the eager chunk by another ~22 KB gzipped with no AppContext/Supabase impact (none of them touch auth or realtime state).
 
 #### Bundle analyzer workflow
 

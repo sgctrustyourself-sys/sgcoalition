@@ -81,7 +81,7 @@ Not blocking. Schedule the vote at least 30 days before Dec 31 to give the commu
 
 `README.md > Bundle analyzer and lazy-loaded chunks` documents the refactor. Today `SignalAlert`, `RewardActivation`, and `components/ui/ToastContainer` still import `framer-motion` synchronously, keeping ~22 KB gzipped in the eager `index-*.js` chunk. None of them touch auth or realtime state, so wrapping each in `React.lazy + <Suspense fallback={null}>` is straightforward.
 
-Expected outcome: drop another ~22 KB gzipped off the eager bucket, the next-largest lever after the ProfileModal/CartDrawer carve-outs this session already shipped.
+Expected outcome: drop another ~22 KB gzipped off the eager bucket, the next-largest lever after the CartDrawer lazy-carve + ProfileModal deletion this session already shipped (ProfileModal was removed entirely, not just lazy-loaded; see README "Bundle analyzer and lazy-loaded chunks").
 
 Verification: re-run `node scripts/parseStatsHtml.mjs` against `npx.cmd vite build --mode analyze` and confirm the lazy chunks land with the expected gzip weights.
 
