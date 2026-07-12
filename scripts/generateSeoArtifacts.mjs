@@ -418,6 +418,7 @@ const buildSitemap = (products) => {
   const staticPages = [
     { loc: '/', priority: '1.0', changefreq: 'weekly' },
     { loc: '/shop', priority: '0.9', changefreq: 'daily' },
+    { loc: '/wallets', priority: '0.6', changefreq: 'monthly' },
     { loc: '/archive', priority: '0.7', changefreq: 'weekly' },
     { loc: '/about', priority: '0.5', changefreq: 'monthly' },
     { loc: '/membership', priority: '0.5', changefreq: 'monthly' },
