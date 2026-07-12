@@ -4,22 +4,17 @@ import { useApp } from '../context/AppContext';
 import { Calendar, Package, Clock, ArrowUpRight } from 'lucide-react';
 import Seo from '../components/Seo';
 import { buildItemListJsonLd } from '../utils/seo';
+import { sortArchivedProducts } from '../utils/archiveSort';
 
 const Archive: React.FC = () => {
     const { products } = useApp();
 
     // Filter for archived products and sort by soldAt (newest first).
-    // Tied dates fall back to alphabetical name order so the display is
-    // deterministic regardless of INITIAL_PRODUCTS array order.
+    // The sort logic lives in utils/archiveSort.ts so it can be unit-tested
+    // without React. Tied dates fall back to alphabetical name order so the
+    // display is deterministic regardless of INITIAL_PRODUCTS array order.
     const archivedProducts = React.useMemo(
-        () => products
-            .filter(p => p.archived)
-            .sort((a, b) => {
-                const dateA = new Date(a.soldAt || a.archivedAt || 0).getTime();
-                const dateB = new Date(b.soldAt || b.archivedAt || 0).getTime();
-                if (dateB !== dateA) return dateB - dateA;
-                return a.name.localeCompare(b.name);
-            }),
+        () => sortArchivedProducts(products.filter(p => p.archived)),
         [products]
     );
     const archiveJsonLd = React.useMemo(
