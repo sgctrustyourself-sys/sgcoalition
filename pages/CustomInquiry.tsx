@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shirt, Scissors, Box, Sparkles, Upload, CheckCircle, AlertCircle, Loader2, ArrowLeft, X, Layers } from 'lucide-react'; // Removed unused icons
+import { Shirt, Scissors, Box, Sparkles, Upload, CheckCircle, AlertCircle, Loader2, ArrowLeft, X, Layers, Wallet } from 'lucide-react'; // Removed unused icons
 import { uploadAllInquiryImages, validateInquiryImage } from '../services/inquiryUpload';
 import { useApp } from '../context/AppContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,7 +11,7 @@ const CustomInquiry = () => {
 
     // Form state
     const [formData, setFormData] = useState({
-        productType: '' as 'apparel-pants' | 'apparel-shirt' | '3d-printed' | 'other' | '',
+        productType: '' as 'apparel-pants' | 'apparel-shirt' | '3d-printed' | 'wallet' | 'other' | '',
         customerName: '',
         customerEmail: '',
         customerPhone: '',
@@ -38,6 +38,10 @@ const CustomInquiry = () => {
             case '3d-printed':
                 setHelperText('Tip: Include dimensions (LxWxH), material preference (PLA, Resin, TPU), and layer height if known.');
                 setPlaceholderText('• Project goal/function\n• Approx dimensions (LxWxH)\n• Material preference (if any)\n• Color requirements\n• Post-processing needs (sanding, painting)\n• Link to 3D model (if available)...');
+                break;
+            case 'wallet':
+                setHelperText('Tip: Pick the leather type, thread color, hardware finish, and any layout (bifold, long, cardholder). 1/1 or numbered runs both welcome.');
+                setPlaceholderText('• Wallet type (bifold, long, cardholder, etc.)\n• Leather type & color preference\n• Thread color\n• Hardware finish (brass, nickel, matte black)\n• Card slots & bill compartment layout\n• Custom stamping / initials\n• 1/1 or numbered run (e.g. 1/4)\n• Inspiration links...');
                 break;
             case 'other':
                 setHelperText('Tip: The more detail, the better. Measurements and usage context help us quote accurately.');
@@ -249,7 +253,7 @@ const CustomInquiry = () => {
                             <h2 className="font-display text-xl font-bold uppercase tracking-tight">Select Category</h2>
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                             <ProductTypeCard
                                 icon={<Scissors className="w-6 h-6" />}
                                 title="Pants"
@@ -267,6 +271,12 @@ const CustomInquiry = () => {
                                 title="3D Print"
                                 selected={formData.productType === '3d-printed'}
                                 onClick={() => setFormData({ ...formData, productType: '3d-printed' })}
+                            />
+                            <ProductTypeCard
+                                icon={<Wallet className="w-6 h-6" />}
+                                title="Wallet"
+                                selected={formData.productType === 'wallet'}
+                                onClick={() => setFormData({ ...formData, productType: 'wallet' })}
                             />
                             <ProductTypeCard
                                 icon={<Layers className="w-6 h-6" />}

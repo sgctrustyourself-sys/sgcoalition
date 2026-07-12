@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ShoppingBag, Menu, X, Shield, Hexagon, Star, ChevronDown } from 'lucide-react';
+import { ShoppingBag, Menu, X, Shield, Hexagon, Star, ChevronDown, Wallet } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { AuthProvider } from '../types';
 import SearchBar from './SearchBar';
@@ -16,12 +16,13 @@ const Navbar = () => {
 
     const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
-    // Wallets dropdown sub-section: category=`wallet` plus any product whose
-    // name contains "wallet" (catches the outlier GreenCamoWallet which is
-    // category=`accessory` despite being shape-wise a wallet). Live items
-    // appear first (sorted by releasedAt desc, null last), then archived
-    // (sorted by soldAt desc, null last), with name as a deterministic
-    // tiebreak.
+    // Wallets dropdown sub-section: show ONLY the one featured live wallet
+    // (Coalition Above as Below 1/1). The full archive + past drops now
+    // live on the dedicated `/wallets` page; a single Explore link in the
+    // dropdown is the one-click path. The full `walletProducts` list is
+    // still computed for the mobile menu (which doesn't gate to a single
+    // item) and as a cheap predicate for the Active pill.
+    const FEATURED_WALLET_ID = 'Coalition_Above_As_Below_Wallet_1_1';
     const walletProducts = useMemo(() => {
         const list = (products || []).filter(
             (p) => p.category === 'wallet' || /wallet/i.test(p.name)
@@ -30,16 +31,15 @@ const Navbar = () => {
             if (!!a.archived !== !!b.archived) return a.archived ? 1 : -1;
             const aDate = a.archived ? (a.soldAt || '') : (a.releasedAt || '');
             const bDate = b.archived ? (b.soldAt || '') : (b.releasedAt || '');
-            // Both dates present: sort desc (newest first). When one or both
-            // are missing (e.g. a never-released coalition piece that ended up
-            // archived via manual override, or `soldAt` was never stamped),
-            // fall through to alphabetical by name as a deterministic
-            // tiebreak so the menu order stays stable across renders.
             if (aDate && bDate && aDate !== bDate) return aDate > bDate ? -1 : 1;
             return a.name.localeCompare(b.name);
         });
         return list;
     }, [products]);
+    const featuredWallet = useMemo(
+        () => (products || []).find((p) => p.id === FEATURED_WALLET_ID),
+        [products]
+    );
 
     // Hoisted close handlers used by every Link inside the Resources
     // dropdown and the mobile hamburger menu. One closure per render
@@ -126,17 +126,16 @@ const Navbar = () => {
                                                         <span className="text-[10px] bg-brand-accent/20 text-brand-accent border border-brand-accent/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-[0.15em]">Active</span>
                                                     )}
                                                 </div>
-                                                {walletProducts.map((w) => (
+                                                {featuredWallet && (
                                                     <Link
-                                                        key={w.id}
-                                                        to={`/product/${w.id}`}
+                                                        to={`/product/${featuredWallet.id}`}
                                                         onClick={closeResources}
                                                         className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-all"
                                                     >
-                                                        <div className={`w-9 h-9 shrink-0 rounded-sm overflow-hidden bg-white/5 border border-white/10 ${w.archived ? 'opacity-50 grayscale' : ''}`}>
-                                                            {w.images && w.images[0] && (
+                                                        <div className="w-9 h-9 shrink-0 rounded-sm overflow-hidden bg-white/5 border border-white/10">
+                                                            {featuredWallet.images && featuredWallet.images[0] && (
                                                                 <img
-                                                                    src={w.images[0]}
+                                                                    src={featuredWallet.images[0]}
                                                                     alt=""
                                                                     className="w-full h-full object-cover"
                                                                     loading="lazy"
@@ -144,11 +143,19 @@ const Navbar = () => {
                                                             )}
                                                         </div>
                                                         <div className="flex flex-col overflow-hidden">
-                                                            <span className={`text-[10px] font-bold uppercase tracking-wider truncate ${w.archived ? 'text-gray-500' : 'text-gray-300'}`}>{w.name}</span>
-                                                            <span className="text-[9px] tracking-wider text-gray-500">{w.archived ? 'SOLD' : `$${w.price}`}</span>
+                                                            <span className="text-[10px] font-bold uppercase tracking-wider truncate text-gray-300">{featuredWallet.name}</span>
+                                                            <span className="text-[9px] tracking-wider text-gray-500">${featuredWallet.price}</span>
                                                         </div>
                                                     </Link>
-                                                ))}
+                                                )}
+                                                <Link
+                                                    to="/wallets"
+                                                    onClick={closeResources}
+                                                    className="flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-brand-accent hover:bg-white/5 transition-all"
+                                                >
+                                                    <Wallet className="w-3.5 h-3.5" />
+                                                    Explore Custom Wallets
+                                                </Link>
                                             </>
                                         )}
                                     </div>
@@ -270,29 +277,34 @@ const Navbar = () => {
                             {isAdminMode && (
                                 <Link to="/brain" className="block text-md font-bold uppercase tracking-widest text-purple-400" onClick={closeMobile}>Coalition Brain</Link>
                             )}
-                            <Link to="/inquire" className="block text-md font-bold uppercase tracking-widest text-gray-400" onClick={closeMobile}>Custom Inquiry</Link>
-                            {walletProducts.length > 0 && (
-                                <>
-                                    <div className="flex items-center justify-between pt-2">
-                                        <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${isWalletFilterActive ? 'text-brand-accent' : 'text-gray-500'}`}>Wallets & Hardware</p>
-                                        {isWalletFilterActive && (
-                                            <span className="text-[10px] bg-brand-accent/20 text-brand-accent border border-brand-accent/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-[0.15em]">Active</span>
-                                        )}
-                                    </div>
-                                    {walletProducts.map((w) => (
-                                        <Link
-                                            key={w.id}
-                                            to={`/product/${w.id}`}
-                                            onClick={closeMobile}
-                                            className={`flex items-center gap-3 text-md font-bold uppercase tracking-widest ${w.archived ? 'text-gray-600' : 'text-gray-300'}`}
-                                        >
-                                            {w.archived && <span className="text-[10px] bg-white/10 text-gray-500 px-2 py-0.5 rounded-sm">SOLD</span>}
-                                            <span className="truncate">{w.name}</span>
-                                            {!w.archived && <span className="text-xs font-mono text-gray-500 ml-auto">${w.price}</span>}
-                                        </Link>
-                                    ))}
-                                </>
-                            )}
+                            <Link to="/inquire" className="block text-md font-bold uppercase tracking-widest text-gray-400" onClick={closeMobile}>Custom Inquiry</Link>                                        {walletProducts.length > 0 && (
+                                                <>
+                                                    <div className="flex items-center justify-between pt-2">
+                                                        <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${isWalletFilterActive ? 'text-brand-accent' : 'text-gray-500'}`}>Wallets & Hardware</p>
+                                                        {isWalletFilterActive && (
+                                                            <span className="text-[10px] bg-brand-accent/20 text-brand-accent border border-brand-accent/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-[0.15em]">Active</span>
+                                                        )}
+                                                    </div>
+                                                    {featuredWallet && (
+                                                        <Link
+                                                            to={`/product/${featuredWallet.id}`}
+                                                            onClick={closeMobile}
+                                                            className="flex items-center gap-3 text-md font-bold uppercase tracking-widest text-gray-300"
+                                                        >
+                                                            <span className="truncate">{featuredWallet.name}</span>
+                                                            <span className="text-xs font-mono text-gray-500 ml-auto">${featuredWallet.price}</span>
+                                                        </Link>
+                                                    )}
+                                                    <Link
+                                                        to="/wallets"
+                                                        onClick={closeMobile}
+                                                        className="flex items-center gap-2 text-md font-bold uppercase tracking-widest text-brand-accent"
+                                                    >
+                                                        <Wallet className="w-4 h-4" />
+                                                        Explore Custom Wallets
+                                                    </Link>
+                                                </>
+                                            )}
                         </div>
 
                         {!user ? (

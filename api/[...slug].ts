@@ -16,10 +16,13 @@ const handlers: Record<string, Loader> = {
     'admin-verify': () => import('./_handlers/admin-verify.js'),
     'ai-chat': () => import('./_handlers/ai-chat.js'),
     'complete-order': () => import('./_handlers/complete-order.js'),
+    'csp-report': () => import('./_handlers/csp-report.js'),
     'create-checkout-session': () => import('./_handlers/create-checkout-session.js'),
     'create-payment-intent': () => import('./_handlers/create-payment-intent.js'),
     'create-subscription-session': () => import('./_handlers/create-subscription-session.js'),
     'git-operations': () => import('./_handlers/git-operations.js'),
+    'marketing-subscribe': () => import('./_handlers/marketing-subscribe.js'),
+    'marketing-stats': () => import('./_handlers/marketing-stats.js'),
     'paypal-order': () => import('./_handlers/paypal-order.js'),
     'place-order-credits': () => import('./_handlers/place-order-credits.js'),
     'send-email': () => import('./_handlers/send-email.js'),
@@ -28,9 +31,6 @@ const handlers: Record<string, Loader> = {
     'update-piece-metadata': () => import('./_handlers/update-piece-metadata.js'),
     'unsubscribe': () => import('./_handlers/unsubscribe.js'),
     'verify-subscription': () => import('./_handlers/verify-subscription.js'),
-    'csp-report': () => import('./_handlers/csp-report.js'),
-    'marketing-subscribe': () => import('./_handlers/marketing-subscribe.js'),
-    'marketing-stats': () => import('./_handlers/marketing-stats.js'),
 };
 
 export default async function handler(req: any, res: any) {

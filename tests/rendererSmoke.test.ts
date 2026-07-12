@@ -14,7 +14,12 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execSync } from 'child_process';
-import { promises as fs } from 'fs';
+// Two `fs` imports: `fs` is the regular (sync + stream) module, `fsPromises`
+// is the async `fs/promises` namespace. The previous version only imported
+// `promises as fs`, which broke `fs.readdirSync` and `fs.createReadStream`
+// (neither exists on the `fs/promises` namespace).
+import fs from 'fs';
+import { promises as fsPromises } from 'fs';
 import path from 'path';
 import { PNG } from 'pngjs';
 
@@ -81,10 +86,17 @@ function hasOrangeBleed(data) {
     return false;
 }
 
+// `beforeAll` cleans the reveal dirs, and `npm run reveal` (the alias) only
+// creates docs/story-reveal/ — the grid-reveal/ and x-reveal/ dirs may not
+// exist yet. Return [] in that case (semantically "0 files in this dir").
+// Note: `fs.readdirSync` does NOT support a `throwIfNoEntry` option (that's
+// only for statSync/lstatSync/rmSync), so we use `existsSync` instead.
 function listPngs(dir) {
+    if (!fs.existsSync(dir)) return [];
     return fs.readdirSync(dir).filter(f => f.endsWith('.png')).sort();
 }
 function listHtml(dir) {
+    if (!fs.existsSync(dir)) return [];
     return fs.readdirSync(dir).filter(f => f.endsWith('.html')).sort();
 }
 
@@ -92,16 +104,16 @@ describe('Coalition Drop Renderer smoke test', () => {
     beforeAll(async () => {
         // Clean output dirs so this run is deterministic.
         await Promise.all([
-            fs.rm(DIRS.story, { recursive: true, force: true }),
-            fs.rm(DIRS.grid,  { recursive: true, force: true }),
-            fs.rm(DIRS.x,     { recursive: true, force: true }),
+            fsPromises.rm(DIRS.story, { recursive: true, force: true }),
+            fsPromises.rm(DIRS.grid,  { recursive: true, force: true }),
+            fsPromises.rm(DIRS.x,     { recursive: true, force: true }),
         ]);
-        await fs.writeFile(SPEC, THROWAWAY_SPEC, 'utf8');
+        await fsPromises.writeFile(SPEC, THROWAWAY_SPEC, 'utf8');
     }, 60_000);
 
     afterAll(async () => {
         // Drop the synthetic spec so dev machines don't accumulate stray files.
-        await fs.rm(SPEC, { force: true });
+        await fsPromises.rm(SPEC, { force: true });
     });
 
     // REGRESSION CATCH:
@@ -120,7 +132,7 @@ describe('Coalition Drop Renderer smoke test', () => {
     // Full coverage: 14 PNGs at correct viewports, 14 matching HTML aids, 0 orange bleed.
     it('3 explicit scripts render exactly 14 PNGs + 14 HTML aids at correct viewports with 0 orange bleed', async () => {
         // Clear the alias-run output before chained-three run.
-        fs.rmSync(DIRS.story, { recursive: true, force: true });
+        await fsPromises.rm(DIRS.story, { recursive: true, force: true });
 
         execSync('npm run story:reveal -- --slug throwaway', { cwd: ROOT, stdio: 'pipe' });
         execSync('npm run grid:reveal -- --slug throwaway',  { cwd: ROOT, stdio: 'pipe' });

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -183,13 +183,32 @@ const unescapeStringLiteral = (value = '') =>
     .replace(/\\n/g, ' ')
     .replace(/\\u2014/g, '-');
 
-const readStringField = (block, field) => {
-  const match = block.match(new RegExp(`${field}\\s*:\\s*(['"\`])([\\s\\S]*?)\\1`));
+// Field names in constants.ts may be either unquoted (`id:`) or quoted (`"id":`).
+// We accept either form. Using `String.raw` avoids the template-literal escape
+// trap where `\b` would become an ASCII backspace (0x08) instead of a regex
+// word boundary — with `String.raw`, `\b` stays as the two characters `\` + `b`,
+// which `new RegExp` interprets as a word boundary. The `\b` word boundaries
+// prevent `id` from matching inside `tokenId` and `archived` from matching
+// inside `archivedAt`.
+// Field-name extractors below use `String.raw` so that `\b` and `\s` stay as
+// the two-character regex escapes (word boundary / whitespace) — in a normal
+// template literal, `\b` would become an ASCII backspace (0x08) and `\s` would
+// collapse to a bare `s`, silently breaking the regex. The character class
+// `['"]` deliberately omits the backtick so the whole pattern fits in one
+// `String.raw` template (a backtick inside the class would terminate it).
+// constants.ts only uses double-quoted string values, so the backtick case
+// is unreachable.
+export const readStringField = (block, field) => {
+  const match = block.match(
+    new RegExp(String.raw`['"]?\b${field}\b['"]?\s*:\s*(['"])([\s\S]*?)\1`)
+  );
   return match ? unescapeStringLiteral(match[2]) : '';
 };
 
-const readNumberField = (block, field) => {
-  const match = block.match(new RegExp(`${field}\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)`));
+export const readNumberField = (block, field) => {
+  const match = block.match(
+    new RegExp(String.raw`['"]?\b${field}\b['"]?\s*:\s*([0-9]+(?:\.[0-9]+)?)`)
+  );
   return match ? Number(match[1]) : 0;
 };
 
@@ -213,7 +232,9 @@ const parseImageCatalog = () => {
 };
 
 const readImageList = (block, imageCatalog) => {
-  const imageStart = block.indexOf('images:');
+  // Field names may be either unquoted (`images:`) or quoted (`"images":`)
+  // in constants.ts, so use a regex that accepts either form.
+  const imageStart = block.search(/['"]?images['"]?\s*:/);
   if (imageStart < 0) return [DEFAULT_IMAGE];
 
   const arrayStart = block.indexOf('[', imageStart);
@@ -240,7 +261,7 @@ const readImageList = (block, imageCatalog) => {
   return images.length > 0 ? images : [DEFAULT_IMAGE];
 };
 
-const parseProducts = () => {
+export const parseProducts = () => {
   const constantsSource = readFile('constants.ts');
   const imageCatalog = parseImageCatalog();
   const productsStart = constantsSource.indexOf('export const INITIAL_PRODUCTS');
@@ -264,9 +285,9 @@ const parseProducts = () => {
       category: readStringField(block, 'category'),
       price: readNumberField(block, 'price'),
       images: readImageList(block, imageCatalog),
-      archived: /archived\s*:\s*true/.test(block),
+      archived: /['"]?\barchived\b['"]?\s*:\s*true/.test(block),
       soldAt: readStringField(block, 'soldAt'),
-      isLimitedEdition: /isLimitedEdition\s*:\s*true/.test(block),
+      isLimitedEdition: /['"]?\bisLimitedEdition\b['"]?\s*:\s*true/.test(block),
     }))
     .filter((product) => product.id && product.name);
 };
@@ -412,12 +433,7 @@ const buildSitemap = (products) => {
 
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
     .map(
-      (entry) => `  <url>
-    <loc>${absoluteUrl(entry.loc)}</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>${entry.changefreq}</changefreq>
-    <priority>${entry.priority}</priority>
-  </url>`
+      (entry) => `  <url>\n    <loc>${absoluteUrl(entry.loc)}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${entry.changefreq}</changefreq>\n    <priority>${entry.priority}</priority>\n  </url>`
     )
     .join('\n')}\n</urlset>\n`;
 };
@@ -486,4 +502,11 @@ const main = () => {
   console.log(`[seo] Generated sitemap, robots, and ${products.length + 2} static preview pages.`);
 };
 
-main();
+// Only run `main()` when this module is executed directly (e.g. `node scripts/generateSeoArtifacts.mjs`),
+// not when it's imported by the regression test suite. This guard lets the test file import the parser
+// functions without triggering a full sitemap rebuild. We use `pathToFileURL` for cross-platform safety:
+// on Windows, `process.argv[1]` uses backslashes (`C:\Users\...`), so a naive `file://${process.argv[1]}`
+// string would not match the `file:///C:/Users/...` form of `import.meta.url`.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
