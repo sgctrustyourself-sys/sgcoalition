@@ -660,6 +660,42 @@ export const INITIAL_PRODUCTS: Product[] = [
     releasedAt: null,
     soldAt: "2024-11-08T19:00:00-04:00",
   },
+    // ========================================
+    // COALITION CUSTOM UNITY NO. 4 POLO
+    // ========================================
+    // 1/1 custom build on an authentic Ralph Lauren polo base. Hand-finished
+    // with the Coalition Unity mark. Sourcing $180, retail $400 (2.2x markup
+    // is intentional for custom 1/1 work). One unit in size M only; the
+    // other sizes render in the selector but show as sold out.
+    {
+        id: "prod_unity_polo",
+        name: "Coalition Custom Unity No. 4 Polo",
+        price: 400,
+        images: [
+            "https://i.imgur.com/EIwJZlG.jpeg",
+            "https://i.imgur.com/Cyyojl8.jpeg",
+        ],
+        description:
+            "Custom Coalition 'Unity No. 4' polo built on an authentic Ralph Lauren base. Hand-finished with the Coalition Unity mark, blending heritage prep with streetwear attitude. One-of-one piece in the Unity series — once sold, it's gone forever. Sized xs through xxl.",
+        category: "shirt",
+        gender: "unisex",
+        isFeatured: false,
+        isLimitedEdition: true,
+        sizes: ["xs", "s", "m", "l", "xl", "xxl"],
+        sizeInventory: {
+            xs: 0,
+            s: 0,
+            m: 1,
+            l: 0,
+            xl: 0,
+            xxl: 0,
+        },
+        nft: null,
+        archived: false,
+        archivedAt: null,
+        releasedAt: null,
+        soldAt: null,
+    },
     // TODO: upload real image to Supabase/Imgur - currently using chromeHeartsWallet
     // image as placeholder (same as the 4 Racing Team wallets and Denim Patchwork).
     {
@@ -738,6 +774,12 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
   },
   Coalition_Denim_Patchwork_S1: {
     archiveNote: "1/1 denim patchwork jeans. Sold via the @friiqy relationship in November 2024.",
+  },
+  // Unity No. 4 Polo: founder note surfaces on the PDP below the buy button.
+  // Keep this buyer-facing — sourcing + markup math is operator-only and
+  // lives in a code comment, not in the public copy.
+  prod_unity_polo: {
+    founderNote: "Built on an authentic Ralph Lauren polo and hand-finished with the Unity No. 4 mark. Heritage prep meets Coalition attitude — one of one, in the Unity series, gone the moment it sells.",
   },
 };
 
