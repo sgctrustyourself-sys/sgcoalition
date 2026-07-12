@@ -31,11 +31,8 @@ const SGCoalitionPortal = () => {
                     </Link>
                     <div className="flex items-center gap-10 text-[10px] uppercase tracking-[0.4em] font-bold">
                         <Link to="/sgminiwizards" className="text-gray-400 hover:text-purple-400 transition-colors">Wizards</Link>
-                        <Link to="/migrate" className="text-orange-500 hover:text-orange-400 transition-colors flex items-center gap-2">
-                            <span className="relative">
-                                Migration
-                                <span className="absolute -top-1 -right-4 w-1 h-1 bg-orange-500 rounded-full animate-ping" />
-                            </span>
+                        <Link to="/migrate" className="text-orange-500 hover:text-orange-400 transition-colors">
+                            Migration
                         </Link>
                         <a href="https://shop.sgcoalition.xyz" className="bg-white text-black px-6 py-2.5 rounded-full hover:bg-orange-500 hover:text-white transition-all transform hover:scale-105 active:scale-95 shadow-lg font-black tracking-widest">Shop Drops</a>
                     </div>

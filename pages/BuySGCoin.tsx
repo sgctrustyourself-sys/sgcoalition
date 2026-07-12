@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Wallet, Mail, DollarSign, CheckCircle, Zap, ArrowUpRight, Sparkles, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Wallet, Mail, DollarSign, CheckCircle, Zap, ArrowUpRight, TrendingUp } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import { sendAdminNotification } from '../services/emailService';
@@ -172,19 +172,22 @@ const BuySGCoin = () => {
         return (
             <div className="min-h-screen bg-[#050505] text-white pt-24 pb-16 px-4">
                 <div className="max-w-2xl mx-auto">
+                    {/* Success celebration — Lever 3-style neutral archival.
+                            The brand voice is "payment received", not green spotlight.
+                            No gradient, no brand-color CheckCircle, no exclamation. */}
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-gradient-to-br from-green-900/20 to-green-800/20 border border-green-500/30 rounded-3xl p-12 text-center backdrop-blur-xl"
+                        className="border border-white/10 bg-white/[0.03] rounded-3xl p-12 text-center backdrop-blur-xl"
                     >
                         <motion.div
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
                             transition={{ delay: 0.2, type: "spring" }}
                         >
-                            <CheckCircle className="w-24 h-24 text-green-500 mx-auto mb-6" />
+                            <CheckCircle className="w-24 h-24 text-gray-300 mx-auto mb-6" />
                         </motion.div>
-                        <h1 className="font-display text-5xl font-black uppercase mb-4">Payment Received!</h1>
+                        <h1 className="font-display text-5xl font-black uppercase mb-4">Payment received</h1>
                         <p className="text-gray-300 text-lg mb-8">
                             Your SGCOIN purchase has been confirmed
                         </p>
@@ -198,12 +201,11 @@ const BuySGCoin = () => {
                                 <span className="text-gray-400">SGCOIN (Base)</span>
                                 <span className="text-xl font-bold">{sgcoinAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                             </div>
-                            <div className="flex justify-between items-center pb-4 border-b border-green-500/20">
-                                <span className="text-green-400 flex items-center gap-2">
-                                    <Sparkles className="w-4 h-4" />
-                                    10% Bonus
+                            <div className="flex justify-between items-center pb-4 border-b border-white/10">
+                                <span className="text-gray-300 flex items-center gap-2">
+                                    10% bonus
                                 </span>
-                                <span className="text-xl font-bold text-green-400">+{bonusAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                                <span className="text-xl font-bold text-white">+{bonusAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                             </div>
                             <div className="flex justify-between items-center pt-2">
                                 <span className="text-white font-bold text-lg">Total SGCOIN</span>
@@ -277,13 +279,13 @@ const BuySGCoin = () => {
                         animate={{ opacity: 1, y: 0 }}
                         className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-green-500/20 bg-green-500/10 text-green-400 text-[10px] mb-6 uppercase tracking-[0.3em] font-bold"
                     >
-                        <Sparkles className="w-3 h-3" /> +10% Bonus on Direct Purchases
+                        +10% bonus added at checkout
                     </motion.div>
                     <h1 className="font-display text-6xl md:text-7xl font-black uppercase mb-4">
                         Buy <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-blue-400 to-purple-500">SGCOIN V2</span>
                     </h1>
                     <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-                        Purchase SGCOIN directly and receive <span className="text-green-400 font-bold">10% more coins</span> than swapping. Delivered to your wallet within 24 hours.
+                        Purchase SGCOIN directly and receive <span className="text-white font-bold">10% more coins</span> than swapping. Delivered to your wallet within 24 hours.
                     </p>
                 </div>
 
@@ -389,12 +391,11 @@ const BuySGCoin = () => {
                                 <span className="text-gray-400 text-sm">Base Amount</span>
                                 <span className="text-2xl font-bold">{sgcoinAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                             </div>
-                            <div className="flex justify-between items-center pb-4 border-b border-green-500/20">
-                                <span className="text-green-400 text-sm flex items-center gap-2">
-                                    <Sparkles className="w-4 h-4" />
-                                    10% Bonus
+                            <div className="flex justify-between items-center pb-4 border-b border-white/10">
+                                <span className="text-gray-300 text-sm">
+                                    10% bonus
                                 </span>
-                                <span className="text-2xl font-bold text-green-400">+{bonusAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                                <span className="text-2xl font-bold text-white">+{bonusAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                             </div>
                             <div className="flex justify-between items-center pt-2">
                                 <span className="text-white font-bold">Total SGCOIN</span>

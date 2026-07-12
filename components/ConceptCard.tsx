@@ -38,12 +38,12 @@ const ConceptCard: React.FC<ConceptProps> = ({ title, description, votes: initia
                     onClick={handleVote}
                     disabled={hasVoted}
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${hasVoted
-                        ? 'bg-green-500/10 border-green-500/20 text-green-400 cursor-default'
+                        ? 'bg-white/10 border-white/20 text-white cursor-default'
                         : 'bg-white/5 border-white/10 hover:bg-white/10 text-gray-300 hover:text-white'
                         }`}
                 >
                     <span className="text-[10px] font-bold uppercase tracking-widest">
-                        {hasVoted ? 'Signal Received' : 'Upvote Concept'}
+                        {hasVoted ? 'Voted' : 'Upvote concept'}
                     </span>
                     <div className="flex items-center gap-2 font-mono font-bold">
                         <ThumbsUp className={`w-3.5 h-3.5 ${hasVoted ? 'fill-current' : ''}`} />

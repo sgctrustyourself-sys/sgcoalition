@@ -1,3 +1,15 @@
+/**
+ * @deprecated Removed from the cart drawer as part of the "Peaceful
+ * Space" wedge. The "X away from free shipping!" progress bar + the
+ * celebratory "You've earned FREE shipping!" banner both gamify the cart
+ * with manufactured urgency. Free-shipping policy is stated as a fact
+ * elsewhere (PDP footer, cart total panel, About page) — the progress
+ * meter was the noisy part.
+ *
+ * Keep this file as a reference for what NOT to bring back. If you need
+ * a shipping-status indicator, render the threshold as plain copy, not
+ * a fillable meter.
+ */
 import React, { useEffect, useState } from 'react';
 import { Truck, TrendingUp, Sparkles } from 'lucide-react';
 import { getNextShippingThreshold } from '../../utils/upsellUtils';

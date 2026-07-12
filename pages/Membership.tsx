@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, CreditCard, ShoppingBag, Check, Star, Zap, X, Loader, Sparkles as SparklesIcon, Ticket } from 'lucide-react';
+import { Shield, CreditCard, ShoppingBag, Check, Star, Zap, X, Loader, Ticket } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 

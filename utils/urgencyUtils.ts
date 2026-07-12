@@ -1,7 +1,12 @@
-import { Product, Order } from '../types';
+import { Product } from '../types';
 
 /**
- * Calculate urgency level based on stock
+ * Calculate urgency level based on stock.
+ *
+ * Survives the "Peaceful Space" wedge because it drives the
+ * "low-stock" branch of <UrgencyBadge>. The label the badge renders
+ * (X remaining) is now neutral — no red, no pulse — but the underlying
+ * "this is a low-stock item" decision still needs the threshold.
  */
 export const getStockUrgency = (product: Product): 'critical' | 'low' | 'normal' => {
     const totalStock = product.sizeInventory
@@ -14,102 +19,15 @@ export const getStockUrgency = (product: Product): 'critical' | 'low' | 'normal'
 };
 
 /**
- * Get stock count for display
+ * Get stock count for display.
+ *
+ * Feeds the "X remaining" label on <UrgencyBadge type="low-stock">.
+ * Sum of sizeInventory, defaulting to 100 (effectively "plenty left")
+ * when no inventory tracking is configured.
  */
 export const getStockCount = (product: Product): number => {
     if (!product.sizeInventory) return 100;
     return Object.values(product.sizeInventory).reduce((sum, count) => sum + count, 0);
-};
-
-/**
- * Generate realistic view count (simulated social proof)
- */
-export const generateViewCount = (product: Product): number => {
-    const baseViews = Math.floor(Math.random() * 10) + 5; // 5-15
-    let bonus = 0;
-
-    // Featured products get more views
-    if (product.isFeatured) {
-        bonus += Math.floor(Math.random() * 10) + 5; // +5-15
-    }
-
-    // Low stock creates urgency, more views
-    const urgency = getStockUrgency(product);
-    if (urgency === 'critical') {
-        bonus += Math.floor(Math.random() * 8) + 3; // +3-11
-    } else if (urgency === 'low') {
-        bonus += Math.floor(Math.random() * 5) + 2; // +2-7
-    }
-
-    // Higher priced items tend to have fewer but more serious viewers
-    if (product.price > 100) {
-        return Math.max(3, Math.floor((baseViews + bonus) * 0.6));
-    }
-
-    return baseViews + bonus;
-};
-
-/**
- * Calculate how many units sold in last 24 hours
- */
-export const getRecentSales = (productId: string, orders: Order[]): number => {
-    const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
-
-    return orders
-        .filter(order => new Date(order.createdAt).getTime() > twentyFourHoursAgo)
-        .reduce((total, order) => {
-            const productItems = order.items.filter(item => item.productId === productId);
-            return total + productItems.reduce((sum, item) => sum + item.quantity, 0);
-        }, 0);
-};
-
-/**
- * Check if product has active flash sale
- */
-export const hasActiveFlashSale = (product: Product): boolean => {
-    if (!product.saleEndDate) return false;
-    return new Date(product.saleEndDate).getTime() > Date.now();
-};
-
-/**
- * Get time remaining for flash sale
- */
-export const getTimeRemaining = (endDate: string): {
-    days: number;
-    hours: number;
-    minutes: number;
-    seconds: number;
-    total: number;
-} => {
-    const total = new Date(endDate).getTime() - Date.now();
-
-    if (total <= 0) {
-        return { days: 0, hours: 0, minutes: 0, seconds: 0, total: 0 };
-    }
-
-    const seconds = Math.floor((total / 1000) % 60);
-    const minutes = Math.floor((total / 1000 / 60) % 60);
-    const hours = Math.floor((total / (1000 * 60 * 60)) % 24);
-    const days = Math.floor(total / (1000 * 60 * 60 * 24));
-
-    return { days, hours, minutes, seconds, total };
-};
-
-/**
- * Format time remaining as string
- */
-export const formatTimeRemaining = (endDate: string): string => {
-    const { days, hours, minutes, seconds } = getTimeRemaining(endDate);
-
-    if (days > 0) {
-        return `${days}d ${hours}h ${minutes}m`;
-    } else if (hours > 0) {
-        return `${hours}h ${minutes}m ${seconds}s`;
-    } else if (minutes > 0) {
-        return `${minutes}m ${seconds}s`;
-    } else {
-        return `${seconds}s`;
-    }
 };
 
 /**
@@ -139,3 +57,24 @@ export const getMintFraction = (product: Product): { remaining: number; cap: num
 
     return { remaining, cap };
 };
+
+// =====================================================================
+// FOMO machinery removed as part of the "Peaceful Space" wedge.
+//
+//   generateViewCount  : simulated "X viewing now" social proof, no
+//                        real basis. Card overlay no longer renders it.
+//   getRecentSales     : "X sold today" / "sold-recently" badge feed.
+//   hasActiveFlashSale : "Flash Sale" badge trigger.
+//   getTimeRemaining   : per-second countdown that fed the deleted
+//                        components/ui/CountdownTimer.tsx and the
+//                        deleted components/PromoBar.tsx.
+//   formatTimeRemaining: formatter for the per-second countdown.
+//
+// All five existed to manufacture urgency. The card, the PDP, the
+// announcement bar, and the cart drawer no longer reference any of
+// them. The Order type import is no longer needed either; it was only
+// referenced by getRecentSales. If a real viewer-count or recent-sales
+// signal is wired in later, it should come from a server-side metric
+// (e.g. last-hour product_detail views, last-24h paid orders from
+// analytics), not client-side random math.
+// =====================================================================

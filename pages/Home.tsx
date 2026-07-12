@@ -163,7 +163,12 @@ const Home = () => {
                     <section className="py-24 px-4 max-w-7xl mx-auto">
                         <div className="grid md:grid-cols-2 gap-16 items-center">
                             <div className="order-2 md:order-1">
-                                <span className="text-brand-accent font-bold tracking-[0.2em] text-xs uppercase mb-4 block animate-pulse">{section.title}</span>
+                                {/* animate-pulse removed as part of the Peaceful Space
+                                    wedge — the pulsing eyebrow was the same anxiety register
+                                    as the old urgency badges. The eyebrow still reads as
+                                    deliberate (brand-accent color, tracking-wide uppercase)
+                                    without the pulse. */}
+                                <span className="text-brand-accent font-bold tracking-[0.2em] text-xs uppercase mb-4 block">{section.title}</span>
                                 <h2 className="font-display text-5xl font-bold mb-6 text-white uppercase tracking-wide">{featured.name}</h2>
                                 <p className="text-gray-400 mb-8 leading-relaxed text-lg font-light">
                                     {featured.description}

@@ -1,3 +1,14 @@
+/**
+ * @deprecated Removed from the cart drawer as part of the "Peaceful
+ * Space" wedge. The generic "You may also like" + "Reach free shipping"
+ * upsell pattern fights the founder-voice / intentionality brand. The
+ * contextual Above-as-Below set bonus now lives inline in CartDrawer.
+ *
+ * Keep this file as a reference for what NOT to bring back. If you need
+ * genuine cross-sell copy (e.g., a build-pair suggestion that is
+ * product-aware, not algorithmic), write a new component from scratch
+ * with the same provenance-first framing.
+ */
 import React from 'react';
 import { CartItem, Product } from '../types';
 import { useApp } from '../context/AppContext';

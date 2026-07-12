@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext';
 import { Product } from '../types';
 import PriceDisplay from './PriceDisplay';
 import UrgencyBadge from './ui/UrgencyBadge';
-import { getStockUrgency, getStockCount, generateViewCount, getMintFraction } from '../utils/urgencyUtils';
+import { getStockUrgency, getStockCount, getMintFraction } from '../utils/urgencyUtils';
 import RequestSimilarModal from './RequestSimilarModal';
 
 const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
@@ -27,7 +27,6 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     const stockUrgency = getStockUrgency(product);
     const stockCount = getStockCount(product);
     const mintFraction = getMintFraction(product);
-    const viewCount = generateViewCount(product);
     const showLowStock = stockUrgency !== 'normal' && !product.archived;
 
     const cardLink = `/product/${product.id}`;
@@ -55,7 +54,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
                     {isSold && (
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
                             <span className="bg-black border border-white/30 text-white text-[10px] font-bold px-4 py-1.5 uppercase tracking-widest">
-                                SOLD
+                                Claimed
                             </span>
                         </div>
                     )}

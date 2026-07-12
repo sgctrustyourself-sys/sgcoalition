@@ -16,6 +16,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "generate:seo": "node scripts/generateSeoArtifacts.mjs",
+    "audit:chrome": "tsx scripts/audit-urgency-chrome.ts",
     "bootstrap:brain": "node scripts/seedBrain.cjs",
     "story:reveal": "npx tsx scripts/render-story.ts --format story",
     "grid:reveal": "npx tsx scripts/render-story.ts --format grid",

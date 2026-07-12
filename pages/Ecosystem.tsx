@@ -117,7 +117,7 @@ const Ecosystem = () => {
                                     className="relative group px-14 py-6 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black uppercase tracking-widest text-xs flex items-center gap-3 rounded-full shadow-[0_0_30px_rgba(147,51,234,0.3)] hover:shadow-[0_0_50px_rgba(147,51,234,0.5)] transition-all overflow-hidden"
                                 >
                                     <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-                                    <Sparkles size={16} className="animate-pulse" />
+                                    <Sparkles size={16} />
                                     Wizard Dashboard
                                 </motion.button>
                             </Link>
@@ -318,7 +318,7 @@ const Ecosystem = () => {
                                 <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-purple-600 rounded-[2.5rem] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
                                 <div className="relative bg-black rounded-[2.5rem] border border-white/10 p-10 overflow-hidden font-bold">
                                     <div className="flex items-center justify-between mb-10">
-                                        <div className="bg-orange-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse">
+                                        <div className="bg-white/10 border border-white/10 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-gray-300">
                                             In Transit
                                         </div>
                                         <Gift className="text-white/20 w-8 h-8" />

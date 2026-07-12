@@ -606,11 +606,10 @@ const Checkout: React.FC = () => {
                             <div>
                                 <h3 className="font-bold mb-2 text-white uppercase text-sm tracking-wide">Referral / Coupon Code</h3>
                                 {appliedCoupon ? (
-                                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                                    <div className="bg-white/[0.03] border border-white/10 rounded-lg p-4">
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
-                                                <Sparkles className="w-4 h-4 text-green-400" />
-                                                <span className="text-green-400 font-bold text-sm">Code Applied: {appliedCoupon}</span>
+                                                <span className="text-gray-300 font-bold text-sm">Code Applied: {appliedCoupon}</span>
                                             </div>
                                             <button
                                                 onClick={handleRemoveCoupon}
@@ -677,7 +676,7 @@ const Checkout: React.FC = () => {
                                             <p className="text-sm text-gray-400">Available balance: ${availableCredit.toFixed(2)}</p>
                                         </div>
                                     </div>
-                                    <span className="text-green-400 font-bold">
+                                    <span className="text-gray-300 font-bold">
                                         -${Math.min(availableCredit, total + shippingCost).toFixed(2)}
                                     </span>
                                 </label>
@@ -690,7 +689,7 @@ const Checkout: React.FC = () => {
                             <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 {paymentAvailability.map((label) => (
                                     <div key={label} className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-xs text-gray-300">
-                                        <Check className="h-3.5 w-3.5 flex-shrink-0 text-green-400" />
+                                        <Check className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
                                         <span>{label}</span>
                                     </div>
                                 ))}
@@ -698,8 +697,8 @@ const Checkout: React.FC = () => {
 
                             {requiresNoExternalPayment ? (
                                 <div className="text-center py-6">
-                                    <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/20 rounded-full mb-4">
-                                        <Check className="w-8 h-8 text-green-400" />
+                                    <div className="inline-flex items-center justify-center w-16 h-16 bg-white/5 rounded-full mb-4">
+                                        <Check className="w-8 h-8 text-gray-300" />
                                     </div>
                                     <h4 className="text-white font-bold text-lg mb-2">Paid with Store Credit</h4>
                                     <p className="text-gray-400 text-sm mb-6">No additional payment required.</p>
@@ -716,11 +715,10 @@ const Checkout: React.FC = () => {
                                     <div className="space-y-3 mb-6">
                                         {/* PayPal / Card / Apple Pay Option - PRIMARY */}
                                         <label className={`flex items-center justify-between p-5 rounded-xl border-2 cursor-pointer transition group relative overflow-hidden ${paymentMethod === 'paypal' ? 'bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-purple-500 shadow-lg shadow-purple-500/20' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30'}`}>
-                                            {paymentMethod === 'paypal' && (
-                                                <div className="absolute top-2 right-2">
-                                                    <span className="text-[9px] bg-green-500 text-white px-2 py-0.5 rounded-full font-black tracking-wider">RECOMMENDED</span>
-                                                </div>
-                                            )}
+                                            {/* The "RECOMMENDED" badge was an aggressive upsell
+                                                signal ("we picked this for you") — removed as
+                                                part of the Peaceful Space wedge. The buyer
+                                                picks; the storefront presents the options. */}
                                             <div className="flex items-center gap-4">
                                                 <input
                                                     type="radio"
@@ -773,7 +771,7 @@ const Checkout: React.FC = () => {
                                                 <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-500">Review Before Payment</p>
                                                 <p className="mt-1 text-sm text-gray-300">These details are shown before the final payment step.</p>
                                             </div>
-                                            <ShieldCheck className="h-5 w-5 flex-shrink-0 text-green-400" />
+                                            <ShieldCheck className="h-5 w-5 flex-shrink-0 text-gray-400" />
                                         </div>
                                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                             <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
@@ -798,11 +796,10 @@ const Checkout: React.FC = () => {
                                     {/* PayPal Payment */}
                                     {paymentMethod === 'paypal' && (
                                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                            <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30 p-4 rounded-lg">
+                                            <div className="bg-white/[0.03] border border-white/10 p-4 rounded-lg">
                                                 <div className="flex items-start gap-3">
-                                                    <Sparkles className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" />
                                                     <div>
-                                                        <h4 className="font-bold text-purple-400 text-sm uppercase tracking-wide mb-1">Fast & Secure Checkout</h4>
+                                                        <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wide mb-1">Checkout</h4>
                                                         <p className="text-sm text-gray-300">
                                                             Pay with <span className="text-white font-bold">PayPal, Apple Pay, or Card</span>. PayPal shows the available wallet and card options for your device before any capture.
                                                         </p>
@@ -954,13 +951,12 @@ const Checkout: React.FC = () => {
                                     {/* Crypto Payment */}
                                     {paymentMethod === 'crypto' && (
                                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                            <div className="bg-blue-500/10 border border-blue-500/30 p-4 rounded-lg">
+                                            <div className="bg-white/[0.03] border border-white/10 p-4 rounded-lg">
                                                 <div className="flex items-start gap-3">
-                                                    <Sparkles className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                                                     <div>
-                                                        <h4 className="font-bold text-blue-400 text-sm uppercase tracking-wide mb-1">Pay with Crypto & Save</h4>
+                                                        <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wide mb-1">Pay with Crypto</h4>
                                                         <p className="text-sm text-gray-300">
-                                                            Pay with USDC on Polygon network and get <span className="text-white font-bold">{getDiscountPercentageText()} off</span> your order!
+                                                            USDC on Polygon network. {getDiscountPercentageText()} off the order total.
                                                         </p>
                                                     </div>
                                                 </div>
@@ -1016,17 +1012,19 @@ const Checkout: React.FC = () => {
                             </div>
 
                             <div className="space-y-3 pt-6 border-t border-white/10 text-sm">
+                                {/* Set bonus surfaced as a quiet archival fact, not a
+                                    green celebration. Mirrors the CartDrawer + Cart.tsx
+                                    treatment so all three cart surfaces use the same
+                                    founder-voice register. The -$X amount is in the
+                                    total breakdown line below. */}
                                 {cartBonusCents > 0 && (
-                                    <div className="rounded-lg bg-green-500/10 border border-green-500/30 p-3 flex items-start gap-2 animate-in fade-in slide-in-from-bottom-2">
-                                        <Sparkles className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                                        <div className="flex-1">
-                                            <p className="text-xs font-bold text-green-300 uppercase tracking-wide">
-                                                Above as Below set bonus auto-applied
-                                            </p>
-                                            <p className="mt-1 text-xs text-green-200/80 leading-relaxed">
-                                                Tee + shorts matched — $30 set bonus auto-applied to your cart.
-                                            </p>
-                                        </div>
+                                    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
+                                            Set bonus applied
+                                        </p>
+                                        <p className="mt-1 text-xs text-gray-300 leading-relaxed">
+                                            ${cartBonusDollars.toFixed(2)} off the pair — the tee and shorts were built as a set.
+                                        </p>
                                     </div>
                                 )}
                                 <div className="flex justify-between text-gray-400">
@@ -1038,26 +1036,23 @@ const Checkout: React.FC = () => {
                                     <span>{shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`}</span>
                                 </div>
                                 {showPairAnotherItemHint && (
-                                    <div className="rounded-lg bg-orange-500/10 border border-orange-500/30 p-3 flex items-start gap-2 animate-in fade-in slide-in-from-bottom-2">
-                                        <Sparkles className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
-                                        <div className="flex-1">
-                                            <p className="text-xs font-bold text-orange-300 uppercase tracking-wide">
-                                                Add another item to ship free
-                                            </p>
-                                            <p className="mt-1 text-xs text-orange-200/80 leading-relaxed">
-                                                This piece ships $0 once you add a second distinct item to your cart. Pair it with a tee, shorts, or anything else in the shop.
-                                            </p>
-                                        </div>
+                                    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
+                                            Paired shipping
+                                        </p>
+                                        <p className="mt-1 text-xs text-gray-300 leading-relaxed">
+                                            This piece ships $0 when paired with a second distinct item. Add a tee, shorts, or anything else to remove shipping.
+                                        </p>
                                     </div>
                                 )}
                                 {cartBonusCents > 0 && (
-                                    <div className="flex justify-between text-green-400">
+                                    <div className="flex justify-between text-gray-400">
                                         <span>Above as Below set bonus</span>
                                         <span>-${cartBonusDollars.toFixed(2)}</span>
                                     </div>
                                 )}
                                 {discount > 0 && (
-                                    <div className="flex justify-between text-green-400">
+                                    <div className="flex justify-between text-gray-400">
                                         <span>Crypto Discount</span>
                                         <span>-${discount.toFixed(2)}</span>
                                     </div>
@@ -1090,7 +1085,7 @@ const Checkout: React.FC = () => {
                                 <div className="mt-4 rounded-lg border border-white/10 bg-black/30 p-4">
                                     <div className="mb-3 flex items-center justify-between gap-3">
                                         <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white">Checkout Trust</p>
-                                        <ShieldCheck className="h-4 w-4 text-green-400" />
+                                        <ShieldCheck className="h-4 w-4 text-gray-400" />
                                     </div>
                                     <div className="space-y-3">
                                         {checkoutTrustItems.map((item) => {

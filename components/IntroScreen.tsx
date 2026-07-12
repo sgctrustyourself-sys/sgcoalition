@@ -29,8 +29,12 @@ const IntroScreen: React.FC = () => {
             {isVisible && (
                 <motion.div
                     className="fixed inset-0 z-[100] bg-[#050505] flex flex-col items-center justify-center overflow-hidden"
+                    // Exit slowed from 0.8s → 1.4s. The intro screen is the
+                    // first breath of the site; a 1.4s fade signals unhurried
+                    // intent rather than a quick flash. Entry still uses the
+                    // 1.2s scale-in defined below.
                     initial={{ opacity: 1 }}
-                    exit={{ opacity: 0, transition: { duration: 0.8, ease: "easeInOut" } }}
+                    exit={{ opacity: 0, transition: { duration: 1.4, ease: [0.16, 1, 0.3, 1] } }}
                 >
                     {/* Background Effects */}
                     <div

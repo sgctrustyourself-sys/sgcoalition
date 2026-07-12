@@ -41,6 +41,7 @@ vercel rollback dpl_75Vza3u5F1cqwmK83qvGXV9x4ANg --yes
 
 - [Working generations](#working-generations--deployment-state-as-of-2026-07-10)
 - [Features](#features)
+- [Brand voice — the Peaceful Space framework](#brand-voice--the-peaceful-space-framework)
 - [Tech Stack](#tech-stack)
 - [Backend Architecture](#backend-architecture)
 - [Backend Bug-Fix Checklist](#backend-bug-fix-checklist)
@@ -50,7 +51,6 @@ vercel rollback dpl_75Vza3u5F1cqwmK83qvGXV9x4ANg --yes
 - [Local Development](#local-development)
 - [Instant Loading Screen & No-JS Fallback](#instant-loading-screen--no-js-fallback)
 - [Cross-cut category filters on /shop](#cross-cut-category-filters-on-shop)
-- [Archive Page Contract](#archive-page-contract)
 - [Recently Ordered Live Map](#recently-ordered-live-map)
 - [Above As Below Set Offers](#above-as-below-set-offers)
 - [Referral Program](#referral-program)
@@ -89,7 +89,58 @@ Coalition wallets are hand-built in-house from a single hide of full-grain leath
 - **Six-Card Bifold or Long Wallet** — 6 card slots, hidden bill compartment, cash sleeve, slim front-pocket profile.
 - **Signed & Numbered** — each wallet ships with a Coalition authenticity card.
 
-The dedicated landing page at `/wallets` (`pages/Wallets.tsx`) is the single source of truth for what's available right now, the past-build archive, and the CTA into a custom build via `/inquire`. The Navbar Resources dropdown surfaces the current live 1/1 plus an Explore link — it no longer lists the entire archive. To request a custom build, use the `Wallet` category in `/inquire` (added alongside Pants / Shirt / 3D Print / Other).
+## Brand voice — the Peaceful Space framework
+
+The storefront is aligned to an internal brand-voice framework called **Peaceful Space — Unhurried Conviction**. The framework treats every UI surface (raw urgency badges, gamified cart meters, shouted shipping copy, fake ticking clocks) as a candidate for elimination, and treats every "kept" chrome (notification pills, status indicators, financial-market color conventions) as a deliberate allowlisted exception. The canonical reference is [`docs/peaceful-space.md`](docs/peaceful-space.md) — read that doc before adding a UI element that touches scarcity, urgency, or the buy moment. Peaceful ≠ soft. Peaceful ≠ sanitized. The grief, the grind, Gmoneyworld, chrome accents, and "Trust Yourself" stay sharp — the manipulative ecommerce chrome does not.
+
+### What the wedge retired this iteration
+
+These touches were eliminated as a coordinated pass; the work lives across `pages/`, `components/`, and `utils/`:
+
+- **`components/PromoBar.tsx`** — **deleted.** Was a flashing "FLASH SALE / Ends Soon" bar with pulsing `Zap`/`Clock` icons. `components/AnnouncementBar.tsx` is the only announcement surface now and renders a quiet brand line ("Coalition · Hand-built in Baltimore · No factory, no shortcuts").
+- **`components/ui/CountdownTimer.tsx`** — **deleted.** Was a red pulsing per-second clock. `components/DropCountdown.tsx` now renders a static "To be announced" panel with a join-the-list CTA.
+- **`components/CartUpsells.tsx`** — **deprecated.** Was the generic "You may also like" + "Reach free shipping!" surface; the contextual Above-as-Below set bonus is the only cart cross-sell that earns its place, and it lives inline in `components/CartDrawer.tsx`, `pages/Cart.tsx`, and `pages/Checkout.tsx`.
+- **`components/ui/FreeShippingBar.tsx`** — **deprecated.** Was the "X away from free shipping!" progress meter; the policy is now stated as a plain fact in the PDP footer, the cart total panel, and About.
+- **`utils/urgencyUtils.ts` — `generateViewCount`, `getRecentSales`, `hasActiveFlashSale`, `getTimeRemaining`, `formatTimeRemaining`** — **removed.** All five manufactured synthetic FOMO. If a real viewer-count or recent-sales signal is ever needed, it lands server-side (analytics/orders), not client-side.
+- **Other retargeting** — cart celebration banners (green `Sparkles` "Save $X" boxes in `CartDrawer` / `Cart` / `Checkout`) softened to neutral "set bonus applied" copy; PDP per-size stock colors moved from a traffic-light range (`text-red-500`, `text-yellow-500`) to a single gray scale; home featured-eyebrow `animate-pulse` removed; Checkout "RECOMMENDED" payment-method badge removed; shouty ALL-CAPS shipping footers sentence-cased; `founderNote` elevated to sit directly under the buy button on the PDP (gated on `!isUnavailable` so sold/archived pieces use the archival voice instead).
+
+### What the pass slowed
+
+The framework also retargets tempo so the site reads as deliberate, not hurried:
+
+- `components/IntroScreen.tsx` exit slowed 0.8s → 1.4s with a custom `cubic-bezier(0.16, 1, 0.3, 1)` ease — the first breath of the site.
+- `components/CartDrawer.tsx` slide-in slowed from the Tailwind default ~150ms → 500ms with the same ease — the cart is a quiet handoff, not a snap.
+
+Time-only changes; no copy or shape changes.
+
+### The audit script (the enforcement half)
+
+`scripts/audit-urgency-chrome.ts` is the wedge's enforcement arm. It scans `pages/` and `components/` for a closed set of composite celebration patterns (Sparkles + carnival-color, shout-copy, removed-component imports, removed-utility references) that match `docs/peaceful-space.md > What Contradicts It` row-for-row. The script is:
+
+- **Pattern-banning, not color-banning.** Single-class regexes like "anything in `text-green-400`" generate hundreds of false positives because green also names success-checkmark states, red also names form-error states, and yellow also names star ratings + warnings. The framework cares about the COMPOSITE patterns that manufacture purchase pressure, not the primitive colors. The script's header documents the v1 dropped patterns and why.
+- **Loud on drift, quiet on alignment.** `npm run audit:chrome` exits non-zero on any violation; clean runs print one ✅ line. Output is grouped by file so the maintainer can open each offender at the right line.
+- **Allowlisted on Kept Patterns.** A small set of legitimate exceptions is enumerated inline (`Sparkles text-orange-500` next to h2 section headings on the on-chain Ecosystem dashboard, the historical-replacement comment in `AnnouncementBar`, etc.). Adding a kept pattern requires both an `allowlist` entry in the script AND a matching `docs/peaceful-space.md > Kept Patterns` row — both are required to keep the audit reversible.
+
+```bash
+npm.cmd run audit:chrome                                # scours pages/ + components/ for the closed pattern set
+npx.cmd vitest run tests/audit-urgency-chrome.test.ts    # locks the rule logic against synthetic fixtures
+```
+
+`tests/audit-urgency-chrome.test.ts` covers rule precision (no false negatives across the canonical violation set), explicit allowlist overrides for each documented Kept Pattern, and the cell-level `scanFile` API the CLI uses so future rule additions can be warranted without writing temp fixtures on disk.
+
+- **The mobile-nav audit pass surfaced zero code changes.** `components/MobileBottomNav.tsx` cart-count badge is a buyer-intent status pill (no `animate-pulse`, no viewership fabrication); red is the universal mobile-notification color (Instagram unread count, Twitter mentions), so a future audit pass must not false-flag it. `/shop` mobile grid stacks on the already-audited `ProductCard` (red `Heart` favorite fill is the universal favorited-status convention). `Shop.tsx` purple/blue VIP Membership Banner is brand-voice pitch, not a "limited time!" deal — keep.
+
+### Files the wedge touched
+
+`App.tsx` (route `/wallets` added — provenance-first landing page), `components/AnnouncementBar.tsx`, `components/CartDrawer.tsx`, `components/CartUpsells.tsx` (deprecated), `components/ConceptCard.tsx`, `components/DropCountdown.tsx`, `components/IntroScreen.tsx`, `components/Navbar.tsx` (wallets dropdown → single featured 1/1 + Explore link), `components/ProductCard.tsx`, `components/PromoBar.tsx` (deleted), `components/ui/CountdownTimer.tsx` (deleted), `components/ui/FreeShippingBar.tsx` (deprecated), `components/ui/UrgencyBadge.tsx`, `constants.ts` (product-level toggles + Above-as-Below wallet seed), `pages/Archive.tsx`, `pages/BuySGCoin.tsx`, `pages/Cart.tsx`, `pages/Checkout.tsx`, `pages/CustomInquiry.tsx`, `pages/Ecosystem.tsx`, `pages/Home.tsx`, `pages/Membership.tsx`, `pages/ProductDetails.tsx`, `pages/SGCoalitionPortal.tsx`, `pages/Shop.tsx`, `pages/Wallets.tsx` (new), `pages/WizardsPortal.tsx`, `pages/tutorial/UsingSGCoin.tsx`, `public/robots.txt`, `public/sitemap.xml`, `scripts/generateSeoArtifacts.mjs`, `tests/rendererSmoke.test.ts`, `types.ts`, `utils/urgencyUtils.ts`.
+
+### Where to read it
+
+- Framework (canonical, must-read before any urgency-adjacent UI work): [`docs/peaceful-space.md`](docs/peaceful-space.md)
+- Audit script (enforcement): `scripts/audit-urgency-chrome.ts`
+- Audit lock (test): `tests/audit-urgency-chrome.test.ts`
+- npm alias: `npm run audit:chrome`
+- Companion doc set: [`docs/README.md`](docs/README.md) (drop template trio, repo file map)
 
 ## Tech Stack
 
@@ -359,7 +410,7 @@ Use this section as the starting point when a product disappears, has the wrong 
 2. Local-only `INITIAL_PRODUCTS` rows are appended so code-only products do not vanish.
 3. `PRODUCT_LOCAL_OVERRIDES` is applied last.
 
-If a live Supabase row exists, the Supabase price is the current storefront price. If no live row exists, the local fallback price is the current storefront price. This baseline has 26 merged products: 13 active and 13 archived/sold. The live Supabase query returned 17 rows with 17 unique product IDs. The 9 archived products without a live Supabase row (4 Racing Team wallets, SKYY 2/2, Chrome Hearts, Denim Patchwork, Kustom Co) are local-fallback-only and surface on `/archive` via `INITIAL_PRODUCTS` + `PRODUCT_LOCAL_OVERRIDES`. See [Archive Page Contract](#archive-page-contract) for the rendering + sort rules.
+If a live Supabase row exists, the Supabase price is the current storefront price. If no live row exists, the local fallback price is the current storefront price. This baseline has 25 merged products: 13 active and 12 archived/sold. The live Supabase query returned 17 rows with 17 unique product IDs.
 
 > `INITIAL_ORDERS` rows feed the [Recently Ordered Live Map](#recently-ordered-live-map); the `id`-dedup contract lives there, so any new seed id has to be mirrored in `PUBLIC_RECENT_ORDER_SEEDS` to avoid double-counting.
 
@@ -398,7 +449,6 @@ If a live Supabase row exists, the Supabase price is the current storefront pric
 | `prod_wallet_004` | COALITION SKYY BLUE WALLET 2/2 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
 | `prod_wallet_chrome_hearts` | CUSTOM COALITION X CHROME HEARTS WALLET | $450 | wallet | Archived/sold | no size map | Local fallback only |
 | `Coalition_Denim_Patchwork_S1` | Coalition Denim Patchwork 1/1 Jeans S1 | $140 | jeans | Archived/sold | stock 0; 30: 0 | Supabase + local overrides |
-| `Coalition_Kustom_Co_Wallet_1_1` | Coalition 'Kustom Co' Wallet 1/1 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
 
 ## Local Development
 
@@ -468,8 +518,8 @@ Optional order email variables:
 
 ```env
 RESEND_API_KEY=re_your_key
-RESEND_FROM_EMAIL="SG Coalition <sgctrustyourself@gmail.com>"
-ORDER_NOTIFICATION_EMAIL=sgctrustyourself@gmail.com
+RESEND_FROM_EMAIL="SG Coalition <orders@your-domain.com>"
+ORDER_NOTIFICATION_EMAIL=orders@your-domain.com
 ```
 
 Before testing, apply `supabase/migrations/20260617_add_paypal_order_fields.sql` so PayPal order and capture IDs are stored and de-duplicated.
@@ -628,74 +678,6 @@ The filter contract is locked in `tests/categoryFilter.test.ts` (currently 14 as
 - 4 backward-compat assertions: womens_* products still under their apparel type, halo dress still under `?category=dresses`, `all` / falsy passthrough, and an umbrella regression test that locks both sides of the cross-cut pair against the apparel umbrella with real paired probes (`shirts`, `shorts`, `apparel`), the women's side (`dresses`), and the men's side (`jeans`, `sweatshirt`).
 
 A regression in either cross-cut filter or in any apparel sub-bucket flips the test red.
-
-## Archive Page Contract
-
-The `/archive` page (`pages/Archive.tsx`) is the read-only display of every product with `archived: true`. It surfaces sold-out drops, 1/1 customs, and limited wallet runs with their sold date, category, and a per-product `archiveNote` (the story behind the build - wholesale bundle, veteran gift, etc.).
-
-### Data flow
-
-```
-                        /archive
-                           |
-                           v
-              useApp().products (catalog merge)
-                           |
-                           v
-              .filter(p => p.archived)
-                           |
-                           v
-              .sort(soldAt desc || archivedAt desc,
-                    tie-break: name.localeCompare)
-                           |
-                           v
-              buildItemListJsonLd()  ->  <Seo> + grid render
-```
-
-The page reads the same `Product[]` that the storefront uses - no separate fetch, no separate data surface. Every `archived: true` row in `INITIAL_PRODUCTS` (plus any live Supabase row with the flag set) renders in the grid. The 13 archived products in the baseline (see [Current Product Catalog Baseline](#current-product-catalog-baseline)) are the source of truth for what shows up.
-
-### Sort contract
-
-1. Primary key: `soldAt` (preferred) or `archivedAt` (fallback). `Date.parse` is called once per product; unparseable values fall back to `0` so a malformed timestamp sorts to the bottom, never throws.
-2. Direction: descending - newest sales first.
-3. Tie-break: `name.localeCompare(b.name)` (case-insensitive, locale-aware). This is what makes the 5 wholesale-bundle wallets (all `soldAt: 2026-05-22T22:33:38+00:00`) display in a stable order across re-renders regardless of `INITIAL_PRODUCTS` array order.
-
-The `soldAt || archivedAt || 0` chain means a product with only `archivedAt` (never sold, just removed from the storefront) still surfaces in the grid at its archive date - not at epoch 0.
-
-### `archiveNote` rendering
-
-`PRODUCT_LOCAL_OVERRIDES[productId].archiveNote` renders below the sold date when set. The contract:
-
-- One sentence, 1-2 lines at 12px italic.
-- Tells the STORY of the build - wholesale bundle, veteran gift, collab partner, etc. Not a product description (that is on the PDP).
-- Skipped entirely when the field is absent - the grid just shows the date row.
-- Set via `PRODUCT_LOCAL_OVERRIDES` (the last layer of the catalog merge) so a Supabase update cannot silently drop the story.
-
-As of this writing, 12 of the 13 archived products have an `archiveNote`. The one without one (Chrome Hearts) uses the same "date unknown" disclaimer wired into the comment instead, so the story contract is upheld. (Note: Kustom Co has an `archiveNote` but its sale date is still a sentinel - the two fields are independent.)
-
-### Sentinel dates for unknown sale dates
-
-Two archived products (`prod_wallet_chrome_hearts`, `Coalition_Kustom_Co_Wallet_1_1`) have unknown sale dates - they pre-date the sale-tracking system. They use `2024-06-01T00:00:00Z` as a sentinel so:
-
-- The sort places them above the 2024-11 Denim Patchwork sale and below the 2026 drops - chronologically defensible.
-- They are visually distinct from real `soldAt: null` rows (which would fall to epoch 0 and read as "sold Jan 1 1970").
-- The sentinel is documented inline at each product entry in `constants.ts` so a future maintainer does not re-set it to null and silently break the sort.
-
-If a future pass learns the real sale date, the operator just overwrites the sentinel - the contract is the field, not the value.
-
-### SEO
-
-`<Seo>` writes an `ItemList` JSON-LD via `buildItemListJsonLd(archivedProducts, 'Coalition Archive', '/archive')` so the page surfaces as a structured list in search results. The list only contains archived products - active products never leak into the archive structured data.
-
-### Where to read it
-
-- Page: `pages/Archive.tsx`
-- Catalog merge: `context/AppContext.tsx` (the `Product[]` handed to the page)
-- Story storage: `constants.ts > PRODUCT_LOCAL_OVERRIDES > archiveNote`
-- Sentinel dates: `constants.ts > INITIAL_PRODUCTS > soldAt / archivedAt` (inline comment on the affected rows)
-- JSON-LD: `utils/seo.ts > buildItemListJsonLd`
-
-## Recently Ordered Live Map
 
 ## Recently Ordered Live Map
 
@@ -1007,7 +989,7 @@ The Coalition referral program is scheduled to run through **December 31, 2026**
 
 ## Production Deployment
 
-See [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) for the full Vercel deployment runbook (env-var verification, build-time vs runtime distinction, clean redeploy steps, post-deploy smoke check).
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
 
 Quick deploy to Vercel:
 ```bash
@@ -1017,56 +999,18 @@ vercel
 ## Project Structure
 
 ```
-api/                              # Vercel serverless functions (22 files)
-api/_handlers/                    # One file per API endpoint loaded by api/[...slug].ts
-components/                       # React components (53 files + 7 subdirs)
-  admin/                          # Admin dashboard components (20 files)
-  dashboard/                      # Buyer/seller dashboard widgets (2 files)
-  giveaway/                       # Giveaway entry components (2 files)
-  layouts/                        # Shared layout wrappers (1 file)
-  profile/                        # Profile tab components (1 file)
-  tutorial/                       # Tutorial step components (6 files)
-  ui/                             # Reusable UI primitives (13 files)
-context/                          # React context providers (3 files: App, Toast, Tutorial)
-data/                             # Static seed data (6 files: badges, blogPosts, etc.)
-hooks/                            # Custom React hooks (2 files)
-pages/                            # Page components (46 files + 2 subdirs)
-  admin/                          # Admin page exports
-  tutorial/                       # Tutorial page exports
-public/                           # Static assets (nojs.html, images/, manifest, sitemap, sw.js)
-services/                         # Client-side service wrappers (29 files: supabase, auth, email, etc.)
-scripts/                          # Build + seed + utility scripts (34 files)
-supabase/migrations/              # Database schema changes (16 SQL files)
-tests/                            # Vitest unit + integration tests (4 files)
-types/                            # Shared TypeScript types (chatTypes, MiniWizard, etc.)
-utils/                            # Shared frontend/backend helpers (24 files)
-vite.config.ts                    # Vite configuration (manualChunks intentionally omitted)
-vercel.json                       # Vercel deployment config + CSP + rewrites
+api/                    # Vercel serverless functions
+api/_handlers/          # One file per API endpoint loaded by api/[...slug].ts
+components/             # React components
+context/                # React context providers
+pages/                  # Page components
+public/                 # Static assets
+services/               # Client-side service wrappers
+supabase/migrations/    # Database schema changes
+utils/                  # Shared frontend/backend helpers
+vite.config.ts          # Vite configuration
+vercel.json             # Vercel deployment config and rewrites
 ```
-
-### Top-level file counts (as of 2026-07-11)
-
-| Path | Files | Notes |
-| --- | ---: | --- |
-| `api/_handlers/` | 22 | One per endpoint, lazy-loaded by `api/[...slug].ts` |
-| `components/` | 53 | + 7 subdirs (admin, dashboard, giveaway, layouts, profile, tutorial, ui) |
-| `pages/` | 46 | + 2 subdirs (admin, tutorial) |
-| `services/` | 29 | supabase, auth, email, walletActions, etc. |
-| `scripts/` | 34 | add*Wallet, seedBrain, generateSeoArtifacts, render-story, etc. |
-| `utils/` | 24 | archiveSort, referralSystem, liveOrdersFeed, seo, etc. |
-| `supabase/migrations/` | 16 | One per schema change; applied in order |
-| `tests/` | 4 | archiveSort, noRefundsPolicy, rendererSmoke, generateSeoArtifacts |
-| `data/` | 6 | badges, blogPosts, mockWizards, mockLiveOrders, etc. |
-| `hooks/` | 2 | useLiquidity, useTutorialProgress |
-| `context/` | 3 | AppContext, ToastContext, TutorialContext |
-| `types/` | 3+ | types.ts, chatTypes.ts, MiniWizard.ts |
-
-### Conventions
-
-- **Naming**: `prod_*` prefix for newer Supabase-synced products; `Coalition_*` prefix for legacy/historical products. Wallet 1/N and 1/1 numbering is literal — never re-number.
-- **Path aliases**: `@/` resolves to project root via `vite.config.ts > resolve.alias`.
-- **No `manualChunks`**: intentionally omitted (see `vite.config.ts` comment). Reintroducing it OOM-kills Vercel's build worker.
-- **`dist/` is gitignored**: never committed. Regenerated by `npm run build`; the Vercel deploy never has a stale `dist/`.
 
 ## Environment Variables
 
