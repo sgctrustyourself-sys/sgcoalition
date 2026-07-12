@@ -50,6 +50,7 @@ vercel rollback dpl_75Vza3u5F1cqwmK83qvGXV9x4ANg --yes
 - [Local Development](#local-development)
 - [Instant Loading Screen & No-JS Fallback](#instant-loading-screen--no-js-fallback)
 - [Cross-cut category filters on /shop](#cross-cut-category-filters-on-shop)
+- [Archive Page Contract](#archive-page-contract)
 - [Recently Ordered Live Map](#recently-ordered-live-map)
 - [Above As Below Set Offers](#above-as-below-set-offers)
 - [Referral Program](#referral-program)
@@ -358,7 +359,7 @@ Use this section as the starting point when a product disappears, has the wrong 
 2. Local-only `INITIAL_PRODUCTS` rows are appended so code-only products do not vanish.
 3. `PRODUCT_LOCAL_OVERRIDES` is applied last.
 
-If a live Supabase row exists, the Supabase price is the current storefront price. If no live row exists, the local fallback price is the current storefront price. This baseline has 25 merged products: 13 active and 12 archived/sold. The live Supabase query returned 17 rows with 17 unique product IDs.
+If a live Supabase row exists, the Supabase price is the current storefront price. If no live row exists, the local fallback price is the current storefront price. This baseline has 26 merged products: 13 active and 13 archived/sold. The live Supabase query returned 17 rows with 17 unique product IDs. The 9 archived products without a live Supabase row (4 Racing Team wallets, SKYY 2/2, Chrome Hearts, Denim Patchwork, Kustom Co) are local-fallback-only and surface on `/archive` via `INITIAL_PRODUCTS` + `PRODUCT_LOCAL_OVERRIDES`. See [Archive Page Contract](#archive-page-contract) for the rendering + sort rules.
 
 > `INITIAL_ORDERS` rows feed the [Recently Ordered Live Map](#recently-ordered-live-map); the `id`-dedup contract lives there, so any new seed id has to be mirrored in `PUBLIC_RECENT_ORDER_SEEDS` to avoid double-counting.
 
@@ -397,6 +398,7 @@ If a live Supabase row exists, the Supabase price is the current storefront pric
 | `prod_wallet_004` | COALITION SKYY BLUE WALLET 2/2 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
 | `prod_wallet_chrome_hearts` | CUSTOM COALITION X CHROME HEARTS WALLET | $450 | wallet | Archived/sold | no size map | Local fallback only |
 | `Coalition_Denim_Patchwork_S1` | Coalition Denim Patchwork 1/1 Jeans S1 | $140 | jeans | Archived/sold | stock 0; 30: 0 | Supabase + local overrides |
+| `Coalition_Kustom_Co_Wallet_1_1` | Coalition 'Kustom Co' Wallet 1/1 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
 
 ## Local Development
 
@@ -626,6 +628,74 @@ The filter contract is locked in `tests/categoryFilter.test.ts` (currently 14 as
 - 4 backward-compat assertions: womens_* products still under their apparel type, halo dress still under `?category=dresses`, `all` / falsy passthrough, and an umbrella regression test that locks both sides of the cross-cut pair against the apparel umbrella with real paired probes (`shirts`, `shorts`, `apparel`), the women's side (`dresses`), and the men's side (`jeans`, `sweatshirt`).
 
 A regression in either cross-cut filter or in any apparel sub-bucket flips the test red.
+
+## Archive Page Contract
+
+The `/archive` page (`pages/Archive.tsx`) is the read-only display of every product with `archived: true`. It surfaces sold-out drops, 1/1 customs, and limited wallet runs with their sold date, category, and a per-product `archiveNote` (the story behind the build - wholesale bundle, veteran gift, etc.).
+
+### Data flow
+
+```
+                        /archive
+                           |
+                           v
+              useApp().products (catalog merge)
+                           |
+                           v
+              .filter(p => p.archived)
+                           |
+                           v
+              .sort(soldAt desc || archivedAt desc,
+                    tie-break: name.localeCompare)
+                           |
+                           v
+              buildItemListJsonLd()  ->  <Seo> + grid render
+```
+
+The page reads the same `Product[]` that the storefront uses - no separate fetch, no separate data surface. Every `archived: true` row in `INITIAL_PRODUCTS` (plus any live Supabase row with the flag set) renders in the grid. The 13 archived products in the baseline (see [Current Product Catalog Baseline](#current-product-catalog-baseline)) are the source of truth for what shows up.
+
+### Sort contract
+
+1. Primary key: `soldAt` (preferred) or `archivedAt` (fallback). `Date.parse` is called once per product; unparseable values fall back to `0` so a malformed timestamp sorts to the bottom, never throws.
+2. Direction: descending - newest sales first.
+3. Tie-break: `name.localeCompare(b.name)` (case-insensitive, locale-aware). This is what makes the 5 wholesale-bundle wallets (all `soldAt: 2026-05-22T22:33:38+00:00`) display in a stable order across re-renders regardless of `INITIAL_PRODUCTS` array order.
+
+The `soldAt || archivedAt || 0` chain means a product with only `archivedAt` (never sold, just removed from the storefront) still surfaces in the grid at its archive date - not at epoch 0.
+
+### `archiveNote` rendering
+
+`PRODUCT_LOCAL_OVERRIDES[productId].archiveNote` renders below the sold date when set. The contract:
+
+- One sentence, 1-2 lines at 12px italic.
+- Tells the STORY of the build - wholesale bundle, veteran gift, collab partner, etc. Not a product description (that is on the PDP).
+- Skipped entirely when the field is absent - the grid just shows the date row.
+- Set via `PRODUCT_LOCAL_OVERRIDES` (the last layer of the catalog merge) so a Supabase update cannot silently drop the story.
+
+As of this writing, 12 of the 13 archived products have an `archiveNote`. The one without one (Chrome Hearts) uses the same "date unknown" disclaimer wired into the comment instead, so the story contract is upheld. (Note: Kustom Co has an `archiveNote` but its sale date is still a sentinel - the two fields are independent.)
+
+### Sentinel dates for unknown sale dates
+
+Two archived products (`prod_wallet_chrome_hearts`, `Coalition_Kustom_Co_Wallet_1_1`) have unknown sale dates - they pre-date the sale-tracking system. They use `2024-06-01T00:00:00Z` as a sentinel so:
+
+- The sort places them above the 2024-11 Denim Patchwork sale and below the 2026 drops - chronologically defensible.
+- They are visually distinct from real `soldAt: null` rows (which would fall to epoch 0 and read as "sold Jan 1 1970").
+- The sentinel is documented inline at each product entry in `constants.ts` so a future maintainer does not re-set it to null and silently break the sort.
+
+If a future pass learns the real sale date, the operator just overwrites the sentinel - the contract is the field, not the value.
+
+### SEO
+
+`<Seo>` writes an `ItemList` JSON-LD via `buildItemListJsonLd(archivedProducts, 'Coalition Archive', '/archive')` so the page surfaces as a structured list in search results. The list only contains archived products - active products never leak into the archive structured data.
+
+### Where to read it
+
+- Page: `pages/Archive.tsx`
+- Catalog merge: `context/AppContext.tsx` (the `Product[]` handed to the page)
+- Story storage: `constants.ts > PRODUCT_LOCAL_OVERRIDES > archiveNote`
+- Sentinel dates: `constants.ts > INITIAL_PRODUCTS > soldAt / archivedAt` (inline comment on the affected rows)
+- JSON-LD: `utils/seo.ts > buildItemListJsonLd`
+
+## Recently Ordered Live Map
 
 ## Recently Ordered Live Map
 
@@ -937,7 +1007,7 @@ The Coalition referral program is scheduled to run through **December 31, 2026**
 
 ## Production Deployment
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
+See [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) for the full Vercel deployment runbook (env-var verification, build-time vs runtime distinction, clean redeploy steps, post-deploy smoke check).
 
 Quick deploy to Vercel:
 ```bash
