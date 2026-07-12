@@ -21,10 +21,11 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function addUnityPolo() {
     console.log('🎽 Upserting Coalition Custom Unity No. 4 Polo (1/1)...');
 
-    // 1/1 identity — only size m is in stock (1 unit). The other sizes are
+    // 1/1 identity — only size M is in stock (1 unit). The other sizes are
     // listed so the size selector renders cleanly if the operator later offers
     // the same build in additional sizes; mirrors the Shark Tee pattern.
-    const sizeInventory = { xs: 0, s: 0, m: 1, l: 0, xl: 0, xxl: 0 };
+    // Sizes are uppercase to match the rest of the catalog (S, M, L, XL, 2XL).
+    const sizeInventory: Record<string, number> = { 'XS': 0, 'S': 0, 'M': 1, 'L': 0, 'XL': 0, '2XL': 0 };
 
     const product = {
         id: 'prod_unity_polo',
@@ -41,7 +42,7 @@ async function addUnityPolo() {
         gender: 'unisex',
         is_featured: false,
         is_limited_edition: true,
-        sizes: ['xs', 's', 'm', 'l', 'xl', 'xxl'],
+        sizes: ['XS', 'S', 'M', 'L', 'XL', '2XL'],
         size_inventory: sizeInventory,
         archived: false,
     };
