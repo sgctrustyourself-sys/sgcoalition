@@ -16,6 +16,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Women's Coalition Halo Contrast Tee in bodycon raglan sleeve cut with contrast sleeve stripes, the same gold Coalition halo chest logo as the Coalition Halo Mini Dress, and a TRUST YOURSELF hit on the back. $40, sized S-M-L-XL.",
     category: "shirt",
+    gender: "womens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL"],
@@ -46,6 +47,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Above as Below tee and shorts together in one set. Each piece is $75 on its own ($150 total); the set is $120, saving $30 off the combined price. Sized S-M-L-XL-2XL.",
     category: "apparel",
+    gender: "mens",
     isFeatured: true,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL", "2XL"],
@@ -75,6 +77,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Standard live catalog release priced at $50.",
     category: "dress",
+    gender: "womens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL"],
@@ -104,6 +107,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Women's Above as Below contrast shorts in black with white trim, red Coalition artwork, and a red waistband label. Available S-M-L-XL. $40 separately, or grab the matching crop tank and shorts set for $75.",
     category: "shorts",
+    gender: "womens",
     isFeatured: false,
     isLimitedEdition: true,
     sizes: ["S", "M", "L", "XL"],
@@ -133,6 +137,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Women's Above as Below crewneck crop tank in black with front SG artwork, back Above as Below graphic, and red Coalition hem label. $40 separately, or pair it with the contrast shorts as a $75 set.",
     category: "shirt",
+    gender: "womens",
     isFeatured: false,
     isLimitedEdition: true,
     sizes: ["S", "M", "L", "XL"],
@@ -164,6 +169,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Women's Above as Below set with the crewneck crop tank and contrast shorts together. Black body, red-and-white Coalition artwork, and matching set styling. $75 as a set, sized S-M-L-XL.",
     category: "apparel",
+    gender: "womens",
     isFeatured: false,
     isLimitedEdition: true,
     sizes: ["S", "M", "L", "XL"],
@@ -192,6 +198,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "The matching Above as Below shorts. Same hand-crafted red-and-white Coalition lineage as the tee - heavyweight cotton, deep set pocket, raw-hem finished. Sold at $75 individually, or grab the set with the tee for $120 and save $30.",
     category: "apparel",
+    gender: "mens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL", "2XL"],
@@ -219,6 +226,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Second and final piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a storm-grey wave pattern, raw edge stitching, copper grommet, and Coalition mark. Built as a limited 2/2 collectible - once sold, it's gone forever.",
     category: "wallet",
+    gender: "unisex",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["One Size"],
@@ -242,6 +250,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "1/1 Above as Below wallet. Hand-finished with the same storm-and-balance motif as the matching Above as Below tee - single piece, one red-and-white Coalition mark, scaled for everyday carry. Once sold, gone forever.",
     category: "wallet",
+    gender: "unisex",
     isFeatured: false,
     isLimitedEdition: true,
     sizes: ["One Size"],
@@ -265,6 +274,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Pre-order release of the Coalition Overwhelmingly Patient Hoodie at $100. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Free shipping when paired with any other item. Reservations capped at one per size; ships in 4-6 weeks from the close of the pre-order window.",
     category: "apparel",
+    gender: "mens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL", "2XL"],
@@ -292,6 +302,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "First piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a custom charcoal-grey dye pattern inspired by Baltimore harbor at dawn. Built as a limited 1/2 collectible — once sold, it's gone forever.",
     category: "wallet",
+    gender: "unisex",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["One Size"],
@@ -317,6 +328,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "The Above as Below tee features a heavyweight black body with red-and-white Coalition artwork across the front and a full back graphic built around the Above as Below concept.",
     category: "shirt",
+    gender: "mens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL", "2XL"],
@@ -346,6 +358,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Unique SGCoalition tie-dye 'Trust Yourself' tee with a striking blue spiral pattern and the iconic crowned-bird graphic. This one-of-a-kind piece features premium print details and a motivational streetwear vibe. Size Small, in excellent condition with no flaws - ideal for collectors or anyone looking to add a standout Coalition piece to their wardrobe.",
     category: "shirt",
+    gender: "mens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL"],
@@ -369,6 +382,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Second piece of the Skyy Blue collection. Hand-crafted tie-dye wallet with silver stitched border. Each piece unique — no two alike.",
     category: "wallet",
+    gender: "unisex",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["One Size"],
@@ -395,6 +409,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       'A one-of-one custom trucker hat featuring 3D puff "TRUST YOURSELF" embroidery, hand-distressed brim, and a custom D20 pin. This piece represents the next evolution of Coalition headwear.',
     category: "headwear",
+    gender: "unisex",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["One Size"],
@@ -420,6 +435,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "One-of-one Coalition x True Religion collaboration jeans. Season 1 exclusive — custom distressed denim with premium detailing. Size 33. Once it's gone, it's gone.",
     category: "jeans",
+    gender: "mens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["33"],
@@ -443,6 +459,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Exclusive 1/1 custom wallet featuring camo green aesthetic and signature Coalition branding. Hand-crafted and unique.",
     category: "accessory",
+    gender: "unisex",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["One Size"],
@@ -467,6 +484,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       'The future of streetwear. This limited edition phy-gital tee serves as your access pass to the Coalition ecosystem. Features exclusive "Trust Yourself" puff print and embedded NFC technology linked to its digital twin on the Polygon blockchain.',
     category: "shirt",
+    gender: "mens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL"],

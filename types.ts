@@ -7,6 +7,11 @@ export interface Product {
   makingVideoUrl?: string;
   createdAt?: string; // ISO timestamp for when the product was added
   category: 'apparel' | 'accessory' | 'shirt' | 'wallet' | 'jeans' | 'hat' | 'dress' | 'shorts' | 'headwear';
+  // Optional gender classification for the WOMEN / MEN top-level filters on
+  // /shop. Added in 2026-07 — Supabase rows may not have this column until
+  // a migration adds it; the Shop filter helpers fall back to ID/name
+  // detection for products missing the field.
+  gender?: 'mens' | 'womens' | 'unisex';
   isFeatured?: boolean;
   // Free shipping when this product is in the cart AND a distinct other
   // product is also in the cart. Used for the Coalition 'Overwhelmingly
