@@ -674,9 +674,7 @@ export const INITIAL_PRODUCTS: Product[] = [
         images: [
             "https://i.imgur.com/EIwJZlG.jpeg",
             "https://i.imgur.com/Cyyojl8.jpeg",
-        ],
-        description:
-            "Custom Coalition 'Unity No. 4' polo built on an authentic Ralph Lauren base. Hand-finished with the Coalition Unity mark, blending heritage prep with streetwear attitude. One-of-one piece in the Unity series — once sold, it's gone forever. Sized xs through xxl.",
+        ],        description: "Created on an authentic Ralph Lauren polo. Hand-finished with the Coalition Unity mark. One-of-one in the Unity series.",
         category: "shirt",
         gender: "unisex",
         isFeatured: false,
