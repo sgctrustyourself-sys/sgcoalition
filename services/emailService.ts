@@ -106,7 +106,7 @@ export async function sendRejectionEmail(
                     
                     <p>If you believe this was an error or have questions, please contact our support team.</p>
                     
-                    <a href="mailto:support@sgcoalition.xyz" class="button">Contact Support</a>
+                    <a href="mailto:sgctrustyourself@gmail.com" class="button">Contact Support</a>
                     
                     <p>You can submit a new request at any time through our website.</p>
                 </div>

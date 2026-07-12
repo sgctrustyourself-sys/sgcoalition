@@ -109,7 +109,7 @@ const Help = () => {
         {
             icon: HelpCircle,
             question: "I have another question. How do I contact support?",
-            answer: "Our support team is available 24/7. You can reach us via email at support@coalitionbrand.com or through our community Discord channel."
+            answer: "Our support team is available 24/7. You can reach us via email at sgctrustyourself@gmail.com or through our community Discord channel."
         }
     ];
 
@@ -183,7 +183,7 @@ const Help = () => {
 
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
                         <a
-                            href="mailto:support@coalitionbrand.com"
+                            href="mailto:sgctrustyourself@gmail.com"
                             className="w-full sm:w-auto px-8 py-3.5 bg-white text-black font-bold uppercase tracking-widest text-xs hover:bg-gray-200 transition-all active:scale-95"
                         >
                             EMAIL SUPPORT

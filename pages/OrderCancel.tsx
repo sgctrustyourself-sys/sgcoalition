@@ -57,8 +57,8 @@ const OrderCancel = () => {
                 {/* Support */}
                 <p className="text-sm text-gray-500 mt-8">
                     Questions? Contact us at{' '}
-                    <a href="mailto:support@coalition.com" className="text-brand-accent hover:underline">
-                        support@coalition.com
+                    <a href="mailto:sgctrustyourself@gmail.com" className="text-brand-accent hover:underline">
+                        sgctrustyourself@gmail.com
                     </a>
                 </p>
             </div>

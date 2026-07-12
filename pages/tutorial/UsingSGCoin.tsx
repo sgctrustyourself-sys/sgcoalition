@@ -195,7 +195,7 @@ const UsingSGCoin: React.FC = () => {
                         If you have any questions or run into issues, we're here to help!
                     </p>
                     <a
-                        href="mailto:support@sgcoalition.xyz"
+                        href="mailto:sgctrustyourself@gmail.com"
                         className="inline-flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-bold"
                     >
                         Contact Support

@@ -803,7 +803,7 @@ All sales are final. We do not accept returns, exchanges, or refunds on any prod
 
 By completing your purchase, you acknowledge and agree to this policy.
 
-If you have questions about a product before purchasing, please contact us at support@sgcoalition.xyz.
+If you have questions about a product before purchasing, please contact us at sgctrustyourself@gmail.com.
 `.trim();
 
 // =====================================
