@@ -10,7 +10,7 @@ export const INITIAL_PRODUCTS: Product[] = [
       "https://i.imgur.com/EIwJZlG.jpeg",
       "https://i.imgur.com/Cyyojl8.jpeg"
     ],
-    "description": "Created on an authentic Ralph Lauren polo.",
+    "description": "Collection Notes\n\nAuthentic Ralph Lauren garment\nCustom Coalition artwork\nHand-finished detailing\nLimited seasonal release\nPart of the Unity Collection",
     "category": "shirt",
     "isFeatured": true,
     "isLimitedEdition": false,
