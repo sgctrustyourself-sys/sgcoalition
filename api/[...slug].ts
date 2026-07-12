@@ -31,6 +31,9 @@ const handlers: Record<string, Loader> = {
     'update-piece-metadata': () => import('./_handlers/update-piece-metadata.js'),
     'unsubscribe': () => import('./_handlers/unsubscribe.js'),
     'verify-subscription': () => import('./_handlers/verify-subscription.js'),
+    'csp-report': () => import('./_handlers/csp-report.js'),
+    'marketing-subscribe': () => import('./_handlers/marketing-subscribe.js'),
+    'marketing-stats': () => import('./_handlers/marketing-stats.js'),
 };
 
 export default async function handler(req: any, res: any) {
