@@ -8,6 +8,7 @@ import Seo from '../components/Seo';
 import Newsletter from '../components/Newsletter';
 import { buildItemListJsonLd } from '../utils/seo';
 import { Product } from '../types';
+import { sortByNewest } from '../utils/storefront';
 
 // Detect women's products via the `gender` field, with an ID/name fallback
 // for products missing the field (e.g., Supabase rows that pre-date the
@@ -82,24 +83,7 @@ const Shop = () => {
     };
 
     const filteredProducts = React.useMemo(() => {
-        const originalOrder = new Map(products.map((product, index) => [product.id, index]));
-        const getNewestTimestamp = (product: typeof products[number]) => {
-            const candidateDates = [
-                product.createdAt,
-                product.releasedAt,
-                product.archivedAt,
-                product.soldAt
-            ];
-
-            for (const value of candidateDates) {
-                const timestamp = Date.parse(value || '');
-                if (Number.isFinite(timestamp)) return timestamp;
-            }
-
-            return 0;
-        };
-
-        return products
+        let result = products
         .filter(p => {
             // Search filter
             if (!searchQuery) return true;
@@ -148,17 +132,18 @@ const Shop = () => {
             if (sortOption === 'name-desc') return b.name.localeCompare(a.name);
             // Popularity Proxy: Featured items first
             if (sortOption === 'popularity') return (a.isFeatured === b.isFeatured) ? 0 : a.isFeatured ? -1 : 1;
-            // Newest sort: use actual added/release timestamps, then preserve original sequence for ties
-            if (sortOption === 'newest') {
-                const timestampDiff = getNewestTimestamp(b) - getNewestTimestamp(a);
-                if (timestampDiff !== 0) return timestampDiff;
-                return (originalOrder.get(a.id) ?? 0) - (originalOrder.get(b.id) ?? 0);
-            }
+            // Newest sort: handled by sortByNewest AFTER the archived-to-end
+            // pass below (so archived items end up at the bottom regardless
+            // of date). The comparator is a no-op for 'newest' here.
+            if (sortOption === 'newest') return 0;
 
             return 0;
-        })
-        // Always push archived/sold items to the end
-        .sort((a, b) => {
+        });
+        // 'newest' sort: apply the unit-tested sortByNewest utility. See
+        // tests/storefront.test.ts for the locked contract.
+        if (sortOption === 'newest') result = sortByNewest(result);
+        // Always push archived/sold items to the end (final pass).
+        return result.sort((a, b) => {
             const aSold = a.archived && !!a.soldAt ? 1 : 0;
             const bSold = b.archived && !!b.soldAt ? 1 : 0;
             return aSold - bSold;

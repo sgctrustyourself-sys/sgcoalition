@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { GripVertical, Eye, EyeOff, ChevronUp, ChevronDown, Plus } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Section } from '../types';
+import { selectFeaturedProduct } from '../utils/storefront';
 import ProductCard from '../components/ProductCard';
 import SmsSignup from '../components/SmsSignup';
 import Newsletter from '../components/Newsletter';
@@ -143,9 +144,9 @@ const Home = () => {
                     break;
                 }
 
-                const featured = products && products.length > 0
-                    ? (products.find(p => p.isFeatured) || products[0])
-                    : null;
+                // Featured product selection is unit-tested in
+                // tests/storefront.test.ts (see selectFeaturedProduct).
+                const featured = selectFeaturedProduct(products);
 
                 if (!featured) {
                     content = (
