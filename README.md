@@ -77,6 +77,19 @@ Premium streetwear e-commerce platform built with React, Vite, and Stripe.
 - 🔗 **NFT Integration** - Products linked to Polygon NFTs
 - 📱 **Responsive Design** - Mobile-first, beautiful UI
 
+### Premium Wallets
+
+Coalition wallets are hand-built in-house from a single hide of full-grain leather — no factory, no shortcuts, just the process. Every build, past and present, holds to the same six non-negotiables:
+
+- **Hand-Cut & Hand-Stitched** — cut by hand from a single hide and stitched on a saddle stitch.
+- **Coalition-Branded Inks & Stamps** — hand-pressed branding using archival inks and steel dies.
+- **Full-Grain Leather** — vegetable-tanned, sourced for patina. The more you carry it, the better it looks.
+- **One-of-One Builds** — most wallets are 1/1 drops. Numbered runs (e.g. Grey Wave 1/2) are capped at two or four and never repeat.
+- **Six-Card Bifold or Long Wallet** — 6 card slots, hidden bill compartment, cash sleeve, slim front-pocket profile.
+- **Signed & Numbered** — each wallet ships with a Coalition authenticity card.
+
+The dedicated landing page at `/wallets` (`pages/Wallets.tsx`) is the single source of truth for what's available right now, the past-build archive, and the CTA into a custom build via `/inquire`. The Navbar Resources dropdown surfaces the current live 1/1 plus an Explore link — it no longer lists the entire archive. To request a custom build, use the `Wallet` category in `/inquire` (added alongside Pants / Shirt / 3D Print / Other).
+
 ## Tech Stack
 
 - **Frontend**: React 19, TypeScript, Vite
@@ -1626,5 +1639,3 @@ The `commit`, `log`, `branches`, `checkout`, `reset`, `diff`, `status` actions o
 ### Settings (placeholder)
 
 - **Settings** — placeholder tab in `AdminLayout.tsx > navItems`, currently commented out in the production nav. Reserved for future toggle surfaces (env-var preview, feature flags, rates tables). Surface via `AdminLayout.tsx > navItems` when first wired.
-
-
