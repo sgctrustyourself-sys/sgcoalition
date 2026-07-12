@@ -29,7 +29,7 @@ async function addUnityPolo() {
 
     const product = {
         id: 'prod_unity_polo',
-        name: 'Coalition Custom Unity No. 4 Polo',
+        name: 'Coalition Unity No. 4 Polo',
         price: 400.0,
         stock: Object.values(sizeInventory).reduce((sum, count) => sum + count, 0),
         images: [
@@ -40,7 +40,8 @@ async function addUnityPolo() {
             "Created on an authentic Ralph Lauren polo.",
         category: 'shirt',
         gender: 'unisex',
-        is_featured: false,
+        is_featured: true,
+        created_at: '2026-07-12T00:00:00Z',
         is_limited_edition: true,
         sizes: ['XS', 'S', 'M', 'L', 'XL', '2XL'],
         size_inventory: sizeInventory,

@@ -36,6 +36,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: "prod_set_above_as_below",
     name: "COALITION ABOVE AS BELOW SET",
     price: 120,
+    isFeatured: false,
     images: [
       "/images/above-as-below-set-front.png",
       "/images/above-as-below-set-back.png",
@@ -48,7 +49,7 @@ export const INITIAL_PRODUCTS: Product[] = [
       "Above as Below tee and shorts together in one set. Each piece is $75 on its own ($150 total); the set is $120, saving $30 off the combined price. Sized S-M-L-XL-2XL.",
     category: "apparel",
     gender: "mens",
-    isFeatured: true,
+    isFeatured: false,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL", "2XL"],
     sizeInventory: {
@@ -669,7 +670,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     // other sizes render in the selector but show as sold out.
     {
         id: "prod_unity_polo",
-        name: "Coalition Custom Unity No. 4 Polo",
+        name: "Coalition Unity No. 4 Polo",
         price: 400,
         images: [
             "https://i.imgur.com/EIwJZlG.jpeg",
@@ -693,6 +694,7 @@ export const INITIAL_PRODUCTS: Product[] = [
         archivedAt: null,
         releasedAt: null,
         soldAt: null,
+        createdAt: "2026-07-12T00:00:00Z",
     },
     // TODO: upload real image to Supabase/Imgur - currently using chromeHeartsWallet
     // image as placeholder (same as the 4 Racing Team wallets and Denim Patchwork).
