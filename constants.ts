@@ -231,13 +231,13 @@ export const INITIAL_PRODUCTS: Product[] = [
     isLimitedEdition: false,
     sizes: ["One Size"],
     sizeInventory: {
-      "One Size": 1,
+      "One Size": 0,
     },
     nft: null,
-    archived: false,
-    archivedAt: null,
+    archived: true,
+    archivedAt: "2026-06-25T02:40:12.191+00:00",
     releasedAt: null,
-    soldAt: null,
+    soldAt: "2026-06-25T02:40:12.191+00:00",
   },
   {
     id: "Coalition_Above_As_Below_Wallet_1_1",
@@ -505,7 +505,190 @@ export const INITIAL_PRODUCTS: Product[] = [
     releasedAt: null,
     soldAt: null,
   },
+  // =====================================
+  // ARCHIVE-ONLY PRODUCTS (local fallback)
+  // =====================================
+  // All are `archived: true` with `sizeInventory` zeroed and `soldAt` set
+  // to the best-known sale date.
+  {
+    id: "Coalition_Racing_Team_Wallet_1_4",
+    name: "Coalition 'Racing Team' Wallet 1/4",
+    price: 85,
+    images: [
+      "https://i.imgur.com/SS6KbOQ.jpeg",
+      "https://i.imgur.com/NUXZizv.jpeg",
+    ],
+    description: "First piece of the Coalition 'Racing Team' wallet run. Hand-crafted leather wallet with racing-inspired Coalition mark. Built as a limited 1/4 collectible.",
+    category: "wallet",
+    gender: "unisex",
+    isFeatured: false,
+    isLimitedEdition: false,
+    sizes: ["One Size"],
+    sizeInventory: { "One Size": 0 },
+    nft: null,
+    archived: true,
+    archivedAt: "2026-05-22T22:33:38+00:00",
+    releasedAt: null,
+    soldAt: "2026-05-22T22:33:38+00:00",
+  },
+  {
+    id: "Coalition_Racing_Team_Wallet_2_4",
+    name: "Coalition 'Racing Team' Wallet 2/4",
+    price: 85,
+    images: [
+      "https://i.imgur.com/SS6KbOQ.jpeg",
+      "https://i.imgur.com/NUXZizv.jpeg",
+    ],
+    description: "Second piece of the Coalition 'Racing Team' wallet run. Built as a limited 2/4 collectible.",
+    category: "wallet",
+    gender: "unisex",
+    isFeatured: false,
+    isLimitedEdition: false,
+    sizes: ["One Size"],
+    sizeInventory: { "One Size": 0 },
+    nft: null,
+    archived: true,
+    archivedAt: "2026-05-22T22:33:38+00:00",
+    releasedAt: null,
+    soldAt: "2026-05-22T22:33:38+00:00",
+  },
+  {
+    id: "Coalition_Racing_Team_Wallet_3_4",
+    name: "Coalition 'Racing Team' Wallet 3/4",
+    price: 85,
+    images: [
+      "https://i.imgur.com/SS6KbOQ.jpeg",
+      "https://i.imgur.com/NUXZizv.jpeg",
+    ],
+    description: "Third piece of the Coalition 'Racing Team' wallet run. Built as a limited 3/4 collectible.",
+    category: "wallet",
+    gender: "unisex",
+    isFeatured: false,
+    isLimitedEdition: false,
+    sizes: ["One Size"],
+    sizeInventory: { "One Size": 0 },
+    nft: null,
+    archived: true,
+    archivedAt: "2026-05-22T22:33:38+00:00",
+    releasedAt: null,
+    soldAt: "2026-05-22T22:33:38+00:00",
+  },
+  {
+    id: "Coalition_Racing_Team_Wallet_4_4",
+    name: "Coalition 'Racing Team' Wallet 4/4",
+    price: 85,
+    images: [
+      "https://i.imgur.com/SS6KbOQ.jpeg",
+      "https://i.imgur.com/NUXZizv.jpeg",
+    ],
+    description: "Final piece of the Coalition 'Racing Team' wallet run. Built as a limited 4/4 collectible.",
+    category: "wallet",
+    gender: "unisex",
+    isFeatured: false,
+    isLimitedEdition: false,
+    sizes: ["One Size"],
+    sizeInventory: { "One Size": 0 },
+    nft: null,
+    archived: true,
+    archivedAt: "2026-05-22T22:33:38+00:00",
+    releasedAt: null,
+    soldAt: "2026-05-22T22:33:38+00:00",
+  },
+  {
+    id: "prod_wallet_004",
+    name: "COALITION SKYY BLUE WALLET 2/2",
+    price: 85,
+    images: [
+      "https://i.imgur.com/Z5K3JZ0.png",
+      "https://i.imgur.com/ySkgCOs.png",
+    ],
+    description: "Second and final piece of the Skyy Blue wallet run. Hand-crafted tie-dye wallet with silver stitched border. Part of the 2-piece Skyy Blue collection.",
+    category: "wallet",
+    gender: "unisex",
+    isFeatured: false,
+    isLimitedEdition: false,
+    sizes: ["One Size"],
+    sizeInventory: { "One Size": 0 },
+    nft: null,
+    archived: true,
+    archivedAt: "2026-05-22T22:33:38+00:00",
+    releasedAt: null,
+    soldAt: "2026-05-22T22:33:38+00:00",
+  },
+  {
+    id: "prod_wallet_chrome_hearts",
+    name: "CUSTOM COALITION X CHROME HEARTS WALLET",
+    price: 450,
+    images: [
+      "https://i.imgur.com/SS6KbOQ.jpeg",
+      "https://i.imgur.com/NUXZizv.jpeg",
+    ],
+    description: "Exclusive 1/1 custom Coalition x Chrome Hearts collaboration wallet. Premium leather construction with signature Chrome Hearts detailing and Coalition branding. A rare collector's item that combines luxury craftsmanship with streetwear culture.",
+    category: "wallet",
+    gender: "unisex",
+    isFeatured: false,
+    isLimitedEdition: true,
+    sizes: ["One Size"],
+    sizeInventory: { "One Size": 0 },
+    nft: null,
+    archived: true,
+    // Exact sale date unknown (pre-dates our sale tracking). Use 2024-06-01
+    // as a sentinel so the Archive sort places it after the 2024-11 Denim
+    // Patchwork sale and before the 2026 drops.
+    archivedAt: "2024-06-01T00:00:00Z",
+    releasedAt: null,
+    soldAt: "2024-06-01T00:00:00Z",
+  },
+  {
+    id: "Coalition_Denim_Patchwork_S1",
+    name: "Coalition Denim Patchwork 1/1 Jeans S1",
+    price: 140,
+    images: [
+      "https://i.imgur.com/SS6KbOQ.jpeg",
+      "https://i.imgur.com/NUXZizv.jpeg",
+    ],
+    description: "One-of-one Coalition denim patchwork jeans, size 30. Hand-cut and hand-stitched patchwork denim, heavyweight construction, raw-hem finished. Built as a 1/1 collectible.",
+    category: "jeans",
+    gender: "mens",
+    isFeatured: false,
+    isLimitedEdition: true,
+    sizes: ["30"],
+    sizeInventory: { "30": 0 },
+    nft: null,
+    archived: true,
+    archivedAt: "2024-11-08T19:00:00-04:00",
+    releasedAt: null,
+    soldAt: "2024-11-08T19:00:00-04:00",
+  },
+    // TODO: upload real image to Supabase/Imgur - currently using chromeHeartsWallet
+    // image as placeholder (same as the 4 Racing Team wallets and Denim Patchwork).
+    {
+        id: "Coalition_Kustom_Co_Wallet_1_1",
+        name: "Coalition 'Kustom Co' Wallet 1/1",
+        price: 85,
+        images: [
+            "https://i.imgur.com/SS6KbOQ.jpeg",
+        ],
+        description:
+            "One-of-one Coalition x Kustom Co Japan Auto Club collaboration wallet. Hand-finished with the Kustom Co script logo, Japan Auto Club wordmark, raw edge stitching, and Coalition mark. Built as a true 1/1 collectible - once sold, it's gone forever.",
+        category: "wallet",
+        sizes: ["One Size"],
+        sizeInventory: { "One Size": 0 },
+        gender: "unisex",
+        nft: null,
+        // Exact sale date unknown (pre-dates our sale tracking). Use 2024-06-01
+        // as a sentinel so the Archive sort places it above the 2024-11 Denim
+        // Patchwork sale and below the 2026 drops.
+        archived: true,
+        archivedAt: "2024-06-01T00:00:00Z",
+        releasedAt: null,
+        soldAt: "2024-06-01T00:00:00Z",
+        isFeatured: false,
+        isLimitedEdition: true,
+    },
 ];
+
+
 
 export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
   Coalition_Grey_Wave_Wallet_1_2: {
@@ -517,6 +700,9 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
     archiveNote:
       "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop.",
   },
+  Coalition_Grey_Wave_Wallet_2_2: {
+    archiveNote: "Second and final piece in the Coalition 'Grey Wave' wallet run. Sold on the same day as 1/2.",
+  },
   SKYYBLUEWALLET1_2: {
     archived: true,
     archivedAt: "2026-03-26T00:00:00Z",
@@ -525,6 +711,33 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
     sizeInventory: { "One Size": 0 },
     archiveNote:
       "This exact wallet was given to an unhoused veteran after a chance encounter on a dirt bike ride. Seeing someone who served the country still left outside stayed with us. Coalition is built on action, dignity, and showing up for people when the moment calls for it, so this piece was given away instead of sold.",
+  },
+  // Wholesale bundle sold to @friiqy in May 2026 (see INITIAL_ORDERS
+  // order_wholesale_wallets_2026_05_22). The Chrome Hearts 1/1 and Denim
+  // Patchwork 1/1 were separate offline sales; exact dates unknown for some.
+  Coalition_Racing_Team_Wallet_1_4: {
+    archiveNote: "Part of the 7-wallet wholesale bundle sold to @friiqy in May 2026.",
+  },
+  Coalition_Racing_Team_Wallet_2_4: {
+    archiveNote: "Part of the 7-wallet wholesale bundle sold to @friiqy in May 2026.",
+  },
+  Coalition_Racing_Team_Wallet_3_4: {
+    archiveNote: "Part of the 7-wallet wholesale bundle sold to @friiqy in May 2026.",
+  },
+  Coalition_Racing_Team_Wallet_4_4: {
+    archiveNote: "Part of the 7-wallet wholesale bundle sold to @friiqy in May 2026.",
+  },
+  prod_wallet_004: {
+    archiveNote: "Part of the 7-wallet wholesale bundle sold to @friiqy in May 2026.",
+  },
+  prod_wallet_chrome_hearts: {
+    archiveNote: "1/1 Coalition x Chrome Hearts collaboration wallet. Premium leather with signature Chrome Hearts sterling silver detailing. A rare collector's piece.",
+  },
+  Coalition_Kustom_Co_Wallet_1_1: {
+    archiveNote: "1/1 Coalition x Kustom Co Japan Auto Club collaboration. Hand-finished with the Kustom Co script logo and Japan Auto Club wordmark. Sold to a private collector; exact sale date is not on record.",
+  },
+  Coalition_Denim_Patchwork_S1: {
+    archiveNote: "1/1 denim patchwork jeans. Sold via the @friiqy relationship in November 2024.",
   },
 };
 
