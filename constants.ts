@@ -16,6 +16,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Women's Coalition Halo Contrast Tee in bodycon raglan sleeve cut with contrast sleeve stripes, the same gold Coalition halo chest logo as the Coalition Halo Mini Dress, and a TRUST YOURSELF hit on the back. $40, sized S-M-L-XL.",
     category: "shirt",
+    gender: "womens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL"],
@@ -46,6 +47,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Above as Below tee and shorts together in one set. Each piece is $75 on its own ($150 total); the set is $120, saving $30 off the combined price. Sized S-M-L-XL-2XL.",
     category: "apparel",
+    gender: "mens",
     isFeatured: true,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL", "2XL"],
@@ -75,6 +77,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Standard live catalog release priced at $50.",
     category: "dress",
+    gender: "womens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL"],
@@ -104,6 +107,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Women's Above as Below contrast shorts in black with white trim, red Coalition artwork, and a red waistband label. Available S-M-L-XL. $40 separately, or grab the matching crop tank and shorts set for $75.",
     category: "shorts",
+    gender: "womens",
     isFeatured: false,
     isLimitedEdition: true,
     sizes: ["S", "M", "L", "XL"],
@@ -133,6 +137,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Women's Above as Below crewneck crop tank in black with front SG artwork, back Above as Below graphic, and red Coalition hem label. $40 separately, or pair it with the contrast shorts as a $75 set.",
     category: "shirt",
+    gender: "womens",
     isFeatured: false,
     isLimitedEdition: true,
     sizes: ["S", "M", "L", "XL"],
@@ -164,6 +169,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Women's Above as Below set with the crewneck crop tank and contrast shorts together. Black body, red-and-white Coalition artwork, and matching set styling. $75 as a set, sized S-M-L-XL.",
     category: "apparel",
+    gender: "womens",
     isFeatured: false,
     isLimitedEdition: true,
     sizes: ["S", "M", "L", "XL"],
@@ -192,6 +198,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "The matching Above as Below shorts. Same hand-crafted red-and-white Coalition lineage as the tee - heavyweight cotton, deep set pocket, raw-hem finished. Sold at $75 individually, or grab the set with the tee for $120 and save $30.",
     category: "apparel",
+    gender: "mens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL", "2XL"],
@@ -219,17 +226,18 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Second and final piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a storm-grey wave pattern, raw edge stitching, copper grommet, and Coalition mark. Built as a limited 2/2 collectible - once sold, it's gone forever.",
     category: "wallet",
+    gender: "unisex",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["One Size"],
     sizeInventory: {
-      "One Size": 1,
+      "One Size": 0,
     },
     nft: null,
-    archived: false,
-    archivedAt: null,
+    archived: true,
+    archivedAt: "2026-06-25T02:40:12.191+00:00",
     releasedAt: null,
-    soldAt: null,
+    soldAt: "2026-06-25T02:40:12.191+00:00",
   },
   {
     id: "Coalition_Above_As_Below_Wallet_1_1",
@@ -242,6 +250,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "1/1 Above as Below wallet. Hand-finished with the same storm-and-balance motif as the matching Above as Below tee - single piece, one red-and-white Coalition mark, scaled for everyday carry. Once sold, gone forever.",
     category: "wallet",
+    gender: "unisex",
     isFeatured: false,
     isLimitedEdition: true,
     sizes: ["One Size"],
@@ -265,6 +274,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Pre-order release of the Coalition Overwhelmingly Patient Hoodie at $100. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Free shipping when paired with any other item. Reservations capped at one per size; ships in 4-6 weeks from the close of the pre-order window.",
     category: "apparel",
+    gender: "mens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL", "2XL"],
@@ -292,6 +302,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "First piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a custom charcoal-grey dye pattern inspired by Baltimore harbor at dawn. Built as a limited 1/2 collectible — once sold, it's gone forever.",
     category: "wallet",
+    gender: "unisex",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["One Size"],
@@ -317,6 +328,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "The Above as Below tee features a heavyweight black body with red-and-white Coalition artwork across the front and a full back graphic built around the Above as Below concept.",
     category: "shirt",
+    gender: "mens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL", "2XL"],
@@ -346,6 +358,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Unique SGCoalition tie-dye 'Trust Yourself' tee with a striking blue spiral pattern and the iconic crowned-bird graphic. This one-of-a-kind piece features premium print details and a motivational streetwear vibe. Size Small, in excellent condition with no flaws - ideal for collectors or anyone looking to add a standout Coalition piece to their wardrobe.",
     category: "shirt",
+    gender: "mens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL"],
@@ -369,6 +382,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Second piece of the Skyy Blue collection. Hand-crafted tie-dye wallet with silver stitched border. Each piece unique — no two alike.",
     category: "wallet",
+    gender: "unisex",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["One Size"],
@@ -395,6 +409,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       'A one-of-one custom trucker hat featuring 3D puff "TRUST YOURSELF" embroidery, hand-distressed brim, and a custom D20 pin. This piece represents the next evolution of Coalition headwear.',
     category: "headwear",
+    gender: "unisex",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["One Size"],
@@ -420,6 +435,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "One-of-one Coalition x True Religion collaboration jeans. Season 1 exclusive — custom distressed denim with premium detailing. Size 33. Once it's gone, it's gone.",
     category: "jeans",
+    gender: "mens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["33"],
@@ -443,6 +459,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       "Exclusive 1/1 custom wallet featuring camo green aesthetic and signature Coalition branding. Hand-crafted and unique.",
     category: "accessory",
+    gender: "unisex",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["One Size"],
@@ -467,6 +484,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description:
       'The future of streetwear. This limited edition phy-gital tee serves as your access pass to the Coalition ecosystem. Features exclusive "Trust Yourself" puff print and embedded NFC technology linked to its digital twin on the Polygon blockchain.',
     category: "shirt",
+    gender: "mens",
     isFeatured: false,
     isLimitedEdition: false,
     sizes: ["S", "M", "L", "XL"],
@@ -487,7 +505,190 @@ export const INITIAL_PRODUCTS: Product[] = [
     releasedAt: null,
     soldAt: null,
   },
+  // =====================================
+  // ARCHIVE-ONLY PRODUCTS (local fallback)
+  // =====================================
+  // All are `archived: true` with `sizeInventory` zeroed and `soldAt` set
+  // to the best-known sale date.
+  {
+    id: "Coalition_Racing_Team_Wallet_1_4",
+    name: "Coalition 'Racing Team' Wallet 1/4",
+    price: 85,
+    images: [
+      "https://i.imgur.com/SS6KbOQ.jpeg",
+      "https://i.imgur.com/NUXZizv.jpeg",
+    ],
+    description: "First piece of the Coalition 'Racing Team' wallet run. Hand-crafted leather wallet with racing-inspired Coalition mark. Built as a limited 1/4 collectible.",
+    category: "wallet",
+    gender: "unisex",
+    isFeatured: false,
+    isLimitedEdition: false,
+    sizes: ["One Size"],
+    sizeInventory: { "One Size": 0 },
+    nft: null,
+    archived: true,
+    archivedAt: "2026-05-22T22:33:38+00:00",
+    releasedAt: null,
+    soldAt: "2026-05-22T22:33:38+00:00",
+  },
+  {
+    id: "Coalition_Racing_Team_Wallet_2_4",
+    name: "Coalition 'Racing Team' Wallet 2/4",
+    price: 85,
+    images: [
+      "https://i.imgur.com/SS6KbOQ.jpeg",
+      "https://i.imgur.com/NUXZizv.jpeg",
+    ],
+    description: "Second piece of the Coalition 'Racing Team' wallet run. Built as a limited 2/4 collectible.",
+    category: "wallet",
+    gender: "unisex",
+    isFeatured: false,
+    isLimitedEdition: false,
+    sizes: ["One Size"],
+    sizeInventory: { "One Size": 0 },
+    nft: null,
+    archived: true,
+    archivedAt: "2026-05-22T22:33:38+00:00",
+    releasedAt: null,
+    soldAt: "2026-05-22T22:33:38+00:00",
+  },
+  {
+    id: "Coalition_Racing_Team_Wallet_3_4",
+    name: "Coalition 'Racing Team' Wallet 3/4",
+    price: 85,
+    images: [
+      "https://i.imgur.com/SS6KbOQ.jpeg",
+      "https://i.imgur.com/NUXZizv.jpeg",
+    ],
+    description: "Third piece of the Coalition 'Racing Team' wallet run. Built as a limited 3/4 collectible.",
+    category: "wallet",
+    gender: "unisex",
+    isFeatured: false,
+    isLimitedEdition: false,
+    sizes: ["One Size"],
+    sizeInventory: { "One Size": 0 },
+    nft: null,
+    archived: true,
+    archivedAt: "2026-05-22T22:33:38+00:00",
+    releasedAt: null,
+    soldAt: "2026-05-22T22:33:38+00:00",
+  },
+  {
+    id: "Coalition_Racing_Team_Wallet_4_4",
+    name: "Coalition 'Racing Team' Wallet 4/4",
+    price: 85,
+    images: [
+      "https://i.imgur.com/SS6KbOQ.jpeg",
+      "https://i.imgur.com/NUXZizv.jpeg",
+    ],
+    description: "Final piece of the Coalition 'Racing Team' wallet run. Built as a limited 4/4 collectible.",
+    category: "wallet",
+    gender: "unisex",
+    isFeatured: false,
+    isLimitedEdition: false,
+    sizes: ["One Size"],
+    sizeInventory: { "One Size": 0 },
+    nft: null,
+    archived: true,
+    archivedAt: "2026-05-22T22:33:38+00:00",
+    releasedAt: null,
+    soldAt: "2026-05-22T22:33:38+00:00",
+  },
+  {
+    id: "prod_wallet_004",
+    name: "COALITION SKYY BLUE WALLET 2/2",
+    price: 85,
+    images: [
+      "https://i.imgur.com/Z5K3JZ0.png",
+      "https://i.imgur.com/ySkgCOs.png",
+    ],
+    description: "Second and final piece of the Skyy Blue wallet run. Hand-crafted tie-dye wallet with silver stitched border. Part of the 2-piece Skyy Blue collection.",
+    category: "wallet",
+    gender: "unisex",
+    isFeatured: false,
+    isLimitedEdition: false,
+    sizes: ["One Size"],
+    sizeInventory: { "One Size": 0 },
+    nft: null,
+    archived: true,
+    archivedAt: "2026-05-22T22:33:38+00:00",
+    releasedAt: null,
+    soldAt: "2026-05-22T22:33:38+00:00",
+  },
+  {
+    id: "prod_wallet_chrome_hearts",
+    name: "CUSTOM COALITION X CHROME HEARTS WALLET",
+    price: 450,
+    images: [
+      "https://i.imgur.com/SS6KbOQ.jpeg",
+      "https://i.imgur.com/NUXZizv.jpeg",
+    ],
+    description: "Exclusive 1/1 custom Coalition x Chrome Hearts collaboration wallet. Premium leather construction with signature Chrome Hearts detailing and Coalition branding. A rare collector's item that combines luxury craftsmanship with streetwear culture.",
+    category: "wallet",
+    gender: "unisex",
+    isFeatured: false,
+    isLimitedEdition: true,
+    sizes: ["One Size"],
+    sizeInventory: { "One Size": 0 },
+    nft: null,
+    archived: true,
+    // Exact sale date unknown (pre-dates our sale tracking). Use 2024-06-01
+    // as a sentinel so the Archive sort places it after the 2024-11 Denim
+    // Patchwork sale and before the 2026 drops.
+    archivedAt: "2024-06-01T00:00:00Z",
+    releasedAt: null,
+    soldAt: "2024-06-01T00:00:00Z",
+  },
+  {
+    id: "Coalition_Denim_Patchwork_S1",
+    name: "Coalition Denim Patchwork 1/1 Jeans S1",
+    price: 140,
+    images: [
+      "https://i.imgur.com/SS6KbOQ.jpeg",
+      "https://i.imgur.com/NUXZizv.jpeg",
+    ],
+    description: "One-of-one Coalition denim patchwork jeans, size 30. Hand-cut and hand-stitched patchwork denim, heavyweight construction, raw-hem finished. Built as a 1/1 collectible.",
+    category: "jeans",
+    gender: "mens",
+    isFeatured: false,
+    isLimitedEdition: true,
+    sizes: ["30"],
+    sizeInventory: { "30": 0 },
+    nft: null,
+    archived: true,
+    archivedAt: "2024-11-08T19:00:00-04:00",
+    releasedAt: null,
+    soldAt: "2024-11-08T19:00:00-04:00",
+  },
+    // TODO: upload real image to Supabase/Imgur - currently using chromeHeartsWallet
+    // image as placeholder (same as the 4 Racing Team wallets and Denim Patchwork).
+    {
+        id: "Coalition_Kustom_Co_Wallet_1_1",
+        name: "Coalition 'Kustom Co' Wallet 1/1",
+        price: 85,
+        images: [
+            "https://i.imgur.com/SS6KbOQ.jpeg",
+        ],
+        description:
+            "One-of-one Coalition x Kustom Co Japan Auto Club collaboration wallet. Hand-finished with the Kustom Co script logo, Japan Auto Club wordmark, raw edge stitching, and Coalition mark. Built as a true 1/1 collectible - once sold, it's gone forever.",
+        category: "wallet",
+        sizes: ["One Size"],
+        sizeInventory: { "One Size": 0 },
+        gender: "unisex",
+        nft: null,
+        // Exact sale date unknown (pre-dates our sale tracking). Use 2024-06-01
+        // as a sentinel so the Archive sort places it above the 2024-11 Denim
+        // Patchwork sale and below the 2026 drops.
+        archived: true,
+        archivedAt: "2024-06-01T00:00:00Z",
+        releasedAt: null,
+        soldAt: "2024-06-01T00:00:00Z",
+        isFeatured: false,
+        isLimitedEdition: true,
+    },
 ];
+
+
 
 export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
   Coalition_Grey_Wave_Wallet_1_2: {
@@ -499,6 +700,9 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
     archiveNote:
       "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop.",
   },
+  Coalition_Grey_Wave_Wallet_2_2: {
+    archiveNote: "Second and final piece in the Coalition 'Grey Wave' wallet run. Sold on the same day as 1/2.",
+  },
   SKYYBLUEWALLET1_2: {
     archived: true,
     archivedAt: "2026-03-26T00:00:00Z",
@@ -507,6 +711,33 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
     sizeInventory: { "One Size": 0 },
     archiveNote:
       "This exact wallet was given to an unhoused veteran after a chance encounter on a dirt bike ride. Seeing someone who served the country still left outside stayed with us. Coalition is built on action, dignity, and showing up for people when the moment calls for it, so this piece was given away instead of sold.",
+  },
+  // Wholesale bundle sold to @friiqy in May 2026 (see INITIAL_ORDERS
+  // order_wholesale_wallets_2026_05_22). The Chrome Hearts 1/1 and Denim
+  // Patchwork 1/1 were separate offline sales; exact dates unknown for some.
+  Coalition_Racing_Team_Wallet_1_4: {
+    archiveNote: "Part of the 7-wallet wholesale bundle sold to @friiqy in May 2026.",
+  },
+  Coalition_Racing_Team_Wallet_2_4: {
+    archiveNote: "Part of the 7-wallet wholesale bundle sold to @friiqy in May 2026.",
+  },
+  Coalition_Racing_Team_Wallet_3_4: {
+    archiveNote: "Part of the 7-wallet wholesale bundle sold to @friiqy in May 2026.",
+  },
+  Coalition_Racing_Team_Wallet_4_4: {
+    archiveNote: "Part of the 7-wallet wholesale bundle sold to @friiqy in May 2026.",
+  },
+  prod_wallet_004: {
+    archiveNote: "Part of the 7-wallet wholesale bundle sold to @friiqy in May 2026.",
+  },
+  prod_wallet_chrome_hearts: {
+    archiveNote: "1/1 Coalition x Chrome Hearts collaboration wallet. Premium leather with signature Chrome Hearts sterling silver detailing. A rare collector's piece.",
+  },
+  Coalition_Kustom_Co_Wallet_1_1: {
+    archiveNote: "1/1 Coalition x Kustom Co Japan Auto Club collaboration. Hand-finished with the Kustom Co script logo and Japan Auto Club wordmark. Sold to a private collector; exact sale date is not on record.",
+  },
+  Coalition_Denim_Patchwork_S1: {
+    archiveNote: "1/1 denim patchwork jeans. Sold via the @friiqy relationship in November 2024.",
   },
 };
 
@@ -572,7 +803,7 @@ All sales are final. We do not accept returns, exchanges, or refunds on any prod
 
 By completing your purchase, you acknowledge and agree to this policy.
 
-If you have questions about a product before purchasing, please contact us at support@sgcoalition.xyz.
+If you have questions about a product before purchasing, please contact us at sgctrustyourself@gmail.com.
 `.trim();
 
 // =====================================

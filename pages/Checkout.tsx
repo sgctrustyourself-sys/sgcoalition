@@ -34,7 +34,7 @@ type OrderSeed = {
     orderNumber: string;
 };
 
-const SUPPORT_EMAIL = 'support@sgcoalition.xyz';
+const SUPPORT_EMAIL = 'sgctrustyourself@gmail.com';
 
 const Checkout: React.FC = () => {
     const navigate = useNavigate();

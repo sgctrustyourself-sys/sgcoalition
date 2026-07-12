@@ -9,13 +9,15 @@ import Newsletter from '../components/Newsletter';
 import { buildItemListJsonLd } from '../utils/seo';
 import { Product } from '../types';
 
-// Detect women's products by ID prefix, name, or pre-convention carve-out.
+// Detect women's products via the `gender` field, with an ID/name fallback
+// for products missing the field (e.g., Supabase rows that pre-date the
+// migration adding the gender column).
 // Used by both the `women` and `men` category filters on the Shop page.
 // Exported so it can be unit-tested independently of the Shop page render.
-// TODO: replace the hardcoded `prod_halo_mini_dress` carve-out with a `gender`
-// field on the Product type (see constants.ts and types.ts) so this
-// doesn't break silently if the product ID is ever renamed in Supabase.
 export const isWomensProduct = (p: Product) => {
+    if (p.gender) return p.gender === 'womens';
+
+    // Fallback for DB products missing the field
     const id = p.id?.toLowerCase() || '';
     const name = p.name?.toLowerCase() || '';
     return id.includes('womens_') || name.includes("women's") || id === 'prod_halo_mini_dress';
@@ -112,7 +114,14 @@ const Shop = () => {
 
             // Gender-based filters (see `isWomensProduct` helper above for the detection rules).
             if (category === 'women') return isWomensProduct(p);
-            if (category === 'men') return !isWomensProduct(p);
+            if (category === 'men') {
+                // Explicit: show both 'mens' and 'unisex' (wallets, hats) — matches the
+                // pre-gender-field behavior where MEN was the inverse of WOMEN and
+                // included accessories. Falls back to the inverse if the field is
+                // missing (e.g., legacy Supabase rows).
+                if (p.gender) return p.gender === 'mens' || p.gender === 'unisex';
+                return !isWomensProduct(p);
+            }
 
             // Category-based filters
             if (category === 'wallets') return cat === 'wallet' || cat === 'accessory' || cat === 'accessories';

@@ -39,7 +39,7 @@ const Footer = () => {
                             <li><Link to="/brain" className="hover:text-purple-400 text-purple-500 hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Coalition Brain</Link></li>
                         )}
                         <li><Link to="/archive" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Archive</Link></li>
-                        <li><a href="mailto:support@sgcoalition.xyz" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Contact Us</a></li>
+                        <li><a href="mailto:sgctrustyourself@gmail.com" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Contact Us</a></li>
                     </ul>
                 </div>
                 <div>
