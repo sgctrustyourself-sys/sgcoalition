@@ -37,7 +37,7 @@ async function addUnityPolo() {
             'https://i.imgur.com/Cyyojl8.jpeg',
         ],
         description:
-            "Created on an authentic Ralph Lauren polo. Hand-finished with the Coalition Unity mark. One-of-one in the Unity series.",
+            "Created on an authentic Ralph Lauren polo.",
         category: 'shirt',
         gender: 'unisex',
         is_featured: false,
