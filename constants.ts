@@ -36,7 +36,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: "prod_set_above_as_below",
     name: "COALITION ABOVE AS BELOW SET",
     price: 120,
-    isFeatured: false,
     images: [
       "/images/above-as-below-set-front.png",
       "/images/above-as-below-set-back.png",
@@ -675,10 +674,11 @@ export const INITIAL_PRODUCTS: Product[] = [
         images: [
             "https://i.imgur.com/EIwJZlG.jpeg",
             "https://i.imgur.com/Cyyojl8.jpeg",
-        ],        description: "Created on an authentic Ralph Lauren polo.",
+        ],
+        description: "Created on an authentic Ralph Lauren polo.",
         category: "shirt",
         gender: "unisex",
-        isFeatured: false,
+        isFeatured: true,
         isLimitedEdition: true,
         sizes: ["XS", "S", "M", "L", "XL", "2XL"],
         sizeInventory: {
