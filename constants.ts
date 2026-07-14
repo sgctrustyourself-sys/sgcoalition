@@ -3,6 +3,60 @@ import { PRODUCT_IMAGE_URLS } from "./utils/localImageAssets";
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
+    "id": "prod_1784012446238",
+    "name": "COALITION ABOVE AS BELOW 2/4 WALLET",
+    "price": 85,
+    "images": [
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/new-product_1784012501036_ovcfh.jpg",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/new-product_1784012506715_yb9ux.jpg"
+    ],
+    "description": "",
+    "category": "accessory",
+    "isFeatured": false,
+    "isLimitedEdition": false,
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL"
+    ],
+    "sizeInventory": {
+      "L": 0,
+      "M": 0,
+      "S": 1,
+      "XL": 0
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
+  },
+  {
+    "id": "prod_1784012355221",
+    "name": "COALITION ABOVE AS BELOW 1/1 WALLET (Copy)",
+    "price": 85,
+    "images": [
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_9NF3LzM.jpg",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_UoY42bg.jpg"
+    ],
+    "description": "1/1 Above as Below wallet. Hand-finished with the same storm-and-balance motif as the matching Above as Below tee - single piece, one red-and-white Coalition mark, scaled for everyday carry. Once sold, gone forever.",
+    "category": "wallet",
+    "isFeatured": false,
+    "isLimitedEdition": true,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 0
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
+  },
+  {
     "id": "prod_unity_polo",
     "name": "Coalition Unity No. 4 Polo",
     "price": 400,
@@ -62,38 +116,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       "M": 1,
       "S": 1,
       "XL": 1
-    },
-    "nft": null,
-    "archived": false,
-    "archivedAt": null,
-    "releasedAt": null,
-    "soldAt": null
-  },
-  {
-    "id": "prod_halo_mini_dress",
-    "name": "COALITION HALO MINI DRESS",
-    "price": 50,
-    "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_nzsauOz.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_wYR7Nfx.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_v4xVrou.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_OKefysC.png"
-    ],
-    "description": "Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Standard live catalog release priced at $50.",
-    "category": "dress",
-    "isFeatured": false,
-    "isLimitedEdition": false,
-    "sizes": [
-      "S",
-      "M",
-      "L",
-      "XL"
-    ],
-    "sizeInventory": {
-      "L": 13,
-      "M": 13,
-      "S": 12,
-      "XL": 12
     },
     "nft": null,
     "archived": false,
@@ -165,6 +187,38 @@ export const INITIAL_PRODUCTS: Product[] = [
       "S": 4,
       "XL": 4,
       "2XL": 4
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
+  },
+  {
+    "id": "prod_halo_mini_dress",
+    "name": "COALITION HALO MINI DRESS",
+    "price": 50,
+    "images": [
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_nzsauOz.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_wYR7Nfx.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_v4xVrou.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_OKefysC.png"
+    ],
+    "description": "Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Standard live catalog release priced at $50.",
+    "category": "dress",
+    "isFeatured": false,
+    "isLimitedEdition": false,
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL"
+    ],
+    "sizeInventory": {
+      "L": 13,
+      "M": 13,
+      "S": 12,
+      "XL": 12
     },
     "nft": null,
     "archived": false,
