@@ -163,10 +163,10 @@ export const INITIAL_PRODUCTS: Product[] = [
     "name": "COALITION ABOVE AS BELOW SET",
     "price": 120,
     "images": [
-      "/images/above-as-below-set-front.png",
-      "/images/above-as-below-set-back.png",
-      "/images/above-as-below-tee-front.png",
-      "/images/above-as-below-tee-back.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-set-front.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-set-back.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-tee-front.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-tee-back.png",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-above-as-below-set_1783736765709_ppzti.jpg",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-above-as-below-set_1783736776254_6lzfr.jpg"
     ],
@@ -435,8 +435,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     "name": "COALITION ABOVE AS BELOW TEE",
     "price": 75,
     "images": [
-      "/images/above-as-below-tee-front.png",
-      "/images/above-as-below-tee-back.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-tee-front.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-tee-back.png",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-above-as-below-tee_1783736980419_b2mdg.jpg",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-above-as-below-tee_1783737104911_6v4uf.jpg"
     ],
