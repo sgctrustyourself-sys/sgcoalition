@@ -54,6 +54,7 @@ const GiveawayEntry = React.lazy(() => import('./pages/GiveawayEntry'));
 const YoutubeGiveaway = React.lazy(() => import('./pages/YoutubeGiveaway'));
 const CustomInquiry = React.lazy(() => import('./pages/CustomInquiry'));
 const Wallets = React.lazy(() => import('./pages/Wallets'));
+const CustomWallets = React.lazy(() => import('./pages/CustomWallets'));
 const BuySGCoin = React.lazy(() => import('./pages/BuySGCoin'));
 const Favorites = React.lazy(() => import('./pages/Favorites'));
 const OrderHistory = React.lazy(() => import('./pages/OrderHistory'));
@@ -201,6 +202,7 @@ const App = () => {
                     <Route path="/giveaway/:id" element={<GiveawayEntry />} />
                     <Route path="/inquire" element={<CustomInquiry />} />
                     <Route path="/wallets" element={<Wallets />} />
+                    <Route path="/custom-wallets" element={<CustomWallets />} />
                     <Route path="/sgcoin" element={<BuySGCoin />} />
                     <Route path="/membership" element={<Membership />} />
                     <Route path="/help" element={<Help />} />
