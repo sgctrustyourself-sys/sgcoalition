@@ -10,6 +10,7 @@ import { resolveLocalImageUrls } from '../utils/localImageAssets';
 import { normalizeProductSizeData } from '../utils/productSizes';
 import { getCartItemLineTotal, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
 import { fetchPaidCountsByProduct } from '../services/numberedPieces';
+import { clearOtherFeaturedProducts } from '../utils/featuredExclusivity';
 
 interface AppState {
     products: Product[];
@@ -139,18 +140,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ...product,
             isFeatured: product.id === featuredProductId,
         }));
-
-    const clearOtherFeaturedProductsInDb = async (featuredProductId: string) => {
-        if (!isSupabaseConfigured) return;
-
-        const { error } = await supabase
-            .from('products')
-            .update({ is_featured: false })
-            .eq('is_featured', true)
-            .neq('id', featuredProductId);
-
-        if (error) throw error;
-    };
 
     // Track network changes
     useEffect(() => {
@@ -758,8 +747,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     size_inventory: normalizedProduct.sizeInventory, nft_metadata: normalizedProduct.nft
                 }]);
                 if (error) throw error;
+                // Mirror api/_handlers/admin-products.ts featured-exclusivity hook
+                // via the shared helper. The admin-token path above already routes
+                // through /api/admin-products which enforces this same constraint
+                // server-side; this branch is the no-token fallback.
                 if (normalizedProduct.isFeatured) {
-                    await clearOtherFeaturedProductsInDb(normalizedProduct.id);
+                    await clearOtherFeaturedProducts(supabase, normalizedProduct.id, normalizedProduct.isFeatured);
                 }
             }
             await autoCommit({ message: generateProductAddedMessage(p.name) });
@@ -813,8 +806,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     size_inventory: normalizedUpdated.sizeInventory, nft_metadata: normalizedUpdated.nft, archived: normalizedUpdated.archived
                 }).eq('id', normalizedUpdated.id);
                 if (error) throw error;
+                // Mirror api/_handlers/admin-products.ts featured-exclusivity hook
+                // via the shared helper (same rationale as the addProduct branch
+                // above — this is the no-token fallback when the operator is
+                // not authenticated via admin-verify).
                 if (normalizedUpdated.isFeatured) {
-                    await clearOtherFeaturedProductsInDb(normalizedUpdated.id);
+                    await clearOtherFeaturedProducts(supabase, normalizedUpdated.id, normalizedUpdated.isFeatured);
                 }
             }
             await autoCommit({ message: generateProductUpdatedMessage(updated.name) });

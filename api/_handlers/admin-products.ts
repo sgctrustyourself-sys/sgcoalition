@@ -12,6 +12,7 @@
 // token, then use the service-role client for the actual write.
 
 import { createClient } from '@supabase/supabase-js';
+import { clearOtherFeaturedProducts } from '../../utils/featuredExclusivity';
 
 function setCorsHeaders(req: any, res: any) {
     const configuredOrigin = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
@@ -103,16 +104,11 @@ async function addProduct(body: any) {
 
     // Clear other featured products AFTER successful insert so a failed
     // write doesn't leave the catalog with no featured product at all.
-    if (dbProduct.is_featured) {
-        const { error: clearError } = await supabase
-            .from('products')
-            .update({ is_featured: false })
-            .eq('is_featured', true)
-            .neq('id', product.id);
-        if (clearError) {
-            console.warn('[admin-products] Failed to clear other featured products:', clearError);
-        }
-    }
+    // (Clear failure is logged at WARN, not thrown — by design. See
+    // utils/featuredExclusivity.ts header comment for the rationale.)
+    await clearOtherFeaturedProducts(supabase, product.id, dbProduct.is_featured, {
+        warn: (message) => console.warn(`[admin-products] ${message.replace('[featured-exclusivity] ', '')}`),
+    });
 
     return data;
 }
@@ -153,16 +149,9 @@ async function updateProduct(body: any) {
     }
 
     // Clear other featured products AFTER successful update (see addProduct comment)
-    if (dbProduct.is_featured) {
-        const { error: clearError } = await supabase
-            .from('products')
-            .update({ is_featured: false })
-            .eq('is_featured', true)
-            .neq('id', product.id);
-        if (clearError) {
-            console.warn('[admin-products] Failed to clear other featured products:', clearError);
-        }
-    }
+    await clearOtherFeaturedProducts(supabase, product.id, dbProduct.is_featured, {
+        warn: (message) => console.warn(`[admin-products] ${message.replace('[featured-exclusivity] ', '')}`),
+    });
 
     return data;
 }
