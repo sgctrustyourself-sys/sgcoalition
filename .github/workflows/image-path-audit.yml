@@ -70,14 +70,29 @@ jobs:
         continue-on-error: true
         run: npx vitest run tests/featuredExclusivity.test.ts
 
+      - name: Run wallet-shape audit
+        id: wallet-shape
+        continue-on-error: true
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        # Same tee + PIPESTATUS[0] pattern as the image-path audit:
+        # capture full 3-section output to a file for the artifact while
+        # preserving live console output, and surface the real exit code.
+        run: |
+          npx tsx scripts/auditWalletShape.ts 2>&1 | tee wallet-shape-output.txt
+          echo "wallet-shape exit code: ${PIPESTATUS[0]}"
+
       - name: Report combined gate result
         if: always()
-        # Fail the job with a clear ::error:: annotation if either gate
-        # failed. The audit-output.txt artifact is uploaded separately
-        # below, regardless of this step result.
+        # Fail the job with a clear ::error:: annotation if any gate failed.
+        # The audit artifacts are uploaded separately below, regardless
+        # of this step result.
         run: |
-          if [[ "${{ steps.audit.conclusion }}" == "failure" || "${{ steps.vitest.conclusion }}" == "failure" ]]; then
-            echo "::error::One or more gates failed. See the audit artifact and the vitest log above."
+          if [[ "${{ steps.audit.conclusion }}" == "failure" ||
+                "${{ steps.vitest.conclusion }}" == "failure" ||
+                "${{ steps.wallet-shape.conclusion }}" == "failure" ]]; then
+            echo "::error::One or more gates failed. See the audit artifacts and the vitest log above."
             exit 1
           fi
           echo "All gates passed."
@@ -88,4 +103,12 @@ jobs:
         with:
           name: image-path-audit-output
           path: audit-output.txt
+          if-no-files-found: warn
+
+      - name: Upload wallet-shape audit output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wallet-shape-audit-output
+          path: wallet-shape-output.txt
           if-no-files-found: warn
