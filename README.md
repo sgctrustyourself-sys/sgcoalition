@@ -65,6 +65,8 @@ vercel rollback dpl_75Vza3u5F1cqwmK83qvGXV9x4ANg --yes
 - [Reel + post recipe (1/1 process videos)](#reel--post-recipe-11-process-videos)
 - [Public site map](#public-site-map)
 - [/admin operator map](#admin-operator-map)
+- [Storefront Display Utilities](#storefront-display-utilities)
+- [Storefront Display Utilities](#storefront-display-utilities)
 
 
 Premium streetwear e-commerce platform built with React, Vite, and Stripe.
@@ -449,6 +451,138 @@ If a live Supabase row exists, the Supabase price is the current storefront pric
 | `prod_wallet_004` | COALITION SKYY BLUE WALLET 2/2 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
 | `prod_wallet_chrome_hearts` | CUSTOM COALITION X CHROME HEARTS WALLET | $450 | wallet | Archived/sold | no size map | Local fallback only |
 | `Coalition_Denim_Patchwork_S1` | Coalition Denim Patchwork 1/1 Jeans S1 | $140 | jeans | Archived/sold | stock 0; 30: 0 | Supabase + local overrides |
+
+## Storefront Display Utilities
+
+The `/shop` "newest" sort and the `/` "featured" selector are the two deterministic contracts that determine what a buyer sees first. They're the load-bearing pieces of the storefront display; if either silently changes, the entire catalog order shifts. **`utils/storefront.ts`** extracts both pieces from `pages/Shop.tsx` and `pages/Home.tsx` into pure functions, and **`tests/storefront.test.ts`** locks the behavior with 17 regression tests.
+
+### Why they exist
+
+The Coalition Unity No. 4 Polo promotion (newest + featured) depended on two specific contracts that were previously expressed inline as `.sort()` comparators and `.find()` predicates:
+
+1. A product with `createdAt=2026-07-12` ALWAYS sorts before a product without `createdAt`, regardless of the other products' order in the input.
+2. The home page hero must pick the first `isFeatured:true` product when one exists, else fall back to `products[0]`.
+
+Both contracts were already implicit in the page code; extracting them into a testable utility pins the exact comparator and selector so a future refactor can't silently rerank the storefront.
+
+### sortByNewest
+
+```ts
+sortByNewest(products: Product[]): Product[]
+```
+
+Returns a NEW array (never mutates the input) sorted newest-first.
+
+**Timestamp fallback chain (in order):**
+
+1. `createdAt` — when the product was added to the catalog
+2. `releasedAt` — release date override (used for scheduled drops)
+3. `archivedAt` — archive date (legacy products without createdAt)
+4. `soldAt` — sold date (last-resort fallback)
+5. `epoch 0` — products with no dates at all sort to the bottom
+
+**Tie-break:** preserves the input array's relative order (stable). Two products with the same timestamp stay in their original input order.
+
+> **Why input-order tie-break, not `name.localeCompare` like `archiveSort`?** Supabase sorts by `created_at DESC` in `AppContext.tsx`, which IS the storefront display order. A future contributor who "harmonizes" the two sort utilities to use `name.localeCompare` would silently change the live shop order. The divergence is intentional and pinned by an inline comment in the utility itself.
+
+### selectFeaturedProduct
+
+```ts
+selectFeaturedProduct(products: Product[] | undefined | null): Product | null
+```
+
+Returns the product to display in the home page featured slot.
+
+**Selection rule:**
+
+1. First product with `isFeatured: true` (in the input array's order)
+2. Fallback: `products[0]` if no product is featured
+3. Return `null` for empty / undefined / null input
+
+The `isFeatured` uniqueness invariant (at most one row with `is_featured = true`) is enforced separately by the Featured-Exclusivity Helper hook. `selectFeaturedProduct` reads the field but does not own the uniqueness contract.
+
+### Test lock
+
+The full contract is pinned by 17 `it()` blocks across 2 `describe` groups in `tests/storefront.test.ts` (10 tests for `sortByNewest`, 7 tests for `selectFeaturedProduct`):
+
+- **`sortByNewest`**: primary contract (createdAt sorts before missing dates), full date fallback chain, null/malformed/empty handling, stable tie-break, immutability.
+- **`selectFeaturedProduct`**: primary contract (returns first `isFeatured:true`), `products[0]` fallback, empty/undefined/null handling.
+
+Tests use SYNTHETIC fixtures (not real products from `constants.ts`) so they're decoupled from the catalog. If a future product addition breaks either contract, the tests fail first and point at the utility function, not at the catalog. Follows the `utils/archiveSort.ts` + `tests/archiveSort.test.ts` pattern; the test layout deliberately mirrors its structure.
+
+### Where to read it
+
+- Utility: `utils/storefront.ts` (`sortByNewest`, `selectFeaturedProduct`)
+- Test lock: `tests/storefront.test.ts` (17 assertions across 2 describe groups)
+- Consumer: `pages/Shop.tsx` (uses `sortByNewest` in the filter chain)
+- Consumer: `pages/Home.tsx` (uses `selectFeaturedProduct` for the featured slot)
+- Counterpart utility (archive sort, locked the same way): `utils/archiveSort.ts`, `tests/archiveSort.test.ts`
+
+## Storefront Display Utilities
+
+The `/shop` "newest" sort and the `/` "featured" selector are the two deterministic contracts that determine what a buyer sees first. They're the load-bearing pieces of the storefront display; if either silently changes, the entire catalog order shifts. **`utils/storefront.ts`** extracts both pieces from `pages/Shop.tsx` and `pages/Home.tsx` into pure functions, and **`tests/storefront.test.ts`** locks the behavior with 17 regression tests.
+
+### Why they exist
+
+The Coalition Unity No. 4 Polo promotion (newest + featured) depended on two specific contracts that were previously expressed inline as `.sort()` comparators and `.find()` predicates:
+
+1. A product with `createdAt=2026-07-12` ALWAYS sorts before a product without `createdAt`, regardless of the other products' order in the input.
+2. The home page hero must pick the first `isFeatured:true` product when one exists, else fall back to `products[0]`.
+
+Both contracts were already implicit in the page code; extracting them into a testable utility pins the exact comparator and selector so a future refactor can't silently rerank the storefront.
+
+### sortByNewest
+
+```ts
+sortByNewest(products: Product[]): Product[]
+```
+
+Returns a NEW array (never mutates the input) sorted newest-first.
+
+**Timestamp fallback chain (in order):**
+
+1. `createdAt` — when the product was added to the catalog
+2. `releasedAt` — release date override (used for scheduled drops)
+3. `archivedAt` — archive date (legacy products without createdAt)
+4. `soldAt` — sold date (last-resort fallback)
+5. `epoch 0` — products with no dates at all sort to the bottom
+
+**Tie-break:** preserves the input array's relative order (stable). Two products with the same timestamp stay in their original input order.
+
+> **Why input-order tie-break, not `name.localeCompare` like `archiveSort`?** Supabase sorts by `created_at DESC` in `AppContext.tsx`, which IS the storefront display order. A future contributor who "harmonizes" the two sort utilities to use `name.localeCompare` would silently change the live shop order. The divergence is intentional and pinned by an inline comment in the utility itself.
+
+### selectFeaturedProduct
+
+```ts
+selectFeaturedProduct(products: Product[] | undefined | null): Product | null
+```
+
+Returns the product to display in the home page featured slot.
+
+**Selection rule:**
+
+1. First product with `isFeatured: true` (in the input array's order)
+2. Fallback: `products[0]` if no product is featured
+3. Return `null` for empty / undefined / null input
+
+The `isFeatured` uniqueness invariant (at most one row with `is_featured = true`) is enforced separately by the Featured-Exclusivity Helper hook. `selectFeaturedProduct` reads the field but does not own the uniqueness contract.
+
+### Test lock
+
+The full contract is pinned by 17 `it()` blocks across 2 `describe` groups in `tests/storefront.test.ts` (10 tests for `sortByNewest`, 7 tests for `selectFeaturedProduct`):
+
+- **`sortByNewest`**: primary contract (createdAt sorts before missing dates), full date fallback chain, null/malformed/empty handling, stable tie-break, immutability.
+- **`selectFeaturedProduct`**: primary contract (returns first `isFeatured:true`), `products[0]` fallback, empty/undefined/null handling.
+
+Tests use SYNTHETIC fixtures (not real products from `constants.ts`) so they're decoupled from the catalog. If a future product addition breaks either contract, the tests fail first and point at the utility function, not at the catalog. Follows the `utils/archiveSort.ts` + `tests/archiveSort.test.ts` pattern; the test layout deliberately mirrors its structure.
+
+### Where to read it
+
+- Utility: `utils/storefront.ts` (`sortByNewest`, `selectFeaturedProduct`)
+- Test lock: `tests/storefront.test.ts` (17 assertions across 2 describe groups)
+- Consumer: `pages/Shop.tsx` (uses `sortByNewest` in the filter chain)
+- Consumer: `pages/Home.tsx` (uses `selectFeaturedProduct` for the featured slot)
+- Counterpart utility (archive sort, locked the same way): `utils/archiveSort.ts`, `tests/archiveSort.test.ts`
 
 ## Local Development
 
