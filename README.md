@@ -67,6 +67,7 @@ vercel rollback dpl_75Vza3u5F1cqwmK83qvGXV9x4ANg --yes
 - [/admin operator map](#admin-operator-map)
 - [Featured-Exclusivity Helper](#featured-exclusivity-helper)
 - [Storefront Display Utilities](#storefront-display-utilities)
+- [Image-Path Audit](#image-path-audit)
 
 
 Premium streetwear e-commerce platform built with React, Vite, and Stripe.
@@ -626,6 +627,73 @@ npx tsx scripts/fixProd1784012446238Sizing.ts --confirm  # applies the fix to th
 - Companion selector path (consumer of the wallet-shape invariant): `utils/walletAddOns.ts > isWalletProduct` (the wallet-shape predicate used by PDP render branches; also wired into the admin ProductManager form, where future preventive UI hardening would land)
 
 ## Local Development
+## Image-Path Audit
+
+The `scripts/auditImagePaths.ts` script is the **storefront image-health gate**. It runs in three sections, the third of which is the new layer that catches the failure mode where Supabase overrides the freshly-fixed `constants.ts` via the React app's `{ ...local, ...sp }` spread merge — a class of drift the prior audit could not detect.
+
+### Three-section output
+
+| Section | What it scans | Source |
+| --- | --- | --- |
+| `[Section 1]` | `constants.ts INITIAL_PRODUCTS` image URLs | File read |
+| `[Section 2]` | Supabase `products.images` for every row (incl. archived) | Live DB read |
+| `[Section 3]` | Local↔Remote cross-check on shared product ids | Both |
+
+### Exit contract
+
+- `0` — all three sections are clean (or Section 2+3 SKIPPED when no Supabase env vars are set; Section 1 still drives the exit code in that case)
+- `1` — any drift in any section, any broken URL, or any Supabase fetch error
+
+```bash
+npx.cmd tsx scripts/auditImagePaths.ts                # full 3-section audit
+```
+
+### What counts as drift
+
+- **`LOCAL_RELATIVE_PATH`** — `/images/...` (won't resolve at runtime; React app silently fails-over to nothing)
+- **`INSECURE_HTTP`** — `http://...` (mixed-content block; the project requires `https://`)
+- **`NON_CANONICAL_HOST`** — URL resolves to a host the project doesn't trust. The canonical allowlist is `i.imgur.com` and `tvacscfb*.supabase.co/storage/`.
+- **`OTHER`** — non-URL value (almost certainly a typo)
+
+Cross-check drift types (Section 3):
+
+- **`BOTH_HAVE_ISSUES`** — one or both sides have at least one broken URL. This is the "today's incident" pattern: `constants.ts` was repaired, but Supabase still had the old broken paths.
+- **`MISMATCH`** — both sides are clean, but the URL arrays differ (order-sensitive). The React app's spread merge would silently pick the Supabase side; the operator's `constants.ts` edit is invisible until Supabase is also updated.
+- **`REMOTE_ONLY_BROKEN`** — product exists in Supabase but not in `INITIAL_PRODUCTS`, and has at least one broken URL.
+
+### Idempotent + non-mutating
+
+The script never writes. Re-runs are safe. Wire it into CI for a `git push`-time gate. When the env vars are missing, Sections 2 + 3 print `SKIPPED` and only Section 1 drives the exit code, so the local check still works in dev/CI without operator secrets.
+
+### Worked example — SKYYBLUEWALLET1_2 (2026-07-14)
+
+The audit's first real detection. `SKYYBLUEWALLET1_2` had two `/images/products/wallet-skyy-blue/{front,back}.jpg` paths in Supabase (broken) and two stale `i.imgur.com/{Z5K3JZ0,ySkgCOs}.png` URLs in `constants.ts` (clean-ish but not Supabase-canonical). The audit caught both, cross-checked the MISMATCH, and the operator workflow closed the loop in the same session:
+
+1. `scripts/uploadSkyyBlueWalletImages.ts --confirm` — fetched 2 jpgs from imgur (Z5K3JZ0 + ySkgCOs), uploaded to Supabase storage `products/images/wallet-skyy-blue-{front,back}.jpg`, synced the DB `products.images` column.
+2. Manual str_replace of the 2 stale `i.imgur.com` URLs in `constants.ts` to the 2 fresh Supabase storage URLs (order preserved: front = index 0, back = index 1).
+3. Re-ran `scripts/auditImagePaths.ts` — `STATUS: PASS (exit 0)`.
+
+The first real detection by the new audit, repaired in the same session. The audit's purpose is exactly this: surface drift on the first run, then exit 0 only when both sides agree.
+
+### Earlier drift incidents repaired by the same family of tools
+
+- `prod_set_above_as_below` + `prod_tee_above_as_below` (broken `/images/...` paths in `constants.ts`) — repaired by `scripts/uploadAboveAsBelowImages.ts`
+- `SKYYBLUEWALLET1_2` (broken `/images/...` paths in Supabase overriding the fresh local entry) — repaired by `scripts/uploadSkyyBlueWalletImages.ts` + manual `constants.ts` swap
+
+### Shared helper
+
+The order-sensitive array equality used by Section 3's cross-check lives in `utils/imageUrlEquality.ts` (export `urlsEqual`). Both `scripts/auditImagePaths.ts` and `scripts/syncImageFieldsToSupabase.ts` import from it; the prior duplicate copy in the sync script was eliminated when the audit extension landed. Order-sensitivity is intentional: the PDP carousel renders images[] in array order, so any order drift between local and remote would silently present different content from what the operator seeded.
+
+### Where to read it
+
+- Script: `scripts/auditImagePaths.ts` (3-section printer, idempotent, dry-run-only)
+- Shared helper: `utils/imageUrlEquality.ts`
+- Sibling one-shot repair tool: `scripts/uploadSkyyBlueWalletImages.ts` (fetches from imgur + uploads to Supabase + syncs DB column)
+- Sibling one-shot DB sync: `scripts/syncImageFieldsToSupabase.ts` (aligns Supabase rows to `constants.ts` after a local edit)
+- Sibling one-shot (local-fix path): `scripts/uploadAboveAsBelowImages.ts` (the original pattern the SKYY tool was modeled on)
+- Related storefront display contracts: [Storefront Display Utilities](#storefront-display-utilities) (`sortByNewest`, `selectFeaturedProduct`)
+- Session signoff: [`docs/SIGNOFF_2026-07-14.md`](docs/SIGNOFF_2026-07-14.md) (covers the full provenance of the audit extension + the SKYY repair)
+
 
 ### Prerequisites
 
