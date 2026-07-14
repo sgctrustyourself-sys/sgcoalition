@@ -501,8 +501,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     "name": "COALITION SKYY BLUE WALLET 1/2",
     "price": 75,
     "images": [
-      "https://i.imgur.com/Z5K3JZ0.png",
-      "https://i.imgur.com/ySkgCOs.png"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/wallet-skyy-blue-front.jpg",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/wallet-skyy-blue-back.jpg"
     ],
     "description": "Second piece of the Skyy Blue collection. Hand-crafted tie-dye wallet with silver stitched border. Each piece unique — no two alike.",
     "category": "wallet",
