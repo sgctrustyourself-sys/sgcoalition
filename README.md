@@ -65,7 +65,7 @@ vercel rollback dpl_75Vza3u5F1cqwmK83qvGXV9x4ANg --yes
 - [Reel + post recipe (1/1 process videos)](#reel--post-recipe-11-process-videos)
 - [Public site map](#public-site-map)
 - [/admin operator map](#admin-operator-map)
-- [Storefront Display Utilities](#storefront-display-utilities)
+- [Featured-Exclusivity Helper](#featured-exclusivity-helper)
 - [Storefront Display Utilities](#storefront-display-utilities)
 
 
@@ -452,6 +452,86 @@ If a live Supabase row exists, the Supabase price is the current storefront pric
 | `prod_wallet_chrome_hearts` | CUSTOM COALITION X CHROME HEARTS WALLET | $450 | wallet | Archived/sold | no size map | Local fallback only |
 | `Coalition_Denim_Patchwork_S1` | Coalition Denim Patchwork 1/1 Jeans S1 | $140 | jeans | Archived/sold | stock 0; 30: 0 | Supabase + local overrides |
 
+## Featured-Exclusivity Helper
+
+The `products.is_featured` flag is exclusive — at most one row can have `is_featured = true` at any time (it drives the homepage hero slot and the React storefront's `selectFeaturedProduct` fallback chain). Every code path that flips the flag goes through **`utils/featuredExclusivity.ts`** so the catalog invariant stays intact even when multiple writers race. Without the helper, a second writer landing `is_featured = true` on its own would silently leave two featured rows in the live catalog.
+
+### When to use it
+
+If you are writing ANY new code path that mutates `products.is_featured` to `true` (CLI upsert script, React admin write, retry queue, admin API extension), call the helper immediately AFTER the write succeeds:
+
+```ts
+import { clearOtherFeaturedProducts } from '../utils/featuredExclusivity';
+
+const { error } = await supabase.from('products').upsert([product]);
+if (!error && product.is_featured) {
+    await clearOtherFeaturedProducts(supabase, product.id, product.is_featured);
+}
+```
+
+Do NOT inline the `supabase.from('products').update({is_featured:false}).eq('is_featured',true).neq('id',currentId)` filter pattern. The hook exists precisely so future writers can't get it wrong.
+
+### Contract
+
+- **No-op short-circuit** — when `is_featured` is `false` or `undefined`, no network call is made. Returns `{ cleared: false, error: null, clearedCount: 0 }` and exits.
+- **Never throws on Supabase failures** — wraps the entire `supabase.from('products').update(...).eq().neq()` call in try/catch so both PostgrestError returns AND transport-level `.update()` rejections land as `{ cleared: false, error }` instead of escaping to the caller. Emits a single `console.warn` (or your custom `warn` callback). The product write is kept — "transient duplicate featured product" is a better failure mode than "no featured product at all" (the storefront would then fall back to `products[0]` via `selectFeaturedProduct`, but a stale fallback is worse than nothing on the catalog).
+- **Throws only on programmer error** — `currentProductId` empty / whitespace after `.trim()` throws synchronously BEFORE any network call. The throw is the "don't self-clear the new featured row" guard; missing this argument would mean clearing the row you just wrote.
+- **Returns `clearedCount`** — on success, returns `{ cleared: true, clearedCount: N }` where N is the count of OTHER rows the helper flipped to `is_featured = false`. Logs via `console.log` (or your custom `log` callback) when N > 0.
+- **Custom loggers** — supply `options.warn` / `options.log` to override defaults entirely. The admin-products handler uses this to preserve its `[admin-products]` log prefix; tests use it to assert which messages fire and to suppress real-`console` noise during test runs.
+
+The full contract is pinned by 20 assertions in `tests/featuredExclusivity.test.ts` (no-op, happy path, returned-error, thrown-error, programmer-error, custom-logger). Any future change that breaks the contract turns a test red immediately.
+
+### The 8 app/CLI callers (9th is the server-side handler — see below)
+
+| Path | File | Why it's wired |
+| --- | --- | --- |
+| Add Unity Polo (CLI) | `scripts/addUnityPolo.ts` | After the idempotent retry loop settles |
+| Add Chrome Hearts Wallet (CLI) | `scripts/addChromeHeartsWallet.ts` | After `.insert()`; helper uses `data[0].id` (no explicit id since Postgres generates one) |
+| Add Skyy Wallet (CLI) | `scripts/addSkyyWallet.ts` | After `.upsert()` |
+| Add Above As Below Set (CLI) | `scripts/addAboveAsBelowSet.ts` | After the retry-loop upsert that strips optional missing columns |
+| Update Wallet Imgur (CLI) | `scripts/updateWalletImgur.ts` | After `.update()` flips the flag to true |
+| React admin `addProduct` (no-token branch) | `context/AppContext.tsx` | When operator is NOT in admin mode, writes go direct to Supabase |
+| React admin `updateProduct` (no-token branch) | `context/AppContext.tsx` | Same; update mirrors addProduct |
+| React app `RetryQueue.retryWrite()` | `services/retryQueue.ts` | Catches the case where the original addProduct/updateProduct write failed (e.g., transient RLS) — without the helper, a retry could land a featured product without clearing others |
+
+`api/_handlers/admin-products.ts` is the 9th caller — it uses the **same** shared helper for server-side `/api/admin-products` requests, with a custom `warn` option to preserve the `[admin-products]` log prefix. When the React app has an admin token (operator authenticated via `admin-verify`), `addProduct`/`updateProduct` routes through that endpoint via fetch — so the helper call in `context/AppContext.tsx` is only exercised in the **no-token fallback branch** (anon-key direct-to-Supabase writes).
+
+### Worked example — adding a new add*Product.ts
+
+```ts
+// scripts/addNewProduct.ts
+import { createClient } from '@supabase/supabase-js';
+// ... env setup ...
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+async function addNewProduct() {
+    const product = {
+        id: 'prod_new_widget',
+        name: 'Coalition New Widget',
+        // ... full product payload ...
+        is_featured: true,  // NOT a no-op — must trigger the clear
+        archived: false,
+    };
+
+    // GOOD path: writes the row, then clears other featured rows via
+    // the shared helper so the invariant stays intact even if a
+    // different writer is landing a featured product right now.
+    const { error } = await supabase.from('products').insert([product]);
+    if (error) { /* existing error path */ }
+    await clearOtherFeaturedProducts(supabase, product.id, product.is_featured);
+}
+```
+
+The same logic applies to update scripts that toggle `is_featured` from `false` to `true` — the helper call goes AFTER the update succeeds, gated on the new `is_featured` value being `true`.
+
+### Where to read it
+
+- Helper: `utils/featuredExclusivity.ts`
+- Server-side hook: `api/_handlers/admin-products.ts` (mirrors the same pattern; admin-token writes always route through here)
+- Tests: `tests/featuredExclusivity.test.ts` (20 assertions across the no-op, happy path, thrown-error, returned-error, programmer-error, and custom-logger contracts)
+- Related frontend selector (the consumer of the invariant): `utils/storefront.ts > selectFeaturedProduct`
+
 ## Storefront Display Utilities
 
 The `/shop` "newest" sort and the `/` "featured" selector are the two deterministic contracts that determine what a buyer sees first. They're the load-bearing pieces of the storefront display; if either silently changes, the entire catalog order shifts. **`utils/storefront.ts`** extracts both pieces from `pages/Shop.tsx` and `pages/Home.tsx` into pure functions, and **`tests/storefront.test.ts`** locks the behavior with 17 regression tests.
@@ -499,7 +579,7 @@ Returns the product to display in the home page featured slot.
 2. Fallback: `products[0]` if no product is featured
 3. Return `null` for empty / undefined / null input
 
-The `isFeatured` uniqueness invariant (at most one row with `is_featured = true`) is enforced separately by the Featured-Exclusivity Helper hook. `selectFeaturedProduct` reads the field but does not own the uniqueness contract.
+The `isFeatured` uniqueness invariant (at most one row with `is_featured = true`) is enforced separately by the [Featured-Exclusivity Helper](#featured-exclusivity-helper) hook. `selectFeaturedProduct` reads the field but does not own the uniqueness contract.
 
 ### Test lock
 
@@ -510,71 +590,30 @@ The full contract is pinned by 17 `it()` blocks across 2 `describe` groups in `t
 
 Tests use SYNTHETIC fixtures (not real products from `constants.ts`) so they're decoupled from the catalog. If a future product addition breaks either contract, the tests fail first and point at the utility function, not at the catalog. Follows the `utils/archiveSort.ts` + `tests/archiveSort.test.ts` pattern; the test layout deliberately mirrors its structure.
 
-### Where to read it
+### Wallet shape invariant (3 fields, no more)
 
-- Utility: `utils/storefront.ts` (`sortByNewest`, `selectFeaturedProduct`)
-- Test lock: `tests/storefront.test.ts` (17 assertions across 2 describe groups)
-- Consumer: `pages/Shop.tsx` (uses `sortByNewest` in the filter chain)
-- Consumer: `pages/Home.tsx` (uses `selectFeaturedProduct` for the featured slot)
-- Counterpart utility (archive sort, locked the same way): `utils/archiveSort.ts`, `tests/archiveSort.test.ts`
+Wallet products rely on a **3-field shape that must hold across every `products` row with `category = 'wallet'`** — no more, no less:
 
-## Storefront Display Utilities
+| Field | Required value | Consumer |
+|---|---|---|
+| `category` | `'wallet'` | Routes the row through `pages/Wallets.tsx` and the wallet PDP render branch in `pages/ProductDetails.tsx` |
+| `sizes` | `['One Size']` | Single-element array; never the apparel sizing set (`['S','M','L','XL']`) |
+| `size_inventory` | `{ 'One Size': N }` | Single-key object, integer N |
 
-The `/shop` "newest" sort and the `/` "featured" selector are the two deterministic contracts that determine what a buyer sees first. They're the load-bearing pieces of the storefront display; if either silently changes, the entire catalog order shifts. **`utils/storefront.ts`** extracts both pieces from `pages/Shop.tsx` and `pages/Home.tsx` into pure functions, and **`tests/storefront.test.ts`** locks the behavior with 17 regression tests.
+The full selector contract (`isWalletProduct(p)` and downstream UI decisions) lives in `utils/walletAddOns.ts`. Drift on any of these three fields surfaces immediately on the PDP — a wallet renders S/M/L/XL shopping buttons instead of the single *One Size* button, and the wallet keychain-clip add-on toggle (`WALLET_KEYCHAIN_CLIP_PRICE`) won't render.
 
-### Why they exist
+The invariant is enforced by the React selector paths reading the data, NOT by the schema. A miscategorized row slips past Supabase writes (no NOT NULL or CHECK constraint pins the shape) and only fails visually on the storefront. That's the failure mode the tactical-repair tool below was written to clean up.
 
-The Coalition Unity No. 4 Polo promotion (newest + featured) depended on two specific contracts that were previously expressed inline as `.sort()` comparators and `.find()` predicates:
+### Tactical repair tool
 
-1. A product with `createdAt=2026-07-12` ALWAYS sorts before a product without `createdAt`, regardless of the other products' order in the input.
-2. The home page hero must pick the first `isFeatured:true` product when one exists, else fall back to `products[0]`.
+[`scripts/fixProd1784012446238Sizing.ts`](scripts/fixProd1784012446238Sizing.ts) is the one-shot operator fixture for this exact failure mode. It audits a miscategorized wallet row against a known-good sibling (default reference: `prod_1784012355221` — the 3/4 wallet), lists every *other* wallet-shaped row in the live catalog that drifts from the invariant, and applies the shape fix via the **service role** only when run with `--confirm`:
 
-Both contracts were already implicit in the page code; extracting them into a testable utility pins the exact comparator and selector so a future refactor can't silently rerank the storefront.
-
-### sortByNewest
-
-```ts
-sortByNewest(products: Product[]): Product[]
+```bash
+npx tsx scripts/fixProd1784012446238Sizing.ts           # dry-run: prints full WRONG/GOOD diff + lists every other shape-drifted row
+npx tsx scripts/fixProd1784012446238Sizing.ts --confirm  # applies the fix to the configured row via service role (writes to Supabase)
 ```
 
-Returns a NEW array (never mutates the input) sorted newest-first.
-
-**Timestamp fallback chain (in order):**
-
-1. `createdAt` — when the product was added to the catalog
-2. `releasedAt` — release date override (used for scheduled drops)
-3. `archivedAt` — archive date (legacy products without createdAt)
-4. `soldAt` — sold date (last-resort fallback)
-5. `epoch 0` — products with no dates at all sort to the bottom
-
-**Tie-break:** preserves the input array's relative order (stable). Two products with the same timestamp stay in their original input order.
-
-> **Why input-order tie-break, not `name.localeCompare` like `archiveSort`?** Supabase sorts by `created_at DESC` in `AppContext.tsx`, which IS the storefront display order. A future contributor who "harmonizes" the two sort utilities to use `name.localeCompare` would silently change the live shop order. The divergence is intentional and pinned by an inline comment in the utility itself.
-
-### selectFeaturedProduct
-
-```ts
-selectFeaturedProduct(products: Product[] | undefined | null): Product | null
-```
-
-Returns the product to display in the home page featured slot.
-
-**Selection rule:**
-
-1. First product with `isFeatured: true` (in the input array's order)
-2. Fallback: `products[0]` if no product is featured
-3. Return `null` for empty / undefined / null input
-
-The `isFeatured` uniqueness invariant (at most one row with `is_featured = true`) is enforced separately by the Featured-Exclusivity Helper hook. `selectFeaturedProduct` reads the field but does not own the uniqueness contract.
-
-### Test lock
-
-The full contract is pinned by 17 `it()` blocks across 2 `describe` groups in `tests/storefront.test.ts` (10 tests for `sortByNewest`, 7 tests for `selectFeaturedProduct`):
-
-- **`sortByNewest`**: primary contract (createdAt sorts before missing dates), full date fallback chain, null/malformed/empty handling, stable tie-break, immutability.
-- **`selectFeaturedProduct`**: primary contract (returns first `isFeatured:true`), `products[0]` fallback, empty/undefined/null handling.
-
-Tests use SYNTHETIC fixtures (not real products from `constants.ts`) so they're decoupled from the catalog. If a future product addition breaks either contract, the tests fail first and point at the utility function, not at the catalog. Follows the `utils/archiveSort.ts` + `tests/archiveSort.test.ts` pattern; the test layout deliberately mirrors its structure.
+**Start here** when a wallet PDP renders the wrong sizing. The original drift was diagnosed against `/product/prod_1784012355221` (good, the 3/4 wallet) vs `/product/prod_1784012446238` (drifted, the 2/4 wallet) — that exact pair is the canonical reference the script compares against, and the 2/4 → 3/4 wallet series in the live catalog is the canonical wallet-shape example. The script is intentionally a one-shot for THIS row pair: when the catalog grows past the 4–5 currently-live wallets, generalize the row IDs at the top of the script before re-use.
 
 ### Where to read it
 
@@ -583,6 +622,8 @@ Tests use SYNTHETIC fixtures (not real products from `constants.ts`) so they're 
 - Consumer: `pages/Shop.tsx` (uses `sortByNewest` in the filter chain)
 - Consumer: `pages/Home.tsx` (uses `selectFeaturedProduct` for the featured slot)
 - Counterpart utility (archive sort, locked the same way): `utils/archiveSort.ts`, `tests/archiveSort.test.ts`
+- Tactical repair tool (wallet-shape invariant): `scripts/fixProd1784012446238Sizing.ts` (audits wallet rows against the 3-field shape invariant; applies fix via service role only on `--confirm`)
+- Companion selector path (consumer of the wallet-shape invariant): `utils/walletAddOns.ts > isWalletProduct` (the wallet-shape predicate used by PDP render branches; also wired into the admin ProductManager form, where future preventive UI hardening would land)
 
 ## Local Development
 
