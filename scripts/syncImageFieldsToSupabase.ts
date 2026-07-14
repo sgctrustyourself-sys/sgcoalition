@@ -42,6 +42,7 @@ import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { urlsEqual } from '../utils/imageUrlEquality';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -140,14 +141,6 @@ async function fetchCurrentSupabaseImages(productId: string): Promise<string[] |
     }
     if (!data) return null;
     return Array.isArray(data.images) ? (data.images as string[]) : null;
-}
-
-function urlsEqual(a: string[] | null, b: string[] | null): boolean {
-    if (a === b) return true;
-    if (!a || !b) return false;
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-    return true;
 }
 
 async function runDry(): Promise<void> {
