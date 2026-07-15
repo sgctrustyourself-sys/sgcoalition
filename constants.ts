@@ -11,7 +11,7 @@ export const INITIAL_PRODUCTS: Product[] = [
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/new-product_1784012506715_yb9ux.jpg"
     ],
     "description": "",
-    "category": "accessory",
+    "category": "wallet",
     "isFeatured": false,
     "isLimitedEdition": false,
     "sizes": [
