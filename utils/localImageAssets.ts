@@ -17,6 +17,30 @@ export const PRODUCT_IMAGE_URLS = {
         front: '/images/grey-wave-wallet-2-2-front.jpg',
         back: '/images/grey-wave-wallet-2-2-back.jpg',
     },
+    // Imgur URLs are authoritative for the Racing Team 1/4 wallet —
+    // both are read directly from imgur (no local /images/* mirrors).
+    // Mirrored into REMOTE_TO_LOCAL_IMAGE_URLS below so the bare
+    // 'https://imgur.com/<id>' form also resolves to the canonical
+    // .jpg URL the storefront renders.
+    racingTeamWallet1_4: {
+        front: 'https://i.imgur.com/3UUmYQa.jpg',
+        back: 'https://i.imgur.com/vRqjRG4.jpg',
+    },
+    // 2/4, 3/4, 4/4 follow the same single-image-pair shape.
+    // All sold in the May 2026 wholesale bundle (see constants.ts
+    // INITIAL_PRODUCTS + INITIAL_ORDERS.order_wholesale_wallets_2026_05_22).
+    racingTeamWallet2_4: {
+        front: 'https://i.imgur.com/IRhVbhN.jpg',
+        back: 'https://i.imgur.com/7ScdBnE.jpg',
+    },
+    racingTeamWallet3_4: {
+        front: 'https://i.imgur.com/dcw5qLQ.jpg',
+        back: 'https://i.imgur.com/hmPBbY3.jpg',
+    },
+    racingTeamWallet4_4: {
+        front: 'https://i.imgur.com/EylCpDU.jpg',
+        back: 'https://i.imgur.com/w8dahYm.jpg',
+    },
     walletGreen: {
         front: 'https://i.imgur.com/kzIWQzA.jpg',
         back: 'https://i.imgur.com/hs4lZFg.jpg',
@@ -112,6 +136,29 @@ const REMOTE_TO_LOCAL_IMAGE_URLS: Record<string, string> = {
     'https://i.imgur.com/FVMHZoq.jpg': PRODUCT_IMAGE_URLS.greyWaveWallet22.front,
     'https://i.imgur.com/LLoGORu.jpeg': PRODUCT_IMAGE_URLS.greyWaveWallet22.back,
     'https://i.imgur.com/LLoGORu.jpg': PRODUCT_IMAGE_URLS.greyWaveWallet22.back,
+    // Racing Team 1/4: bare imgur ID + canonical .jpg both resolve to
+    // the same canonical URL. Matches the distortionTee pattern.
+    'https://imgur.com/3UUmYQa': PRODUCT_IMAGE_URLS.racingTeamWallet1_4.front,
+    'https://i.imgur.com/3UUmYQa.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet1_4.front,
+    'https://imgur.com/vRqjRG4': PRODUCT_IMAGE_URLS.racingTeamWallet1_4.back,
+    'https://i.imgur.com/vRqjRG4.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet1_4.back,
+    // Racing Team 2/4 — bare imgur ID + canonical .jpg both normalize to
+    // the same canonical URL. Same defensive pattern as 1/4 and the
+    // distortionTee bare-id canonicalization.
+    'https://imgur.com/IRhVbhN': PRODUCT_IMAGE_URLS.racingTeamWallet2_4.front,
+    'https://i.imgur.com/IRhVbhN.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet2_4.front,
+    'https://imgur.com/7ScdBnE': PRODUCT_IMAGE_URLS.racingTeamWallet2_4.back,
+    'https://i.imgur.com/7ScdBnE.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet2_4.back,
+    // Racing Team 3/4
+    'https://imgur.com/dcw5qLQ': PRODUCT_IMAGE_URLS.racingTeamWallet3_4.front,
+    'https://i.imgur.com/dcw5qLQ.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet3_4.front,
+    'https://imgur.com/hmPBbY3': PRODUCT_IMAGE_URLS.racingTeamWallet3_4.back,
+    'https://i.imgur.com/hmPBbY3.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet3_4.back,
+    // Racing Team 4/4
+    'https://imgur.com/EylCpDU': PRODUCT_IMAGE_URLS.racingTeamWallet4_4.front,
+    'https://i.imgur.com/EylCpDU.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet4_4.front,
+    'https://imgur.com/w8dahYm': PRODUCT_IMAGE_URLS.racingTeamWallet4_4.back,
+    'https://i.imgur.com/w8dahYm.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet4_4.back,
     'https://i.imgur.com/iYBlwm8.png': PRODUCT_IMAGE_URLS.trustYourselfHat.cover,
     'https://i.imgur.com/jwnVHoI.png': PRODUCT_IMAGE_URLS.trustYourselfHat.detail,
     'https://i.imgur.com/YNiTSFA.png': PRODUCT_IMAGE_URLS.trustYourselfHat.side,

@@ -441,10 +441,10 @@ If a live Supabase row exists, the Supabase price is the current storefront pric
 | --- | --- | ---: | --- | --- | --- | --- |
 | `Coalition_Grey_Wave_Wallet_1_2` | Coalition 'Grey Wave' Wallet 1/2 | $75 | wallet | Archived/sold | stock 0; One Size: 0 | Supabase + local overrides |
 | `Coalition_Grey_Wave_Wallet_2_2` | Coalition 'Grey Wave' Wallet 2/2 | $75 | wallet | Archived/sold | stock 0; One Size: 0 | Supabase + local overrides |
-| `Coalition_Racing_Team_Wallet_1_4` | Coalition 'Racing Team' Wallet 1/4 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
-| `Coalition_Racing_Team_Wallet_2_4` | Coalition 'Racing Team' Wallet 2/4 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
-| `Coalition_Racing_Team_Wallet_3_4` | Coalition 'Racing Team' Wallet 3/4 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
-| `Coalition_Racing_Team_Wallet_4_4` | Coalition 'Racing Team' Wallet 4/4 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
+| `Coalition_Racing_Team_Wallet_1_4` | Coalition 'Racing Team' Wallet 1/4 | $85 | wallet | Archived/sold | One Size: 0 | Supabase + local overrides |
+| `Coalition_Racing_Team_Wallet_2_4` | Coalition 'Racing Team' Wallet 2/4 | $85 | wallet | Archived/sold | One Size: 0 | Supabase + local overrides |
+| `Coalition_Racing_Team_Wallet_3_4` | Coalition 'Racing Team' Wallet 3/4 | $85 | wallet | Archived/sold | One Size: 0 | Supabase + local overrides |
+| `Coalition_Racing_Team_Wallet_4_4` | Coalition 'Racing Team' Wallet 4/4 | $85 | wallet | Archived/sold | One Size: 0 | Supabase + local overrides |
 | `Coalition_x_True_Religion_S1` | Coalition x True Religion 1/1 Jeans S1 | $240 | jeans | Archived/sold | stock 0; 33: 0 | Supabase + local |
 | `GreenCamoWallet` | Coalition Green Camo Wallet | $75 | accessory | Archived/sold | stock 0; One Size: 0 | Supabase + local |
 | `SKYYBLUEWALLET1_2` | COALITION SKYY BLUE WALLET 1/2 | $75 | wallet | Archived/sold | stock 0; One Size: 0 | Supabase + local overrides |

@@ -413,7 +413,15 @@ const writeStaticPage = (baseHtml, pagePath, seo, jsonLd) => {
   fs.writeFileSync(outputDir, injectSeo(baseHtml, seo, jsonLd));
 };
 
-const buildSitemap = (products) => {
+// Exported so tests/generateSeoArtifacts.test.ts can pin the priority +
+// changefreq logic without going through the full prebuild pipeline.
+// The `main()` guard at the bottom only fires when the module is launched
+// directly via `node scripts/generateSeoArtifacts.mjs`, NOT when this file
+// is imported from a test — same convention as the existing field-extractor
+// helpers. The published / prebuild flow writes to public/sitemap.xml and
+// (when present) dist/sitemap.xml; tests call this function with synthetic
+// product fixtures and assert on the returned XML string.
+export const buildSitemap = (products) => {
   const today = new Date().toISOString().slice(0, 10);
   const staticPages = [
     { loc: '/', priority: '1.0', changefreq: 'weekly' },
@@ -425,11 +433,21 @@ const buildSitemap = (products) => {
     { loc: '/sgcoin', priority: '0.5', changefreq: 'monthly' },
     { loc: '/help', priority: '0.4', changefreq: 'monthly' },
   ];
-  const productPages = products.map((product) => ({
-    loc: productPath(product.id),
-    priority: product.archived || product.soldAt ? '0.6' : '0.8',
-    changefreq: product.archived || product.soldAt ? 'monthly' : 'weekly',
-  }));
+  // Limited-edition products retain the active-product priority + weekly
+  // changefreq even when archived, because 1/1 and numbered limited pieces
+  // (Coalition 'Grey Wave' 1/2 → 2/2, Coalition 'Racing Team' 1/4 → 4/4,
+  // Coalition x True Religion 1/1, etc.) continue to draw long-tail SEO
+  // queries long after they sell out. Standard archive pieces that are NOT
+  // limited editions still demote to 0.6/monthly per the original rule.
+  // Locked by tests/generateSeoArtifacts.test.ts > SEO sitemap priorities.
+  const productPages = products.map((product) => {
+    const isDemoted = (product.archived || Boolean(product.soldAt)) && !product.isLimitedEdition;
+    return {
+      loc: productPath(product.id),
+      priority: isDemoted ? '0.6' : '0.8',
+      changefreq: isDemoted ? 'monthly' : 'weekly',
+    };
+  });
   const urls = [...staticPages, ...productPages];
 
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls

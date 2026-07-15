@@ -521,6 +521,105 @@ export const INITIAL_PRODUCTS: Product[] = [
     "soldAt": "2026-05-22T00:00:00+00:00"
   },
   {
+    "id": "Coalition_Racing_Team_Wallet_1_4",
+    "name": "Coalition 'Racing Team' Wallet 1/4",
+    "price": 85,
+    "images": [
+      "https://i.imgur.com/3UUmYQa.jpg",
+      "https://i.imgur.com/vRqjRG4.jpg"
+    ],
+    "description": "First piece of the Coalition 'Racing Team' 1/4 limited wallet run. Hand-finished detailing and Coalition mark on a numbered carry. Sold as part of the May 2026 wholesale bundle \u2014 once sold, gone forever.",
+    "category": "wallet",
+    "isFeatured": false,
+    "isLimitedEdition": true,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 0
+    },
+    "nft": null,
+    "archived": true,
+    // soldAt matches the wholesale-bundle soldAt locked in
+    // tests/archiveSort.test.ts so the canonical 14-product archive
+    // order on /archive keeps Racing Team 1/4 at slot 3.
+    "archivedAt": "2026-05-22T22:33:38+00:00",
+    "releasedAt": null,
+    "soldAt": "2026-05-22T22:33:38+00:00"
+  },
+  {
+    "id": "Coalition_Racing_Team_Wallet_2_4",
+    "name": "Coalition 'Racing Team' Wallet 2/4",
+    "price": 85,
+    "images": [
+      "https://i.imgur.com/IRhVbhN.jpg",
+      "https://i.imgur.com/7ScdBnE.jpg"
+    ],
+    "description": "Second piece of the Coalition 'Racing Team' limited wallet run. Hand-finished detailing and Coalition mark on a numbered carry. Sold as part of the May 2026 wholesale bundle \u2014 once sold, gone forever.",
+    "category": "wallet",
+    "isFeatured": false,
+    "isLimitedEdition": true,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 0
+    },
+    "nft": null,
+    "archived": true,
+    "archivedAt": "2026-05-22T22:33:38+00:00",
+    "releasedAt": null,
+    "soldAt": "2026-05-22T22:33:38+00:00"
+  },
+  {
+    "id": "Coalition_Racing_Team_Wallet_3_4",
+    "name": "Coalition 'Racing Team' Wallet 3/4",
+    "price": 85,
+    "images": [
+      "https://i.imgur.com/dcw5qLQ.jpg",
+      "https://i.imgur.com/hmPBbY3.jpg"
+    ],
+    "description": "Third piece of the Coalition 'Racing Team' limited wallet run. Hand-finished detailing and Coalition mark on a numbered carry. Sold as part of the May 2026 wholesale bundle \u2014 once sold, gone forever.",
+    "category": "wallet",
+    "isFeatured": false,
+    "isLimitedEdition": true,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 0
+    },
+    "nft": null,
+    "archived": true,
+    "archivedAt": "2026-05-22T22:33:38+00:00",
+    "releasedAt": null,
+    "soldAt": "2026-05-22T22:33:38+00:00"
+  },
+  {
+    "id": "Coalition_Racing_Team_Wallet_4_4",
+    "name": "Coalition 'Racing Team' Wallet 4/4",
+    "price": 85,
+    "images": [
+      "https://i.imgur.com/EylCpDU.jpg",
+      "https://i.imgur.com/w8dahYm.jpg"
+    ],
+    "description": "Fourth and final piece of the Coalition 'Racing Team' limited wallet run. Hand-finished detailing and Coalition mark on a numbered carry. Sold as part of the May 2026 wholesale bundle \u2014 once sold, gone forever.",
+    "category": "wallet",
+    "isFeatured": false,
+    "isLimitedEdition": true,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 0
+    },
+    "nft": null,
+    "archived": true,
+    "archivedAt": "2026-05-22T22:33:38+00:00",
+    "releasedAt": null,
+    "soldAt": "2026-05-22T22:33:38+00:00"
+  },
+  {
     "id": "prod_trust_yourself_hat_01",
     "name": "Trust Yourself Custom Trucker (1/1)",
     "price": 50,

@@ -14,6 +14,7 @@ import { describe, it, expect } from 'vitest';
 import {
     readStringField,
     readNumberField,
+    buildSitemap,
 } from '../scripts/generateSeoArtifacts.mjs';
 
 describe('SEO parser — field extractors', () => {
@@ -130,10 +131,95 @@ describe('SEO parser — full block regression', () => {
         "images": ["/img/tee-front.png", "/img/tee-back.png"],
         "archived": false,
         "isLimitedEdition": true,
-    }`;
+    }`;    expect(readStringField(block, 'id')).toBe('prod_womens_coalition_halo_contrast_tee');
+    expect(readStringField(block, 'name')).toBe("Women's Coalition Halo Contrast Tee");
+    expect(readNumberField(block, 'price')).toBe(65);
+    });
+});
 
-        expect(readStringField(block, 'id')).toBe('prod_womens_coalition_halo_contrast_tee');
-        expect(readStringField(block, 'name')).toBe("Women's Coalition Halo Contrast Tee");
-        expect(readNumberField(block, 'price')).toBe(65);
+// REGRESSION CATCH: the buildSitemap helper pins the priority +
+// changefreq assignment so a future refactor cannot silently roll back the
+// limited-edition exception. Background: the prior rule demoted any product
+// with archived=true OR soldAt=... to monthly/0.6, which made every numbered
+// limited wallet (Coalition 'Racing Team' 1/4 → 4/4, etc.) drop out of the
+// high-value cluster the moment it sold. The operator's directive on
+// 2026-07-14 was "archive limited editions stay at weekly/0.8 because
+// they keep drawing long-tail queries" — this test is the lock that future
+// refactors can't revert that intent.
+describe('SEO sitemap priorities', () => {
+    const ACTIVE_STANDARD = 'prod_active_standard';
+    const ARCHIVED_STANDARD = 'prod_archived_standard';
+    const ARCHIVED_LIMITED = 'prod_archived_limited';
+
+    // The helper's full Product type has more fields than the synthetic
+    // fixtures supply here. Cast through Parameters<typeof buildSitemap>[0]
+    // once at the helper boundary so each assertion stays clean — and so a
+    // future refactor that loosens the helper's parameter type doesn't
+    // break the test through a stale `@ts-expect-error`.
+    const sitemapFor = (
+        products: Array<{ id: string; archived: boolean; soldAt?: string | null; isLimitedEdition?: boolean }>,
+    ) => buildSitemap(products as Parameters<typeof buildSitemap>[0]);
+
+    const rowRegex = (id: string, changefreq: 'weekly' | 'monthly', priority: '0.8' | '0.6') =>
+        new RegExp(
+            `<loc>${`https://sgcoalition.xyz/product/${id}`}<\\/loc>\\s*` +
+                `<lastmod>[\\d-]+<\\/lastmod>\\s*` +
+                `<changefreq>${changefreq}<\\/changefreq>\\s*` +
+                `<priority>${priority}<\\/priority>`,
+        );
+
+    it('keeps active non-limited products at 0.8/weekly', () => {
+        const xml = sitemapFor([
+            { id: ACTIVE_STANDARD, archived: false, soldAt: null, isLimitedEdition: false },
+        ]);
+        expect(xml).toMatch(rowRegex(ACTIVE_STANDARD, 'weekly', '0.8'));
+    });
+
+    it('demotes standard archived products to 0.6/monthly', () => {
+        const xml = sitemapFor([
+            { id: ARCHIVED_STANDARD, archived: true, soldAt: '2024-01-01T00:00:00Z', isLimitedEdition: false },
+        ]);
+        expect(xml).toMatch(rowRegex(ARCHIVED_STANDARD, 'monthly', '0.6'));
+    });
+
+    it('keeps limited-edition archived products at 0.8/weekly', () => {
+        const xml = sitemapFor([
+            { id: ARCHIVED_LIMITED, archived: true, soldAt: '2024-01-01T00:00:00Z', isLimitedEdition: true },
+        ]);
+        expect(xml).toMatch(rowRegex(ARCHIVED_LIMITED, 'weekly', '0.8'));
+    });
+
+    it('mixes active + archived standard + archived limited correctly', () => {
+        const xml = sitemapFor([
+            { id: ACTIVE_STANDARD, archived: false, soldAt: null, isLimitedEdition: false },
+            { id: ARCHIVED_STANDARD, archived: true, soldAt: '2024-01-01T00:00:00Z', isLimitedEdition: false },
+            { id: ARCHIVED_LIMITED, archived: true, soldAt: '2024-01-01T00:00:00Z', isLimitedEdition: true },
+        ]);
+        expect(xml).toMatch(rowRegex(ACTIVE_STANDARD, 'weekly', '0.8'));
+        expect(xml).toMatch(rowRegex(ARCHIVED_STANDARD, 'monthly', '0.6'));
+        expect(xml).toMatch(rowRegex(ARCHIVED_LIMITED, 'weekly', '0.8'));
+    });
+
+    it('demotes soldAt-only products (no archived flag) to 0.6/monthly when not a limited edition', () => {
+        // Coalition_x_True_Religion_S1-style row: archived=false but soldAt
+        // is set by the archive override. The rule still applies the demotion
+        // because the predicate is (archived || soldAt) && !isLimitedEdition.
+        const soldNoArchive = 'prod_sold_no_archive';
+        const xml = sitemapFor([
+            { id: soldNoArchive, archived: false, soldAt: '2026-03-06T00:00:00+00:00', isLimitedEdition: false },
+        ]);
+        expect(xml).toMatch(rowRegex(soldNoArchive, 'monthly', '0.6'));
+    });
+
+    it('keeps soldAt-only products (no archived flag) at 0.8/weekly when they are a limited edition', () => {
+        // Symmetric to the previous test: same shape (soldAt set, archived
+        // not yet flipped), but isLimitedEdition=true keeps the row in the
+        // active-product cluster. Locks the limited branch of the rule and
+        // prevents the previous test's name from being misleading.
+        const soldNoArchiveLimited = 'prod_sold_no_archive_limited';
+        const xml = sitemapFor([
+            { id: soldNoArchiveLimited, archived: false, soldAt: '2026-03-06T00:00:00+00:00', isLimitedEdition: true },
+        ]);
+        expect(xml).toMatch(rowRegex(soldNoArchiveLimited, 'weekly', '0.8'));
     });
 });
