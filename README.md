@@ -450,7 +450,7 @@ If a live Supabase row exists, the Supabase price is the current storefront pric
 | `SKYYBLUEWALLET1_2` | COALITION SKYY BLUE WALLET 1/2 | $75 | wallet | Archived/sold | stock 0; One Size: 0 | Supabase + local overrides |
 | `prod_trust_yourself_hat_01` | Trust Yourself Custom Trucker (1/1) | $50 | headwear | Archived/sold | stock 0; One Size: 0 | Supabase + local |
 | `prod_wallet_004` | COALITION SKYY BLUE WALLET 2/2 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
-| `prod_wallet_chrome_hearts` | CUSTOM COALITION X CHROME HEARTS WALLET | $450 | wallet | Archived/sold | no size map | Local fallback only |
+| `prod_wallet_chrome_hearts` | CUSTOM COALITION X CHROME HEARTS WALLET | $450 | wallet | Archived/sold | One Size: 0 | Local fallback only |
 | `Coalition_Denim_Patchwork_S1` | Coalition Denim Patchwork 1/1 Jeans S1 | $140 | jeans | Archived/sold | stock 0; 30: 0 | Supabase + local overrides |
 
 ## Featured-Exclusivity Helper

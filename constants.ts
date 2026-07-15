@@ -731,6 +731,30 @@ export const INITIAL_PRODUCTS: Product[] = [
     "archivedAt": null,
     "releasedAt": null,
     "soldAt": null
+  },
+  {
+    "id": "prod_wallet_chrome_hearts",
+    "name": "CUSTOM COALITION X CHROME HEARTS WALLET",
+    "price": 450,
+    "images": [
+      "https://i.imgur.com/SS6KbOQ.jpeg",
+      "https://i.imgur.com/NUXZizv.jpeg"
+    ],
+    "description": "Hand-finished 1/1 Coalition x Chrome Hearts collaboration wallet. Premium leather construction with signature Chrome Hearts sterling silver detailing and Coalition branding. A rare collector's piece.",
+    "category": "wallet",
+    "isFeatured": false,
+    "isLimitedEdition": true,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 0
+    },
+    "nft": null,
+    "archived": true,
+    "soldAt": "2024-06-01T00:00:00Z",
+    "releasedAt": null,
+    "archivedAt": "2024-06-01T00:00:00Z"
   }
 ];
 
