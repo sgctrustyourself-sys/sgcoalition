@@ -418,8 +418,103 @@ export const getActiveReferralCode = (): string | null => {
     );
 };
 
-// Clear stored referral code
+// Clear stored referral code from BOTH localStorage and sessionStorage.
+// Checkout.tsx reads from sessionStorage.getItem('referralCode'), so
+// clearing only localStorage would leave the session entry behind and
+// cause the referral code to be re-applied on a repeat order in the
+// same session. The idempotency guard in processReferralOnPurchase
+// catches double-application, but clearing both stores is the clean fix.
 export const clearReferralCode = (): void => {
     localStorage.removeItem('referral_code');
     localStorage.removeItem('referral_timestamp');
+    if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('referralCode');
+    }
+};
+
+// ---------------------------------------------------------------------------
+// processReferralOnPurchase — the missing link between checkout and commission
+// ---------------------------------------------------------------------------
+//
+// Called after a successful order with a referral code. It:
+//   1. Finds or creates a pending referral row for this referrer + buyer pair.
+//   2. Calls completeReferral to stamp the order_id, order_total, commission,
+//      and flip the status to 'completed'.
+//   3. Calls updateReferralStats to recalculate earnings + successful_referrals.
+//
+// This function is idempotent: if a completed referral already exists for
+// this (referrer_id, referred_user_id) pair, it skips. The `track_referral_event`
+// RPC already dedupes the analytics row, but the `referrals` table has no
+// unique constraint on (referrer_id, referred_user_id) — the find-or-create
+// pattern below prevents duplicate commission rows.
+export const processReferralOnPurchase = async (
+    referralCode: string,
+    buyerUserId: string | undefined,
+    orderId: string,
+    orderTotal: number,
+): Promise<{ success: boolean; commissionEarned?: number }> => {
+    try {
+        const stats = await getReferralStatsByCode(referralCode);
+        if (!stats) return { success: false };
+
+        // Self-referral guard (same check as trackReferral + the RPC)
+        if (buyerUserId && buyerUserId === stats.user_id) {
+            return { success: false };
+        }
+
+        // Check if a referral row already exists for this buyer + referrer.
+        // If a completed/paid one exists, skip — don't double-commission.
+        if (buyerUserId) {
+            const { data: existing } = await supabase
+                .from('referrals')
+                .select('id, status')
+                .eq('referrer_id', stats.user_id)
+                .eq('referred_user_id', buyerUserId)
+                .in('status', ['completed', 'paid'])
+                .maybeSingle();
+
+            if (existing) {
+                return { success: false };
+            }
+        }
+
+        // Find an existing pending referral row for this buyer (created at
+        // signup time by trackReferral). If none, create one now.
+        let referralId: string;
+        if (buyerUserId) {
+            const { data: pending } = await supabase
+                .from('referrals')
+                .select('id')
+                .eq('referrer_id', stats.user_id)
+                .eq('referred_user_id', buyerUserId)
+                .eq('status', 'pending')
+                .maybeSingle();
+
+            if (pending) {
+                referralId = pending.id;
+            } else {
+                // No pending row — create one and immediately complete it.
+                const trackResult = await trackReferral(referralCode, buyerUserId);
+                if (!trackResult.success || !trackResult.referralId) {
+                    return { success: false };
+                }
+                referralId = trackResult.referralId;
+            }
+        } else {
+            // Guest checkout — create a new referral row without a buyer user id.
+            const trackResult = await trackReferral(referralCode);
+            if (!trackResult.success || !trackResult.referralId) {
+                return { success: false };
+            }
+            referralId = trackResult.referralId;
+        }
+
+        // Complete the referral: stamps order_id, order_total, commission,
+        // flips status to 'completed', and updates referral_stats.
+        const result = await completeReferral(referralId, orderId, orderTotal);
+        return result;
+    } catch (error) {
+        console.error('Error processing referral on purchase:', error);
+        return { success: false };
+    }
 };

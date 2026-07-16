@@ -87,8 +87,11 @@ const ReferralTracker = () => {
       console.log('[Referral] Detected referral code:', refCode);
       storeReferralCode(refCode);
 
-      // Track the click
+      // Track the click and view. 'click' fires once per URL load with ?ref=;
+      // 'view' fires alongside it so the analytics funnel (click → view → signup
+      // → purchase) has all four stages wired.
       trackReferralEvent(refCode, 'click');
+      trackReferralEvent(refCode, 'view');
     }
   }, [location]);
 

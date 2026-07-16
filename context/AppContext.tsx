@@ -11,6 +11,9 @@ import { normalizeProductSizeData } from '../utils/productSizes';
 import { getCartItemLineTotal, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
 import { fetchPaidCountsByProduct } from '../services/numberedPieces';
 import { clearOtherFeaturedProducts } from '../utils/featuredExclusivity';
+import { getStoredReferralCode, trackReferral, getReferralStatsByCode } from '../utils/referralSystem';
+import { trackReferralEvent } from '../utils/referralAnalytics';
+import { updateLifetimeStats } from '../utils/customerProfile';
 
 interface AppState {
     products: Product[];
@@ -321,6 +324,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
                                 if (isAdmin) updateAdminMode(true);
 
+                                // Fire signup referral tracking ONLY on
+                                // SIGNED_IN events (not TOKEN_REFRESHED,
+                                // USER_UPDATED, etc.) to avoid inflating
+                                // total_referrals on repeated logins.
+                                if (event === 'SIGNED_IN') {
+                                    fireSignupReferral(userId);
+                                }
+
                                 // Background Sync for heavy crypto data (non-blocking)
                                 if (walletAddress) {
                                     syncCryptoBalances(walletAddress);
@@ -342,6 +353,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                 syncCryptoBalances(metamaskAddress);
                             }
                         } else if (mounted) setUser(null);
+                    }
+                };
+
+                // Referral signup tracking: when a user signs in via SIGNED_IN
+                // and they arrived via a referral link (?ref=CODE), fire a
+                // 'signup' event and create a pending referral row (if one
+                // doesn't already exist). The row is later completed by
+                // processReferralOnPurchase when the buyer places their first
+                // order. Fire-and-forget so the auth flow isn't blocked.
+                //
+                // Duplicate guard: checks for an existing pending referral row
+                // for this (referrer, buyer) pair before calling trackReferral.
+                // This prevents duplicate pending rows + inflated total_referrals
+                // when a user logs in multiple times with the same referral code.
+                const fireSignupReferral = async (userId: string) => {
+                    const storedCode = getStoredReferralCode();
+                    if (!storedCode) return;
+                    try {
+                        // Fire the analytics event (idempotent via RPC dedup)
+                        await trackReferralEvent(storedCode, 'signup', userId);
+                        // Check for existing pending referral before creating one
+                        const stats = await getReferralStatsByCode(storedCode);
+                        if (!stats || stats.user_id === userId) return; // self-referral guard
+                        const { data: existing } = await supabase
+                            .from('referrals')
+                            .select('id')
+                            .eq('referrer_id', stats.user_id)
+                            .eq('referred_user_id', userId)
+                            .eq('status', 'pending')
+                            .maybeSingle();
+                        if (existing) return; // already tracked — don't duplicate
+                        await trackReferral(storedCode, userId);
+                    } catch (err) {
+                        console.error('[Referral] Signup tracking failed:', err);
                     }
                 };
 
@@ -982,6 +1027,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
                 setOrders(prev => [order, ...prev.filter(existing => existing.id !== order.id)]);
                 fetchOrders(); // Refresh orders after successful placement
+
+                // Update customer lifetime stats (fire-and-forget).
+                // Increments profiles.lifetime_spend_usd + lifetime_orders
+                // so the admin UserManager shows accurate customer data.
+                if (order.userId && !order.userId.startsWith('user_eth_')) {
+                    void updateLifetimeStats(order.userId, order.total);
+                }
             } catch (err) { console.error('Order failed:', err); throw err; }
             return;
         }

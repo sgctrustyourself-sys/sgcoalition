@@ -7,6 +7,7 @@ import { useToast } from '../context/ToastContext';
 import FloatingHelpButton from '../components/FloatingHelpButton';
 import { calculateCartDiscount, isSGCoinDiscountEnabled, getDiscountPercentageText } from '../utils/pricing';
 import { trackReferralEvent } from '../utils/referralAnalytics';
+import { processReferralOnPurchase, clearReferralCode } from '../utils/referralSystem';
 import { validateCouponCode, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
 import { getCartItemAddOnPrice, getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
@@ -366,10 +367,30 @@ const Checkout: React.FC = () => {
             // Save order to sessionStorage so OrderSuccess can display it even if cart is cleared
             sessionStorage.setItem('pendingOrder', JSON.stringify(order));
 
-            // Track referral purchase if user came from a referral link
+            // Track referral purchase if user came from a referral link.
+            // This fires both the analytics event AND the commission pipeline:
+            //   1. trackReferralEvent('purchase') — increments the analytics counters
+            //   2. processReferralOnPurchase() — finds/creates the referral row,
+            //      stamps the order_id + commission, and updates referral_stats.
             const referralCode = sessionStorage.getItem('referralCode');
-            if (referralCode && user) {
-                await trackReferralEvent(referralCode, 'purchase', user.uid);
+            if (referralCode) {
+                await trackReferralEvent(referralCode, 'purchase', user?.uid);
+                // Fire-and-forget: commission processing should not block checkout.
+                // The function is idempotent — re-runs skip if a completed referral exists.
+                void processReferralOnPurchase(
+                    referralCode,
+                    user?.uid,
+                    order.id,
+                    order.total,
+                ).then((result) => {
+                    if (result.success && result.commissionEarned) {
+                        console.log(`[Referral] Commission earned: $${result.commissionEarned.toFixed(2)}`);
+                    }
+                }).catch((err) => {
+                    console.error('[Referral] Commission processing failed:', err);
+                });
+                // Clear the referral code so it doesn't double-attribute on a repeat visit.
+                clearReferralCode();
             }
 
             clearCart();
