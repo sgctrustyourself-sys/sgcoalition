@@ -28,7 +28,7 @@ export const PRODUCT_IMAGE_URLS = {
     },
     // 2/4, 3/4, 4/4 follow the same single-image-pair shape.
     // All sold in the May 2026 wholesale bundle (see constants.ts
-    // INITIAL_PRODUCTS + INITIAL_ORDERS.order_wholesale_wallets_2026_05_22).
+    // INITIAL_PRODUCTS + INITIAL_ORDERS.public-md-wholesale-wallets-2026_05_22).
     racingTeamWallet2_4: {
         front: 'https://i.imgur.com/IRhVbhN.jpg',
         back: 'https://i.imgur.com/7ScdBnE.jpg',

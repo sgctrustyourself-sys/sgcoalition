@@ -18,6 +18,7 @@
     "generate:seo": "node scripts/generateSeoArtifacts.mjs",
     "audit:chrome": "tsx scripts/audit-urgency-chrome.ts",
     "bootstrap:brain": "node scripts/seedBrain.cjs",
+    "seed:live-orders": "tsx scripts/backfillLiveOrderSeeds.ts",
     "story:reveal": "npx tsx scripts/render-story.ts --format story",
     "grid:reveal": "npx tsx scripts/render-story.ts --format grid",
     "x:reveal": "npx tsx scripts/render-story.ts --format x",

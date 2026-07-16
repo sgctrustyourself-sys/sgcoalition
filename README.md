@@ -966,7 +966,7 @@ State and city come out of `shippingAddress.{state, city}` directly - these are 
 
 **Layer 3 - `DEMO_TRACKED_ORDER_SEEDS`.** The same shape, populated with plausible US-state sales. This layer is gated by `DEMO_FEED_ENABLED = import.meta.env.DEV`, so a production build (`npm run build`) bakes the flag to `false` and these seeds are never reachable. They exist so a developer with an empty Supabase local environment still sees the visual layout working.
 
-### The five currently shipping real-sale seeds
+### The six currently shipping real-sale seeds
 
 | `id` | Product | Location | `minutesAgo` | Surfaces in |
 | --- | --- | --- | ---: | --- |
@@ -1003,7 +1003,7 @@ The default selected range on first render is `7d`. When `all` is active, the Or
 
 - The ticker renders `"<product> ordered in <locationLabel>"` only. No address line, no ZIP, no customer name, no order number is exposed.
 - All `shippingAddress.address1` and `shippingAddress.zip` values in seed orders are empty strings.
-- Customer email in seed rows is `customer@example.com` - never a real address.
+- Customer email in seed rows is `wholesale@example.com` (or `customer@example.com` on older rows) - never a real address.
 - `formatLocationLabel` only shows a city when it was set on the originating row; never fill in a city you cannot verify. The matcher reads `shippingAddress.city` plus several legacy shipping-field aliases, so older row shapes still surface correctly.
 
 ### The `id` contract
@@ -1018,7 +1018,7 @@ Three rules keep the contract sound:
 
 1. Every entry in `PUBLIC_RECENT_ORDER_SEEDS` MUST have a sibling row in `INITIAL_ORDERS` whose `id` is byte-for-byte the same string. Comments in both files call this out so a future edit doesn't drift.
 2. `INITIAL_ORDERS` rows use the seed id; new Supabase orders should not be assigned to a `public-...` id by the seed scripts (`scripts/add*Wallet.ts`, `scripts/listBuckets.ts`, etc.) unless the intent is exactly "this offline sale is now an online sale". Otherwise Layer 1 will collide with Layer 2.
-3. The dedup test in `tests/liveOrdersFeed.test.ts` (`deduplicates when an INITIAL_ORDERS row carries the same id as a public seed`) is the regression guard. If a future refactor accidentally breaks dedup, this test fails first.
+3. The dedup test in `tests/liveOrdersFeed.test.ts` (`DROPS the Layer 2 seed when a Layer 1 order with the same id survives the window`) is the regression guard. If a future refactor accidentally breaks dedup, this test fails first.
 
 A drift between the two id columns will surface as a duplicated row in the ticker AND a double-count in `feed.states`, which is what the Grey Wave wallet seeds were originally written to catch.
 
@@ -1033,66 +1033,73 @@ If a maintainer wants both surfaces to stay aligned forever, the seed record sho
 
 ### Worked example - adding the Trust Yourself hat sale
 
-The Maintainer received a new offline sale ("hat sold in Baltimore MD, Owings Mills, April 9, 2026") and wired it in this section. The full edit went through three files:
+The Maintainer received a new offline sale ("hat sold in Baltimore MD, Owings Mills, April 9, 2026") and wired it in this section. The full edit went through three files. (Note: the `INITIAL_ORDERS.createdAt` is a placeholder timestamp — the real sale date is encoded in the seed's `minutesAgo` so the relative-time label stays correct regardless of when a visitor loads the page.)
 
 **1. `utils/liveOrdersFeed.ts`** (`PUBLIC_RECENT_ORDER_SEEDS`, appended after the Grey Wave 2/2 seed):
 
 ```ts
 {
+    // TRUST YOURSELF CUSTOM TRUCKER (1/1) — sold in Owings Mills, MD.
+    // Surfaces in 90d, all.
     id: 'public-md-trust-yourself-hat-01',
     stateCode: 'MD',
     stateName: 'Maryland',
     city: 'Owings Mills',
     productId: 'prod_trust_yourself_hat_01',
     productName: 'TRUST YOURSELF CUSTOM TRUCKER (1/1)',
-    productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_iYBlwm8.png',
-    minutesAgo: 84 * 24 * 60,
+    productImage: PRODUCT_IMAGE_URLS.trustYourselfHat.cover,
+    minutesAgo: 120_960, // 84 days
     itemCount: 1,
 },
 ```
 
-Key choices documented inline: image resolves through `PRODUCT_IMAGE_URLS.trustYourselfHat.cover` so the storefront PDP and the ticker share one canonical URL; city is the specific CDP, not "Baltimore" generically, because the buyer data contained it; `minutesAgo` lines up with the recorded April 9 sell date from a July 2 viewer.
+Key choices documented inline: image resolves through `PRODUCT_IMAGE_URLS.trustYourselfHat.cover` (imported from `utils/localImageAssets.ts`) so the storefront PDP and the ticker share one canonical URL; city is the specific CDP, not "Baltimore" generically, because the buyer data contained it; `minutesAgo` is the computed literal `120_960` (= `84 * 24 * 60`) with an inline comment so the 84-day span is obvious at a glance.
 
 **2. `constants.ts` `INITIAL_ORDERS`** (new row, id matched byte-for-byte):
 
 ```ts
 {
-    id: 'public-md-trust-yourself-hat-01',
-    orderNumber: 'ORD-SG-TRUST-YOURSELF-HAT-9500',
+    id: "public-md-trust-yourself-hat-01",
+    orderNumber: "ORD-SG-HAT-01",
     isGuest: true,
-    customerName: 'Owings Mills Customer',
-    customerEmail: 'customer@example.com',
-    items: [{
-        productId: 'prod_trust_yourself_hat_01',
-        productName: 'TRUST YOURSELF CUSTOM TRUCKER (1/1)',
-        productImage: 'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_iYBlwm8.png',
-        selectedSize: 'One Size',
+    customerName: "Wholesale Customer",
+    customerEmail: "wholesale@example.com",
+    shippingAddress: { address1: "", city: "Owings Mills", state: "MD", zip: "", country: "US" },
+    items: [
+      {
+        productId: "prod_trust_yourself_hat_01",
+        productName: "Trust Yourself Custom Trucker (1/1)",
+        productImage: "https://i.imgur.com/iYBlwm8.png",
+        selectedSize: "One Size",
         quantity: 1,
         price: 50,
         total: 50,
-    }],
-    subtotal: 50, tax: 0, discount: 0, total: 50,
-    paymentMethod: 'cash', paymentStatus: 'paid', orderType: 'manual',
-    shippingAddress: {
-        address1: '', city: 'Owings Mills', state: 'MD', zip: '',
-        country: 'US', shippingMethod: 'standard', shippingCost: 0,
-    },
-    createdAt: '2026-04-09T15:00:00-04:00',
-    paidAt:   '2026-04-09T15:00:00-04:00',
+      },
+    ],
+    subtotal: 50,
+    tax: 0,
+    discount: 0,
+    total: 50,
+    paymentMethod: "cash",
+    paymentStatus: "paid",
+    orderType: "manual",
+    createdAt: "2025-01-01T00:00:00+00:00",
+    paidAt: "2025-01-01T00:00:00+00:00",
 },
 ```
 
-The empty `address1` and `zip`, the `customer@example.com` placeholder, and the missing order number display on the public site all uphold the privacy contract.
+The empty `address1` and `zip`, the `wholesale@example.com` placeholder, and the `Wholesale Customer` name (not a real buyer name) all uphold the privacy contract. The `createdAt` / `paidAt` timestamps are anchored ISO strings that stay correct forever — the seed's floating `minutesAgo` drifts over time, but when both exist the anchored Layer 1 timestamp wins the dedup.
 
 **3. `tests/liveOrdersFeed.test.ts`** extended the assertions so:
 
-- The 90d window now expects 4 ticker entries in this exact order: 2/2, 1/2, S1, hat (jsdom sorts by timestamp descending).
-- The 30d window still expects just 2 entries (the hat and S1 are both outside 30d).
-- The 24h and 7d exclusion test now also asserts the hat does not appear in either window.
+- The `hat seed does NOT surface in 30d (84d ago) but DOES in 90d` test pins the hat's window boundary.
+- The `all 6 seeds in the all window` test asserts PA count = 2 (Grey Wave 2/2 + 1/2), MD count = 3 (wholesale + hat + denim patchwork), NY count = 1 (True Religion S1), total = 6.
+- The tiered `formatRelativeTime` test asserts the hat seed renders `2mo ago` (84 days = floor(84/30) = 2mo) in the 90d window.
+- Tests freeze `now` via `vi.useFakeTimers` / `vi.setSystemTime(FROZEN_NOW)` so the floating `minutesAgo` offsets are deterministic.
 
 ### Step-by-step recipe for adding a new real sale
 
-1. Decide on the `minutesAgo`. If the sale is older than 90d from today, plan to add a new range literal (`'180d'`, `'1y'`) before doing anything else - see the time-range tuple section.
+1. Decide on the `minutesAgo`. If the sale is older than 90d from today, the `'all'` range already covers it — no new range literal is needed unless you want a narrower archival window (e.g. `'180d'`, `'1y'`). See the time-range tuple section.
 2. Edit `utils/liveOrdersFeed.ts > PUBLIC_RECENT_ORDER_SEEDS`. Pick the seed `id` as `public-<state>-<product-slug>` so it can never collide with an `Order.id` minted by `AppContext`.
 3. Pin the city/state/product fields from the buyer data. If a field is missing or unverified, leave `city` undefined and let the ticker fall back to the state name.
 4. Mirror the entry in `constants.ts > INITIAL_ORDERS` with the same `id`. Set all PII fields to safe placeholders (`''` for address, `customer@example.com` for email).

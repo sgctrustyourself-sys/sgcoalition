@@ -9,7 +9,7 @@
 //
 // Wholesale bundle context (see also: 1_4, 3_4, 4_4):
 // 7 wallets sold to @friiqy on 2026-05-22. INITIAL_ORDERS
-// .order_wholesale_wallets_2026_05_22.
+// .public-md-wholesale-wallets-2026_05_22.
 //
 // Why this script: CoRacing Team 2/4 currently has an archiveNote override
 // in PRODUCT_LOCAL_OVERRIDES but no `products` row, no INITIAL_PRODUCTS

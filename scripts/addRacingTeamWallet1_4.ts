@@ -10,7 +10,7 @@
 // Wholesale bundle context: this row was sold to @friiqy on 2026-05-22
 // alongside Coalition_Racing_Team_Wallet_2_4, _3_4, _4_4, GreenCamoWallet,
 // SKYYBLUEWALLET1_2, and prod_wallet_004. INITIAL_ORDERS
-// .order_wholesale_wallets_2026_05_22.
+// .public-md-wholesale-wallets-2026_05_22.
 //
 // Why this script: the live Vercel preview at
 //   /product/Coalition_Racing_Team_Wallet_1_4

@@ -783,7 +783,9 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
       "This exact wallet was given to an unhoused veteran after a chance encounter on a dirt bike ride. Seeing someone who served the country still left outside stayed with us. Coalition is built on action, dignity, and showing up for people when the moment calls for it, so this piece was given away instead of sold.",
   },
   // Wholesale bundle sold to @friiqy in May 2026 (see INITIAL_ORDERS
-  // order_wholesale_wallets_2026_05_22). The Chrome Hearts 1/1 and Denim
+  // public-md-wholesale-wallets-2026_05_22 — the id is mirrored
+  // byte-for-byte in utils/liveOrdersFeed.ts > PUBLIC_RECENT_ORDER_SEEDS
+  // per the live-map dedup contract). The Chrome Hearts 1/1 and Denim
   // Patchwork 1/1 were separate offline sales; exact dates unknown for some.
   Coalition_Racing_Team_Wallet_1_4: {
     archiveNote: "Part of the 7-wallet wholesale bundle sold to @friiqy in May 2026.",
@@ -972,20 +974,97 @@ export const ADMIN_WALLETS = [
 
 export const INITIAL_ORDERS: any[] = [
   {
-    id: "order_wholesale_wallets_2026_05_22",
+    // ── Layer 2 dedup contract ──────────────────────────────────────
+    // This id is mirrored byte-for-byte in
+    //   utils/liveOrdersFeed.ts > PUBLIC_RECENT_ORDER_SEEDS
+    // When a Layer 1 order (Supabase or this fallback) with the same id
+    // survives the live-orders window filter, it REPLACES the seed —
+    // the seed is dropped, not appended, so the sale is never counted
+    // twice. Do NOT change this id without updating the seed too.
+    // ────────────────────────────────────────────────────────────────
+    id: "public-md-wholesale-wallets-2026_05_22",
     orderNumber: "ORD-SG-WHOLESALE-1002",
     isGuest: true,
     customerName: "Wholesale Customer",
     customerEmail: "wholesale@example.com",
+    instagramUsername: "friiqy",
+    // Privacy contract: INITIAL_ORDERS carries state + city only.
+    // The full street address lives in the gitignored
+    // shipping_internal.json (keys are INITIAL_ORDERS id values).
+    shippingAddress: {
+      address1: "",
+      city: "Abingdon",
+      state: "MD",
+      zip: "",
+      country: "US",
+    },
+    // 7-wallet bundle split into 7 OrderItem rows (one per wallet) at
+    // $25 each = $175 total. The ticker links to /product/GreenCamoWallet
+    // (first wallet in catalog order); the other 6 surface via
+    // "+ 6 more items" copy on the live-orders map.
     items: [
       {
-        productId: "prod_wallet_004",
-        productName: "COALITION WALLETS WHOLESALE (7x)",
-        productImage: "https://i.imgur.com/v5y7tPa.jpg",
+        productId: "GreenCamoWallet",
+        productName: "Coalition Green Camo Wallet",
+        productImage: "https://i.imgur.com/kzIWQzA.jpg",
         selectedSize: "One Size",
-        quantity: 7,
+        quantity: 1,
         price: 25,
-        total: 175,
+        total: 25,
+      },
+      {
+        productId: "SKYYBLUEWALLET1_2",
+        productName: "COALITION SKYY BLUE WALLET 1/2",
+        productImage: "https://i.imgur.com/rJSCmHu.jpg",
+        selectedSize: "One Size",
+        quantity: 1,
+        price: 25,
+        total: 25,
+      },
+      {
+        productId: "prod_wallet_004",
+        productName: "COALITION SKYY BLUE WALLET 2/2",
+        productImage: "https://i.imgur.com/rJSCmHu.jpg",
+        selectedSize: "One Size",
+        quantity: 1,
+        price: 25,
+        total: 25,
+      },
+      {
+        productId: "Coalition_Racing_Team_Wallet_1_4",
+        productName: "Coalition 'Racing Team' Wallet 1/4",
+        productImage: "https://i.imgur.com/3UUmYQa.jpg",
+        selectedSize: "One Size",
+        quantity: 1,
+        price: 25,
+        total: 25,
+      },
+      {
+        productId: "Coalition_Racing_Team_Wallet_2_4",
+        productName: "Coalition 'Racing Team' Wallet 2/4",
+        productImage: "https://i.imgur.com/IRhVbhN.jpg",
+        selectedSize: "One Size",
+        quantity: 1,
+        price: 25,
+        total: 25,
+      },
+      {
+        productId: "Coalition_Racing_Team_Wallet_3_4",
+        productName: "Coalition 'Racing Team' Wallet 3/4",
+        productImage: "https://i.imgur.com/dcw5qLQ.jpg",
+        selectedSize: "One Size",
+        quantity: 1,
+        price: 25,
+        total: 25,
+      },
+      {
+        productId: "Coalition_Racing_Team_Wallet_4_4",
+        productName: "Coalition 'Racing Team' Wallet 4/4",
+        productImage: "https://i.imgur.com/EylCpDU.jpg",
+        selectedSize: "One Size",
+        quantity: 1,
+        price: 25,
+        total: 25,
       },
     ],
     subtotal: 175,
@@ -997,6 +1076,159 @@ export const INITIAL_ORDERS: any[] = [
     orderType: "manual",
     createdAt: "2026-05-22T22:48:11-04:00",
     paidAt: "2026-05-22T22:48:11-04:00",
+  },
+  {
+    // Coalition 'Grey Wave' Wallet 2/2 — sold in York, PA.
+    // id mirrored in PUBLIC_RECENT_ORDER_SEEDS (dedup contract).
+    id: "public-pa-grey-wave-wallet-2-2",
+    orderNumber: "ORD-SG-GREYWAVE-22",
+    isGuest: true,
+    customerName: "Wholesale Customer",
+    customerEmail: "wholesale@example.com",
+    shippingAddress: { address1: "", city: "York", state: "PA", zip: "", country: "US" },
+    items: [
+      {
+        productId: "Coalition_Grey_Wave_Wallet_2_2",
+        productName: "Coalition 'Grey Wave' Wallet 2/2",
+        productImage: "https://i.imgur.com/FVMHZoq.jpg",
+        selectedSize: "One Size",
+        quantity: 1,
+        price: 75,
+        total: 75,
+      },
+    ],
+    subtotal: 75,
+    tax: 0,
+    discount: 0,
+    total: 75,
+    paymentMethod: "cash",
+    paymentStatus: "paid",
+    orderType: "manual",
+    createdAt: "2026-06-25T02:40:12.191+00:00",
+    paidAt: "2026-06-25T02:40:12.191+00:00",
+  },
+  {
+    // Coalition 'Grey Wave' Wallet 1/2 — sold in York, PA (same day as 2/2).
+    // id mirrored in PUBLIC_RECENT_ORDER_SEEDS (dedup contract).
+    id: "public-pa-grey-wave-wallet-1-2",
+    orderNumber: "ORD-SG-GREYWAVE-12",
+    isGuest: true,
+    customerName: "Wholesale Customer",
+    customerEmail: "wholesale@example.com",
+    shippingAddress: { address1: "", city: "York", state: "PA", zip: "", country: "US" },
+    items: [
+      {
+        productId: "Coalition_Grey_Wave_Wallet_1_2",
+        productName: "Coalition 'Grey Wave' Wallet 1/2",
+        productImage: "https://i.imgur.com/7z2h8u6.jpg",
+        selectedSize: "One Size",
+        quantity: 1,
+        price: 75,
+        total: 75,
+      },
+    ],
+    subtotal: 75,
+    tax: 0,
+    discount: 0,
+    total: 75,
+    paymentMethod: "cash",
+    paymentStatus: "paid",
+    orderType: "manual",
+    createdAt: "2026-06-25T02:40:12.191+00:00",
+    paidAt: "2026-06-25T02:40:12.191+00:00",
+  },
+  {
+    // TRUST YOURSELF CUSTOM TRUCKER (1/1) — sold in Owings Mills, MD.
+    // id mirrored in PUBLIC_RECENT_ORDER_SEEDS (dedup contract).
+    id: "public-md-trust-yourself-hat-01",
+    orderNumber: "ORD-SG-HAT-01",
+    isGuest: true,
+    customerName: "Wholesale Customer",
+    customerEmail: "wholesale@example.com",
+    shippingAddress: { address1: "", city: "Owings Mills", state: "MD", zip: "", country: "US" },
+    items: [
+      {
+        productId: "prod_trust_yourself_hat_01",
+        productName: "Trust Yourself Custom Trucker (1/1)",
+        productImage: "https://i.imgur.com/iYBlwm8.png",
+        selectedSize: "One Size",
+        quantity: 1,
+        price: 50,
+        total: 50,
+      },
+    ],
+    subtotal: 50,
+    tax: 0,
+    discount: 0,
+    total: 50,
+    paymentMethod: "cash",
+    paymentStatus: "paid",
+    orderType: "manual",
+    createdAt: "2025-01-01T00:00:00+00:00",
+    paidAt: "2025-01-01T00:00:00+00:00",
+  },
+  {
+    // Coalition Denim Patchwork 1/1 Jeans S1 — sold via @friiqy
+    // relationship in November 2024 in Abingdon, MD.
+    // id mirrored in PUBLIC_RECENT_ORDER_SEEDS (dedup contract).
+    id: "public-md-denim-patchwork-2024_11_08",
+    orderNumber: "ORD-SG-DENIM-S1",
+    isGuest: true,
+    customerName: "Wholesale Customer",
+    customerEmail: "wholesale@example.com",
+    instagramUsername: "friiqy",
+    shippingAddress: { address1: "", city: "Abingdon", state: "MD", zip: "", country: "US" },
+    items: [
+      {
+        productId: "Coalition_Denim_Patchwork_S1",
+        productName: "Coalition Denim Patchwork 1/1 Jeans S1",
+        productImage: "https://i.imgur.com/2VU7MEr.jpg",
+        selectedSize: "30",
+        quantity: 1,
+        price: 140,
+        total: 140,
+      },
+    ],
+    subtotal: 140,
+    tax: 0,
+    discount: 0,
+    total: 140,
+    paymentMethod: "cash",
+    paymentStatus: "paid",
+    orderType: "manual",
+    createdAt: "2024-11-08T00:00:00Z",
+    paidAt: "2024-11-08T00:00:00Z",
+  },
+  {
+    // Coalition x True Religion 1/1 Jeans S1 — sold in New York, NY.
+    // id mirrored in PUBLIC_RECENT_ORDER_SEEDS (dedup contract).
+    id: "public-ny-true-religion-s1",
+    orderNumber: "ORD-SG-TR-S1",
+    isGuest: true,
+    customerName: "Wholesale Customer",
+    customerEmail: "wholesale@example.com",
+    instagramUsername: "friiqy",
+    shippingAddress: { address1: "", city: "New York", state: "NY", zip: "", country: "US" },
+    items: [
+      {
+        productId: "Coalition_x_True_Religion_S1",
+        productName: "Coalition x True Religion 1/1 Jeans S1",
+        productImage: "https://i.imgur.com/2VU7MEr.jpg",
+        selectedSize: "33",
+        quantity: 1,
+        price: 240,
+        total: 240,
+      },
+    ],
+    subtotal: 240,
+    tax: 0,
+    discount: 0,
+    total: 240,
+    paymentMethod: "cash",
+    paymentStatus: "paid",
+    orderType: "manual",
+    createdAt: "2026-03-06T00:00:00+00:00",
+    paidAt: "2026-03-06T00:00:00+00:00",
   },
 ];
 

@@ -9,7 +9,7 @@
 //
 // Wholesale bundle context (see also: 1_4, 2_4, 3_4):
 // 7 wallets sold to @friiqy on 2026-05-22. INITIAL_ORDERS
-// .order_wholesale_wallets_2026_05_22.
+// .public-md-wholesale-wallets-2026_05_22.
 //
 // USAGE:  npx tsx scripts/addRacingTeamWallet4_4.ts
 

@@ -45,6 +45,8 @@ const RANGE_LABELS: Record<LiveOrdersTimeRange, string> = {
     '24h': 'Last 24 hours',
     '7d': 'Last 7 days',
     '30d': 'Last 30 days',
+    '90d': 'Last 90 days',
+    'all': 'All time',
 };
 
 const LiveOrdersMap = () => {
@@ -58,7 +60,9 @@ const LiveOrdersMap = () => {
         {
             label: 'Orders',
             value: feed.summary.totalOrders.toLocaleString(),
-            helper: `Live window: ${RANGE_LABELS[timeRange]}`,
+            helper: timeRange === 'all'
+                ? 'Showing all real sales since the first drop'
+                : `Live window: ${RANGE_LABELS[timeRange]}`,
             icon: <Activity className="w-5 h-5 text-purple-300" />,
             accentClass: 'from-purple-500/20 via-purple-500/5 to-transparent',
         },
@@ -118,8 +122,8 @@ const LiveOrdersMap = () => {
                     </div>
 
                     {/* Filters */}
-                    <div className="flex rounded-xl border border-gray-800 bg-gray-900 p-1">
-                        {(['24h', '7d', '30d'] as const).map((range) => (
+                    <div className="flex flex-wrap rounded-xl border border-gray-800 bg-gray-900 p-1">
+                        {(['24h', '7d', '30d', '90d', 'all'] as const).map((range) => (
                             <button
                                 key={range}
                                 onClick={() => setTimeRange(range)}
@@ -196,6 +200,14 @@ const LiveOrdersMap = () => {
                                                     {item.time}
                                                 </span>
                                             </div>
+                                            {item.productLink && (
+                                                <button
+                                                    onClick={() => navigate(item.productLink)}
+                                                    className="shrink-0 rounded-lg border border-gray-800 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500 opacity-0 transition-all group-hover:opacity-100 hover:border-purple-500/50 hover:text-purple-300"
+                                                >
+                                                    View
+                                                </button>
+                                            )}
                                         </motion.div>
                                     ))
                                 ) : (
