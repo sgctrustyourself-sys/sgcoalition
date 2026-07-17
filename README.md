@@ -1770,6 +1770,40 @@ npm run seed:calieb-profile -- --confirm        # upsert social_accounts + profi
 - Test lock: `tests/backfillCustomerCalieb.test.ts` (146 lines, 6 tests; mocks `social_accounts` / `orders` / `profiles` via `vi.mock('@supabase/supabase-js')` + `vi.mock('dotenv')`)
 - Consumer: `components/admin/CustomerProfileAdmin.tsx` reuses the same discovery shape
 
+### Calieb wallet order — admin OrderManager verification (2026-07-17)
+
+Verified Calieb's Grey Wave Wallet 2/2 purchase appears correctly in the admin OrderManager (`components/admin/OrderManager.tsx`). The backfill dry-run confirmed 0 orders in the live Supabase `orders` table (the order lives in `INITIAL_ORDERS` as the frontend fallback).
+
+**INITIAL_ORDERS customer attribution pass (same session):** Replaced 4 "Wholesale Customer" placeholder rows in `constants.ts > INITIAL_ORDERS` with real customer names:
+
+| Order ID | Customer | Email | Product | Price | Location |
+| --- | --- | --- | --- | ---: | --- |
+| `public-pa-grey-wave-wallet-2-2` | Calieb Customer | calieb@example.com | Grey Wave Wallet 2/2 | $75 | York, PA |
+| `public-pa-grey-wave-wallet-1-2` | Starrboii Customer | starrboii@example.com | Grey Wave Wallet 1/2 | $75 | York, PA |
+| `public-md-trust-yourself-hat-01` | Wahab Customer | wahab@example.com | Trust Yourself Hat 1/1 | $50 | Owings Mills, MD |
+| `public-ny-true-religion-s1` | eBay Buyer (coha-5629) | ebay@example.com | True Religion Jeans S1 | $227.99 | Gasport, NY 14067 |
+
+Also corrected: True Religion Jeans S1 price ($240 → $227.99), location (New York → Gasport NY 14067), removed incorrect @friiqy attribution (sold on eBay, not via friiqy).
+
+**New order added:**
+
+| Order ID | Customer | Product | Price | Location |
+| --- | --- | --- | ---: | --- |
+| `public-md-denim-patchwork-x-meks-2026_05_22` | Wholesale / @friiqy | Denim Patchwork 1/1 Jeans X Meks | $140 | Abingdon, MD |
+
+Added `PRODUCT_LOCAL_OVERRIDES` archiveNote for `Coalition_Denim_Patchwork_X_Meks`. Product image: `https://i.imgur.com/tgAIclv.jpg`.
+
+**2 orders remain as "Wholesale Customer"** (both legitimately @friiqy): the 7-wallet wholesale bundle and Denim Patchwork S1.
+
+All 273 tests pass across 27 files. Commits: `aa1e5b4`, `ddc4825`, `a9f034c`.
+
+### Next implementations
+
+- [ ] **Backfill INITIAL_ORDERS to Supabase:** run `npx tsx scripts/backfillLiveOrderSeeds.ts --dry-run` then `--confirm` to upsert the updated customer-attributed orders into the live `orders` table
+- [ ] **Add X Meks to live map seeds:** mirror `public-md-denim-patchwork-x-meks-2026_05_22` into `utils/liveOrdersFeed.ts > PUBLIC_RECENT_ORDER_SEEDS` per the id-dedup contract
+- [ ] **Update backfillCustomerCalieb test mocks:** the test still mocks Chrome Hearts + Above As Below wallets; update to reflect Calieb's actual Grey Wave Wallet 2/2 purchase
+- [ ] **Run `npm run seed:calieb-profile -- --confirm`:** upsert Calieb's social_accounts + marketing_contacts + profiles rows now that the Grey Wave wallet order is correctly attributed
+
 ## /admin Verified Buyers tab
 
 The Verified Buyers tab (`components/admin/VerifiedBuyersAdmin.tsx`) is the operator's view for every `marketing_contacts` row whose `source ∈ {past_customer, manual_seed}` plus the orders joined by `instagram_username`. It exists so that @friiqy's $455 / 3-orders tuple, the York PA Grey Wave wallet sales, and any other operator-seeded offline cash purchase are first-class surface area in `/admin` without requiring an existing `profiles` row for the buyer.
