@@ -79,7 +79,7 @@ npm run story:reveal -- --slug grey-wave && npm run grid:reveal -- --slug grey-w
 
 | File | Purpose |
 |---|---|
-| [`../README.md`](../README.md) | Project overview · brand + feature summary · tech stack · local dev setup (Node 18+, npm install, .env.local, `npm run dev`) · Stripe test cards · Coalition Brain bootstrap (`npm run bootstrap:brain`) · project structure tree · env-var catalog (dev + prod) |
+| [`../README.md`](../README.md) | Project overview · brand + feature summary · tech stack · local dev setup (Node 18+, npm install, .env.local, `npm run dev`) · Stripe test cards · Coalition Brain bootstrap (`npm run bootstrap:brain`) · project structure tree · env-var catalog (dev + prod) · **[Loops](./README.md#loops)** index covering Customer Profile / Referral / Live Orders / Above As Below flows |
 | [`../DEPLOYMENT_CHECKLIST.md`](../DEPLOYMENT_CHECKLIST.md) | Vercel deployment runbook · Supabase env-var verification · build-time vs runtime variable distinction · clean redeploy steps · post-deploy smoke check via incognito browser session |
 | [`REPO_RECOVERY.md`](REPO_RECOVERY.md) | OneDrive → non-synced path recovery procedure · when to re-clone, exact `git` commands, 6 Codex worktree re-registration. Operator-local — includes paths under `C:/Users/SG/WebApps/SGCoalition`. |
 

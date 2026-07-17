@@ -22,7 +22,10 @@
     "story:reveal": "npx tsx scripts/render-story.ts --format story",
     "grid:reveal": "npx tsx scripts/render-story.ts --format grid",
     "x:reveal": "npx tsx scripts/render-story.ts --format x",
-    "reveal": "npx tsx scripts/render-story.ts"
+    "reveal": "npx tsx scripts/render-story.ts",
+    "seed:calieb-profile": "tsx scripts/backfillCustomerCalieb.ts",
+    "seed:friiqy-denim-patchwork": "tsx scripts/upsertFriiqyDenimPatchwork.ts",
+    "seed:verified-customers": "tsx scripts/seedVerifiedCustomers.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
