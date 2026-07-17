@@ -1,5 +1,6 @@
 // Referral System Core Utilities
 import { supabase } from '../services/supabase';
+import { trackReferralEvent } from './referralAnalytics';
 
 // Commission tier configuration
 // Exponential progression so the FIRST successful sale immediately bumps the
@@ -429,6 +430,53 @@ export const clearReferralCode = (): void => {
     localStorage.removeItem('referral_timestamp');
     if (typeof sessionStorage !== 'undefined') {
         sessionStorage.removeItem('referralCode');
+    }
+};
+
+// ---------------------------------------------------------------------------
+// trackSignupReferral — duplicate-guarded signup tracking
+// ---------------------------------------------------------------------------
+//
+// Called from AppContext.initApp when a new authenticated user signs up via
+// a referral link. It:
+//   1. Fires a 'signup' analytics event (idempotent via the
+//      track_referral_event RPC).
+//   2. Looks up the referrer's stats by stored code.
+//   3. Self-referral guard (referrer_id === userId).
+//   4. Looks for an existing PENDING referral row for (referrer, buyer).
+//      If found, returns WITHOUT calling trackReferral again — this is the
+//      duplicate guard that prevents inflated totals when a user logs in
+//      multiple times with the same referral code.
+//
+// Fire-and-forget callers (AppContext) only invoke this when there's a
+// non-empty stored code, so the function early-returns on empty code —
+// callers don't need to pre-check.
+//
+// Extracted from the AppContext closure so it can be tested in isolation
+// (the closure was previously un-testable without mounting the full
+// AuthContextProvider). Caller is responsible for reading the referral code
+// from localStorage / sessionStorage before invoking.
+//
+export const trackSignupReferral = async (
+    referralCode: string,
+    userId: string,
+): Promise<void> => {
+    if (!referralCode) return;
+    try {
+        await trackReferralEvent(referralCode, 'signup', userId);
+        const stats = await getReferralStatsByCode(referralCode);
+        if (!stats || stats.user_id === userId) return;
+        const { data: existing } = await supabase
+            .from('referrals')
+            .select('id')
+            .eq('referrer_id', stats.user_id)
+            .eq('referred_user_id', userId)
+            .eq('status', 'pending')
+            .maybeSingle();
+        if (existing) return; // duplicate guard — already tracked
+        await trackReferral(referralCode, userId);
+    } catch (err) {
+        console.error('[Referral] Signup tracking failed:', err);
     }
 };
 

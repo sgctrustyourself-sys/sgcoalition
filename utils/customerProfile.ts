@@ -13,6 +13,7 @@
 //   This utility closes both gaps.
 
 import { supabase } from '../services/supabase';
+import { mapToRequest, type PayoutRequest } from '../services/payoutRequest';
 
 export interface CustomerProfile {
     userId: string;
@@ -43,6 +44,19 @@ export interface CustomerProfile {
         totalEarnings: number;
         currentTier: number;
     } | null;
+    // SGCoin PAYOUT (crypto-withdrawal) aggregation + raw rows. See
+    // services/payoutRequest.ts for the source RPC wrappers + the schema in
+    // supabase/migrations/20260716_create_sgcoin_payout_requests.sql.
+    payoutStats: {
+        totalRequested: number;
+        pendingCount: number;
+        completedCount: number;
+        rejectedCount: number;
+        lastStatus: PayoutRequest['status'] | null;
+        lastAmount: number | null;
+        lastDate: string | null;
+    };
+    payoutRequests: PayoutRequest[];
     // Anonymous buyer tracking (for orders with no auth user)
     anonymousOrderCount: number;
     anonymousTotalSpend: number;
@@ -62,7 +76,11 @@ export const buildCustomerProfile = async (userId: string): Promise<CustomerProf
         // read auth.users), so we filter by user_id only — which covers
         // all authenticated checkouts. Guest orders are tracked separately
         // via buildCustomerProfileByEmail.
-        const [profileRes, ordersRes, socialsRes, referralStatsRes] = await Promise.all([
+        // Promise.all schema (matters for tests/_helpers/supabaseClientMock.ts
+        // which consumes outcomes in FIFO registration order):
+        //   [0] profiles, [1] orders, [2] socials, [3] referral_stats,
+        //   [4] sgcoin_payout_requests (new — see services/payoutRequest.ts).
+        const [profileRes, ordersRes, socialsRes, referralStatsRes, payoutsRes] = await Promise.all([
             isMetaMaskUser ? Promise.resolve({ data: null, error: null }) : supabase
                 .from('profiles')
                 .select('is_vip, store_credit, sg_coin_balance, lifetime_spend_usd, lifetime_orders, customer_notes')
@@ -84,12 +102,49 @@ export const buildCustomerProfile = async (userId: string): Promise<CustomerProf
                 .select('referral_code, total_referrals, successful_referrals, total_earnings, current_tier')
                 .eq('user_id', userId)
                 .maybeSingle(),
+            // 5) sgcoin_payout_requests — customer's crypto-withdrawal history.
+            // MetaMask users resolve to [] because wallet-only auth has no
+            // payout_requests rows. The MyMask check below is harmless so
+            // we leave it as a defensive short-circuit.
+            isMetaMaskUser ? Promise.resolve({ data: [], error: null }) : supabase
+                .from('sgcoin_payout_requests')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false }),
         ]);
 
         const profile = profileRes.data;
         const userOrders = ordersRes.data || [];
         const socials = socialsRes.data || [];
         const referralStats = referralStatsRes.data;
+        // Map payoutsRes rows (snake_case DB -> camelCase PayoutRequest).
+        // The union type is loose on purpose so that an unknown future column
+        // (e.g. operator_tax_id) does not fail this build — it lands as
+        // undefined on the object and the consumer can choose to surface it.
+        // Delegate the snake_case → camelCase mapping to the canonical helper
+        // in services/payoutRequest.ts (was previously duplicated inline here\;
+        // see commit 2026-07-16 PAYOUTS REFACTOR for context). Single source
+        // of truth so future DB column additions propagate without drift.
+        const userPayouts: PayoutRequest[] = (payoutsRes?.data || []).map(mapToRequest);
+        // Aggregate stats. `lastXxx` fields reflect the most-recent row,
+        // i.e. payoutRequests[0] because the SQL query orders created_at DESC.
+        // `totalRequested` is purely informational (admin visibility) — it is
+        // the sum of amounts across ALL statuses regardless of whether the
+        // underlying sg_coin_balance has been decremented yet. Only the
+        // `approve_payout_request` RPC (Pending -> Approved transition)
+        // atomically decrements sg_coin_balance via FOR UPDATE row lock; the
+        // reject path refunds automatically. So do NOT reconcile this metric
+        // against sg_coin_balance — use `getPayoutRequestStats()` from
+        // services/payoutRequest.ts for ledger-grade concern.
+        const payoutStats = {
+            totalRequested: userPayouts.reduce((s: number, p: PayoutRequest) => s + Number(p.amount || 0), 0),
+            pendingCount: userPayouts.filter((p: PayoutRequest) => p.status === 'pending').length,
+            completedCount: userPayouts.filter((p: PayoutRequest) => p.status === 'completed').length,
+            rejectedCount: userPayouts.filter((p: PayoutRequest) => p.status === 'rejected').length,
+            lastStatus: userPayouts[0]?.status || null,
+            lastAmount: userPayouts[0]?.amount ?? null,
+            lastDate: userPayouts[0]?.createdAt || null,
+        };
 
         // Calculate enriched order data
         const paidOrders = userOrders.filter((o: any) =>
@@ -147,6 +202,8 @@ export const buildCustomerProfile = async (userId: string): Promise<CustomerProf
                 totalEarnings: referralStats.total_earnings || 0,
                 currentTier: referralStats.current_tier || 1,
             } : null,
+            payoutStats,
+            payoutRequests: userPayouts,
             // Anonymous orders are tracked via buildCustomerProfileByEmail;
             // this profile only covers authenticated user_id matches.
             anonymousOrderCount: 0,
