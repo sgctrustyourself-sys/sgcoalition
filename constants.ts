@@ -812,6 +812,9 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
   Coalition_Denim_Patchwork_S1: {
     archiveNote: "1/1 denim patchwork jeans. Sold via the @friiqy relationship in November 2024.",
   },
+  Coalition_Denim_Patchwork_X_Meks: {
+    archiveNote: "1/1 denim patchwork jeans X Meks. Sold via the @friiqy relationship in May 2026.",
+  },
   // Unity No. 4 Polo: founder note surfaces on the PDP below the buy button.
   // Keep this buyer-facing — sourcing + markup math is operator-only and
   // lives in a code comment, not in the public copy.
@@ -1225,6 +1228,37 @@ export const INITIAL_ORDERS: any[] = [
     orderType: "manual",
     createdAt: "2024-11-08T00:00:00Z",
     paidAt: "2024-11-08T00:00:00Z",
+  },
+  {
+    // Coalition Denim Patchwork 1/1 Jeans X Meks — sold via @friiqy
+    // in May 2026 in Abingdon, MD (same day as wholesale bundle).
+    id: "public-md-denim-patchwork-x-meks-2026_05_22",
+    orderNumber: "ORD-SG-DENIM-XMEKS",
+    isGuest: true,
+    customerName: "Wholesale Customer",
+    customerEmail: "wholesale@example.com",
+    instagramUsername: "friiqy",
+    shippingAddress: { address1: "", city: "Abingdon", state: "MD", zip: "", country: "US" },
+    items: [
+      {
+        productId: "Coalition_Denim_Patchwork_X_Meks",
+        productName: "1/1 Coalition Denim Patchwork Jeans X Meks",
+        productImage: "https://i.imgur.com/2VU7MEr.jpg",
+        selectedSize: "One Size",
+        quantity: 1,
+        price: 140,
+        total: 140,
+      },
+    ],
+    subtotal: 140,
+    tax: 0,
+    discount: 0,
+    total: 140,
+    paymentMethod: "cash",
+    paymentStatus: "paid",
+    orderType: "manual",
+    createdAt: "2026-05-22T22:48:11-04:00",
+    paidAt: "2026-05-22T22:48:11-04:00",
   },
   {
     // Coalition x True Religion 1/1 Jeans S1 — sold in New York, NY.
