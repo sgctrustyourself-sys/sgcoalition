@@ -1243,7 +1243,7 @@ export const INITIAL_ORDERS: any[] = [
       {
         productId: "Coalition_Denim_Patchwork_X_Meks",
         productName: "1/1 Coalition Denim Patchwork Jeans X Meks",
-        productImage: "https://i.imgur.com/2VU7MEr.jpg",
+        productImage: "https://i.imgur.com/tgAIclv.jpg",
         selectedSize: "One Size",
         quantity: 1,
         price: 140,
