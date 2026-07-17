@@ -202,6 +202,9 @@ export interface Order {
   createdAt: string;
   paidAt?: string;
   sgCoinReward?: number;
+  /** Wholesale order attribution: Instagram handle of the wholesale buyer (e.g. "friiqy").
+   *  Only set on offline-bundle placeholder rows; absent on real customer orders. */
+  instagramUsername?: string;
 }
 
 export enum GiveawayStatus {

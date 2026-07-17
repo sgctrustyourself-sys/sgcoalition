@@ -206,7 +206,7 @@ function printReport(
     // ── Section 2: drift details ──
     if (drift.length > 0) {
         console.log('[Section 2] Drift details');
-        const sorted = [...drift].sort((a, b) => a.row.id.localeCompare(b.id));
+        const sorted = [...drift].sort((a, b) => a.row.id.localeCompare(b.row.id));
         for (const d of sorted) {
             console.log(`  ${d.row.id}: ${d.issues.length} issue(s)`);
             for (const i of d.issues) {

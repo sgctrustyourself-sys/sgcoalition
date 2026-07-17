@@ -16,7 +16,7 @@ interface StateData {
 
 interface LiveMapProps {
     data: StateData[];
-    timeRange: '24h' | '7d' | '30d';
+    timeRange: '24h' | '7d' | '30d' | '90d' | 'all';
 }
 
 const LiveMap: React.FC<LiveMapProps> = ({ data }) => {
