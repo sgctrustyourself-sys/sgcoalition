@@ -44,12 +44,28 @@ export interface SupabaseMock {
     neqSpy: ReturnType<typeof vi.fn>;
     selectSpy: ReturnType<typeof vi.fn>;
     upsertSpy: ReturnType<typeof vi.fn>;
+    maybeSingleSpy: ReturnType<typeof vi.fn>;
+    singleSpy: ReturnType<typeof vi.fn>;
+    inSpy: ReturnType<typeof vi.fn>;
+    orderSpy: ReturnType<typeof vi.fn>;
+    limitSpy: ReturnType<typeof vi.fn>;
+    gteSpy: ReturnType<typeof vi.fn>;
+    lteSpy: ReturnType<typeof vi.fn>;
+    orSpy: ReturnType<typeof vi.fn>;
+    rpcSpy: ReturnType<typeof vi.fn>;
     /**
      * Replace the queue of outcomes for the NEXT sequence of awaits.
-     * Each call to `await supabase.from(...)` consumes the next outcome.
-     * Used by tests that share a singleton mock across multiple cases.
+     * Each call to `await supabase.from(...)` OR `await supabase.rpc(...)`
+     * consumes the next outcome from the same queue. Used by tests that
+     * share a singleton mock across multiple cases.
      */
     setOutcomes(outcomes: SupabaseOutcome | SupabaseOutcome[]): void;
+    /**
+     * Returns the number of outcomes not yet consumed by an await call.
+     * Tests that assert on early-return contracts use this to confirm
+     * the function exited BEFORE further database writes were attempted.
+     */
+    getRemainingOutcomes(): number;
 }
 
 export function makeSupabaseClient(
@@ -65,6 +81,15 @@ export function makeSupabaseClient(
     const neqSpy = vi.fn();
     const selectSpy = vi.fn();
     const upsertSpy = vi.fn();
+    const maybeSingleSpy = vi.fn();
+    const singleSpy = vi.fn();
+    const inSpy = vi.fn();
+    const orderSpy = vi.fn();
+    const limitSpy = vi.fn();
+    const gteSpy = vi.fn();
+    const lteSpy = vi.fn();
+    const orSpy = vi.fn();
+    const rpcSpy = vi.fn();
 
     function buildChain(): any {
         const then = (resolve: (v: any) => void, reject: (e: unknown) => void) => {
@@ -77,26 +102,59 @@ export function makeSupabaseClient(
             }
         };
         const chain: any = { then };
+        // Mutation methods — record args + return chain.
         chain.insert = insertSpy.mockImplementation(() => chain);
         chain.update = updateSpy.mockImplementation(() => chain);
         chain.delete = deleteSpy.mockImplementation(() => chain);
         chain.select = selectSpy.mockImplementation(() => chain);
         chain.upsert = upsertSpy.mockImplementation(() => chain);
+        // Filter methods — record args + return chain.
         chain.eq = eqSpy.mockImplementation(() => chain);
         chain.neq = neqSpy.mockImplementation(() => chain);
+        chain.in = inSpy.mockImplementation(() => chain);
+        chain.gte = gteSpy.mockImplementation(() => chain);
+        chain.lte = lteSpy.mockImplementation(() => chain);
+        chain.or = orSpy.mockImplementation(() => chain);
+        chain.order = orderSpy.mockImplementation(() => chain);
+        chain.limit = limitSpy.mockImplementation(() => chain);
+        // Terminal methods — record args + return chain (still thenable).
+        chain.maybeSingle = maybeSingleSpy.mockImplementation(() => chain);
+        chain.single = singleSpy.mockImplementation(() => chain);
         return chain;
     }
 
+    // rpc() returns a thenable that consumes from the SAME shared queue
+    // as from() chains so tests can script an interleaved
+    // supabase.rpc(...) + supabase.from(...) sequence (e.g. fire the
+    // analytics RPC before reading stats from a table).
+    const rpcThenable = () => ({
+        then: (resolve: (v: any) => void, reject: (e: unknown) => void) => {
+            const next = queue.shift();
+            if (next?.kind === 'reject') {
+                reject(next.error);
+            } else {
+                const v = next?.value ?? {};
+                resolve({ data: null, error: null, ...v });
+            }
+        },
+    });
+    rpcSpy.mockImplementation(() => rpcThenable());
+
     fromSpy.mockImplementation(() => buildChain());
 
-    const client: any = { from: fromSpy };
+    const client: any = { from: fromSpy, rpc: rpcSpy };
 
     return {
         client: client as SupabaseClient,
         fromSpy, insertSpy, updateSpy, deleteSpy,
         eqSpy, neqSpy, selectSpy, upsertSpy,
+        maybeSingleSpy, singleSpy, inSpy, orderSpy, limitSpy,
+        gteSpy, lteSpy, orSpy, rpcSpy,
         setOutcomes(outcomes: SupabaseOutcome | SupabaseOutcome[]) {
             queue = Array.isArray(outcomes) ? [...outcomes] : [outcomes];
+        },
+        getRemainingOutcomes() {
+            return queue.length;
         },
     };
 }

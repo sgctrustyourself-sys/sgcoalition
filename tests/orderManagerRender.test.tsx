@@ -77,6 +77,11 @@ interface TestOrder {
         total: number;
     }>;
     createdAt: string;
+    // Optional social-attribution handle surfaced by the wholesale badge
+    // when the order is a privacy-anonymized offline-bundle placeholder
+    // (e.g. friiqy for the May 2026 wholesale bundle). See
+    // components/admin/OrderManager.tsx > renderCustomerAttribution.
+    instagramUsername?: string;
 }
 
 // 3 orders engineered so the stat grid sums land on round numbers:
@@ -358,5 +363,163 @@ describe('OrderManager modal open + status filter interactions', () => {
         expect(statValues[2]).toBe('1');        // Pending (unaffected)
 
         expect(mockSupabase.getRemainingOutcomes()).toBe(0);
+    });
+});
+
+
+// ============================================
+// WHOLESALE BADGE - "orders still showing as wholesale customer in admin"
+// ============================================
+// Wholesale-bundle offline-sale rows use a privacy-anonymized
+// customerName='Wholesale Customer' placeholder + customerEmail=
+// 'wholesale@example.com' (see constants.ts > INITIAL_ORDERS > the 6 seed
+// rows with literal 'Wholesale Customer' / 'wholesale@example.com' +
+// scripts/upsertFriiqyDenimPatchwork.ts). The customerName is locked by
+// tests/liveOrdersFeed.test.ts -- any future rename breaks that contract.
+//
+// Instead of renaming, components/admin/OrderManager.tsx renders a
+// "WHOLESALE" chip + the optional @instagramUsername (when present) so
+// the operator can tell at a glance that the row is an offline-bundle
+// placeholder, NOT a real customer order -- without breaking the locked
+// test contracts that pin the literal placeholder strings.
+//
+// These two tests pin the chip + handle attribution so a future refactor
+// of OrderManager's Customer column doesn't accidentally revert to raw
+// strings.
+describe('OrderManager wholesale badge render', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    // 1 retail row (Alice) + 1 wholesale-bundle row (with friiqy handle).
+    // The retail row pins the negative case: the chip must NOT render.
+    const WHOLESALE_FIXTURE: TestOrder[] = [
+        {
+            id: 'wholesale-bundle-1',
+            orderNumber: 'ORD-SG-WHOLESALE-1002',
+            customerName: 'Wholesale Customer',
+            customerEmail: 'wholesale@example.com',
+            instagramUsername: 'friiqy',
+            paymentMethod: 'cash',
+            paymentStatus: 'paid',
+            orderType: 'manual',
+            total: 175,
+            subtotal: 175,
+            items: [{
+                productName: 'Coalition Green Camo Wallet',
+                productImage: '/w.png',
+                selectedSize: 'One Size',
+                quantity: 1,
+                total: 25,
+            }],
+            createdAt: '2026-05-22T22:48:11Z',
+        },
+        {
+            id: 'retail-1', orderNumber: 'SG-100',
+            customerName: 'Alice', customerEmail: 'alice@x.com',
+            paymentMethod: 'paypal', paymentStatus: 'paid',
+            orderType: 'online', total: 150, subtotal: 150,
+            items: [{
+                productName: 'Wallet', productImage: '/w.png',
+                selectedSize: 'M', quantity: 1, total: 150,
+            }],
+            createdAt: '2026-07-14T10:00:00Z',
+        },
+    ];
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockSupabase.setOutcomes([]);
+        localStorage.clear();
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        container = document.createElement('div');
+        document.body.appendChild(container);
+        root = createRoot(container);
+
+        vi.mocked(useApp).mockReturnValue({
+            orders: WHOLESALE_FIXTURE,
+            updateOrderStatus: vi.fn().mockResolvedValue(undefined),
+            deleteOrder: vi.fn().mockResolvedValue(undefined),
+        });
+    });
+
+    afterEach(() => {
+        act(() => { root.unmount(); });
+        if (container.parentNode === document.body) document.body.removeChild(container);
+        vi.restoreAllMocks();
+    });
+
+    it("WHOLESALE_CHIP: row with instagramUsername='friiqy' renders the WHOLESALE chip + @friiqy handle attribution", async () => {
+        await act(async () => {
+            root.render(createElement(OrderManager));
+        });
+        const html = container.innerHTML;
+
+        // Wholesale privacy placeholders must still be the raw strings --
+        // tests/liveOrdersFeed.test.ts + scripts/upsertFriiqyDenimPatchwork.ts
+        // lock those literals, and renaming would break the warehouse-aware
+        // analytics + the wholesale bundle backfill helper.
+        expect(html).toContain('Wholesale Customer');
+        expect(html).toContain('wholesale@example.com');
+
+        // Locate the wholesale row by its unique orderNumber.
+        const wholesaleRow = Array.from(container.querySelectorAll('tr')).find(
+            (r) => (r.textContent || '').includes('ORD-SG-WHOLESALE-1002'),
+        );
+        expect(wholesaleRow).toBeTruthy();
+
+        const attrib = wholesaleRow!.querySelector('[data-testid="wholesale-attribution"]');
+        expect(attrib).toBeTruthy();
+        expect((attrib!.textContent || '').trim()).toContain('WHOLESALE');
+        expect((attrib!.textContent || '').trim()).toContain('@friiqy');
+    });
+
+    it('NEGATIVE_CASE: a non-wholesale row (Alice SG-100) does NOT render the wholesale attribution', async () => {
+        await act(async () => {
+            root.render(createElement(OrderManager));
+        });
+        // Newest-first sort: SG-100 (Alice, 07-14) is the FIRST row, ahead of
+        // the wholesale bundle (05-22). The first trigger's containing <td>
+        // MUST NOT contain a [data-testid='wholesale-attribution'] sibling.
+        const firstTrigger = container.querySelector(
+            'button[data-testid="customer-link-trigger"]',
+        ) as HTMLElement | null;
+        expect(firstTrigger).toBeTruthy();
+        const firstCell = firstTrigger!.closest('td');
+        expect(firstCell).toBeTruthy();
+        expect(firstCell!.querySelector('[data-testid="wholesale-attribution"]')).toBeNull();
+    });
+
+    // 3rd test identified by code-reviewer: lock the strict customerName-only
+    // gate so a future contributor can't accidentally re-broaden it to
+    // instagramUsername. Pre-broaden, this row would have rendered the chip
+    // (insta handle was set); post-tighten, it MUST NOT.
+    it('INSTAGRAM_ONLY_GATE: row with instagramUsername=set but customerName NOT "Wholesale Customer" does NOT render the chip', async () => {
+        vi.mocked(useApp).mockReturnValue({
+            orders: [{
+                id: 'real-cust-1', orderNumber: 'SG-REAL-1',
+                customerName: 'Real Customer',
+                customerEmail: 'real@example.com',
+                instagramUsername: 'some_real_ig_handle',
+                paymentMethod: 'paypal', paymentStatus: 'paid',
+                orderType: 'online', total: 50, subtotal: 50,
+                items: [{
+                    productName: 'Tee', productImage: '/t.png',
+                    selectedSize: 'M', quantity: 1, total: 50,
+                }],
+                createdAt: '2026-07-15T12:00:00Z',
+            }],
+            updateOrderStatus: vi.fn().mockResolvedValue(undefined),
+            deleteOrder: vi.fn().mockResolvedValue(undefined),
+        });
+
+        await act(async () => {
+            root.render(createElement(OrderManager));
+        });
+        // The chip-and-handle <div data-testid="wholesale-attribution"> MUST NOT
+        // render -- the customerName 'Real Customer' is NOT the canonical
+        // 'Wholesale Customer' placeholder, so the gate is false regardless of
+        // instagramUsername being set.
+        expect(container.querySelector('[data-testid="wholesale-attribution"]')).toBeNull();
     });
 });

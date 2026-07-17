@@ -7,6 +7,42 @@ import ManualOrderForm from '../ManualOrderForm';
 import Invoice from '../Invoice';
 import CustomerLinkModal from './CustomerLinkModal';
 
+// Wholesale placeholder strings are the same privacy-anonymized values
+// locked in tests/liveOrdersFeed.test.ts + scripts/upsertFriiqyDenimPatchwork.ts:
+// the wholesale buyer (friiqy) is identified by his Instagram handle, not by
+// his real name. The admin UI surfaces a "WHOLESALE" chip + the
+// @instagramUsername attribution (when set) so a single glance tells the
+// operator that the row is an offline-bundle placeholder, NOT a real
+// customer order -- without breaking the locked test contracts that pin
+// the literal placeholder strings.
+const WHOLESALE_CUSTOMER_NAME = 'Wholesale Customer';
+const WHOLESALE_BADGE_LABEL = 'WHOLESALE';
+
+const renderCustomerAttribution = (order: Order): React.ReactNode => {
+    // STRICT gate: surface the chip ONLY when the privacy-anonymized customerName
+    // placeholder is set. instagramUsername-by-itself (e.g. a future legitimate
+    // order where the admin manually types an IG handle on ManualOrderForm) is NOT
+    // wholesale. This prevents legit IG-linked orders from being misflagged as
+    // wholesale bundles -- the @handle sub-element still renders if customerName is
+    // the placeholder AND instagramUsername is set (e.g. friiqy on the May 2026
+    // wholesale bundle), but only as a social-attribution signal, not a wholesale
+    // detector. tests/orderManagerRender.test.tsx > INSTAGRAM_ONLY_GATE locks this.
+    const isWholesale = order.customerName === WHOLESALE_CUSTOMER_NAME;
+    if (!isWholesale) return null;
+    return (
+        <div className="mt-1 flex items-center gap-1.5" data-testid="wholesale-attribution">
+            <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded font-bold uppercase tracking-widest inline-block">
+                {WHOLESALE_BADGE_LABEL}
+            </span>
+            {order.instagramUsername && (
+                <span className="text-[10px] text-amber-400/70 font-mono">
+                    @{order.instagramUsername}
+                </span>
+            )}
+        </div>
+    );
+};
+
 const OrderManager: React.FC = () => {
     const { orders, updateOrderStatus, deleteOrder } = useApp();
     const { addToast } = useToast();
@@ -217,16 +253,19 @@ const OrderManager: React.FC = () => {
                                             {new Date(order.createdAt).toLocaleDateString()}
                                         </td>
                                         <td className="p-4">
-                                            <button
-                                                type="button"
-                                                onClick={() => setSelectedCustomerOrder(order)}
-                                                className="text-left hover:opacity-80 transition"
-                                                title="View customer"
-                                                data-testid="customer-link-trigger"
-                                            >
-                                                <div className="text-sm font-bold text-white underline decoration-dotted underline-offset-2">{order.customerName}</div>
-                                                <div className="text-xs text-gray-500">{order.customerEmail}</div>
-                                            </button>
+                                            <div className="space-y-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedCustomerOrder(order)}
+                                                    className="text-left hover:opacity-80 transition block"
+                                                    title="View customer"
+                                                    data-testid="customer-link-trigger"
+                                                >
+                                                    <div className="text-sm font-bold text-white underline decoration-dotted underline-offset-2">{order.customerName}</div>
+                                                    <div className="text-xs text-gray-500">{order.customerEmail}</div>
+                                                </button>
+                                                {renderCustomerAttribution(order)}
+                                            </div>
                                         </td>
                                         <td className="p-4 font-bold text-white">${order.total.toFixed(2)}</td>
                                         <td className="p-4">
@@ -296,16 +335,19 @@ const OrderManager: React.FC = () => {
                                 </div>
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-bold mb-1">Customer</p>
-                                    <button
-                                        type="button"
-                                        onClick={() => setSelectedCustomerOrder(selectedOrder)}
-                                        className="text-left hover:opacity-80 transition"
-                                        title="View customer"
-                                        data-testid="customer-link-trigger-detail"
-                                    >
-                                        <p className="text-white font-bold underline decoration-dotted underline-offset-2">{selectedOrder.customerName}</p>
-                                        <p className="text-gray-400 text-sm">{selectedOrder.customerEmail}</p>
-                                    </button>
+                                    <div className="space-y-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedCustomerOrder(selectedOrder)}
+                                            className="text-left hover:opacity-80 transition block"
+                                            title="View customer"
+                                            data-testid="customer-link-trigger-detail"
+                                        >
+                                            <p className="text-white font-bold underline decoration-dotted underline-offset-2">{selectedOrder.customerName}</p>
+                                            <p className="text-gray-400 text-sm">{selectedOrder.customerEmail}</p>
+                                        </button>
+                                        {renderCustomerAttribution(selectedOrder)}
+                                    </div>
                                 </div>
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-bold mb-1">Status Management</p>
