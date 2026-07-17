@@ -1110,8 +1110,8 @@ export const INITIAL_ORDERS: any[] = [
     id: "public-pa-grey-wave-wallet-2-2",
     orderNumber: "ORD-SG-GREYWAVE-22",
     isGuest: true,
-    customerName: "Wholesale Customer",
-    customerEmail: "wholesale@example.com",
+    customerName: "Calieb Customer",
+    customerEmail: "calieb@example.com",
     shippingAddress: { address1: "", city: "York", state: "PA", zip: "", country: "US" },
     items: [
       {
@@ -1140,8 +1140,8 @@ export const INITIAL_ORDERS: any[] = [
     id: "public-pa-grey-wave-wallet-1-2",
     orderNumber: "ORD-SG-GREYWAVE-12",
     isGuest: true,
-    customerName: "Wholesale Customer",
-    customerEmail: "wholesale@example.com",
+    customerName: "Starrboii Customer",
+    customerEmail: "starrboii@example.com",
     shippingAddress: { address1: "", city: "York", state: "PA", zip: "", country: "US" },
     items: [
       {
@@ -1170,8 +1170,8 @@ export const INITIAL_ORDERS: any[] = [
     id: "public-md-trust-yourself-hat-01",
     orderNumber: "ORD-SG-HAT-01",
     isGuest: true,
-    customerName: "Wholesale Customer",
-    customerEmail: "wholesale@example.com",
+    customerName: "Wahab Customer",
+    customerEmail: "wahab@example.com",
     shippingAddress: { address1: "", city: "Owings Mills", state: "MD", zip: "", country: "US" },
     items: [
       {
@@ -1232,10 +1232,9 @@ export const INITIAL_ORDERS: any[] = [
     id: "public-ny-true-religion-s1",
     orderNumber: "ORD-SG-TR-S1",
     isGuest: true,
-    customerName: "Wholesale Customer",
-    customerEmail: "wholesale@example.com",
-    instagramUsername: "friiqy",
-    shippingAddress: { address1: "", city: "New York", state: "NY", zip: "", country: "US" },
+    customerName: "eBay Buyer (coha-5629)",
+    customerEmail: "ebay@example.com",
+    shippingAddress: { address1: "", city: "Gasport", state: "NY", zip: "14067", country: "US" },
     items: [
       {
         productId: "Coalition_x_True_Religion_S1",
@@ -1243,14 +1242,14 @@ export const INITIAL_ORDERS: any[] = [
         productImage: "https://i.imgur.com/2VU7MEr.jpg",
         selectedSize: "33",
         quantity: 1,
-        price: 240,
-        total: 240,
+        price: 227.99,
+        total: 227.99,
       },
     ],
-    subtotal: 240,
+    subtotal: 227.99,
     tax: 0,
     discount: 0,
-    total: 240,
+    total: 227.99,
     paymentMethod: "cash",
     paymentStatus: "paid",
     orderType: "manual",
