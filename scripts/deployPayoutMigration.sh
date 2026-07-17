@@ -51,13 +51,20 @@ set +e  # intentionally tolerate RPCs raising -- we just want to see they LOAD
 # 'Authentication required' message. If a future regression silently allows
 # the RPC to succeed without auth (e.g., the auth check is accidentally dropped),
 # the grep fails loudly before we declare the smoke phase OK.
+#
+# INTENTIONALLY SKIPPED: get_payout_request_stats (the 5th SECURITY DEFINER
+# RPC). It has no auth.uid() gate — it's a read-only aggregate that always
+# returns rows. Calling it in a no-auth psql session would succeed silently
+# and trigger a false SMOKE TEST FAIL. Its search_path hardening is still
+# verified in step 4 via the pg_proc query.
 for rpc_call in \
     "SELECT submit_payout_request('test@example.com', '0xDEAD', 5000);" \
     "SELECT approve_payout_request('$DUMMY_REQ', '$DUMMY_ADMIN');" \
     "SELECT complete_payout_request('$DUMMY_REQ', '$DUMMY_ADMIN', '0xabcdef1234567890');" \
     "SELECT reject_payout_request('$DUMMY_REQ', '$DUMMY_ADMIN', 'test reject');"
 do
-    rpc_label=$(echo "$rpc_call" | sed -E "s/^[A-Z ]+\\\\([A-Z_]+.*/\\\\1/" | tr -d "()';" | awk '{print $1}')
+    # Portable: awk '{print $2}' extracts the function name, cut strips the '('
+    rpc_label=$(echo "$rpc_call" | awk '{print $2}' | cut -d'(' -f1)
     rpc_output=$(psql "$STAGING_DB_URL" -tAc "$rpc_call" 2>&1 || true)
     echo "  ${rpc_label}: $rpc_output"
     # Broadened pattern: 3 of 4 RPCs (approve/complete/reject) check row-existence
@@ -99,7 +106,8 @@ SELECT p.proname, COALESCE(p.proconfig::text, '<NONE>') AS locked_gucs
         'submit_payout_request',
         'approve_payout_request',
         'complete_payout_request',
-        'reject_payout_request')
+        'reject_payout_request',
+        'get_payout_request_stats')
    AND p.prosecdef = true
  ORDER BY p.proname;"
 
