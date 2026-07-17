@@ -5,6 +5,7 @@ import { Order } from '../../types';
 import { Search, Filter, Eye, Download, Trash2, X, Plus, ChevronLeft, ChevronRight, FileText, Gift, User, Mail, Phone, Calendar, Hash, DollarSign, CreditCard, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import ManualOrderForm from '../ManualOrderForm';
 import Invoice from '../Invoice';
+import CustomerLinkModal from './CustomerLinkModal';
 
 const OrderManager: React.FC = () => {
     const { orders, updateOrderStatus, deleteOrder } = useApp();
@@ -18,6 +19,7 @@ const OrderManager: React.FC = () => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
     const [showManualOrderForm, setShowManualOrderForm] = useState(false);
     const [showInvoice, setShowInvoice] = useState<Order | null>(null);
+    const [selectedCustomerOrder, setSelectedCustomerOrder] = useState<Order | null>(null);
 
     // Filter and search orders
     const filteredOrders = useMemo(() => {
@@ -215,8 +217,16 @@ const OrderManager: React.FC = () => {
                                             {new Date(order.createdAt).toLocaleDateString()}
                                         </td>
                                         <td className="p-4">
-                                            <div className="text-sm font-bold text-white">{order.customerName}</div>
-                                            <div className="text-xs text-gray-500">{order.customerEmail}</div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedCustomerOrder(order)}
+                                                className="text-left hover:opacity-80 transition"
+                                                title="View customer"
+                                                data-testid="customer-link-trigger"
+                                            >
+                                                <div className="text-sm font-bold text-white underline decoration-dotted underline-offset-2">{order.customerName}</div>
+                                                <div className="text-xs text-gray-500">{order.customerEmail}</div>
+                                            </button>
                                         </td>
                                         <td className="p-4 font-bold text-white">${order.total.toFixed(2)}</td>
                                         <td className="p-4">
@@ -286,8 +296,16 @@ const OrderManager: React.FC = () => {
                                 </div>
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-bold mb-1">Customer</p>
-                                    <p className="text-white font-bold">{selectedOrder.customerName}</p>
-                                    <p className="text-gray-400 text-sm">{selectedOrder.customerEmail}</p>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedCustomerOrder(selectedOrder)}
+                                        className="text-left hover:opacity-80 transition"
+                                        title="View customer"
+                                        data-testid="customer-link-trigger-detail"
+                                    >
+                                        <p className="text-white font-bold underline decoration-dotted underline-offset-2">{selectedOrder.customerName}</p>
+                                        <p className="text-gray-400 text-sm">{selectedOrder.customerEmail}</p>
+                                    </button>
                                 </div>
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-bold mb-1">Status Management</p>
@@ -387,6 +405,18 @@ const OrderManager: React.FC = () => {
                 <ManualOrderForm
                     onClose={() => setShowManualOrderForm(false)}
                     onSuccess={() => setShowManualOrderForm(false)}
+                />
+            )}
+
+            {/* Customer link overlay (stacked above detail modal at z-[60] so
+                closing it preserves the order-detail context). */}
+            {selectedCustomerOrder && (
+                <CustomerLinkModal
+                    userId={selectedCustomerOrder.userId}
+                    customerEmail={selectedCustomerOrder.customerEmail}
+                    customerName={selectedCustomerOrder.customerName}
+                    orderId={selectedCustomerOrder.id}
+                    onClose={() => setSelectedCustomerOrder(null)}
                 />
             )}
 
