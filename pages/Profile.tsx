@@ -13,6 +13,10 @@ import OrderSkeleton from '../components/OrderSkeleton';
 const ReferralDashboard = React.lazy(() => import('../components/ReferralDashboard'));
 const AccountLinking = React.lazy(() => import('../components/AccountLinking'));
 const PurchaseRequestsTab = React.lazy(() => import('../components/profile/PurchaseRequestsTab'));
+// SGCoinPayoutTab ships as a separate chunk so the eager Profile bundle
+// does not grow by ~14 KB raw. The tab itself renders <100 KB lazy + framer-motion
+// only when the user opens the SGCOIN payout section.
+const SGCoinPayoutTab = React.lazy(() => import('../components/profile/SGCoinPayoutTab'));
 
 interface Order {
     id: string;
@@ -29,7 +33,10 @@ interface Order {
 const Profile = () => {
     const { user, products, connectMetaMaskWallet, connectManualWallet, disconnectWallet, isLoading } = useApp();
     const [orders, setOrders] = useState<Order[]>([]);
-    const [activeTab, setActiveTab] = useState<'favorites' | 'orders' | 'referrals' | 'settings' | 'vip' | 'requests'>('orders');
+    // Tabs include 'payout' (SGCOIN withdrawal dashboard + history, see
+    // components/profile/SGCoinPayoutTab.tsx) alongside the existing
+    // 'requests' tab (purchase requests).
+    const [activeTab, setActiveTab] = useState<'favorites' | 'orders' | 'referrals' | 'settings' | 'vip' | 'requests' | 'payout'>('orders');
     const [manualAddress, setManualAddress] = useState('');
     const [isConnecting, setIsConnecting] = useState(false);
     const [error, setError] = useState('');
@@ -260,6 +267,19 @@ const Profile = () => {
                     <DollarSign className="w-5 h-5 flex-shrink-0" />
                     <span className="hidden md:inline">SGCoin Requests</span>
                     <span className="md:hidden">Requests</span>
+                </button>
+                <button
+                    onClick={() => setActiveTab('payout')}
+                    title="SGCOIN Payout"
+                    aria-label="SGCOIN Payout"
+                    className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'payout'
+                        ? 'border-black text-black'
+                        : 'border-transparent text-gray-400 hover:text-gray-600'
+                        }`}
+                >
+                    <Wallet className="w-5 h-5 flex-shrink-0" />
+                    <span className="hidden md:inline">SGCOIN Payout</span>
+                    <span className="md:hidden">Payout</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('settings')}
@@ -509,6 +529,25 @@ const Profile = () => {
                 >
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                         <PurchaseRequestsTab userId={user.uid} />
+                    </div>
+                </Suspense>
+            )}
+
+            {/* SGCOIN Payout Tab — lazy-loaded. Mounts when user opens the
+                SGCOIN Payout tab. Renders the dashboard (balance + 2 action cards
+                + info notice) + history + Request Payout modal. */}
+            {activeTab === 'payout' && (
+                <Suspense
+                    fallback={
+                        <div className="space-y-3" aria-busy="true">
+                            <Skeleton className="h-32 w-full rounded-xl bg-gray-200" />
+                            <Skeleton className="h-24 w-full rounded-xl bg-gray-200" />
+                            <Skeleton className="h-12 w-3/4 rounded-xl bg-gray-200" />
+                        </div>
+                    }
+                >
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                        <SGCoinPayoutTab userId={user.uid} balance={user.sgCoinBalance} />
                     </div>
                 </Suspense>
             )}

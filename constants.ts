@@ -1,5 +1,6 @@
 import { Product, Section } from "./types";
 import { PRODUCT_IMAGE_URLS } from "./utils/localImageAssets";
+import { SITE_NAME } from "./utils/seo";
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
@@ -820,6 +821,32 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
 };
 
 export const ABOUT_TEXT = `Coalition is more than a brand; it is a movement born on the streets of Baltimore. We believe in the power of unity and the strength of the collective. Every stitch represents our commitment to quality, community, and the hustle that defines our city. Join the Coalition.`;
+
+// ----------------------------------------------------------------------------
+// About-page SEO + brand sameAs — SINGLE SOURCE OF TRUTH.
+// Both surfaces consume these constants:
+//   - pages/About.tsx (the React /about route — <Seo> props + ABOUT_PAGE_LD)
+//   - public/about.html (the static no-JS /about mirror — REFRESHED BY HAND)
+// The static mirror has no build hook back to this module, so when any of
+// these three constants change you MUST also edit the matching literals in
+// public/about.html (title + meta-description + JSON-LD sameAs array).
+// ----------------------------------------------------------------------------
+// ABOUT_PAGE_TITLE derives the brand name from SITE_NAME (utils/seo.ts)
+// so a brand rename touches one place. The static mirror in
+// public/about.html still has the literal version — see the regen note
+// in README.md (## Brand voice) for why the manual sync is required.
+export const ABOUT_PAGE_TITLE = `About | ${SITE_NAME} | Crafted in Baltimore`;
+
+export const ABOUT_PAGE_DESCRIPTION =
+    "Coalition was born from loss. Gmoneyworld — more than a brand, it's a movement. Quality, community, and the hustle, built by hand in Baltimore.";
+
+export const BRAND_SAME_AS_LINKS: readonly string[] = [
+    'https://www.instagram.com/sgcoalition',
+    'https://twitter.com/sgcoalition',
+    'https://www.youtube.com/@sgctrustyourself',
+    'https://www.reddit.com/r/SGCoalition/',
+    'https://discord.gg/bByqsC5f5V',
+];
 
 export const INITIAL_SECTIONS: Section[] = [
   {

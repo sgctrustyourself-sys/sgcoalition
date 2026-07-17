@@ -10,6 +10,7 @@ const GitControl = lazy(() => import('../components/admin/GitControl'));
 const GiveawayManager = lazy(() => import('../components/admin/GiveawayManager'));
 const CustomInquiryManager = lazy(() => import('../components/admin/CustomInquiryManager'));
 const SGCoinRequestManager = lazy(() => import('../components/admin/SGCoinRequestManager'));
+const SGCoinPayoutManager = lazy(() => import('../components/admin/SGCoinPayoutManager'));
 const InstagramLinksManager = lazy(() => import('../admin/InstagramLinksManager'));
 const ReviewManager = lazy(() => import('../admin/ReviewManager'));
 const AnalyticsDashboard = lazy(() => import('../admin/AnalyticsDashboard'));
@@ -20,6 +21,7 @@ const SignalManager = lazy(() => import('../components/admin/SignalManager'));
 const BrainManager = lazy(() => import('../components/admin/BrainManager'));
 const UserManager = lazy(() => import('../components/admin/UserManager'));
 const ImageManager = lazy(() => import('../components/admin/ImageManager'));
+const CustomerProfileAdmin = lazy(() => import('../components/admin/CustomerProfileAdmin'));
 
 // Loading component for Suspense fallback
 const LoadingSpinner = () => (
@@ -35,7 +37,7 @@ const LoadingSpinner = () => (
 
 const Admin: React.FC = () => {
     const { user } = useApp();
-    const [activeTab, setActiveTab] = useState<'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'users' | 'brain' | 'settings' | 'images'>('command-center');
+    const [activeTab, setActiveTab] = useState<'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'sgcoin-payouts' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'users' | 'brain' | 'settings' | 'images' | 'customer-profile'>('command-center');
 
     const renderContent = () => {
         switch (activeTab) {
@@ -65,6 +67,8 @@ const Admin: React.FC = () => {
                 return <CustomInquiryManager />;
             case 'sgcoin-requests':
                 return <SGCoinRequestManager adminWalletAddress={user?.walletAddress || ''} />;
+            case 'sgcoin-payouts':
+                return <SGCoinPayoutManager adminUserId={user?.uid || ''} />;
             case 'signals':
                 return <SignalManager />;
             case 'brain':
@@ -73,6 +77,13 @@ const Admin: React.FC = () => {
                 return <ImageManager />;
             case 'users':
                 return <UserManager />;
+            case 'customer-profile':
+                // Cross-tab deep-link: the CustomerProfileAdmin header has a
+                // "View Payouts" button that calls onNavigateToPayouts, which
+                // here switches to the sgcoin-payouts tab (so the admin can
+                // drill from a customer's profile straight into their
+                // withdrawal requests).
+                return <CustomerProfileAdmin onNavigateToPayouts={() => setActiveTab('sgcoin-payouts')} />;
             case 'settings':
                 return (
                     <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">

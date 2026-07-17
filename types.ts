@@ -341,21 +341,43 @@ export interface CustomInquiry {
   quoteAmount?: number;
   createdAt: string;
   updatedAt: string;
+}export interface SGCoinPurchaseRequest {
+    id: string;
+    userId?: string;
+    email: string;
+    walletAddress: string;
+    amount: number;
+    paymentMethod: string;
+    proofUrl?: string;
+    notes?: string;
+    status: 'pending' | 'approved' | 'rejected';
+    rejectionReason?: string;
+    createdAt: string;
+    processedAt?: string;
 }
 
-export interface SGCoinPurchaseRequest {
-  id: string;
-  userId?: string;
-  email: string;
-  walletAddress: string;
-  amount: number;
-  paymentMethod: string;
-  proofUrl?: string;
-  notes?: string;
-  status: 'pending' | 'approved' | 'rejected';
-  rejectionReason?: string;
-  createdAt: string;
-  processedAt?: string;
+// Customer-initiated withdrawal of earned SGCoin as Polygon-network crypto.
+// Lifecycle: Pending -> Approved -> Completed with a Rejected fork from
+// Pending or Approved (auto-refund from Approved). Balance is decremented
+// AT APPROVAL via the SECURITY DEFINER approve_payout_request RPC, NOT
+// at submit, so customers keep discount credit on the requested amount
+// while Pending. See services/payoutRequest.ts + the matching
+// supabase/migrations/YYYYMMDD_create_sgcoin_payout_requests.sql.
+export interface SGCoinPayoutRequest {
+    id: string;
+    userId?: string;
+    email: string;
+    walletAddress: string;
+    amount: number;
+    /** Pending: under review. Approved: balance deducted, awaiting on-chain send. Completed: tx hash recorded. Rejected: no on-chain send (auto-refund if previously approved). */
+    status: 'pending' | 'approved' | 'completed' | 'rejected';
+    txHash?: string;
+    rejectionReason?: string;
+    adminId?: string;
+    adminNotes?: string;
+    createdAt: string;
+    updatedAt: string;
+    processedAt?: string;
 }
 
 export interface BlogPost {

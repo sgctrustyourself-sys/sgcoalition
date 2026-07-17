@@ -11,8 +11,7 @@ import { normalizeProductSizeData } from '../utils/productSizes';
 import { getCartItemLineTotal, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
 import { fetchPaidCountsByProduct } from '../services/numberedPieces';
 import { clearOtherFeaturedProducts } from '../utils/featuredExclusivity';
-import { getStoredReferralCode, trackReferral, getReferralStatsByCode } from '../utils/referralSystem';
-import { trackReferralEvent } from '../utils/referralAnalytics';
+import { getStoredReferralCode, trackSignupReferral } from '../utils/referralSystem';
 import { updateLifetimeStats } from '../utils/customerProfile';
 
 interface AppState {
@@ -363,31 +362,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 // processReferralOnPurchase when the buyer places their first
                 // order. Fire-and-forget so the auth flow isn't blocked.
                 //
-                // Duplicate guard: checks for an existing pending referral row
-                // for this (referrer, buyer) pair before calling trackReferral.
-                // This prevents duplicate pending rows + inflated total_referrals
-                // when a user logs in multiple times with the same referral code.
+                // The duplicate-guard and self-referral logic live in
+                // utils/referralSystem.trackSignupReferral so they can be
+                // unit-tested in isolation (previously an un-testable closure).
                 const fireSignupReferral = async (userId: string) => {
                     const storedCode = getStoredReferralCode();
                     if (!storedCode) return;
-                    try {
-                        // Fire the analytics event (idempotent via RPC dedup)
-                        await trackReferralEvent(storedCode, 'signup', userId);
-                        // Check for existing pending referral before creating one
-                        const stats = await getReferralStatsByCode(storedCode);
-                        if (!stats || stats.user_id === userId) return; // self-referral guard
-                        const { data: existing } = await supabase
-                            .from('referrals')
-                            .select('id')
-                            .eq('referrer_id', stats.user_id)
-                            .eq('referred_user_id', userId)
-                            .eq('status', 'pending')
-                            .maybeSingle();
-                        if (existing) return; // already tracked — don't duplicate
-                        await trackReferral(storedCode, userId);
-                    } catch (err) {
-                        console.error('[Referral] Signup tracking failed:', err);
-                    }
+                    await trackSignupReferral(storedCode, userId);
                 };
 
                 // Sync callback — fires async handler without awaiting (prevents infinite loop)

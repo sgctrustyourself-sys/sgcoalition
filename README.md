@@ -2,7 +2,9 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-## Working generations — deployment state as of 2026-07-10
+## Working generations — deployment state
+
+> Snapshot at 2026-07-10. Only matters for Vercel rollback runs; current `sgcoalition.xyz` state lives below. Older history: `git log --oneline --first-parent -- packages/index.html dist public`.
 
 ### The "perfect UI" — known-good target for restoration
 
@@ -26,21 +28,16 @@ vercel rollback dpl_75Vza3u5F1cqwmK83qvGXV9x4ANg --yes
 - **API handlers:** all fixed — api/_handlers/*.ts uses .js extensions for ESM import resolution. /api/paypal-order, /api/complete-order, /api/ai-chat, /api/marketing-subscribe all return 200.
 - **Products:** 26 on the live shop page (up from 19), including all Women's products, Halo Mini Dress, and Above As Below Set — verified working in the browser with no broken images.
 - **Search:** "Women" returns 4 results (all Women's products) — loading guard prevents false "No results found" during Supabase fetch.
-- **API rate limiter, CSP headers, ErrorBoundary, Sentry:** all wired and locked by `tests/securityInfrastructureReadiness.test.ts`.
-
-### Next steps to reach perfect UI
-
-1. `vercel rollback dpl_75Vza3u5F1cqwmK83qvGXV9x4ANg --yes`
-2. Cherry-pick `7ef19f7` (ESM .js extension fix) onto the rolled-back commit.
-3. Deploy with build cache off.
-4. Verify API handlers return 200 + the UI matches the perfect generation.
+- **Test-campaign guard:** verified buyers auto-excluded from any campaign whose name contains `test` (substring). Locked by `tests/marketingAudience.test.ts`.
+- **Resilience:** API rate limiter + CSP + global ErrorBoundary + Sentry all wired. Locked by `tests/securityInfrastructureReadiness.test.ts`.
 
 # Coalition Brand - E-commerce Platform
 
 ## Contents
 
-- [Working generations](#working-generations--deployment-state-as-of-2026-07-10)
+- [Working generations](#working-generations--deployment-state)
 - [Features](#features)
+- [Loops](#loops)
 - [Brand voice — the Peaceful Space framework](#brand-voice--the-peaceful-space-framework)
 - [Tech Stack](#tech-stack)
 - [Backend Architecture](#backend-architecture)
@@ -53,6 +50,7 @@ vercel rollback dpl_75Vza3u5F1cqwmK83qvGXV9x4ANg --yes
 - [Cross-cut category filters on /shop](#cross-cut-category-filters-on-shop)
 - [Recently Ordered Live Map](#recently-ordered-live-map)
 - [Above As Below Set Offers](#above-as-below-set-offers)
+- [SGCOIN Payout Request System](#sgcoin-payout-request-system)
 - [Referral Program](#referral-program)
 - [Production Deployment](#production-deployment)
 - [Project Structure](#project-structure)
@@ -93,6 +91,8 @@ Coalition wallets are hand-built in-house from a single hide of full-grain leath
 - **Signed & Numbered** — each wallet ships with a Coalition authenticity card.
 
 ## Brand voice — the Peaceful Space framework
+
+> **Note on `public/about.html` (static /about mirror):** the title, meta-description, and JSON-LD `sameAs` array in that file are sourced from `ABOUT_PAGE_TITLE` / `ABOUT_PAGE_DESCRIPTION` / `BRAND_SAME_AS_LINKS` in `constants.ts`. Because the static mirror has no build hook back to the TS module, any change to those constants must be **manually mirrored** into `public/about.html` (title + meta tag + JSON-LD block).
 
 The storefront is aligned to an internal brand-voice framework called **Peaceful Space — Unhurried Conviction**. The framework treats every UI surface (raw urgency badges, gamified cart meters, shouted shipping copy, fake ticking clocks) as a candidate for elimination, and treats every "kept" chrome (notification pills, status indicators, financial-market color conventions) as a deliberate allowlisted exception. The canonical reference is [`docs/peaceful-space.md`](docs/peaceful-space.md) — read that doc before adding a UI element that touches scarcity, urgency, or the buy moment. Peaceful ≠ soft. Peaceful ≠ sanitized. The grief, the grind, Gmoneyworld, chrome accents, and "Trust Yourself" stay sharp — the manipulative ecommerce chrome does not.
 
@@ -629,6 +629,14 @@ npx tsx scripts/fixProd1784012446238Sizing.ts --confirm  # applies the fix to th
 ## Local Development
 ## Image-Path Audit
 
+> **Loops · Image-Path Audit — 3-section storefront image-health gate (local ↔ DB cross-check)**
+>
+> - **Entry:** [`scripts/auditImagePaths.ts`](scripts/auditImagePaths.ts) — the storefront image-health gate. Runs in 3 sections: **(1)** reads `constants.ts > INITIAL_PRODUCTS.images` URLs locally; **(2)** queries Supabase `products.images` for every row (incl. archived); **(3)** Local↔Remote cross-check on shared product ids via the shared helper `utils/imageUrlEquality.ts > urlsEqual` for order-sensitive array equality.
+> - **Trigger:** Manual CLI run (`npx.cmd tsx scripts/auditImagePaths.ts`); wired into CI as a `git push`-time gate. Non-mutating: the script never writes.
+> - **Side-effects:** none — dry-run only. Exits `0` when all three sections are clean (or Section 2+3 SKIPPED when no Supabase env vars; Section 1 still drives the exit code in that case); exits `1` on any drift, broken URL, or Supabase fetch error.
+> - **Contract test:** Process exit contract (`STATUS: PASS` → `0`, `STATUS: FAIL` → `1`); sibling one-shot [`scripts/syncImageFieldsToSupabase.ts`](scripts/syncImageFieldsToSupabase.ts) aligns Supabase rows to `constants.ts` after a local edit (calls the same `urlsEqual` helper). The audit's first live detection (`SKYYBLUEWALLET1_2` repair on 2026-07-14) is documented in [`docs/SIGNOFF_2026-07-14.md`](docs/SIGNOFF_2026-07-14.md) as the canonical reference.
+> - **Deep dive:** [## Image-Path Audit](#image-path-audit) — drift taxonomy (`LOCAL_RELATIVE_PATH` / `INSECURE_HTTP` / `NON_CANONICAL_HOST` / `OTHER` for single-side, `BOTH_HAVE_ISSUES` / `MISMATCH` / `REMOTE_ONLY_BROKEN` for cross-check) + 3 worked examples + the canonical wallet-shape repair tool chain.
+
 The `scripts/auditImagePaths.ts` script is the **storefront image-health gate**. It runs in three sections, the third of which is the new layer that catches the failure mode where Supabase overrides the freshly-fixed `constants.ts` via the React app's `{ ...local, ...sp }` spread merge — a class of drift the prior audit could not detect.
 
 ### Three-section output
@@ -922,7 +930,75 @@ The filter contract is locked in `tests/categoryFilter.test.ts` (currently 14 as
 
 A regression in either cross-cut filter or in any apparel sub-bucket flips the test red.
 
+## Loops
+
+The Coalition platform is built around four end-to-end data flows ("loops"). Each loop has one canonical entry function, one exit surface (UI component or backend side-effect), and an explicit test file that locks the contract. Use this section as a map before diving into any one loop's full deep dive further down.
+
+### Customer Profile loop
+
+- **Entry:** `buildCustomerProfile(userId)` in [`utils/customerProfile.ts`](utils/customerProfile.ts) for authenticated users, `buildCustomerProfileByEmail(email)` in the same file for guest buyers (no auth uid required)
+- **Trigger:** `/admin/customers` lookup + the React admin [`components/admin/CustomerProfileAdmin.tsx`](components/admin/CustomerProfileAdmin.tsx). Auto-detects lookup mode from the query: `user_eth_*` prefix → MetaMask wallet, 36-char hyphenated → UUID, `0x…` → wallet address, anything containing `@` → email
+- **Side-effects:** the builder itself is read-only (aggregates `profiles`, `orders`, `social_accounts`, `referral_stats`). Admin tools (VIP toggle, store-credit delta, customer notes) write **directly to Supabase from the React component** (`CustomerProfileAdmin.tsx` → `supabase.from('profiles').update(...).eq('id', ...)`) — they do not go through a page handler
+- **MetaMask short-circuit:** users whose id starts with `user_eth_` have no DB rows; the loop returns a partial profile (wallet-derived displayName + address, lifetime stats nulled) via 4 `Promise.resolve({ data: null, error: null })` shortcuts, so no Supabase calls fire
+- **Contract test:** [`tests/buildCustomerProfile.test.ts`](tests/buildCustomerProfile.test.ts) — 14 assertions × 5 describe groups (early-return contracts, MetaMask partial profile, authenticated aggregation, idempotency, guest-by-email). Shared `mockSupabase` singleton with `setOutcomes` + `getRemainingOutcomes` (reset in `beforeEach` to avoid queue contamination)
+- **Companion:** `updateLifetimeStats(userId, orderTotal)` in the same file — fire-and-forget increment of `profiles.lifetime_spend_usd` and `profiles.lifetime_orders` after a successful checkout; called from `AppContext.addOrder`
+- **Deep dive:** [Customer Profile](#customer-profile)
+
+### Referral loop
+
+- **Entry:** `trackReferralEvent(code, type[, userId])` via `supabase.rpc('track_referral_event', { p_referral_code, p_event_type, p_user_id, p_visitor_ip, p_user_agent, p_referrer_url })` in [`utils/referralAnalytics.ts`](utils/referralAnalytics.ts). Pipes into `trackSignupReferral(code, userId)` on signup and `processReferralOnPurchase(code, buyer, orderId, total)` on checkout (both in [`utils/referralSystem.ts`](utils/referralSystem.ts))
+- **Trigger:** every cold-open of `?ref=CODE` fires `trackReferralEvent('click')`; every signup with a non-empty stored code fires `('signup')` + the duplicate-guarded `trackReferral` insert; every completed purchase fires `('purchase')` + the find-or-create → `completeReferral` → `updateReferralStats` pipeline
+- **Side-effects:** inserts into `referrals` (find-or-create via `trackReferral`); updates `referral_stats.total_referrals`, `successful_referrals`, `pending_earnings`, `paid_earnings`, `total_earnings`, tier, and rate. **Tier recompute is atomic on the SQL side** via the `track_referral_event` RPC — the client `calculateCommissionTier()` (`utils/referralSystem.ts`) is read-side only between events. The `referrals` table has no unique index on `(referrer_id, referred_user_id)`; the find-or-create pattern is what prevents duplicate commission rows
+- **Contract tests:** [`tests/trackReferralEvent.test.ts`](tests/trackReferralEvent.test.ts) (10 assertions × 2 describe groups; rpc contract per event type + silent error handling — fire-and-forget never throws) + [`tests/referralFlows.test.ts`](tests/referralFlows.test.ts) (17 assertions × 3 describe groups; `processReferralOnPurchase` idempotency, `trackSignupReferral` duplicate guard, full UPDATE-payload pinning via `find`-based lookup + strict `toEqual`)
+- **Self-referral guard:** enforced at four independent layers — `trackReferral`, `processReferralOnPurchase`, `trackSignupReferral`, and the SQL `track_referral_event` RPC. A future helper that touches referral rows must respect all four
+- **Deep dive:** [Referral Program](#referral-program)
+
+### Live Orders loop
+
+- **Entry:** `buildLiveOrdersFeed(orders, timeRange)` in [`utils/liveOrdersFeed.ts`](utils/liveOrdersFeed.ts) — pure function, takes a flat orders array + `LiveOrdersTimeRange` (`'24h' | '7d' | '30d' | '90d' | 'all'`) and returns `{ states, recentActivity, summary }`
+- **Trigger:** [`pages/LiveOrdersMap.tsx`](pages/LiveOrdersMap.tsx) on every render. Combines 3 layers in order: **(1)** Supabase orders + `INITIAL_ORDERS` fallback that survive the EXCLUDED_STATUSES + state-code + window filter, **(2)** `PUBLIC_RECENT_ORDER_SEEDS` literal offline-sales backfill (6 entries with state-level data ONLY — no address line, ZIP, name, or order number; the matching `INITIAL_ORDERS` row carries safe `customer@example.com` + empty `address1`/`zip` placeholders) dedup'd against Layer 1 by byte-for-byte `order.id` match, **(3)** `DEMO_TRACKED_ORDER_SEEDS` dev-only fallback (Vite-gated via `import.meta.env.DEV`; production builds bake `DEMO_FEED_ENABLED` to `false`)
+- **Side-effects:** none — pure render
+- **Layer 2 dedup contract:** every `PUBLIC_RECENT_ORDER_SEEDS` entry MUST have a sibling row in `constants.ts > INITIAL_ORDERS` whose `id` is byte-for-byte identical. When a Layer 1 entry with the same id survives the filter, it REPLACES the seed (the seed is dropped, not appended) — prevents double-counting when the sale exists in both the seed list and the live database
+- **Privacy contract:** seeds carry state-level data only. Full street addresses live in the gitignored `shipping_internal.json`. The matching `INITIAL_ORDERS` row carries safe placeholders (`customer@example.com`, empty `address1`/`zip`)
+- **Contract test:** [`tests/liveOrdersFeed.test.ts`](tests/liveOrdersFeed.test.ts) — covers the dedup-by-id contract, the 5-window filter, EXCLUDED_STATUSES (`cancelled|failed|refunded`), Layer 3 dev-only gating, and state-code normalization aliases (`shippingAddress.state` / `shipping_state` / `shipping_info.state` / `state`)
+- **Deep dive:** [Recently Ordered Live Map](#recently-ordered-live-map)
+
+### Above As Below loop
+
+- **Entry:** `calculateAboveAsBelowSetBonusCents(items)` in [`utils/aboveAsBelowSet.ts`](utils/aboveAsBelowSet.ts) — single `$30` bonus (`ABOVE_AS_BELOW_SET_BONUS_CENTS = 3000` cents = $30) earned ONCE per cart when both `prod_tee_above_as_below` AND `prod_shorts_above_as_below` are present, regardless of quantity (buying two tees + two shorts still saves only $30)
+- **Trigger:** every cart subtotal calculation. Called from BOTH the React UI (`pages/Checkout.tsx`, `pages/Cart.tsx`, `components/CartDrawer.tsx`) AND the Vercel Lambda handlers (`api/_handlers/paypal-order.ts`, `api/_handlers/complete-order.ts`). Keeping the math on both sides of the network prevents the storefront total from drifting away from the amount PayPal / Stripe actually captures — the price the React UI displays is the price the backend captures
+- **Side-effects:** subtracts `-3000` cents from the cart total. No DB writes
+- **Contract test:** there is no dedicated unit-test file for the math itself — the bonus is verified by (1) server-side re-verification in `api/_handlers/paypal-order.ts`, which imports `calculateAboveAsBelowSetBonusCents` from `utils/aboveAsBelowSet.ts` and re-runs it on the cart items before PayPal capture (~line 229), and (2) the symmetric React-UI call in `pages/Checkout.tsx` / `pages/Cart.tsx` / `components/CartDrawer.tsx` that surfaces the bonus to the buyer. Any future PDP-set integration test should be added under `tests/CompleteTheFit.test.tsx` following the [Backend Bug-Fix Checklist](#backend-bug-fix-checklist) example filename convention (the file is currently aspirational, not yet on disk)
+- **Tolerates both shapes:** `calculateAboveAsBelowSetBonusCents` accepts `{ productId, quantity }` objects (realistic cart shape) OR a flat array of product ID strings (back-compat for callers without quantities handy)
+- **Deep dive:** [Above As Below Set Offers](#above-as-below-set-offers)
+
+### Image-Path Audit loop
+
+- **Entry:** [`scripts/auditImagePaths.ts`](scripts/auditImagePaths.ts) — 3-section dry-run scanner: Section 1 (local `constants.ts > INITIAL_PRODUCTS.images` URLs), Section 2 (Supabase `products.images` for every row, including archived), Section 3 (Local↔Remote cross-check on shared product ids via `utils/imageUrlEquality.ts > urlsEqual`).
+- **Trigger:** Manual CLI run (`npx.cmd tsx scripts/auditImagePaths.ts`); wired into CI as a `git push`-time gate. Non-mutating: the script never writes.
+- **Side-effects:** none — dry-run only. Exits `0` when all three sections are clean (or when Section 2+3 SKIPPED with no Supabase env vars); exits `1` on any drift, broken URL, or fetch error. The first live detection caught a wallet row with stale `/images/...` paths in Supabase overriding fresh local URLs (`SKYYBLUEWALLET1_2`, 2026-07-14).
+- **Contract test:** Process exit contract (`STATUS: PASS` → `0`, `STATUS: FAIL` → `1`); sibling one-shot [`scripts/syncImageFieldsToSupabase.ts`](scripts/syncImageFieldsToSupabase.ts) is the write-side companion that uses the same `urlsEqual` helper. `SKYYBLUEWALLET1_2` repair is documented in [`docs/SIGNOFF_2026-07-14.md`](docs/SIGNOFF_2026-07-14.md).
+- **Deep dive:** [## Image-Path Audit](#image-path-audit) — drift taxonomy (`LOCAL_RELATIVE_PATH` / `INSECURE_HTTP` / `NON_CANONICAL_HOST` / `OTHER` for single-side; `BOTH_HAVE_ISSUES` / `MISMATCH` / `REMOTE_ONLY_BROKEN` for cross-check) + 3 worked examples + the canonical wallet-shape repair tool chain.
+
+### Cross-loop invariants
+
+Three invariants need to hold across multiple loops or downstream surfaces silently break:
+
+1. **`order.id` dedup** (Live Orders) — `PUBLIC_RECENT_ORDER_SEEDS` ids MUST be mirrored in `constants.ts > INITIAL_ORDERS` so Layer 1 ≠ Layer 2. Any new seed needs the matching `INITIAL_ORDERS` row.
+2. **Paid-only filter consistency** (Customer Profile) — both `buildCustomerProfile` and `buildCustomerProfileByEmail` filter on `payment_status IN ('paid', 'completed', 'shipped', 'delivered')`. The admin `StatusBadge` uses the same set so a sale flips green across both surfaces simultaneously.
+3. **Self-referral guard** (Referral) — `processReferralOnPurchase`, `trackReferral`, `trackSignupReferral`, and the SQL `track_referral_event` RPC all reject `referrer_id === buyer` independently. A future helper that touches referral rows MUST respect all four guard sites.
+
+The four deep dives below — [Customer Profile](#customer-profile), [Referral Program](#referral-program), [Recently Ordered Live Map](#recently-ordered-live-map), and [Above As Below Set Offers](#above-as-below-set-offers) — are the implementation references for each loop's contract and change procedure.
+
 ## Recently Ordered Live Map
+
+> **Loops · Live Orders — 3-layer dedup-ed map of paid orders + offline sales**
+>
+> - **Entry:** [`utils/liveOrdersFeed.ts > buildLiveOrdersFeed(orders, timeRange)`](utils/liveOrdersFeed.ts) — pure function that takes a flat orders array + `LiveOrdersTimeRange` (`'24h' | '7d' | '30d' | '90d' | 'all'`) and returns `{ states, recentActivity, summary }`.
+> - **Trigger:** Every render of [`pages/LiveOrdersMap.tsx`](pages/LiveOrdersMap.tsx). Combines 3 layers in fixed order: **(1)** Supabase orders + `INITIAL_ORDERS` fallback that survives the EXCLUDED_STATUSES + state-code + window filter, **(2)** `PUBLIC_RECENT_ORDER_SEEDS` literal offline-sales backfill (6 state-only rows: no address line, ZIP, name, or order number; matching `INITIAL_ORDERS` rows carry safe `customer@example.com` + empty `address1`/`zip` placeholders) dedup'd against Layer 1 by byte-for-byte `order.id` match, **(3)** `DEMO_TRACKED_ORDER_SEEDS` dev-only fallback (Vite-gated via `import.meta.env.DEV`; production builds bake `DEMO_FEED_ENABLED` to `false`).
+> - **Side-effects:** none — pure render. Privacy contract: seeds carry state-level data only; street addresses live in the gitignored `shipping_internal.json`.
+> - **Contract test:** [`tests/liveOrdersFeed.test.ts`](tests/liveOrdersFeed.test.ts) — covers the dedup-by-id contract, the 5-window time filter, EXCLUDED_STATUSES (`cancelled|failed|refunded`), the Layer 3 dev-only gating, and state-code normalization aliases (`shippingAddress.state` / `shipping_state` / `shipping_info.state` / `state`).
+> - **Deep dive:** [## Recently Ordered Live Map](#recently-ordered-live-map) — full 3-layer data flow + dedup contract + privacy contract + Layer 2/3 empty-state behavior.
 
 The `/live-orders` page (`pages/LiveOrdersMap.tsx`) renders a state-level map, four summary cards, and a Recent Activity ticker driven by `buildLiveOrdersFeed()` in `utils/liveOrdersFeed.ts`. The map is intentionally built from three overlapping data surfaces so it always has something honest to show - no loaders, no "we'll get back to you", no fake billboard copy.
 
@@ -1128,6 +1204,14 @@ Open `/live-orders` in dev, click through every range button, and confirm the ne
 
 ## Above As Below Set Offers
 
+> **Loops · Above As Below Set — single $30 bonus shared between React UI and Vercel handlers**
+>
+> - **Entry:** [`utils/aboveAsBelowSet.ts > calculateAboveAsBelowSetBonusCents(items)`](utils/aboveAsBelowSet.ts) — single `$30` bonus (`ABOVE_AS_BELOW_SET_BONUS_CENTS = 3000` cents) earned ONCE per cart when both `prod_tee_above_as_below` AND `prod_shorts_above_as_below` are present, regardless of quantity (buying two tees + two shorts still saves only $30).
+> - **Trigger:** Every cart subtotal calculation. Called from BOTH the React UI (`pages/Checkout.tsx`, `pages/Cart.tsx`, `components/CartDrawer.tsx`) AND the Vercel Lambda handlers (`api/_handlers/paypal-order.ts`, `api/_handlers/complete-order.ts`). Keeping the math on both sides of the network prevents the storefront total from drifting away from the amount PayPal / Stripe actually captures.
+> - **Side-effects:** subtracts `-3000` cents from the cart total. No DB writes.
+> - **Contract test:** No dedicated unit-test file for the math itself — the bonus is verified by (1) server-side re-verification in `api/_handlers/paypal-order.ts` (imports `calculateAboveAsBelowSetBonusCents` from `utils/aboveAsBelowSet.ts` and re-runs it on cart items before PayPal capture, ~line 229), and (2) the symmetric React-UI call in `pages/Checkout.tsx` / `pages/Cart.tsx` / `components/CartDrawer.tsx` that surfaces the bonus to the buyer.
+> - **Deep dive:** [## Above As Below Set Offers](#above-as-below-set-offers) — full set math + per-product USD reference prices + the women's variant + dev/test checklist. **Both shapes accepted:** `{ productId, quantity }` objects (realistic cart shape) OR a flat array of product ID strings (back-compat for callers without quantities handy).
+
 Use this checklist before changing the Above as Below tees, shorts, crop tank, or set pricing.
 
 ### Current set math
@@ -1179,7 +1263,121 @@ npm.cmd run build
    - `/product/prod_womens_above_as_below_contrast_shorts` shows the women's `$75` set suggestion.
    - `/product/prod_tee_above_as_below` and `/product/prod_shorts_above_as_below` still show the men's missing-piece set bonus.
 
+## SGCOIN Payout Request System
+
+> **Loops · SGCOIN Payout — opt-in crypto withdrawal dashboard (default = store-discount)**
+>
+> - **Entry:** [`services/payoutRequest.ts`](services/payoutRequest.ts) — the customer-facing submit wrapper + 4 admin RPC wrappers + `MIN_PAYOUT_SGC = 5000` constant + `mapToRequest` snake→camel mapper (the canonical helper reused by `utils/customerProfile.ts`).
+> - **Trigger:** Profile page → "SGCOIN Payout" tab (`components/profile/SGCoinPayoutTab.tsx`, lazy-loaded via `pages/Profile.tsx > activeTab === 'payout'`); `/admin` → "SGCOIN Payout Requests" tab (`components/admin/SGCoinPayoutManager.tsx`, mounted in `pages/Admin.tsx > activeTab === 'sgcoin-payouts'`).
+> - **Side-effects:** Writes `sgcoin_payout_requests` rows via 4 SECURITY DEFINER RPCs — 1 customer-facing `submit_payout_request` (creates the Pending row without decrementing balance) + 3 admin-facing `approve_payout_request` (atomic `FOR UPDATE` row-lock + balance re-check + decrement) / `complete_payout_request` (records `tx_hash`, locks `'0x' + 64-hex` regex) / `reject_payout_request` (auto-refunds the decrement iff previous status was `approved`). Customer-ui RLS restricts `INSERT` to `auth.uid() = user_id`.
+> - **Contract test:** [`tests/payoutRpcWrappers.test.ts`](tests/payoutRpcWrappers.test.ts) (16 assertions × 8 describe groups — verifies MIN_PAYOUT_SGC, the snake_case RPC arg shapes, 23505 unique-violation propagation from the one-pending-per-user index, and the 4 admin state transitions); [`tests/sgCoinPayoutTabRender.test.tsx`](tests/sgCoinPayoutTabRender.test.tsx) (5 tests — RENDER_HERO / INSUFFICIENT_BALANCE / HISTORY / OPEN_MODAL_AND_SUBMIT / ERROR_TOAST); [`tests/sgCoinPayoutManagerRender.test.tsx`](tests/sgCoinPayoutManagerRender.test.tsx) (5 tests across 2 describe groups: stat-loading + status-filter + the 3 admin action flows APPROVE/COMPLETE/REJECT). The `FOR UPDATE` lock is end-to-end verified by [`scripts/testPayoutRaceCondition.mjs`](scripts/testPayoutRaceCondition.mjs) (Promise.allSettled against two parallel approvals = exactly 1 success + 1 `'Insufficient balance at approval'` rejection).
+> - **Deep dive:** [## SGCOIN Payout Request System](#sgcoin-payout-request-system) — full migration + RPC body + FOR UPDATE race-condition analysis + staging-deploy runbook. **Production promotion REQUIRES ≥24-hour staging soak** of `supabase/migrations/20260716_create_sgcoin_payout_requests.sql`; SECURITY DEFINER race conditions only surface under concurrent load.
+
+The complement to the SGCOIN rewards loop. Customers earn SGCOIN from eligible purchases; **by default, all earned SGCOIN remains in their SGCoalition account as a discount credit** they can apply toward future clothing purchases. The payout (withdrawal) system exists only because some customers prefer to receive their SGCOIN as Polygon-network crypto instead of using it as store credit. It is an opt-in, admin-reviewed manual path.
+
+### Default behavior
+
+- ✅ SGCOIN is automatically credited to the customer's account on every eligible purchase.
+- ✅ Tokens stay stored on the SGCoalition server -- no auto-withdrawal, no Polygon channel.
+- ✅ The credited amount is **immediately available** as a store-discount currency at checkout.
+- ✅ No automatic crypto withdrawals -- by design, the lifetime LTV of the SGCOIN-as-discount path beats the per-transaction Polygon-gas payout path.
+
+### Payout option (opt-in)
+
+A customer may manually request to withdraw their SGCOIN as cryptocurrency to a Polygon wallet. The request goes into a 4-state review queue handled by admin: `Pending → Approved → Completed`, with a `Rejected` branch available from both `Pending` (before balance decrement) and `Approved` (after, with automatic refund).
+
+- **Customer-side surface**: Profile page → "SGCOIN Payout" tab (`components/profile/SGCoinPayoutTab.tsx`)
+  - Available balance + USD reference display (mirrors `BuySGCoin.tsx`'s `$0.001/SGC`).
+  - Persistent "Use for Clothing Discount (Default)" panel (no action -- the customer already knows).
+  - "Request Crypto Payout" card → confirmation modal explaining that the withdrawn amount will **no longer be reservable for store discounts** once submitted.
+  - History timeline of the customer's own requests with per-status badges + PolygonScan tx links.
+- **Admin-side surface**: `/admin` → "SGCOIN Payout Requests" tab (`components/admin/SGCoinPayoutManager.tsx`)
+  - 4-state filter chips + stats card (Pending / Approved / Completed / Rejected counts).
+  - Approve / Reject / Complete actions (Complete requires on-chain `tx_hash`, length ≥ 10 chars + validated `admin_id`).
+  - Reject-after-Approved shows an explicit "balance will be refunded" warning before confirmation to prevent accidental balance loss.
+
+### The 4-state lifecycle + balance accounting
+
+**Critical safety property**: the customer's `profiles.sg_coin_balance` is decremented **at admin APPROVAL**, not at customer submit. The customer can still use the amount as a store discount while the request is `Pending` -- matching the spec ("if you would prefer to receive your SGCOIN as cryptocurrency, you must submit a manual payout request. Until requested, your SGCOIN will remain available for discounts on future purchases."). Net effect:
+
+| Transition | Balance change | Customer-visible |
+|---|---|---|
+| `submit` | none (sanity check only) | new Pending row in their history |
+| `→ Approved` | **decrement** (atomic via `FOR UPDATE` row lock + balance re-check) | amount no longer available for discounts |
+| `→ Completed` | none (admin records the `tx_hash` they sent on-chain) | shows as Completed + PolygonScan link |
+| `→ Rejected from Pending` | none | refund explicitly NOT needed |
+| `→ Rejected from Approved` | automatic **refund** (same RPC, atomic) | amount returns to the discount pool |
+
+### Minimum payout: 5,000 SGC
+
+Enforced **server-side** via a `CHECK (amount >= 5000)` constraint on the SQL table and **client-side** in `services/payoutRequest.ts > MIN_PAYOUT_SGC`. Both must agree; the SQL constraint is the safety property, the TS constant is the UX hint (input `min=5000`, error toast "Minimum payout is 5,000 SGCOIN"). At the project's `$0.001/SGC` reference, 5,000 SGC ≈ $5.00 USD. The floor is intentionally low: withdrawals are a niche path, but we want the admin queue uncluttered by micro-payouts that aren't worth the Polygon gas.
+
+### Database migration + RPCs
+
+`supabase/migrations/20260716_create_sgcoin_payout_requests.sql` creates the `sgcoin_payout_requests` table with status + amount CHECK constraints, RLS policies mirroring the existing `sgcoin_purchase_requests` table, and **4 SECURITY DEFINER Postgres RPCs** that own every state transition:
+
+- `submit_payout_request(p_email, p_wallet_address, p_amount) → UUID` -- sanity-checks balance + minimum; does NOT decrement.
+- `approve_payout_request(p_request_id, p_admin_id) → BOOLEAN` -- `FOR UPDATE` row lock, re-checks balance, **atomically decrements**.
+- `complete_payout_request(p_request_id, p_admin_id, p_tx_hash, p_admin_notes?) → BOOLEAN` -- requires `tx_hash` length ≥ 10 to prevent incomplete-record states.
+- `reject_payout_request(p_request_id, p_admin_id, p_reason) → BOOLEAN` -- auto-refunds the amount iff the previous status was `Approved`.
+
+All 4 RPCs are locked with `SET search_path = public, pg_temp` to prevent the search_path injection attack vector. **This is the first migration in the codebase to introduce SECURITY DEFINER functions**, so the hardening is documented inline as the canonical pattern for any future SECURITY DEFINER migration. The deploy shell (`scripts/deployPayoutMigration.sh`) verifies the `proconfig` GUC on each function lands correctly.
+
+### Staging deploy runbook
+
+This is the most delicate deploy the project has done so far -- the first to introduce a SECURITY DEFINER RPC that mutates a financial balance. **Do NOT promote to production until the staging soak has run for ≥ 24 hours.**
+
+```bash
+# 0. Dry-run FIRST (validates everything except real DB connection -- no credentials needed)
+bash scripts/dryRunStagingDeploy.sh
+# Expected: '[DRY-RUN PASS]' -- the helper PATH-shadows psql so it can never reach a real DB
+
+# 1. Set env (ask an admin for the staging DB URL)
+export STAGING_DB_URL='postgresql://postgres:...'
+
+# 2. Run the deploy shell (pre-flight + apply + smoke + search_path verification)
+bash scripts/deployPayoutMigration.sh
+
+# 3. Race-condition stress test (validates the FOR UPDATE lock live)
+export SUPABASE_URL='https://xxx.supabase.co'
+export SUPABASE_SERVICE_ROLE_KEY='...'
+node scripts/testPayoutRaceCondition.mjs
+# Expected: "PASS: FOR UPDATE lock prevented lost-update."
+
+# 4. Manual end-to-end: sign in as a customer, submit a >=5000 SGC payout request,
+#    then sign in as admin and Approve + Complete (paste the polygon tx_hash).
+```
+
+The deploy shell has 4 phases: pre-flight (refuses to run if the table already exists, idempotency guard), apply (psql with `ON_ERROR_STOP=1`), smoke (each RPC invoked from psql -- auth errors are expected with no `auth.uid()`), and search-path verification (prints the `proconfig` of each SECURITY DEFINER function so an operator can sanity-check the hardening on the deployed instance).
+
+### Why this can't be a normal CI deploy
+
+Stripe, Resend, and Polygon all have staging mirrors we can deploy to without external coordination. **Supabase does not** -- the project's Supabase instance is a single environment. The convention is: deploy the SQL migration to staging first, wait 24 h, then promote to production via the same `psql -f` command against the prod URL. The motivation for staging-first is that SECURITY DEFINER race conditions only surface under concurrent load -- they silently pass single-thread tests.
+
+The Postgres `FOR UPDATE` row-lock inside `approve_payout_request` is the load-bearing concurrency primitive. The race script (`scripts/testPayoutRaceCondition.mjs`) proves it live by firing two parallel approvals against a user whose balance is exactly enough for one. **A correct implementation MUST return one success + one failure**; anything else is a critical security bug and the script exits non-zero.
+
+### Where to read it
+
+- Service wrapper (RPC + table): `services/payoutRequest.ts`
+- Customer UI: `components/profile/SGCoinPayoutTab.tsx`
+- Admin UI: `components/admin/SGCoinPayoutManager.tsx`
+- Email wrappers: `services/emailService.ts > sendPayoutApprovedEmail / sendPayoutCompletedEmail / sendPayoutRejectedEmail / sendAdminPayoutNotification`
+- Domain type: `types.ts > SGCoinPayoutRequest`
+- Profile page integration: `pages/Profile.tsx > activeTab union` (lazy-loads the new payouts tab)
+- Migration: `supabase/migrations/20260716_create_sgcoin_payout_requests.sql`
+- Deploy runbook: `scripts/deployPayoutMigration.sh`
+- Race-condition stress test: `scripts/testPayoutRaceCondition.mjs`
+- Wrapper lock: `tests/payoutRpcWrappers.test.ts` (16 assertions across 8 describe groups)
+
 ## Referral Program
+
+> **Loops · Referral — tiered commission (5–40%) with 4-layer self-referral guard**
+>
+> - **Entry:** [`utils/referralAnalytics.ts > trackReferralEvent(code, type[, userId])`](utils/referralAnalytics.ts) → `supabase.rpc('track_referral_event', { p_referral_code, p_event_type, p_user_id, p_visitor_ip, p_user_agent, p_referrer_url })`. Pipes into `trackSignupReferral(code, userId)` on signup and `processReferralOnPurchase(code, buyer, orderId, total)` on checkout (both in [`utils/referralSystem.ts`](utils/referralSystem.ts)).
+> - **Trigger:** Every cold-open of `?ref=CODE` fires `trackReferralEvent('click')`; every signup with a non-empty stored code fires `('signup')` + the duplicate-guarded `trackReferral` insert; every completed purchase fires `('purchase')` + the find-or-create → `completeReferral` → `updateReferralStats` pipeline.
+> - **Side-effects:** Inserts into `referrals` (find-or-create via `trackReferral`); updates `referral_stats.total_referrals`, `successful_referrals`, `pending_earnings`, `paid_earnings`, `total_earnings`, tier, and rate. **Tier recompute is atomic on the SQL side** via the `track_referral_event` RPC — the client `calculateCommissionTier()` (`utils/referralSystem.ts`) is read-side only between events. The `referrals` table has no unique index on `(referrer_id, referred_user_id)`; the find-or-create pattern is what prevents duplicate commission rows.
+> - **Contract test:** [`tests/trackReferralEvent.test.ts`](tests/trackReferralEvent.test.ts) (10 assertions × 2 groups — rpc contract per event type + silent error handling, fire-and-forget never throws) + [`tests/referralFlows.test.ts`](tests/referralFlows.test.ts) (17 assertions × 3 groups — `processReferralOnPurchase` idempotency, `trackSignupReferral` duplicate guard, full UPDATE-payload pinning via `find`-based lookup + strict `toEqual`).
+> - **Deep dive:** [## Referral Program](#referral-program) — tier table v2 + 4 self-referral guard sites + commission tier math + payout paths. **Self-referral guard enforced at 4 independent layers:** `trackReferral`, `processReferralOnPurchase`, `trackSignupReferral`, and the SQL `track_referral_event` RPC — a future helper that touches referral rows MUST respect all four.
 
 The Coalition referral program lives across `utils/referralSystem.ts`, `utils/referralAnalytics.ts`, `utils/couponSystem.ts`, `utils/customizeReferralCode.ts`, `data/blogPosts.ts`, and the `referral_*` Supabase tables. The user-facing dashboard is `components/ReferralDashboard.tsx` (mounted as the Referrals tab in `pages/Profile.tsx`). The admin overview is `admin/ReferralAnalytics.tsx`. Coupon input + self-referral check live in `pages/Checkout.tsx`.
 
@@ -1285,6 +1483,14 @@ All rights reserved © 2024 Coalition Brand
 
 ## Customer Profile
 
+> **Loops · Customer Profile — smart-fallback buyer aggregation (4-mode lookup)**
+>
+> - **Entry:** [`buildCustomerProfile(userId)`](utils/customerProfile.ts) + [`buildCustomerProfileByEmail(email)`](utils/customerProfile.ts) in [`utils/customerProfile.ts`](utils/customerProfile.ts) — auto-detects lookup mode from the query: `user_eth_*` prefix → MetaMask wallet, 36-char hyphenated → UUID, `0x…` → wallet address, anything containing `@` → email.
+> - **Trigger:** `/admin/customers` lookup + the React admin [`components/admin/CustomerProfileAdmin.tsx`](components/admin/CustomerProfileAdmin.tsx). The component passes `customerId | customerEmail` through; the builder short-circuits accordingly. CustomerLinkModal in [`components/admin/OrderManager.tsx`](components/admin/OrderManager.tsx) ALSO calls into `buildCustomerProfile` (with smart-fallback when a userId is set but the user is a MetaMask wallet) — same contract, two consumer surfaces.
+> - **Side-effects:** The builder is read-only — aggregates `profiles`, `orders`, `social_accounts`, `referral_stats`, plus the `PayoutRequest` enrichment via `services/payoutRequest.ts > mapToRequest`. Admin tools (VIP toggle, store-credit delta, customer notes) write **directly to Supabase from the React component** (`CustomerProfileAdmin.tsx` → `supabase.from('profiles').update(...).eq('id', ...)`) — they do NOT go through a page handler.
+> - **Contract test:** [`tests/buildCustomerProfile.test.ts`](tests/buildCustomerProfile.test.ts) (14 assertions × 5 describe groups — early-return contracts, MetaMask partial profile, authenticated aggregation, idempotency, guest-by-email); [`tests/customerProfileAdminRender.test.tsx`](tests/customerProfileAdminRender.test.tsx) (5 tests). Shared `mockSupabase` singleton with `setOutcomes` + `getRemainingOutcomes` (reset in `beforeEach` to avoid queue contamination).
+> - **Deep dive:** [## Customer Profile](#customer-profile) — MetaMask short-circuit + guest-by-email path + paid-only filter (statuses `IN ('paid', 'completed', 'shipped', 'delivered')`) + admin direct-Supabase-write convention. **MetaMask short-circuit:** users whose id starts with `user_eth_` have no DB rows; the loop returns a partial profile (wallet-derived displayName + address, lifetime stats nulled) via 4 `Promise.resolve({ data: null, error: null })` shortcuts, so no Supabase calls fire.
+
 The customer-profile feature lets the maintainer (a) credit a customer's SGCoin
 balance with an audit trail, and (b) attribute an existing order to a social
 account (Facebook initially; Instagram/Twitter/TikTok slots already existed).
@@ -1363,7 +1569,7 @@ There are THREE scripts to run, in order, to fully mirror all of
 @friiqy's offline sales into production. Each script has a single
 responsibility and lives in its own file:
 
-1. **`npm run seed:friiqy-wholesale`**
+1. **`npm run seed:friiqy-wholesale`** -- **TODO (2026-07-16): script not yet on disk.** The wholesale bundle row `public-md-wholesale-wallets-2026_05_22` is already shipped by `scripts/backfillLiveOrderSeeds.ts` (which upserts all 6 INITIAL_ORDERS rows together). The per-row tagged cousin is the planned next delivery.
    (`scripts/upsertFriiqyWholesale.ts`) - writes the wholesale orders
    row (7 archived wallets, $175 total, 2026-05-22). Imports
    `INITIAL_ORDERS` from `constants.ts` as the single source of truth
@@ -1376,7 +1582,7 @@ responsibility and lives in its own file:
    of redefining it. The same id is the dedup key used by
    `buildLiveOrdersFeed` in `utils/liveOrdersFeed.ts`.
 
-2. **`npm run seed:friiqy-denim-patchwork`**
+2. **`npm run seed:friiqy-denim-patchwork`** -- **IMPLEMENTED 2026-07-16** (`tests/upsertFriiqyDenimPatchwork.test.ts`, 7 tests). Per-row cousin of `scripts/backfillLiveOrderSeeds.ts`; appends `@sgcoalition-friiqy-link-2026-07-16` to `notes` (idempotent; re-runs skip when tag already present). Reads `shipping_internal.json` for the street address. **Magic tokens:** `DENIM_FOUND`, `DENIM_NOT_FOUND`, `INTENDED_DENIM_UPSERT`, `DENIM_NOTES_TAG appended`, `DENIM_NOTES_TAG already`, `DENIM_UPSERT_OK`, `DENIM_UPSERT_FAIL`.
    (`scripts/upsertFriiqyDenimPatchwork.ts`) - writes the 1/1 Denim
    Patchwork jeans orders row (size 30, $140, 2024-11-08, posted on
    Instagram at https://www.instagram.com/p/DCIqPY4Msk_/?img_index=1).
@@ -1389,7 +1595,7 @@ responsibility and lives in its own file:
    expected admin-dashboard verification steps at the end
    (lifetime spend = $140 + $140 + $175 = $455 across 3 orders).
 
-3. **`npm run seed:verified-customers`**
+3. **`npm run seed:verified-customers`** -- **IMPLEMENTED 2026-07-16** (`tests/seedVerifiedCustomers.test.ts`, 8 tests). Upserts a `marketing_contacts` row (`email=wholesale@example.com`, `source=manual_seed`, `status=active`) with `metadata.instagram_username=friiqy`, `metadata.total_offline_orders=3`, `metadata.total_offline_spend_usd=555`. Cross-validates the upsert by re-reading the row and asserting `instagram_username=friiqy` (throws + exits 1 if mismatched). **Magic tokens:** `VERIFIED_FOUND`, `VERIFIED_NOT_FOUND`, `INTENDED_VERIFIED_UPSERT`, `VERIFIED_UPSERT_OK`, `VERIFIED_UPSERT_FAIL`, `CROSS_VALIDATE_PASS`, `CROSS_VALIDATE_FAIL`.
    (`scripts/seedVerifiedCustomers.ts`) - registers @friiqy as a
    verified past_customer so the test-campaign guard fires. Mirrors
    `scripts/seedSmsContact.ts`'s structure (idempotent lookup-then-insert
@@ -1531,6 +1737,38 @@ the handle `starrboii067`. To record this in the admin tool:
    `[fb @<ts>] attributed to @starrboii067` line in `notes`.
 5. To thank the buyer, **Credit SGC Reward** panel: `50` SGC, reason
    `"Starrboii067 — wallet bonus"`, click **Credit reward**.The customer's `sg_coin_balance` jumps and a `customer_reward_credits` row is appended.
+
+### Calieb customer-profile backfill (2026-07-16)
+
+`scripts/backfillCustomerCalieb.ts` is the canonical Instagram-driven customer-profile enrichment example. Discovers a customer from their Instagram handle (`INSTAGRAM_HANDLE = '1il.caleb'` for the canonical fixture), fans out to `social_accounts` then `orders` then `profiles`, recrawls the paid-only aggregate (`paid`, `completed`, `shipped`, `delivered`), sums `lifetime_spend_usd`, counts wallet-product line items from `KNOWN_WALLET_PRODUCT_IDS` (10 hardcoded wallet product IDs), and persists the enriched profile back to Supabase.
+
+**Orders query is mailbox-shape only:** `.or('customer_email.ilike.%calieb@%,customer_email.ilike.%caleb@%')` drops `customer_name` ILIKE for false-positive safety on every human named "Caleb."
+
+**Run:**
+
+```bash
+npm run seed:calieb-profile -- --dry-run         # discovery report only
+npm run seed:calieb-profile -- --confirm        # upsert social_accounts + profiles
+```
+
+**Magic tokens emitted on stdout (audit-grep targets):**
+
+- `SOCIAL_FOUND` / `__CALIEB_NOT_FOUND__` -- social-account row present or missing
+- `__CALIEB_NOT_FOUND___ORDERS` / `__CALIEB_NOT_FOUND___PROFILE` -- orders zero-row or profile zero-row path
+- `PROFILE_FOUND id=...` -- aggregated match
+- `INTENDED_INSERT` -- social-account insert path
+- `INTENDED_NOOP_SOCIAL` / `INTENDED_NOOP_PROFILE` -- already-merged idempotent path
+- `INTENDED_UPDATE` -- profile update path
+- `SOCIAL_WRITE_RESULT OK|FAIL` / `PROFILE_WRITE_RESULT OK|FAIL` -- write results
+- `BACKFILL_NOTES_TAG applied` -- `@sgcoalition-backfill-2026-07-16` was appended to `customer_notes`
+
+**Auto-execute guard:** `process.env.VITEST_WORKER_ID` short-circuits the env-var guard so test workers do not crash on import. `pathToFileURL(process.argv[1]).href === import.meta.url` is the Windows-safe auto-execute gate.
+
+**Where to read it:**
+
+- Script: `scripts/backfillCustomerCalieb.ts` (288 lines)
+- Test lock: `tests/backfillCustomerCalieb.test.ts` (146 lines, 6 tests; mocks `social_accounts` / `orders` / `profiles` via `vi.mock('@supabase/supabase-js')` + `vi.mock('dotenv')`)
+- Consumer: `components/admin/CustomerProfileAdmin.tsx` reuses the same discovery shape
 
 ## /admin Verified Buyers tab
 
