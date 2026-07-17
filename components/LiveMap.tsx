@@ -19,7 +19,15 @@ interface LiveMapProps {
     timeRange: '24h' | '7d' | '30d' | '90d' | 'all';
 }
 
-const LiveMap: React.FC<LiveMapProps> = ({ data }) => {
+const RANGE_LABELS: Record<LiveMapProps['timeRange'], string> = {
+    '24h': 'Last 24 hours',
+    '7d': 'Last 7 days',
+    '30d': 'Last 30 days',
+    '90d': 'Last 90 days',
+    'all': 'All time',
+};
+
+const LiveMap: React.FC<LiveMapProps> = ({ data, timeRange }) => {
     // Color Scale: Dark to Bright Purple based on order count
     const colorScale = scaleLinear<string>()
         .domain([0, Math.max(...data.map((d) => d.count), 1)])
@@ -85,6 +93,13 @@ const LiveMap: React.FC<LiveMapProps> = ({ data }) => {
                 id="map-tooltip"
                 className="z-50 !rounded-xl !border !border-gray-700 !bg-gray-900 !px-4 !py-2 !text-xs !font-bold !uppercase !tracking-widest !text-white !opacity-100 !shadow-xl"
             />
+
+            {/* Time-Range Badge */}
+            <div className="absolute top-4 left-4 z-10">
+                <span className="inline-block rounded-full border border-white/10 bg-black/60 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-gray-400 backdrop-blur-sm">
+                    {RANGE_LABELS[timeRange]}
+                </span>
+            </div>
 
             {/* Legend / Info */}
             <div className="absolute bottom-6 right-6 flex items-center gap-2">
