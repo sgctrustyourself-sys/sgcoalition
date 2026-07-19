@@ -80,8 +80,8 @@ describe('WHITE_BG_PRODUCT_IDS', () => {
     });
 
     describe('Set has expected minimum size', () => {
-        it('contains at least 8 entries (Above-as-Below x2 + Grey Wave x2 + Parts x4)', () => {
-            expect(WHITE_BG_PRODUCT_IDS.size).toBeGreaterThanOrEqual(8);
+        it('contains at least 13 entries (Above-as-Below x2 + Grey Wave x2 + Parts x4 + Racing Team x4 + Chrome Hearts x1)', () => {
+            expect(WHITE_BG_PRODUCT_IDS.size).toBeGreaterThanOrEqual(13);
         });
     });
 
@@ -128,26 +128,35 @@ describe('WHITE_BG_PRODUCT_IDS', () => {
             }
         });
 
+        it('all Racing Team wallet IDs are in the Set', () => {
+            const racingTeamIds = [
+                PRODUCT_IDS.RACING_TEAM_WALLET_1_4,
+                PRODUCT_IDS.RACING_TEAM_WALLET_2_4,
+                PRODUCT_IDS.RACING_TEAM_WALLET_3_4,
+                PRODUCT_IDS.RACING_TEAM_WALLET_4_4,
+            ];
+            for (const id of racingTeamIds) {
+                expect(WHITE_BG_PRODUCT_IDS.has(id)).toBe(true);
+            }
+        });
+
+        it('Chrome Hearts wallet ID is in the Set', () => {
+            expect(WHITE_BG_PRODUCT_IDS.has(PRODUCT_IDS.CHROME_HEARTS_WALLET)).toBe(true);
+        });
+
         it('every wallet in INITIAL_PRODUCTS with a white-backdrop photo is in the Set', () => {
             // All wallet products in the catalog with real Imgur images
-            // should be in WHITE_BG_PRODUCT_IDS. Racing Team wallets and
-            // Chrome Hearts are omitted intentionally — their photos fill
-            // the frame differently (object-cover, not object-contain).
+            // shot on white backdrops should be in WHITE_BG_PRODUCT_IDS.
             const walletIds = INITIAL_PRODUCTS
                 .filter((p: Product) => p.category === 'wallet')
                 .map((p: Product) => p.id);
 
             // Every wallet category product must either be in the Set
             // OR have a specific reason for exclusion. Currently the
-            // excluded wallets are Racing Team 1-4/4, Chrome Hearts,
-            // Above-as-Below 1/1 (featured, uses bg-black/50 on /wallets),
-            // Green Camo, and SKYY BLUE.
+            // excluded wallets are Above-as-Below 1/1 (featured),
+            // Green Camo, SKYY BLUE, and the above-as-below 2/4 & 3/4
+            // wallets (product photos fill frame differently).
             const excludedWallets = new Set([
-                'Coalition_Racing_Team_Wallet_1_4',
-                'Coalition_Racing_Team_Wallet_2_4',
-                'Coalition_Racing_Team_Wallet_3_4',
-                'Coalition_Racing_Team_Wallet_4_4',
-                'prod_wallet_chrome_hearts',
                 'Coalition_Above_As_Below_Wallet_1_1',
                 'GreenCamoWallet',
                 'SKYYBLUEWALLET1_2',
