@@ -26,7 +26,7 @@
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
     "noImplicitThis": false,
-    "useUnknownInCatchVariables": false,
+    "useUnknownInCatchVariables": true,
     "alwaysStrict": false,
     "forceConsistentCasingInFileNames": true,
     "paths": {
