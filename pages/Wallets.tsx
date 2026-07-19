@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Sparkles, ArrowRight, Wallet as WalletIcon, Scissors, Stamp, Package, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import Seo from '../components/Seo';
-import { PRODUCT_IDS } from '../constants/productIds';
+import { PRODUCT_IDS, WHITE_BG_PRODUCT_IDS } from '../constants/productIds';
 
 const FEATURES = [
     {
@@ -101,12 +101,12 @@ const Wallets = () => {
                         className="mb-24 bg-gradient-to-br from-gray-900/80 to-black border border-white/10 rounded-3xl overflow-hidden"
                     >
                         <div className="grid md:grid-cols-2 gap-8 p-8 md:p-12 items-center">
-                            <div className="aspect-square bg-black/50 rounded-2xl overflow-hidden border border-white/10">
+                            <div className={`aspect-square rounded-2xl overflow-hidden border border-white/10 ${WHITE_BG_PRODUCT_IDS.has(featured.id) ? 'bg-white' : 'bg-black/50'}`}>
                                 {featured.images?.[0] && (
                                     <img
                                         src={featured.images[0]}
                                         alt={featured.name}
-                                        className="w-full h-full object-cover"
+                                        className={`w-full h-full ${WHITE_BG_PRODUCT_IDS.has(featured.id) ? 'object-contain' : 'object-cover'}`}
                                     />
                                 )}
                             </div>
@@ -198,12 +198,12 @@ const Wallets = () => {
                                     to={`/product/${w.id}`}
                                     className={`group relative bg-gray-900/50 border border-gray-800 rounded-2xl overflow-hidden hover:border-white/30 transition text-left block ${w.archived ? 'opacity-60' : ''}`}
                                 >
-                                    <div className="aspect-square bg-black/50 overflow-hidden">
+                                    <div className={`aspect-square overflow-hidden ${WHITE_BG_PRODUCT_IDS.has(w.id) ? 'bg-white' : 'bg-black/50'}`}>
                                         {w.images?.[0] && (
                                             <img
                                                 src={w.images[0]}
                                                 alt={w.name}
-                                                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                                                className={`w-full h-full group-hover:scale-105 transition duration-500 ${WHITE_BG_PRODUCT_IDS.has(w.id) ? 'object-contain' : 'object-cover'}`}
                                             />
                                         )}
                                     </div>

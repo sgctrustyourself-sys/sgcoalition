@@ -18,3 +18,21 @@ export const PRODUCT_IDS = {
     PARTS_WALLET_3_4: 'Coalition_Parts_Wallet_3_4',
     PARTS_WALLET_4_4: 'Coalition_Parts_Wallet_4_4',
 } as const;
+
+// ---------------------------------------------------------------------------
+// Products shot on a white backdrop that need bg-white + object-contain
+// so their subject stays framed correctly against the dark theme.
+// Used by ProductDetails (PDP gallery), Wallets (grid cards), and any
+// future surface that renders product images against a dark background.
+// Add new wallet collections here as they ship — one-line push per collection.
+// ---------------------------------------------------------------------------
+export const WHITE_BG_PRODUCT_IDS: Set<string> = new Set([
+    PRODUCT_IDS.ABOVE_AS_BELOW_TEE,
+    PRODUCT_IDS.ABOVE_AS_BELOW_SHORTS,
+    PRODUCT_IDS.GREY_WAVE_WALLET_1_2,
+    PRODUCT_IDS.GREY_WAVE_WALLET_2_2,
+    PRODUCT_IDS.PARTS_WALLET_1_4,
+    PRODUCT_IDS.PARTS_WALLET_2_4,
+    PRODUCT_IDS.PARTS_WALLET_3_4,
+    PRODUCT_IDS.PARTS_WALLET_4_4,
+]);

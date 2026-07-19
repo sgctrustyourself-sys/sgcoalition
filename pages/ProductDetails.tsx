@@ -16,7 +16,7 @@ import { moveArrayItem, remapIndexAfterMove } from '../utils/arrayMove';
 import { getProductEditableSizes, normalizeProductSizeData } from '../utils/productSizes';
 import { getReferralStats, generateProductReferralLink } from '../utils/referralSystem';
 import { isWalletProduct, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
-import { PRODUCT_IDS } from '../constants/productIds';
+import { PRODUCT_IDS, WHITE_BG_PRODUCT_IDS } from '../constants/productIds';
 import { buildProductJsonLd, getProductSeo } from '../utils/seo';
 import { isNumberedEdition, getActiveTierPrice } from '../types';
 import { formatTierCalloutCopy } from '../services/numberedPieces';
@@ -192,19 +192,6 @@ const ProductDetails = () => {
     const tierInfo = isNumbered ? formatTierCalloutCopy(product, soldCount) : null;
     const editableSizes = getProductEditableSizes(editForm.sizes, editForm.sizeInventory);
     const galleryImages = isEditing && editForm.images ? editForm.images : product.images;
-    // Products shot on a white backdrop that need bg-white + object-contain
-    // so their subject stays framed correctly against the PDP's dark theme.
-    // Add new wallet collections here as they ship — one-line push per collection.
-    const WHITE_BG_PRODUCT_IDS: Set<string> = new Set([
-        PRODUCT_IDS.ABOVE_AS_BELOW_TEE,
-        PRODUCT_IDS.ABOVE_AS_BELOW_SHORTS,
-        PRODUCT_IDS.GREY_WAVE_WALLET_1_2,
-        PRODUCT_IDS.GREY_WAVE_WALLET_2_2,
-        PRODUCT_IDS.PARTS_WALLET_1_4,
-        PRODUCT_IDS.PARTS_WALLET_2_4,
-        PRODUCT_IDS.PARTS_WALLET_3_4,
-        PRODUCT_IDS.PARTS_WALLET_4_4,
-    ]);
     const shouldFitFullImage = WHITE_BG_PRODUCT_IDS.has(product.id);
     const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-dark';
     const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';
