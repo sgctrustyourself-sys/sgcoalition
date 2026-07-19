@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext';
 import { Product } from '../types';
 import PriceDisplay from './PriceDisplay';
 import UrgencyBadge from './ui/UrgencyBadge';
-import { PRODUCT_IDS } from '../constants/productIds';
+import { PRODUCT_IDS, WHITE_BG_PRODUCT_IDS } from '../constants/productIds';
 import { getStockUrgency, getStockCount, getMintFraction } from '../utils/urgencyUtils';
 import RequestSimilarModal from './RequestSimilarModal';
 
@@ -17,8 +17,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     const primaryImage = product.images && product.images.length > 0 ? product.images[0] : '/images/logo.png';
     const hoverImage = product.images && product.images.length > 1 ? product.images[1] : primaryImage;
     const hasHoverImage = hoverImage !== primaryImage;
-    const shouldFitFullImage = product.id === PRODUCT_IDS.ABOVE_AS_BELOW_TEE
-        || product.id === PRODUCT_IDS.ABOVE_AS_BELOW_SHORTS;
+    const shouldFitFullImage = WHITE_BG_PRODUCT_IDS.has(product.id);
     const keepImageClear = product.id === PRODUCT_IDS.NF_TEE;
     const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-gray-900';
     const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';
