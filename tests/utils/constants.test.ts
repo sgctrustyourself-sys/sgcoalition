@@ -26,6 +26,26 @@ const productIdValues: string[] = Object.values(PRODUCT_IDS);
 /** All keys defined in PRODUCT_IDS. */
 const productIdKeys: string[] = Object.keys(PRODUCT_IDS) as (keyof typeof PRODUCT_IDS)[];
 
+/**
+ * Wallets that are NOT in WHITE_BG_PRODUCT_IDS because their product
+ * photos fill the frame differently (object-cover, not object-contain)
+ * or haven't been reshot on a white backdrop yet.
+ *
+ * RATCHET: this list must trend DOWNWARD over time. When a wallet gets
+ * a white-backdrop reshoot, move it to WHITE_BG_PRODUCT_IDS and remove
+ * it from here. The test suite enforces a size cap (currently 5).
+ */
+const EXCLUDED_WALLET_IDS = new Set([
+    'Coalition_Above_As_Below_Wallet_1_1',
+    'GreenCamoWallet',
+    'SKYYBLUEWALLET1_2',
+    'prod_1784012446238', // ABOVE AS BELOW 2/4 WALLET
+    'prod_1784012355221', // ABOVE AS BELOW 3/4 WALLET
+]);
+
+/** Maximum allowed size of EXCLUDED_WALLET_IDS — lowered whenever a wallet graduates to white-bg. */
+const MAX_EXCLUDED_WALLETS = 5;
+
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('PRODUCT_IDS', () => {
@@ -151,22 +171,9 @@ describe('WHITE_BG_PRODUCT_IDS', () => {
                 .filter((p: Product) => p.category === 'wallet')
                 .map((p: Product) => p.id);
 
-            // Every wallet category product must either be in the Set
-            // OR have a specific reason for exclusion. Currently the
-            // excluded wallets are Above-as-Below 1/1 (featured),
-            // Green Camo, SKYY BLUE, and the above-as-below 2/4 & 3/4
-            // wallets (product photos fill frame differently).
-            const excludedWallets = new Set([
-                'Coalition_Above_As_Below_Wallet_1_1',
-                'GreenCamoWallet',
-                'SKYYBLUEWALLET1_2',
-                'prod_1784012446238', // ABOVE AS BELOW 2/4 WALLET
-                'prod_1784012355221', // ABOVE AS BELOW 3/4 WALLET
-            ]);
-
             for (const id of walletIds) {
                 const inSet = WHITE_BG_PRODUCT_IDS.has(id);
-                const isExcluded = excludedWallets.has(id);
+                const isExcluded = EXCLUDED_WALLET_IDS.has(id);
                 // Every wallet must be either in the Set OR in the exclusion list.
                 // If a new wallet is added to INITIAL_PRODUCTS but not to either
                 // list, this test fails and forces the operator to decide.
@@ -175,6 +182,16 @@ describe('WHITE_BG_PRODUCT_IDS', () => {
                     `wallet "${id}" is not in WHITE_BG_PRODUCT_IDS and not in the exclusion list — add it to one or the other`,
                 ).toBe(true);
             }
+        });
+
+        it('exclusion list has not grown beyond its current size (5) — must trend downward', () => {
+            // When a wallet gets a white-backdrop reshoot it moves from
+            // EXCLUDED_WALLET_IDS → WHITE_BG_PRODUCT_IDS, and the cap
+            // here must be LOWERED. To raise the cap, update
+            // MAX_EXCLUDED_WALLETS with an explicit commit message
+            // explaining which new wallet was added and why it can't
+            // get a reshoot yet.
+            expect(EXCLUDED_WALLET_IDS.size).toBeLessThanOrEqual(MAX_EXCLUDED_WALLETS);
         });
     });
 });
