@@ -27,7 +27,7 @@
     "strictPropertyInitialization": true,
     "noImplicitThis": true,
     "useUnknownInCatchVariables": true,
-    "alwaysStrict": false,
+    "alwaysStrict": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
       "@/*": [
