@@ -45,7 +45,7 @@ async function addGreyWaveWallet22() {
         making_video_url: MAKING_VIDEO_URL
     };
 
-    let result;
+    let result: any;
 
     while (true) {
         const optionalColumnNames = Object.keys(optionalColumns);

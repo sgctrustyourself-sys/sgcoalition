@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Sparkles, ArrowRight, Wallet as WalletIcon, Scissors, Stamp, Package, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import Seo from '../components/Seo';
+import { PRODUCT_IDS } from '../constants/productIds';
 
 const FEATURES = [
     {
@@ -38,7 +39,7 @@ const FEATURES = [
     },
 ];
 
-const FEATURED_WALLET_ID = 'Coalition_Above_As_Below_Wallet_1_1';
+const FEATURED_WALLET_ID = PRODUCT_IDS.FEATURED_WALLET;
 
 const Wallets = () => {
     const { products } = useApp();

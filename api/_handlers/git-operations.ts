@@ -99,6 +99,7 @@ async function syncConstantsHandler(req: any) {
 
     const replacement = `export const INITIAL_PRODUCTS: Product[] = ${JSON.stringify(mappedProducts, null, 2)};`;
     const replaceRegex = /export const INITIAL_PRODUCTS: Product\[\] = \[[\s\S]*?\];/;
+    const targetFile = 'constants/products.ts';
     const commitMessage = (req.body?.message) || 'Sync products from Supabase';
 
     // Route through the GitHub Contents API when (a) we're on Vercel (no git
@@ -109,7 +110,7 @@ async function syncConstantsHandler(req: any) {
     if (useGithub) {
         const { syncFileOnGitHub } = await import('../../services/githubSync.cjs');
         return await syncFileOnGitHub(
-            'constants.ts',
+            targetFile,
             (content: string) => content.replace(replaceRegex, replacement),
             commitMessage
         );
@@ -121,8 +122,8 @@ async function syncConstantsHandler(req: any) {
     const pathMod = await import('path');
     const gitService = await import('../../services/gitService.js');
 
-    const constantsPath = pathMod.resolve(process.cwd(), 'constants.ts');
-    const beforeContent = fs.readFileSync(constantsPath, 'utf8');
+    const productsPath = pathMod.resolve(process.cwd(), 'constants/products.ts');
+    const beforeContent = fs.readFileSync(productsPath, 'utf8');
     const afterContent = beforeContent.replace(replaceRegex, replacement);
 
     if (afterContent === beforeContent) {
@@ -130,7 +131,7 @@ async function syncConstantsHandler(req: any) {
         return { noChanges: true, hash: recent[0]?.hash };
     }
 
-    fs.writeFileSync(constantsPath, afterContent, 'utf8');
+    fs.writeFileSync(productsPath, afterContent, 'utf8');
     const hash = await gitService.createCommit(commitMessage, 'Coalition Admin <admin@coalition.local>');
     return { success: true, hash };
 }

@@ -16,6 +16,7 @@ import { moveArrayItem, remapIndexAfterMove } from '../utils/arrayMove';
 import { getProductEditableSizes, normalizeProductSizeData } from '../utils/productSizes';
 import { getReferralStats, generateProductReferralLink } from '../utils/referralSystem';
 import { isWalletProduct, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
+import { PRODUCT_IDS } from '../constants/productIds';
 import { buildProductJsonLd, getProductSeo } from '../utils/seo';
 import { isNumberedEdition, getActiveTierPrice } from '../types';
 import { formatTierCalloutCopy } from '../services/numberedPieces';
@@ -191,10 +192,10 @@ const ProductDetails = () => {
     const tierInfo = isNumbered ? formatTierCalloutCopy(product, soldCount) : null;
     const editableSizes = getProductEditableSizes(editForm.sizes, editForm.sizeInventory);
     const galleryImages = isEditing && editForm.images ? editForm.images : product.images;
-    const shouldFitFullImage = product.id === 'prod_tee_above_as_below'
-        || product.id === 'prod_shorts_above_as_below'
-        || product.id === 'Coalition_Grey_Wave_Wallet_1_2'
-        || product.id === 'Coalition_Grey_Wave_Wallet_2_2';
+    const shouldFitFullImage = product.id === PRODUCT_IDS.ABOVE_AS_BELOW_TEE
+        || product.id === PRODUCT_IDS.ABOVE_AS_BELOW_SHORTS
+        || product.id === PRODUCT_IDS.GREY_WAVE_WALLET_1_2
+        || product.id === PRODUCT_IDS.GREY_WAVE_WALLET_2_2;
     const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-dark';
     const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';
     const totalStock = Object.values(product.sizeInventory || {}).reduce((sum, count) => sum + Number(count || 0), 0);
@@ -1009,7 +1010,7 @@ const ProductDetails = () => {
                                     {/* Reddit Community Banner */}
                                     {(() => {
                                         const redditLinks: Record<string, { url: string; label: string; description: string }> = {
-                                            'Coalition_NF_Tee': {
+                                            [PRODUCT_IDS.NF_TEE]: {
                                                 url: 'https://www.reddit.com/user/Complex-Discipline86/comments/1ri70fm/coalition_nftee_50/',
                                                 label: 'View on Reddit',
                                                 description: 'Check out the full Reddit listing for the Coalition NF-Tee — pricing, details, and community discussion.'

@@ -40,7 +40,7 @@ async function addAboveAsBelowSet() {
         is_limited_edition: true
     };
 
-    let result;
+    let result: any;
 
     while (true) {
         const optionalColumnNames = Object.keys(optionalColumns);

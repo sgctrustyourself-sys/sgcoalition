@@ -77,3 +77,11 @@ id_ecdsa
 bundle_analysis.txt
 .loader-fade-screenshots/
 .referral-test-screenshots/
+
+# Freebuff Desktop working directory (SQLite WAL files + db).
+# Reproduce by reinstalling the desktop app — never commit these.
+.freebuff/
+
+# Stray Windows shell-artifact file produced by misquoted `findstr`/`type`
+# invocations (e.g. `echo foo > nul`). Never intentional, never useful.
+nul

@@ -418,7 +418,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         // Numbered-edition tier-pricing fields (migration 20260710).
                         pricingTiers: item.pricing_tiers ?? null,
                         editionSize: item.edition_size ?? null,
-                        editionSoldCount: null,
+                        editionSoldCount: null as number | null,
                         sizes: item.sizes || [], sizeInventory: item.size_inventory || {}, nft: item.nft_metadata,
                         reviews: savedReviews, archived: item.archived || false,
                         archivedAt: item.archived_at, releasedAt: item.released_at, soldAt: item.sold_at,
@@ -555,7 +555,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     status: row.status as GiveawayStatus,
                     requirements: row.requirements || [],
                     maxEntriesPerUser: row.max_entries_per_user || 1,
-                    entries: [],
+                    entries: [] as GiveawayEntry[],
                     createdAt: new Date(row.created_at).getTime()
                 }));
                 setGiveaways(mapped);

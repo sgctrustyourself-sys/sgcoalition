@@ -436,7 +436,7 @@ function createDemoTrackedOrders(now: number): TrackedLiveOrder[] {
             timestamp,
             stateCode: seed.stateCode,
             stateName: seed.stateName,
-            city: null,
+            city: null as string | null,
             firstItem: items[0] || null,
             image: items[0]?.productImage || DEFAULT_IMAGE,
         };

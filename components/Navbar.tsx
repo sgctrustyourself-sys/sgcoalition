@@ -4,6 +4,7 @@ import { ShoppingBag, Menu, X, Shield, Hexagon, Star, ChevronDown, Wallet } from
 import { useApp } from '../context/AppContext';
 import { AuthProvider } from '../types';
 import SearchBar from './SearchBar';
+import { PRODUCT_IDS } from '../constants/productIds';
 
 const Navbar = () => {
     const { cart, setCartOpen, user, login, logout, isAdminMode, logoutAdmin, products } = useApp();
@@ -22,7 +23,7 @@ const Navbar = () => {
     // dropdown is the one-click path. The full `walletProducts` list is
     // still computed for the mobile menu (which doesn't gate to a single
     // item) and as a cheap predicate for the Active pill.
-    const FEATURED_WALLET_ID = 'Coalition_Above_As_Below_Wallet_1_1';
+    const FEATURED_WALLET_ID = PRODUCT_IDS.FEATURED_WALLET;
     const walletProducts = useMemo(() => {
         const list = (products || []).filter(
             (p) => p.category === 'wallet' || /wallet/i.test(p.name)

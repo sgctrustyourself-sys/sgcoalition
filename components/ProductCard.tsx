@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import { Product } from '../types';
 import PriceDisplay from './PriceDisplay';
 import UrgencyBadge from './ui/UrgencyBadge';
+import { PRODUCT_IDS } from '../constants/productIds';
 import { getStockUrgency, getStockCount, getMintFraction } from '../utils/urgencyUtils';
 import RequestSimilarModal from './RequestSimilarModal';
 
@@ -16,9 +17,9 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     const primaryImage = product.images && product.images.length > 0 ? product.images[0] : '/images/logo.png';
     const hoverImage = product.images && product.images.length > 1 ? product.images[1] : primaryImage;
     const hasHoverImage = hoverImage !== primaryImage;
-    const shouldFitFullImage = product.id === 'prod_tee_above_as_below'
-        || product.id === 'prod_shorts_above_as_below';
-    const keepImageClear = product.id === 'Coalition_NF_Tee';
+    const shouldFitFullImage = product.id === PRODUCT_IDS.ABOVE_AS_BELOW_TEE
+        || product.id === PRODUCT_IDS.ABOVE_AS_BELOW_SHORTS;
+    const keepImageClear = product.id === PRODUCT_IDS.NF_TEE;
     const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-gray-900';
     const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';
     const hoverScaleClass = shouldFitFullImage ? 'group-hover:scale-[1.02]' : 'group-hover:scale-105';

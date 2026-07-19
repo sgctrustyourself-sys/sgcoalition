@@ -20,7 +20,7 @@
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "strict": true,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "strictNullChecks": false,
     "strictFunctionTypes": false,
     "strictBindCallApply": false,

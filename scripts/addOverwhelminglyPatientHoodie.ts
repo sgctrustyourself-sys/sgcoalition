@@ -66,7 +66,7 @@ async function addOverwhelminglyPatientHoodie() {
         created_at: '2026-06-28T00:00:00-04:00'
     };
 
-    let result;
+    let result: any;
 
     while (true) {
         const optionalColumnNames = Object.keys(optionalColumns);

@@ -117,7 +117,7 @@ const OrderSuccess = () => {
                     customerEmail: currentShippingInfo?.email || '',
                     customerName: currentShippingInfo?.name || '',
                     shippingStatus: 'processing',
-                    trackingNumber: null,
+                    trackingNumber: null as string | null,
                     createdAt: new Date().toISOString(),
                     paidAt: new Date().toISOString(),
                     shippingInfo: currentShippingInfo || {},

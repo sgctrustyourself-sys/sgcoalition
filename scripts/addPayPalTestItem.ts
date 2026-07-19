@@ -35,7 +35,7 @@ async function addPayPalTestItem() {
         price: 0.5,
         stock: 999,
         // Empty images array is OK -- ProductDetails renders a placeholder.
-        images: [],
+        images: [] as string[],
         description:
             "**TEST SKU -- DO NOT PURCHASE FOR FULFILLMENT.** " +
             "This is a $0.50 PayPal test item used to verify the live PayPal checkout flow end-to-end. " +
