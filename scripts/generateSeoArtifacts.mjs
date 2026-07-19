@@ -183,7 +183,7 @@ const unescapeStringLiteral = (value = '') =>
     .replace(/\\n/g, ' ')
     .replace(/\\u2014/g, '-');
 
-// Field names in constants.ts may be either unquoted (`id:`) or quoted (`"id":`).
+// Field names in constants/products.ts may be either unquoted (`id:`) or quoted (`"id":`).
 // We accept either form. Using `String.raw` avoids the template-literal escape
 // trap where `\b` would become an ASCII backspace (0x08) instead of a regex
 // word boundary — with `String.raw`, `\b` stays as the two characters `\` + `b`,
@@ -262,7 +262,7 @@ const readImageList = (block, imageCatalog) => {
 };
 
 export const parseProducts = () => {
-  const constantsSource = readFile('constants.ts');
+  const constantsSource = readFile('constants/products.ts');
   const imageCatalog = parseImageCatalog();
   const productsStart = constantsSource.indexOf('export const INITIAL_PRODUCTS');
   const initializerStart = productsStart >= 0 ? constantsSource.indexOf('=', productsStart) : -1;
@@ -271,7 +271,7 @@ export const parseProducts = () => {
 
   if (productsStart < 0 || initializerStart < 0 || arrayStart < 0 || arrayEnd < 0) {
     throw new Error(
-      'Unable to locate INITIAL_PRODUCTS in constants.ts. '
+      'Unable to locate INITIAL_PRODUCTS in constants/products.ts. '
       + `productsStart=${productsStart}, initializerStart=${initializerStart}, `
       + `arrayStart=${arrayStart}, arrayEnd=${arrayEnd}, sourceLength=${constantsSource.length}.`
     );
