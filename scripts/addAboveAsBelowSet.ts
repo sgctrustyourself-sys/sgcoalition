@@ -40,7 +40,11 @@ async function addAboveAsBelowSet() {
         is_limited_edition: true
     };
 
-    let result: any;
+    // Structural Supabase upsert response shape — this exact subset is
+    // what the retry loop and post-loop consumption need (error.code,
+    // error.message, and data passthrough to console.log). Avoids `any`
+    // while keeping the shape narrow enough to be type-clean.
+    let result: { data: unknown; error: { code?: string; message?: string } | null };
 
     while (true) {
         const optionalColumnNames = Object.keys(optionalColumns);
@@ -52,7 +56,7 @@ async function addAboveAsBelowSet() {
 
         if (result.error?.code !== 'PGRST204') break;
 
-        const missingColumn = optionalColumnNames.find(column => result.error?.message.includes(column));
+        const missingColumn = optionalColumnNames.find(column => result.error?.message?.includes(column));
         if (!missingColumn) break;
 
         console.warn(`products.${missingColumn} is not in the live schema yet; retrying without that optional column.`);

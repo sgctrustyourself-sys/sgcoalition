@@ -73,7 +73,7 @@ const Newsletter: React.FC<NewsletterProps> = ({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: trimmed, source }),
             });
-            const payload = await response.json().catch((): null => null);
+            const payload = await response.json().catch(() => null);
             if (!response.ok) {
                 throw new Error(payload?.error || 'Could not subscribe. Please try again.');
             }

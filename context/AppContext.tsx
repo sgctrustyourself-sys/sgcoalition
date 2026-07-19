@@ -1106,7 +1106,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 addr = data.address;
             }
             const isAdmin = addr && ADMIN_WALLETS.map(w => w.toLowerCase()).includes(addr.toLowerCase());
-            setUser({ ...user, walletAddress: addr, connectedWalletAddress: addr, walletConnectionMethod: 'metamask', walletConnectedAt: Date.now(), isAdmin: user.isAdmin || isAdmin });
+            // UserProfile.walletAddress is `string | null`, connectedWalletAddress is `string` —
+            // both expect non-undefined at this point (the !addr branch above returned).
+            // strictNullChecks-safe assertion.
+            setUser({ ...user, walletAddress: addr!, connectedWalletAddress: addr!, walletConnectionMethod: 'metamask', walletConnectedAt: Date.now(), isAdmin: user.isAdmin || !!isAdmin });
             if (isSupabaseConfigured && !user.uid.startsWith('user_eth_')) {
                 await supabase.from('wallet_accounts').upsert({ user_id: user.uid, wallet_address: addr, method: 'metamask' }, { onConflict: 'user_id' });
             }

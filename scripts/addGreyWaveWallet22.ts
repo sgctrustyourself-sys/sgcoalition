@@ -45,7 +45,7 @@ async function addGreyWaveWallet22() {
         making_video_url: MAKING_VIDEO_URL
     };
 
-    let result: any;
+    let result: { data: unknown; error: { code?: string; message?: string } | null };
 
     while (true) {
         const optionalColumnNames = Object.keys(optionalColumns);
@@ -57,7 +57,7 @@ async function addGreyWaveWallet22() {
 
         if (result.error?.code !== 'PGRST204') break;
 
-        const missingColumn = optionalColumnNames.find(column => result.error?.message.includes(column));
+        const missingColumn = optionalColumnNames.find(column => result.error?.message?.includes(column));
         if (!missingColumn) break;
 
         console.warn(`products.${missingColumn} is not in the live schema yet; retrying without that optional column.`);

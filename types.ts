@@ -4,24 +4,26 @@ export interface Product {
   price: number;
   images: string[];
   description: string;
-  makingVideoUrl?: string;
-  createdAt?: string; // ISO timestamp for when the product was added
+  makingVideoUrl?: string | null;
+  createdAt?: string | null; // ISO timestamp for when the product was added
   category: 'apparel' | 'accessory' | 'shirt' | 'wallet' | 'jeans' | 'hat' | 'dress' | 'shorts' | 'headwear';
   // Optional gender classification for the WOMEN / MEN top-level filters on
   // /shop. Added in 2026-07 — Supabase rows may not have this column until
   // a migration adds it; the Shop filter helpers fall back to ID/name
-  // detection for products missing the field.
-  gender?: 'mens' | 'womens' | 'unisex';
-  isFeatured?: boolean;
+  // detection for products missing the field. `| null` reflects the
+  // Supabase reality — optional columns return `null` when unset, not
+  // `undefined`. strictNullChecks-safe.
+  gender?: 'mens' | 'womens' | 'unisex' | null;
+  isFeatured?: boolean | null;
   // Free shipping when this product is in the cart AND a distinct other
   // product is also in the cart. Used for the Coalition 'Overwhelmingly
   // Patient' Hoodie (pre-order release) — shipping is paid for the hoodie
   // alone, $0 once a second line item is added.
-  freeShippingWhenPaired?: boolean;
-  freeShipping?: boolean;
-  sizes?: string[];
-  sizeInventory?: Record<string, number>; // Size-based inventory: { 'S': 10, 'M': 25, 'L': 30 }
-  reviews?: Review[];
+  freeShippingWhenPaired?: boolean | null;
+  freeShipping?: boolean | null;
+  sizes?: string[] | null;
+  sizeInventory?: Record<string, number> | null; // Size-based inventory: { 'S': 10, 'M': 25, 'L': 30 }
+  reviews?: Review[] | null;
   nft?: {
     contractAddress: string;
     tokenId: string;
@@ -31,14 +33,14 @@ export interface Product {
       neck?: string; // Linktree URL
       tag?: string;  // NFT claim/OpenSea URL
     };
-  };
+  } | null;
   // Archive System Fields
-  archived?: boolean;
-  archivedAt?: string; // ISO timestamp
-  releasedAt?: string; // ISO timestamp
-  soldAt?: string;     // ISO timestamp
-  archiveNote?: string; // Context shown when a sold/archive piece has a story behind it
-  founderNote?: string; // Personal note from the founder shown below the buy button on the PDP
+  archived?: boolean | null;
+  archivedAt?: string | null; // ISO timestamp
+  releasedAt?: string | null; // ISO timestamp
+  soldAt?: string | null;     // ISO timestamp
+  archiveNote?: string | null; // Context shown when a sold/archive piece has a story behind it
+  founderNote?: string | null; // Personal note from the founder shown below the buy button on the PDP
   // Urgency & Scarcity Fields
   // Numbered Edition Tie-down Pricing & Mint Tracker
   // When editionSize is set, the first editionSize units ship as a numbered
@@ -46,15 +48,15 @@ export interface Product {
   // step-up: each tier says "until this sold-count, use this price". A tier
   // with untilCount=null is the catch-all (every unit beyond the previous tier
   // uses its price).
-  pricingTiers?: PricingTier[];
+  pricingTiers?: PricingTier[] | null;
   editionSize?: number | null;
   // Live count of PAID units (across sizes), used by ProductCard / PDP to
   // render "X/44 minted at $75".
   editionSoldCount?: number | null;
 
-  isLimitedEdition?: boolean; // Limited edition badge
-  stock?: number; // Current available stock as mirrored from the products DB row (set by AppContext.fetchProducts from public.products.stock)
-  saleEndDate?: string; // ISO timestamp for flash sales
+  isLimitedEdition?: boolean | null; // Limited edition badge
+  stock?: number | null; // Current available stock as mirrored from the products DB row (set by AppContext.fetchProducts from public.products.stock)
+  saleEndDate?: string | null; // ISO timestamp for flash sales
 }
 
 export interface CartItem extends Product {

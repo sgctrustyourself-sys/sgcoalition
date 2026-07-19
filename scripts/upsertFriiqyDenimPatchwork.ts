@@ -55,7 +55,10 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
     }
 }
 
-const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
+// Script already guarded with process.exit(1) when env is unset;
+// SUPABASE_URL/SERVICE_KEY are guaranteed string at runtime.
+// strictNullChecks-safe assertion.
+const supabase = createClient(SUPABASE_URL!, SERVICE_KEY!, {
     auth: { autoRefreshToken: false, persistSession: false },
 });
 

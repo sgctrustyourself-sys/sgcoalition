@@ -57,13 +57,11 @@ const MigrationPage: React.FC = () => {
 
     const handleMax = () => {
         setMigrateAmount(ethers.formatUnits(v1Balance, 9));
-    };
-
-    const handleApprove = async () => {
+    };        const handleApprove = async () => {
         if (!window.ethereum) return;
 
         // 1. Validate amount is > 0
-        const amountToApprove = ethers.parseUnits(migrateAmount || '0', 9);
+        const amountToApprove = ethers.parseUnits(migrateAmount ?? '0', 9);
         if (amountToApprove <= 0n) {
             addToast('Please enter an amount greater than 0', 'error');
             return;
@@ -94,12 +92,12 @@ const MigrationPage: React.FC = () => {
     };
 
     const handleMigrate = async () => {
-        if (!user || !window.ethereum) return;
+        if (!user || !user.walletAddress || !window.ethereum) return;
         setIsMigrating(true);
         try {
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
-            const amountToMigrate = ethers.parseUnits(migrateAmount, 9);
+            const amountToMigrate = ethers.parseUnits(migrateAmount ?? '0', 9);
 
             // 1. Check Allowance Logic
             const currentAllowance = await getAllowance(SGCOIN_V1_CONTRACT_ADDRESS, user.walletAddress, SGCOIN_MIGRATOR_ADDRESS, provider);

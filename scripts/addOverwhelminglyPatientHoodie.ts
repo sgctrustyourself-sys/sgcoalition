@@ -66,7 +66,7 @@ async function addOverwhelminglyPatientHoodie() {
         created_at: '2026-06-28T00:00:00-04:00'
     };
 
-    let result: any;
+    let result: { data: unknown; error: { code?: string; message?: string } | null };
 
     while (true) {
         const optionalColumnNames = Object.keys(optionalColumns);
@@ -79,7 +79,7 @@ async function addOverwhelminglyPatientHoodie() {
 
         if (result.error?.code !== 'PGRST204' && result.error?.code !== '42703') break;
 
-        const missingColumn = optionalColumnNames.find(column => result.error?.message.includes(column));
+        const missingColumn = optionalColumnNames.find(column => result.error?.message?.includes(column));
         if (!missingColumn) break;
 
         console.warn(`products.${missingColumn} is not in the live schema yet; retrying without that optional column.`);

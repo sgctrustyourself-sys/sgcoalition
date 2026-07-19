@@ -64,6 +64,11 @@ export default async function handler(req: any, res: any) {
         slug = fallback;
     }
 
+    if (!slug) {
+        res.status(404).json({ error: 'Endpoint not found' });
+        return;
+    }
+
     const loader = handlers[slug];
     if (!loader) {
         // Avoid leaking the path name in the response -- only log it server-side.

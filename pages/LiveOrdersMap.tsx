@@ -202,7 +202,7 @@ const LiveOrdersMap = () => {
                                             </div>
                                             {item.productLink && (
                                                 <button
-                                                    onClick={() => navigate(item.productLink)}
+                                                    onClick={() => navigate(item.productLink ?? '/')}
                                                     className="shrink-0 rounded-lg border border-gray-800 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500 opacity-0 transition-all group-hover:opacity-100 hover:border-purple-500/50 hover:text-purple-300"
                                                 >
                                                     View

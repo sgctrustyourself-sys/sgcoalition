@@ -49,6 +49,7 @@ const FreeShippingBar: React.FC<FreeShippingBarProps> = ({ cartTotal, className 
     }
 
     const { amountNeeded, progress, nextTier } = thresholdInfo;
+    if (!nextTier) return null; // Should never happen if !thresholdInfo guard above passed, but strictNullChecks-friendly.
     const isCloseToThreshold = amountNeeded <= 20;
 
     return (

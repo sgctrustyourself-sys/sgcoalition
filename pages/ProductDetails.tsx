@@ -204,7 +204,7 @@ const ProductDetails = () => {
     const isSoldOut = !isSold && totalStock === 0;
     const isUnavailable = isArchived || isSoldOut;
     const selectedSizeStock = resolvedSize ? product.sizeInventory?.[resolvedSize] ?? totalStock : totalStock;
-    const soldDate = formatProductDate(product.soldAt);
+    const soldDate = formatProductDate(product.soldAt ?? undefined);
     // Voice consistency with the card grid. Three distinct terminal
     // states with three distinct labels:
     //   isSold     -> "Claimed"  (a 1/1 piece is owned by a buyer)

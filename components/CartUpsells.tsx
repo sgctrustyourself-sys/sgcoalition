@@ -95,7 +95,7 @@ const CartUpsells: React.FC<CartUpsellsProps> = ({ cartItems, cartTotal, classNa
                         {/* Quick Add Button */}
                         <button
                             onClick={() => handleQuickAdd(product)}
-                            disabled={product.archived}
+                            disabled={!!product.archived}
                             className="px-4 py-2 bg-white text-black text-sm font-bold rounded hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 whitespace-nowrap"
                         >
                             <ShoppingBag className="w-4 h-4" />

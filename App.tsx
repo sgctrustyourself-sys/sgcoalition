@@ -76,7 +76,7 @@ const LiveOrdersMap = React.lazy(() => import('./pages/LiveOrdersMap'));
 const Brain = React.lazy(() => import('./pages/Brain'));
 
 // Component to handle referral code detection
-const ReferralTracker = (): null => {
+const ReferralTracker = () => {
   const location = useLocation();
 
   useEffect(() => {
@@ -99,7 +99,7 @@ const ReferralTracker = (): null => {
 };
 
 // Handle Auth Events (Password Recovery)
-const AuthEventHandler = (): null => {
+const AuthEventHandler = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -115,7 +115,7 @@ const AuthEventHandler = (): null => {
   return null;
 };
 
-const LegacyHashRedirect = (): null => {
+const LegacyHashRedirect = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
