@@ -43,3 +43,10 @@ jobs:
         env:
           # jsdom environment — no browser or Supabase secrets needed.
           # Playwright headless Chromium is resolved from the install above.
+
+      - name: Validate production build (Vite + Rollup)
+        run: npm run build
+        env:
+          # The prebuild hook (generateSeoArtifacts.mjs) parses
+          # INITIAL_PRODUCTS from source to generate sitemaps and
+          # static SEO pages. No Supabase or Imgur secrets required.
