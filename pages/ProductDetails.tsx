@@ -192,10 +192,20 @@ const ProductDetails = () => {
     const tierInfo = isNumbered ? formatTierCalloutCopy(product, soldCount) : null;
     const editableSizes = getProductEditableSizes(editForm.sizes, editForm.sizeInventory);
     const galleryImages = isEditing && editForm.images ? editForm.images : product.images;
-    const shouldFitFullImage = product.id === PRODUCT_IDS.ABOVE_AS_BELOW_TEE
-        || product.id === PRODUCT_IDS.ABOVE_AS_BELOW_SHORTS
-        || product.id === PRODUCT_IDS.GREY_WAVE_WALLET_1_2
-        || product.id === PRODUCT_IDS.GREY_WAVE_WALLET_2_2;
+    // Products shot on a white backdrop that need bg-white + object-contain
+    // so their subject stays framed correctly against the PDP's dark theme.
+    // Add new wallet collections here as they ship — one-line push per collection.
+    const WHITE_BG_PRODUCT_IDS: Set<string> = new Set([
+        PRODUCT_IDS.ABOVE_AS_BELOW_TEE,
+        PRODUCT_IDS.ABOVE_AS_BELOW_SHORTS,
+        PRODUCT_IDS.GREY_WAVE_WALLET_1_2,
+        PRODUCT_IDS.GREY_WAVE_WALLET_2_2,
+        PRODUCT_IDS.PARTS_WALLET_1_4,
+        PRODUCT_IDS.PARTS_WALLET_2_4,
+        PRODUCT_IDS.PARTS_WALLET_3_4,
+        PRODUCT_IDS.PARTS_WALLET_4_4,
+    ]);
+    const shouldFitFullImage = WHITE_BG_PRODUCT_IDS.has(product.id);
     const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-dark';
     const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';
     const totalStock = Object.values(product.sizeInventory || {}).reduce((sum, count) => sum + Number(count || 0), 0);
