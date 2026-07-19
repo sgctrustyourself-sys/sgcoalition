@@ -754,5 +754,101 @@ export const INITIAL_PRODUCTS: Product[] = [
     "soldAt": "2024-06-01T00:00:00Z",
     "releasedAt": null,
     "archivedAt": "2024-06-01T00:00:00Z"
+  },
+  {
+    "id": "Coalition_Parts_Wallet_1_4",
+    "name": "Coalition 'Parts' Wallet 1/4",
+    "price": 85,
+    "images": [
+      "https://i.imgur.com/uqOcs5G.jpg",
+      "https://i.imgur.com/LEPl7MK.jpg"
+    ],
+    "description": "First piece of the Coalition 'Parts' 1/4 limited wallet run. Hand-finished with industrial detailing, raw-edge construction, and the Coalition mark on a numbered carry. Each piece is a distinct part of the whole — built different, numbered once, gone forever.",
+    "category": "wallet",
+    "isFeatured": false,
+    "isLimitedEdition": true,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 1
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
+  },
+  {
+    "id": "Coalition_Parts_Wallet_2_4",
+    "name": "Coalition 'Parts' Wallet 2/4",
+    "price": 85,
+    "images": [
+      "https://i.imgur.com/LBiZUtf.jpg",
+      "https://i.imgur.com/lLcjckD.jpg"
+    ],
+    "description": "Second piece of the Coalition 'Parts' limited wallet run. Hand-finished with industrial detailing, raw-edge construction, and the Coalition mark on a numbered carry. Each piece is a distinct part of the whole — built different, numbered once, gone forever.",
+    "category": "wallet",
+    "isFeatured": false,
+    "isLimitedEdition": true,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 1
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
+  },
+  {
+    "id": "Coalition_Parts_Wallet_3_4",
+    "name": "Coalition 'Parts' Wallet 3/4",
+    "price": 85,
+    "images": [
+      "https://i.imgur.com/83jXZKg.jpg",
+      "https://i.imgur.com/0OMUUgV.jpg"
+    ],
+    "description": "Third piece of the Coalition 'Parts' limited wallet run. Hand-finished with industrial detailing, raw-edge construction, and the Coalition mark on a numbered carry. Each piece is a distinct part of the whole — built different, numbered once, gone forever.",
+    "category": "wallet",
+    "isFeatured": false,
+    "isLimitedEdition": true,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 1
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
+  },
+  {
+    "id": "Coalition_Parts_Wallet_4_4",
+    "name": "Coalition 'Parts' Wallet 4/4",
+    "price": 85,
+    "images": [
+      "https://i.imgur.com/RqcU0I9.jpg",
+      "https://i.imgur.com/Lnimi33.jpg"
+    ],
+    "description": "Fourth and final piece of the Coalition 'Parts' limited wallet run. Hand-finished with industrial detailing, raw-edge construction, and the Coalition mark on a numbered carry. The closing piece — once sold, the full four-part assembly is gone forever.",
+    "category": "wallet",
+    "isFeatured": false,
+    "isLimitedEdition": true,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 1
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
   }
 ];

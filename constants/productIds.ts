@@ -13,4 +13,8 @@ export const PRODUCT_IDS = {
     NF_TEE: 'Coalition_NF_Tee',
     GREY_WAVE_WALLET_1_2: 'Coalition_Grey_Wave_Wallet_1_2',
     GREY_WAVE_WALLET_2_2: 'Coalition_Grey_Wave_Wallet_2_2',
+    PARTS_WALLET_1_4: 'Coalition_Parts_Wallet_1_4',
+    PARTS_WALLET_2_4: 'Coalition_Parts_Wallet_2_4',
+    PARTS_WALLET_3_4: 'Coalition_Parts_Wallet_3_4',
+    PARTS_WALLET_4_4: 'Coalition_Parts_Wallet_4_4',
 } as const;
