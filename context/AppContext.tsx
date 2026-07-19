@@ -1116,7 +1116,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } catch (e) { console.error('Connect wallet error:', e); }
     };
 
-    const connectManualWallet = async (address: string) => { if (user) setUser({ ...user, connectedWalletAddress: address, walletConnectionMethod: 'manual', walletConnectedAt: Date.now() }); };
+    // Signature widened from `(address: string)` to `(address?: string)` to match the
+    // AppContextType slot declared at line 58-59. Required by strictFunctionTypes
+    // contravariance: an impl narrower than its slot cannot be assigned to it.
+    // Behavior is preserved via an early-return guard for the missing-address case.
+    // Using `address === undefined` (not `!address`) keeps the empty-string pass-through
+    // behavior identical to the prior impl: original wrote `""` to state, so do we.
+    const connectManualWallet = async (address?: string) => { if (!user || address === undefined) return; setUser({ ...user, connectedWalletAddress: address, walletConnectionMethod: 'manual', walletConnectedAt: Date.now() }); };
     const disconnectWallet = async () => { if (user) setUser({ ...user, connectedWalletAddress: undefined, walletConnectionMethod: undefined, walletConnectedAt: undefined }); };
 
     const addReview = async (pid: string, r: Review) => {
