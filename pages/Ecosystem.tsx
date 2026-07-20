@@ -13,7 +13,6 @@ import { getGiveawayTicketCount, isSubscriberEligible } from '../utils/giveawayU
 
 import { V2_REWARD_RATE, POLYGON_RPC_URL, POLYGON_RPC_URLS } from '../constants';
 import { getBurnedSGCoinV1 } from '../services/web3Service';
-import { ethers } from 'ethers';
 
 const Ecosystem = () => {
     const { user, giveaways } = useApp();
@@ -29,11 +28,12 @@ const Ecosystem = () => {
             setIsLoadingCoinData(true);
             try {
                 // Try multiple RPCs for the burn stats
-                let provider = new ethers.JsonRpcProvider(POLYGON_RPC_URLS[0]);
+                const { ethers: e } = await import('ethers');
+                let provider = new e.JsonRpcProvider(POLYGON_RPC_URLS[0]);
                 try {
                     await provider.getNetwork();
-                } catch (e) {
-                    provider = new ethers.JsonRpcProvider(POLYGON_RPC_URLS[1]);
+                } catch (err) {
+                    provider = new e.JsonRpcProvider(POLYGON_RPC_URLS[1]);
                 }
 
                 const [data, burned] = await Promise.all([

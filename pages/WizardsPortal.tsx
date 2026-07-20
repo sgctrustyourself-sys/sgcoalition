@@ -4,7 +4,6 @@ import { ArrowUpRight, Zap, Flame, Sparkles, Wand2, Globe, Database, TrendingUp 
 import { Link } from 'react-router-dom';
 import { fetchSGCoinData } from '../utils/sgcoinApi';
 import { useApp } from '../context/AppContext';
-import { ethers } from 'ethers';
 import { getBurnedSGCoinV1, getRobustProvider } from '../services/web3Service';
 import { POLYGON_RPC_URL } from '../constants';
 import { useLiquidity } from '../hooks/useLiquidity';

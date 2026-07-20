@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Zap, Flame, Shield, Coins, ArrowUpRight, TrendingUp, Info, RefreshCw, Wallet } from 'lucide-react';
-import { ethers } from 'ethers';
 import { getBurnedSGCoinV1, getLiquidityProviderV2Balance, getRecentBurnActivity, BurnActivity, getRobustProvider, getNativeBalance } from '../services/web3Service';
 import { POLYGON_RPC_URL, TREASURY_WALLET_ADDRESS, QUICKSWAP_LP_ADDRESS, QUICKSWAP_V3_LP_ADDRESS, WPOL_ADDRESS } from '../constants';
 import DashboardLayout from '../components/layouts/DashboardLayout';
@@ -27,21 +26,22 @@ const TreasuryPage: React.FC = () => {
                 ]);
 
                 // Also fetch V3 and V2 liquidity (MATIC/WPOL) similar to useLiquidity
+                const { ethers: e } = await import('ethers');
                 const [v2Native, v3Native] = await Promise.all([
                     provider.getBalance(QUICKSWAP_LP_ADDRESS),
                     provider.getBalance(QUICKSWAP_V3_LP_ADDRESS)
                 ]);
 
-                const wpolContract = new ethers.Contract(WPOL_ADDRESS, ['function balanceOf(address owner) view returns (uint256)'], provider);
+                const wpolContract = new e.Contract(WPOL_ADDRESS, ['function balanceOf(address owner) view returns (uint256)'], provider);
                 const [v2Wpol, v3Wpol] = await Promise.all([
                     wpolContract.balanceOf(QUICKSWAP_LP_ADDRESS),
                     wpolContract.balanceOf(QUICKSWAP_V3_LP_ADDRESS)
                 ]);
 
-                const totalLiq = parseFloat(ethers.formatEther(v2Native)) +
-                    parseFloat(ethers.formatEther(v3Native)) +
-                    parseFloat(ethers.formatUnits(v2Wpol, 18)) +
-                    parseFloat(ethers.formatUnits(v3Wpol, 18));
+                const totalLiq = parseFloat(e.formatEther(v2Native)) +
+                    parseFloat(e.formatEther(v3Native)) +
+                    parseFloat(e.formatUnits(v2Wpol, 18)) +
+                    parseFloat(e.formatUnits(v3Wpol, 18));
 
                 // Total burned formatted similarly to Ecosystem dashboard
                 setRealBurned(burned);

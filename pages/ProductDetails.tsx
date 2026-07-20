@@ -9,7 +9,6 @@ import RequestSimilarModal from '../components/RequestSimilarModal';
 import ImageCropperModal from '../components/ui/ImageCropperModal';
 import PageLoader from '../components/ui/PageLoader';
 import Seo from '../components/Seo';
-import { ethers } from 'ethers';
 import { checkNftOwnership, switchToPolygon } from '../services/web3Service';
 import { uploadProductImage } from '../services/productUpload';
 import { moveArrayItem, remapIndexAfterMove } from '../utils/arrayMove';
@@ -96,7 +95,8 @@ const ProductDetails = () => {
             }
 
             // 3. Check Ownership
-            const provider = new ethers.BrowserProvider(window.ethereum);
+            const { ethers: e } = await import('ethers');
+            const provider = new e.BrowserProvider(window.ethereum);
             const isOwner = await checkNftOwnership(
                 product.nft.contractAddress,
                 product.nft.tokenId,

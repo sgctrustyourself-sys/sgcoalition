@@ -12,8 +12,14 @@ import {
     POLYGON_CHAIN_ID
 } from '../constants';
 import { AuthProvider } from '../types';
-import { ethers } from 'ethers';
 import { getAllowance, approveTokens, getSGCoinBalance } from '../services/web3Service';
+
+// Lazy-loaded ethers — only downloaded when the user initiates a migration action.
+let ethersModule: Promise<typeof import('ethers')> | null = null;
+const getEthers = () => {
+    if (!ethersModule) ethersModule = import('ethers');
+    return ethersModule;
+};
 
 const MigrationPage: React.FC = () => {
     const { user, loginUser, chainId, switchToPolygon, refreshBalances } = useApp();
@@ -26,6 +32,23 @@ const MigrationPage: React.FC = () => {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [step, setStep] = useState<'input' | 'success'>('input');
     const [txHash, setTxHash] = useState<string>('');
+    const [formattedV1Balance, setFormattedV1Balance] = useState<string>('0');
+    const [needsApproval, setNeedsApproval] = useState<boolean>(true);
+
+    // Re-compute approval requirement whenever the user changes the migrate amount
+    // or the on-chain allowance refreshes. Uses the cached ethers lazy-loader so the
+    // ~100 KB module is only fetched when a migration-related interaction first occurs.
+    useEffect(() => {
+        const compute = async () => {
+            if (!migrateAmount || parseFloat(migrateAmount) <= 0) {
+                setNeedsApproval(true);
+                return;
+            }
+            const { ethers: e } = await getEthers();
+            setNeedsApproval(allowance < e.parseUnits(migrateAmount, 9));
+        };
+        compute();
+    }, [migrateAmount, allowance]);
 
     const isWrongNetwork = chainId !== null && chainId !== POLYGON_CHAIN_ID;
 
@@ -37,10 +60,13 @@ const MigrationPage: React.FC = () => {
 
         setIsRefreshing(true);
         try {
-            const provider = new ethers.BrowserProvider(window.ethereum);
+            const { ethers: e } = await getEthers();
+            const provider = new e.BrowserProvider(window.ethereum);
             const bal = await getSGCoinBalance(user.walletAddress, provider);
             // Convert to bigint (V1 has 9 decimals)
-            setV1Balance(ethers.parseUnits(bal.toString(), 9));
+            const rawBalance = e.parseUnits(bal.toString(), 9);
+            setV1Balance(rawBalance);
+            setFormattedV1Balance(parseFloat(e.formatUnits(rawBalance, 9)).toLocaleString());
 
             const allow = await getAllowance(SGCOIN_V1_CONTRACT_ADDRESS, user.walletAddress, SGCOIN_MIGRATOR_ADDRESS, provider);
             setAllowance(allow);
@@ -55,13 +81,17 @@ const MigrationPage: React.FC = () => {
         fetchData();
     }, [user, chainId]);
 
-    const handleMax = () => {
-        setMigrateAmount(ethers.formatUnits(v1Balance, 9));
-    };        const handleApprove = async () => {
+    const handleMax = async () => {
+        const { ethers: e } = await getEthers();
+        setMigrateAmount(e.formatUnits(v1Balance, 9));
+    };
+
+    const handleApprove = async () => {
         if (!window.ethereum) return;
 
         // 1. Validate amount is > 0
-        const amountToApprove = ethers.parseUnits(migrateAmount ?? '0', 9);
+        const { ethers: e } = await getEthers();
+        const amountToApprove = e.parseUnits(migrateAmount ?? '0', 9);
         if (amountToApprove <= 0n) {
             addToast('Please enter an amount greater than 0', 'error');
             return;
@@ -69,12 +99,13 @@ const MigrationPage: React.FC = () => {
 
         setIsApproving(true);
         try {
-            const provider = new ethers.BrowserProvider(window.ethereum);
+            const { ethers: e } = await getEthers();
+            const provider = new e.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
 
             // 2. Approve Max Amount (Infinite Approval)
             // This prevents users from needing to re-approve for every migration
-            const hash = await approveTokens(SGCOIN_V1_CONTRACT_ADDRESS, SGCOIN_MIGRATOR_ADDRESS, ethers.MaxUint256, signer);
+            const hash = await approveTokens(SGCOIN_V1_CONTRACT_ADDRESS, SGCOIN_MIGRATOR_ADDRESS, e.MaxUint256, signer);
 
             if (hash) {
                 addToast('Approval successful! Your allowance is now permanent.', 'success');
@@ -95,9 +126,10 @@ const MigrationPage: React.FC = () => {
         if (!user || !user.walletAddress || !window.ethereum) return;
         setIsMigrating(true);
         try {
-            const provider = new ethers.BrowserProvider(window.ethereum);
+            const { ethers: e } = await getEthers();
+            const provider = new e.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
-            const amountToMigrate = ethers.parseUnits(migrateAmount ?? '0', 9);
+            const amountToMigrate = e.parseUnits(migrateAmount ?? '0', 9);
 
             // 1. Check Allowance Logic
             const currentAllowance = await getAllowance(SGCOIN_V1_CONTRACT_ADDRESS, user.walletAddress, SGCOIN_MIGRATOR_ADDRESS, provider);
@@ -111,7 +143,7 @@ const MigrationPage: React.FC = () => {
 
             // Standard Migrator ABI
             const migratorAbi = ['function migrate(uint256 amount) external'];
-            const migrator = new ethers.Contract(SGCOIN_MIGRATOR_ADDRESS, migratorAbi, signer);
+            const migrator = new e.Contract(SGCOIN_MIGRATOR_ADDRESS, migratorAbi, signer);
 
             // 2. Estimate Gas
             let gasLimit;
@@ -173,9 +205,6 @@ const MigrationPage: React.FC = () => {
                 </button>
             );
         }
-
-        const amountToMigrate = ethers.parseUnits(migrateAmount || '0', 9);
-        const needsApproval = allowance < amountToMigrate;
 
         if (needsApproval) {
             return (
@@ -282,7 +311,7 @@ const MigrationPage: React.FC = () => {
                                 <label className="text-[10px] font-bold text-gray-600 uppercase tracking-widest block mb-2">Available Balance</label>
                                 <div className="flex items-end gap-2">
                                     <p className="text-4xl font-mono font-bold truncate">
-                                        {user ? parseFloat(ethers.formatUnits(v1Balance, 9)).toLocaleString() : '---'}
+                                        {user ? formattedV1Balance : '---'}
                                     </p>
                                     <span className="text-gray-600 font-bold mb-1">V1</span>
                                 </div>
