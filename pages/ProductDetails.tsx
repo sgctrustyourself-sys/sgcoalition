@@ -62,6 +62,7 @@ const ProductDetails = () => {
 
     const [showRequestModal, setShowRequestModal] = useState(false);
     const [referralCode, setReferralCode] = useState<string | null>(null);
+    const [referralCommissionRate, setReferralCommissionRate] = useState<number | null>(null);
 
     const handleUnlockPerks = async () => {
         if (!product?.nft) return;
@@ -165,6 +166,7 @@ const ProductDetails = () => {
             if (!active) return;
 
             setReferralCode(stats?.referral_code ?? null);
+            setReferralCommissionRate(stats?.current_commission_rate ?? null);
         };
 
         loadReferralCode();
@@ -965,10 +967,18 @@ const ProductDetails = () => {
                                             <button
                                                 type="button"
                                                 onClick={handleShare}
-                                                className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 hover:border-white/20 transition-all group"
-                                                title={referralCode ? 'Share referral product link' : 'Share Product'}
+                                                className={`px-5 py-4 border rounded-sm transition-all group flex items-center gap-2 ${referralCode
+                                                    ? 'bg-brand-accent/10 border-brand-accent/30 hover:bg-brand-accent/20 hover:border-brand-accent/50'
+                                                    : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
+                                                }`}
+                                                title={referralCode ? 'Share your referral product link and earn commission' : 'Share Product'}
                                             >
-                                                <Share2 className="h-5 w-5 text-white opacity-60 group-hover:opacity-100 transition-opacity" />
+                                                <Share2 className={`h-5 w-5 transition-opacity ${referralCode ? 'text-brand-accent' : 'text-white opacity-60 group-hover:opacity-100'}`} />
+                                                {referralCode && (
+                                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent whitespace-nowrap">
+                                                        Share & Earn {referralCommissionRate ?? 5}%
+                                                    </span>
+                                                )}
                                             </button>
                                         </div>
                                     )}
@@ -1000,6 +1010,13 @@ const ProductDetails = () => {
                                             <span>Free shipping on all orders over $200</span>
                                         )}
                                     </p>
+
+                                    {/* Referral hint — shown when the user is logged in and has a code */}
+                                    {referralCode && !isUnavailable && (
+                                        <p className="text-[10px] text-brand-accent/70 text-center uppercase tracking-[0.2em] font-bold -mt-1">
+                                            Share your code — earn {referralCommissionRate ?? 5}% on every friend's purchase
+                                        </p>
+                                    )}
 
                                     {/* Local Impact Message */}
                                     <ImpactMessage className="mt-2" />
