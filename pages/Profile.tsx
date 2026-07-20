@@ -16,7 +16,7 @@ const ReferralDashboard = React.lazy(() => import('../components/ReferralDashboa
 const AccountLinking = React.lazy(() => import('../components/AccountLinking'));
 const PurchaseRequestsTab = React.lazy(() => import('../components/profile/PurchaseRequestsTab'));
 // SGCoinPayoutTab ships as a separate chunk so the eager Profile bundle
-// does not grow by ~14 KB raw. The tab itself renders <100 KB lazy + framer-motion
+// does not grow by ~14 KB raw. The tab itself renders <100 KB lazy + motion
 // only when the user opens the SGCOIN payout section.
 const SGCoinPayoutTab = React.lazy(() => import('../components/profile/SGCoinPayoutTab'));
 

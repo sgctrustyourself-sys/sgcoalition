@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Zap, Flame, Shield, Coins, ArrowUpRight, TrendingUp, Info, RefreshCw, Wallet } from 'lucide-react';
 import { getBurnedSGCoinV1, getLiquidityProviderV2Balance, getRecentBurnActivity, BurnActivity, getRobustProvider, getNativeBalance } from '../services/web3Service';
 import { POLYGON_RPC_URL, TREASURY_WALLET_ADDRESS, QUICKSWAP_LP_ADDRESS, QUICKSWAP_V3_LP_ADDRESS, WPOL_ADDRESS } from '../constants';

@@ -1,7 +1,7 @@
 import React from 'react';
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Tooltip } from 'react-tooltip';
 
 // US GeoJSON URL (Standard Albers USA projection)

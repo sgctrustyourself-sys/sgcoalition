@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { ArrowUpRight, Zap, Flame, Sparkles, Wand2, Globe, Database, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { fetchSGCoinData } from '../utils/sgcoinApi';

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Wallet, Mail, DollarSign, CheckCircle, Zap, ArrowUpRight, TrendingUp } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { sendAdminNotification } from '../services/emailService';
 

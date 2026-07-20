@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 
 const IntroScreen: React.FC = () => {
     const [isVisible, setIsVisible] = useState(false);

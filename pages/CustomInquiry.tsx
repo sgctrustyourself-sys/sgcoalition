@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Shirt, Scissors, Box, Sparkles, Upload, CheckCircle, AlertCircle, Loader2, ArrowLeft, X, Layers, Wallet } from 'lucide-react'; // Removed unused icons
 import { uploadAllInquiryImages, validateInquiryImage } from '../services/inquiryUpload';
 import { useApp } from '../context/AppContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 
 const CustomInquiry = () => {
     const navigate = useNavigate();

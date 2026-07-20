@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Sparkles, ArrowRight, Wallet as WalletIcon, Scissors, Stamp, Package, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import Seo from '../components/Seo';

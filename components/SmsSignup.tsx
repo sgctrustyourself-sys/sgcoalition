@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Send, CheckCircle, Loader, Ghost, AlertCircle } from 'lucide-react';
 import { supabase } from '../services/supabase';
 
