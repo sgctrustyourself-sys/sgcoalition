@@ -1,6 +1,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Hexagon, Package, Truck, CheckCircle, Clock, Settings, Wallet, Link as LinkIcon, AlertCircle, CheckCircle2, Copy, DollarSign, Star, Ticket, Heart, Vote } from 'lucide-react';
+import { Hexagon, Package, Truck, CheckCircle, Clock, Settings, Wallet, Link as LinkIcon, AlertCircle, CheckCircle2, Copy, Check, DollarSign, Star, Ticket, Heart, Vote, Users } from 'lucide-react';
+import { getReferralStats, generateReferralLink, type ReferralStats } from '../utils/referralSystem';
 import { useApp } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import Skeleton from '../components/ui/Skeleton';
@@ -42,6 +43,17 @@ const Profile = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [showManualInput, setShowManualInput] = useState(false);
+    const [profileReferralStats, setProfileReferralStats] = useState<ReferralStats | null>(null);
+    const [profileReferralCopied, setProfileReferralCopied] = useState(false);
+
+    useEffect(() => {
+        // Load referral stats for quick-access card in header
+        if (user) {
+            getReferralStats(user.uid).then(stats => {
+                if (stats) setProfileReferralStats(stats);
+            });
+        }
+    }, [user]);
 
     useEffect(() => {
         // Load orders from localStorage
@@ -173,6 +185,40 @@ const Profile = () => {
                                         Current Value: ${(user.sgCoinBalance * 0.002).toFixed(2)} USD
                                     </div>
                                 </div>
+
+                                {/* Quick-access referral code card */}
+                                {profileReferralStats && (
+                                    <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl border border-white/10 min-w-[220px] cursor-pointer hover:bg-white/[0.15] transition" onClick={() => setActiveTab('referrals')}>
+                                        <div className="text-xs text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                            <Users className="w-3.5 h-3.5 text-purple-400" />
+                                            Referral Code
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <code className="text-xl font-bold text-white font-mono tracking-wider">
+                                                {profileReferralStats.referral_code}
+                                            </code>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigator.clipboard.writeText(
+                                                        generateReferralLink(profileReferralStats.referral_code)
+                                                    );
+                                                    setProfileReferralCopied(true);
+                                                    setSuccess('Referral link copied!');
+                                                    setTimeout(() => {
+                                                        setProfileReferralCopied(false);
+                                                        setSuccess('');
+                                                    }, 2000);
+                                                }}
+                                                className="p-2 rounded-lg hover:bg-white/10 transition text-gray-400 hover:text-white"
+                                                title="Copy referral link"
+                                            >
+                                                {profileReferralCopied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                        <div className="text-xs text-purple-300 mt-1">Click to manage →</div>
+                                    </div>
+                                )}
                             </div>
                         </>
                     )}

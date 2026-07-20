@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CheckCircle, Package, Hexagon, Home, Loader } from 'lucide-react';
+import { CheckCircle, Package, Hexagon, Home, Loader, Copy, Check, Users } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
+import { getReferralStats, generateReferralLink, type ReferralStats } from '../utils/referralSystem';
 
 const OrderSuccess = () => {
     const [searchParams] = useSearchParams();
@@ -11,6 +12,8 @@ const OrderSuccess = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [shippingInfo, setShippingInfo] = useState<any>(null);
     const [isMembershipSuccess, setIsMembershipSuccess] = useState(false);
+    const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
+    const [referralCopied, setReferralCopied] = useState(false);
 
     const sessionId = searchParams.get('session_id');
     const type = searchParams.get('type');
@@ -152,6 +155,13 @@ const OrderSuccess = () => {
                     console.warn('No customer email found, skipping confirmation email.');
                 }
 
+                // Load referral stats for the post-purchase CTA (fire-and-forget)
+                if (user) {
+                    getReferralStats(user.uid).then(stats => {
+                        if (stats) setReferralStats(stats);
+                    });
+                }
+
                 setOrderDetails(order);
                 clearCart();
             } catch (error) {
@@ -284,6 +294,58 @@ const OrderSuccess = () => {
                             <p className="text-xs text-gray-500">Rewards will be credited to your wallet shortly.</p>
                         </div>
                     )}
+
+                    {/* Referral CTA — post-purchase is the highest-converting window */}
+                    {referralStats ? (
+                        <div className="bg-gradient-to-br from-purple-900/40 to-blue-900/40 border border-purple-500/30 rounded-xl p-6 mb-6 text-left">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                    <Users className="w-5 h-5 text-purple-300" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-white uppercase tracking-wide text-sm">Share the Coalition</h3>
+                                    <p className="text-xs text-gray-400">Earn commission on every referral sale</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 mb-3">
+                                <code className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white font-mono text-sm tracking-wider">
+                                    {referralStats.referral_code}
+                                </code>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(
+                                            generateReferralLink(referralStats.referral_code)
+                                        );
+                                        setReferralCopied(true);
+                                        setTimeout(() => setReferralCopied(false), 2000);
+                                    }}
+                                    className="px-4 py-3 bg-purple-500/20 border border-purple-500/30 rounded-lg hover:bg-purple-500/30 transition text-purple-200"
+                                    title="Copy referral link"
+                                >
+                                    {referralCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                </button>
+                            </div>
+                            <p className="text-xs text-gray-400">
+                                Share your code or link — friends enter it at checkout and you earn a commission.
+                            </p>
+                        </div>
+                    ) : !user ? (
+                        <div className="bg-white/[0.03] border border-white/10 rounded-xl p-6 mb-6 text-left">
+                            <div className="flex items-center gap-3 mb-2">
+                                <Users className="w-5 h-5 text-gray-400" />
+                                <h3 className="font-bold text-gray-300 uppercase tracking-wide text-sm">Earn commissions</h3>
+                            </div>
+                            <p className="text-sm text-gray-400 mb-4">
+                                Refer a friend and earn up to 40% on every sale. Create an account to get your referral code.
+                            </p>
+                            <Link
+                                to="/signup"
+                                className="inline-flex items-center gap-2 bg-white text-black px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-gray-200 transition"
+                            >
+                                Create Account
+                            </Link>
+                        </div>
+                    ) : null}
 
                     <div className="flex justify-center">
                         <Link to="/" className="inline-flex items-center gap-2 bg-black text-white px-8 py-3 rounded-sm font-bold uppercase tracking-widest hover:bg-gray-800 transition">
