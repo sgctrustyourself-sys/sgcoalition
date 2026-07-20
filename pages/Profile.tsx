@@ -2,6 +2,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Hexagon, Package, Truck, CheckCircle, Clock, Settings, Wallet, Link as LinkIcon, AlertCircle, CheckCircle2, Copy, Check, DollarSign, Star, Ticket, Heart, Vote, Users } from 'lucide-react';
 import { getReferralStats, generateReferralLink, type ReferralStats } from '../utils/referralSystem';
+import { trackReferralShare } from '../utils/referralAnalytics';
 import { useApp } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import Skeleton from '../components/ui/Skeleton';
@@ -203,6 +204,7 @@ const Profile = () => {
                                                     navigator.clipboard.writeText(
                                                         generateReferralLink(profileReferralStats.referral_code)
                                                     );
+                                                    void trackReferralShare(profileReferralStats.referral_code, 'profile_header');
                                                     setProfileReferralCopied(true);
                                                     setSuccess('Referral link copied!');
                                                     setTimeout(() => {

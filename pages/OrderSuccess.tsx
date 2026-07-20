@@ -4,6 +4,7 @@ import { CheckCircle, Package, Hexagon, Home, Loader, Copy, Check, Users } from 
 import { useApp } from '../context/AppContext';
 import { getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { getReferralStats, generateReferralLink, type ReferralStats } from '../utils/referralSystem';
+import { trackReferralShare } from '../utils/referralAnalytics';
 
 const OrderSuccess = () => {
     const [searchParams] = useSearchParams();
@@ -316,6 +317,7 @@ const OrderSuccess = () => {
                                         navigator.clipboard.writeText(
                                             generateReferralLink(referralStats.referral_code)
                                         );
+                                        void trackReferralShare(referralStats.referral_code, 'order_success');
                                         setReferralCopied(true);
                                         setTimeout(() => setReferralCopied(false), 2000);
                                     }}

@@ -15,6 +15,7 @@ import { uploadProductImage } from '../services/productUpload';
 import { moveArrayItem, remapIndexAfterMove } from '../utils/arrayMove';
 import { getProductEditableSizes, normalizeProductSizeData } from '../utils/productSizes';
 import { getReferralStats, generateProductReferralLink } from '../utils/referralSystem';
+import { trackReferralShare } from '../utils/referralAnalytics';
 import { isWalletProduct, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
 import { PRODUCT_IDS, WHITE_BG_PRODUCT_IDS } from '../constants/productIds';
 import { buildProductJsonLd, getProductSeo } from '../utils/seo';
@@ -399,6 +400,12 @@ const ProductDetails = () => {
         const url = referralCode
             ? generateProductReferralLink(referralCode, product.id)
             : window.location.href;
+
+        // Fire-and-forget share tracking — never blocks the clipboard/share action
+        if (referralCode) {
+            void trackReferralShare(referralCode, 'pdp');
+        }
+
         const shareText = referralCode
             ? `Check out ${product.name} on SG Coalition. This link includes my Coalition referral code if you decide to pick it up.`
             : `Check out ${product.name} on SG Coalition!`;
