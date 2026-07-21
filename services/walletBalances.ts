@@ -1,4 +1,3 @@
-import { ethers } from 'ethers';
 import {
     POLYGON_CHAIN_ID,
     SGCOIN_BURN_ADDRESS,
@@ -6,6 +5,15 @@ import {
     SGCOIN_V2_CONTRACT_ADDRESS,
     POLYGON_RPC_URL
 } from '../constants';
+
+// Lazy-loaded ethers — ~100 KB chunk only downloaded when a crypto function
+// is first called (connect wallet, check balance, pay with crypto, etc.).
+// Cached at module level so subsequent calls resolve instantly.
+let ethersModule: Promise<typeof import('ethers')> | null = null;
+const getEthers = () => {
+    if (!ethersModule) ethersModule = import('ethers');
+    return ethersModule;
+};
 
 const ERC20_ABI = [
     'function balanceOf(address owner) view returns (uint256)',
@@ -20,14 +28,17 @@ export interface WalletBalanceSnapshot {
     totalMigrated: number;
 }
 
-const createPolygonProvider = () =>
-    new ethers.JsonRpcProvider(
+const createPolygonProvider = async () => {
+    const { ethers } = await getEthers();
+    return new ethers.JsonRpcProvider(
         POLYGON_RPC_URL,
         { chainId: 137, name: 'polygon' },
         { staticNetwork: true }
     );
+};
 
 export const getSGCoinBalance = async (address: string, provider: any): Promise<string> => {
+    const { ethers } = await getEthers();
     try {
         const network = await provider.getNetwork();
 
@@ -47,6 +58,7 @@ export const getSGCoinBalance = async (address: string, provider: any): Promise<
 };
 
 export const getSGCoinV2Balance = async (address: string, provider: any): Promise<string> => {
+    const { ethers } = await getEthers();
     try {
         const network = await provider.getNetwork();
 
@@ -66,6 +78,7 @@ export const getSGCoinV2Balance = async (address: string, provider: any): Promis
 };
 
 export const getBurnedSGCoinV1 = async (provider: any): Promise<string> => {
+    const { ethers } = await getEthers();
     try {
         const network = await provider.getNetwork();
         if (Number(network.chainId) !== POLYGON_CHAIN_ID) return AUDITED_BURN;
@@ -94,7 +107,7 @@ export const getBurnedSGCoinV1 = async (provider: any): Promise<string> => {
 };
 
 export const fetchWalletBalanceSnapshot = async (address: string): Promise<WalletBalanceSnapshot> => {
-    const provider = createPolygonProvider();
+    const provider = await createPolygonProvider();
 
     const [v1, v2, burned] = await Promise.all([
         getSGCoinBalance(address, provider).catch(() => '0'),

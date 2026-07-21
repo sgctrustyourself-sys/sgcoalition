@@ -213,6 +213,19 @@ export interface PayPalCaptureConfirmation {
     payerEmail: string | null;
 }
 
+// OAuth2 token endpoint response shape. Distinct from PayPalOrderResponse
+// because the OAuth endpoint returns { access_token, expires_in, scope }
+// whereas /v2/checkout/orders returns { id, status, purchase_units }.
+export interface PayPalOAuthResponse {
+    access_token?: string;
+    token_type?: string;
+    expires_in?: number;
+    scope?: string;
+    error?: string;
+    error_description?: string;
+    [key: string]: unknown;
+}
+
 export interface PayPalOrderResponse {
     id?: string;
     status?: string;
@@ -225,8 +238,11 @@ export interface PayPalOrderResponse {
 }
 
 // ---------- Resend ----------
-// Subset of CreateEmailOptions without from (which sendResendEmail injects).
-export type ResendEmailPayload = Omit<CreateEmailOptions, 'from'>;
+// Self-referential to Resend's actual API surface: Omit<Parameters<Resend['emails']['send']>[0], 'from'>
+// keeps us compatible with whatever Resend's runtime actually accepts rather
+// than the standalone `CreateEmailOptions` exported alias (which has diverged
+// historically as Resend added scheduled-at, idempotency-key, audience fields).
+export type ResendEmailPayload = Omit<Parameters<typeof import('resend').Resend.prototype['emails']['send']>[0], 'from'>;
 
 // ---------- Supabase errors ----------
 export interface SupabasePgError {

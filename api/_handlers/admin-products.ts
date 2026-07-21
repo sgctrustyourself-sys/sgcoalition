@@ -11,68 +11,74 @@
 // This handler mirrors the complete-order pattern: verify the static
 // token, then use the service-role client for the actual write.
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { clearOtherFeaturedProducts } from '../../utils/featuredExclusivity';
+import {
+    type ApiRequest,
+    type ApiResponse,
+    type ProductRow,
+} from '../_types';
+import {
+    createHttpError,
+    parseBody,
+    setCorsHeaders,
+    type HttpError,
+} from '../_helpers';
 
-function setCorsHeaders(req: any, res: any) {
-    const configuredOrigin = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
-    const allowedOrigins = new Set([
-        configuredOrigin,
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3001',
-    ]);
-    const requestOrigin = req.headers?.origin;
-    const responseOrigin = requestOrigin && allowedOrigins.has(requestOrigin) ? requestOrigin : configuredOrigin;
-
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', responseOrigin);
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,POST,DELETE');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-}
-
-function getBearerToken(req: any): string | null {
+function getBearerToken(req: ApiRequest): string | null {
     const header = req.headers?.authorization || req.headers?.Authorization || '';
     const match = String(header).match(/^Bearer\s+(.+)$/i);
     return match?.[1] || null;
 }
 
-function isAuthorized(req: any): boolean {
+function isAuthorized(req: ApiRequest): boolean {
     const token = getBearerToken(req);
     if (!token) return false;
     const adminToken = (process.env.ADMIN_API_TOKEN || '').trim();
     return adminToken.length > 0 && token === adminToken;
 }
 
-function getSupabaseAdmin() {
+function getSupabaseAdmin(): SupabaseClient {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
     if (!supabaseUrl || !serviceRoleKey) {
-        throw Object.assign(new Error('Supabase admin service is not configured.'), { status: 503 });
+        throw createHttpError(503, 'Supabase admin service is not configured.');
     }
 
     return createClient(supabaseUrl, serviceRoleKey);
 }
 
-function parseBody(req: any) {
-    if (!req.body) return {};
-    if (typeof req.body === 'string') {
-        try {
-            return JSON.parse(req.body);
-        } catch {
-            throw Object.assign(new Error('Invalid JSON request body.'), { status: 400 });
-        }
-    }
-    return req.body;
+// Inputs from the Admin Product Manager UI. All fields optional because
+// the UI uses these as a partial-update payload (any field the operator
+// omits is left untouched on the DB row).
+interface ProductDraft {
+    id?: string;
+    name?: string;
+    price?: number | string;
+    category?: string;
+    images?: string[];
+    description?: string;
+    isFeatured?: boolean;
+    isLimitedEdition?: boolean;
+    pricingTiers?: unknown;
+    editionSize?: number | string | null;
+    sizes?: string[];
+    sizeInventory?: Record<string, number>;
+    nft?: unknown;
+    archived?: boolean;
 }
 
-async function addProduct(body: any) {
+interface AddProductBody {
+    product?: ProductDraft;
+    [key: string]: unknown;
+}
+
+async function addProduct(body: AddProductBody): Promise<ProductRow> {
     const supabase = getSupabaseAdmin();
     const product = body.product;
     if (!product || !product.id || !product.name) {
-        throw Object.assign(new Error('Product with id and name is required.'), { status: 400 });
+        throw createHttpError(400, 'Product with id and name is required.');
     }
 
     const dbProduct = {
@@ -88,7 +94,7 @@ async function addProduct(body: any) {
         edition_size: product.editionSize ?? null,
         sizes: product.sizes || [],
         size_inventory: product.sizeInventory || {},
-        nft_metadata: product.nft || null,
+        nft_metadata: product.nft ?? null,
         archived: product.archived || false,
     };
 
@@ -99,7 +105,7 @@ async function addProduct(body: any) {
         .single();
 
     if (error) {
-        throw Object.assign(new Error(error.message || 'Failed to add product.'), { status: 500 });
+        throw createHttpError(500, error.message || 'Failed to add product.');
     }
 
     // Clear other featured products AFTER successful insert so a failed
@@ -110,19 +116,19 @@ async function addProduct(body: any) {
         warn: (message) => console.warn(`[admin-products] ${message.replace('[featured-exclusivity] ', '')}`),
     });
 
-    return data;
+    return data as ProductRow;
 }
 
-async function updateProduct(body: any) {
+async function updateProduct(body: AddProductBody): Promise<ProductRow> {
     const supabase = getSupabaseAdmin();
     const product = body.product;
     if (!product || !product.id) {
-        throw Object.assign(new Error('Product with id is required.'), { status: 400 });
+        throw createHttpError(400, 'Product with id is required.');
     }
 
     // Non-destructive PATCH: only update fields the client actually sent
     // (mirrors the same fix in server.cjs).
-    const dbProduct: Record<string, any> = {};
+    const dbProduct: Record<string, unknown> = {};
     if (product.name !== undefined) dbProduct.name = product.name;
     if (product.price !== undefined) dbProduct.price = Number(product.price || 0);
     if (product.category !== undefined) dbProduct.category = product.category;
@@ -145,22 +151,22 @@ async function updateProduct(body: any) {
         .single();
 
     if (error) {
-        throw Object.assign(new Error(error.message || 'Failed to update product.'), { status: 500 });
+        throw createHttpError(500, error.message || 'Failed to update product.');
     }
 
     // Clear other featured products AFTER successful update (see addProduct comment)
-    await clearOtherFeaturedProducts(supabase, product.id, dbProduct.is_featured, {
+    await clearOtherFeaturedProducts(supabase, product.id, !!product.isFeatured, {
         warn: (message) => console.warn(`[admin-products] ${message.replace('[featured-exclusivity] ', '')}`),
     });
 
-    return data;
+    return data as ProductRow;
 }
 
-async function deleteProduct(body: any) {
+async function deleteProduct(body: { id?: string }): Promise<{ deleted: true; id: string }> {
     const supabase = getSupabaseAdmin();
     const id = String(body.id || '').trim();
     if (!id) {
-        throw Object.assign(new Error('Product ID is required.'), { status: 400 });
+        throw createHttpError(400, 'Product ID is required.');
     }
 
     const { error } = await supabase
@@ -169,13 +175,13 @@ async function deleteProduct(body: any) {
         .eq('id', id);
 
     if (error) {
-        throw Object.assign(new Error(error.message || 'Failed to delete product.'), { status: 500 });
+        throw createHttpError(500, error.message || 'Failed to delete product.');
     }
 
     return { deleted: true, id };
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
     setCorsHeaders(req, res);
 
     if (req.method === 'OPTIONS') {
@@ -192,12 +198,12 @@ export default async function handler(req: any, res: any) {
         const body = parseBody(req);
 
         if (req.method === 'POST') {
-            res.status(200).json(await addProduct(body));
+            res.status(200).json(await addProduct(body as AddProductBody));
             return;
         }
 
         if (req.method === 'PATCH') {
-            res.status(200).json(await updateProduct(body));
+            res.status(200).json(await updateProduct(body as AddProductBody));
             return;
         }
 
@@ -207,9 +213,10 @@ export default async function handler(req: any, res: any) {
         }
 
         res.status(405).json({ error: 'Method not allowed' });
-    } catch (error: any) {
-        const status = Number(error?.status || 500);
-        console.error('[admin-products]', error?.message || error);
-        res.status(status).json({ error: error?.message || 'Product request failed.' });
+    } catch (error: unknown) {
+        const httpError = error as Partial<HttpError>;
+        const status = Number(httpError?.status || 500);
+        console.error('[admin-products]', httpError?.message || error);
+        res.status(status).json({ error: httpError?.message || 'Product request failed.' });
     }
 }

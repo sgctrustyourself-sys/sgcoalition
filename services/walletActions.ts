@@ -1,5 +1,13 @@
-import { ethers, BrowserProvider } from 'ethers';
 import { fetchWalletBalanceSnapshot } from './walletBalances';
+
+// Lazy-loaded ethers — ~100 KB chunk only downloaded when a crypto function
+// is first called (connect wallet, check balance, pay with crypto, etc.).
+// Cached at module level so subsequent calls resolve instantly.
+let ethersModule: Promise<typeof import('ethers')> | null = null;
+const getEthers = () => {
+    if (!ethersModule) ethersModule = import('ethers');
+    return ethersModule;
+};
 
 export interface WalletData {
     address: string;
@@ -22,6 +30,7 @@ export const connectWallet = async (): Promise<WalletData | null> => {
     }
 
     try {
+        const { ethers, BrowserProvider } = await getEthers();
         const provider = new BrowserProvider(window.ethereum);
         const accounts = await provider.send('eth_requestAccounts', []);
 

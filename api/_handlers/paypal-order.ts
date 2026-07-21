@@ -1,57 +1,26 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet.js';
-
-interface HttpError extends Error {
-    status?: number;
-}
-
-type NormalizedCheckoutItem = {
-    productId: string;
-    selectedSize: string;
-    quantity: number;
-    keychainClipOn: boolean;
-};
+import {
+    type ApiRequest,
+    type ApiResponse,
+    type PayPalCaptureOrderInput,
+    type PayPalCreateOrderInput,
+    type PayPalNormalizedCheckoutItem,
+    type PayPalOAuthResponse,
+    type PayPalOrderResponse,
+    type ProductRow,
+} from '../_types';
+import {
+    createHttpError,
+    parseBody,
+    setCorsHeaders,
+} from '../_helpers';
 
 const PAYPAL_LIVE_API = 'https://api-m.paypal.com';
 const PAYPAL_SANDBOX_API = 'https://api-m.sandbox.paypal.com';
 const CURRENCY_CODE = 'USD';
 const KEYCHAIN_CLIP_PRICE_CENTS = 1000;
 const MAX_PAYPAL_QUANTITY = 99;
-
-function setCorsHeaders(req: any, res: any) {
-    const configuredOrigin = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
-    const allowedOrigins = new Set([
-        configuredOrigin,
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3001',
-    ]);
-    const requestOrigin = req.headers?.origin;
-    const responseOrigin = requestOrigin && allowedOrigins.has(requestOrigin) ? requestOrigin : configuredOrigin;
-
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', responseOrigin);
-    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-}
-
-function createHttpError(status: number, message: string): HttpError {
-    const error = new Error(message) as HttpError;
-    error.status = status;
-    return error;
-}
-
-function parseBody(req: any) {
-    if (!req.body) return {};
-    if (typeof req.body !== 'string') return req.body;
-
-    try {
-        return JSON.parse(req.body);
-    } catch {
-        throw createHttpError(400, 'Invalid JSON request body.');
-    }
-}
 
 function getPaypalBaseUrl() {
     const explicitBaseUrl = process.env.PAYPAL_API_BASE_URL?.trim();
@@ -72,7 +41,7 @@ function getPaypalCredentials() {
     return { clientId, clientSecret };
 }
 
-function getSupabaseAdmin() {
+function getSupabaseAdmin(): SupabaseClient {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
@@ -98,12 +67,13 @@ function parseMoneyCents(value: unknown, fieldName: string) {
     return Math.round(parsed * 100);
 }
 
-function normalizeCheckoutItems(items: any[] = []): NormalizedCheckoutItem[] {
+function normalizeCheckoutItems(items: unknown[]): PayPalNormalizedCheckoutItem[] {
     if (!Array.isArray(items) || items.length === 0) {
         throw createHttpError(400, 'PayPal order requires at least one item.');
     }
 
-    return items.map((item, index) => {
+    return items.map((rawItem, index) => {
+        const item = (rawItem ?? {}) as Record<string, unknown>;
         const productId = String(item.productId || item.product_id || item.id || '').trim();
         if (!productId) {
             throw createHttpError(400, `Item ${index + 1} is missing a product ID.`);
@@ -123,7 +93,7 @@ function normalizeCheckoutItems(items: any[] = []): NormalizedCheckoutItem[] {
     });
 }
 
-async function loadProductsForItems(items: NormalizedCheckoutItem[]) {
+async function loadProductsForItems(items: PayPalNormalizedCheckoutItem[]): Promise<Map<string, ProductRow>> {
     const productIds = [...new Set(items.map(item => item.productId))];
     const { data, error } = await getSupabaseAdmin()
         .from('products')
@@ -134,7 +104,9 @@ async function loadProductsForItems(items: NormalizedCheckoutItem[]) {
         throw createHttpError(500, error.message || 'Unable to verify checkout products.');
     }
 
-    const products = new Map<string, any>((data || []).map((product: any) => [String(product.id), product]));
+    const products = new Map<string, ProductRow>(
+        ((data as ProductRow[] | null) || []).map(product => [String(product.id), product])
+    );
     const missing = productIds.filter(id => !products.has(id));
     if (missing.length > 0) {
         throw createHttpError(409, `Checkout contains unavailable product(s): ${missing.join(', ')}.`);
@@ -143,7 +115,7 @@ async function loadProductsForItems(items: NormalizedCheckoutItem[]) {
     return products;
 }
 
-function getExpectedUnitAmountCents(product: any, item: NormalizedCheckoutItem) {
+function getExpectedUnitAmountCents(product: ProductRow | undefined, item: PayPalNormalizedCheckoutItem) {
     if (product?.archived) {
         throw createHttpError(409, `${product.name || 'This item'} is no longer available.`);
     }
@@ -153,21 +125,21 @@ function getExpectedUnitAmountCents(product: any, item: NormalizedCheckoutItem) 
     const addOnCents = item.keychainClipOn && category === 'wallet' ? KEYCHAIN_CLIP_PRICE_CENTS : 0;
 
     if (item.keychainClipOn && category !== 'wallet') {
-        throw createHttpError(409, `${product.name || 'This item'} does not support the keychain clip add-on.`);
+        throw createHttpError(409, `${product?.name || 'This item'} does not support the keychain clip add-on.`);
     }
 
-    const inventory = product?.size_inventory || {};
+    const inventory = (product?.size_inventory ?? {}) as Record<string, number>;
     if (inventory && Object.prototype.hasOwnProperty.call(inventory, item.selectedSize)) {
         const available = Number(inventory[item.selectedSize] || 0);
         if (available < item.quantity) {
-            throw createHttpError(409, `${product.name || 'This item'} is no longer available in the requested quantity.`);
+            throw createHttpError(409, `${product?.name || 'This item'} is no longer available in the requested quantity.`);
         }
     }
 
     return basePriceCents + addOnCents;
 }
 
-async function buildPayPalItems(items: NormalizedCheckoutItem[]) {
+async function buildPayPalItems(items: PayPalNormalizedCheckoutItem[]) {
     const products = await loadProductsForItems(items);
 
     return items.map((item, index) => {
@@ -181,7 +153,7 @@ async function buildPayPalItems(items: NormalizedCheckoutItem[]) {
             paypalItem: {
                 name,
                 quantity: String(item.quantity),
-                category: 'PHYSICAL_GOODS',
+                category: 'PHYSICAL_GOODS' as const,
                 unit_amount: {
                     currency_code: CURRENCY_CODE,
                     value: moneyFromCents(unitAmountCents),
@@ -198,7 +170,7 @@ function getRequestId(prefix: string, value: unknown) {
     return normalized || `${prefix}_${Date.now()}`;
 }
 
-async function getAccessToken() {
+async function getAccessToken(): Promise<string> {
     const { clientId, clientSecret } = getPaypalCredentials();
     const response = await fetch(`${getPaypalBaseUrl()}/v1/oauth2/token`, {
         method: 'POST',
@@ -209,15 +181,15 @@ async function getAccessToken() {
         body: 'grant_type=client_credentials',
     });
 
-    const data = await response.json().catch(() => ({}));
+    const data = (await response.json().catch(() => ({}))) as PayPalOAuthResponse;
     if (!response.ok || !data.access_token) {
         throw createHttpError(response.status || 502, data.error_description || data.error || 'Unable to authenticate with PayPal.');
     }
 
-    return data.access_token as string;
+    return data.access_token;
 }
 
-async function createPaypalOrder(body: any) {
+async function createPaypalOrder(body: PayPalCreateOrderInput) {
     const normalizedItems = normalizeCheckoutItems(Array.isArray(body.items) ? body.items : []);
     const lineItems = await buildPayPalItems(normalizedItems);
     const itemTotalCents = lineItems.reduce((sum, item) => sum + item.lineTotalCents, 0);
@@ -284,7 +256,7 @@ async function createPaypalOrder(body: any) {
         }),
     });
 
-    const data = await response.json().catch(() => ({}));
+    const data: PayPalOrderResponse = await response.json().catch(() => ({}));
     if (!response.ok || !data.id) {
         throw createHttpError(response.status || 502, data.message || data.error || 'Unable to create PayPal order.');
     }
@@ -292,7 +264,7 @@ async function createPaypalOrder(body: any) {
     return { id: data.id, status: data.status, amount: moneyFromCents(orderTotalCents), referenceId };
 }
 
-async function capturePaypalOrder(body: any) {
+async function capturePaypalOrder(body: PayPalCaptureOrderInput) {
     const orderId = String(body.orderId || '').trim();
     if (!orderId) throw createHttpError(400, 'PayPal order ID is required.');
 
@@ -307,7 +279,7 @@ async function capturePaypalOrder(body: any) {
         },
     });
 
-    const data = await response.json().catch(() => ({}));
+    const data: PayPalOrderResponse = await response.json().catch(() => ({}));
     if (!response.ok) {
         throw createHttpError(response.status || 502, data.message || data.error || 'Unable to capture PayPal order.');
     }
@@ -329,7 +301,7 @@ async function capturePaypalOrder(body: any) {
     };
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
     setCorsHeaders(req, res);
 
     if (req.method === 'OPTIONS') {
@@ -343,23 +315,24 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const body = parseBody(req);
+        const body = parseBody(req) as PayPalCreateOrderInput & PayPalCaptureOrderInput;
         const action = String(body.action || '');
 
         if (action === 'create') {
-            res.status(200).json(await createPaypalOrder(body));
+            res.status(200).json(await createPaypalOrder(body as PayPalCreateOrderInput));
             return;
         }
 
         if (action === 'capture') {
-            res.status(200).json(await capturePaypalOrder(body));
+            res.status(200).json(await capturePaypalOrder(body as PayPalCaptureOrderInput));
             return;
         }
 
         res.status(400).json({ error: 'Invalid PayPal action.' });
-    } catch (error: any) {
-        const status = Number(error?.status || 500);
-        console.error('[PayPal API]', error?.message || error);
-        res.status(status).json({ error: error?.message || 'PayPal request failed.' });
+    } catch (error: unknown) {
+        const httpError = error as { status?: number; message?: string };
+        const status = Number(httpError?.status || 500);
+        console.error('[PayPal API]', httpError?.message || error);
+        res.status(status).json({ error: httpError?.message || 'PayPal request failed.' });
     }
 }

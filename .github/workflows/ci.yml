@@ -1,4 +1,4 @@
-name: CI - Full Vitest Suite
+name: CI — Vitest + Build + Depcheck
 
 on:
   pull_request:
@@ -15,7 +15,7 @@ on:
 
 jobs:
   test:
-    name: Run vitest suite
+    name: Vitest + Build + Depcheck
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -50,3 +50,13 @@ jobs:
           # The prebuild hook (generateSeoArtifacts.mjs) parses
           # INITIAL_PRODUCTS from source to generate sitemaps and
           # static SEO pages. No Supabase or Imgur secrets required.
+
+      - name: Audit dependencies (depcheck)
+        run: npx depcheck --ignores="@types/*,eslint*,vitest,@vitejs/*,typescript,tsx,tslib,prettier,playwright-core,depcheck"
+        env:
+          # Curated ignore list for known false positives:
+          #   prettier          — config-driven (.prettierrc), not imported
+          #   playwright-core   — bundled by playwright (direct dep)
+          #   depcheck          — self-reference
+          #   @types/*, eslint*, vitest, @vitejs/*, typescript, tsx, tslib
+          #                     — dev tooling, not production deps

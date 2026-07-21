@@ -1,6 +1,7 @@
 import path from 'path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig(() => {
   return {
@@ -15,7 +16,15 @@ export default defineConfig(() => {
         }
       }
     },
-    plugins: [react()],
+    plugins: [
+      react(),
+      visualizer({
+        filename: 'dist/stats.html',
+        open: false,
+        gzipSize: true,
+        brotliSize: true,
+      }),
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
@@ -27,5 +36,8 @@ export default defineConfig(() => {
     // through esbuild's transform pipeline. On Vercel's tighter build-worker
     // RAM ceiling this OOM-kills mid-`transforming...`. Rollup's default
     // chunker tree-shakes per export, so we intentionally omit manualChunks.
+    build: {
+      sourcemap: true,
+    },
   };
 });

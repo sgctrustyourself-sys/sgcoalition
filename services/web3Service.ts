@@ -1,4 +1,3 @@
-import { ethers, BrowserProvider } from 'ethers';
 import {
     SGCOIN_V1_CONTRACT_ADDRESS,
     SGCOIN_V2_CONTRACT_ADDRESS,
@@ -11,10 +10,20 @@ import {
 } from '../constants';
 import { fetchBurnActivity } from '../utils/polygonScanApi';
 
+// Lazy-loaded ethers — ~100 KB chunk only downloaded when a crypto function
+// is first called (connect wallet, check balance, pay with crypto, etc.).
+// Cached at module level so subsequent calls resolve instantly.
+let ethersModule: Promise<typeof import('ethers')> | null = null;
+const getEthers = () => {
+    if (!ethersModule) ethersModule = import('ethers');
+    return ethersModule;
+};
+
 /**
  * Creates a robust Ethers provider with static network info
  */
-export const getStaticProvider = () => {
+export const getStaticProvider = async () => {
+    const { ethers } = await getEthers();
     return new ethers.JsonRpcProvider(POLYGON_RPC_URL, {
         chainId: 137,
         name: 'polygon'
@@ -27,6 +36,7 @@ export const getStaticProvider = () => {
  * Attempts to get a working provider from a list of RPCs
  */
 export const getRobustProvider = async (): Promise<any> => {
+    const { ethers } = await getEthers();
     for (const url of POLYGON_RPC_URLS) {
         try {
             const provider = new ethers.JsonRpcProvider(url, { chainId: 137, name: 'polygon' }, { staticNetwork: true });
@@ -67,6 +77,7 @@ const ERC1155_ABI = [
 ];
 
 export const getSGCoinBalance = async (address: string, provider: any): Promise<string> => {
+    const { ethers } = await getEthers();
     try {
         const network = await provider.getNetwork();
 
@@ -89,6 +100,7 @@ export const getSGCoinBalance = async (address: string, provider: any): Promise<
 };
 
 export const getSGCoinV2Balance = async (address: string, provider: any): Promise<string> => {
+    const { ethers } = await getEthers();
     try {
         const network = await provider.getNetwork();
 
@@ -110,6 +122,7 @@ export const getSGCoinV2Balance = async (address: string, provider: any): Promis
 };
 
 export const getBurnedSGCoinV1 = async (provider: any): Promise<string> => {
+    const { ethers } = await getEthers();
     // Audit-verified fallback if live data fails
     const AUDITED_BURN = '1,777,161';
 
@@ -142,6 +155,7 @@ export const getBurnedSGCoinV1 = async (provider: any): Promise<string> => {
 };
 
 export const getNativeBalance = async (address: string, provider: any): Promise<string> => {
+    const { ethers } = await getEthers();
     try {
         const balance = await provider.getBalance(address);
         return ethers.formatEther(balance);
@@ -152,6 +166,7 @@ export const getNativeBalance = async (address: string, provider: any): Promise<
 };
 
 export const getLiquidityProviderV2Balance = async (provider: any): Promise<string> => {
+    const { ethers } = await getEthers();
     try {
         const contract = new ethers.Contract(SGCOIN_V2_CONTRACT_ADDRESS, ERC20_ABI, provider);
         const balance = await contract.balanceOf(SGCOIN_LIQUIDITY_PROVIDER);
@@ -172,6 +187,7 @@ export interface BurnActivity {
 }
 
 export const getRecentBurnActivity = async (provider: any): Promise<BurnActivity[]> => {
+    const { ethers } = await getEthers();
     try {
         // First try PolygonScan API for a richer history
         const apiActivities = await fetchBurnActivity(20);
@@ -217,7 +233,8 @@ export const checkNftOwnership = async (
     try {
         if (!window.ethereum) return false;
 
-        const provider = existingProvider || new ethers.BrowserProvider(window.ethereum);
+        const { ethers, BrowserProvider } = await getEthers();
+        const provider = existingProvider || new BrowserProvider(window.ethereum);
         const network = await provider.getNetwork();
 
         if (Number(network.chainId) !== POLYGON_CHAIN_ID) {
@@ -241,7 +258,8 @@ export const connectWallet = async (): Promise<WalletData | null> => {
     }
 
     try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        const { ethers, BrowserProvider } = await getEthers();
+        const provider = new BrowserProvider(window.ethereum);
         const accounts = await provider.send("eth_requestAccounts", []);
 
         if (accounts.length === 0) {
@@ -336,6 +354,7 @@ export const switchToPolygon = async (): Promise<boolean> => {
 };
 
 export const getAllowance = async (tokenAddress: string, owner: string, spender: string, provider: any): Promise<bigint> => {
+    const { ethers } = await getEthers();
     try {
         const abi = ['function allowance(address owner, address spender) view returns (uint256)'];
         const contract = new ethers.Contract(tokenAddress, abi, provider);
@@ -347,6 +366,7 @@ export const getAllowance = async (tokenAddress: string, owner: string, spender:
 };
 
 export const approveTokens = async (tokenAddress: string, spender: string, amount: bigint, signer: any): Promise<string | null> => {
+    const { ethers } = await getEthers();
     try {
         const abi = ['function approve(address spender, uint256 amount) returns (bool)'];
         const contract = new ethers.Contract(tokenAddress, abi, signer);
@@ -363,7 +383,8 @@ export const payWithCrypto = async (amountUSD: number, merchantAddress: string):
     try {
         if (!window.ethereum) throw new Error("No crypto wallet found");
 
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        const { ethers, BrowserProvider } = await getEthers();
+        const provider = new BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
 
         // For MVP, we'll convert USD to ETH roughly (assuming $3000 ETH for safety/demo)
@@ -392,6 +413,7 @@ const MINIWIZARD_ABI = [
 ];
 
 export const fetchUserMiniWizards = async (ownerAddress: string, provider: any): Promise<any[]> => {
+    const { ethers } = await getEthers();
     try {
         const network = await provider.getNetwork();
         if (Number(network.chainId) !== POLYGON_CHAIN_ID) {
