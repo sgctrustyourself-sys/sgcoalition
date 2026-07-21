@@ -15,6 +15,20 @@ import { getGiveawayTicketCount, isSubscriberEligible } from '../utils/giveawayU
 import { V2_REWARD_RATE, POLYGON_RPC_URLS } from '../constants';
 import { getBurnedSGCoinV1 } from '../services/web3Service';
 
+/**
+ * Live-data freshness label. Pure factual copy matching the GitHub
+ * status-page / Stripe dashboard convention visitors trust — no
+ * celebration framing, no countdowns (peaceful-space framework).
+ * Output progression: "Loading…" → "just now" → "Ns ago" → "Nm ago".
+ */
+const formatLastRefreshed = (lastUpdatedAt: Date | null, now: number): string => {
+    if (!lastUpdatedAt) return 'Loading…';
+    const elapsedSec = Math.max(0, Math.floor((now - lastUpdatedAt.getTime()) / 1000));
+    if (elapsedSec < 5) return 'just now';
+    if (elapsedSec < 60) return `${elapsedSec}s ago`;
+    return `${Math.floor(elapsedSec / 60)}m ago`;
+};
+
 const Ecosystem = () => {
     const { user, giveaways } = useApp();
     const [coinData, setCoinData] = useState<any>(null);
@@ -24,6 +38,12 @@ const Ecosystem = () => {
     const [hasEntered, setHasEntered] = useState(false);
     const [isLoadingCoinData, setIsLoadingCoinData] = useState(true);
     const [poolBreakdown, setPoolBreakdown] = useState<PoolBreakdown | null>(null);
+    // Live-data freshness. `lastUpdatedAt` is stamped at the end of each
+    // successful loadData() (the 30-second polling cycle); `now` ticks
+    // every second so the rendered "Xs ago" string reflects the true
+    // elapsed time without waiting for the next poll.
+    const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+    const [now, setNow] = useState<number>(() => Date.now());
     // Pre-filled to "100" so the calculator shows the meaningful "$100 → 25 SGC" preview on first paint.
     const [projectionInput, setProjectionInput] = useState<string>('100');
 
@@ -58,6 +78,7 @@ const Ecosystem = () => {
 
                 const recentTrades = await fetchRecentTrades(data?.price || 0);
                 setTrades(recentTrades);
+                setLastUpdatedAt(new Date());
             } catch (error) {
                 console.error('Error loading ecosystem data:', error);
             } finally {
@@ -68,6 +89,15 @@ const Ecosystem = () => {
         loadData();
         const interval = setInterval(loadData, 30000);
         return () => clearInterval(interval);
+    }, []);
+
+    // 1-second tick drives the "Last refreshed: Xs ago" labels so the
+    // relative-time readout increments independently of the 30s polling.
+    // Cheap (~10 components re-render per second) and only updates the
+    // text node via React's keyed diffing.
+    useEffect(() => {
+        const tick = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(tick);
     }, []);
 
     // Load Active Giveaway
@@ -201,6 +231,13 @@ const Ecosystem = () => {
                     >
                         <SGCoinCard data={coinData} isLoading={isLoadingCoinData} />
                     </motion.div>
+                    <div
+                        role="status"
+                        aria-live="polite"
+                        className="mt-3 text-[10px] text-gray-500 uppercase tracking-widest font-bold text-right"
+                    >
+                        Last refreshed: {formatLastRefreshed(lastUpdatedAt, now)}
+                    </div>
                 </section>
 
                 {/* Pool Breakdown */}
@@ -268,12 +305,19 @@ const Ecosystem = () => {
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <div className="h-36 bg-white/[0.03] rounded-xl"></div>
                                     <div className="h-36 bg-white/[0.03] rounded-xl"></div>
-                                    <div className="h-36 bg-white/[0.03] rounded-xl"></div>
-                                </div>
+                                <div className="h-36 bg-white/[0.03] rounded-xl"></div>
                             </div>
-                        )}
-                    </motion.div>
-                </section>
+                        </div>
+                    )}
+                </motion.div>
+                <div
+                    role="status"
+                    aria-live="polite"
+                    className="mt-3 text-[10px] text-gray-500 uppercase tracking-widest font-bold text-right"
+                >
+                    Last refreshed: {formatLastRefreshed(lastUpdatedAt, now)}
+                </div>
+            </section>
 
                 <section className="max-w-7xl mx-auto px-6 mb-24 relative z-30">
                     <motion.div
@@ -284,6 +328,13 @@ const Ecosystem = () => {
                     >
                         <BurnTracker initialBurn={totalBurned} isLoading={isLoadingCoinData} />
                     </motion.div>
+                    <div
+                        role="status"
+                        aria-live="polite"
+                        className="mt-3 text-[10px] text-gray-500 uppercase tracking-widest font-bold text-right"
+                    >
+                        Last refreshed: {formatLastRefreshed(lastUpdatedAt, now)}
+                    </div>
                 </section>
 
                 {/* Live orders ticker — mirrors the social-proof strip on Home,
