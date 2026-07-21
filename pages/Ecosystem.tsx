@@ -11,7 +11,7 @@ import { useApp } from '../context/AppContext';
 import { fetchSGCoinData, fetchRecentTrades, fetchPoolBreakdown, PoolBreakdown } from '../utils/sgcoinApi';
 import { getGiveawayTicketCount, isSubscriberEligible } from '../utils/giveawayUtils';
 
-import { V2_REWARD_RATE, POLYGON_RPC_URL, POLYGON_RPC_URLS } from '../constants';
+import { V2_REWARD_RATE, POLYGON_RPC_URLS } from '../constants';
 import { getBurnedSGCoinV1 } from '../services/web3Service';
 
 const Ecosystem = () => {
@@ -144,8 +144,43 @@ const Ecosystem = () => {
                     </div>
                 </section>
 
-                {/* SGCoin Stats: The Core Data Module */}
-                <section className="max-w-7xl mx-auto px-6 -mt-32 mb-40 relative z-30">
+                {/* Shop the Drop — bridge from Ecosystem rewards to product catalog */}
+                <section className="max-w-7xl mx-auto px-6 -mt-32 mb-16 relative z-30">
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, margin: "-100px" }}
+                        transition={{ duration: 0.6 }}
+                    >
+                        <Link to="/product/prod_set_above_as_below" className="block">
+                            <div className="bg-gradient-to-r from-orange-500/10 via-purple-500/10 to-orange-500/10 border border-orange-500/20 rounded-2xl p-6 md:p-8 flex flex-col sm:flex-row items-center justify-between gap-4 hover:border-orange-500/40 transition-all group">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center shrink-0">
+                                        <ShoppingBag className="w-6 h-6 text-orange-400" />
+                                    </div>
+                                    <div>
+                                        <div className="text-xs font-black uppercase tracking-[0.2em] text-orange-400 mb-1">Ready to earn?</div>
+                                        <div className="text-lg md:text-xl font-black uppercase tracking-tight text-white group-hover:text-orange-300 transition-colors">
+                                            Shop the Coalition Set — Tee + Shorts $120
+                                        </div>
+                                        <div className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Every purchase earns SGCoin rewards</div>
+                                    </div>
+                                </div>
+                                <div className="shrink-0">
+                                    <span className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white text-black text-[10px] font-black uppercase tracking-widest group-hover:bg-orange-500 group-hover:text-white transition-all">
+                                        Shop Now <ArrowRight size={14} />
+                                    </span>
+                                </div>
+                            </div>
+                        </Link>
+                    </motion.div>
+                </section>
+
+                {/* SGCoin Stats: The Core Data Module.
+                     No -mt-32 here — the Shop CTA section above handles
+                     the hero-section overlap. If the Shop CTA is ever
+                     removed, restore -mt-32 on this section. */}
+                <section className="max-w-7xl mx-auto px-6 mb-40 relative z-30">
                     <motion.div
                         initial={{ opacity: 0, y: 50 }}
                         whileInView={{ opacity: 1, y: 0 }}
@@ -334,7 +369,10 @@ const Ecosystem = () => {
                                 <div className="space-y-8 relative z-10">
                                     <div className="bg-white/5 p-6 rounded-2xl border border-white/5 text-center">
                                         <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3">Core Exchange rate</div>
-                                        <div className="text-3xl font-black font-display tracking-tight text-white">1 SGC V2 = $0.045</div>
+                                        <div className="text-3xl font-black font-display tracking-tight text-white">1 SGC V2 = ${coinData?.price?.toFixed(6) || '0.0001'}</div>
+                                        {coinData?.price && (
+                                            <div className="text-[9px] text-green-400/60 uppercase tracking-widest mt-1 font-bold">Live on-chain price</div>
+                                        )}
                                     </div>
 
                                     <div className="space-y-4 font-bold">
@@ -348,7 +386,8 @@ const Ecosystem = () => {
                                                 onChange={(e) => {
                                                     const val = parseFloat(e.target.value) || 0;
                                                     const rewardsInUsd = val * V2_REWARD_RATE;
-                                                    const sgV2Tokens = (rewardsInUsd / 0.045);
+                                                    const sgcPrice = coinData?.price || 0.0001;
+                                                    const sgV2Tokens = (rewardsInUsd / sgcPrice);
                                                     const el = document.getElementById('calc-output');
                                                     if (el) el.innerText = sgV2Tokens.toFixed(1).toLocaleString();
                                                 }}
