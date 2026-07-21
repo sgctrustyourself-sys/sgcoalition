@@ -1,0 +1,21 @@
+/* Tailwind CSS v4 — build-time CSS generation via @tailwindcss/vite plugin.
+   Replaces the cdn.tailwindcss.com runtime script which injected a <style>
+   tag after page paint, causing ~0.27 CLS on every page load.
+   All CSS is now generated at build time and shipped in the JS bundle. */
+
+@import "tailwindcss";
+
+/* ── Theme extensions (migrated from the inline CDN tailwind.config) ── */
+
+@theme {
+  --font-sans: 'Inter', sans-serif;
+  --font-display: 'Oswald', sans-serif;
+
+  --color-brand-black: #050505;
+  --color-brand-dark: #111111;
+  --color-brand-gray: #222222;
+  --color-brand-chrome: #E5E5E5;
+  --color-brand-accent: #3B82F6;
+
+  --background-image-noise: url('/images/patterns/noise.svg');
+}

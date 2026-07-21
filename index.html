@@ -40,7 +40,6 @@
         as="style"
         crossorigin>
 
-  <link rel="preconnect" href="https://cdn.tailwindcss.com">
   <link rel="dns-prefetch" href="https://neftyblocks.com">
   <link rel="dns-prefetch" href="https://opensea.io">
   <link rel="dns-prefetch" href="https://api.dexscreener.com">
@@ -50,7 +49,6 @@
   <script
     src="https://www.paypal.com/sdk/js?client-id=%VITE_PAYPAL_CLIENT_ID%&currency=USD&intent=capture&components=buttons"></script>
 
-  <script src="https://cdn.tailwindcss.com"></script>
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Oswald:wght@500;700&display=swap"
     rel="stylesheet">
@@ -63,31 +61,6 @@
           console.log('SW unregistered:', registration.scope);
         }
       });
-    }
-  </script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            display: ['Oswald', 'sans-serif'],
-          },
-          colors: {
-            brand: {
-              black: '#050505', // Deep Black
-              dark: '#111111',  // Off-Black
-              gray: '#222222',  // Dark Gray
-              chrome: '#E5E5E5', // Silver/Chrome
-              accent: '#3B82F6', // Web3 Blue
-            }
-          },
-          backgroundImage: {
-            'noise': "url('/images/patterns/noise.svg')",
-          }
-        }
-      }
     }
   </script>
   <style>
