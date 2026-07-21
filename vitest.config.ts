@@ -16,9 +16,17 @@ export default defineConfig({
         //       TODO(#renderer-fix): re-enable after grid:reveal slug fix.
         //       Run with: npx vitest run tests/rendererSmoke.test.ts
         //
+        //   viewContractButton.test.ts — boots Vite dev server + headless
+        //       Chromium to click-test the Ecosystem 'View Contract' anchor.
+        //       ~10-15s runtime + ~3s Chromium launch. Catches regressions
+        //       if the anchor drifts back to href='#', loses target='_blank',
+        //       or points to the wrong URL. Run directly:
+        //       npx vitest run tests/viewContractButton.test.ts
+        //
         exclude: [
             'tests/clsRegression.test.ts',
             'tests/rendererSmoke.test.ts',
+            'tests/viewContractButton.test.ts',
         ],
 
     },
