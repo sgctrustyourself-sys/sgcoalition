@@ -433,6 +433,7 @@ export const buildSitemap = (products) => {
     { loc: '/sgcoin', priority: '0.5', changefreq: 'monthly' },
     { loc: '/help', priority: '0.4', changefreq: 'monthly' },
     { loc: '/live-orders', priority: '0.7', changefreq: 'hourly' },
+    { loc: '/community', priority: '0.5', changefreq: 'weekly' },
   ];
   // Limited-edition products retain the active-product priority + weekly
   // changefreq even when archived, because 1/1 and numbered limited pieces

@@ -319,7 +319,7 @@ const Ecosystem = () => {
                                     // "/signup") and in-page fragment ("#feedback-loop").
                                     // /community is intentionally absent (no route yet);
                                     // /signup is the closest genuine "join the community" CTA.
-                                    { icon: <MessageCircle />, title: 'Community Pulse', desc: 'Participate in governance & discourse to build brand social weight.', color: 'blue', href: '/signup' },
+                                    { icon: <MessageCircle />, title: 'Community Pulse', desc: 'Participate in governance & discourse to build brand social weight.', color: 'blue', href: '/community' },
                                     { icon: <Star />, title: 'Signal Feedback', desc: 'Direct feedback loops on physical product R&D earn deep equity.', color: 'purple', href: '#feedback-loop' },
                                     { icon: <Share2 />, title: 'Digital Amplification', desc: 'High-quality content creation integrated with SGC Oracle verification.', color: 'pink', href: '/profile' },
                                     { icon: <DollarSign />, title: 'Referral Synthesis', desc: 'Up to 40% commissions on physical-digital hybrid bridge sales.', color: 'orange', href: '/profile' },
