@@ -16,6 +16,11 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
       "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop.",
   },
   Coalition_Grey_Wave_Wallet_2_2: {
+    archived: true,
+    archivedAt: "2026-06-25T02:40:12.191+00:00",
+    soldAt: "2026-06-25T02:40:12.191+00:00",
+    sizes: ["One Size"],
+    sizeInventory: { "One Size": 0 },
     archiveNote: "Second and final piece in the Coalition 'Grey Wave' wallet run. Sold on the same day as 1/2.",
   },
   SKYYBLUEWALLET1_2: {
@@ -205,6 +210,7 @@ export const QUICKSWAP_LP_ADDRESS = "0x43a974142b297D2f09a39ACd838a66452789ba32"
 export const QUICKSWAP_V3_LP_ADDRESS = "0x95194a754b6f768ed08ef5d695dabee349b7bf72"; // SGC/WPOL Pair (V3)
 export const WPOL_ADDRESS = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"; // Wrapped POL
 export const TREASURY_WALLET_ADDRESS = "0x39451d0ee9Fc5dd861C985d2a3e227F6Ac7387f4"; // SGC Treasury / Founder Wallet
+export const FOUNDER_WALLET_ADDRESS = "0x0F4A0466C2a1d3FA6Ed55a20994617F0533fbf74"; // Founder / Direct Send Wallet
 export const LIQUIDITY_TARGET_POL = 500;
 export const FALLBACK_LIQUIDITY_POL = 27.6; // Last known good value
 

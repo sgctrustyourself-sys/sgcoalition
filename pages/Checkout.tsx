@@ -994,6 +994,23 @@ const Checkout: React.FC = () => {
                                                 <p className="text-xs text-gray-500 mt-2">Network: Polygon (MATIC)</p>
                                             </div>
 
+                                            {/* Email instructions */}
+                                            <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4">
+                                                <div className="flex items-start gap-3">
+                                                    <Mail className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-[11px] text-orange-300 font-bold mb-1">After sending, email me your details</p>
+                                                        <p className="text-[10px] text-orange-200/70 leading-relaxed">
+                                                            Send your payment receipt, transaction hash, your shipping name & address, and the item ordered to{' '}
+                                                            <a href="mailto:sgctrustyourself@gmail.com" className="text-orange-300 underline decoration-orange-400/30 hover:decoration-orange-300 transition-all font-mono">
+                                                                sgctrustyourself@gmail.com
+                                                            </a>
+                                                            . I'll confirm and ship within 24 hours.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                             <button
                                                 onClick={handleCryptoConfirmation}
                                                 className="w-full bg-blue-600 text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-blue-500 transition shadow-[0_0_20px_rgba(37,99,235,0.3)]"

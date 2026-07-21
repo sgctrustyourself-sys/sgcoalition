@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Trophy, ExternalLink, Gift, Clock, Users, CheckCircle, ArrowRight, MessageCircle, Star, Share2, DollarSign, ShoppingBag, Wallet, Flame, Zap, Shield, Sparkles, Activity } from 'lucide-react';
+import { Trophy, ExternalLink, Gift, Clock, Users, CheckCircle, ArrowRight, MessageCircle, Star, Share2, DollarSign, ShoppingBag, Wallet, Flame, Zap, Shield, Sparkles, Activity, Copy, Check, Mail } from 'lucide-react';
 import SGCoinCard from '../components/SGCoinCard';
 import LiveTransactions from '../components/LiveTransactions';
 import BurnTracker from '../components/BurnTracker';
@@ -12,7 +12,7 @@ import { useApp } from '../context/AppContext';
 import { fetchSGCoinData, fetchRecentTrades, fetchPoolBreakdown, PoolBreakdown } from '../utils/sgcoinApi';
 import { getGiveawayTicketCount, isSubscriberEligible } from '../utils/giveawayUtils';
 
-import { V2_REWARD_RATE, POLYGON_RPC_URLS } from '../constants';
+import { V2_REWARD_RATE, POLYGON_RPC_URLS, FOUNDER_WALLET_ADDRESS, TREASURY_WALLET_ADDRESS } from '../constants';
 import { getBurnedSGCoinV1 } from '../services/web3Service';
 
 /**
@@ -599,6 +599,52 @@ const Ecosystem = () => {
                                 <Link to="/signup" className="mt-8 block w-full py-4 text-center border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all font-bold">
                                     Initialize Identity →
                                 </Link>
+                            </motion.div>
+
+                            {/* Direct Send Wallet */}
+                            <motion.div
+                                initial={{ opacity: 0, x: 20 }}
+                                whileInView={{ opacity: 1, x: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ duration: 0.8, delay: 0.8 }}
+                                className="p-10 rounded-[2.5rem] bg-gradient-to-br from-orange-500/[0.03] to-transparent border border-orange-500/10 backdrop-blur-3xl font-bold"
+                            >
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+                                        <Wallet className="w-5 h-5 text-orange-400" />
+                                    </div>
+                                    <h4 className="font-display text-xl font-black uppercase tracking-tight">Direct Send</h4>
+                                </div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3 font-bold">POL / USDC on Polygon</p>
+                                <div
+                                    className="bg-black/40 border border-white/5 rounded-xl p-4 flex items-center justify-between group/item hover:border-orange-500/30 transition-all cursor-pointer"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(FOUNDER_WALLET_ADDRESS);
+                                    }}
+                                >
+                                    <div>
+                                        <p className="text-white font-mono text-xs break-all select-all">{FOUNDER_WALLET_ADDRESS}</p>
+                                    </div>
+                                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover/item:bg-orange-500/20 transition-colors shrink-0 ml-2">
+                                        <Copy className="w-4 h-4 text-gray-400 group-hover/item:text-orange-300 transition-colors" />
+                                    </div>
+                                </div>
+                                {/* Email instructions */}
+                                <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 mt-4">
+                                    <div className="flex items-start gap-3">
+                                        <Mail className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-[11px] text-orange-300 font-bold mb-1">After sending, email me</p>
+                                            <p className="text-[10px] text-orange-200/70 leading-relaxed">
+                                                Send your receipt, transaction hash, your shipping name & address, and the item you ordered to{' '}
+                                                <a href="mailto:sgctrustyourself@gmail.com" className="text-orange-300 underline decoration-orange-400/30 hover:decoration-orange-300 transition-all font-mono">
+                                                    sgctrustyourself@gmail.com
+                                                </a>
+                                                . I'll confirm and ship within 24 hours.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
                             </motion.div>
                         </div>
                     </div>
