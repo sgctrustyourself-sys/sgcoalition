@@ -144,8 +144,11 @@ const Ecosystem = () => {
                     </div>
                 </section>
 
-                {/* Shop the Drop — bridge from Ecosystem rewards to product catalog */}
-                <section className="max-w-7xl mx-auto px-6 -mt-32 mb-16 relative z-30">
+                {/* Shop the Drop — bridge from Ecosystem rewards to product catalog.
+                     Sits cleanly below the hero (no negative margin overlap)
+                     so the 3 hero CTAs (Wizard Dashboard, Access Migration,
+                     Ecosystem Guide) remain fully visible above this card. */}
+                <section className="max-w-7xl mx-auto px-6 mb-24 relative z-30">
                     <motion.div
                         initial={{ opacity: 0, y: 30 }}
                         whileInView={{ opacity: 1, y: 0 }}
@@ -176,10 +179,7 @@ const Ecosystem = () => {
                     </motion.div>
                 </section>
 
-                {/* SGCoin Stats: The Core Data Module.
-                     No -mt-32 here — the Shop CTA section above handles
-                     the hero-section overlap. If the Shop CTA is ever
-                     removed, restore -mt-32 on this section. */}
+                {/* SGCoin Stats: The Core Data Module */}
                 <section className="max-w-7xl mx-auto px-6 mb-40 relative z-30">
                     <motion.div
                         initial={{ opacity: 0, y: 50 }}
