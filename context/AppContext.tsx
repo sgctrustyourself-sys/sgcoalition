@@ -65,6 +65,12 @@ interface AppState {
     // (initial paint before first GET). Replaces the previous client-side
     // aggregation in pages/Home.tsx and pages/Wallets.tsx.
     walletMints7d: number | null;
+    // Live shop-floor production state (workshop name, ISO 8601 last-drop
+    // timestamp, current on-deck SKU + cylinder progress). Subscribed via
+    // Supabase realtime on `production_state` (singleton table). null =
+    // loading on first paint. Drives the two-paced proof-texture lines on
+    // Home + Wallets (replaces the previous wallet_mints_7d counter).
+    productionState: ProductionState | null;
     addReview: (productId: string, review: Review) => Promise<void>;
     linkSocialAccount: (platform: SocialAccount['platform'], username: string) => Promise<void>;
     submitCustomInquiry: (data: Omit<CustomInquiry, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => Promise<void>;
@@ -131,6 +137,61 @@ export function applyWalletMintsUpdate(
     return num;
 }
 
+// Shape of the singleton production_state row (or null while loading).
+export interface ProductionState {
+    currently_being_built_label: string;
+    last_drop_at:                string;   // ISO 8601 UTC timestamp
+    last_drop_sku_label:         string;
+    on_deck_label:               string;
+    on_deck_cylinder_current:    number;
+    on_deck_cylinder_total:      number;
+}
+
+// Pure reducer for production_state realtime payloads. Maps the Supabase
+// UPDATE payload to a normalised ProductionState, or returns prev on any
+// missing/invalid field. Same SLA-correctness shape as applyWalletMintsUpdate.
+export function applyProductionStateUpdate(
+    prev: ProductionState | null,
+    payload: Record<string, unknown> | null | undefined
+): ProductionState | null {
+    if (!payload || typeof payload !== 'object') return prev;
+    const next = payload as Partial<ProductionState> & { last_drop_at?: unknown };
+    const readStr = (x: unknown): string => (typeof x === 'string' ? x : '');
+    const readNum = (x: unknown): number | null => {
+        if (typeof x === 'number' && Number.isFinite(x)) return x;
+        if (typeof x === 'string' && x !== '') {
+            const n = Number(x);
+            if (Number.isFinite(n)) return n;
+        }
+        return null;
+    };
+    const labelOk  = readStr(next.currently_being_built_label) || (prev?.currently_being_built_label ?? '');
+    // Supabase PostgREST serialises timestamptz to ISO 8601 string by
+    // default, so this reducer only handles the string branch. (Adding a
+    // Date branch would require a runtime cast past TS's unknown-against-
+    // instanceof check, which is more friction than the speculative case
+    // would save.)
+    const lastAtRaw = readStr(next.last_drop_at);
+    const lastAt   = lastAtRaw || (prev?.last_drop_at ?? '');
+    const lastSku  = readStr(next.last_drop_sku_label)  || (prev?.last_drop_sku_label ?? '');
+    const onDeck   = readStr(next.on_deck_label)        || (prev?.on_deck_label ?? '');
+    const curRaw   = readNum(next.on_deck_cylinder_current);
+    const totRaw   = readNum(next.on_deck_cylinder_total);
+    const cur      = curRaw ?? prev?.on_deck_cylinder_current ?? 0;
+    const tot      = totRaw ?? prev?.on_deck_cylinder_total   ?? 1;
+    // All five text fields must be non-empty AND total must be > 0; otherwise
+    // keep prev (don't half-update with placeholder strings).
+    if (!labelOk || !lastAt || !lastSku || !onDeck || tot <= 0) return prev;
+    return {
+        currently_being_built_label: labelOk,
+        last_drop_at:                lastAt,
+        last_drop_sku_label:         lastSku,
+        on_deck_label:               onDeck,
+        on_deck_cylinder_current:    cur,
+        on_deck_cylinder_total:      tot,
+    };
+}
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { addToast } = useToast();
     const [products, setProducts] = useState<Product[]>([]);
@@ -138,6 +199,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
     // 7-day wallet-mint count. null until the realtime view responds.
     const [walletMints7d, setWalletMints7d] = useState<number | null>(null);
+    const [productionState, setProductionState] = useState<ProductionState | null>(null);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [user, setUser] = useState<UserProfile | null>(null);
     const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
@@ -262,7 +324,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     fetchOrders(),
                     fetchSignals(),
                     fetchGiveaways(),
-                    fetchWalletMints7d()
+                    fetchWalletMints7d(),
+                    fetchProductionState()
                 ]);
 
                 // Subscribe to Realtime Signals
@@ -750,6 +813,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
+    // Production-floor state -- singleton row from public.production_state
+    // with realtime publication. Same one-tiny-payload pattern as
+    // wallet_mints_7d: GET on init, then a dedicated UPDATE channel for
+    // ~200-700ms deltas whenever the shop owner advances a cylinder or
+    // ships a new SKU.
+    const fetchProductionState = async () => {
+        if (!isSupabaseConfigured) return null;
+        try {
+            const { data, error } = await supabase
+                .from('production_state')
+                .select('currently_being_built_label, last_drop_at, last_drop_sku_label, on_deck_label, on_deck_cylinder_current, on_deck_cylinder_total')
+                .maybeSingle();
+            if (error) {
+                console.warn('[production_state] fetch error:', error.message);
+                return null;
+            }
+            if (!data) return null;
+            const lastDropAt = data.last_drop_at instanceof Date
+                ? (data.last_drop_at as Date).toISOString()
+                : String(data.last_drop_at ?? '');
+            setProductionState({
+                currently_being_built_label: String(data.currently_being_built_label ?? ''),
+                last_drop_at:                 lastDropAt,
+                last_drop_sku_label:          String(data.last_drop_sku_label ?? ''),
+                on_deck_label:                String(data.on_deck_label ?? ''),
+                on_deck_cylinder_current:     Number(data.on_deck_cylinder_current ?? 0),
+                on_deck_cylinder_total:       Number(data.on_deck_cylinder_total ?? 0),
+            });
+            return data;
+        } catch (e) {
+            console.warn('[production_state] fetch threw:', e);
+            return null;
+        }
+    };
+
     // Realtime wallet_mints_7d channel — pushes the new scalar directly to
     // the React state on every UPDATE. ~200-700ms latency on Supabase's
     // standard plan. The view itself is added to supabase_realtime via
@@ -764,6 +862,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 // counter to 0 mid-session. Pure reducer lives in
                 // applyWalletMintsUpdate below — exported for unit testing.
                 setWalletMints7d(prev => applyWalletMintsUpdate(prev, payload));
+            })
+            .subscribe();
+        return () => { channel.unsubscribe(); };
+    }, [isSupabaseConfigured]);
+
+    // Realtime production_state channel -- pushes the new row into React
+    // state on every UPDATE. The table itself is added to supabase_realtime
+    // via supabase/migrations/20260722_publish_production_state_for_realtime.sql.
+    useEffect(() => {
+        if (!isSupabaseConfigured) return;
+        const channel = supabase
+            .channel('production_state_sync')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'production_state' }, (payload) => {
+                const next = (payload?.new ?? {}) as Record<string, unknown>;
+                setProductionState(prev => applyProductionStateUpdate(prev, next));
             })
             .subscribe();
         return () => { channel.unsubscribe(); };
@@ -1247,6 +1360,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             addGiveawayEntry, pickGiveawayWinner, connectMetaMaskWallet, connectManualWallet,
             disconnectWallet, chainId,        switchToPolygon: handleSwitchToPolygon,
         walletMints7d,
+        productionState,
         addReview,
             linkSocialAccount, unlinkSocialAccount, submitCustomInquiry, submitPurchaseRequest,
             refreshBalances, signals, fetchSignals

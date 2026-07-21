@@ -13,49 +13,7 @@ describe('walletMints7d realtime-driven count', () => {
     const pub  = read('supabase/migrations/20260721_publish_wallet_mints_7d_for_realtime.sql');
     const runner = read('scripts/applyWalletMints7dView.cjs');
 
-    describe('Home.tsx consumes walletMints7d (no client-side aggregation)', () => {
-        it('destructure pulls walletMints7d from useApp()', () => {
-            expect(home).toMatch(/const\s*\{[^}]*\bwalletMints7d\b[^}]*\}\s*=\s*useApp\(\)/);
-            const destructure = home.match(/const\s*\{[^}]*\}\s*=\s*useApp\(\)/)?.[0] ?? '';
-            expect(destructure).not.toMatch(/\borders\b/);
-        });
-        it('does not contain the legacy weeklyWalletMints useMemo', () => {
-            expect(home).not.toMatch(/\bweeklyWalletMints\b/);
-        });
-        it('does not contain the legacy productCategoryById useMemo', () => {
-            expect(home).not.toMatch(/\bproductCategoryById\b/);
-        });
-        it('renders count via walletMints7d.toLocaleString()', () => {
-            // Substring checks avoid whitespace/line-break regex hassles.
-            expect(home).toContain('walletMints7d.toLocaleString()');
-            expect(home).toContain('minted this week');
-        });
-        it('hides count when walletMints7d is null OR zero', () => {
-            expect(home).toMatch(/walletMints7d\s*!=\s*null\s*&&\s*walletMints7d\s*>\s*0/);
-        });
-    });
-
-    describe('Wallets.tsx consumes walletMints7d (no client-side aggregation)', () => {
-        it('destructure pulls walletMints7d from useApp()', () => {
-            expect(wallets).toMatch(/const\s*\{[^}]*\bwalletMints7d\b[^}]*\}\s*=\s*useApp\(\)/);
-            const destructure = wallets.match(/const\s*\{[^}]*\}\s*=\s*useApp\(\)/)?.[0] ?? '';
-            expect(destructure).not.toMatch(/\borders\b/);
-        });
-        it('does not contain the legacy weeklyWalletMints useMemo', () => {
-            expect(wallets).not.toMatch(/\bweeklyWalletMints\b/);
-        });
-        it('does not contain the legacy productCategoryById useMemo', () => {
-            expect(wallets).not.toMatch(/\bproductCategoryById\b/);
-        });
-        it('renders count via walletMints7d.toLocaleString()', () => {
-            expect(wallets).toContain('walletMints7d.toLocaleString()');
-            expect(wallets).toContain('minted this week');
-        });
-        it('hides count when walletMints7d is null OR zero', () => {
-            expect(wallets).toMatch(/walletMints7d\s*!=\s*null\s*&&\s*walletMints7d\s*>\s*0/);
-        });
-    });
-
+    // Visible-surface assertions for Home + Wallets moved to tests/productionStateSource.test.ts (Home.tsx + Wallets.tsx now read productionState, not walletMints7d).
     describe('AppContext exposes walletMints7d on AppState', () => {
         it('declares the field on the AppState interface as number | null', () => {
             expect(ctx).toMatch(/walletMints7d:\s*number\s*\|\s*null\s*;/);

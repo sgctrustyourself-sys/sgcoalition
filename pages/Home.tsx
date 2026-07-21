@@ -10,7 +10,7 @@ import Newsletter from '../components/Newsletter';
 import LiveOrdersTicker from '../components/LiveOrdersTicker';
 
 const Home = () => {
-    const { sections, products, isAdminMode, updateSections, updateSection, isLoading, walletMints7d } = useApp();
+    const { sections, products, isAdminMode, updateSections, updateSection, isLoading, productionState } = useApp();
 
 
     const moveSection = (index: number, direction: 'up' | 'down') => {
@@ -45,13 +45,21 @@ const Home = () => {
                             <p className="text-lg md:text-2xl text-gray-300 font-light mb-10 tracking-wide max-w-2xl mx-auto">
                                 {section.content}
                             </p>
-                            {walletMints7d != null && walletMints7d > 0 && (
-                                <p
-                                    className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-6 font-medium"
-                                    aria-live="polite"
-                                >
-                                    {walletMints7d.toLocaleString()} {walletMints7d === 1 ? 'wallet' : 'wallets'} minted this week
-                                </p>
+                            {productionState && (
+                                <div className="mb-6">
+                                    <p
+                                        className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-1 font-medium"
+                                        aria-live="polite"
+                                    >
+                                        Currently being built · {productionState.currently_being_built_label} · last drop {productionState.last_drop_sku_label} · {productionState.last_drop_at}
+                                    </p>
+                                    <p
+                                        className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-medium"
+                                        aria-live="polite"
+                                    >
+                                        On deck · {productionState.on_deck_label} — cylinder {productionState.on_deck_cylinder_current} of {productionState.on_deck_cylinder_total}
+                                    </p>
+                                </div>
                             )}
                             <Link to="/shop" className="inline-block bg-white text-black px-10 py-4 text-sm font-bold uppercase tracking-[0.2em] hover:bg-gray-200 hover:scale-105 transition-all duration-300 box-glow text-center">
                                 SHOP COLLECTION

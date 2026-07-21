@@ -42,7 +42,7 @@ const FEATURES = [
 const FEATURED_WALLET_ID = PRODUCT_IDS.FEATURED_WALLET;
 
 const Wallets = () => {
-    const { products, walletMints7d } = useApp();
+    const { products, productionState } = useApp();
 
     // Memoize the wallet split so the filter+sort only runs when the catalog
     // changes (not on every parent re-render). Matches the Navbar pattern.
@@ -192,13 +192,21 @@ const Wallets = () => {
                             </Link>
                         </div>
 
-                        {walletMints7d != null && walletMints7d > 0 && (
-                            <p
-                                className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-6 font-medium"
-                                aria-live="polite"
-                            >
-                                {walletMints7d.toLocaleString()} {walletMints7d === 1 ? 'wallet' : 'wallets'} minted this week
-                            </p>
+                        {productionState && (
+                            <div className="mb-6">
+                                <p
+                                    className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-1 font-medium"
+                                    aria-live="polite"
+                                >
+                                    Currently being built · {productionState.currently_being_built_label} · last drop {productionState.last_drop_sku_label} · {productionState.last_drop_at}
+                                </p>
+                                <p
+                                    className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-medium"
+                                    aria-live="polite"
+                                >
+                                    On deck · {productionState.on_deck_label} — cylinder {productionState.on_deck_cylinder_current} of {productionState.on_deck_cylinder_total}
+                                </p>
+                            </div>
                         )}
 
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
