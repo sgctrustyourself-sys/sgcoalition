@@ -204,6 +204,15 @@ const ProductDetails = () => {
     const isSoldOut = !isSold && totalStock === 0;
     const isUnavailable = isArchived || isSoldOut;
     const selectedSizeStock = resolvedSize ? product.sizeInventory?.[resolvedSize] ?? totalStock : totalStock;
+    const maxSizeStock = Math.max(1, ...Object.values(product.sizeInventory || {}).map(v => Number(v || 0)));
+    // Low-stock threshold: a size is "low" when it has 3 or fewer remaining
+    const LOW_STOCK_THRESHOLD = 3;
+    // Inventory bar color: green→amber→red gradient based on remaining stock
+    const getInventoryBarColor = (stock: number): string => {
+        if (stock === 0) return '#ef4444'; // red
+        if (stock <= LOW_STOCK_THRESHOLD) return '#f59e0b'; // amber
+        return '#10b981'; // green
+    };
     const soldDate = formatProductDate(product.soldAt ?? undefined);
     // Voice consistency with the card grid. Three distinct terminal
     // states with three distinct labels:
@@ -824,11 +833,10 @@ const ProductDetails = () => {
                                     <div className="pt-8 space-y-4">
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">Select Size</h3>
-                                            <a href="#" className="text-xs font-bold uppercase tracking-widest text-brand-accent hover:text-white transition-colors border-b border-brand-accent/30 hover:border-white">Size guide</a>
                                         </div>
 
                                         {product.sizes && product.sizes.length === 1 && product.sizes[0].toLowerCase().includes('one') ? (
-                                            <div className="bg-white/5 border border-brand-accent/30 p-4 rounded-sm flex items-center justify-between">
+                                            <div className="bg-white/5 border border-brand-accent/30 p-4 rounded-sm flex items-center justify-between relative overflow-hidden">
                                                 <span className="text-sm font-bold uppercase tracking-widest text-white">ORDERING {product.sizes[0]}</span>
                                         {/* Match the surrounding PDP voice: 'Claimed' for a 1/1
                                             piece that sold, 'Archived' for a standard one-size
@@ -837,6 +845,18 @@ const ProductDetails = () => {
                                         <span className={`text-[10px] font-bold uppercase tracking-widest py-1 px-2 rounded ${(isSold || isSoldOut) ? 'bg-white/5 text-gray-400' : 'bg-white/5 text-gray-300'}`}>
                                             {isSold ? 'Claimed' : isSoldOut ? 'Archived' : `${product.sizeInventory?.[product.sizes[0]] || 0} left`}
                                         </span>
+                                                {/* Inventory bar — one-size products */}
+                                                {!isUnavailable && (
+                                                    <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/5">
+                                                        <div
+                                                            className="h-full transition-all duration-500"
+                                                            style={{
+                                                                width: `${Math.min(100, ((product.sizeInventory?.[product.sizes[0]] || 0) / 10) * 100)}%`,
+                                                                backgroundColor: getInventoryBarColor(product.sizeInventory?.[product.sizes[0]] || 0),
+                                                            }}
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
                                         ) : (
                                             <div className="grid grid-cols-4 gap-3">
@@ -856,14 +876,26 @@ const ProductDetails = () => {
                                                                     : 'border-white/10 text-white hover:border-white hover:bg-white/5'
                                                                 }`}
                                                             title={isOutOfStock ? 'Out of stock' : `${sizeStock} in stock`}
-                                                        >
-                                                            <span>{size}</span>                                                                {/* Per-size stock text uses a single neutral gray
+                                                        >                                                            <span>{size}</span>
+                                                                {/* Per-size stock text uses a single neutral gray
                                                                     scale instead of the red/yellow/brand-accent
                                                                     urgency gradient. The number itself communicates
                                                                     availability; the color doesn't need to. */}
                                                                 <span className={`text-[9px] mt-1 ${isSelected ? 'text-black/60' : isOutOfStock ? 'text-gray-600' : sizeStock < 5 ? 'text-gray-400' : 'text-gray-300'}`}>
                                                                     {isOutOfStock ? 'Out' : `${sizeStock} left`}
                                                                 </span>
+                                                                {/* Inventory bar — proportional to max stock across all sizes */}
+                                                                {!isOutOfStock && (
+                                                                    <div className="w-full mt-2 h-[3px] bg-white/10 rounded-full overflow-hidden">
+                                                                        <div
+                                                                            className="h-full rounded-full transition-all duration-500"
+                                                                            style={{
+                                                                                width: `${Math.max(4, (sizeStock / maxSizeStock) * 100)}%`,
+                                                                                backgroundColor: getInventoryBarColor(sizeStock),
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                )}
                                                         </button>
                                                     );
                                                 })}
