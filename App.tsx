@@ -7,13 +7,19 @@ import { ToastProvider } from './context/ToastContext';
 import Footer from './components/Footer';
 import Navbar from './components/Navbar';
 import AnnouncementBar from './components/AnnouncementBar';
-import CartDrawer from './components/CartDrawer';
-import RewardActivation from './components/RewardActivation';
 import PageLoader from './components/ui/PageLoader';
-import MobileBottomNav from './components/MobileBottomNav';
 import ToastContainer from './components/ui/ToastContainer';
-import SignalAlert from './components/SignalAlert';
 import ProtectedRoute from './components/ProtectedRoute';
+
+// Lazy-loaded shell components. Each pulls `motion/react` (~50 KB gzip) at the
+// top level, so wrapping them in React.lazy() splits the framer-motion chunk
+// out of the main entry bundle. They all share one Suspense with fallback={null}
+// so first paint on / and /shop is unaffected when these components don't
+// immediately mount.
+const SignalAlert = React.lazy(() => import('./components/SignalAlert'));
+const CartDrawer = React.lazy(() => import('./components/CartDrawer'));
+const RewardActivation = React.lazy(() => import('./components/RewardActivation'));
+const MobileBottomNav = React.lazy(() => import('./components/MobileBottomNav'));
 import { TutorialProvider } from './context/TutorialContext';
 import { storeReferralCode } from './utils/referralSystem';
 
@@ -158,11 +164,11 @@ const App = () => {
             <AuthEventHandler />
             <ReferralTracker />
             <div className="min-h-screen flex flex-col font-sans text-white bg-black selection:bg-brand-accent selection:text-black">
-              <SignalAlert />
-              <ConditionalNav />
-              <CartDrawer />
-              <RewardActivation />
               <Suspense fallback={null}>
+                <SignalAlert />
+                <ConditionalNav />
+                <CartDrawer />
+                <RewardActivation />
                 <AIChatWidget />
               </Suspense>
               <ToastContainer />
@@ -246,7 +252,9 @@ const App = () => {
                 </Suspense>
               </main>
               <Footer />
-              <MobileBottomNav />
+              <Suspense fallback={null}>
+                <MobileBottomNav />
+              </Suspense>
               <SpeedInsights />
               <Analytics />
             </div>
