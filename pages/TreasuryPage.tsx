@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Zap, Flame, Shield, Coins, ArrowUpRight, TrendingUp, Info, RefreshCw, Wallet } from 'lucide-react';
 import { getBurnedSGCoinV1, getLiquidityProviderV2Balance, getRecentBurnActivity, BurnActivity, getRobustProvider, getNativeBalance } from '../services/web3Service';
-import { POLYGON_RPC_URL, TREASURY_WALLET_ADDRESS, QUICKSWAP_LP_ADDRESS, QUICKSWAP_V3_LP_ADDRESS, WPOL_ADDRESS } from '../constants';
+import { TREASURY_WALLET_ADDRESS, LIQUIDITY_TARGET_POL } from '../constants';
+import { fetchPoolBreakdown, PoolBreakdown } from '../utils/sgcoinApi';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 
 const TreasuryPage: React.FC = () => {
@@ -10,6 +11,7 @@ const TreasuryPage: React.FC = () => {
     const [totalLiquidity, setTotalLiquidity] = useState<number>(0);
     const [treasuryBalance, setTreasuryBalance] = useState<string>('0');
     const [burnActivity, setBurnActivity] = useState<BurnActivity[]>([]);
+    const [poolBreakdown, setPoolBreakdown] = useState<PoolBreakdown | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -17,37 +19,20 @@ const TreasuryPage: React.FC = () => {
             try {
                 const provider = await getRobustProvider();
 
-                // Fetch stats in parallel
-                const [burned, v2LpBalance, treasuryBal, activity] = await Promise.all([
+                // Fetch burn/treasury stats + pool breakdown in parallel
+                const [burned, v2LpBalance, treasuryBal, activity, breakdown] = await Promise.all([
                     getBurnedSGCoinV1(provider),
                     getLiquidityProviderV2Balance(provider),
                     getNativeBalance(TREASURY_WALLET_ADDRESS, provider),
-                    getRecentBurnActivity(provider)
+                    getRecentBurnActivity(provider),
+                    fetchPoolBreakdown(),
                 ]);
 
-                // Also fetch V3 and V2 liquidity (MATIC/WPOL) similar to useLiquidity
-                const { ethers: e } = await import('ethers');
-                const [v2Native, v3Native] = await Promise.all([
-                    provider.getBalance(QUICKSWAP_LP_ADDRESS),
-                    provider.getBalance(QUICKSWAP_V3_LP_ADDRESS)
-                ]);
-
-                const wpolContract = new e.Contract(WPOL_ADDRESS, ['function balanceOf(address owner) view returns (uint256)'], provider);
-                const [v2Wpol, v3Wpol] = await Promise.all([
-                    wpolContract.balanceOf(QUICKSWAP_LP_ADDRESS),
-                    wpolContract.balanceOf(QUICKSWAP_V3_LP_ADDRESS)
-                ]);
-
-                const totalLiq = parseFloat(e.formatEther(v2Native)) +
-                    parseFloat(e.formatEther(v3Native)) +
-                    parseFloat(e.formatUnits(v2Wpol, 18)) +
-                    parseFloat(e.formatUnits(v3Wpol, 18));
-
-                // Total burned formatted similarly to Ecosystem dashboard
                 setRealBurned(burned);
-                setTotalLiquidity(totalLiq);
+                setTotalLiquidity(breakdown.combinedTvlUsd);
                 setTreasuryBalance(treasuryBal);
                 setBurnActivity(activity);
+                setPoolBreakdown(breakdown);
             } catch (error) {
                 console.error("Error fetching treasury stats:", error);
             } finally {
@@ -84,8 +69,8 @@ const TreasuryPage: React.FC = () => {
                     />
                     <StatCard
                         label="Ecosystem Liquidity"
-                        value={isLoading ? "Loading..." : `${totalLiquidity.toLocaleString(undefined, { maximumFractionDigits: 1 })} MATIC`}
-                        subtext="Combined V2 & V3 Reserves"
+                        value={isLoading ? "Loading..." : `$${totalLiquidity.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+                        subtext={poolBreakdown ? `V2 + V3 · ${(poolBreakdown.v2.wpol + (poolBreakdown.v3?.wpol ?? 0)).toFixed(1)} WPOL` : 'Combined V2 & V3 Reserves'}
                         icon={<Coins className="w-5 h-5" />}
                         color="purple"
                     />
@@ -97,6 +82,91 @@ const TreasuryPage: React.FC = () => {
                         color="blue"
                     />
                 </div>
+
+                {/* Liquidity Pool Breakdown */}
+                {poolBreakdown && (
+                    <section className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-10">
+                        <h2 className="text-2xl font-black uppercase tracking-tight mb-8 flex items-center gap-3">
+                            <Coins className="w-6 h-6 text-purple-400" />
+                            Liquidity Pool Breakdown
+                        </h2>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            {/* V2 Pool */}
+                            <div className="p-6 rounded-2xl bg-white/[0.03] border border-white/5">
+                                <div className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4">QuickSwap V2</div>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between">
+                                        <span className="text-xs text-gray-400">WPOL</span>
+                                        <span className="text-sm font-bold text-white">{poolBreakdown.v2.wpol.toFixed(1)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-xs text-gray-400">SGCOIN</span>
+                                        <span className="text-sm font-bold text-white">{poolBreakdown.v2.sgc.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                    </div>
+                                    <div className="flex justify-between border-t border-white/5 pt-3 mt-1">
+                                        <span className="text-xs text-gray-400">Price</span>
+                                        <span className="text-sm font-bold text-purple-400">${poolBreakdown.v2.priceUsd.toFixed(6)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-xs text-gray-400">TVL</span>
+                                        <span className="text-sm font-bold text-white">${poolBreakdown.v2.tvlUsd.toFixed(0)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* V3 Pool */}
+                            {poolBreakdown.v3 ? (
+                                <div className="p-6 rounded-2xl bg-white/[0.03] border border-white/5">
+                                    <div className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4">QuickSwap V3</div>
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between">
+                                            <span className="text-xs text-gray-400">WPOL</span>
+                                            <span className="text-sm font-bold text-white">{poolBreakdown.v3.wpol.toFixed(1)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-xs text-gray-400">SGCOIN</span>
+                                            <span className="text-sm font-bold text-white">{poolBreakdown.v3.sgc.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                        </div>
+                                        <div className="flex justify-between border-t border-white/5 pt-3 mt-1">
+                                            <span className="text-xs text-gray-400">Price</span>
+                                            <span className="text-sm font-bold text-purple-400">${poolBreakdown.v3.priceUsd.toFixed(6)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-xs text-gray-400">TVL</span>
+                                            <span className="text-sm font-bold text-white">${poolBreakdown.v3.tvlUsd.toFixed(0)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="p-6 rounded-2xl bg-white/[0.01] border border-white/5 flex items-center justify-center">
+                                    <span className="text-xs text-gray-600">V3 pool inactive</span>
+                                </div>
+                            )}
+
+                            {/* Combined */}
+                            <div className="p-6 rounded-2xl bg-purple-500/5 border border-purple-500/10">
+                                <div className="text-[10px] font-black uppercase tracking-widest text-purple-400 mb-4">Combined</div>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between">
+                                        <span className="text-xs text-gray-400">Blended Price</span>
+                                        <span className="text-lg font-black text-purple-300">${poolBreakdown.blendedPriceUsd.toFixed(6)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-xs text-gray-400">Total TVL</span>
+                                        <span className="text-lg font-black text-white">${poolBreakdown.combinedTvlUsd.toFixed(0)}</span>
+                                    </div>
+                                    <div className="flex justify-between border-t border-purple-500/10 pt-3 mt-1">
+                                        <span className="text-xs text-gray-400">Progress to {LIQUIDITY_TARGET_POL} POL</span>
+                                        <span className="text-sm font-bold text-purple-400">
+                                            {((poolBreakdown.v2.wpol + (poolBreakdown.v3?.wpol ?? 0)) / LIQUIDITY_TARGET_POL * 100).toFixed(1)}%
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                )}
 
                 {/* Transparency Disclosure */}
                 <section className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-10 relative overflow-hidden">

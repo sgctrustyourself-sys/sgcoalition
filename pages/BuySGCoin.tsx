@@ -287,6 +287,18 @@ const BuySGCoin = () => {
                     <p className="text-gray-400 text-lg max-w-2xl mx-auto">
                         Purchase SGCOIN directly and receive <span className="text-white font-bold">10% more coins</span> than swapping. Delivered to your wallet within 24 hours.
                     </p>
+
+                    {/* QuickSwap Instant Trade Banner */}
+                    <a
+                        href="https://dapp.quickswap.exchange/swap/best/ETH/0xd53e417107d0e01bbe74a704bb90fe7a6916ee1e?chainId=137"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-6 inline-flex items-center gap-3 px-6 py-3 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-black uppercase tracking-widest hover:bg-purple-500/20 hover:text-white transition-all group"
+                    >
+                        <Zap className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        Trade instantly on QuickSwap
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                    </a>
                 </div>
 
                 {error && (

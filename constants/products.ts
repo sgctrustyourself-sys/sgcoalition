@@ -94,11 +94,11 @@ export const INITIAL_PRODUCTS: Product[] = [
     "name": "WOMEN'S COALITION HALO CONTRAST TEE",
     "price": 40,
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_X4it3yW.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXJsUIn.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DJJY3LT.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_AAW60N3.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_k3cZbA3.png"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_X4it3yW.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXJsUIn.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DJJY3LT.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_AAW60N3.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_k3cZbA3.webp"
     ],
     "description": "Women's Coalition Halo Contrast Tee in bodycon raglan sleeve cut with contrast sleeve stripes, the same gold Coalition halo chest logo as the Coalition Halo Mini Dress, and a TRUST YOURSELF hit on the back. $40, sized S-M-L-XL.",
     "category": "shirt",
@@ -127,13 +127,13 @@ export const INITIAL_PRODUCTS: Product[] = [
     "name": "WOMEN'S COALITION ABOVE AS BELOW SET",
     "price": 75,
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HFMfNYr.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EqDgC3h.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_juuQ8jz.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXvoGU6.png"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HFMfNYr.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EqDgC3h.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_juuQ8jz.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXvoGU6.webp"
     ],
     "description": "Women's Above as Below set with the crewneck crop tank and contrast shorts together. Black body, red-and-white Coalition artwork, and matching set styling. $75 as a set, sized S-M-L-XL.",
     "category": "apparel",
@@ -162,10 +162,10 @@ export const INITIAL_PRODUCTS: Product[] = [
     "name": "COALITION ABOVE AS BELOW SET",
     "price": 120,
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-set-front.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-set-back.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-tee-front.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-tee-back.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-set-front.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-set-back.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-tee-front.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-tee-back.webp",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-above-as-below-set_1783736765709_ppzti.jpg",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-above-as-below-set_1783736776254_6lzfr.jpg"
     ],
@@ -198,10 +198,10 @@ export const INITIAL_PRODUCTS: Product[] = [
     "name": "COALITION HALO MINI DRESS",
     "price": 50,
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_nzsauOz.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_wYR7Nfx.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_v4xVrou.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_OKefysC.png"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_nzsauOz.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_wYR7Nfx.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_v4xVrou.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_OKefysC.webp"
     ],
     "description": "Coalition Halo Mini Dress in black with a fitted cami mini silhouette, gold Coalition chest logo, low scoop back, and gold cross-backed Coalition graphic. Standard live catalog release priced at $50.",
     "category": "dress",
@@ -230,11 +230,11 @@ export const INITIAL_PRODUCTS: Product[] = [
     "name": "WOMEN'S COALITION ABOVE AS BELOW CREWNECK CROP TANK",
     "price": 40,
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HFMfNYr.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EqDgC3h.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HFMfNYr.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_EqDgC3h.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.webp"
     ],
     "description": "Women's Above as Below crewneck crop tank in black with front SG artwork, back Above as Below graphic, and red Coalition hem label. $40 separately, or pair it with the contrast shorts as a $75 set.",
     "category": "shirt",
@@ -263,11 +263,11 @@ export const INITIAL_PRODUCTS: Product[] = [
     "name": "WOMEN'S COALITION ABOVE AS BELOW CONTRAST SHORTS",
     "price": 40,
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_juuQ8jz.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXvoGU6.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.png"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_juuQ8jz.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IXvoGU6.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_DpkQWuU.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_BoayHw0.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_coiMyd6.webp"
     ],
     "description": "Women's Above as Below contrast shorts in black with white trim, red Coalition artwork, and a red waistband label. Available S-M-L-XL. $40 separately, or grab the matching crop tank and shorts set for $75.",
     "category": "shorts",
@@ -434,8 +434,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     "name": "COALITION ABOVE AS BELOW TEE",
     "price": 75,
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-tee-front.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-tee-back.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-tee-front.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-tee-back.webp",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-above-as-below-tee_1783736980419_b2mdg.jpg",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/coalition-above-as-below-tee_1783737104911_6v4uf.jpg"
     ],
@@ -470,8 +470,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     "images": [
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_evsuOt6.jpg",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_gaA93ug.jpg",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_cYmL6GQ.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IVmfRGx.png"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_cYmL6GQ.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IVmfRGx.webp"
     ],
     "description": "Unique SGCoalition tie-dye 'Trust Yourself' tee with a striking blue spiral pattern and the iconic crowned-bird graphic. This one-of-a-kind piece features premium print details and a motivational streetwear vibe. Size Small, in excellent condition with no flaws - ideal for collectors or anyone looking to add a standout Coalition piece to their wardrobe.",
     "category": "shirt",
@@ -623,11 +623,11 @@ export const INITIAL_PRODUCTS: Product[] = [
     "name": "Trust Yourself Custom Trucker (1/1)",
     "price": 50,
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_iYBlwm8.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_jwnVHoI.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_YNiTSFA.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HqcoV24.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_6179VgH.png"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_iYBlwm8.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_jwnVHoI.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_YNiTSFA.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_HqcoV24.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_6179VgH.webp"
     ],
     "description": "A one-of-one custom trucker hat featuring 3D puff \"TRUST YOURSELF\" embroidery, hand-distressed brim, and a custom D20 pin. This piece represents the next evolution of Coalition headwear.",
     "category": "headwear",
@@ -676,8 +676,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     "name": "Coalition Green Camo Wallet",
     "price": 75,
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_kzIWQzA.png",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_hs4lZFg.png"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_kzIWQzA.webp",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_hs4lZFg.webp"
     ],
     "description": "Exclusive 1/1 custom wallet featuring camo green aesthetic and signature Coalition branding. Hand-crafted and unique.",
     "category": "accessory",

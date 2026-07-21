@@ -14,7 +14,7 @@ const AnnouncementBar = () => {
     return (
         <Link
             to="/wallets"
-            className="bg-white/[0.05] border-b border-white/10 text-gray-300 hover:text-white hover:bg-white/[0.08] py-2 px-4 flex items-center justify-center text-[10px] sm:text-xs font-bold uppercase tracking-[0.25em] transition-all duration-300 group"
+            className="bg-white/[0.05] border-b border-white/10 text-gray-300 hover:text-white hover:bg-white/[0.08] py-2 px-4 min-h-[36px] flex items-center justify-center text-[10px] sm:text-xs font-bold uppercase tracking-[0.25em] transition-all duration-300 group"
             role="region"
             aria-label="New Coalition Parts wallet collection"
         >

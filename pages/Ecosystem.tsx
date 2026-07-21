@@ -8,7 +8,7 @@ import BurnTracker from '../components/BurnTracker';
 import FeeTransparency from '../components/FeeTransparency';
 import FeedbackLoop from '../components/FeedbackLoop';
 import { useApp } from '../context/AppContext';
-import { fetchSGCoinData, fetchRecentTrades } from '../utils/sgcoinApi';
+import { fetchSGCoinData, fetchRecentTrades, fetchPoolBreakdown, PoolBreakdown } from '../utils/sgcoinApi';
 import { getGiveawayTicketCount, isSubscriberEligible } from '../utils/giveawayUtils';
 
 import { V2_REWARD_RATE, POLYGON_RPC_URL, POLYGON_RPC_URLS } from '../constants';
@@ -22,6 +22,7 @@ const Ecosystem = () => {
     const [activeGiveaway, setActiveGiveaway] = useState<any>(null);
     const [hasEntered, setHasEntered] = useState(false);
     const [isLoadingCoinData, setIsLoadingCoinData] = useState(true);
+    const [poolBreakdown, setPoolBreakdown] = useState<PoolBreakdown | null>(null);
 
     useEffect(() => {
         const loadData = async () => {
@@ -36,13 +37,15 @@ const Ecosystem = () => {
                     provider = new e.JsonRpcProvider(POLYGON_RPC_URLS[1]);
                 }
 
-                const [data, burned] = await Promise.all([
+                const [data, burned, breakdown] = await Promise.all([
                     fetchSGCoinData(),
-                    getBurnedSGCoinV1(provider)
+                    getBurnedSGCoinV1(provider),
+                    fetchPoolBreakdown(),
                 ]);
 
                 setCoinData(data);
                 setTotalBurned(burned);
+                setPoolBreakdown(breakdown);
 
                 const recentTrades = await fetchRecentTrades(data?.price || 0);
                 setTrades(recentTrades);
@@ -150,6 +153,78 @@ const Ecosystem = () => {
                         transition={{ duration: 0.8 }}
                     >
                         <SGCoinCard data={coinData} isLoading={isLoadingCoinData} />
+                    </motion.div>
+                </section>
+
+                {/* Pool Breakdown */}
+                <section className="max-w-7xl mx-auto px-6 -mt-24 mb-24 relative z-30">
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, margin: "-100px" }}
+                        transition={{ duration: 0.6 }}
+                    >
+                        {poolBreakdown ? (
+                            <div className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-8 md:p-10">
+                                <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-3">
+                                    <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                                    Live Liquidity Pools
+                                </h2>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    {/* V2 */}
+                                    <div className="p-5 rounded-xl bg-white/[0.03] border border-white/5">
+                                        <div className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 mb-3">QuickSwap V2</div>
+                                        <div className="text-2xl font-black text-white mb-1">${poolBreakdown.v2.tvlUsd.toFixed(0)}</div>
+                                        <div className="text-[10px] text-gray-500">
+                                            {poolBreakdown.v2.wpol.toFixed(1)} WPOL · {poolBreakdown.v2.sgc.toLocaleString(undefined, { maximumFractionDigits: 0 })} SGC
+                                        </div>
+                                        <div className="text-[11px] text-purple-400 font-bold mt-2">${poolBreakdown.v2.priceUsd.toFixed(6)} / SGC</div>
+                                    </div>
+
+                                    {/* V3 */}
+                                    {poolBreakdown.v3 ? (
+                                        <div className="p-5 rounded-xl bg-white/[0.03] border border-white/5">
+                                            <div className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 mb-3">QuickSwap V3</div>
+                                            <div className="text-2xl font-black text-white mb-1">${poolBreakdown.v3.tvlUsd.toFixed(0)}</div>
+                                            <div className="text-[10px] text-gray-500">
+                                                {poolBreakdown.v3.wpol.toFixed(1)} WPOL · {poolBreakdown.v3.sgc.toLocaleString(undefined, { maximumFractionDigits: 0 })} SGC
+                                            </div>
+                                            <div className="text-[11px] text-purple-400 font-bold mt-2">${poolBreakdown.v3.priceUsd.toFixed(6)} / SGC</div>
+                                        </div>
+                                    ) : (
+                                        <div className="p-5 rounded-xl bg-white/[0.01] border border-white/5 flex items-center justify-center">
+                                            <span className="text-[10px] text-gray-600">V3 inactive</span>
+                                        </div>
+                                    )}
+
+                                    {/* Combined */}
+                                    <div className="p-5 rounded-xl bg-purple-500/5 border border-purple-500/10">
+                                        <div className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-400 mb-3">Blended</div>
+                                        <div className="text-2xl font-black text-white mb-1">${poolBreakdown.combinedTvlUsd.toFixed(0)}</div>
+                                        <div className="text-[10px] text-gray-500">Total liquidity</div>
+                                        <div className="text-lg font-black text-purple-300 mt-2">${poolBreakdown.blendedPriceUsd.toFixed(6)}</div>
+                                        <div className="text-[9px] text-purple-400/60">per SGCOIN</div>
+                                        <a
+                                            href="https://dapp.quickswap.exchange/swap/best/ETH/0xd53e417107d0e01bbe74a704bb90fe7a6916ee1e?chainId=137"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-300 text-[10px] font-black uppercase tracking-widest hover:bg-purple-500/30 hover:text-white transition-all"
+                                        >
+                                            <ExternalLink size={12} /> Trade on QuickSwap
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-8 md:p-10 animate-pulse min-h-[14rem]">
+                                <div className="h-5 bg-white/5 rounded w-48 mb-6"></div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div className="h-28 bg-white/[0.03] rounded-xl"></div>
+                                    <div className="h-28 bg-white/[0.03] rounded-xl"></div>
+                                    <div className="h-28 bg-white/[0.03] rounded-xl"></div>
+                                </div>
+                            </div>
+                        )}
                     </motion.div>
                 </section>
 
