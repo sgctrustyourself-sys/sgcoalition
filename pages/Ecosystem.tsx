@@ -7,6 +7,7 @@ import LiveTransactions from '../components/LiveTransactions';
 import BurnTracker from '../components/BurnTracker';
 import FeeTransparency from '../components/FeeTransparency';
 import FeedbackLoop from '../components/FeedbackLoop';
+import LiveOrdersTicker from '../components/LiveOrdersTicker';
 import { useApp } from '../context/AppContext';
 import { fetchSGCoinData, fetchRecentTrades, fetchPoolBreakdown, PoolBreakdown } from '../utils/sgcoinApi';
 import { getGiveawayTicketCount, isSubscriberEligible } from '../utils/giveawayUtils';
@@ -23,6 +24,14 @@ const Ecosystem = () => {
     const [hasEntered, setHasEntered] = useState(false);
     const [isLoadingCoinData, setIsLoadingCoinData] = useState(true);
     const [poolBreakdown, setPoolBreakdown] = useState<PoolBreakdown | null>(null);
+    // Pre-filled to "100" so the calculator shows the meaningful "$100 → 25 SGC" preview on first paint.
+    const [projectionInput, setProjectionInput] = useState<string>('100');
+
+    // Reward Projection (Value Matrix) — derived; no direct DOM writes.
+    const val = parseFloat(projectionInput) || 0;
+    const rewardsInUsd = val * V2_REWARD_RATE;
+    const sgcPrice = coinData?.price || 0.0001;
+    const projectedSGC = (rewardsInUsd / sgcPrice).toFixed(1).toLocaleString();
 
     useEffect(() => {
         const loadData = async () => {
@@ -79,8 +88,11 @@ const Ecosystem = () => {
             </div>
 
             <main className="relative z-10">
-                {/* Hero Section: Cyber-Luxe Welcome */}
-                <section className="relative h-[80vh] flex items-center justify-center px-6 overflow-hidden">
+                {/* Hero Section: Cyber-Luxe Welcome.
+                     Mobile: min-h-[60vh] + smaller title so the 3 hero CTAs
+                     sit above the fold on phones (was 80vh + 7xl baseline
+                     which pushed the buttons below the fold on most phones). */}
+                <section className="relative min-h-[60vh] md:min-h-[80vh] flex items-center justify-center px-6 overflow-hidden">
                     {/* ... (Hero Content) ... */}
                     <div className="max-w-7xl mx-auto text-center">
                         <motion.div
@@ -200,7 +212,7 @@ const Ecosystem = () => {
                         transition={{ duration: 0.6 }}
                     >
                         {poolBreakdown ? (
-                            <div className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-8 md:p-10">
+                            <div className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-8 md:p-10 min-h-[26rem]">
                                 <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-3">
                                     <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
                                     Live Liquidity Pools
@@ -251,7 +263,7 @@ const Ecosystem = () => {
                                 </div>
                             </div>
                         ) : (
-                            <div className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-8 md:p-10 animate-pulse min-h-[20rem]">
+                            <div className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-8 md:p-10 animate-pulse min-h-[26rem]">
                                 <div className="h-5 bg-white/5 rounded w-48 mb-6"></div>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <div className="h-36 bg-white/[0.03] rounded-xl"></div>
@@ -273,6 +285,11 @@ const Ecosystem = () => {
                         <BurnTracker initialBurn={totalBurned} isLoading={isLoadingCoinData} />
                     </motion.div>
                 </section>
+
+                {/* Live orders ticker — mirrors the social-proof strip on Home,
+                     showing the latest paid orders sourced from INITIAL_ORDERS
+                     and Supabase realtime. Pure factual data, no urgency chrome. */}
+                <LiveOrdersTicker />
 
                 <div className="max-w-7xl mx-auto px-6 pb-40 grid grid-cols-1 lg:grid-cols-12 gap-16 font-bold">
                     {/* Left Column: Utility Infrastructure */}
@@ -298,26 +315,39 @@ const Ecosystem = () => {
 
                             <div className="grid md:grid-cols-2 gap-8">
                                 {[
-                                    { icon: <MessageCircle />, title: 'Community Pulse', desc: 'Participate in governance & discourse to build brand social weight.', color: 'blue' },
-                                    { icon: <Star />, title: 'Signal Feedback', desc: 'Direct feedback loops on physical product R&D earn deep equity.', color: 'purple' },
-                                    { icon: <Share2 />, title: 'Digital Amplification', desc: 'High-quality content creation integrated with SGC Oracle verification.', color: 'pink' },
-                                    { icon: <DollarSign />, title: 'Referral Synthesis', desc: 'Up to 40% commissions on physical-digital hybrid bridge sales.', color: 'orange' }
-                                ].map((way, idx) => (
-                                    <motion.div
-                                        key={idx}
-                                        initial={{ opacity: 0, y: 20 }}
-                                        whileInView={{ opacity: 1, y: 0 }}
-                                        viewport={{ once: true }}
-                                        transition={{ delay: idx * 0.1, duration: 0.5 }}
-                                        className="p-8 rounded-[2rem] border border-white/5 bg-white/[0.03] backdrop-blur-3xl group hover:border-orange-500/20 transition-all"
-                                    >
-                                        <div className="bg-white/5 w-14 h-14 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform border border-white/5 font-bold">
-                                            {React.cloneElement(way.icon as React.ReactElement<any>, { className: 'w-6 h-6 text-white' })}
-                                        </div>
-                                        <h3 className="font-display text-2xl font-black uppercase tracking-tight mb-4">{way.title}</h3>
-                                        <p className="text-gray-400 text-sm leading-relaxed font-light">{way.desc}</p>
-                                    </motion.div>
-                                ))}
+                                    // `href` works as both internal route ("/profile",
+                                    // "/signup") and in-page fragment ("#feedback-loop").
+                                    // /community is intentionally absent (no route yet);
+                                    // /signup is the closest genuine "join the community" CTA.
+                                    { icon: <MessageCircle />, title: 'Community Pulse', desc: 'Participate in governance & discourse to build brand social weight.', color: 'blue', href: '/signup' },
+                                    { icon: <Star />, title: 'Signal Feedback', desc: 'Direct feedback loops on physical product R&D earn deep equity.', color: 'purple', href: '#feedback-loop' },
+                                    { icon: <Share2 />, title: 'Digital Amplification', desc: 'High-quality content creation integrated with SGC Oracle verification.', color: 'pink', href: '/profile' },
+                                    { icon: <DollarSign />, title: 'Referral Synthesis', desc: 'Up to 40% commissions on physical-digital hybrid bridge sales.', color: 'orange', href: '/profile' },
+                                ].map((way, idx) => {
+                                    const cardInner = (
+                                        <>
+                                            <div className="bg-white/5 w-14 h-14 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform border border-white/5 font-bold">
+                                                {React.cloneElement(way.icon as React.ReactElement<any>, { className: 'w-6 h-6 text-white' })}
+                                            </div>
+                                            <h3 className="font-display text-2xl font-black uppercase tracking-tight mb-4">{way.title}</h3>
+                                            <p className="text-gray-400 text-sm leading-relaxed font-light">{way.desc}</p>
+                                        </>
+                                    );
+                                    const motionProps = {
+                                        initial: { opacity: 0, y: 20 },
+                                        whileInView: { opacity: 1, y: 0 },
+                                        viewport: { once: true },
+                                        transition: { delay: idx * 0.1, duration: 0.5 },
+                                        className: 'p-8 rounded-[2rem] border border-white/5 bg-white/[0.03] backdrop-blur-3xl group hover:border-orange-500/20 transition-all h-full',
+                                    };
+                                    return way.href ? (
+                                        <Link key={idx} to={way.href} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 rounded-[2rem]">
+                                            <motion.div {...motionProps}>{cardInner}</motion.div>
+                                        </Link>
+                                    ) : (
+                                        <motion.div {...motionProps} key={idx}>{cardInner}</motion.div>
+                                    );
+                                })}
                             </div>
                         </motion.section>
 
@@ -382,21 +412,15 @@ const Ecosystem = () => {
                                             <input
                                                 type="number"
                                                 placeholder="100.00"
+                                                value={projectionInput}
+                                                onChange={(e) => setProjectionInput(e.target.value)}
                                                 className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 pl-12 pr-6 text-white text-xl font-mono focus:border-orange-500/50 focus:outline-none transition-all"
-                                                onChange={(e) => {
-                                                    const val = parseFloat(e.target.value) || 0;
-                                                    const rewardsInUsd = val * V2_REWARD_RATE;
-                                                    const sgcPrice = coinData?.price || 0.0001;
-                                                    const sgV2Tokens = (rewardsInUsd / sgcPrice);
-                                                    const el = document.getElementById('calc-output');
-                                                    if (el) el.innerText = sgV2Tokens.toFixed(1).toLocaleString();
-                                                }}
                                             />
                                         </div>
                                         <div className="flex items-center justify-between px-2 pt-2">
                                             <span className="text-[10px] text-gray-500 uppercase tracking-widest">Projected SGC V2</span>
                                             <div className="text-2xl font-black font-display text-orange-500 tracking-tighter">
-                                                <span id="calc-output">25.0</span> SGC
+                                                <span>{projectedSGC}</span> SGC
                                             </div>
                                         </div>
                                     </div>
@@ -407,8 +431,11 @@ const Ecosystem = () => {
                         {/* Integration Transmissions */}
                         <LiveTransactions />
 
-                        {/* Concept Feedback Loop */}
+                        {/* Concept Feedback Loop.
+                             id="feedback-loop": anchor target for "Signal Feedback"
+                             card on this page (scrolls into view on click). */}
                         <motion.div
+                            id="feedback-loop"
                             initial={{ opacity: 0, y: 50 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
