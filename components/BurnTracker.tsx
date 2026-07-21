@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Flame, ArrowUpRight, TrendingUp, ShoppingBag, Zap, Ticket } from 'lucide-react';
+import { Flame, ArrowUpRight, TrendingUp, ShoppingBag, Zap, Ticket, ExternalLink } from 'lucide-react';
+import { SGCOIN_V2_CONTRACT_ADDRESS } from '../constants';
+
+// PolygonScan URL for the V2 token contract (same destination LiveTransactions uses for its
+// "View Verified Source" footer link). Keeps explorer verification consistent across the page.
+const V2_CONTRACT_POLYGONSCAN_URL = `https://polygonscan.com/token/${SGCOIN_V2_CONTRACT_ADDRESS}`;
 
 interface BurnTrackerProps {
     initialBurn?: string;
@@ -124,8 +129,13 @@ const BurnTracker: React.FC<BurnTrackerProps> = ({ initialBurn = "1,777,161", is
                         <p className="text-[10px] text-gray-500 max-w-[200px] leading-tight">
                             Every transaction permanently removes SGCOIN from circulation, increasing scarcity.
                         </p>
-                        <a href="#" className="flex items-center gap-1 text-[10px] uppercase font-bold text-orange-400 hover:text-orange-300 transition-colors">
-                            View Contract <ArrowUpRight className="w-3 h-3" />
+                        <a
+                            href={V2_CONTRACT_POLYGONSCAN_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-[10px] uppercase font-bold text-orange-400 hover:text-orange-300 transition-colors"
+                        >
+                            View Contract <ExternalLink className="w-3 h-3" />
                         </a>
                     </div>
                 </div>
