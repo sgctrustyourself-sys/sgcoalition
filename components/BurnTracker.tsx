@@ -4,9 +4,10 @@ import { Flame, ArrowUpRight, TrendingUp, ShoppingBag, Zap, Ticket } from 'lucid
 
 interface BurnTrackerProps {
     initialBurn?: string;
+    isLoading?: boolean;
 }
 
-const BurnTracker: React.FC<BurnTrackerProps> = ({ initialBurn = "1,777,161" }) => {
+const BurnTracker: React.FC<BurnTrackerProps> = ({ initialBurn = "1,777,161", isLoading = false }) => {
     const [burnAmount, setBurnAmount] = useState<string | number>(initialBurn);
 
     useEffect(() => {
@@ -20,6 +21,43 @@ const BurnTracker: React.FC<BurnTrackerProps> = ({ initialBurn = "1,777,161" }) 
         { id: 'dead', label: 'Protocol Burns', icon: Zap, color: 'text-purple-500', bg: 'bg-purple-500', percent: 12 },
         { id: 'treasury', label: 'Treasury Recycling', icon: Ticket, color: 'text-orange-500', bg: 'bg-orange-500', percent: 3 },
     ];
+
+    if (isLoading) {
+        return (
+            <div className="relative overflow-hidden rounded-3xl border border-orange-500/20 bg-gradient-to-br from-orange-900/10 via-black to-black p-8 animate-pulse min-h-[17rem]">
+                <div className="flex flex-col md:flex-row gap-12 items-center">
+                    {/* Left: skeleton counter */}
+                    <div className="text-center md:text-left">
+                        <div className="flex items-center gap-2 justify-center md:justify-start mb-2">
+                            <div className="p-2 rounded-full bg-orange-500/10 border border-orange-500/20">
+                                <div className="w-5 h-5" />
+                            </div>
+                            <div className="h-4 bg-white/5 rounded w-40" />
+                        </div>
+                        <div className="h-14 bg-white/5 rounded w-48 mb-4" />
+                        <div className="h-3 bg-white/5 rounded w-36" />
+                    </div>
+
+                    {/* Right: skeleton source bars */}
+                    <div className="flex-1 w-full max-w-md space-y-5">
+                        {[...Array(3)].map((_, i) => (
+                            <div key={i} className="space-y-1.5">
+                                <div className="flex justify-between">
+                                    <div className="h-3 bg-white/5 rounded w-28" />
+                                    <div className="h-3 bg-white/5 rounded w-8" />
+                                </div>
+                                <div className="h-2 bg-white/5 rounded-full" />
+                            </div>
+                        ))}
+                        <div className="pt-4 border-t border-white/5 flex justify-between items-center">
+                            <div className="h-3 bg-white/5 rounded w-40" />
+                            <div className="h-3 bg-white/5 rounded w-24" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="relative overflow-hidden rounded-3xl border border-orange-500/20 bg-gradient-to-br from-orange-900/10 via-black to-black p-8">

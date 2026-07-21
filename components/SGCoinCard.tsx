@@ -11,7 +11,7 @@ interface SGCoinCardProps {
 const SGCoinCard: React.FC<SGCoinCardProps> = ({ data, isLoading = false }) => {
     if (isLoading || !data) {
         return (
-            <div className="bg-white/5 backdrop-blur-3xl rounded-[2.5rem] p-12 border border-white/10 animate-pulse min-h-[22rem] md:min-h-[26rem] shadow-2xl">
+            <div className="bg-white/5 backdrop-blur-3xl rounded-[2.5rem] p-12 border border-white/10 animate-pulse min-h-[28rem] md:min-h-[32rem] shadow-2xl">
                 <div className="h-4 bg-white/10 rounded w-1/4 mb-8"></div>
                 <div className="h-16 bg-white/10 rounded w-1/2 mb-12"></div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-8">

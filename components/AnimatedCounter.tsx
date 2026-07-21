@@ -56,9 +56,15 @@ export const AnimatedCounter = ({
         return Math.floor(num).toLocaleString();
     };
 
+    // Pre-render a hidden span with the final value to reserve exact width,
+    // preventing CLS as the counter animates from 0 → target.
+    const finalFormatted = formatNumber(end);
+
     return (
-        <span className={className}>
-            {prefix}{formatNumber(count)}{suffix}
+        <span className={`${className} relative inline-block`}>
+            {/* Hidden final value reserves the exact pixel width from mount */}
+            <span aria-hidden="true" className="invisible tabular-nums">{prefix}{finalFormatted}{suffix}</span>
+            <span className="absolute inset-0 text-left tabular-nums">{prefix}{formatNumber(count)}{suffix}</span>
         </span>
     );
 };

@@ -196,14 +196,14 @@ const Navbar = () => {
                             )}
 
                             {!user ? (
-                                <div className="flex items-center pl-4 border-l border-white/5 space-x-6">
+                                <div className="flex items-center pl-4 border-l border-white/5 space-x-6 min-w-[140px] justify-end">
                                     <span className="text-gray-800 font-light select-none ml-4">|</span>
                                     <Link to="/login" className="text-[11px] font-bold uppercase tracking-[0.2em] text-white hover:text-glow transition-all">
                                         LOGIN
                                     </Link>
                                 </div>
                             ) : !user.walletAddress && !user.connectedWalletAddress ? (
-                                <div className="flex items-center space-x-4 pl-4 border-l border-white/10">
+                                <div className="flex items-center space-x-4 pl-4 border-l border-white/10 min-w-[240px] justify-end">
                                     <button
                                         onClick={() => navigate('/membership')}
                                         className="text-[10px] font-bold uppercase tracking-wider text-brand-accent hover:text-white transition-all flex items-center gap-1.5 px-3 py-1.5 rounded bg-brand-accent/10 border border-brand-accent/30"
@@ -214,7 +214,7 @@ const Navbar = () => {
                                     <button onClick={logout} className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-500 hover:text-red-500 transition-colors" title="Logout">LOGOUT</button>
                                 </div>
                             ) : (
-                                <div className="flex items-center space-x-6 pl-4 border-l border-white/10">
+                                <div className="flex items-center space-x-6 pl-4 border-l border-white/10 min-w-[280px] justify-end">
                                     {/* V1 Balance - Red */}
                                     <div className="flex items-center text-red-400">
                                         <Hexagon className="w-4 h-4 mr-2 fill-current" />

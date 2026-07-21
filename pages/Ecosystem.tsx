@@ -216,12 +216,12 @@ const Ecosystem = () => {
                                 </div>
                             </div>
                         ) : (
-                            <div className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-8 md:p-10 animate-pulse min-h-[14rem]">
+                            <div className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-8 md:p-10 animate-pulse min-h-[20rem]">
                                 <div className="h-5 bg-white/5 rounded w-48 mb-6"></div>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    <div className="h-28 bg-white/[0.03] rounded-xl"></div>
-                                    <div className="h-28 bg-white/[0.03] rounded-xl"></div>
-                                    <div className="h-28 bg-white/[0.03] rounded-xl"></div>
+                                    <div className="h-36 bg-white/[0.03] rounded-xl"></div>
+                                    <div className="h-36 bg-white/[0.03] rounded-xl"></div>
+                                    <div className="h-36 bg-white/[0.03] rounded-xl"></div>
                                 </div>
                             </div>
                         )}
@@ -235,7 +235,7 @@ const Ecosystem = () => {
                         viewport={{ once: true, margin: "-100px" }}
                         transition={{ duration: 0.8 }}
                     >
-                        <BurnTracker initialBurn={totalBurned} />
+                        <BurnTracker initialBurn={totalBurned} isLoading={isLoadingCoinData} />
                     </motion.div>
                 </section>
 
@@ -420,14 +420,15 @@ const Ecosystem = () => {
                                                 </div>
                                             </div>
 
+                                            <div className="h-[152px] flex items-center">
                                             {hasEntered ? (
-                                                <div className="p-8 rounded-3xl bg-orange-500/10 border border-orange-500/20 text-center">
+                                                <div className="p-8 rounded-3xl bg-orange-500/10 border border-orange-500/20 text-center w-full">
                                                     <CheckCircle className="w-10 h-10 text-orange-500 mx-auto mb-4" />
                                                     <div className="font-display text-xl font-black uppercase text-orange-400">Signal Logged</div>
                                                     <p className="text-[10px] text-orange-500/60 uppercase tracking-widest mt-1 font-bold">Awaiting oracle confirmation</p>
                                                 </div>
                                             ) : (
-                                                <Link to={`/giveaway/${activeGiveaway.id}`}>
+                                                <Link to={`/giveaway/${activeGiveaway.id}`} className="w-full">
                                                     <motion.button
                                                         whileHover={{ scale: 1.02 }}
                                                         className="w-full bg-white text-black font-black uppercase py-6 rounded-full text-xs tracking-widest hover:bg-orange-500 hover:text-white transition-all shadow-2xl"
@@ -436,6 +437,7 @@ const Ecosystem = () => {
                                                     </motion.button>
                                                 </Link>
                                             )}
+                                            </div>
                                         </>
                                     ) : (
                                         <div className="text-center py-24">

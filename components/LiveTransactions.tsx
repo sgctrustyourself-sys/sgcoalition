@@ -6,7 +6,7 @@ import { SGCOIN_V2_CONTRACT_ADDRESS } from '../constants';
 const LiveTransactions = () => {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isExpanded, setIsExpanded] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         loadTransactions();
@@ -16,9 +16,14 @@ const LiveTransactions = () => {
 
     const loadTransactions = async () => {
         setIsLoading(true);
-        const txs = await fetchRecentTransactions(15);
-        setTransactions(txs);
-        setIsLoading(false);
+        try {
+            const txs = await fetchRecentTransactions(15);
+            setTransactions(txs);
+        } catch (error) {
+            console.error('LiveTransactions: fetch failed', error);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const getTypeColor = (type: string) => {
@@ -116,7 +121,26 @@ const LiveTransactions = () => {
 
             {/* Transaction List */}
             <div className="relative z-10">
-                {transactions.length === 0 ? (
+                {isLoading ? (
+                    <div className="animate-pulse min-h-[28rem]">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="p-6 border-b border-white/5">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="h-5 bg-white/5 rounded w-32"></div>
+                                    <div className="h-5 bg-white/5 rounded w-24"></div>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-6 bg-white/5 rounded w-24"></div>
+                                        <div className="h-3 bg-white/5 rounded w-8"></div>
+                                        <div className="h-6 bg-white/5 rounded w-24"></div>
+                                    </div>
+                                    <div className="h-7 bg-white/5 rounded w-28"></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : transactions.length === 0 ? (
                     <div className="p-20 text-center text-gray-600">
                         <Activity className="w-12 h-12 mx-auto mb-6 opacity-20" />
                         <p className="text-[10px] uppercase font-black tracking-widest">No Signals Detected</p>
