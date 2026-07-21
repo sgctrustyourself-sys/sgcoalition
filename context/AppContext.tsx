@@ -60,6 +60,11 @@ interface AppState {
     disconnectWallet: () => Promise<void>;
     chainId: number | null;
     switchToPolygon: () => Promise<boolean>;
+    // Server-aggregated 7-day wallet-mint count. Subscribed via Supabase
+    // realtime on `wallet_mints_7d` (single-row scalar view). null = loading
+    // (initial paint before first GET). Replaces the previous client-side
+    // aggregation in pages/Home.tsx and pages/Wallets.tsx.
+    walletMints7d: number | null;
     addReview: (productId: string, review: Review) => Promise<void>;
     linkSocialAccount: (platform: SocialAccount['platform'], username: string) => Promise<void>;
     submitCustomInquiry: (data: Omit<CustomInquiry, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => Promise<void>;
@@ -103,11 +108,36 @@ const safeJsonParse = (key: string, defaultValue: any) => {
 const loadWalletActions = () => import('../services/walletActions');
 const loadWalletBalances = () => import('../services/walletBalances');
 
+/**
+ * Pure reducer for wallet_mints_7d realtime payloads. Returns the next
+ * count or `prev` if the payload is malformed. Exported so the SLA contract
+ * can be unit-tested without spinning up React lifecycle / Supabase mocks.
+ *
+ *   null / undefined / empty raw => keep prev
+ *   non-finite Number() (NaN, ±Infinity) => keep prev
+ *   finite Number() => use it
+ *
+ * Supabase delivers PostgREST `bigint` columns as string OR number — both
+ * accepted here so we don't surprise callers on either side of the wire.
+ */
+export function applyWalletMintsUpdate(
+    prev: number | null,
+    payload: { new?: { mint_count?: unknown } } | null | undefined
+): number | null {
+    const raw = payload?.new?.mint_count;
+    if (raw == null || raw === '') return prev;
+    const num = Number(raw);
+    if (!Number.isFinite(num)) return prev;
+    return num;
+}
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { addToast } = useToast();
     const [products, setProducts] = useState<Product[]>([]);
     const [sections, setSections] = useState<Section[]>(() => safeJsonParse('coalition_sections', INITIAL_SECTIONS));
     const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
+    // 7-day wallet-mint count. null until the realtime view responds.
+    const [walletMints7d, setWalletMints7d] = useState<number | null>(null);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [user, setUser] = useState<UserProfile | null>(null);
     const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
@@ -231,7 +261,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     fetchProducts(),
                     fetchOrders(),
                     fetchSignals(),
-                    fetchGiveaways()
+                    fetchGiveaways(),
+                    fetchWalletMints7d()
                 ]);
 
                 // Subscribe to Realtime Signals
@@ -692,6 +723,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             console.log('🔂 Order change detected, refreshing...');
             fetchOrders();
         }).subscribe();
+        return () => { channel.unsubscribe(); };
+    }, [isSupabaseConfigured]);
+
+    // Fetches the wallet_mints_7d server-side scalar view. This is the
+    // single source of truth for the 'X wallets minted this week'
+    // counter on Home + Wallets — replacing the client-side useMemo
+    // aggregation that previously ran on every orders refresh.
+    const fetchWalletMints7d = async () => {
+        if (!isSupabaseConfigured) return 0;
+        try {
+            const { data, error } = await supabase
+                .from('wallet_mints_7d')
+                .select('mint_count')
+                .maybeSingle();
+            if (error) {
+                console.warn('[wallet_mints_7d] fetch error:', error.message);
+                return null;
+            }
+            const count = data?.mint_count != null ? Number(data.mint_count) : 0;
+            setWalletMints7d(count);
+            return count;
+        } catch (e) {
+            console.warn('[wallet_mints_7d] fetch threw:', e);
+            return null;
+        }
+    };
+
+    // Realtime wallet_mints_7d channel — pushes the new scalar directly to
+    // the React state on every UPDATE. ~200-700ms latency on Supabase's
+    // standard plan. The view itself is added to supabase_realtime via
+    // supabase/migrations/20260721_create_wallet_mints_7d_view.sql.
+    useEffect(() => {
+        if (!isSupabaseConfigured) return;
+        const channel = supabase
+            .channel('wallet_mints_7d_sync')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wallet_mints_7d' }, (payload) => {
+                // Defensive payload decoding — Supabase types bigint as string,
+                // and an empty-string or NaN payload would silently flicker the
+                // counter to 0 mid-session. Pure reducer lives in
+                // applyWalletMintsUpdate below — exported for unit testing.
+                setWalletMints7d(prev => applyWalletMintsUpdate(prev, payload));
+            })
+            .subscribe();
         return () => { channel.unsubscribe(); };
     }, [isSupabaseConfigured]);
 
@@ -1171,7 +1245,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             calculateReward, addOrder, updateOrderStatus, deleteOrder, getOrderById, deductInventory,
             generateOrderNumber, giveaways, addGiveaway, updateGiveaway, deleteGiveaway,
             addGiveawayEntry, pickGiveawayWinner, connectMetaMaskWallet, connectManualWallet,
-            disconnectWallet, chainId, switchToPolygon: handleSwitchToPolygon, addReview,
+            disconnectWallet, chainId,        switchToPolygon: handleSwitchToPolygon,
+        walletMints7d,
+        addReview,
             linkSocialAccount, unlinkSocialAccount, submitCustomInquiry, submitPurchaseRequest,
             refreshBalances, signals, fetchSignals
         }}>

@@ -42,7 +42,7 @@ const FEATURES = [
 const FEATURED_WALLET_ID = PRODUCT_IDS.FEATURED_WALLET;
 
 const Wallets = () => {
-    const { orders, products } = useApp();
+    const { products, walletMints7d } = useApp();
 
     // Memoize the wallet split so the filter+sort only runs when the catalog
     // changes (not on every parent re-render). Matches the Navbar pattern.
@@ -58,27 +58,6 @@ const Wallets = () => {
         return { featured: featuredProduct, otherWallets: others };
     }, [products]);
 
-    // productId -> category lookup. OrderItem itself does not carry a category
-    // (denormalised on the products table), so we build the map here once and
-    // re-use it in the weeklyWalletMints aggregation below.
-    const productCategoryById = useMemo(() => {
-        const m = new Map<string, string>();
-        (products || []).forEach(p => m.set(p.id, p.category));
-        return m;
-    }, [products]);
-
-    // Honest social proof for the wallet catalog: count paid wallet line-items
-    // in the rolling past 7 days. Same data layer as the LiveOrdersTicker on
-    // Home, so the numbers match — visitors can cross-verify by counting
-    // wallet entries in the marquee. Hidden at zero rather than printing +0.
-    const weeklyWalletMints = useMemo(() => {
-        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        return (orders || [])
-            .filter(o => o.paymentStatus === 'paid' && new Date(o.createdAt).getTime() >= sevenDaysAgo)
-            .flatMap(o => o.items || [])
-            .filter(item => productCategoryById.get(item.productId) === 'wallet')
-            .reduce((sum, item) => sum + (item.quantity || 1), 0);
-    }, [orders, productCategoryById]);
 
     return (
         <div className="min-h-screen bg-black text-white py-12 px-4 selection:bg-brand-accent/30">
@@ -213,12 +192,12 @@ const Wallets = () => {
                             </Link>
                         </div>
 
-                        {weeklyWalletMints > 0 && (
+                        {walletMints7d != null && walletMints7d > 0 && (
                             <p
                                 className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-6 font-medium"
                                 aria-live="polite"
                             >
-                                {weeklyWalletMints.toLocaleString()} {weeklyWalletMints === 1 ? 'wallet' : 'wallets'} minted this week
+                                {walletMints7d.toLocaleString()} {walletMints7d === 1 ? 'wallet' : 'wallets'} minted this week
                             </p>
                         )}
 

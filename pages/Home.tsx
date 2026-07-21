@@ -10,34 +10,8 @@ import Newsletter from '../components/Newsletter';
 import LiveOrdersTicker from '../components/LiveOrdersTicker';
 
 const Home = () => {
-    const { sections, products, isAdminMode, updateSections, updateSection, isLoading, orders } = useApp();
+    const { sections, products, isAdminMode, updateSections, updateSection, isLoading, walletMints7d } = useApp();
 
-    // Build a productId → category lookup so we can classify order line items
-    // without relying on inline category data (OrderItem doesn't carry a
-    // `category` field — it's denormalised from the products table).
-    const productCategoryById = useMemo(() => {
-        const m = new Map<string, string>();
-        products.forEach(p => m.set(p.id, p.category));
-        return m;
-    }, [products]);
-
-    // Wallets minted in the past 7 days — derived from the same paid-orders
-    // data layer that feeds LiveOrdersTicker. Honest social proof, no
-    // synthetic viewership math. Filters:
-    //   1. paymentStatus === 'paid' (so unpaid / pending / cancelled never count)
-    //   2. createdAt within the last 7 × 24 hours (vs midnight-cutoff, this
-    //      treats "this week" as a rolling 7-day window — true to the copy)
-    //   3. category === 'wallet' looked up from products (so clothing/tee
-    //      drops don't inflate the wallet number — handles drops like the
-    //      Hoodie / Halo Contrast Tee / True Religion Jeans correctly)
-    const weeklyWalletMints = useMemo(() => {
-        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        return orders
-            .filter(o => o.paymentStatus === 'paid' && new Date(o.createdAt).getTime() >= sevenDaysAgo)
-            .flatMap(o => o.items || [])
-            .filter(item => productCategoryById.get(item.productId) === 'wallet')
-            .reduce((sum, item) => sum + (item.quantity || 1), 0);
-    }, [orders, productCategoryById]);
 
     const moveSection = (index: number, direction: 'up' | 'down') => {
         const newSections = [...sections];
@@ -71,12 +45,12 @@ const Home = () => {
                             <p className="text-lg md:text-2xl text-gray-300 font-light mb-10 tracking-wide max-w-2xl mx-auto">
                                 {section.content}
                             </p>
-                            {weeklyWalletMints > 0 && (
+                            {walletMints7d != null && walletMints7d > 0 && (
                                 <p
                                     className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-6 font-medium"
                                     aria-live="polite"
                                 >
-                                    {weeklyWalletMints.toLocaleString()} {weeklyWalletMints === 1 ? 'wallet' : 'wallets'} minted this week
+                                    {walletMints7d.toLocaleString()} {walletMints7d === 1 ? 'wallet' : 'wallets'} minted this week
                                 </p>
                             )}
                             <Link to="/shop" className="inline-block bg-white text-black px-10 py-4 text-sm font-bold uppercase tracking-[0.2em] hover:bg-gray-200 hover:scale-105 transition-all duration-300 box-glow text-center">
