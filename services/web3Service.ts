@@ -71,6 +71,81 @@ const SAFE_MIGRATION_ABI = [
     'event Migrated(address indexed user, uint256 v1Amount, uint256 v2Amount, string tier)'
 ];
 
+/**
+ * Migration event emitted by the SafeMigration contract when a user migrates V1 → V2.
+ * topic0 = keccak256('Migrated(address,uint256,uint256,string)') =
+ *         0x84c19c0cbe7ff683ba321044828863b5fc1427c0dfedb486a7cd8a1bf9b00515
+ */
+export interface MigrationEvent {
+    txHash: string;
+    blockNumber: number;
+    timestamp: number | null;
+    v1Amount: string;
+    v2Amount: string;
+    tier: string;
+}
+
+export const fetchRecentMigrations = async (
+    walletAddress: string,
+    provider: any
+): Promise<MigrationEvent[]> => {
+    const { ethers } = await getEthers();
+    const SAFE_MIGRATION_TOPIC0 = '0x84c19c0cbe7ff683ba321044828863b5fc1427c0dfedb486a7cd8a1bf9b00515';
+
+    try {
+        const network = await provider.getNetwork();
+        if (Number(network.chainId) !== 137) {
+            console.warn('[fetchRecentMigrations] Not on Polygon — returning empty');
+            return [];
+        }
+
+        // Fetch the SafeMigration contract's Migrated events filtered by user.
+        // ethers' topic filtering handles the indexed `user` parameter automatically.
+        const contract = new ethers.Contract(
+            '0xc6c1EB54E5Ed966C0B48154d6e22eaA8a4c4C536',
+            SAFE_MIGRATION_ABI,
+            provider
+        );
+
+        // Use a generous block range. SafeMigration was deployed ~mid-2026;
+        // 20 million blocks back on Polygon covers roughly mid-2025 onward.
+        const currentBlock = await provider.getBlockNumber();
+        const fromBlock = Math.max(0, currentBlock - 5_000_000);
+
+        const filter = contract.filters.Migrated(walletAddress);
+        const events = await contract.queryFilter(filter, fromBlock);
+
+        // Sort descending by block number, take last 5
+        const sorted = events.sort((a: any, b: any) => b.blockNumber - a.blockNumber);
+        const recent = sorted.slice(0, 5);
+
+        // Resolve block timestamps for human-readable dates
+        const migrations: MigrationEvent[] = await Promise.all(
+            recent.map(async (event: any) => {
+                let timestamp: number | null = null;
+                try {
+                    const block = await provider.getBlock(event.blockNumber);
+                    timestamp = block ? block.timestamp * 1000 : null;
+                } catch { /* best-effort */ }
+
+                return {
+                    txHash: event.transactionHash,
+                    blockNumber: event.blockNumber,
+                    timestamp,
+                    v1Amount: ethers.formatUnits(event.args.v1Amount, 9),
+                    v2Amount: ethers.formatUnits(event.args.v2Amount, 18),
+                    tier: event.args.tier,
+                };
+            })
+        );
+
+        return migrations;
+    } catch (error) {
+        console.error('[fetchRecentMigrations] Error:', error);
+        return [];
+    }
+};
+
 // ERC-1155 ABI (for OpenSea Shared Storefront)
 const ERC1155_ABI = [
     'function balanceOf(address account, uint256 id) view returns (uint256)'

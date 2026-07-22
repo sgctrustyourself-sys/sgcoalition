@@ -12,7 +12,7 @@ import {
     POLYGON_CHAIN_ID
 } from '../constants';
 import { AuthProvider } from '../types';
-import { getAllowance, approveTokens, getSGCoinBalance } from '../services/web3Service';
+import { getAllowance, approveTokens, getSGCoinBalance, fetchRecentMigrations, MigrationEvent } from '../services/web3Service';
 
 // Lazy-loaded ethers — only downloaded when the user initiates a migration action.
 let ethersModule: Promise<typeof import('ethers')> | null = null;
@@ -34,6 +34,8 @@ const MigrationPage: React.FC = () => {
     const [txHash, setTxHash] = useState<string>('');
     const [formattedV1Balance, setFormattedV1Balance] = useState<string>('0');
     const [needsApproval, setNeedsApproval] = useState<boolean>(true);
+    const [migrations, setMigrations] = useState<MigrationEvent[]>([]);
+    const [isLoadingMigrations, setIsLoadingMigrations] = useState(false);
 
     // Re-compute approval requirement whenever the user changes the migrate amount
     // or the on-chain allowance refreshes. Uses the cached ethers lazy-loader so the
@@ -77,8 +79,24 @@ const MigrationPage: React.FC = () => {
         }
     };
 
+    const fetchMigrations = async () => {
+        if (!user || !user.walletAddress || isWrongNetwork || typeof window.ethereum === 'undefined') return;
+        setIsLoadingMigrations(true);
+        try {
+            const { ethers: e } = await getEthers();
+            const provider = new e.BrowserProvider(window.ethereum);
+            const result = await fetchRecentMigrations(user.walletAddress, provider);
+            setMigrations(result);
+        } catch (error) {
+            console.error('Error fetching migrations:', error);
+        } finally {
+            setIsLoadingMigrations(false);
+        }
+    };
+
     useEffect(() => {
         fetchData();
+        fetchMigrations();
     }, [user, chainId]);
 
     const handleMax = async () => {
@@ -159,12 +177,11 @@ const MigrationPage: React.FC = () => {
 
             // 3. Send Transaction
             const tx = await migrator.migrate(amountToMigrate, { gasLimit });
-            const receipt = await tx.wait();
-
-            setTxHash(receipt.hash);
-            setStep('success');
-            await fetchData(); // Refresh local balances
-            await refreshBalances(); // Refresh global balances
+            const receipt = await tx.wait();                            setTxHash(receipt.hash);
+                            setStep('success');
+                            await fetchData(); // Refresh local balances
+                            await refreshBalances(); // Refresh global balances
+                            await fetchMigrations(); // Show the new migration in the table
         } catch (error: any) {
             console.error("Full Migration Error:", error);
             const reason = error.reason || error.message || "Unknown error";
@@ -439,6 +456,95 @@ const MigrationPage: React.FC = () => {
                         </p>
                     </div>
                 </div>
+
+                {/* Recent Migrations Card */}
+                {user && user.walletAddress && (
+                    <div className="mt-16">
+                        <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-8 backdrop-blur-xl">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-lg font-black uppercase tracking-tight flex items-center gap-3">
+                                    <RefreshCw size={18} className="text-yellow-500" />
+                                    Recent Migrations
+                                </h3>
+                                {(isLoadingMigrations || migrations.length > 0) && (
+                                    <button
+                                        onClick={fetchMigrations}
+                                        disabled={isLoadingMigrations}
+                                        className="text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-white transition-colors disabled:opacity-50"
+                                    >
+                                        {isLoadingMigrations ? 'Loading...' : 'Refresh'}
+                                    </button>
+                                )}
+                            </div>
+
+                            {isLoadingMigrations ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader className="w-6 h-6 animate-spin text-gray-500" />
+                                </div>
+                            ) : migrations.length > 0 ? (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead>
+                                            <tr className="text-[10px] font-bold uppercase tracking-widest text-gray-500 border-b border-white/5">
+                                                <th className="pb-3 pr-4">V1 Amount</th>
+                                                <th className="pb-3 pr-4">V2 Received</th>
+                                                <th className="pb-3 pr-4">Tier</th>
+                                                <th className="pb-3 pr-4">Date</th>
+                                                <th className="pb-3 text-right">Tx</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {migrations.map((m, idx) => (
+                                                <tr key={m.txHash} className="border-b border-white/[0.02] text-sm">
+                                                    <td className="py-4 pr-4 font-mono text-white">
+                                                        {parseFloat(m.v1Amount).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                    </td>
+                                                    <td className="py-4 pr-4 font-mono text-green-400">
+                                                        {parseFloat(m.v2Amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                                                    </td>
+                                                    <td className="py-4 pr-4">
+                                                        <span className="text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+                                                            {m.tier}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-4 pr-4 text-gray-400 text-xs font-mono">
+                                                        {m.timestamp ? new Date(m.timestamp).toLocaleDateString() : '—'}
+                                                    </td>
+                                                    <td className="py-4 text-right">
+                                                        <a
+                                                            href={`https://polygonscan.com/tx/${m.txHash}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors"
+                                                        >
+                                                            View <ExternalLink size={12} />
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="text-center py-12">
+                                    <RefreshCw className="w-10 h-10 text-gray-800 mx-auto mb-4" />
+                                    <p className="text-sm text-gray-600 font-bold">No migrations found for this wallet</p>
+                                    <p className="text-[10px] text-gray-700 mt-1">Complete a migration above to see it here</p>
+                                </div>
+                            )}
+
+                            {migrations.length > 1 && (
+                                <div className="mt-4 pt-4 border-t border-white/5">
+                                    <p className="text-[10px] text-gray-600 leading-relaxed">
+                                        Shows the last {migrations.length} migration{ migrations.length !== 1 ? 's' : '' } found on-chain.
+                                        The ratio shown per event is the actual on-chain tier ratio, which may differ
+                                        from the flat 1M:1 constant if the contract applies tier bonuses or minimums.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 <div className="mt-12 text-center text-xs text-gray-600">
                     <p>Designed for the Coalition Community. Baltimore hustle, global standard.</p>
