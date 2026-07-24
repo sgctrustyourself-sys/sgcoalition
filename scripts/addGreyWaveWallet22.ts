@@ -25,7 +25,7 @@ const PRODUCT_IMAGES = [
 const BASE_SELECT_COLUMNS = 'id,name,price,stock,images,archived,size_inventory';
 
 async function addGreyWaveWallet22() {
-    const sizeInventory = { 'One Size': 1 };
+    const sizeInventory = { 'One Size': 0 };
     const product = {
         id: 'Coalition_Grey_Wave_Wallet_2_2',
         name: "Coalition 'Grey Wave' Wallet 2/2",
@@ -37,7 +37,7 @@ async function addGreyWaveWallet22() {
         is_featured: false,
         sizes: ['One Size'],
         size_inventory: sizeInventory,
-        archived: false
+        archived: true
     };
 
     const optionalColumns: Record<string, unknown> = {

@@ -341,13 +341,13 @@ export const INITIAL_PRODUCTS: Product[] = [
       "One Size"
     ],
     "sizeInventory": {
-      "One Size": 1
+      "One Size": 0
     },
     "nft": null,
-    "archived": false,
-    "archivedAt": null,
+    "archived": true,
+    "archivedAt": "2026-07-24T00:00:00.000+00:00",
     "releasedAt": null,
-    "soldAt": null
+    "soldAt": "2026-07-24T00:00:00.000+00:00"
   },
   {
     "id": "Coalition_Above_As_Below_Wallet_1_1",
