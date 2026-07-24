@@ -328,7 +328,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     "id": "Coalition_Grey_Wave_Wallet_2_2",
     "name": "Coalition 'Grey Wave' Wallet 2/2",
-    "price": 35,
+    "price": 85,
     "images": [
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_FVMHZoq.jpg",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_LLoGORu.jpg"
@@ -408,7 +408,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     "id": "Coalition_Grey_Wave_Wallet_1_2",
     "name": "Coalition 'Grey Wave' Wallet 1/2",
-    "price": 35,
+    "price": 85,
     "images": [
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_7z2h8u6.jpg",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_UqtbJCq.jpg"
@@ -498,7 +498,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     "id": "SKYYBLUEWALLET1_2",
     "name": "COALITION SKYY BLUE WALLET 1/2",
-    "price": 35,
+    "price": 85,
     "images": [
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/wallet-skyy-blue-front.jpg",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/wallet-skyy-blue-back.jpg"
@@ -674,7 +674,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     "id": "GreenCamoWallet",
     "name": "Coalition Green Camo Wallet",
-    "price": 35,
+    "price": 85,
     "images": [
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_kzIWQzA.webp",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_hs4lZFg.webp"

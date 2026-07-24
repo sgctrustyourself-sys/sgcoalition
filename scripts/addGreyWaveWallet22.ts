@@ -29,7 +29,7 @@ async function addGreyWaveWallet22() {
     const product = {
         id: 'Coalition_Grey_Wave_Wallet_2_2',
         name: "Coalition 'Grey Wave' Wallet 2/2",
-        price: 35,
+        price: 85,
         stock: Object.values(sizeInventory).reduce((sum, count) => sum + count, 0),
         images: PRODUCT_IMAGES,
         description: "Second and final piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a storm-grey wave pattern, raw edge stitching, copper grommet, and Coalition mark. Built as a limited 2/2 collectible - once sold, it's gone forever.",
