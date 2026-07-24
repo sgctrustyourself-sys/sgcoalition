@@ -18,4 +18,11 @@
   --color-brand-accent: #3B82F6;
 
   --background-image-noise: url('/images/patterns/noise.svg');
+
+  --animate-marquee: marquee 40s linear infinite;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
