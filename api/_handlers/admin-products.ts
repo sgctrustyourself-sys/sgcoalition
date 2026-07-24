@@ -67,6 +67,8 @@ interface ProductDraft {
     sizeInventory?: Record<string, number>;
     nft?: unknown;
     archived?: boolean;
+    soldAt?: string | null;
+    archivedAt?: string | null;
 }
 
 interface AddProductBody {
@@ -142,6 +144,8 @@ async function updateProduct(body: AddProductBody): Promise<ProductRow> {
     if (product.sizeInventory !== undefined) dbProduct.size_inventory = product.sizeInventory;
     if (product.nft !== undefined) dbProduct.nft_metadata = product.nft;
     if (product.archived !== undefined) dbProduct.archived = product.archived;
+    if (product.soldAt !== undefined) dbProduct.sold_at = product.soldAt;
+    if (product.archivedAt !== undefined) dbProduct.archived_at = product.archivedAt;
 
     const { data, error } = await supabase
         .from('products')

@@ -1008,7 +1008,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     throw new Error(payload.error || 'Failed to update product via API');
                 }
             } else {
-                const { error } = await supabase.from('products').update({
+                const updates: Record<string, unknown> = {
                     name: normalizedUpdated.name, price: normalizedUpdated.price, category: normalizedUpdated.category, images: normalizedUpdated.images,
                     description: normalizedUpdated.description,
                     is_featured: normalizedUpdated.isFeatured,
@@ -1016,8 +1016,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     pricing_tiers: normalizedUpdated.pricingTiers ?? null,
                     edition_size: normalizedUpdated.editionSize ?? null,
                     sizes: normalizedUpdated.sizes,
-                    size_inventory: normalizedUpdated.sizeInventory, nft_metadata: normalizedUpdated.nft, archived: normalizedUpdated.archived
-                }).eq('id', normalizedUpdated.id);
+                    size_inventory: normalizedUpdated.sizeInventory, nft_metadata: normalizedUpdated.nft, archived: normalizedUpdated.archived,
+                };
+                if (normalizedUpdated.soldAt !== undefined) updates.sold_at = normalizedUpdated.soldAt;
+                if (normalizedUpdated.archivedAt !== undefined) updates.archived_at = normalizedUpdated.archivedAt;
+
+                const { error } = await supabase.from('products').update(updates).eq('id', normalizedUpdated.id);
                 if (error) throw error;
                 // Mirror api/_handlers/admin-products.ts featured-exclusivity hook
                 // via the shared helper (same rationale as the addProduct branch
