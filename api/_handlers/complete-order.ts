@@ -6,12 +6,12 @@ import {
     type UpdateOrderBody,
     type OrderRow,
     type PayPalVerification,
-} from '../_types';
+} from '../_types.js';
 import {
     createHttpError,
     parseBody,
     setCorsHeaders,
-} from '../_helpers';
+} from '../_helpers.js';
 import {
     acceptCheckout,
     type CheckoutAttempt,

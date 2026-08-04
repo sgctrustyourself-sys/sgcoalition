@@ -12,18 +12,18 @@
 // token, then use the service-role client for the actual write.
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { clearOtherFeaturedProducts } from '../../utils/featuredExclusivity';
+import { clearOtherFeaturedProducts } from '../../utils/featuredExclusivity.js';
 import {
     type ApiRequest,
     type ApiResponse,
     type ProductRow,
-} from '../_types';
+} from '../_types.js';
 import {
     createHttpError,
     parseBody,
     setCorsHeaders,
     type HttpError,
-} from '../_helpers';
+} from '../_helpers.js';
 
 function getBearerToken(req: ApiRequest): string | null {
     const header = req.headers?.authorization || req.headers?.Authorization || '';

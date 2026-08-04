@@ -1,4 +1,4 @@
-import { Product } from '../types';
+import { Product } from '../types.js';
 
 export const SITE_ORIGIN = 'https://sgcoalition.xyz';
 export const SITE_NAME = 'Coalition';

@@ -8,7 +8,7 @@ export interface EmailData {
     subject: string;
     html: string;
 }
-import { renderReferralCodeOnboardingHtml, REFERRAL_CODE_EMAIL_SUBJECT } from '../utils/referralEmailTemplate';
+import { renderReferralCodeOnboardingHtml, REFERRAL_CODE_EMAIL_SUBJECT } from '../utils/referralEmailTemplate.js';
 
 /**
  * Send approval email to customer

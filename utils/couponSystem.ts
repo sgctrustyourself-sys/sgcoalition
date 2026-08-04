@@ -1,5 +1,5 @@
-import { supabase } from '../services/supabase';
-import { getReferralStatsByCode } from './referralSystem';
+import { supabase } from '../services/supabase.js';
+import { getReferralStatsByCode } from './referralSystem.js';
 
 /**
  * Validate if a coupon code exists as a referral code.
@@ -62,7 +62,7 @@ export const applyCouponCode = (code: string): void => {
  * Re-export of `getActiveReferralCode` from utils/referralSystem so the
  * storage-lifecycle lives in one place.
  */
-export { getActiveReferralCode as getAppliedCouponCode } from './referralSystem';
+export { getActiveReferralCode as getAppliedCouponCode } from './referralSystem.js';
 
 /**
  * Clear applied coupon code

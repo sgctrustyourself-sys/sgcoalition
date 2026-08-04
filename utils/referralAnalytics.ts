@@ -1,5 +1,5 @@
 // Referral Analytics Tracking
-import { supabase } from '../services/supabase';
+import { supabase } from '../services/supabase.js';
 
 export type ReferralShareSurface = 'pdp' | 'order_success' | 'profile_header';
 

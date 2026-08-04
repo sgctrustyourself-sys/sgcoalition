@@ -4,7 +4,7 @@ import {
     SGCOIN_V1_CONTRACT_ADDRESS,
     SGCOIN_V2_CONTRACT_ADDRESS,
     POLYGON_RPC_URL
-} from '../constants';
+} from '../constants.js';
 
 // Lazy-loaded ethers — ~100 KB chunk only downloaded when a crypto function
 // is first called (connect wallet, check balance, pay with crypto, etc.).

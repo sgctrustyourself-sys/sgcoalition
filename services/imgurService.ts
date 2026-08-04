@@ -2,7 +2,7 @@
  * Imgur upload service
  */
 
-import { buildGitOperationsUrl } from './apiBase';
+import { buildGitOperationsUrl } from './apiBase.js';
 
 /**
  * Upload an image to Imgur via the local backend processor

@@ -13,7 +13,7 @@
 // and return 204 so the browser does not retry-flood the
 // 404 case.
 
-import type { ApiRequest, ApiResponse } from '../_types';
+import type { ApiRequest, ApiResponse } from '../_types.js';
 // NOTE: CORS is set globally by the catch-all in api/[...slug].ts
 // before this handler is invoked, so this handler does NOT call
 // setCorsHeaders itself. The catch-all's defaults are correct

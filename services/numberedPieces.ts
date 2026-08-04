@@ -1,5 +1,5 @@
-import { supabase } from './supabase';
-import type { Product, NumberedPiece } from '../types';
+import { supabase } from './supabase.js';
+import type { Product, NumberedPiece } from '../types.js';
 
 export interface PaidCountsByProduct {
     [productId: string]: number;

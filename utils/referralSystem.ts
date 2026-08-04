@@ -1,6 +1,6 @@
 // Referral System Core Utilities
-import { supabase } from '../services/supabase';
-import { trackReferralEvent } from './referralAnalytics';
+import { supabase } from '../services/supabase.js';
+import { trackReferralEvent } from './referralAnalytics.js';
 
 // Commission tier configuration
 // Exponential progression so the FIRST successful sale immediately bumps the

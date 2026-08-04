@@ -1,7 +1,7 @@
 // Custom Referral Code Editor
 // Allows users to customize their code ONCE
 
-import { supabase } from '../services/supabase';
+import { supabase } from '../services/supabase.js';
 
 export const customizeReferralCode = async (
     userId: string,

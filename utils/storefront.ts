@@ -9,7 +9,7 @@
 // the load-bearing pieces of the storefront display; if either silently
 // changes, the entire catalog order shifts.
 
-import { Product } from '../types';
+import { Product } from '../types.js';
 
 /**
  * Returns a NEW array sorted newest-first by the product's "added"

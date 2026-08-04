@@ -49,8 +49,12 @@ const CHECKOUT_STATE_KEY = 'coalition_checkout_state';
 interface SavedCheckoutState {
     shippingInfo?: typeof DEFAULT_SHIPPING_INFO;
     shippingMethod?: 'standard' | 'express';
+    shippingCost?: number;
     paymentMethod?: 'paypal' | 'crypto' | 'card';
-    paypalOrderSeed?: OrderSeed | null;
+    // Payment-agnostic order seed (orderId/orderNumber). Used by BOTH the
+    // PayPal Pay Later redirect-return AND the Stripe 3DS/Klarna/Afterpay
+    // redirect-return so the created order keeps a stable identity.
+    orderSeed?: OrderSeed | null;
 }
 
 const DEFAULT_SHIPPING_INFO = {
@@ -271,8 +275,16 @@ const Checkout: React.FC = () => {
     const paypalOrderSeedRef = useRef<OrderSeed | null>(null);
     if (paypalOrderSeedRef.current === null) {
         // Lazy-init from sessionStorage (useRef does not call initializers).
-        paypalOrderSeedRef.current = loadCheckoutState()?.paypalOrderSeed || null;
+        paypalOrderSeedRef.current = loadCheckoutState()?.orderSeed || null;
     }
+
+    // Component-scope guard for the PayPal redirect-return button render.
+    // MUST live at the component level, not inside the effect: React
+    // StrictMode (used in index.tsx) mounts -> unmounts -> mounts, and an
+    // in-effect ref would be recreated per instance, letting BOTH the
+    // pre-mount markReady() and the re-mount markReady() render the buttons
+    // twice. A component ref survives StrictMode's cycle.
+    const paypalRedirectRenderedRef = useRef(false);
 
     // Coupon code state
     const [couponCode, setCouponCode] = useState('');
@@ -609,18 +621,19 @@ const Checkout: React.FC = () => {
             orderId: `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
             orderNumber: generateOrderNumber(),
         };
-        // Persist so a PayPal Pay Later redirect-return reuses the same seed.
+        // Persist so a PayPal/Stripe redirect-return reuses the same seed.
         const saved = loadCheckoutState() || {};
-        saveCheckoutState({ ...saved, paypalOrderSeed: seed });
+        saveCheckoutState({ ...saved, orderSeed: seed });
         return seed;
     };
 
-    // Persist form state whenever it changes so the PayPal Pay Later
-    // redirect-return page can restore the exact checkout in progress.
+    // Persist form state whenever it changes so the PayPal Pay Later or
+    // Stripe 3DS/Klarna/Afterpay redirect-return page can restore the exact
+    // checkout in progress.
     useEffect(() => {
         const saved = loadCheckoutState() || {};
-        saveCheckoutState({ ...saved, shippingInfo, shippingMethod, paymentMethod });
-    }, [shippingInfo, shippingMethod, paymentMethod]);
+        saveCheckoutState({ ...saved, shippingInfo, shippingMethod, shippingCost, paymentMethod });
+    }, [shippingInfo, shippingMethod, shippingCost, paymentMethod]);
 
     // PayPal Pay Later redirect-return recovery. When the browser bounces
     // back from PayPal with ?token=&PayerID= in the URL, the buttons must be
@@ -651,15 +664,14 @@ const Checkout: React.FC = () => {
             return;
         }
 
-        // Guard so StrictMode's mount→unmount→mount (and the poll + event
-        // both firing) can never render the buttons a second time.
-        const renderedRef = { current: false };
-
+        // Component-scope guard so StrictMode's mount→unmount→mount (and the
+        // poll + event both firing) can never render the buttons a second
+        // time. See paypalRedirectRenderedRef declaration above.
         const renderReturnedButtons = () => {
-            if (renderedRef.current) return;
+            if (paypalRedirectRenderedRef.current) return;
             const container = document.getElementById('paypal-button-container-checkout');
             if (!container || typeof window.paypal === 'undefined') return;
-            renderedRef.current = true;
+            paypalRedirectRenderedRef.current = true;
 
             const seed = paypalOrderSeedRef.current || createOrderSeed();
             paypalOrderSeedRef.current = seed;

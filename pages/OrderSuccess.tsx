@@ -1,10 +1,33 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Package, Hexagon, Home, Loader, Copy, Check, Users } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
+import { getCartItemUnitPrice, getCartItemLineTotal, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { getReferralStats, generateReferralLink, type ReferralStats } from '../utils/referralSystem';
 import { trackReferralShare } from '../utils/referralAnalytics';
+
+// ---- Stripe redirect-return recovery ----------------------------------
+// Stripe redirect methods (3D Secure card auth, Klarna, Afterpay) bounce the
+// browser to /order/success?payment_intent=pi_... BEFORE Checkout's
+// handleStripePaid can run, so the order must be completed HERE against the
+// shared Order intake module (verify PI -> persist -> emails). The cart
+// (localStorage, useCart) and the checkout form (sessionStorage,
+// coalition_checkout_state) are restored so the module gets the full picture.
+const CHECKOUT_STATE_KEY = 'coalition_checkout_state';
+
+interface ReturnedCheckoutState {
+    shippingInfo?: Record<string, string>;
+    shippingMethod?: 'standard' | 'express';
+    shippingCost?: number;
+    orderSeed?: { orderId?: string; orderNumber?: string } | null;
+}
+
+const loadReturnedCheckoutState = (): ReturnedCheckoutState | null => {
+    try {
+        const raw = sessionStorage.getItem(CHECKOUT_STATE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+};
 
 const OrderSuccess = () => {
     const [searchParams] = useSearchParams();
@@ -16,6 +39,10 @@ const OrderSuccess = () => {
     const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
     const [referralCopied, setReferralCopied] = useState(false);
 
+    // Guard: complete the Stripe redirect-return order at most once per mount
+    // even if the effect re-runs (e.g. `user` hydrates mid-flight).
+    const stripeCompletionRef = useRef(false);
+
     const sessionId = searchParams.get('session_id');
     const type = searchParams.get('type');
 
@@ -24,6 +51,10 @@ const OrderSuccess = () => {
     const txHash = searchParams.get('tx_hash');
     const shippingMethod = searchParams.get('shippingMethod') || 'standard';
     const shippingCost = parseFloat(searchParams.get('shippingCost') || '0');
+
+    // True when the browser landed here directly from a Stripe redirect
+    // (3DS / Klarna / Afterpay) — Checkout's onPaid handler never ran.
+    const isStripeRedirectReturn = Boolean(paymentIntentId) && !paymentMethod && !txHash;
 
     const total = cartTotal();
     const reward = calculateReward(total);
@@ -77,13 +108,152 @@ const OrderSuccess = () => {
                 return;
             }
 
-            // Retrieve stored shipping info if any
+            // Retrieve stored shipping info: legacy `shippingInfo` key (written
+            // by Checkout's in-page flows) or the shared checkout state
+            // (Stripe 3DS / Klarna / Afterpay redirect-returns land here with
+            // only ?payment_intent= — the in-page handler never ran).
             const storedShipping = sessionStorage.getItem('shippingInfo');
+            const returnedState = loadReturnedCheckoutState();
             let currentShippingInfo = shippingInfo;
             if (storedShipping) {
                 currentShippingInfo = JSON.parse(storedShipping);
                 setShippingInfo(currentShippingInfo);
                 sessionStorage.removeItem('shippingInfo');
+            } else if (returnedState?.shippingInfo) {
+                currentShippingInfo = { ...shippingInfo, ...returnedState.shippingInfo };
+                setShippingInfo(currentShippingInfo);
+            }
+            // Redirect-returns carry no shippingMethod/shippingCost in the URL,
+            // so prefer the values Checkout persisted.
+            const effectiveShippingMethod = returnedState?.shippingMethod || shippingMethod;
+            const effectiveShippingCost =
+                typeof returnedState?.shippingCost === 'number' ? returnedState.shippingCost : shippingCost;
+
+            // Stripe redirect-return (3DS / Klarna / Afterpay): Checkout's
+            // onPaid handler never ran, so complete the order server-side via
+            // the shared Order intake module — it verifies the PaymentIntent,
+            // persists the row (idempotent), and sends the confirmation emails.
+            if (isStripeRedirectReturn && !stripeCompletionRef.current) {
+                stripeCompletionRef.current = true;
+                const seed = returnedState?.orderSeed || null;
+                try {
+                    const orderPayload = {
+                        id: seed?.orderId || `order_${Date.now()}`,
+                        orderNumber: seed?.orderNumber || undefined,
+                        userId: user?.uid,
+                        isGuest: !user,
+                        guestEmail: !user ? currentShippingInfo.email : undefined,
+                        customerName: currentShippingInfo.name,
+                        customerEmail: currentShippingInfo.email,
+                        customerPhone: '',
+                        items: cart.map(item => ({
+                            productId: item.id,
+                            productName: item.name,
+                            productImage: item.images[0],
+                            selectedSize: item.selectedSize || 'One Size',
+                            quantity: item.quantity,
+                            price: getCartItemUnitPrice(item),
+                            total: getCartItemLineTotal(item),
+                            keychainClipOn: Boolean(item.keychainClipOn),
+                            addOnLabel: item.keychainClipOn ? WALLET_KEYCHAIN_CLIP_LABEL : undefined,
+                        })),
+                        subtotal: 0,
+                        tax: 0,
+                        discount: 0,
+                        total,
+                        paymentMethod: 'stripe',
+                        paymentStatus: 'paid',
+                        paymentReference: paymentIntentId,
+                        orderType: 'online',
+                        createdAt: new Date().toISOString(),
+                        paidAt: new Date().toISOString(),
+                        sgCoinReward: reward,
+                        shippingAddress: {
+                            address1: currentShippingInfo.address1,
+                            city: currentShippingInfo.city,
+                            state: currentShippingInfo.state,
+                            zip: currentShippingInfo.zip,
+                            country: currentShippingInfo.country,
+                            shippingMethod: effectiveShippingMethod,
+                            shippingCost: effectiveShippingCost,
+                        },
+                    };
+
+                    // Klarna/Afterpay are async methods: the first redirect-
+                    // return can be redirect_status=processing while the PI is
+                    // still settling. verifyPayment (server-side) rejects a
+                    // non-succeeded PI, so retry briefly before falling back.
+                    let response: Response | null = null;
+                    for (let attempt = 0; attempt < 5; attempt++) {
+                        const r = await fetch('/api/complete-order', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ order: orderPayload }),
+                        });
+                        if (r.ok || r.status === 409) { response = r; break; }
+                        // 402 = payment not completed yet (processing) — wait
+                        // and retry; anything else gives up immediately.
+                        if (r.status !== 402) { response = r; break; }
+                        await new Promise(res => setTimeout(res, 2000 * (attempt + 1)));
+                    }
+
+                    if (response && response.ok) {
+                        const savedOrder = await response.json();
+                        const displayOrder = {
+                            id: savedOrder.order_number || savedOrder.id,
+                            userId: savedOrder.user_id,
+                            items: (savedOrder.items || []).map((i: any) => ({
+                                id: i.productId,
+                                name: i.productName || i.name,
+                                price: i.price,
+                                quantity: i.quantity,
+                                size: i.selectedSize || i.size,
+                                addOnLabel: i.addOnLabel,
+                                image: i.productImage || i.image || '',
+                            })),
+                            total: Number(savedOrder.total || 0),
+                            sgCoinReward: Number(savedOrder.sg_coin_reward || 0),
+                            status: savedOrder.payment_status === 'pending' ? 'pending_verification' : 'paid',
+                            paymentMethod: 'stripe',
+                            paymentIntentId,
+                            customerEmail: savedOrder.customer_email,
+                            customerName: savedOrder.customer_name,
+                            shippingStatus: 'processing',
+                            trackingNumber: null,
+                            createdAt: savedOrder.created_at,
+                            paidAt: savedOrder.paid_at,
+                            shippingInfo: savedOrder.shipping_address || currentShippingInfo,
+                            shippingMethod: savedOrder.shipping_address?.shippingMethod || effectiveShippingMethod,
+                            shippingCost: Number(savedOrder.shipping_address?.shippingCost || effectiveShippingCost),
+                        };
+
+                        setOrderDetails(displayOrder);
+                        clearCart();
+                        // Consume the persisted checkout state (Checkout's
+                        // createOrder usually clears it, but the redirect-return
+                        // never reaches that path).
+                        try { sessionStorage.removeItem(CHECKOUT_STATE_KEY); } catch (e) { /* ignore */ }
+                        // Award SGCoin reward (parity with the in-page flow).
+                        if (user) {
+                            await updateUser({
+                                sgCoinBalance: (user.sgCoinBalance || 0) + Number(savedOrder.sg_coin_reward || 0),
+                            });
+                        }
+                        // Referral CTA stats for the post-purchase share prompt.
+                        if (user) {
+                            getReferralStats(user.uid).then(stats => {
+                                if (stats) setReferralStats(stats);
+                            });
+                        }
+                        setIsLoading(false);
+                        return;
+                    }
+                    // API declined (e.g. duplicate) — fall through to the local
+                    // display build below.
+                } catch (err) {
+                    console.error('Stripe redirect-return order completion failed:', err);
+                    // Fall through to the local display build below.
+                }
             }
 
             // If cart is empty, try to load pending order from sessionStorage
@@ -165,6 +335,9 @@ const OrderSuccess = () => {
 
                 setOrderDetails(order);
                 clearCart();
+                // Consume persisted checkout state on the fallback path too
+                // (the Stripe redirect-return branch may have fallen through).
+                try { sessionStorage.removeItem(CHECKOUT_STATE_KEY); } catch (e) { /* ignore */ }
             } catch (error) {
                 console.error('Order processing error:', error);
             } finally {

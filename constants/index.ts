@@ -1,2 +1,2 @@
-export { PRODUCT_IDS } from './productIds';
-export { INITIAL_PRODUCTS } from './products';
+export { PRODUCT_IDS } from './productIds.js';
+export { INITIAL_PRODUCTS } from './products.js';

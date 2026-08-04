@@ -1,6 +1,6 @@
-import { Product } from '../types';
-import { supabase } from './supabase';
-import { clearOtherFeaturedProducts } from '../utils/featuredExclusivity';
+import { Product } from '../types.js';
+import { supabase } from './supabase.js';
+import { clearOtherFeaturedProducts } from '../utils/featuredExclusivity.js';
 
 interface PendingWrite {
     id: string;

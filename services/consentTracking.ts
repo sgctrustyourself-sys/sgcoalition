@@ -1,4 +1,4 @@
-import { CONSENT_TEXT, CONSENT_CHECKBOX_TEXT } from '../constants';
+import { CONSENT_TEXT, CONSENT_CHECKBOX_TEXT } from '../constants.js';
 
 export interface ConsentData {
     consentText: string;

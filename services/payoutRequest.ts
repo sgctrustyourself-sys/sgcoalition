@@ -18,7 +18,7 @@
 // can't be split by the client. Customer-side RLS still allows the user
 // to SELECT their own requests + INSERT a new pending request.
 
-import { supabase } from './supabase';
+import { supabase } from './supabase.js';
 
 export interface PayoutRequest {
     id: string;

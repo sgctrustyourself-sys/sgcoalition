@@ -4,7 +4,7 @@
 // CorsOptions field bag and the LOCAL_DEV_ORIGINS / EXTENDED_CORS_HEADERS
 // constants below.
 
-import type { ApiRequest, ApiResponse } from './_types';
+import type { ApiRequest, ApiResponse } from './_types.js';
 
 export interface HttpError extends Error {
     status?: number;

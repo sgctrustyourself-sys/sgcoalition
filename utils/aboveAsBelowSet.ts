@@ -1,4 +1,4 @@
-import { PRODUCT_IDS } from '../constants/productIds';
+import { PRODUCT_IDS } from '../constants/productIds.js';
 
 // Auto-applied cart discount for the Above as Below tee + shorts combination.
 // Replaces the retired `prod_set_above_as_below` standalone bundle SKU so a

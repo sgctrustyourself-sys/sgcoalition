@@ -25,12 +25,12 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 // bundler requires explicit extensions on relative value imports. The
 // missing `.js` was the root cause of FUNCTION_INVOCATION_FAILED: the
 // dynamic import in api/[...slug].ts uses `./_handlers/marketing-stats.js`
-// correctly, but inside this file `from '../_helpers'` (no .js) was
+// correctly, but inside this file `from '../_helpers.js'` (no .js) was
 // throwing ERR_MODULE_NOT_FOUND at module-load time, before any handler
 // code (or log line) could run. `import type` is erased at compile time
-// so '../_types' doesn't need the extension.
+// so '../_types.js' doesn't need the extension.
 import { withAdminAuth } from '../_helpers.js';
-import type { ApiRequest, ApiResponse } from '../_types';
+import type { ApiRequest, ApiResponse } from '../_types.js';
 
 let cachedAdminClient: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient | null {

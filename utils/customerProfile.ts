@@ -12,8 +12,8 @@
 //   but has no enriched view that combines orders + referrals + socials.
 //   This utility closes both gaps.
 
-import { supabase } from '../services/supabase';
-import { mapToRequest, type PayoutRequest } from '../services/payoutRequest';
+import { supabase } from '../services/supabase.js';
+import { mapToRequest, type PayoutRequest } from '../services/payoutRequest.js';
 
 export interface CustomerProfile {
     userId: string;

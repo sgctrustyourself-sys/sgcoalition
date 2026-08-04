@@ -1,4 +1,4 @@
-import { CartItem, OrderItem, Product } from '../types';
+import { CartItem, OrderItem, Product } from '../types.js';
 
 export const WALLET_KEYCHAIN_CLIP_PRICE = 10;
 export const WALLET_KEYCHAIN_CLIP_LABEL = 'Keychain clip-on';

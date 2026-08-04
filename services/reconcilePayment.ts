@@ -11,7 +11,7 @@
 //
 // Returns the RPC response (success + metadata) or throws on error.
 
-import { supabase } from './supabase';
+import { supabase } from './supabase.js';
 
 export interface ReconcileBalanceResult {
     success: boolean;

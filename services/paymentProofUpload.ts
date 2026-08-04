@@ -7,7 +7,7 @@
 // Used by the PaymentRecordModal in the admin OrderManager so every
 // partial-payment recording can optionally attach a proof image.
 
-import { supabase } from './supabase';
+import { supabase } from './supabase.js';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];

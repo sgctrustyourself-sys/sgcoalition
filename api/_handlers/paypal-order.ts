@@ -7,12 +7,12 @@ import {
     type PayPalNormalizedCheckoutItem,
     type PayPalOAuthResponse,
     type PayPalOrderResponse,
-} from '../_types';
+} from '../_types.js';
 import {
     createHttpError,
     parseBody,
     setCorsHeaders,
-} from '../_helpers';
+} from '../_helpers.js';
 import { resolvePricing, type PricingItem, HttpError } from '../../services/orderIntake.js';
 
 const PAYPAL_LIVE_API = 'https://api-m.paypal.com';

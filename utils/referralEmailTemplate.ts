@@ -15,7 +15,7 @@
 //   automatically. Tests (tests/referralEmailTemplate.test.ts) lock the
 //   shape against silent drift.
 
-import { COMMISSION_TIERS } from './referralSystem';
+import { COMMISSION_TIERS } from './referralSystem.js';
 
 export interface ReferralCodeRecipient {
     email: string;

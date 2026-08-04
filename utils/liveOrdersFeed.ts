@@ -1,5 +1,5 @@
-import type { Order } from '../types';
-import { PRODUCT_IMAGE_URLS } from './localImageAssets';
+import type { Order } from '../types.js';
+import { PRODUCT_IMAGE_URLS } from './localImageAssets.js';
 
 export type LiveOrdersTimeRange = '24h' | '7d' | '30d' | '90d' | 'all';
 

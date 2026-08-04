@@ -2,7 +2,7 @@
  * Auto-commit service for tracking data changes
  */
 
-import { buildGitOperationsUrl } from './apiBase';
+import { buildGitOperationsUrl } from './apiBase.js';
 
 export interface AutoCommitOptions {
     message: string;

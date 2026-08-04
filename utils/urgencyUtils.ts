@@ -1,4 +1,4 @@
-import { Product } from '../types';
+import { Product } from '../types.js';
 
 /**
  * Calculate urgency level based on stock.

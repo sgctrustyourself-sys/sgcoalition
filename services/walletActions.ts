@@ -1,4 +1,4 @@
-import { fetchWalletBalanceSnapshot } from './walletBalances';
+import { fetchWalletBalanceSnapshot } from './walletBalances.js';
 
 // Lazy-loaded ethers — ~100 KB chunk only downloaded when a crypto function
 // is first called (connect wallet, check balance, pay with crypto, etc.).

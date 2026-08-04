@@ -7,8 +7,8 @@ import {
     MINI_WIZARDS_CONTRACT_ADDRESS,
     POLYGON_RPC_URLS,
     POLYGON_RPC_URL
-} from '../constants';
-import { fetchBurnActivity } from '../utils/polygonScanApi';
+} from '../constants.js';
+import { fetchBurnActivity } from '../utils/polygonScanApi.js';
 
 // Lazy-loaded ethers — ~100 KB chunk only downloaded when a crypto function
 // is first called (connect wallet, check balance, pay with crypto, etc.).

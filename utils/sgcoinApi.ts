@@ -12,7 +12,7 @@
  *   V3: (sqrtPriceX96 / 2^96)²  (from slot0)
  */
 
-import { SGCoinData } from '../types';
+import { SGCoinData } from '../types.js';
 import {
     QUICKSWAP_LP_ADDRESS,
     QUICKSWAP_V3_LP_ADDRESS,
@@ -20,7 +20,7 @@ import {
     SGCOIN_V2_CONTRACT_ADDRESS,
     POLYGON_RPC_URL,
     V2_TOTAL_SUPPLY,
-} from '../constants';
+} from '../constants.js';
 
 // ---------------------------------------------------------------------------
 // Lazy ethers — matches services/web3Service.ts pattern.

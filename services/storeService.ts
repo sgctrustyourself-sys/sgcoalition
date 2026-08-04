@@ -1,5 +1,5 @@
-import { Product, PageSection, UserProfile, CartItem, UserType } from '../types';
-import { INITIAL_PRODUCTS, INITIAL_SECTIONS, ADMIN_USER } from '../constants';
+import { Product, PageSection, UserProfile, CartItem, UserType } from '../types.js';
+import { INITIAL_PRODUCTS, INITIAL_SECTIONS, ADMIN_USER } from '../constants.js';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'coalition_products',
