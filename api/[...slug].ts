@@ -21,6 +21,7 @@ const handlers: Record<string, Loader> = {
     'create-payment-intent': () => import('./_handlers/create-payment-intent.js'),
     'create-subscription-session': () => import('./_handlers/create-subscription-session.js'),
     'git-operations': () => import('./_handlers/git-operations.js'),
+    'health': () => import('./_handlers/health.js'),
     'marketing-subscribe': () => import('./_handlers/marketing-subscribe.js'),
     'marketing-stats': () => import('./_handlers/marketing-stats.js'),
     'paypal-order': () => import('./_handlers/paypal-order.js'),
