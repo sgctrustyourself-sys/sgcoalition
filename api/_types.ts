@@ -155,6 +155,8 @@ export interface OrderRow {
     paid_at: string | null;
     sg_coin_reward: number;
     facebook_username?: string | null;
+    paid_amount: number;
+    balance_due: number;
 }
 
 // OrderRow without the PayPal payment columns — used when migrating legacy
@@ -308,6 +310,7 @@ export interface PayPalCreateOrderInput {
     expectedTotal?: number;
     referenceId?: string;
     description?: string;
+    orderId?: string;
     [key: string]: unknown;
 }
 
@@ -391,6 +394,21 @@ export interface CreatePaymentIntentBody {
     amount?: number;
     userId?: string | null;
     useStoreCredit?: boolean;
+    orderId?: string;
+    // Forwarded to the PaymentIntent so redirect BNPL methods (Klarna,
+    // Afterpay/Clearpay) can underwrite against the checkout form.
+    email?: string;
+    shipping?: {
+        name?: string;
+        address?: {
+            line1?: string;
+            line2?: string;
+            city?: string;
+            state?: string;
+            postal_code?: string;
+            country?: string;
+        };
+    };
     [key: string]: unknown;
 }
 

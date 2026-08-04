@@ -41,6 +41,7 @@
     "node_modules",
     "tests",
     "**/*.test.ts",
-    "scripts/*.mjs"
+    "scripts/*.mjs",
+    "scripts/applyMigrationsSql.ts"
   ]
 }

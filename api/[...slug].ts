@@ -24,6 +24,7 @@ const handlers: Record<string, Loader> = {
     'marketing-subscribe': () => import('./_handlers/marketing-subscribe.js'),
     'marketing-stats': () => import('./_handlers/marketing-stats.js'),
     'paypal-order': () => import('./_handlers/paypal-order.js'),
+    'pricing-preview': () => import('./_handlers/pricing-preview.js'),
     'place-order-credits': () => import('./_handlers/place-order-credits.js'),
     'send-email': () => import('./_handlers/send-email.js'),
     'send-order-confirmation': () => import('./_handlers/send-order-confirmation.js'),

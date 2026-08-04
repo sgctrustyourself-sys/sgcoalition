@@ -149,7 +149,7 @@ npx.cmd vitest run tests/audit-urgency-chrome.test.ts    # locks the rule logic 
 
 - **Frontend**: React 19, TypeScript, Vite
 - **Styling**: Vanilla CSS with modern design
-- **Payments**: Stripe (Card + Crypto)
+- **Payments**: Stripe (Card + Crypto) + BNPL (PayPal Pay in 4, Klarna, Afterpay)
 - **Backend**: Vercel serverless functions under `api/`
 - **Database/Auth/Realtime**: Supabase
 - **Email**: Resend API
@@ -749,7 +749,9 @@ Use Stripe test cards:
 
 PayPal checkout is server-verified before an order is saved. The browser SDK uses `VITE_PAYPAL_CLIENT_ID`; `/api/paypal-order` creates/captures the PayPal order; `/api/complete-order` verifies the capture against PayPal and Supabase product pricing before writing `orders`.
 
-Pay Later / BNPL is enabled in the PayPal browser SDK with `components=buttons,messages&enable-funding=paylater`. There is no extra BNPL env var; PayPal decides whether to show Pay Later for the buyer, order amount, device, and merchant account.
+Pay Later / BNPL is enabled in the PayPal browser SDK with `components=buttons,messages&enable-funding=paylater`. There is no extra BNPL env var; PayPal decides whether to show Pay Later (Pay in 4 / Pay Monthly) for the buyer, order amount, device, and merchant account.
+
+Klarna and Afterpay are offered through Stripe's Payment Element on checkout (`pages/Checkout.tsx` → `/api/create-payment-intent` with `automatic_payment_methods`). They appear automatically once (1) both methods are toggled on in the Stripe dashboard (Settings → Payment methods) and (2) the buyer/order qualifies — Afterpay is domestic-only and needs the checkout shipping form, Klarna spans US/EU. No extra env var; the checkout form's email + shipping address are forwarded to the PaymentIntent for underwriting. Stripe.js is loaded lazily from `js.stripe.com` only when the Card/Klarna/Afterpay option is selected (CSP allowlisted in `vercel.json`).
 
 Required environment variables:
 

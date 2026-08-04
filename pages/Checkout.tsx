@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CreditCard, Loader, Wallet, Copy, Check, Sparkles, Heart, Info, ShieldCheck, Truck, RefreshCw, Mail, Headphones } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { OrderStatus } from '../types';
 import { useToast } from '../context/ToastContext';
 import FloatingHelpButton from '../components/FloatingHelpButton';
-import { calculateCartDiscount, isSGCoinDiscountEnabled, getDiscountPercentageText } from '../utils/pricing';
+import { isSGCoinDiscountEnabled, getDiscountPercentageText } from '../utils/pricing';
 import { trackReferralEvent } from '../utils/referralAnalytics';
 import { processReferralOnPurchase, clearReferralCode } from '../utils/referralSystem';
 import { validateCouponCode, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
 import { getCartItemAddOnPrice, getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
-import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
 
 const reportErrorToAdmin = async (error: string, context: string, metadata: any = {}) => {
     try {
@@ -37,16 +38,241 @@ type OrderSeed = {
 
 const SUPPORT_EMAIL = 'sgctrustyourself@gmail.com';
 
+// ---- PayPal Pay Later redirect-return recovery ------------------------
+// PayPal Pay in 4 uses a redirect flow: the browser fully leaves /checkout
+// for PayPal and returns with ?token=...&PayerID=... in the URL, reloading
+// the page. The cart survives via localStorage (useCart); the shipping form
+// + order seed survive via this sessionStorage key so the returned page can
+// re-render the PayPal buttons and the SDK can fire onApprove normally.
+const CHECKOUT_STATE_KEY = 'coalition_checkout_state';
+
+interface SavedCheckoutState {
+    shippingInfo?: typeof DEFAULT_SHIPPING_INFO;
+    shippingMethod?: 'standard' | 'express';
+    paymentMethod?: 'paypal' | 'crypto' | 'card';
+    paypalOrderSeed?: OrderSeed | null;
+}
+
+const DEFAULT_SHIPPING_INFO = {
+    email: '', name: '', address1: '', city: '', state: '', zip: '', country: '',
+};
+
+const loadCheckoutState = (): SavedCheckoutState | null => {
+    try {
+        const raw = sessionStorage.getItem(CHECKOUT_STATE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+};
+
+const saveCheckoutState = (state: SavedCheckoutState) => {
+    try { sessionStorage.setItem(CHECKOUT_STATE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+};
+
+const clearCheckoutState = () => {
+    try { sessionStorage.removeItem(CHECKOUT_STATE_KEY); } catch (e) { /* ignore */ }
+};
+
+// ---- Stripe (card / Klarna / Afterpay) -------------------------------
+// Stripe.js is loaded lazily only when the buyer picks the card/BNPL
+// method — no third-party script on page load, no Cookiebot interplay.
+// VITE_STRIPE_PUBLISHABLE_KEY is already documented in README/.env.example.
+const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
+let stripePromise: ReturnType<typeof loadStripe> | null = null;
+function getStripePromise() {
+    if (!STRIPE_PUBLISHABLE_KEY) return null;
+    if (!stripePromise) stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
+    return stripePromise;
+}
+
+// The shipping form's country field is free text (and the ZIP autofill
+// writes "United States"), but Stripe wants a 2-letter ISO-3166 code.
+// Map the common full names; pass through anything already 2-letter.
+const COUNTRY_CODE_OVERRIDES: Record<string, string> = {
+    'united states': 'US', 'usa': 'US', 'u.s.': 'US', 'u.s.a': 'US', 'america': 'US',
+    'canada': 'CA',
+    'united kingdom': 'GB', 'uk': 'GB', 'gb': 'GB', 'great britain': 'GB', 'england': 'GB', 'scotland': 'GB', 'wales': 'GB', 'northern ireland': 'GB',
+    'australia': 'AU',
+    'new zealand': 'NZ', 'nz': 'NZ',
+    'germany': 'DE', 'deutschland': 'DE',
+    'france': 'FR',
+    'netherlands': 'NL', 'holland': 'NL',
+    'sweden': 'SE',
+    'austria': 'AT',
+    'belgium': 'BE',
+    'denmark': 'DK',
+    'finland': 'FI',
+    'ireland': 'IE',
+    'italy': 'IT',
+    'norway': 'NO',
+    'poland': 'PL',
+    'portugal': 'PT',
+    'spain': 'ES',
+    'switzerland': 'CH',
+    'greece': 'GR',
+    'czechia': 'CZ', 'czech republic': 'CZ',
+    'romania': 'RO',
+};
+function normalizeCountryCode(raw: string): string | undefined {
+    const trimmed = raw.trim();
+    if (!trimmed) return undefined;
+    if (/^[A-Za-z]{2}$/.test(trimmed)) return trimmed.toUpperCase();
+    const lookup = trimmed.toLowerCase();
+    return COUNTRY_CODE_OVERRIDES[lookup];
+}
+
+// Dark theme that matches the checkout surface (black / white / violet).
+const STRIPE_APPEARANCE = {
+    theme: 'night' as const,
+    variables: {
+        colorPrimary: '#a78bfa',
+        colorBackground: '#0a0a0a',
+        colorText: '#e5e5e5',
+        colorTextSecondary: '#9ca3af',
+        colorDanger: '#f87171',
+        fontFamily: 'Inter, system-ui, sans-serif',
+        borderRadius: '8px',
+    },
+};
+
+interface StripePaymentSectionProps {
+    email: string;
+    total: number;
+    onPaid: (paymentIntentId: string) => Promise<void>;
+    onValidationRequired: () => boolean;
+}
+
+// Must live inside <Elements>: useStripe/useElements are only available
+// below the provider. The Payment Element shows every method Stripe
+// considers eligible for this buyer + order — card always, plus Klarna
+// and Afterpay when they are enabled in the Stripe dashboard and the
+// order/region qualifies (Afterpay is domestic-only; Klarna spans US/EU).
+const StripePaymentSection: React.FC<StripePaymentSectionProps> = ({ email, total, onPaid, onValidationRequired }) => {
+    const stripe = useStripe();
+    const elements = useElements();
+    const [processing, setProcessing] = useState(false);
+    const [sectionError, setSectionError] = useState<string | null>(null);
+
+    const handleSubmit = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!stripe || !elements) return;
+        if (!onValidationRequired()) return;
+        setProcessing(true);
+        setSectionError(null);
+        try {
+            const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
+                elements,
+                redirect: 'if_required',
+                confirmParams: {
+                    return_url: `${window.location.origin}/#/order/success`,
+                    ...(email ? { receipt_email: email } : {}),
+                },
+            });
+
+            if (confirmError) {
+                setSectionError(confirmError.message || 'Payment failed. Please try again.');
+                return;
+            }
+
+            if (paymentIntent?.status === 'succeeded') {
+                await onPaid(paymentIntent.id);
+            } else {
+                setSectionError('Payment is still processing. Check your email for confirmation or contact support.');
+            }
+        } catch (err: any) {
+            console.error('Stripe confirm error:', err);
+            setSectionError(err.message || 'Payment failed. Please try again.');
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <PaymentElement id="payment-element" options={{ layout: 'tabs' }} />
+            {sectionError && (
+                <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-lg text-red-400 text-sm">
+                    {sectionError}
+                </div>
+            )}
+            <button
+                type="submit"
+                disabled={!stripe || processing}
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-widest hover:from-purple-700 hover:to-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20"
+            >
+                {processing ? (
+                    <div className="flex items-center justify-center gap-2">
+                        <Loader className="w-5 h-5 animate-spin" />
+                        Processing payment...
+                    </div>
+                ) : (
+                    `Pay $${total.toFixed(2)}`
+                )}
+            </button>
+        </form>
+    );
+};
+
 const Checkout: React.FC = () => {
     const navigate = useNavigate();
-    const { cart, cartTotal, calculateReward, clearCart, addOrder, generateOrderNumber, user } = useApp();
+    const { cart, cartTotal, calculateReward, clearCart, addOrder, generateOrderNumber, user, deductInventory } = useApp();
     const { addToast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
+    const [paypalReady, setPaypalReady] = useState(() => Boolean(window.paypal || window.__coalitionPaypalReady));
+    const [paypalLoadFailed, setPaypalLoadFailed] = useState(() => Boolean(window.__coalitionPaypalLoadFailed));
     const [error, setError] = useState<string | null>(null);
-    const [paymentMethod, setPaymentMethod] = useState<'paypal' | 'crypto' | 'card'>('paypal');
+    // Restore form state from sessionStorage when PayPal's Pay Later redirect
+    // bounces the browser back through /checkout with ?token=&PayerID= (full
+    // page reload). Fall back to defaults for a fresh checkout.
+    const [paymentMethod, setPaymentMethod] = useState<'paypal' | 'crypto' | 'card'>(() =>
+        loadCheckoutState()?.paymentMethod || 'paypal');
     const [copied, setCopied] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
     const [clientSecret, setClientSecret] = useState<string>('');
+    const [serverPricing, setServerPricing] = useState<{ totalCents: number; itemTotalCents: number; shippingCents: number; discountCents: number } | null>(null);
+
+    // Server-authoritative pricing preview for the order summary.
+    // Fetched from /api/pricing-preview whenever the cart, shipping, or
+    // payment method changes. Shows the real set bonus, crypto discount,
+    // and final total before the customer pays.
+    const [pricingPreview, setPricingPreview] = useState<{
+        itemTotalCents: number; shippingCents: number;
+        setBonusCents: number; cryptoDiscountCents: number;
+        discountCents: number; totalCents: number;
+    } | null>(null);
+
+    const stripePromise = useMemo(() => getStripePromise(), []);
+
+    useEffect(() => {
+        if (paypalReady) return;
+        const markReady = () => setPaypalReady(Boolean(window.paypal || window.__coalitionPaypalReady));
+        const markFailed = () => setPaypalLoadFailed(true);
+        window.addEventListener('coalition:paypal-ready', markReady);
+        window.addEventListener('coalition:paypal-failed', markFailed);
+        const poll = window.setInterval(markReady, 250);
+        const stop = window.setTimeout(() => {
+            window.clearInterval(poll);
+            if (!window.paypal && !window.__coalitionPaypalReady) setPaypalLoadFailed(true);
+        }, 15000);
+        return () => {
+            window.removeEventListener('coalition:paypal-ready', markReady);
+            window.removeEventListener('coalition:paypal-failed', markFailed);
+            window.clearInterval(poll);
+            window.clearTimeout(stop);
+        };
+    }, [paypalReady]);
+
+    // The order seed that backs the current Stripe PaymentIntent — created
+    // once per intent so the webhook's order_id metadata stays anchored.
+    const stripeOrderSeedRef = useRef<OrderSeed | null>(null);
+
+    // The order seed that backs the current PayPal order. Persisted to
+    // sessionStorage so a Pay Later redirect-return reuses the SAME seed
+    // (orderId/orderNumber) and the capture dedupes correctly.
+    const paypalOrderSeedRef = useRef<OrderSeed | null>(null);
+    if (paypalOrderSeedRef.current === null) {
+        // Lazy-init from sessionStorage (useRef does not call initializers).
+        paypalOrderSeedRef.current = loadCheckoutState()?.paypalOrderSeed || null;
+    }
 
     // Coupon code state
     const [couponCode, setCouponCode] = useState('');
@@ -56,18 +282,15 @@ const Checkout: React.FC = () => {
     const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
     const [isValidatingZip, setIsValidatingZip] = useState(false);
 
-    // Shipping information state - Lifted up
-    const [shippingInfo, setShippingInfo] = useState({
-        email: '',
-        name: '',
-        address1: '',
-        city: '',
-        state: '',
-        zip: '',
-        country: '',
+    // Shipping information state - Lifted up. Lazy-initialized from
+    // sessionStorage so a PayPal Pay Later redirect-return keeps the form.
+    const [shippingInfo, setShippingInfo] = useState(() => {
+        const saved = loadCheckoutState()?.shippingInfo;
+        return saved ? { ...DEFAULT_SHIPPING_INFO, ...saved } : DEFAULT_SHIPPING_INFO;
     });
 
-    const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>('standard');
+    const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>(() =>
+        loadCheckoutState()?.shippingMethod || 'standard');
 
     // VIP / Product Free Shipping Logic
     const isVIP = user?.isVIP || false;
@@ -96,15 +319,10 @@ const Checkout: React.FC = () => {
     const total = cartTotal();
     const reward = calculateReward(total);
 
-    // Above-as-Below set bonus: $30 off per matched tee+shorts pair. Multi-set
-    // carts earn proportional credit (e.g. 2 pairs = $60 off). Auto-applied
-    // locally AND re-derived on the server so PayPal / Stripe capture the
-    // discounted amount.
-    const cartBonusCents = useMemo(
-        () => calculateAboveAsBelowSetBonusCents(cart.map(item => ({ productId: item.id, quantity: item.quantity }))),
-        [cart],
-    );
-    const cartBonusDollars = cartBonusCents / 100;
+    // Pricing authority lives in services/orderIntake.ts → resolvePricing().
+    // The client passes raw items + shipping choice; the server computes the
+    // real total including set bonuses, crypto discount, and add-on pricing.
+    // Display values below are rough estimates only.
 
     // Store Credit Logic
     const [useStoreCredit, setUseStoreCredit] = useState(false);
@@ -112,22 +330,19 @@ const Checkout: React.FC = () => {
     const creditToApply = useStoreCredit ? Math.min(availableCredit, total + shippingCost) : 0;
     const [isZeroAmount, setIsZeroAmount] = useState(false);
 
-    // Calculate SGCoin discount if crypto payment is selected. Apply the
-    // percentage AFTER the set bonus so a tee+shorts shopper with USDC still
-    // sees the $30 stacked underneath the 10%, not 10% off the un-discounted
-    // $150 subtotal.
+    // Crypto discount is server-computed via resolvePricing(). Display only
+    // whether the discount is active for the UI badge; the dollar amount is
+    // not computed client-side.
     const discountEnabled = isSGCoinDiscountEnabled();
-    const cryptoBase = Math.max(0, total - cartBonusDollars);
-    const discount = (paymentMethod === 'crypto' && discountEnabled) ? calculateCartDiscount(cryptoBase) : 0;
 
-    // Final Total Calculation
-    const finalTotal = Math.max(0, total - discount - cartBonusDollars + shippingCost - creditToApply);
+    // Final Total Calculation (raw estimate — server is authoritative)
+    const finalTotal = Math.max(0, total + shippingCost - creditToApply);
     const requiresNoExternalPayment = isZeroAmount || finalTotal <= 0;
     const paymentLabel = paymentMethod === 'paypal'
-        ? 'PayPal, card, or Apple Pay'
+        ? 'PayPal, card, Apple Pay, or Pay in 4'
         : paymentMethod === 'crypto'
             ? 'USDC on Polygon'
-            : 'Card';
+            : 'Card, Klarna, or Afterpay';
     const shippingCostLabel = shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`;
     const shippingMethodLabel = shippingMethod === 'express' ? 'Express' : 'Standard';
     const fulfillmentExpectation = shippingMethod === 'express'
@@ -138,6 +353,8 @@ const Checkout: React.FC = () => {
         'PayPal secure checkout',
         'Credit and debit cards via PayPal',
         'Apple Pay when available',
+        'Klarna and Afterpay via card checkout',
+        'PayPal Pay in 4 when eligible',
         discountEnabled ? `USDC on Polygon saves ${getDiscountPercentageText()}` : 'USDC on Polygon available'
     ];
     const checkoutTrustItems = [
@@ -165,16 +382,63 @@ const Checkout: React.FC = () => {
 
     const WALLET_ADDRESS = '0x0F4A0466C2a1d3FA6Ed55a20994617F0533fbf74';
 
+    // Stripe Payment Element (card / Klarna / Afterpay) intent lifecycle.
+    // The intent is created lazily once the Stripe method is selected and
+    // re-created (debounced) whenever the shipping form changes, because
+    // Afterpay underwrites against the shipping address attached to the
+    // PaymentIntent and Klarna reads the shipping country for eligibility.
+    const shippingFingerprint = useMemo(
+        () => [shippingInfo.name, shippingInfo.address1, shippingInfo.city, shippingInfo.state, shippingInfo.zip, shippingInfo.country]
+            .join('|').trim().toLowerCase(),
+        [shippingInfo.name, shippingInfo.address1, shippingInfo.city, shippingInfo.state, shippingInfo.zip, shippingInfo.country],
+    );
+
     useEffect(() => {
-        if (cart.length > 0 && paymentMethod === 'card') {
-            createPaymentIntent();
-        }
         // If payment method is crypto, we don't need payment intent
         if (paymentMethod === 'crypto') {
             setClientSecret('');
             setIsZeroAmount(false);
+            return;
         }
-    }, [cart, paymentMethod, useStoreCredit, shippingMethod]);
+        if (paymentMethod !== 'card' || cart.length === 0) return;
+        // Wait until the buyer starts the shipping form so we don't fire an
+        // intent for an empty/placeholder address (Afterpay would reject it).
+        const hasAnyShipping = Object.values(shippingInfo).some(v => String(v).trim() !== '');
+        if (!hasAnyShipping) return;
+        const timer = setTimeout(() => { void createPaymentIntent(); }, 600);
+        return () => clearTimeout(timer);
+    }, [cart, paymentMethod, useStoreCredit, shippingMethod, shippingFingerprint]);
+
+    // Fetch server-authoritative pricing preview for the order summary.
+    // Debounced — fires when cart, shipping, or payment method change.
+    // The preview is display-only; actual payment amounts are computed
+    // separately by create-payment-intent / paypal-order / complete-order.
+    useEffect(() => {
+        if (cart.length === 0) return;
+        const timer = setTimeout(() => {
+            fetch('/api/pricing-preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    items: cart.map(item => ({
+                        productId: item.id,
+                        selectedSize: item.selectedSize || 'One Size',
+                        quantity: item.quantity,
+                        keychainClipOn: Boolean(item.keychainClipOn),
+                    })),
+                    shippingCost,
+                    paymentMethod,
+                }),
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) { setPricingPreview(null); return; }
+                setPricingPreview(data);
+            })
+            .catch(() => setPricingPreview(null));
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [cart, shippingCost, paymentMethod]);
 
     // Check for existing coupon on mount
     useEffect(() => {
@@ -219,13 +483,44 @@ const Checkout: React.FC = () => {
         setIsLoading(true);
         setError(null);
         try {
+            // Fresh order seed per intent keeps the Stripe webhook's order_id
+            // metadata anchored to a real order number. Amount excludes the
+            // crypto-only discount; store credit is subtracted server-side.
+            const seed = createOrderSeed();
+            stripeOrderSeedRef.current = seed;
+
             const response = await fetch('/api/create-payment-intent', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    amount: total + shippingCost,
+                    items: cart.map(item => ({
+                        productId: item.id,
+                        selectedSize: item.selectedSize || 'One Size',
+                        quantity: item.quantity,
+                        keychainClipOn: Boolean(item.keychainClipOn),
+                    })),
+                    shippingCost,
                     userId: user?.uid,
-                    useStoreCredit
+                    useStoreCredit,
+                    orderId: seed.orderId,
+                    email: shippingInfo.email,
+                    // Country is normalized to ISO-3166 for Stripe; if it
+                    // can't be mapped, shipping is omitted so card payments
+                    // still work (BNPL methods just won't be offered).
+                    shipping: (() => {
+                        const country = normalizeCountryCode(shippingInfo.country);
+                        if (!country) return undefined;
+                        return {
+                            name: shippingInfo.name,
+                            address: {
+                                line1: shippingInfo.address1,
+                                city: shippingInfo.city,
+                                state: shippingInfo.state,
+                                postal_code: shippingInfo.zip,
+                                country,
+                            },
+                        };
+                    })(),
                 }),
             });
 
@@ -234,6 +529,11 @@ const Checkout: React.FC = () => {
                 throw new Error(err.error || 'Failed to create payment intent');
             }
             const data = await response.json();
+
+            // Cache the server-computed pricing so the Stripe Payment Section
+            // can show the authoritative total (includes set bonus, excludes
+            // crypto-only discount).
+            if (data.pricing) setServerPricing(data.pricing);
 
             if (data.zeroAmount) {
                 setIsZeroAmount(true);
@@ -304,18 +604,212 @@ const Checkout: React.FC = () => {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const createOrderSeed = (): OrderSeed => ({
-        orderId: `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        orderNumber: generateOrderNumber(),
-    });
+    const createOrderSeed = (): OrderSeed => {
+        const seed: OrderSeed = {
+            orderId: `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            orderNumber: generateOrderNumber(),
+        };
+        // Persist so a PayPal Pay Later redirect-return reuses the same seed.
+        const saved = loadCheckoutState() || {};
+        saveCheckoutState({ ...saved, paypalOrderSeed: seed });
+        return seed;
+    };
+
+    // Persist form state whenever it changes so the PayPal Pay Later
+    // redirect-return page can restore the exact checkout in progress.
+    useEffect(() => {
+        const saved = loadCheckoutState() || {};
+        saveCheckoutState({ ...saved, shippingInfo, shippingMethod, paymentMethod });
+    }, [shippingInfo, shippingMethod, paymentMethod]);
+
+    // PayPal Pay Later redirect-return recovery. When the browser bounces
+    // back from PayPal with ?token=&PayerID= in the URL, the buttons must be
+    // re-rendered into the container so the SDK can fire onApprove and finish
+    // the capture. Without this, the order hangs after the redirect.
+    //
+    // NOTE: this []-deps effect deliberately reads first-render closures for
+    // cart/shippingInfo/finalTotal. That is SAFE because both the cart
+    // (localStorage, useCart) and the shipping form (sessionStorage) restore
+    // SYNCHRONOUSLY in lazy initializers before the first render commits.
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+        const payerId = params.get('PayerID') || params.get('payer_id');
+
+        // PayPal redirect-return: token AND PayerID present → re-render buttons.
+        const isReturn = Boolean(token && payerId);
+        // Cancel-return: token only (no PayerID) → surface the cancellation.
+        const isCancelReturn = Boolean(token && !payerId);
+        if (!isReturn && !isCancelReturn) return;
+
+        // Ensure the PayPal payment method is selected so the button container
+        // is present in the DOM.
+        setPaymentMethod('paypal');
+
+        if (isCancelReturn) {
+            setError('Payment was cancelled. Your cart is still saved — you can try again whenever you like.');
+            return;
+        }
+
+        // Guard so StrictMode's mount→unmount→mount (and the poll + event
+        // both firing) can never render the buttons a second time.
+        const renderedRef = { current: false };
+
+        const renderReturnedButtons = () => {
+            if (renderedRef.current) return;
+            const container = document.getElementById('paypal-button-container-checkout');
+            if (!container || typeof window.paypal === 'undefined') return;
+            renderedRef.current = true;
+
+            const seed = paypalOrderSeedRef.current || createOrderSeed();
+            paypalOrderSeedRef.current = seed;
+
+            setIsLoading(true);
+            renderPaypalButtons(seed)
+                .catch((err: any) => {
+                    console.error('PayPal redirect-return render error:', err);
+                    setError('PayPal could not be re-initialized after the redirect. Your cart is saved — please try again.');
+                })
+                .finally(() => setIsLoading(false));
+        };
+
+        let poll: number | undefined;
+        let stopPoll: number | undefined;
+        const markReady = () => {
+            if (typeof window.paypal !== 'undefined') {
+                window.removeEventListener('coalition:paypal-ready', markReady);
+                if (poll !== undefined) window.clearInterval(poll);
+                if (stopPoll !== undefined) window.clearTimeout(stopPoll);
+                // Give the DOM a tick to mount the paypal container now that
+                // the payment method is selected.
+                window.setTimeout(renderReturnedButtons, 100);
+            }
+        };
+
+        if (typeof window.paypal !== 'undefined') {
+            markReady();
+        } else {
+            window.addEventListener('coalition:paypal-ready', markReady);
+            // Also poll briefly — the SDK may load without firing the event.
+            poll = window.setInterval(markReady, 250);
+            stopPoll = window.setTimeout(() => {
+                if (poll !== undefined) window.clearInterval(poll);
+                window.removeEventListener('coalition:paypal-ready', markReady);
+            }, 15000);
+        }
+
+        // Cleanup: never leak the listener/intervals (StrictMode, navigation).
+        return () => {
+            window.removeEventListener('coalition:paypal-ready', markReady);
+            if (poll !== undefined) window.clearInterval(poll);
+            if (stopPoll !== undefined) window.clearTimeout(stopPoll);
+        };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Renders the PayPal Smart Buttons into the checkout container. Shared by
+    // the 'Continue to PayPal' flow and the Pay Later redirect-return recovery.
+    const renderPaypalButtons = async (paypalOrderSeed: OrderSeed): Promise<void> => {
+        const paypalButtonContainer = document.getElementById('paypal-button-container-checkout');
+        if (!paypalButtonContainer) {
+            throw new Error('PayPal checkout container was not found.');
+        }
+
+        paypalButtonContainer.innerHTML = '';
+
+        await window.paypal.Buttons({
+            createOrder: async () => {
+                const response = await fetch('/api/paypal-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'create',
+                        referenceId: paypalOrderSeed.orderId,
+                        description: `Coalition ${paypalOrderSeed.orderNumber} - ${cart.length} item(s)`,
+                        expectedTotal: finalTotal,
+                        shipping: shippingCost,
+                        items: cart.map(item => ({
+                            productId: item.id,
+                            name: item.name,
+                            selectedSize: item.selectedSize || 'One Size',
+                            keychainClipOn: Boolean(item.keychainClipOn),
+                            quantity: item.quantity,
+                        })),
+                    }),
+                });
+                const paypalOrder = await response.json().catch(() => ({}));
+                if (!response.ok || !paypalOrder.id) {
+                    throw new Error(paypalOrder.error || 'Failed to create PayPal order.');
+                }
+                return paypalOrder.id;
+            },
+            onApprove: async (data: any) => {
+                try {
+                    const captureResponse = await fetch('/api/paypal-order', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'capture',
+                            orderId: data.orderID,
+                        }),
+                    });
+                    const capture = await captureResponse.json().catch(() => ({}));
+                    if (!captureResponse.ok || capture.captureStatus !== 'COMPLETED' || !capture.captureId) {
+                        throw new Error(capture.error || 'PayPal payment was not completed.');
+                    }
+
+                    // Create order in database
+                    const orderNumber = await createOrder('paypal', capture.captureId, {
+                        paypalOrderId: capture.orderId || data.orderID,
+                        paypalCaptureId: capture.captureId,
+                    }, paypalOrderSeed);
+
+                    // Store for success page
+                    sessionStorage.setItem('orderNumber', orderNumber);
+                    sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
+
+                    // Redirect to success page
+                    console.log('✅ PayPal payment approved, redirecting...');
+                    window.location.href = `/order/success?payment_method=paypal&shippingMethod=${shippingMethod}&shippingCost=${shippingCost}`;
+                } catch (err: any) {
+                    console.error('Order creation error:', err);
+                    reportErrorToAdmin(err.message || 'Capture Success but API Failure', 'PayPal onApprove Process', {
+                        customerEmail: shippingInfo.email,
+                        total: finalTotal
+                    });
+                    setError('Payment succeeded but order creation failed. Please contact support.');
+                    setIsLoading(false);
+                }
+            },
+            onError: (err: any) => {
+                console.error('PayPal error:', err);
+                reportErrorToAdmin(err?.message || 'Unknown PayPal SDK Error', 'PayPal onError', {
+                    customerEmail: shippingInfo.email,
+                    total: finalTotal
+                });
+                setError('Payment failed. Please try again or contact support.');
+                setIsLoading(false);
+            },
+            onCancel: () => {
+                reportErrorToAdmin('User cancelled PayPal checkout', 'PayPal onCancel', {
+                    customerEmail: shippingInfo.email,
+                    total: finalTotal
+                });
+                setError('Payment was cancelled.');
+                setIsLoading(false);
+            }
+        }).render('#paypal-button-container-checkout');
+    };
 
     const createOrder = async (paymentMethodUsed: string, paymentReference?: string, paymentVerification?: PaymentVerification, orderSeed?: OrderSeed) => {
         try {
             const orderNumber = orderSeed?.orderNumber || generateOrderNumber();
-            const subtotal = total;
-            const tax = 0;
             const isGuest = !user;
 
+            // Pricing authority lives in services/orderIntake.ts → resolvePricing().
+            // subtotal / discount are server-computed from DB; the client passes
+            // only raw items + shipping choice. total is kept for OrderSuccess
+            // display and updateLifetimeStats — the server warns on mismatch but
+            // always uses its own authoritative computation.
             const order = {
                 id: orderSeed?.orderId || `order_${Date.now()}`,
                 orderNumber,
@@ -331,16 +825,14 @@ const Checkout: React.FC = () => {
                     productImage: item.images[0],
                     selectedSize: item.selectedSize || 'One Size',
                     quantity: item.quantity,
-                    price: getCartItemUnitPrice(item),
-                    basePrice: item.price,
-                    addOnPrice: getCartItemAddOnPrice(item),
+                    price: getCartItemUnitPrice(item),    // display-only; server re-prices
+                    total: getCartItemLineTotal(item),     // display-only; server re-prices
                     keychainClipOn: Boolean(item.keychainClipOn),
                     addOnLabel: item.keychainClipOn ? WALLET_KEYCHAIN_CLIP_LABEL : undefined,
-                    total: getCartItemLineTotal(item)
                 })),
-                subtotal,
-                tax,
-                discount: discount + creditToApply + cartBonusDollars,
+                subtotal: 0,  // server-authoritative via resolvePricing()
+                tax: 0,
+                discount: 0,  // server-authoritative via resolvePricing()
                 total: finalTotal,
                 paymentMethod: paymentMethodUsed as any,
                 paymentStatus: paymentMethodUsed === 'crypto' ? OrderStatus.PENDING : OrderStatus.PAID,
@@ -363,6 +855,10 @@ const Checkout: React.FC = () => {
             };
 
             await addOrder(order, paymentVerification);
+
+            // Decrement client-side size_inventory so the storefront reflects the
+            // latest availability without waiting for Supabase realtime to sync.
+            void deductInventory(order.items);
 
             // Save order to sessionStorage so OrderSuccess can display it even if cart is cleared
             sessionStorage.setItem('pendingOrder', JSON.stringify(order));
@@ -394,6 +890,8 @@ const Checkout: React.FC = () => {
             }
 
             clearCart();
+            // Checkout state (form + PayPal seed) is consumed on success.
+            clearCheckoutState();
             return orderNumber;
         } catch (error) {
             console.error('Error creating order:', error);
@@ -451,6 +949,27 @@ const Checkout: React.FC = () => {
             window.location.href = '/order/success?payment_method=crypto';
         } catch (error) {
             addToast('Failed to create order. Please try again.', 'error');
+        }
+    };
+
+    // Called by StripePaymentSection after confirmPayment succeeds (card,
+    // Klarna, or Afterpay all land here). Mirrors the PayPal onApprove path:
+    // write the order, stash session data, redirect to /order/success.
+    const handleStripePaid = async (paymentIntentId: string) => {
+        try {
+            const seed = stripeOrderSeedRef.current || createOrderSeed();
+            const orderNumber = await createOrder('stripe', paymentIntentId, undefined, seed);
+            sessionStorage.setItem('orderNumber', orderNumber);
+            sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
+            console.log('✅ Stripe payment confirmed, redirecting...');
+            window.location.href = `/order/success?payment_method=stripe&shippingMethod=${shippingMethod}&shippingCost=${shippingCost}`;
+        } catch (err: any) {
+            console.error('Order creation error:', err);
+            reportErrorToAdmin(err.message || 'Stripe success but API failure', 'Stripe onPaid Process', {
+                customerEmail: shippingInfo.email,
+                total: finalTotal
+            });
+            setError('Payment succeeded but order creation failed. Please contact support.');
         }
     };
 
@@ -750,7 +1269,7 @@ const Checkout: React.FC = () => {
                                                 />
                                                 <div className="flex flex-col">
                                                     <span className="font-black text-base text-white">PayPal, Cards & Apple Pay</span>
-                                                    <span className="text-xs text-gray-400">Pay securely with PayPal, Credit/Debit Card, or Apple Pay</span>
+                                                    <span className="text-xs text-gray-400">PayPal, cards, Apple Pay, or Pay in 4 when eligible</span>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2 opacity-80">
@@ -759,6 +1278,27 @@ const Checkout: React.FC = () => {
                                                     <path d="M35 4h-5c-.55 0-1 .45-1 1v14c0 .55.45 1 1 1h5c2.76 0 5-2.24 5-5v-6c0-2.76-2.24-5-5-5zm2 11c0 1.1-.9 2-2 2h-2V7h2c1.1 0 2 .9 2 2v6z" fill="#0070BA" />
                                                 </svg>
                                                 <CreditCard className="w-5 h-5 text-white" />
+                                            </div>
+                                        </label>
+
+                                        {/* Card / Klarna / Afterpay Option - Stripe Payment Element */}
+                                        <label className={`flex items-center justify-between p-5 rounded-xl border-2 cursor-pointer transition group relative overflow-hidden ${paymentMethod === 'card' ? 'bg-gradient-to-r from-violet-600/15 to-blue-600/15 border-violet-500/70 shadow-lg shadow-violet-500/10' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30'}`}>
+                                            <div className="flex items-center gap-4">
+                                                <input
+                                                    type="radio"
+                                                    name="paymentMethod"
+                                                    checked={paymentMethod === 'card'}
+                                                    onChange={() => setPaymentMethod('card')}
+                                                    className="w-5 h-5 border-gray-500 text-violet-600 focus:ring-violet-500"
+                                                />
+                                                <div className="flex flex-col">
+                                                    <span className="font-black text-base text-white">Card, Klarna & Afterpay</span>
+                                                    <span className="text-xs text-gray-400">Visa, Mastercard, Amex, Klarna, Afterpay — 4-payment plans where available</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">Klarna</span>
+                                                <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">Afterpay</span>
                                             </div>
                                         </label>
 
@@ -822,7 +1362,7 @@ const Checkout: React.FC = () => {
                                                     <div>
                                                         <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wide mb-1">Checkout</h4>
                                                         <p className="text-sm text-gray-300">
-                                                            Pay with <span className="text-white font-bold">PayPal, Apple Pay, or Card</span>. PayPal shows the available wallet and card options for your device before any capture.
+                                                            Pay with <span className="text-white font-bold">PayPal, Apple Pay, Card, or Pay in 4</span>. PayPal shows the available wallet, card, and installment options for your device before any capture.
                                                         </p>
                                                     </div>
                                                 </div>
@@ -843,8 +1383,10 @@ const Checkout: React.FC = () => {
                                                             throw new Error('Store credit cannot be combined with PayPal yet. Turn off store credit or use it to cover the full order.');
                                                         }
 
-                                                        if (typeof window.paypal === 'undefined') {
-                                                            throw new Error('PayPal SDK not loaded. Please refresh the page.');
+                                                        if (!paypalReady || typeof window.paypal === 'undefined') {
+                                                            throw new Error(paypalLoadFailed
+                                                                ? 'PayPal is temporarily unavailable. Please use card checkout or try again later.'
+                                                                : 'PayPal is still loading. Please wait a moment and try again.');
                                                         }
 
                                                         const paypalButtonContainer = document.getElementById('paypal-button-container-checkout');
@@ -852,92 +1394,10 @@ const Checkout: React.FC = () => {
                                                             throw new Error('PayPal checkout container was not found.');
                                                         }
 
-                                                        paypalButtonContainer.innerHTML = '';
                                                         const paypalOrderSeed = createOrderSeed();
+                                                        paypalOrderSeedRef.current = paypalOrderSeed;
 
-                                                        await window.paypal.Buttons({
-                                                            createOrder: async () => {
-                                                                const response = await fetch('/api/paypal-order', {
-                                                                    method: 'POST',
-                                                                    headers: { 'Content-Type': 'application/json' },
-                                                                    body: JSON.stringify({
-                                                                        action: 'create',
-                                                                        referenceId: paypalOrderSeed.orderId,
-                                                                        description: `Coalition ${paypalOrderSeed.orderNumber} - ${cart.length} item(s)`,
-                                                                        expectedTotal: finalTotal,
-                                                                        shipping: shippingCost,
-                                                                        discount: discount + creditToApply + cartBonusDollars,
-                                                                        items: cart.map(item => ({
-                                                                            productId: item.id,
-                                                                            name: item.name,
-                                                                            selectedSize: item.selectedSize || 'One Size',
-                                                                            keychainClipOn: Boolean(item.keychainClipOn),
-                                                                            quantity: item.quantity,
-                                                                        })),
-                                                                    }),
-                                                                });
-                                                                const paypalOrder = await response.json().catch(() => ({}));
-                                                                if (!response.ok || !paypalOrder.id) {
-                                                                    throw new Error(paypalOrder.error || 'Failed to create PayPal order.');
-                                                                }
-                                                                return paypalOrder.id;
-                                                            },
-                                                            onApprove: async (data: any) => {
-                                                                try {
-                                                                    const captureResponse = await fetch('/api/paypal-order', {
-                                                                        method: 'POST',
-                                                                        headers: { 'Content-Type': 'application/json' },
-                                                                        body: JSON.stringify({
-                                                                            action: 'capture',
-                                                                            orderId: data.orderID,
-                                                                        }),
-                                                                    });
-                                                                    const capture = await captureResponse.json().catch(() => ({}));
-                                                                    if (!captureResponse.ok || capture.captureStatus !== 'COMPLETED' || !capture.captureId) {
-                                                                        throw new Error(capture.error || 'PayPal payment was not completed.');
-                                                                    }
-
-                                                                    // Create order in database
-                                                                    const orderNumber = await createOrder('paypal', capture.captureId, {
-                                                                        paypalOrderId: capture.orderId || data.orderID,
-                                                                        paypalCaptureId: capture.captureId,
-                                                                    }, paypalOrderSeed);
-
-                                                                    // Store for success page
-                                                                    sessionStorage.setItem('orderNumber', orderNumber);
-                                                                    sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
-
-                                                                    // Redirect to success page
-                                                                    console.log('✅ PayPal payment approved, redirecting...');
-                                                                    window.location.href = `/order/success?payment_method=paypal&shippingMethod=${shippingMethod}&shippingCost=${shippingCost}`;
-                                                                } catch (err: any) {
-                                                                    console.error('Order creation error:', err);
-                                                                    reportErrorToAdmin(err.message || 'Capture Success but API Failure', 'PayPal onApprove Process', {
-                                                                        customerEmail: shippingInfo.email,
-                                                                        total: finalTotal
-                                                                    });
-                                                                    setError('Payment succeeded but order creation failed. Please contact support.');
-                                                                    setIsLoading(false);
-                                                                }
-                                                            },
-                                                            onError: (err: any) => {
-                                                                console.error('PayPal error:', err);
-                                                                reportErrorToAdmin(err?.message || 'Unknown PayPal SDK Error', 'PayPal onError', {
-                                                                    customerEmail: shippingInfo.email,
-                                                                    total: finalTotal
-                                                                });
-                                                                setError('Payment failed. Please try again or contact support.');
-                                                                setIsLoading(false);
-                                                            },
-                                                            onCancel: () => {
-                                                                reportErrorToAdmin('User cancelled PayPal checkout', 'PayPal onCancel', {
-                                                                    customerEmail: shippingInfo.email,
-                                                                    total: finalTotal
-                                                                });
-                                                                setError('Payment was cancelled.');
-                                                                setIsLoading(false);
-                                                            }
-                                                        }).render('#paypal-button-container-checkout');
+                                                        await renderPaypalButtons(paypalOrderSeed);
                                                         setIsLoading(false);
 
                                                     } catch (err: any) {
@@ -946,7 +1406,7 @@ const Checkout: React.FC = () => {
                                                         setIsLoading(false);
                                                     }
                                                 }}
-                                                disabled={isLoading}
+                                                disabled={isLoading || (!paypalReady && !paypalLoadFailed)}
                                                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-widest hover:from-purple-700 hover:to-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20"
                                             >
                                                 {isLoading ? (
@@ -955,9 +1415,15 @@ const Checkout: React.FC = () => {
                                                         Loading PayPal...
                                                     </div>
                                                 ) : (
-                                                    'Continue to PayPal'
+                                                    paypalReady ? 'Continue to PayPal' : paypalLoadFailed ? 'PayPal unavailable' : 'Loading PayPal...'
                                                 )}
                                             </button>
+
+                                            {paypalLoadFailed && !paypalReady && (
+                                                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+                                                    PayPal could not load on this device. Choose <button type="button" onClick={() => setPaymentMethod('card')} className="font-bold underline">Card, Klarna & Afterpay</button> instead.
+                                                </div>
+                                            )}
 
                                             {error && (
                                                 <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-lg text-red-400 text-sm">
@@ -967,7 +1433,57 @@ const Checkout: React.FC = () => {
                                         </div>
                                     )}
 
+                                    {/* Stripe Payment Element: Card, Klarna, Afterpay */}
+                                    {paymentMethod === 'card' && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                            <div className="bg-white/[0.03] border border-white/10 p-4 rounded-lg">
+                                                <div className="flex items-start gap-3">
+                                                    <div>
+                                                        <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wide mb-1">Card, Klarna & Afterpay</h4>
+                                                        <p className="text-sm text-gray-300">
+                                                            Pay by credit or debit card, or split the order into four interest-free payments with Klarna or Afterpay where available. Klarna and Afterpay are offered when your order and region qualify.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
 
+                                            {stripePromise && clientSecret ? (
+                                                <Elements
+                                                    stripe={stripePromise}
+                                                    options={{ clientSecret, appearance: STRIPE_APPEARANCE }}
+                                                >
+                                                    <StripePaymentSection
+                                                        email={shippingInfo.email}
+                                                        total={serverPricing ? serverPricing.totalCents / 100 : finalTotal}
+                                                        onPaid={handleStripePaid}
+                                                        onValidationRequired={validateShipping}
+                                                    />
+                                                </Elements>
+                                            ) : (
+                                                <div className="rounded-xl border border-white/10 bg-black/30 p-6 text-center">
+                                                    {!stripePromise ? (
+                                                        <p className="text-sm text-gray-400">
+                                                            Card, Klarna, and Afterpay are unavailable right now. Please use PayPal or contact support.
+                                                        </p>
+                                                    ) : (
+                                                        <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
+                                                            <Loader className="w-4 h-4 animate-spin" />
+                                                            Preparing payment options...
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Rendered in BOTH branches so a post-payment
+                                                order-creation failure (set by handleStripePaid)
+                                                is never invisible to the buyer. */}
+                                            {error && (
+                                                <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-lg text-red-400 text-sm">
+                                                    {error}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {/* Crypto Payment */}
                                     {paymentMethod === 'crypto' && (
@@ -1050,21 +1566,6 @@ const Checkout: React.FC = () => {
                             </div>
 
                             <div className="space-y-3 pt-6 border-t border-white/10 text-sm">
-                                {/* Set bonus surfaced as a quiet archival fact, not a
-                                    green celebration. Mirrors the CartDrawer + Cart.tsx
-                                    treatment so all three cart surfaces use the same
-                                    founder-voice register. The -$X amount is in the
-                                    total breakdown line below. */}
-                                {cartBonusCents > 0 && (
-                                    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
-                                            Set bonus applied
-                                        </p>
-                                        <p className="mt-1 text-xs text-gray-300 leading-relaxed">
-                                            ${cartBonusDollars.toFixed(2)} off the pair — the tee and shorts were built as a set.
-                                        </p>
-                                    </div>
-                                )}
                                 <div className="flex justify-between text-gray-400">
                                     <span>Subtotal</span>
                                     <span>${total.toFixed(2)}</span>
@@ -1073,6 +1574,18 @@ const Checkout: React.FC = () => {
                                     <span>Shipping</span>
                                     <span>{shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`}</span>
                                 </div>
+                                {pricingPreview && pricingPreview.setBonusCents > 0 && (
+                                    <div className="flex justify-between text-gray-400">
+                                        <span>Above as Below set bonus</span>
+                                        <span>-${(pricingPreview.setBonusCents / 100).toFixed(2)}</span>
+                                    </div>
+                                )}
+                                {pricingPreview && pricingPreview.cryptoDiscountCents > 0 && (
+                                    <div className="flex justify-between text-blue-400">
+                                        <span>Crypto Discount ({getDiscountPercentageText()})</span>
+                                        <span>-${(pricingPreview.cryptoDiscountCents / 100).toFixed(2)}</span>
+                                    </div>
+                                )}
                                 {showPairAnotherItemHint && (
                                     <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">
@@ -1083,18 +1596,6 @@ const Checkout: React.FC = () => {
                                         </p>
                                     </div>
                                 )}
-                                {cartBonusCents > 0 && (
-                                    <div className="flex justify-between text-gray-400">
-                                        <span>Above as Below set bonus</span>
-                                        <span>-${cartBonusDollars.toFixed(2)}</span>
-                                    </div>
-                                )}
-                                {discount > 0 && (
-                                    <div className="flex justify-between text-gray-400">
-                                        <span>Crypto Discount</span>
-                                        <span>-${discount.toFixed(2)}</span>
-                                    </div>
-                                )}
                                 {useStoreCredit && creditToApply > 0 && (
                                     <div className="flex justify-between text-brand-accent">
                                         <span>Store Credit</span>
@@ -1103,7 +1604,7 @@ const Checkout: React.FC = () => {
                                 )}
                                 <div className="flex justify-between text-white font-bold text-lg pt-3 border-t border-white/10">
                                     <span>Total</span>
-                                    <span>${finalTotal.toFixed(2)}</span>
+                                    <span>${pricingPreview ? (pricingPreview.totalCents / 100).toFixed(2) : finalTotal.toFixed(2)}</span>
                                 </div>
 
                                 {/* Estimated Rewards - Priority 5 */}

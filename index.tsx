@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
@@ -10,10 +10,22 @@ if (!rootElement) {
 
 const root = ReactDOM.createRoot(rootElement);
 
+const BootMarker: React.FC = () => {
+  useEffect(() => {
+    // This runs after React commits, unlike root.render() which only schedules
+    // work. A render failure therefore leaves the outside-React recovery path
+    // available instead of hiding it behind a blank screen.
+    window.__coalitionBooted = true;
+    document.querySelector('[data-load-recovery]')?.classList.remove('visible');
+  }, []);
+
+  return <App />;
+};
+
 const renderApp = () => {
   root.render(
     <React.StrictMode>
-      <App />
+      <BootMarker />
     </React.StrictMode>
   );
 };

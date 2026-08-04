@@ -1,5 +1,4 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet.js';
 import {
     type ApiRequest,
     type ApiResponse,
@@ -8,13 +7,13 @@ import {
     type PayPalNormalizedCheckoutItem,
     type PayPalOAuthResponse,
     type PayPalOrderResponse,
-    type ProductRow,
 } from '../_types';
 import {
     createHttpError,
     parseBody,
     setCorsHeaders,
 } from '../_helpers';
+import { resolvePricing, type PricingItem, HttpError } from '../../services/orderIntake.js';
 
 const PAYPAL_LIVE_API = 'https://api-m.paypal.com';
 const PAYPAL_SANDBOX_API = 'https://api-m.sandbox.paypal.com';
@@ -41,30 +40,8 @@ function getPaypalCredentials() {
     return { clientId, clientSecret };
 }
 
-function getSupabaseAdmin(): SupabaseClient {
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-
-    if (!supabaseUrl || !serviceRoleKey) {
-        throw createHttpError(503, 'Supabase product verification is not configured.');
-    }
-
-    return createClient(supabaseUrl, serviceRoleKey);
-}
-
 function moneyFromCents(cents: number) {
     return (Math.max(0, cents) / 100).toFixed(2);
-}
-
-function parseMoneyCents(value: unknown, fieldName: string) {
-    const parsed = Number(value ?? 0);
-    if (!Number.isFinite(parsed)) {
-        throw createHttpError(400, `${fieldName} must be a valid amount.`);
-    }
-    if (parsed < 0) {
-        throw createHttpError(400, `${fieldName} cannot be negative.`);
-    }
-    return Math.round(parsed * 100);
 }
 
 function normalizeCheckoutItems(items: unknown[]): PayPalNormalizedCheckoutItem[] {
@@ -93,74 +70,9 @@ function normalizeCheckoutItems(items: unknown[]): PayPalNormalizedCheckoutItem[
     });
 }
 
-async function loadProductsForItems(items: PayPalNormalizedCheckoutItem[]): Promise<Map<string, ProductRow>> {
-    const productIds = [...new Set(items.map(item => item.productId))];
-    const { data, error } = await getSupabaseAdmin()
-        .from('products')
-        .select('id,name,price,category,archived,size_inventory')
-        .in('id', productIds);
-
-    if (error) {
-        throw createHttpError(500, error.message || 'Unable to verify checkout products.');
-    }
-
-    const products = new Map<string, ProductRow>(
-        ((data as ProductRow[] | null) || []).map(product => [String(product.id), product])
-    );
-    const missing = productIds.filter(id => !products.has(id));
-    if (missing.length > 0) {
-        throw createHttpError(409, `Checkout contains unavailable product(s): ${missing.join(', ')}.`);
-    }
-
-    return products;
-}
-
-function getExpectedUnitAmountCents(product: ProductRow | undefined, item: PayPalNormalizedCheckoutItem) {
-    if (product?.archived) {
-        throw createHttpError(409, `${product.name || 'This item'} is no longer available.`);
-    }
-
-    const basePriceCents = parseMoneyCents(product?.price, 'Product price');
-    const category = String(product?.category || '').toLowerCase();
-    const addOnCents = item.keychainClipOn && category === 'wallet' ? KEYCHAIN_CLIP_PRICE_CENTS : 0;
-
-    if (item.keychainClipOn && category !== 'wallet') {
-        throw createHttpError(409, `${product?.name || 'This item'} does not support the keychain clip add-on.`);
-    }
-
-    const inventory = (product?.size_inventory ?? {}) as Record<string, number>;
-    if (inventory && Object.prototype.hasOwnProperty.call(inventory, item.selectedSize)) {
-        const available = Number(inventory[item.selectedSize] || 0);
-        if (available < item.quantity) {
-            throw createHttpError(409, `${product?.name || 'This item'} is no longer available in the requested quantity.`);
-        }
-    }
-
-    return basePriceCents + addOnCents;
-}
-
-async function buildPayPalItems(items: PayPalNormalizedCheckoutItem[]) {
-    const products = await loadProductsForItems(items);
-
-    return items.map((item, index) => {
-        const product = products.get(item.productId);
-        const unitAmountCents = getExpectedUnitAmountCents(product, item);
-        const name = String(product?.name || `Coalition Item ${index + 1}`).slice(0, 127);
-
-        return {
-            productId: item.productId,
-            lineTotalCents: unitAmountCents * item.quantity,
-            paypalItem: {
-                name,
-                quantity: String(item.quantity),
-                category: 'PHYSICAL_GOODS' as const,
-                unit_amount: {
-                    currency_code: CURRENCY_CODE,
-                    value: moneyFromCents(unitAmountCents),
-                },
-            },
-        };
-    });
+// Pricing delegated to the shared Order intake module.
+function pricingItemsFromCheckout(items: PayPalNormalizedCheckoutItem[]): PricingItem[] {
+    return items.map(i => ({ productId: i.productId, selectedSize: i.selectedSize, quantity: i.quantity, keychainClipOn: i.keychainClipOn }));
 }
 
 function getRequestId(prefix: string, value: unknown) {
@@ -191,67 +103,54 @@ async function getAccessToken(): Promise<string> {
 
 async function createPaypalOrder(body: PayPalCreateOrderInput) {
     const normalizedItems = normalizeCheckoutItems(Array.isArray(body.items) ? body.items : []);
-    const lineItems = await buildPayPalItems(normalizedItems);
-    const itemTotalCents = lineItems.reduce((sum, item) => sum + item.lineTotalCents, 0);
-    const shippingCents = parseMoneyCents(body.shipping || 0, 'Shipping');
-    const requestedDiscountCents = parseMoneyCents(body.discount || 0, 'Discount');
-    // Server is the source of truth for the set bonus: re-derive it from the
-    // cart contents regardless of what the client sent. Anything beyond the
-    // legitimate bonus is treated as store-credit abuse and rejected.
-    const setBonusCents = calculateAboveAsBelowSetBonusCents(
-        normalizedItems.map(item => ({ productId: item.productId, quantity: item.quantity })),
+
+    // Use the shared pricing authority
+    const pricing = await resolvePricing(
+        pricingItemsFromCheckout(normalizedItems),
+        Number(body.shipping || 0),
+        Number(body.discount || 0),
+        'paypal',
     );
-    const otherDiscountCents = Math.max(0, requestedDiscountCents - setBonusCents);
-    if (otherDiscountCents > 0) {
-        throw createHttpError(400, 'Store credit cannot be combined with PayPal yet. Turn off store credit or use it to cover the full order.');
-    }
-    const discountCents = setBonusCents;
 
-    if (shippingCents !== 0 && shippingCents !== 1000) {
-        throw createHttpError(400, 'Invalid PayPal shipping amount.');
-    }
-
-    const orderTotalCents = itemTotalCents + shippingCents - discountCents;
-    if (orderTotalCents <= 0) throw createHttpError(400, 'PayPal order total must be greater than zero.');
-
-    // The server is the source of truth for the order total (computed from
-    // DB prices above). The client-sent expectedTotal is a sanity check — if
-    // it doesn't match (e.g. the cart has a stale price from before a DB
-    // update), we log the discrepancy but proceed with the server-verified
-    // total so the buyer isn't blocked.
+    // Client total sanity check
     if (body.expectedTotal !== undefined) {
-        const expectedTotalCents = parseMoneyCents(body.expectedTotal, 'Expected total');
-        if (expectedTotalCents !== orderTotalCents) {
-            console.warn(`[PayPal API] expectedTotal mismatch: client=${expectedTotalCents}c server=${orderTotalCents}c — using server total.`);
+        const expectedCents = Math.round(Number(body.expectedTotal) * 100);
+        if (expectedCents !== pricing.totalCents) {
+            console.warn('[PayPal API] expectedTotal mismatch: client=' + expectedCents + 'c server=' + pricing.totalCents + 'c');
         }
     }
 
+    if (pricing.totalCents <= 0) throw createHttpError(400, 'PayPal order total must be greater than zero.');
+
+    // Build PayPal line items from the resolved pricing
+    const paypalItems = pricing.items.map((pi, i) => ({
+        name: pi.productName.slice(0, 127),
+        quantity: String(pi.quantity),
+        category: 'PHYSICAL_GOODS' as const,
+        unit_amount: { currency_code: CURRENCY_CODE, value: moneyFromCents(pi.unitCents) },
+    }));
+
     const accessToken = await getAccessToken();
-    const referenceId = String(body.referenceId || `coalition_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
-    const response = await fetch(`${getPaypalBaseUrl()}/v2/checkout/orders`, {
+    const referenceId = String(body.referenceId || 'coalition_' + Date.now()).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
+    const response = await fetch(getPaypalBaseUrl() + '/v2/checkout/orders', {
         method: 'POST',
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-            Prefer: 'return=representation',
-            'PayPal-Request-Id': getRequestId('create', referenceId),
-        },
+        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json', Prefer: 'return=representation', 'PayPal-Request-Id': getRequestId('create', referenceId) },
         body: JSON.stringify({
             intent: 'CAPTURE',
             purchase_units: [{
                 reference_id: referenceId,
-                custom_id: referenceId,
+                custom_id: body.orderId || referenceId,
                 description: String(body.description || 'Coalition order').slice(0, 127),
                 amount: {
                     currency_code: CURRENCY_CODE,
-                    value: moneyFromCents(orderTotalCents),
+                    value: moneyFromCents(pricing.totalCents),
                     breakdown: {
-                        item_total: { currency_code: CURRENCY_CODE, value: moneyFromCents(itemTotalCents) },
-                        shipping: { currency_code: CURRENCY_CODE, value: moneyFromCents(shippingCents) },
-                        discount: { currency_code: CURRENCY_CODE, value: moneyFromCents(discountCents) },
+                        item_total: { currency_code: CURRENCY_CODE, value: moneyFromCents(pricing.itemTotalCents) },
+                        shipping: { currency_code: CURRENCY_CODE, value: moneyFromCents(pricing.shippingCents) },
+                        discount: { currency_code: CURRENCY_CODE, value: moneyFromCents(pricing.discountCents) },
                     },
                 },
-                items: lineItems.map(item => item.paypalItem),
+                items: paypalItems,
             }],
         }),
     });
@@ -261,7 +160,7 @@ async function createPaypalOrder(body: PayPalCreateOrderInput) {
         throw createHttpError(response.status || 502, data.message || data.error || 'Unable to create PayPal order.');
     }
 
-    return { id: data.id, status: data.status, amount: moneyFromCents(orderTotalCents), referenceId };
+    return { id: data.id, status: data.status, amount: moneyFromCents(pricing.totalCents), referenceId };
 }
 
 async function capturePaypalOrder(body: PayPalCaptureOrderInput) {

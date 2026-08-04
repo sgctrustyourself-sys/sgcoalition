@@ -45,9 +45,30 @@
   <link rel="dns-prefetch" href="https://api.dexscreener.com">
   <link rel="dns-prefetch" href="https://polygon-rpc.com">
 
-  <!-- PayPal SDK -->
-  <script
-    src="https://www.paypal.com/sdk/js?client-id=%VITE_PAYPAL_CLIENT_ID%&currency=USD&intent=capture&components=buttons"></script>
+  <!-- PayPal SDK.
+       enable-funding=paylater activates PayPal's "Pay Later" funding
+       source — the Pay in 4 / Pay Monthly split-payment buttons that
+       appear next to the standard PayPal button for eligible buyers.
+       PayPal decides eligibility per buyer, currency, and order amount
+       (US Pay in 4 range is $10–$2,000); no code path changes are
+       needed because Pay Later captures through the same order flow.
+       components=messages enables Pay Later messaging widgets for a
+       future installment-messaging pass on product pages.
+
+       NOTE: this tag is intentionally NOT gated behind a cookie-consent
+       CMP. The previous deploy shipped a Cookiebot placeholder
+       (data-cbid="YOUR_DOMAIN_GROUP_ID") that never initialized, which
+       both errored on every page load and left this SDK permanently
+       blocked (type="text/plain" is never executed by the browser on its
+       own). If/when a real Cookiebot domain-group ID is configured,
+       re-gate this tag with type="text/plain" + data-cookieconsent and
+       add a fallback that loads the SDK only when the CMP is genuinely
+       missing. -->
+  <script async defer
+    src="https://www.paypal.com/sdk/js?client-id=%VITE_PAYPAL_CLIENT_ID%&currency=USD&intent=capture&components=buttons,messages&enable-funding=paylater"
+    onload="window.__coalitionPaypalReady = true; window.dispatchEvent(new Event('coalition:paypal-ready'));"
+    onerror="window.__coalitionPaypalLoadFailed = true; window.dispatchEvent(new Event('coalition:paypal-failed'));">
+  </script>
 
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Oswald:wght@500;700&display=swap"
@@ -227,6 +248,47 @@
       border-bottom-color: #3B82F6;
     }
 
+    /* Device-safe recovery if the entry module is blocked or rejected before
+       React can remove #initial-loader. This is deliberately inline and has
+       no dependency on React, Vite chunks, or third-party scripts. */
+    #load-recovery {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100001;
+      background: #050505;
+      color: #E5E5E5;
+      padding: 2rem;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-family: 'Inter', sans-serif;
+    }
+    #load-recovery.visible { display: flex; }
+    #load-recovery .recovery-card { max-width: 28rem; }
+    #load-recovery h1 {
+      font-family: 'Oswald', sans-serif;
+      font-size: 1.5rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin: 0 0 1rem;
+    }
+    #load-recovery p { color: #999; line-height: 1.5; margin: 0 0 1.5rem; }
+    #load-recovery a {
+      display: inline-block;
+      margin: .35rem;
+      padding: .75rem 1rem;
+      border: 1px solid #3B82F6;
+      border-radius: .5rem;
+      color: #E5E5E5;
+      text-decoration: none;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-size: .75rem;
+    }
+    #load-recovery a.primary { background: #3B82F6; color: #050505; }
+
     @media print {
       @page {
         margin: 1cm;
@@ -287,7 +349,42 @@
         <p class="basic-site-link"><a href="/nojs.html">View our basic site &rarr;</a></p>
       </div>
     </noscript>
+
+    <div id="load-recovery" data-load-recovery aria-live="assertive">
+      <div class="recovery-card">
+        <h1>Coalition is taking longer than expected</h1>
+        <p>Your browser may be holding an older site file. Reload once to refresh it, or open the lightweight site while the full experience reconnects.</p>
+        <a class="primary" href="/" data-reload-site>Reload site</a>
+        <a href="/nojs.html">Open basic site</a>
+      </div>
+    </div>
   </div>
+  <script>
+    // Keep this recovery timer outside the module graph. If index.tsx never
+    // executes, the user still gets an actionable screen instead of a logo.
+    (function () {
+      var BOOT_TIMEOUT_MS = 8000;
+      window.__coalitionBooted = false;
+      window.setTimeout(function () {
+        if (window.__coalitionBooted) return;
+        var loader = document.getElementById('initial-loader');
+        var recovery = document.querySelector('[data-load-recovery]');
+        if (loader) loader.style.display = 'none';
+        if (recovery) recovery.className += ' visible';
+      }, BOOT_TIMEOUT_MS);
+    }());
+  </script>
+  <script>
+    (function () {
+      var reloadLink = document.querySelector('[data-reload-site]');
+      if (reloadLink) {
+        reloadLink.addEventListener('click', function (event) {
+          event.preventDefault();
+          window.location.reload();
+        });
+      }
+    }());
+  </script>
   <script type="module" src="/index.tsx"></script>
 </body>
 

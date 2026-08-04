@@ -8,6 +8,7 @@ export interface EmailData {
     subject: string;
     html: string;
 }
+import { renderReferralCodeOnboardingHtml, REFERRAL_CODE_EMAIL_SUBJECT } from '../utils/referralEmailTemplate';
 
 /**
  * Send approval email to customer
@@ -348,6 +349,42 @@ export async function sendPayoutCompletedEmail(
         </body></html>
     `;
     await sendEmail({ to: email, subject, html });
+}
+
+/**
+ * Send a single referral-code onboarding email to a verified user.
+ *
+ * Lives in services/emailService.ts because the Resend API key is held
+ * server-side at /api/send-email. The HTML body itself is rendered by
+ * `renderReferralCodeOnboardingHtml` in utils/referralEmailTemplate.ts
+ * so the same template is shared with `scripts/sendReferralCodeEmails.ts`
+ * (the bulk-send dry-run routine) and the snapshot test.
+ */
+export async function sendReferralCodeOnboardingEmail(
+    email: string,
+    displayName: string | null,
+    referralCode: string,
+    referralUrl: string,
+    currentTier: number = 1,
+    verifiedDate: string | null = null,
+): Promise<void> {
+    const html = renderReferralCodeOnboardingHtml(
+        {
+            email,
+            displayName: (displayName || "").trim(),
+            referralCode,
+            referralUrl,
+            currentTier,
+            verifiedDate,
+        },
+        "https://sgcoalition.xyz",
+    );
+
+    await sendEmail({
+        to: email,
+        subject: REFERRAL_CODE_EMAIL_SUBJECT,
+        html,
+    });
 }
 
 /**

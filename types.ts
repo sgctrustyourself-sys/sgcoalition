@@ -204,6 +204,11 @@ export interface Order {
   createdAt: string;
   paidAt?: string;
   sgCoinReward?: number;
+  /** Deposit / partial-payment tracking. Mirrors orders.paid_amount + orders.balance_due.
+   *  When balance_due > 0, the order is a partial-deposit order (e.g. $30 deposit on $40
+   *  custom shirt). The admin can reconcile the balance via the reconcile_balance_payment RPC. */
+  paidAmount?: number;
+  balanceDue?: number;
   /** Wholesale order attribution: Instagram handle of the wholesale buyer (e.g. "friiqy").
    *  Only set on offline-bundle placeholder rows; absent on real customer orders. */
   instagramUsername?: string;

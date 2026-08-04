@@ -102,7 +102,7 @@ const WEEKLY_MERCH: TestGiveaway = {
     description: 'Win a Coalition hoodie every week. Free entry with purchase.',
     prizeImage: '/images/hoodie-front.jpg',
     startDate: '2026-07-01T00:00:00Z',
-    endDate: '2026-08-01T00:00:00Z',
+    endDate: '2026-12-31T00:00:00Z',
     status: 'active',
     requirements: ['Join Discord', 'Follow on Twitter'],
     maxEntriesPerUser: 1,
@@ -317,7 +317,7 @@ describe('GiveawayManager form modal + detail view interactions', () => {
         expect(statValues[0]).toBe('2');
         // The 2nd is 'status' (capitalized via .capitalize).
         expect(statValues[1].toLowerCase()).toBe('active');
-        // The 3rd is 'Days Left': Math.max(0, ceil((endDate - now)/86400000)) for endDate 2026-08-01.
+        // The 3rd is 'Days Left': Math.max(0, ceil((endDate - now)/86400000)) for endDate 2026-12-31.
         // (Asserting exact digits would be brittle; just assert a positive number.)
         expect(Number(statValues[2])).toBeGreaterThan(0);
 

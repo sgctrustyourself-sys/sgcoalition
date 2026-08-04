@@ -8,26 +8,27 @@ const read = (rel: string) =>
 describe('walletMints7d realtime-driven count', () => {
     const home = read('pages/Home.tsx');
     const wallets = read('pages/Wallets.tsx');
-    const ctx = read('context/AppContext.tsx');
+    const ctx = read('context/useWallets.ts');
+    const appCtx = read('context/AppContext.tsx');
     const view = read('supabase/migrations/20260721_create_wallet_mints_7d_view.sql');
     const pub  = read('supabase/migrations/20260721_publish_wallet_mints_7d_for_realtime.sql');
     const runner = read('scripts/applyWalletMints7dView.cjs');
 
     // Visible-surface assertions for Home + Wallets moved to tests/productionStateSource.test.ts (Home.tsx + Wallets.tsx now read productionState, not walletMints7d).
-    describe('AppContext exposes walletMints7d on AppState', () => {
+    describe('useWallets exposes walletMints7d', () => {
         it('declares the field on the AppState interface as number | null', () => {
-            expect(ctx).toMatch(/walletMints7d:\s*number\s*\|\s*null\s*;/);
+            expect(appCtx).toMatch(/walletMints7d:\s*number\s*\|\s*null\s*;/);
         });
         it('initialises the state with null (first paint = loading)', () => {
             expect(ctx).toMatch(/const\s*\[walletMints7d,\s*setWalletMints7d\]\s*=\s*useState<number\s*\|\s*null>\(null\);/);
         });
         it('exposes walletMints7d in the provider value object', () => {
-            const providerStart = ctx.indexOf('<AppContext.Provider');
+            const providerStart = appCtx.indexOf('<AppContext.Provider');
             expect(providerStart).toBeGreaterThan(-1);
-            expect(ctx.slice(providerStart)).toMatch(/\bwalletMints7d\b/);
+            expect(appCtx.slice(providerStart)).toMatch(/\bwalletMints7d\b/);
         });
         it('defines fetchWalletMints7d() that reads wallet_mints_7d', () => {
-            expect(ctx).toMatch(/const\s+fetchWalletMints7d\s*=\s*async/);
+            expect(ctx).toMatch(/const\s+fetchWalletMints7d\s*=\s*useCallback/);
             expect(ctx).toMatch(/\.from\(['"]wallet_mints_7d['"]\)/);
             expect(ctx).toMatch(/\.select\(['"]mint_count['"]\)/);
         });
@@ -44,7 +45,7 @@ describe('walletMints7d realtime-driven count', () => {
             expect(ctx).toMatch(/Number\.isFinite/);
         });
         it('includes fetchWalletMints7d in the initApp Promise.all', () => {
-            const all = ctx.match(/await\s+Promise\.all\(\[[^\]]*fetchWalletMints7d\(\)[^\]]*\]\)/);
+            const all = appCtx.match(/await\s+Promise\.all\(\[[^\]]*fetchWalletMints7d\(\)[^\]]*\]\)/);
             expect(all, 'Promise.all must include fetchWalletMints7d()').toBeTruthy();
         });
     });

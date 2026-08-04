@@ -85,3 +85,8 @@ bundle_analysis.txt
 # Stray Windows shell-artifact file produced by misquoted `findstr`/`type`
 # invocations (e.g. `echo foo > nul`). Never intentional, never useful.
 nul
+
+# Local debug screenshots + audit artifacts (never commit)
+pdp-*.png
+mobile-home.png
+lighthouse-ecosystem-*.json

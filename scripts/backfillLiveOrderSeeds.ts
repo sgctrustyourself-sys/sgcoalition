@@ -114,6 +114,8 @@ interface OrderRow {
     created_at: string;
     paid_at: string | null;
     sg_coin_reward: number;
+    paid_amount: number;
+    balance_due: number;
 }
 
 function toOrderRow(entry: any): OrderRow {
@@ -155,6 +157,13 @@ function toOrderRow(entry: any): OrderRow {
         created_at: String(entry.createdAt),
         paid_at: entry.paidAt || entry.createdAt || null,
         sg_coin_reward: 0,
+        // Seed rows are always fully-paid offline sales, so the partial-payment
+        // columns collapse to: paid_amount = total, balance_due = 0. See
+        // supabase/migrations/20260725_add_paid_amount_balance_due_to_orders.sql
+        // for the column semantics and utils/orderDepositNotes.parseDepositNotes
+        // for the diamond case (DEP $X paid / BAL $Y owes) handwritten in notes.
+        paid_amount: Number(entry.total || 0),
+        balance_due: 0,
     };
 }
 

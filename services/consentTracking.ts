@@ -8,6 +8,115 @@ export interface ConsentData {
     consentUserId?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Cookiebot CMP integration helpers
+// ---------------------------------------------------------------------------
+
+/** The global Cookiebot API, injected by the uc.js script in index.html. */
+declare global {
+    interface Window {
+        Cookiebot?: {
+            consent: {
+                necessary: boolean;
+                preferences: boolean;
+                statistics: boolean;
+                marketing: boolean;
+            };
+            hasResponse: boolean;
+            show: () => void;
+            hide: () => void;
+            renew: () => void;
+            withdraw: () => void;
+            submitCustomConsent: (
+                necessary: boolean,
+                preferences: boolean,
+                statistics: boolean,
+                marketing: boolean
+            ) => void;
+        };
+        // NOTE: addEventListener and removeEventListener already exist on
+        // Window from lib.dom.d.ts — they are NOT redeclared here to avoid
+        // a required-vs-optional merge conflict with the DOM types.
+    }
+}
+
+/** Cookie categories as reported by Cookiebot. */
+export interface CookieConsentState {
+    necessary: boolean;
+    preferences: boolean;
+    statistics: boolean;
+    marketing: boolean;
+    hasResponded: boolean;
+}
+
+/**
+ * Read the current cookie consent state from Cookiebot.
+ * Returns null if Cookiebot hasn't loaded yet.
+ */
+export function getCookieConsent(): CookieConsentState | null {
+    if (!window.Cookiebot) return null;
+    return {
+        necessary: window.Cookiebot.consent.necessary,
+        preferences: window.Cookiebot.consent.preferences,
+        statistics: window.Cookiebot.consent.statistics,
+        marketing: window.Cookiebot.consent.marketing,
+        hasResponded: window.Cookiebot.hasResponse,
+    };
+}
+
+/**
+ * Check if a specific cookie category has been consented to.
+ * Necessary cookies are always granted and return true even before consent.
+ */
+export function hasConsented(category: 'necessary' | 'preferences' | 'statistics' | 'marketing'): boolean {
+    const state = getCookieConsent();
+    if (!state) return category === 'necessary'; // fail-safe: necessary only
+    if (category === 'necessary') return true;
+    return state[category] === true;
+}
+
+/**
+ * Check if preferences consent has been given (required for PayPal SDK).
+ */
+export function hasPaypalConsent(): boolean {
+    return hasConsented('preferences');
+}
+
+/**
+ * Listen for Cookiebot consent changes. The callback fires when the
+ * visitor accepts, declines, or changes their cookie preferences.
+ * Returns an unsubscribe function.
+ */
+export function onConsentChanged(callback: (state: CookieConsentState) => void): () => void {
+    const handler = () => {
+        const state = getCookieConsent();
+        if (state) callback(state);
+    };
+
+    window.addEventListener?.('CookiebotOnAccept', handler);
+    window.addEventListener?.('CookiebotOnDecline', handler);
+    window.addEventListener?.('CookiebotOnLoad', handler);
+
+    return () => {
+        window.removeEventListener?.('CookiebotOnAccept', handler);
+        window.removeEventListener?.('CookiebotOnDecline', handler);
+        window.removeEventListener?.('CookiebotOnLoad', handler);
+    };
+}
+
+/**
+ * Reopen the Cookiebot consent dialog so the visitor can change preferences.
+ */
+export function showConsentDialog(): void {
+    if (window.Cookiebot) {
+        window.Cookiebot.renew();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Legacy consent capture (checkout checkbox verification)
+// ---------------------------------------------------------------------------
+
 /**
  * Capture consent data from the current session
  */

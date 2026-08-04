@@ -39,6 +39,11 @@ export default defineConfig(() => {
     // RAM ceiling this OOM-kills mid-`transforming...`. Rollup's default
     // chunker tree-shakes per export, so we intentionally omit manualChunks.
     build: {
+      // iPad Safari versions in the field can be older than the current
+      // default browser target. Lowering the target keeps the entry module
+      // parseable so a syntax rejection cannot strand users behind the
+      // inline #initial-loader before React mounts.
+      target: 'safari12',
       sourcemap: true,
     },
   };

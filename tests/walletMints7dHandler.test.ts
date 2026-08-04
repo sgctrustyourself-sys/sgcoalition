@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyWalletMintsUpdate } from '../context/AppContext';
+import { applyWalletMintsUpdate } from '../context/useWallets';
 
 // ---------------------------------------------------------------------------
 // applyWalletMintsUpdate — pure reducer for wallet_mints_7d realtime

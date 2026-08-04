@@ -8,7 +8,8 @@ const read = (rel: string) =>
 describe('productionState realtime-driven shop-floor texture', () => {
     const home    = read('pages/Home.tsx');
     const wallets = read('pages/Wallets.tsx');
-    const ctx     = read('context/AppContext.tsx');
+    const ctx     = read('context/useWallets.ts');
+    const appCtx  = read('context/AppContext.tsx');
     const table   = read('supabase/migrations/20260722_create_production_state_table.sql');
     const pub     = read('supabase/migrations/20260722_publish_production_state_for_realtime.sql');
     const runner  = read('scripts/applyProductionState.cjs');
@@ -73,13 +74,13 @@ describe('productionState realtime-driven shop-floor texture', () => {
 
     describe('AppContext exposes productionState on AppState', () => {
         it('declares the field as ProductionState | null', () => {
-            expect(ctx).toMatch(/productionState:\s*ProductionState\s*\|\s*null\s*;/);
+            expect(appCtx).toMatch(/productionState:\s*ProductionState\s*\|\s*null\s*;/);
         });
         it('initialises the state with null on first paint', () => {
             expect(ctx).toMatch(/\[productionState,\s*setProductionState\]\s*=\s*useState<ProductionState\s*\|\s*null>\(null\);/);
         });
         it('defines fetchProductionState() that reads production_state', () => {
-            expect(ctx).toMatch(/const\s+fetchProductionState\s*=\s*async/);
+            expect(ctx).toMatch(/const\s+fetchProductionState\s*=\s*useCallback/);
             expect(ctx).toMatch(/\.from\(['"]production_state['"]\)/);
             expect(ctx).toMatch(/currently_being_built_label[^,]*,\s*last_drop_at/);
         });
@@ -97,17 +98,17 @@ describe('productionState realtime-driven shop-floor texture', () => {
         it('exports the pure applyProductionStateUpdate reducer', () => {
             expect(ctx).toMatch(/export\s+function\s+applyProductionStateUpdate/);
             // Reject malformed payloads on text fields
-            expect(ctx).toMatch(/All five text fields must be non-empty/);
+            expect(ctx).toMatch(/!labelOk \|\| !lastAt \|\| !lastSku \|\| !onDeck/);
             expect(ctx).toMatch(/tot\s*<=\s*0[\s\S]*return\s*prev/);
         });
         it('includes fetchProductionState() in the initApp Promise.all', () => {
-            const all = ctx.match(/await\s+Promise\.all\(\[[^\]]*fetchProductionState\(\)[^\]]*\]\)/);
+            const all = appCtx.match(/await\s+Promise\.all\(\[[^\]]*fetchProductionState\(\)[^\]]*\]\)/);
             expect(all, 'Promise.all must include fetchProductionState()').toBeTruthy();
         });
         it('exposes productionState in the provider value object', () => {
-            const providerStart = ctx.indexOf('<AppContext.Provider');
+            const providerStart = appCtx.indexOf('<AppContext.Provider');
             expect(providerStart).toBeGreaterThan(-1);
-            expect(ctx.slice(providerStart)).toMatch(/\bproductionState\b/);
+            expect(appCtx.slice(providerStart)).toMatch(/\bproductionState\b/);
         });
     });
 
@@ -178,5 +179,53 @@ describe('productionState realtime-driven shop-floor texture', () => {
             expect(runner).toContain('pooler');
             expect(runner).toContain('.supabase.com');
         });
+    });
+});
+
+describe('mobile browser build compatibility', () => {
+    it('targets Safari 12 so older iPad Safari can parse the entry bundle', () => {
+        const viteConfig = read('vite.config.ts');
+        expect(viteConfig).toMatch(/target:\s*['\"]safari12['\"]/);
+    });
+});
+
+describe('device boot recovery', () => {
+    const indexHtml = read('index.html');
+    const indexTsx = read('index.tsx');
+    const vercel = read('vercel.json');
+
+    it('keeps an inline recovery path outside the React module graph', () => {
+        expect(indexHtml).toContain('data-load-recovery');
+        expect(indexHtml).toContain('BOOT_TIMEOUT_MS');
+        expect(indexHtml).toContain('window.location.reload()');
+        expect(indexHtml).toContain('/nojs.html');
+    });
+
+    it('does not let the PayPal SDK block the entry module', () => {
+        const paypalStart = indexHtml.indexOf('https://www.paypal.com/sdk/js');
+        const paypalTag = paypalStart >= 0 ? indexHtml.slice(indexHtml.lastIndexOf('<script', paypalStart), indexHtml.indexOf('</script>', paypalStart)) : '';
+        expect(paypalTag).toContain('async');
+        expect(paypalTag).toContain('defer');
+    });
+
+    it('removes recovery after the React entry starts', () => {
+        expect(indexTsx).toContain("classList.remove('visible')");
+        expect(indexTsx).toContain('const BootMarker');
+        expect(indexTsx).toContain('useEffect');
+    });
+
+    it('marks PayPal readiness without blocking the entry module', () => {
+        expect(indexHtml).toContain("window.__coalitionPaypalReady = true");
+        expect(indexHtml).toContain("window.__coalitionPaypalLoadFailed = true");
+        expect(read('pages/Checkout.tsx')).toContain("coalition:paypal-ready");
+        expect(read('pages/Checkout.tsx')).toContain("coalition:paypal-failed");
+        expect(read('pages/Checkout.tsx')).toContain("disabled={isLoading || (!paypalReady && !paypalLoadFailed)}");
+        expect(read('pages/Membership.tsx')).toContain("coalition:paypal-ready");
+        expect(read('pages/Membership.tsx')).toContain("coalition:paypal-failed");
+    });
+
+    it('allows PayPal telemetry and Supabase realtime in CSP', () => {
+        expect(vercel).toMatch(/connect-src[^\"]*https:\/\/www\.paypal\.com/);
+        expect(vercel).toContain('wss://*.supabase.co');
     });
 });

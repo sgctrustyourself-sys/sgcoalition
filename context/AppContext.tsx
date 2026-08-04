@@ -1,18 +1,17 @@
 import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderStatus, OrderItem, Giveaway, GiveawayEntry, GiveawayStatus, Review, SocialAccount, CustomInquiry, SGCoinPurchaseRequest } from '../types';
-import { INITIAL_SECTIONS, COIN_REWARD_RATE, INITIAL_PRODUCTS, ADMIN_WALLETS, INITIAL_ORDERS, PRODUCT_LOCAL_OVERRIDES } from '../constants';
+import { INITIAL_SECTIONS, COIN_REWARD_RATE, ADMIN_WALLETS } from '../constants';
 import { supabase } from '../services/supabase';
-import { autoCommit, generateProductAddedMessage, generateProductUpdatedMessage, generateProductDeletedMessage } from '../services/autoCommitService';
-import { signOut } from '../services/auth';
+// signOut is now owned by useAuth hook.
 import { useToast } from './ToastContext';
-import { ensureSubscriberGiveawayEntries, pickWeightedGiveawayWinners } from '../utils/giveawayUtils';
-import { resolveLocalImageUrls } from '../utils/localImageAssets';
-import { normalizeProductSizeData } from '../utils/productSizes';
-import { getCartItemLineTotal, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
-import { fetchPaidCountsByProduct } from '../services/numberedPieces';
-import { clearOtherFeaturedProducts } from '../utils/featuredExclusivity';
-import { getStoredReferralCode, trackSignupReferral } from '../utils/referralSystem';
-import { updateLifetimeStats } from '../utils/customerProfile';
+import { useGiveaways } from './useGiveaways';
+import { useSignals } from './useSignals';
+import { useCart } from './useCart';
+import { useCatalog } from './useCatalog';
+import { useOrders } from './useOrders';
+import { useAuth } from './useAuth';
+import { useWallets, applyWalletMintsUpdate, applyProductionStateUpdate, type ProductionState } from './useWallets';
+// getStoredReferralCode, trackSignupReferral are now owned by useAuth hook.
 
 interface AppState {
     products: Product[];
@@ -81,17 +80,9 @@ interface AppState {
     fetchSignals: () => Promise<Signal[]>;
 }
 
-export interface Signal {
-    id: string;
-    title: string;
-    message: string;
-    type: 'info' | 'alert' | 'success' | 'process' | 'urgent';
-    is_active: boolean;
-    action_url?: string;
-    action_label?: string;
-    created_at: string;
-    metadata?: any;
-}
+// Signal type is now exported from context/useSignals.ts
+import type { Signal } from './useSignals';
+export type { Signal };
 
 const AppContext = createContext<AppState | undefined>(undefined);
 
@@ -101,197 +92,44 @@ export const useApp = () => {
     return context;
 };
 
-const safeJsonParse = (key: string, defaultValue: any) => {
-    try {
-        const item = localStorage.getItem(key);
-        return item ? JSON.parse(item) : defaultValue;
-    } catch (e) {
-        console.warn(`Failed to parse ${key} from localStorage:`, e);
-        return defaultValue;
-    }
-};
+import { safeJsonParse } from '../utils/storage';
 
-const loadWalletActions = () => import('../services/walletActions');
-const loadWalletBalances = () => import('../services/walletBalances');
-
-/**
- * Pure reducer for wallet_mints_7d realtime payloads. Returns the next
- * count or `prev` if the payload is malformed. Exported so the SLA contract
- * can be unit-tested without spinning up React lifecycle / Supabase mocks.
- *
- *   null / undefined / empty raw => keep prev
- *   non-finite Number() (NaN, ±Infinity) => keep prev
- *   finite Number() => use it
- *
- * Supabase delivers PostgREST `bigint` columns as string OR number — both
- * accepted here so we don't surprise callers on either side of the wire.
- */
-export function applyWalletMintsUpdate(
-    prev: number | null,
-    payload: { new?: { mint_count?: unknown } } | null | undefined
-): number | null {
-    const raw = payload?.new?.mint_count;
-    if (raw == null || raw === '') return prev;
-    const num = Number(raw);
-    if (!Number.isFinite(num)) return prev;
-    return num;
-}
-
-// Shape of the singleton production_state row (or null while loading).
-export interface ProductionState {
-    currently_being_built_label: string;
-    last_drop_at:                string;   // ISO 8601 UTC timestamp
-    last_drop_sku_label:         string;
-    on_deck_label:               string;
-    on_deck_cylinder_current:    number;
-    on_deck_cylinder_total:      number;
-}
-
-// Pure reducer for production_state realtime payloads. Maps the Supabase
-// UPDATE payload to a normalised ProductionState, or returns prev on any
-// missing/invalid field. Same SLA-correctness shape as applyWalletMintsUpdate.
-export function applyProductionStateUpdate(
-    prev: ProductionState | null,
-    payload: Record<string, unknown> | null | undefined
-): ProductionState | null {
-    if (!payload || typeof payload !== 'object') return prev;
-    const next = payload as Partial<ProductionState> & { last_drop_at?: unknown };
-    const readStr = (x: unknown): string => (typeof x === 'string' ? x : '');
-    const readNum = (x: unknown): number | null => {
-        if (typeof x === 'number' && Number.isFinite(x)) return x;
-        if (typeof x === 'string' && x !== '') {
-            const n = Number(x);
-            if (Number.isFinite(n)) return n;
-        }
-        return null;
-    };
-    const labelOk  = readStr(next.currently_being_built_label) || (prev?.currently_being_built_label ?? '');
-    // Supabase PostgREST serialises timestamptz to ISO 8601 string by
-    // default, so this reducer only handles the string branch. (Adding a
-    // Date branch would require a runtime cast past TS's unknown-against-
-    // instanceof check, which is more friction than the speculative case
-    // would save.)
-    const lastAtRaw = readStr(next.last_drop_at);
-    const lastAt   = lastAtRaw || (prev?.last_drop_at ?? '');
-    const lastSku  = readStr(next.last_drop_sku_label)  || (prev?.last_drop_sku_label ?? '');
-    const onDeck   = readStr(next.on_deck_label)        || (prev?.on_deck_label ?? '');
-    const curRaw   = readNum(next.on_deck_cylinder_current);
-    const totRaw   = readNum(next.on_deck_cylinder_total);
-    const cur      = curRaw ?? prev?.on_deck_cylinder_current ?? 0;
-    const tot      = totRaw ?? prev?.on_deck_cylinder_total   ?? 1;
-    // All five text fields must be non-empty AND total must be > 0; otherwise
-    // keep prev (don't half-update with placeholder strings).
-    if (!labelOk || !lastAt || !lastSku || !onDeck || tot <= 0) return prev;
-    return {
-        currently_being_built_label: labelOk,
-        last_drop_at:                lastAt,
-        last_drop_sku_label:         lastSku,
-        on_deck_label:               onDeck,
-        on_deck_cylinder_current:    cur,
-        on_deck_cylinder_total:      tot,
-    };
-}
+// applyWalletMintsUpdate, applyProductionStateUpdate, and ProductionState
+// are now owned by context/useWallets.ts (re-exported below for test compatibility).
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { addToast } = useToast();
-    const [products, setProducts] = useState<Product[]>([]);
     const [sections, setSections] = useState<Section[]>(() => safeJsonParse('coalition_sections', INITIAL_SECTIONS));
-    const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
-    // 7-day wallet-mint count. null until the realtime view responds.
-    const [walletMints7d, setWalletMints7d] = useState<number | null>(null);
-    const [productionState, setProductionState] = useState<ProductionState | null>(null);
-    const [cart, setCart] = useState<CartItem[]>([]);
-    const [user, setUser] = useState<UserProfile | null>(null);
-    const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
-    const [isCartOpen, setCartOpen] = useState(false);
-    const [isAdminMode, setIsAdminMode] = useState(() => {
-        if (typeof window !== 'undefined') {
-            return sessionStorage.getItem('coalition_admin_mode') === 'true';
-        }
-        return false;
-    });
-
-    const updateAdminMode = (val: boolean) => {
-        setIsAdminMode(val);
-        if (typeof window !== 'undefined') {
-            if (val) sessionStorage.setItem('coalition_admin_mode', 'true');
-            else sessionStorage.removeItem('coalition_admin_mode');
-        }
-    };
+    // walletMints7d, productionState are now owned by useWallets hook.
     const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(false);
     const [isConfigError, setIsConfigError] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [signals, setSignals] = useState<Signal[]>([]);
-    const [chainId, setChainId] = useState<number | null>(null);
-    const applyLocalProductOverrides = (items: Product[]) =>
-        items.map(product => ({
-            ...product,
-            ...(PRODUCT_LOCAL_OVERRIDES[product.id] || {}),
-        }));
-
-    const getExclusiveFeaturedProducts = (featuredProductId: string, baseProducts: Product[]) =>
-        baseProducts.map(product => ({
-            ...product,
-            isFeatured: product.id === featuredProductId,
-        }));
-
-    // Track network changes
-    useEffect(() => {
-        if (typeof window !== 'undefined' && window.ethereum) {
-            const handleChainChanged = (hexChainId: string) => setChainId(parseInt(hexChainId, 16));
-            window.ethereum.request({ method: 'eth_chainId' }).then((hexId: string) => setChainId(parseInt(hexId, 16))).catch(() => { });
-            window.ethereum.on('chainChanged', handleChainChanged);
-            return () => { window.ethereum.removeListener('chainChanged', handleChainChanged); };
+    // Helper: get admin token for server-side API calls that bypass RLS
+    const getAdminToken = () => {
+        if (typeof sessionStorage !== 'undefined') {
+            return sessionStorage.getItem('coalition_admin_token');
         }
-    }, []);
-
-    const handleSwitchToPolygon = async () => {
-        try {
-            const { switchToPolygon: switchFn } = await loadWalletActions();
-            const success = await switchFn();
-            if (success && typeof window !== 'undefined' && window.ethereum) {
-                const hexId = await window.ethereum.request({ method: 'eth_chainId' });
-                setChainId(parseInt(hexId, 16));
-            }
-            return success;
-        } catch (e) {
-            console.error('Switch to Polygon failed:', e);
-            return false;
-        }
+        return null;
     };
 
-    const syncCryptoBalances = async (walletAddress: string) => {
-        try {
-            console.log('🔗 Syncing crypto balances in background...');
-            const { fetchWalletBalanceSnapshot } = await loadWalletBalances();
-            const snapshot = await fetchWalletBalanceSnapshot(walletAddress);
+    // ---- Domain hooks (composed into the single provider below) ----
+    const authHook = useAuth(isSupabaseConfigured, addToast);
+    const walletsHook = useWallets(isSupabaseConfigured);
+    const giveawaysHook = useGiveaways(isSupabaseConfigured, authHook.user);
+    const signalsHook = useSignals(isSupabaseConfigured);
+    const cartHook = useCart();
+    const catalogHook = useCatalog(isSupabaseConfigured, getAdminToken, addToast, setIsConfigError);
+    const ordersHook = useOrders(isSupabaseConfigured, authHook.isAdminMode, addToast);
 
-            setUser(prev => prev ? {
-                ...prev,
-                sgCoinBalance: prev.sgCoinBalance || snapshot.sgCoinBalance,
-                v2Balance: snapshot.v2Balance,
-                totalMigrated: snapshot.totalMigrated
-            } : null);
-            console.log('✅ Crypto balances synced');
-        } catch (err) { console.warn('Background balance sync failed:', err); }
-    };
+    // chainId tracking and switchToPolygon are now owned by useAuth hook.
 
-    const refreshBalances = async () => {
-        if (user?.walletAddress) await syncCryptoBalances(user.walletAddress);
-    };
-
-    useEffect(() => {
-        if (!user || (!user.walletAddress && !user.connectedWalletAddress)) return;
-        const interval = setInterval(refreshBalances, 60000);
-        return () => clearInterval(interval);
-    }, [user?.walletAddress, user?.connectedWalletAddress]);
+    // syncCryptoBalances, refreshBalances, and the 60s balance-refresh interval
+    // are now owned by useAuth hook.
 
     // Initial App Setup
     useEffect(() => {
         let mounted = true;
-        let signalsSubscription: { unsubscribe: () => void } | null = null;
-        let productSync: { unsubscribe: () => void } | null = null;
-        let authSubscription: { unsubscribe: () => void } | null = null;
+        // Signals, Products, and Auth realtime now owned by useSignals / useCatalog / useAuth hooks.
 
         const initApp = async () => {
             try {
@@ -305,7 +143,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
                 if (!hasKeys) {
                     console.log('⚠️ Supabase keys not found, using initial products');
-                    setProducts(applyLocalProductOverrides(INITIAL_PRODUCTS));
+                    // catalogHook.fetchProducts() handles the no-keys fallback internally (INITIAL_PRODUCTS).
+                    catalogHook.fetchProducts();
                     if (mounted) setIsLoading(false);
                     return;
                 }
@@ -320,567 +159,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 // Await initial data fetch before hiding loader to prevent race conditions
                 console.log('🔄 Fetching initial data from Supabase...');
                 await Promise.all([
-                    fetchProducts(),
-                    fetchOrders(),
-                    fetchSignals(),
-                    fetchGiveaways(),
-                    fetchWalletMints7d(),
-                    fetchProductionState()
+                    catalogHook.fetchProducts(),
+                    ordersHook.fetchOrders(),
+                    signalsHook.fetchSignals(),
+                    giveawaysHook.fetchGiveaways(),
+                    walletsHook.fetchWalletMints7d(),
+                    walletsHook.fetchProductionState()
                 ]);
 
-                // Subscribe to Realtime Signals
-                signalsSubscription = supabase
-                    .channel('coalition-signals-channel')
-                    .on(
-                        'postgres_changes',
-                        { event: '*', schema: 'public', table: 'coalition_signals' },
-                        () => {
-                            console.log('🔔 Signal change detected, refreshing...');
-                            fetchSignals();
-                        }
-                    )
-                    .subscribe();
+                // Signals, Giveaways, Products, and Auth realtime channels are now owned by
+                // useSignals / useGiveaways / useCatalog / useAuth domain hooks respectively.
 
-                // Subscribe to Realtime Giveaways
-                supabase
-                    .channel('coalition-giveaways-channel')
-                    .on(
-                        'postgres_changes',
-                        { event: '*', schema: 'public', table: 'giveaways' },
-                        () => {
-                            console.log('🎁 Giveaway change detected, refreshing...');
-                            fetchGiveaways();
-                        }
-                    )
-                    .subscribe();
 
-                // IMPORTANT: onAuthStateChange callback must NOT be async to avoid infinite loops.
-                // Async work is moved into a separate fire-and-forget function.
-                const handleAuthChange = async (event: string, session: any) => {
-                    if (!mounted) return;
-                    console.log('🔔 Auth Event:', event);
-
-                    if (session?.user) {
-                        try {
-                            const userId = session.user.id;
-                            const savedFavorites = safeJsonParse(`coalition_favorites_${userId}`, []);
-
-                            // Initialize with defaults to show UI immediately
-                            if (mounted) {
-                                setUser(prev => ({
-                                    uid: userId,
-                                    displayName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-                                    email: session.user.email || null,
-                                    walletAddress: prev?.walletAddress || null,
-                                    connectedWalletAddress: prev?.connectedWalletAddress || undefined,
-                                    sgCoinBalance: prev?.sgCoinBalance || 0,
-                                    favorites: savedFavorites,
-                                    isAdmin: prev?.isAdmin || false,
-                                    socialAccounts: prev?.socialAccounts || []
-                                } as any));
-                            }
-
-                            // Parallel fetch for database-only items (fast)
-                            const [linkedWalletRes, profileRes, adminRes, socialsRes] = await Promise.all([
-                                supabase.from('wallet_accounts').select('wallet_address').eq('user_id', userId).maybeSingle(),
-                                supabase.from('profiles').select('is_vip, store_credit, sg_coin_balance').eq('id', userId).maybeSingle(),
-                                supabase.from('admin_users').select('role').eq('user_id', userId).maybeSingle(),
-                                supabase.from('social_accounts').select('*').eq('user_id', userId)
-                            ]);
-
-                            const walletAddress = linkedWalletRes.data?.wallet_address || null;
-                            const profile = profileRes.data;
-                            let isAdmin = !!adminRes.data;
-
-                            // Support secondary admin checks (wallet based)
-                            const activeWallet = walletAddress || (typeof window !== 'undefined' && window.ethereum?.selectedAddress);
-                            if (!isAdmin && activeWallet && ADMIN_WALLETS.some(w => w.toLowerCase() === activeWallet.toLowerCase())) {
-                                isAdmin = true;
-                            }
-
-                            if (mounted) {
-                                setUser({
-                                    uid: userId,
-                                    displayName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-                                    email: session.user.email || null,
-                                    walletAddress,
-                                    connectedWalletAddress: walletAddress || undefined,
-                                    walletConnectionMethod: walletAddress ? 'metamask' : undefined,
-                                    walletConnectedAt: walletAddress ? Date.now() : undefined,
-                                    sgCoinBalance: profile?.sg_coin_balance || 0,
-                                    isAdmin,
-                                    isVIP: profile?.is_vip || false,
-                                    storeCredit: profile?.store_credit || 0,
-                                    favorites: savedFavorites,
-                                    socialAccounts: socialsRes.data || []
-                                });
-
-                                if (isAdmin) updateAdminMode(true);
-
-                                // Fire signup referral tracking ONLY on
-                                // SIGNED_IN events (not TOKEN_REFRESHED,
-                                // USER_UPDATED, etc.) to avoid inflating
-                                // total_referrals on repeated logins.
-                                if (event === 'SIGNED_IN') {
-                                    fireSignupReferral(userId);
-                                }
-
-                                // Background Sync for heavy crypto data (non-blocking)
-                                if (walletAddress) {
-                                    syncCryptoBalances(walletAddress);
-                                }
-                            }
-                        } catch (err) { console.error('Error in auth session handling:', err); }
-                    } else {
-                        const metamaskAddress = typeof window !== 'undefined' && window.ethereum?.selectedAddress;
-                        if (metamaskAddress) {
-                            const { formatAddress: formatEthAddress } = await loadWalletActions();
-                            const isAdmin = ADMIN_WALLETS.some(w => w.toLowerCase() === metamaskAddress.toLowerCase());
-                            if (mounted) {
-                                setUser({
-                                    uid: 'user_eth_' + metamaskAddress,
-                                    displayName: formatEthAddress(metamaskAddress),
-                                    email: null, walletAddress: metamaskAddress, connectedWalletAddress: metamaskAddress,
-                                    isAdmin, sgCoinBalance: 0, favorites: [], isVIP: isAdmin
-                                });
-                                syncCryptoBalances(metamaskAddress);
-                            }
-                        } else if (mounted) setUser(null);
-                    }
-                };
-
-                // Referral signup tracking: when a user signs in via SIGNED_IN
-                // and they arrived via a referral link (?ref=CODE), fire a
-                // 'signup' event and create a pending referral row (if one
-                // doesn't already exist). The row is later completed by
-                // processReferralOnPurchase when the buyer places their first
-                // order. Fire-and-forget so the auth flow isn't blocked.
-                //
-                // The duplicate-guard and self-referral logic live in
-                // utils/referralSystem.trackSignupReferral so they can be
-                // unit-tested in isolation (previously an un-testable closure).
-                const fireSignupReferral = async (userId: string) => {
-                    const storedCode = getStoredReferralCode();
-                    if (!storedCode) return;
-                    await trackSignupReferral(storedCode, userId);
-                };
-
-                // Sync callback — fires async handler without awaiting (prevents infinite loop)
-                const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-                    void handleAuthChange(event, session);
-                });
-
-                authSubscription = authListener.subscription;
-
-                productSync = supabase
-                    .channel('products_channel')
-                    .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => fetchProducts())
-                    .subscribe();
             } catch (err) { console.error("Critical error in AppContext initialization:", err); }
             finally { if (mounted) setIsLoading(false); }
         };
         initApp();
         return () => {
             mounted = false;
-            signalsSubscription?.unsubscribe();
-            productSync?.unsubscribe();
-            authSubscription?.unsubscribe();
+            // Signals + Products unsubscription now owned by useSignals / useCatalog hooks.
         };
     }, []);
 
-    const fetchProducts = async () => {
-        if (!isSupabaseConfigured) {
-            const localProducts = applyLocalProductOverrides(INITIAL_PRODUCTS);
-            setProducts(localProducts);
-            return localProducts;
-        }
-        try {
-            const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
-            if (error) throw error;
-            if (data) {
-                const mapped = data.map(item => {
-                    const savedReviews = safeJsonParse(`coalition_reviews_${item.id}`, []);
-                    return {
-                        id: item.id, name: item.name, price: Number(item.price), stock: item.stock, category: item.category,
-                        createdAt: item.created_at || item.createdAt,
-                        images: resolveLocalImageUrls(item.images || []), description: item.description,
-                        makingVideoUrl: item.making_video_url || item.makingVideoUrl,
-                        isFeatured: item.is_featured,
-                        // Mirrors services/retryQueue.ts mapProductToDb write path.
-                        // Column added in supabase/migrations/20260620_add_is_limited_edition_to_products.sql
-                        isLimitedEdition: item.is_limited_edition ?? false,
-                        // Numbered-edition tier-pricing fields (migration 20260710).
-                        pricingTiers: item.pricing_tiers ?? null,
-                        editionSize: item.edition_size ?? null,
-                        editionSoldCount: null as number | null,
-                        sizes: item.sizes || [], sizeInventory: item.size_inventory || {}, nft: item.nft_metadata,
-                        reviews: savedReviews, archived: item.archived || false,
-                        archivedAt: item.archived_at, releasedAt: item.released_at, soldAt: item.sold_at,
-                        archiveNote: PRODUCT_LOCAL_OVERRIDES[item.id]?.archiveNote
-                    };
-                });
-                // Deduplicate by ID only. The previous (name + images[1]) collision
-                // check silently swallowed legitimate distinct products (e.g. the
-                // Coalition Shark Tee), so the rule is now id-only: any row with
-                // the same id as an already-kept row is dropped. Legitimate
-                // duplicate-name duplicates (rare in practice) are now the
-                // operator's responsibility via admin ProductManager, which lets
-                // them rename / merge / archive the offending row directly.
-                // First occurrence wins so realtime appends don't clobber edits.
-                const uniqueProducts = mapped.reduce((acc: any[], current) => {
-                    const x = acc.find(item => item.id === current.id);
-                    if (!x) {
-                        return acc.concat([current]);
-                    } else {
-                        // id collision: keep the FIRST occurrence (acc is the
-                        // accumulator). Subsequent appends with the same id
-                        // are silently logged via console.warn so operator
-                        // dashboards surface the duplicate without breaking
-                        // the storefront render.
-                        if (typeof console !== 'undefined' && console.warn) {
-                            console.warn('[products] dropping duplicate id row:', current.id, current.name);
-                        }
-                        return acc;
-                    }
-                }, []);
-
-                // Blend local defaults with database records.
-                // Database values win so admin edits like featured state persist correctly.
-                const initialProductMap = new Map(INITIAL_PRODUCTS.map(p => [p.id, p]));
-
-                const interceptedProducts = uniqueProducts.map((sp: any) => {
-                    const local = initialProductMap.get(sp.id);
-                    if (local) {
-                        return {
-                            ...local,
-                            ...sp,
-                            isFeatured: typeof sp.isFeatured === 'boolean' ? sp.isFeatured : local.isFeatured,
-                        };
-                    }
-                    return sp;
-                });
-
-                // Merge in any INITIAL_PRODUCTS entries not already in Supabase at all
-                const supabaseIds = new Set(interceptedProducts.map((p: any) => p.id));
-                const localOnly = INITIAL_PRODUCTS.filter(p => !supabaseIds.has(p.id));
-
-                const finalMerged = [...interceptedProducts, ...localOnly];
-                const finalWithOverrides = applyLocalProductOverrides(finalMerged);
-
-                // Numbered-edition enrichment: batch-fetch paid-quantity counts via
-                // the get_product_paid_count RPC so PDP can render
-                // "X/44 minted at $75" without re-querying on every render.
-                // Best-effort: a single RPC failure degrades to 0 for that
-                // product (other products still load).
-                const numberedIds = finalWithOverrides
-                    .filter(p => p.editionSize && p.pricingTiers && p.pricingTiers.length > 0)
-                    .map(p => p.id);
-                const countsByProduct = numberedIds.length > 0
-                    ? await fetchPaidCountsByProduct(numberedIds)
-                    : {};
-                const enrichedProducts = finalWithOverrides.map(p => (
-                    countsByProduct[p.id] !== undefined
-                        ? { ...p, editionSoldCount: countsByProduct[p.id] }
-                        : p
-                ));
-
-                setProducts(enrichedProducts);
-                // Successful fetch — clear the offline-mode banner so synthesized
-                // SignalAlert hides once Supabase recovers.
-                setIsConfigError(false);
-                return enrichedProducts;
-            }
-            return [];
-        } catch (err) {
-            console.error('Error fetching products:', err);
-            // Flag the AppContext as in a config error so SignalAlert can
-            // surface a "Supabase unreachable, showing local catalog"
-            // banner instead of failing silently.
-            setIsConfigError(true);
-            // Fall back to local defaults so a transient Supabase failure never
-            // strands the UI on an empty products array. Returning the stale
-            // closure value kept `products` at [] forever, which made
-            // ProductDetails bail to null on every product detail route.
-            const fallback = applyLocalProductOverrides(INITIAL_PRODUCTS);
-            setProducts(fallback);
-            return fallback;
-        }
-    };
-
-    const fetchSignals = async () => {
-        if (!isSupabaseConfigured) return [];
-        try {
-            const { data, error } = await supabase
-                .from('coalition_signals')
-                .select('*')
-                .eq('is_active', true)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            if (data) {
-                setSignals(data);
-                return data;
-            }
-            return [];
-        } catch (err) {
-            console.error('Error fetching signals:', err);
-            return [];
-        }
-    };
-
-    const fetchGiveaways = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('giveaways')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
-            if (data && data.length > 0) {
-                const mapped: Giveaway[] = data.map((row: any) => ({
-                    id: row.id,
-                    title: row.title,
-                    prize: row.prize,
-                    description: row.description || '',
-                    prizeImage: row.prize_image || '',
-                    startDate: row.start_date,
-                    endDate: row.end_date,
-                    status: row.status as GiveawayStatus,
-                    requirements: row.requirements || [],
-                    maxEntriesPerUser: row.max_entries_per_user || 1,
-                    entries: [] as GiveawayEntry[],
-                    createdAt: new Date(row.created_at).getTime()
-                }));
-                setGiveaways(mapped);
-                return mapped;
-            }
-            return [];
-        } catch (err) {
-            console.error('Error fetching giveaways:', err);
-            return [];
-        }
-    };
-
-    const fetchOrders = async () => {
-        if (!isSupabaseConfigured) return INITIAL_ORDERS;
-
-        // Always prioritize API bypass in admin mode to circumvent RLS entirely
-        if (isAdminMode) {
-            return await fetchOrdersViaApi();
-        }
-
-        try {
-            console.log('🔄 Fetching orders from Supabase...');
-            const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-
-            if (error) {
-                console.error('Supabase orders fetch error:', error);
-                throw error;
-            }
-
-            if (data) {
-                return mapAndSetOrders(data);
-            }
-            return [];
-        } catch (err) {
-            console.error('Error fetching orders:', err);
-            return orders;
-        }
-    };
-
-    const fetchOrdersViaApi = async () => {
-        try {
-            console.log('🚀 Calling admin API bypass for orders...');
-            const token = sessionStorage.getItem('coalition_admin_token');
-            const response = await fetch('/api/complete-order', {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`API bypass failed: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            console.log(`✅ API bypass fetched ${data?.length || 0} orders`);
-
-            if (data && Array.isArray(data)) {
-                return mapAndSetOrders(data);
-            }
-            return orders;
-        } catch (err) {
-            console.error('❌ API bypass error:', err);
-            return orders;
-        }
-    };
-
-    const mapAndSetOrders = (data: any[]) => {
-        if (!data || !Array.isArray(data)) return orders;
-
-        const mapped = data.map((o: any) => {
-            const items = Array.isArray(o.items) ? o.items : Array.isArray(o.line_items) ? o.line_items : [];
-            const normalizedItems = items.map((item: any, index: number) => {
-                const quantity = Math.max(1, Number(item.quantity || item.qty || 1));
-                const keychainClipOn = Boolean(item.keychainClipOn ?? item.keychain_clip_on);
-                const basePrice = Number(item.basePrice || item.base_price || item.unit_price || item.price || 0);
-                const addOnPrice = Number(item.addOnPrice || item.add_on_price || 0) || (keychainClipOn ? WALLET_KEYCHAIN_CLIP_PRICE : 0);
-                const price = Number(item.price || item.unit_price || (basePrice + addOnPrice) || 0);
-                const total = Number(item.total || item.line_total || price * quantity || 0);
-
-                return {
-                    productId: item.productId || item.product_id || item.id || `item_${index}`,
-                    productName: item.productName || item.name || item.title || 'Product',
-                    productImage: item.productImage || item.image || item.thumbnail || item.productImageUrl || '',
-                    selectedSize: item.selectedSize || item.size || 'One Size',
-                    quantity,
-                    price,
-                    total,
-                    basePrice,
-                    addOnPrice,
-                    keychainClipOn,
-                    addOnLabel: item.addOnLabel || item.add_on_label || (keychainClipOn ? WALLET_KEYCHAIN_CLIP_LABEL : undefined),
-                    name: item.name || item.productName || 'Product',
-                    image: item.image || item.productImage || item.thumbnail || '',
-                    size: item.size || item.selectedSize || 'One Size'
-                };
-            });
-
-            return {
-                id: o.id || Math.random().toString(36).substr(2, 9),
-                orderNumber: o.order_number || o.orderNumber || 'ORD-UNKNOWN',
-                userId: o.user_id || o.userId || null,
-                isGuest: o.is_guest ?? o.isGuest ?? true,
-                customerName: o.customer_name || o.customerName || 'Anonymous',
-                customerEmail: o.customer_email || o.customerEmail || '',
-                customerPhone: o.customer_phone || o.customerPhone || '',
-                items: normalizedItems,
-                subtotal: Number(o.subtotal || o.sub_total || 0),
-                tax: Number(o.tax || 0),
-                discount: Number(o.discount || 0),
-                total: Number(o.total || o.total_amount || 0),
-                paymentMethod: o.payment_method || o.paymentMethod || 'unknown',
-                paymentStatus: o.payment_status || o.paymentStatus || o.status || 'pending',
-                orderType: o.order_type || o.orderType || 'online',
-                shippingAddress: o.shipping_address || o.shipping_info || o.shippingInfo || o.shippingAddress || null,
-                notes: o.notes || '',
-                createdAt: o.created_at || o.createdAt || new Date().toISOString(),
-                paidAt: o.paid_at || o.paidAt || null,
-                sgCoinReward: Number(o.sg_coin_reward || o.sgCoinReward || 0)
-            };
-        });
-
-        setOrders(mapped);
-        return mapped;
-    };
-
-    // Realtime orders channel — set up once when Supabase is configured
-    // and torn down when it isn't. initApp already covers the initial
-    // fetchProducts/fetchOrders via Promise.all, so this hook only owns
-    // the channel subscription.
-    useEffect(() => {
-        if (!isSupabaseConfigured) return;
-        const channel = supabase.channel('orders_sync').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-            console.log('🔂 Order change detected, refreshing...');
-            fetchOrders();
-        }).subscribe();
-        return () => { channel.unsubscribe(); };
-    }, [isSupabaseConfigured]);
-
-    // Fetches the wallet_mints_7d server-side scalar view. This is the
-    // single source of truth for the 'X wallets minted this week'
-    // counter on Home + Wallets — replacing the client-side useMemo
-    // aggregation that previously ran on every orders refresh.
-    const fetchWalletMints7d = async () => {
-        if (!isSupabaseConfigured) return 0;
-        try {
-            const { data, error } = await supabase
-                .from('wallet_mints_7d')
-                .select('mint_count')
-                .maybeSingle();
-            if (error) {
-                console.warn('[wallet_mints_7d] fetch error:', error.message);
-                return null;
-            }
-            const count = data?.mint_count != null ? Number(data.mint_count) : 0;
-            setWalletMints7d(count);
-            return count;
-        } catch (e) {
-            console.warn('[wallet_mints_7d] fetch threw:', e);
-            return null;
-        }
-    };
-
-    // Production-floor state -- singleton row from public.production_state
-    // with realtime publication. Same one-tiny-payload pattern as
-    // wallet_mints_7d: GET on init, then a dedicated UPDATE channel for
-    // ~200-700ms deltas whenever the shop owner advances a cylinder or
-    // ships a new SKU.
-    const fetchProductionState = async () => {
-        if (!isSupabaseConfigured) return null;
-        try {
-            const { data, error } = await supabase
-                .from('production_state')
-                .select('currently_being_built_label, last_drop_at, last_drop_sku_label, on_deck_label, on_deck_cylinder_current, on_deck_cylinder_total')
-                .maybeSingle();
-            if (error) {
-                console.warn('[production_state] fetch error:', error.message);
-                return null;
-            }
-            if (!data) return null;
-            const lastDropAt = data.last_drop_at instanceof Date
-                ? (data.last_drop_at as Date).toISOString()
-                : String(data.last_drop_at ?? '');
-            setProductionState({
-                currently_being_built_label: String(data.currently_being_built_label ?? ''),
-                last_drop_at:                 lastDropAt,
-                last_drop_sku_label:          String(data.last_drop_sku_label ?? ''),
-                on_deck_label:                String(data.on_deck_label ?? ''),
-                on_deck_cylinder_current:     Number(data.on_deck_cylinder_current ?? 0),
-                on_deck_cylinder_total:       Number(data.on_deck_cylinder_total ?? 0),
-            });
-            return data;
-        } catch (e) {
-            console.warn('[production_state] fetch threw:', e);
-            return null;
-        }
-    };
-
-    // Realtime wallet_mints_7d channel — pushes the new scalar directly to
-    // the React state on every UPDATE. ~200-700ms latency on Supabase's
-    // standard plan. The view itself is added to supabase_realtime via
-    // supabase/migrations/20260721_create_wallet_mints_7d_view.sql.
-    useEffect(() => {
-        if (!isSupabaseConfigured) return;
-        const channel = supabase
-            .channel('wallet_mints_7d_sync')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wallet_mints_7d' }, (payload) => {
-                // Defensive payload decoding — Supabase types bigint as string,
-                // and an empty-string or NaN payload would silently flicker the
-                // counter to 0 mid-session. Pure reducer lives in
-                // applyWalletMintsUpdate below — exported for unit testing.
-                setWalletMints7d(prev => applyWalletMintsUpdate(prev, payload));
-            })
-            .subscribe();
-        return () => { channel.unsubscribe(); };
-    }, [isSupabaseConfigured]);
-
-    // Realtime production_state channel -- pushes the new row into React
-    // state on every UPDATE. The table itself is added to supabase_realtime
-    // via supabase/migrations/20260722_publish_production_state_for_realtime.sql.
-    useEffect(() => {
-        if (!isSupabaseConfigured) return;
-        const channel = supabase
-            .channel('production_state_sync')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'production_state' }, (payload) => {
-                const next = (payload?.new ?? {}) as Record<string, unknown>;
-                setProductionState(prev => applyProductionStateUpdate(prev, next));
-            })
-            .subscribe();
-        return () => { channel.unsubscribe(); };
-    }, [isSupabaseConfigured]);
+    // fetchProducts, fetchOrders, mapAndSetOrders, and their realtime channels
+    // fetchProducts, fetchOrders, fetchWalletMints7d, fetchProductionState,
+    // and their realtime channels are now owned by useCatalog / useOrders / useWallets hooks.
 
     // Refresh products + orders when admin mode is toggled. The skip ref
     // prevents the first run of this effect (which fires on initial
@@ -897,477 +200,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return;
         }
         if (!isSupabaseConfigured) return;
-        fetchProducts();
-        fetchOrders();
-    }, [isAdminMode]);
+        catalogHook.fetchProducts();
+        ordersHook.fetchOrders();
+    }, [authHook.isAdminMode]);
 
     useEffect(() => { if (sections && sections.length > 0) localStorage.setItem('coalition_sections', JSON.stringify(sections)); }, [sections]);
-    useEffect(() => { if (giveaways) localStorage.setItem('coalition_giveaways_v1', JSON.stringify(giveaways)); }, [giveaways]);
-    useEffect(() => {
-        setGiveaways(prev => ensureSubscriberGiveawayEntries(prev, user));
-    }, [user, giveaways]);
+    // Giveaway localStorage + subscriber effects are now owned by useGiveaways hook.
 
     // Helper: get admin token for server-side API calls that bypass RLS
-    const getAdminToken = () => {
-        if (typeof sessionStorage !== 'undefined') {
-            return sessionStorage.getItem('coalition_admin_token');
-        }
-        return null;
-    };
+    // addProduct, updateProduct, deleteProduct are now owned by useCatalog hook.
 
-    const addProduct = async (p: Product) => {
-        if (!isSupabaseConfigured) return;
-        const originalProducts = products;
-        const normalizedSizes = normalizeProductSizeData(p.sizes, p.sizeInventory);
-        const normalizedProduct = {
-            ...p,
-            createdAt: p.createdAt || new Date().toISOString(),
-            isFeatured: !!p.isFeatured,
-            sizes: normalizedSizes.sizes,
-            sizeInventory: normalizedSizes.sizeInventory,
-        };
-        const nextProducts = normalizedProduct.isFeatured
-            ? getExclusiveFeaturedProducts(normalizedProduct.id, [...originalProducts, normalizedProduct])
-            : [...originalProducts, normalizedProduct];
-
-        setProducts(nextProducts);
-        try {
-            const adminToken = getAdminToken();
-            if (adminToken) {
-                // Route through server-side API to bypass RLS (admin-verify login
-                // doesn't create a Supabase auth session, so direct client writes
-                // fail the "Only admins can..." RLS policies.)
-                const response = await fetch('/api/admin-products', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${adminToken}`
-                    },
-                    body: JSON.stringify({ product: normalizedProduct })
-                });
-                if (!response.ok) {
-                    const payload = await response.json().catch(() => ({}));
-                    throw new Error(payload.error || 'Failed to add product via API');
-                }
-            } else {
-                const { error } = await supabase.from('products').insert([{
-                    id: normalizedProduct.id, name: normalizedProduct.name, price: normalizedProduct.price, category: normalizedProduct.category, images: normalizedProduct.images,
-                    description: normalizedProduct.description, is_featured: normalizedProduct.isFeatured,
-                    is_limited_edition: normalizedProduct.isLimitedEdition ?? false,
-                    pricing_tiers: normalizedProduct.pricingTiers ?? null,
-                    edition_size: normalizedProduct.editionSize ?? null,
-                    sizes: normalizedProduct.sizes,
-                    size_inventory: normalizedProduct.sizeInventory, nft_metadata: normalizedProduct.nft
-                }]);
-                if (error) throw error;
-                // Mirror api/_handlers/admin-products.ts featured-exclusivity hook
-                // via the shared helper. The admin-token path above already routes
-                // through /api/admin-products which enforces this same constraint
-                // server-side; this branch is the no-token fallback.
-                if (normalizedProduct.isFeatured) {
-                    await clearOtherFeaturedProducts(supabase, normalizedProduct.id, normalizedProduct.isFeatured);
-                }
-            }
-            await autoCommit({ message: generateProductAddedMessage(p.name) });
-        } catch (err) {
-            setProducts(originalProducts);
-            addToast('Failed to add product.', 'error');
-            throw err;
-        }
-    };
-
-    const updateProduct = async (updated: Product) => {
-        if (!isSupabaseConfigured) return;
-        const original = products.find(p => p.id === updated.id);
-        const normalizedSizes = normalizeProductSizeData(updated.sizes, updated.sizeInventory);
-        const normalizedUpdated = {
-            ...updated,
-            isFeatured: !!updated.isFeatured,
-            sizes: normalizedSizes.sizes,
-            sizeInventory: normalizedSizes.sizeInventory,
-        };
-        const nextProducts = normalizedUpdated.isFeatured
-            ? getExclusiveFeaturedProducts(normalizedUpdated.id, products.map(p => p.id === normalizedUpdated.id ? normalizedUpdated : p))
-            : products.map(p => p.id === normalizedUpdated.id ? normalizedUpdated : p);
-
-        setProducts(nextProducts);
-        try {
-            const adminToken = getAdminToken();
-            if (adminToken) {
-                // Route through server-side API to bypass RLS (see addProduct comment)
-                const response = await fetch('/api/admin-products', {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${adminToken}`
-                    },
-                    body: JSON.stringify({ product: normalizedUpdated })
-                });
-                if (!response.ok) {
-                    const payload = await response.json().catch(() => ({}));
-                    throw new Error(payload.error || 'Failed to update product via API');
-                }
-            } else {
-                const updates: Record<string, unknown> = {
-                    name: normalizedUpdated.name, price: normalizedUpdated.price, category: normalizedUpdated.category, images: normalizedUpdated.images,
-                    description: normalizedUpdated.description,
-                    is_featured: normalizedUpdated.isFeatured,
-                    is_limited_edition: normalizedUpdated.isLimitedEdition ?? false,
-                    pricing_tiers: normalizedUpdated.pricingTiers ?? null,
-                    edition_size: normalizedUpdated.editionSize ?? null,
-                    sizes: normalizedUpdated.sizes,
-                    size_inventory: normalizedUpdated.sizeInventory, nft_metadata: normalizedUpdated.nft, archived: normalizedUpdated.archived,
-                };
-                if (normalizedUpdated.soldAt !== undefined) updates.sold_at = normalizedUpdated.soldAt;
-                if (normalizedUpdated.archivedAt !== undefined) updates.archived_at = normalizedUpdated.archivedAt;
-
-                const { error } = await supabase.from('products').update(updates).eq('id', normalizedUpdated.id);
-                if (error) throw error;
-                // Mirror api/_handlers/admin-products.ts featured-exclusivity hook
-                // via the shared helper (same rationale as the addProduct branch
-                // above — this is the no-token fallback when the operator is
-                // not authenticated via admin-verify).
-                if (normalizedUpdated.isFeatured) {
-                    await clearOtherFeaturedProducts(supabase, normalizedUpdated.id, normalizedUpdated.isFeatured);
-                }
-            }
-            await autoCommit({ message: generateProductUpdatedMessage(updated.name) });
-        } catch (err) {
-            setProducts(prev => prev.map(p => p.id === updated.id && original ? original : p));
-            addToast('Update failed.', 'error');
-            throw err;
-        }
-    };
-
-    const deleteProduct = async (id: string) => {
-        const product = products.find(p => p.id === id);
-        if (!isSupabaseConfigured) return;
-        try {
-            const adminToken = getAdminToken();
-            if (adminToken) {
-                const response = await fetch('/api/admin-products', {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${adminToken}`
-                    },
-                    body: JSON.stringify({ id })
-                });
-                if (!response.ok) {
-                    const payload = await response.json().catch(() => ({}));
-                    throw new Error(payload.error || 'Failed to delete product via API');
-                }
-            } else {
-                const { error } = await supabase.from('products').delete().eq('id', id);
-                if (error) throw error;
-            }
-            setProducts(prev => prev.filter(p => p.id !== id));
-            await autoCommit({ message: generateProductDeletedMessage(product?.name || id) });
-        } catch (err) {
-            addToast('Failed to delete product.', 'error');
-            throw err;
-        }
-    };
-
-    const addToCart = (product: Product, size: string, options?: { keychainClipOn?: boolean }) => {
-        setCart(prev => {
-            const keychainClipOn = Boolean(options?.keychainClipOn && product.category === 'wallet');
-            const existing = prev.find(item =>
-                item.id === product.id &&
-                item.selectedSize === size &&
-                Boolean(item.keychainClipOn) === keychainClipOn
-            );
-            if (existing) return prev.map(item => item.cartId === existing.cartId ? { ...item, quantity: item.quantity + 1 } : item);
-            return [...prev, {
-                ...product,
-                selectedSize: size,
-                quantity: 1,
-                cartId: Math.random().toString(36).substr(2, 9),
-                keychainClipOn
-            }];
-        });
-        setCartOpen(true);
-    };
-
-    const removeFromCart = (cartId: string) => setCart(prev => prev.filter(item => item.cartId !== cartId));
-    const clearCart = () => setCart([]);
-    const toggleFavorite = (pid: string) => {
-        if (!user) return;
-        const isFav = user.favorites.includes(pid);
-        const newFavs = isFav ? user.favorites.filter(id => id !== pid) : [pid, ...user.favorites];
-        setUser({ ...user, favorites: newFavs });
-        localStorage.setItem(`coalition_favorites_${user.uid}`, JSON.stringify(newFavs));
-    };
-
-    const login = async (provider: AuthProvider) => {
-        if (provider === AuthProvider.METAMASK) {
-            try {
-                const { connectWallet, formatAddress: formatEthAddress } = await loadWalletActions();
-                const data = await connectWallet();
-                if (data) {
-                    const isAdmin = ADMIN_WALLETS.map(w => w.toLowerCase()).includes(data.address.toLowerCase());
-                    setUser({
-                        uid: 'user_eth_' + data.address, displayName: formatEthAddress(data.address), email: null,
-                        walletAddress: data.address, sgCoinBalance: parseFloat(data.sgCoinBalance || '0'),
-                        v2Balance: parseFloat(data.v2Balance || '0'), totalMigrated: parseFloat(data.totalMigratedV1?.replace(/,/g, '') || '0'),
-                        isAdmin, favorites: [], isVIP: isAdmin
-                    });
-                }
-            } catch (err) { console.error('MetaMask login error:', err); addToast('Failed to connect wallet.', 'error'); }
-        }
-    };
-    const loginUser = login;
-    const logout = async () => { try { await signOut(); setUser(null); } catch (e) { setUser(null); } };
-
-    const updateUser = async (data: Partial<UserProfile>) => {
-        if (!user) return;
-        setUser({ ...user, ...data });
-        if (isSupabaseConfigured && !user.uid.startsWith('user_eth_')) {
-            try {
-                const updates: any = {};
-                if (data.sgCoinBalance !== undefined) updates.sg_coin_balance = data.sgCoinBalance;
-                if (data.isVIP !== undefined) updates.is_vip = data.isVIP;
-                if (data.storeCredit !== undefined) updates.store_credit = data.storeCredit;
-                if (Object.keys(updates).length > 0) await supabase.from('profiles').update(updates).eq('id', user.uid);
-            } catch (err) { console.error('Failed to sync user updates:', err); }
-        }
-    };
-
-    const loginAdmin = async (emailOrPassword: string, password?: string) => {
-        const pwd = password || emailOrPassword;
-
-        try {
-            console.log('🔐 Attempting secure admin login...');
-            const response = await fetch('/api/admin-verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: pwd })
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.token) {
-                sessionStorage.setItem('coalition_admin_token', data.token);
-                updateAdminMode(true);
-                return true;
-            } else {
-                console.warn('❌ Admin verification failed:', data.error);
-            }
-        } catch (err) {
-            console.error('❌ Admin login error:', err);
-        }
-
-        // Keep Supabase Auth fallback for DB-linked admins if needed
-        if (password) {
-            try {
-                const { data, error } = await supabase.auth.signInWithPassword({ email: emailOrPassword, password });
-                if (error) throw error;
-                if (data.user) {
-                    const { data: adminData } = await supabase.from('admin_users').select('role').eq('user_id', data.user.id).maybeSingle();
-                    if (adminData) {
-                        updateAdminMode(true);
-                        return true;
-                    }
-                    await supabase.auth.signOut();
-                }
-            } catch (err) {
-                console.error('❌ Supabase admin login error:', err);
-            }
-        }
-
-        return false;
-    };
-    const logoutAdmin = () => { updateAdminMode(false); };
+    // addToCart, removeFromCart, clearCart, cartTotal, setCartOpen
+    // toggleFavorite, login, logout, updateUser, loginAdmin, logoutAdmin,
+    // connectMetaMaskWallet, connectManualWallet, disconnectWallet,
+    // linkSocialAccount, unlinkSocialAccount, submitCustomInquiry,
+    // submitPurchaseRequest are now owned by useAuth hook.
     const updateSections = (s: Section[]) => setSections(s);
     const updateSection = (id: string, data: Partial<Section>) => {
         setSections(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
     };
 
-    const cartTotal = () => cart.reduce((sum, item) => sum + getCartItemLineTotal(item), 0);
+    // cartTotal is now owned by useCart hook.
     const calculateReward = (total: number) => Math.floor(total * COIN_REWARD_RATE);
 
-    const addOrder = async (order: Order, verification?: { paypalOrderId?: string; paypalCaptureId?: string }) => {
-        const mustUseOrderApi = order.paymentMethod === 'paypal';
-        if (isSupabaseConfigured || mustUseOrderApi) {
-            try {
-                const response = await fetch('/api/complete-order', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order, verification })
-                });
-                if (!response.ok) {
-                    const payload = await response.json().catch(() => ({}));
-                    throw new Error(payload.error || 'Order completion failed');
-                }
-                setOrders(prev => [order, ...prev.filter(existing => existing.id !== order.id)]);
-                fetchOrders(); // Refresh orders after successful placement
+    // addOrder, updateOrderStatus, deleteOrder, getOrderById, generateOrderNumber
+    // are now owned by useOrders hook.
 
-                // Update customer lifetime stats (fire-and-forget).
-                // Increments profiles.lifetime_spend_usd + lifetime_orders
-                // so the admin UserManager shows accurate customer data.
-                if (order.userId && !order.userId.startsWith('user_eth_')) {
-                    void updateLifetimeStats(order.userId, order.total);
-                }
-            } catch (err) { console.error('Order failed:', err); throw err; }
-            return;
-        }
-
-        setOrders(prev => [order, ...prev]);
-    };
-
-    const updateOrderStatus = async (orderId: string, newStatus: string) => {
-        const originalStatus = orders.find(o => o.id === orderId)?.paymentStatus;
-
-        // Optimistic Update
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, paymentStatus: newStatus as OrderStatus } : o));
-
-        if (isSupabaseConfigured) {
-            try {
-                const token = sessionStorage.getItem('coalition_admin_token');
-                const response = await fetch('/api/complete-order', {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        id: orderId,
-                        updates: {
-                            payment_status: newStatus,
-                            paid_at: newStatus === 'paid' ? new Date().toISOString() : null
-                        }
-                    })
-                });
-
-                if (!response.ok) throw new Error('Status update failed');
-                addToast('Order status updated!', 'success');
-            } catch (err) {
-                console.error('Update status failed:', err);
-                // Rollback on error
-                if (originalStatus) {
-                    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, paymentStatus: originalStatus } : o));
-                }
-                addToast('Failed to update status.', 'error');
-            }
-        }
-    };
-
-    const deleteOrder = async (id: string) => {
-        try {
-            setOrders(prev => prev.filter(o => o.id !== id));
-            if (isSupabaseConfigured) {
-                await supabase.from('orders').delete().eq('id', id);
-            }
-        } catch (e) { console.error('Delete order failed:', e); }
-    };
-    const getOrderById = (id: string) => orders.find(o => o.id === id);
-    const deductInventory = async (items: OrderItem[]) => {
-        setProducts(prev => prev.map(p => {
-            const item = items.find(i => i.productId === p.id);
-            if (item && p.sizeInventory) {
-                const inv = { ...p.sizeInventory };
-                inv[item.selectedSize] = Math.max(0, (inv[item.selectedSize] || 0) - item.quantity);
-                return { ...p, sizeInventory: inv };
-            }
-            return p;
-        }));
-    };
-    const generateOrderNumber = () => 'ORD-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-
-    const addGiveaway = async (g: Giveaway) => setGiveaways(prev => [...prev, g]);
-    const updateGiveaway = async (g: Giveaway) => setGiveaways(prev => prev.map(item => item.id === g.id ? g : item));
-    const deleteGiveaway = async (id: string) => setGiveaways(prev => prev.filter(g => g.id !== id));
-    const addGiveawayEntry = async (e: GiveawayEntry) => setGiveaways(prev => prev.map(g => g.id === e.giveawayId ? { ...g, entries: [...g.entries, e] } : g));
-    const pickGiveawayWinner = async (id: string, count: number) => {
-        setGiveaways(prev => prev.map(g => {
-            if (g.id === id) {
-                const winners = pickWeightedGiveawayWinners(g.entries, count);
-                return { ...g, winners, status: GiveawayStatus.ENDED };
-            }
-            return g;
-        }));
-    };
-
-    const connectMetaMaskWallet = async (address?: string) => {
-        if (!user) return;
-        try {
-            let addr = address;
-            if (!addr) {
-                const { connectWallet } = await loadWalletActions();
-                const data = await connectWallet();
-                if (!data) return;
-                addr = data.address;
-            }
-            const isAdmin = addr && ADMIN_WALLETS.map(w => w.toLowerCase()).includes(addr.toLowerCase());
-            // UserProfile.walletAddress is `string | null`, connectedWalletAddress is `string` —
-            // both expect non-undefined at this point (the !addr branch above returned).
-            // strictNullChecks-safe assertion.
-            setUser({ ...user, walletAddress: addr!, connectedWalletAddress: addr!, walletConnectionMethod: 'metamask', walletConnectedAt: Date.now(), isAdmin: user.isAdmin || !!isAdmin });
-            if (isSupabaseConfigured && !user.uid.startsWith('user_eth_')) {
-                await supabase.from('wallet_accounts').upsert({ user_id: user.uid, wallet_address: addr, method: 'metamask' }, { onConflict: 'user_id' });
-            }
-        } catch (e) { console.error('Connect wallet error:', e); }
-    };
-
-    // Signature widened from `(address: string)` to `(address?: string)` to match the
-    // AppContextType slot declared at line 58-59. Required by strictFunctionTypes
-    // contravariance: an impl narrower than its slot cannot be assigned to it.
-    // Behavior is preserved via an early-return guard for the missing-address case.
-    // Using `address === undefined` (not `!address`) keeps the empty-string pass-through
-    // behavior identical to the prior impl: original wrote `""` to state, so do we.
-    const connectManualWallet = async (address?: string) => { if (!user || address === undefined) return; setUser({ ...user, connectedWalletAddress: address, walletConnectionMethod: 'manual', walletConnectedAt: Date.now() }); };
-    const disconnectWallet = async () => { if (user) setUser({ ...user, connectedWalletAddress: undefined, walletConnectionMethod: undefined, walletConnectedAt: undefined }); };
-
-    const addReview = async (pid: string, r: Review) => {
-        setProducts(prev => prev.map(p => p.id === pid ? { ...p, reviews: [r, ...(p.reviews || [])] } : p));
-        const saved = safeJsonParse(`coalition_reviews_${pid}`, []);
-        localStorage.setItem(`coalition_reviews_${pid}`, JSON.stringify([r, ...saved]));
-    };
-
-    const linkSocialAccount = async (platform: SocialAccount['platform'], username: string) => {
-        if (!user) return;
-        try {
-            await supabase.from('social_accounts').insert([{ user_id: user.uid, platform, username, verified: false }]);
-            addToast('Linked!', 'success');
-        } catch (err) { addToast('Link failed.', 'error'); }
-    };
-
-    const unlinkSocialAccount = async (p: SocialAccount['platform']) => {
-        if (!user) return { success: false };
-        try {
-            await supabase.from('social_accounts').delete().eq('user_id', user.uid).eq('platform', p);
-            setUser(prev => prev ? { ...prev, socialAccounts: prev.socialAccounts?.filter(a => a.platform !== p) } : null);
-            return { success: true };
-        } catch (err) { return { success: false }; }
-    };
-
-    const submitCustomInquiry = async (data: any) => {
-        try {
-            const insertData: any = { ...data, status: 'new' };
-            if (user?.uid && !user.uid.startsWith('user_eth_')) insertData.user_id = user.uid;
-            await supabase.from('custom_inquiries').insert([insertData]);
-            addToast('Submitted!', 'success');
-        } catch (err) { addToast('Failed.', 'error'); }
-    };
-
-    const submitPurchaseRequest = async (data: any) => {
-        try { await supabase.from('sgcoin_purchase_requests').insert([{ ...data, user_id: user?.uid, status: 'pending' }]); addToast('Submitted!', 'success'); }
-        catch (err) { addToast('Failed.', 'error'); }
-    };
+    // Giveaway CRUD, wallet connections, social linking are now owned by useGiveaways / useAuth hooks.
 
     return (
         <AppContext.Provider value={{
-            products, cart, user, sections, orders, isCartOpen, isAdminMode, isSupabaseConfigured,
-            isConfigError, isLoading, addProduct, updateProduct, deleteProduct, addToCart,
-            removeFromCart, clearCart, toggleFavorite, login, loginUser, logout, updateUser,
-            setCartOpen, loginAdmin, logoutAdmin, updateSections, updateSection, cartTotal,
-            calculateReward, addOrder, updateOrderStatus, deleteOrder, getOrderById, deductInventory,
-            generateOrderNumber, giveaways, addGiveaway, updateGiveaway, deleteGiveaway,
-            addGiveawayEntry, pickGiveawayWinner, connectMetaMaskWallet, connectManualWallet,
-            disconnectWallet, chainId,        switchToPolygon: handleSwitchToPolygon,
-        walletMints7d,
-        productionState,
-        addReview,
-            linkSocialAccount, unlinkSocialAccount, submitCustomInquiry, submitPurchaseRequest,
-            refreshBalances, signals, fetchSignals
+            products: catalogHook.products, cart: cartHook.cart, user: authHook.user, sections, orders: ordersHook.orders, isCartOpen: cartHook.isCartOpen, isAdminMode: authHook.isAdminMode, isSupabaseConfigured,
+            isConfigError, isLoading, addProduct: catalogHook.addProduct, updateProduct: catalogHook.updateProduct, deleteProduct: catalogHook.deleteProduct, addToCart: cartHook.addToCart,
+            removeFromCart: cartHook.removeFromCart, clearCart: cartHook.clearCart, toggleFavorite: authHook.toggleFavorite, login: authHook.login, loginUser: authHook.loginUser, logout: authHook.logout, updateUser: authHook.updateUser,
+            setCartOpen: cartHook.setCartOpen, loginAdmin: authHook.loginAdmin, logoutAdmin: authHook.logoutAdmin, updateSections, updateSection, cartTotal: cartHook.cartTotal,
+            calculateReward, addOrder: ordersHook.addOrder, updateOrderStatus: ordersHook.updateOrderStatus, deleteOrder: ordersHook.deleteOrder, getOrderById: ordersHook.getOrderById, deductInventory: catalogHook.deductInventory,
+            generateOrderNumber: ordersHook.generateOrderNumber, giveaways: giveawaysHook.giveaways, addGiveaway: giveawaysHook.addGiveaway, updateGiveaway: giveawaysHook.updateGiveaway, deleteGiveaway: giveawaysHook.deleteGiveaway,
+            addGiveawayEntry: giveawaysHook.addGiveawayEntry, pickGiveawayWinner: giveawaysHook.pickGiveawayWinner, connectMetaMaskWallet: authHook.connectMetaMaskWallet, connectManualWallet: authHook.connectManualWallet,
+            disconnectWallet: authHook.disconnectWallet, chainId: authHook.chainId, switchToPolygon: authHook.switchToPolygon,
+        walletMints7d: walletsHook.walletMints7d,
+        productionState: walletsHook.productionState,
+        addReview: catalogHook.addReview,
+            linkSocialAccount: authHook.linkSocialAccount, unlinkSocialAccount: authHook.unlinkSocialAccount, submitCustomInquiry: authHook.submitCustomInquiry, submitPurchaseRequest: authHook.submitPurchaseRequest,
+            refreshBalances: authHook.refreshBalances, signals: signalsHook.signals, fetchSignals: signalsHook.fetchSignals
         }}>
             {children}
         </AppContext.Provider>
