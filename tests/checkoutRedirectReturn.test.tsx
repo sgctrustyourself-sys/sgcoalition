@@ -135,6 +135,23 @@ function mockLocationWithToken(token: string, payerId: string): void {
     });
 }
 
+function mockLocationWithCancelledToken(token: string): void {
+    const href = `https://sgcoalition.xyz/checkout?token=${token}`;
+    Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: {
+            origin: 'https://sgcoalition.xyz',
+            href,
+            search: `?token=${token}`,
+            pathname: '/checkout',
+            hash: '',
+            assign: vi.fn(),
+            replace: vi.fn(),
+            reload: vi.fn(),
+        },
+    });
+}
+
 function mockFetchForCapture(): ReturnType<typeof vi.fn> {
     const fetchFn = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
         const path = String(url);
@@ -229,6 +246,19 @@ describe('Checkout PayPal redirect-return recovery', () => {
         });
         expect(Buttons).toHaveBeenCalledTimes(1);
         expect(renderFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('CANCEL_RETURN: token without PayerID shows cancellation and does not render PayPal buttons', async () => {
+        const { Buttons, renderFn } = mockPaypalGlobal();
+        mockLocationWithCancelledToken('TOK-CANCELLED');
+        mockFetchForCapture();
+
+        await act(async () => { root.render(createElement(Checkout)); });
+        await act(async () => { await Promise.resolve(); });
+
+        expect(container.textContent).toContain('Payment was cancelled. Your cart is still saved');
+        expect(Buttons).not.toHaveBeenCalled();
+        expect(renderFn).not.toHaveBeenCalled();
     });
 
     it('REDIRECT_RETURN_LATE_SDK: SDK loads after mount (event + poll) -> single render, guard holds', async () => {

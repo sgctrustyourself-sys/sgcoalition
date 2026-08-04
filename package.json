@@ -8,11 +8,12 @@
   },
   "scripts": {
     "lint": "eslint . --ext ts,tsx --max-warnings 0",
+    "check:serverless-imports": "node scripts/check-serverless-imports.mjs",
     "test": "vitest run",
     "test:fade": "node scripts/verify-loader-fade.mjs",
     "test:referral": "node scripts/verify-referral-self-heal.mjs",
     "dev": "vite",
-    "prebuild": "node scripts/generateSeoArtifacts.mjs",
+    "prebuild": "npm run check:serverless-imports && node scripts/generateSeoArtifacts.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "generate:seo": "node scripts/generateSeoArtifacts.mjs",

@@ -96,6 +96,15 @@ const OrderSuccess = () => {
         };
 
         const processOrder = async () => {
+            // Claim the redirect-return before the first await. React StrictMode
+            // can run this effect twice while verifySubscription yields; setting
+            // the guard only inside the later completion branch would allow two
+            // /api/complete-order requests to race.
+            if (isStripeRedirectReturn) {
+                if (stripeCompletionRef.current) return;
+                stripeCompletionRef.current = true;
+            }
+
             // Check subscription first
             const isSub = await verifySubscription();
             if (isSub) return;
@@ -133,8 +142,7 @@ const OrderSuccess = () => {
             // onPaid handler never ran, so complete the order server-side via
             // the shared Order intake module — it verifies the PaymentIntent,
             // persists the row (idempotent), and sends the confirmation emails.
-            if (isStripeRedirectReturn && !stripeCompletionRef.current) {
-                stripeCompletionRef.current = true;
+            if (isStripeRedirectReturn) {
                 const seed = returnedState?.orderSeed || null;
                 try {
                     const orderPayload = {
