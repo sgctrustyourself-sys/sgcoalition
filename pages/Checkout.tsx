@@ -159,10 +159,21 @@ const StripePaymentSection: React.FC<StripePaymentSectionProps> = ({ email, tota
     const elements = useElements();
     const [processing, setProcessing] = useState(false);
     const [sectionError, setSectionError] = useState<string | null>(null);
+    // The PaymentElement mounts asynchronously after the Elements provider
+    // re-renders (e.g. after a shipping-edit triggers a fresh PaymentIntent
+    // with a new clientSecret). Until onReady fires, `elements` has no mounted
+    // element and stripe.confirmPayment({ elements }) throws
+    // "elements should have a mounted Payment Element". Gate the Pay button
+    // on onReady so a click in that window is impossible.
+    const [elementReady, setElementReady] = useState(false);
+    // If the element never mounts (bad clientSecret, network failure), the
+    // onReady gate would otherwise leave Pay silently disabled forever —
+    // surface the failure so the buyer isn't stranded.
+    const [elementLoadFailed, setElementLoadFailed] = useState(false);
 
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
-        if (!stripe || !elements) return;
+        if (!stripe || !elements || !elementReady) return;
         if (!onValidationRequired()) return;
         setProcessing(true);
         setSectionError(null);
@@ -196,7 +207,12 @@ const StripePaymentSection: React.FC<StripePaymentSectionProps> = ({ email, tota
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-            <PaymentElement id="payment-element" options={{ layout: 'tabs' }} />
+            <PaymentElement
+                id="payment-element"
+                options={{ layout: 'tabs' }}
+                onReady={() => setElementReady(true)}
+                onLoadError={() => { setElementLoadFailed(true); setSectionError('Payment options failed to load. Please refresh and try again.'); }}
+            />
             {sectionError && (
                 <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-lg text-red-400 text-sm">
                     {sectionError}
@@ -204,7 +220,7 @@ const StripePaymentSection: React.FC<StripePaymentSectionProps> = ({ email, tota
             )}
             <button
                 type="submit"
-                disabled={!stripe || processing}
+                disabled={!stripe || !elementReady || processing || elementLoadFailed}
                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-widest hover:from-purple-700 hover:to-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20"
             >
                 {processing ? (
@@ -1604,7 +1620,16 @@ const Checkout: React.FC = () => {
                                             </div>
 
                                             {stripePromise && clientSecret ? (
+                                                // key={clientSecret}: when the debounced intent effect
+                                                // issues a new PaymentIntent (shipping edit, card<->Klarna
+                                                // switch), the provider + PaymentElement remount cleanly
+                                                // instead of React reusing the old Elements instance whose
+                                                // PaymentElement is mid-teardown. Without the key,
+                                                // confirmPayment can be handed a stale `elements` object
+                                                // whose element was unmounted -> "elements should have a
+                                                // mounted Payment Element" crash.
                                                 <Elements
+                                                    key={clientSecret}
                                                     stripe={stripePromise}
                                                     options={{ clientSecret, appearance: STRIPE_APPEARANCE }}
                                                 >
