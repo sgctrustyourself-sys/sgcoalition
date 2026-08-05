@@ -123,6 +123,9 @@ describe('GET /api/health', () => {
         expect(res._body.stripe.paymentMethods).toContain('card');
         expect(res._body.stripe.paymentMethods).toContain('klarna');
         expect(res._body.stripe.paymentMethods).not.toContain('afterpay_clearpay');
+        // Checkout allow-list is reported separately + nothing missing.
+        expect(res._body.stripe.checkoutMethods).toEqual(['card', 'klarna']);
+        expect(res._body.stripe.checkoutMethodsMissing).toEqual([]);
     });
 
     it('falls back to a draft-intent probe when config flags are stripped (restricted key)', async () => {
@@ -144,6 +147,26 @@ describe('GET /api/health', () => {
         expect(mockIntentCancel).toHaveBeenCalledWith('pi_probe_1');
         expect(res._body.stripe.paymentMethods).toEqual(['card', 'klarna']);
         expect(res._body.stripe.error).toBeNull();
+        expect(res._body.stripe.checkoutMethods).toEqual(['card', 'klarna']);
+        expect(res._body.stripe.checkoutMethodsMissing).toEqual([]);
+    });
+
+    it('flags checkoutMethodsMissing when an allow-list method is disabled in the dashboard', async () => {
+        // Account has card enabled but NOT klarna (code expects klarna).
+        mockConfigsList.mockResolvedValue({
+            data: [configWith({ klarna: { enabled: false } })],
+        });
+
+        const req = makeReq('GET');
+        const res = makeRes();
+        await handler(req, res);
+
+        expect(res._status).toBe(200);
+        expect(res._body.stripe.paymentMethods).toEqual(['card']);
+        expect(res._body.stripe.checkoutMethods).toEqual(['card', 'klarna']);
+        // Klarna is configured in code but disabled on the account — the
+        // code-before-dashboard footgun that would fail the whole intent.
+        expect(res._body.stripe.checkoutMethodsMissing).toEqual(['klarna']);
     });
 
     it('returns 503 degraded when the key is expired/revoked, without leaking the key', async () => {

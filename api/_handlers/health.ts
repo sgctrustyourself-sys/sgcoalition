@@ -1,4 +1,5 @@
 // api/_handlers/health.ts
+import { CHECKOUT_PAYMENT_METHOD_TYPES } from '../_helpers.js';
 //
 // GET /api/health — lightweight liveness + Stripe readiness probe.
 //
@@ -64,12 +65,20 @@ export default async function handler(req: any, res: any) {
         error: string | null;
         methodFlags: Record<string, boolean>;
         paymentMethods: string[];
+        // What checkout is CONFIGURED to offer (the allow-list) vs what the
+        // account actually has enabled. A non-empty checkoutMethodsMissing
+        // means a method is configured in code but disabled on the Stripe
+        // dashboard — which would fail the ENTIRE PaymentIntent (card too).
+        checkoutMethods: string[];
+        checkoutMethodsMissing: string[];
     } = {
         configured: Boolean(stripeKey),
         keyValid: false,
         error: null,
         methodFlags: {},
         paymentMethods: [],
+        checkoutMethods: [...CHECKOUT_PAYMENT_METHOD_TYPES],
+        checkoutMethodsMissing: [],
     };
 
     if (!stripeKey) {
@@ -175,6 +184,15 @@ export default async function handler(req: any, res: any) {
         stripe.paymentMethods = Object.entries(stripe.methodFlags)
             .filter(([, enabled]) => enabled)
             .map(([method]) => method);
+    }
+
+    // A configured-but-disabled checkout method is a live outage risk (the
+    // footgun documented on CHECKOUT_PAYMENT_METHOD_TYPES): flag it so the
+    // admin card can surface it instead of discovering it via failed orders.
+    if (stripe.paymentMethods.length > 0) {
+        stripe.checkoutMethodsMissing = CHECKOUT_PAYMENT_METHOD_TYPES.filter(
+            (method) => !stripe.paymentMethods.includes(method),
+        );
     }
 
     res.status(200).json({

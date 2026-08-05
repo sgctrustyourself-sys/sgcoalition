@@ -218,8 +218,10 @@ describe('Checkout PayPal redirect-return recovery', () => {
         mockFetchForCapture();
 
         await act(async () => { root.render(createElement(Checkout)); });
-        // Render commits the paypal section (paymentMethod defaults to 'paypal',
-        // cart non-empty), then the effect's 100ms timer fires the re-render.
+        // The redirect-return effect force-selects 'paypal' on mount (the
+        // checkout default is already 'paypal' — PayPal is the priority
+        // primary, Card is co-primary), then the effect's 100ms timer fires
+        // the button re-render.
         await act(async () => {
             vi.advanceTimersByTime(100);
             await Promise.resolve();

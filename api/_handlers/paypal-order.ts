@@ -14,10 +14,26 @@ import {
     setCorsHeaders,
 } from '../_helpers.js';
 import { resolvePricing, type PricingItem, HttpError } from '../../services/orderIntake.js';
+import { loadPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from '../../services/paymentSettings.js';
 
 const PAYPAL_LIVE_API = 'https://api-m.paypal.com';
 const PAYPAL_SANDBOX_API = 'https://api-m.sandbox.paypal.com';
 const CURRENCY_CODE = 'USD';
+
+// Service-role client for the owner-controlled payment_settings read.
+// Created lazily so a cold start without a request never touches Supabase.
+let supabaseAdmin: SupabaseClient | null = null;
+function getSupabaseAdmin(): SupabaseClient {
+    if (!supabaseAdmin) {
+        const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+        if (!supabaseUrl || !serviceRoleKey) {
+            throw createHttpError(503, 'Supabase admin service is not configured.');
+        }
+        supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+    }
+    return supabaseAdmin;
+}
 const KEYCHAIN_CLIP_PRICE_CENTS = 1000;
 const MAX_PAYPAL_QUANTITY = 99;
 
@@ -102,6 +118,23 @@ async function getAccessToken(): Promise<string> {
 }
 
 async function createPaypalOrder(body: PayPalCreateOrderInput) {
+    // Owner-controlled visibility: PayPal checkout can be switched off from
+    // the admin Command Center. Reject order creation so a disabled method
+    // is not payable even from a stale client page. The read wraps BOTH the
+    // env-missing path (getSupabaseAdmin 503) and any DB failure: if we
+    // cannot learn the setting we fail OPEN (all-enabled) — a settings
+    // outage must never lock PayPal checkout, and PayPal previously had no
+    // Supabase dependency at all.
+    let paymentSettings = { ...DEFAULT_PAYMENT_SETTINGS };
+    try {
+        paymentSettings = await loadPaymentSettings(getSupabaseAdmin());
+    } catch (error) {
+        console.warn('[PayPal API] payment settings read failed — assuming PayPal enabled:', error);
+    }
+    if (!paymentSettings.paypal) {
+        throw createHttpError(409, 'PayPal checkout is currently unavailable. Please use another payment method.');
+    }
+
     const normalizedItems = normalizeCheckoutItems(Array.isArray(body.items) ? body.items : []);
 
     // Use the shared pricing authority

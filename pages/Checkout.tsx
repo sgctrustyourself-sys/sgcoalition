@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Loader, Wallet, Copy, Check, Sparkles, Heart, Info, ShieldCheck, Truck, RefreshCw, Mail, Headphones } from 'lucide-react';
+import { ArrowLeft, CreditCard, Loader, Wallet, Copy, Check, Sparkles, Heart, Info, ShieldCheck, Truck, RefreshCw, Mail, Headphones, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { OrderStatus } from '../types';
 import { useToast } from '../context/ToastContext';
@@ -51,6 +51,10 @@ interface SavedCheckoutState {
     shippingMethod?: 'standard' | 'express';
     shippingCost?: number;
     paymentMethod?: 'paypal' | 'crypto' | 'card';
+    // Which Stripe method the 'card' path shows: card-only (primary) or
+    // Klarna (secondary 'More payment options'). Persisted so a Klarna
+    // redirect-return can restore the exact checkout in progress.
+    stripeMethod?: 'card' | 'klarna';
     // Payment-agnostic order seed (orderId/orderNumber). Used by BOTH the
     // PayPal Pay Later redirect-return AND the Stripe 3DS/Klarna/Afterpay
     // redirect-return so the created order keeps a stable identity.
@@ -229,6 +233,58 @@ const Checkout: React.FC = () => {
     // page reload). Fall back to defaults for a fresh checkout.
     const [paymentMethod, setPaymentMethod] = useState<'paypal' | 'crypto' | 'card'>(() =>
         loadCheckoutState()?.paymentMethod || 'paypal');
+    // PayPal is the default (the owner's priority checkout path); Card sits
+    // right beside it as co-primary, and Klarna/Crypto are one click away
+    // behind 'More payment options'.
+    const [stripeMethod, setStripeMethod] = useState<'card' | 'klarna'>(() =>
+        loadCheckoutState()?.stripeMethod || 'card');
+    // Secondary 'More payment options' disclosure (Klarna, Pay in 4, Crypto).
+    const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
+
+    // Owner-controlled payment option visibility (admin Command Center
+    // toggles, PATCH /api/payment-settings). The checkout hides any option
+    // the owner disabled. A failed/unreachable fetch defaults to everything
+    // enabled so a settings outage never locks checkout.
+    const [paymentSettings, setPaymentSettings] = useState({
+        card: true, paypal: true, klarna: true, crypto: true,
+    });
+    const [paymentSettingsLoaded, setPaymentSettingsLoaded] = useState(false);
+
+    useEffect(() => {
+        let mounted = true;
+        fetch('/api/payment-settings', { method: 'GET' })
+            .then(r => r.json().catch(() => ({})))
+            .then((data: any) => {
+                if (!mounted) return;
+                if (data && typeof data === 'object' && data.card_enabled !== undefined) {
+                    setPaymentSettings({
+                        card: !!data.card_enabled,
+                        paypal: !!data.paypal_enabled,
+                        klarna: !!data.klarna_enabled,
+                        crypto: !!data.crypto_enabled,
+                    });
+                }
+                setPaymentSettingsLoaded(true);
+            })
+            .catch(() => { if (mounted) setPaymentSettingsLoaded(true); });
+        return () => { mounted = false; };
+    }, []);
+
+    // If the owner just turned off the currently selected option, fall back
+    // to the first still-enabled one (paypal -> card -> klarna -> crypto —
+    // matching the priority order the owner set).
+    useEffect(() => {
+        if (!paymentSettingsLoaded) return;
+        const selectedEnabled = paymentMethod === 'card'
+            ? (stripeMethod === 'klarna' ? paymentSettings.klarna : paymentSettings.card)
+            : paymentMethod === 'paypal' ? paymentSettings.paypal : paymentSettings.crypto;
+        if (selectedEnabled) return;
+        if (paymentSettings.paypal) setPaymentMethod('paypal');
+        else if (paymentSettings.card) { setPaymentMethod('card'); setStripeMethod('card'); }
+        else if (paymentSettings.klarna) { setPaymentMethod('card'); setStripeMethod('klarna'); }
+        else if (paymentSettings.crypto) setPaymentMethod('crypto');
+    }, [paymentSettingsLoaded, paymentSettings, paymentMethod, stripeMethod]);
+
     const [copied, setCopied] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
     const [clientSecret, setClientSecret] = useState<string>('');
@@ -351,10 +407,12 @@ const Checkout: React.FC = () => {
     const finalTotal = Math.max(0, total + shippingCost - creditToApply);
     const requiresNoExternalPayment = isZeroAmount || finalTotal <= 0;
     const paymentLabel = paymentMethod === 'paypal'
-        ? 'PayPal, card, Apple Pay, or Pay in 4'
+        ? 'PayPal, Apple Pay, or Pay in 4'
         : paymentMethod === 'crypto'
             ? 'USDC on Polygon'
-            : 'Card, Klarna, or Afterpay';
+            : stripeMethod === 'klarna'
+                ? 'Klarna — Pay in 4'
+                : 'Card';
     const shippingCostLabel = shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`;
     const shippingMethodLabel = shippingMethod === 'express' ? 'Express' : 'Standard';
     const fulfillmentExpectation = shippingMethod === 'express'
@@ -362,12 +420,10 @@ const Checkout: React.FC = () => {
         : 'Packed after payment verification. Tracking follows by email.';
     const contactEmailLabel = shippingInfo.email.trim() || 'your checkout email';
     const paymentAvailability = [
-        'PayPal secure checkout',
-        'Credit and debit cards via PayPal',
-        'Apple Pay when available',
-        'Klarna and Afterpay via card checkout',
-        'PayPal Pay in 4 when eligible',
-        discountEnabled ? `USDC on Polygon saves ${getDiscountPercentageText()}` : 'USDC on Polygon available'
+        ...(paymentSettings.card ? ['Secure card checkout — Visa, Mastercard, Amex'] : []),
+        ...(paymentSettings.paypal ? ['PayPal, Apple Pay, and Pay in 4'] : []),
+        ...(paymentSettings.klarna ? ['Klarna — 4 interest-free payments'] : []),
+        ...(paymentSettings.crypto ? [discountEnabled ? `USDC on Polygon saves ${getDiscountPercentageText()}` : 'USDC on Polygon available'] : []),
     ];
     const checkoutTrustItems = [
         {
@@ -414,12 +470,16 @@ const Checkout: React.FC = () => {
         }
         if (paymentMethod !== 'card' || cart.length === 0) return;
         // Wait until the buyer starts the shipping form so we don't fire an
-        // intent for an empty/placeholder address (Afterpay would reject it).
+        // intent for an empty/placeholder address (BNPL would reject it).
         const hasAnyShipping = Object.values(shippingInfo).some(v => String(v).trim() !== '');
         if (!hasAnyShipping) return;
+        // stripeMethod drives the intent's payment_method_types: the primary
+        // card path requests a card-only intent, the 'More payment options'
+        // Klarna path a Klarna-only one — so the PaymentElement only ever
+        // shows the method the buyer chose.
         const timer = setTimeout(() => { void createPaymentIntent(); }, 600);
         return () => clearTimeout(timer);
-    }, [cart, paymentMethod, useStoreCredit, shippingMethod, shippingFingerprint]);
+    }, [cart, paymentMethod, stripeMethod, useStoreCredit, shippingMethod, shippingFingerprint]);
 
     // Fetch server-authoritative pricing preview for the order summary.
     // Debounced — fires when cart, shipping, or payment method change.
@@ -514,6 +574,7 @@ const Checkout: React.FC = () => {
                     shippingCost,
                     userId: user?.uid,
                     useStoreCredit,
+                    paymentMethodTypes: [stripeMethod],
                     orderId: seed.orderId,
                     email: shippingInfo.email,
                     // Country is normalized to ISO-3166 for Stripe; if it
@@ -632,8 +693,8 @@ const Checkout: React.FC = () => {
     // checkout in progress.
     useEffect(() => {
         const saved = loadCheckoutState() || {};
-        saveCheckoutState({ ...saved, shippingInfo, shippingMethod, shippingCost, paymentMethod });
-    }, [shippingInfo, shippingMethod, shippingCost, paymentMethod]);
+        saveCheckoutState({ ...saved, shippingInfo, shippingMethod, shippingCost, paymentMethod, stripeMethod });
+    }, [shippingInfo, shippingMethod, shippingCost, paymentMethod, stripeMethod]);
 
     // PayPal Pay Later redirect-return recovery. When the browser bounces
     // back from PayPal with ?token=&PayerID= in the URL, the buttons must be
@@ -1262,15 +1323,20 @@ const Checkout: React.FC = () => {
                                         {isLoading ? 'Processing...' : 'Complete Order'}
                                     </button>
                                 </div>
+                            ) : paymentSettingsLoaded && !paymentSettings.card && !paymentSettings.paypal && !paymentSettings.klarna && !paymentSettings.crypto ? (
+                                <div className="text-center py-6">
+                                    <p className="text-sm text-gray-400">
+                                        Payment options are currently unavailable. Please contact support.
+                                    </p>
+                                </div>
                             ) : (
                                 <>
                                     <div className="space-y-3 mb-6">
-                                        {/* PayPal / Card / Apple Pay Option - PRIMARY */}
+                                        {/* PayPal - PRIMARY #1 (the owner's top priority). Includes
+                                            Apple Pay and Pay in 4 when the buyer's device/account
+                                            qualifies. Hidden when the owner turns PayPal off. */}
+                                        {paymentSettings.paypal && (
                                         <label className={`flex items-center justify-between p-5 rounded-xl border-2 cursor-pointer transition group relative overflow-hidden ${paymentMethod === 'paypal' ? 'bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-purple-500 shadow-lg shadow-purple-500/20' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30'}`}>
-                                            {/* The "RECOMMENDED" badge was an aggressive upsell
-                                                signal ("we picked this for you") — removed as
-                                                part of the Peaceful Space wedge. The buyer
-                                                picks; the storefront presents the options. */}
                                             <div className="flex items-center gap-4">
                                                 <input
                                                     type="radio"
@@ -1280,8 +1346,8 @@ const Checkout: React.FC = () => {
                                                     className="w-5 h-5 border-gray-500 text-purple-600 focus:ring-purple-500"
                                                 />
                                                 <div className="flex flex-col">
-                                                    <span className="font-black text-base text-white">PayPal, Cards & Apple Pay</span>
-                                                    <span className="text-xs text-gray-400">PayPal, cards, Apple Pay, or Pay in 4 when eligible</span>
+                                                    <span className="font-black text-base text-white">PayPal</span>
+                                                    <span className="text-xs text-gray-400">PayPal, Apple Pay, or Pay in 4 when eligible</span>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2 opacity-80">
@@ -1292,50 +1358,126 @@ const Checkout: React.FC = () => {
                                                 <CreditCard className="w-5 h-5 text-white" />
                                             </div>
                                         </label>
+                                        )}
 
-                                        {/* Card / Klarna / Afterpay Option - Stripe Payment Element */}
-                                        <label className={`flex items-center justify-between p-5 rounded-xl border-2 cursor-pointer transition group relative overflow-hidden ${paymentMethod === 'card' ? 'bg-gradient-to-r from-violet-600/15 to-blue-600/15 border-violet-500/70 shadow-lg shadow-violet-500/10' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30'}`}>
+                                        {/* Card - PRIMARY #2. A card-only intent is requested
+                                            (paymentMethodTypes: ['card']) so customers who just
+                                            want to pay by card never see Klarna tabs or any other
+                                            extra service — those live under 'More payment options'.
+                                            Hidden entirely when the owner turns cards off. */}
+                                        {paymentSettings.card && (
+                                        <label className={`flex items-center justify-between p-5 rounded-xl border-2 cursor-pointer transition group relative overflow-hidden ${paymentMethod === 'card' && stripeMethod === 'card' ? 'bg-gradient-to-r from-violet-600/15 to-blue-600/15 border-violet-500/70 shadow-lg shadow-violet-500/10' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30'}`}>
                                             <div className="flex items-center gap-4">
                                                 <input
                                                     type="radio"
                                                     name="paymentMethod"
-                                                    checked={paymentMethod === 'card'}
-                                                    onChange={() => setPaymentMethod('card')}
+                                                    checked={paymentMethod === 'card' && stripeMethod === 'card'}
+                                                    onChange={() => { setPaymentMethod('card'); setStripeMethod('card'); }}
                                                     className="w-5 h-5 border-gray-500 text-violet-600 focus:ring-violet-500"
                                                 />
                                                 <div className="flex flex-col">
-                                                    <span className="font-black text-base text-white">Card, Klarna & Afterpay</span>
-                                                    <span className="text-xs text-gray-400">Visa, Mastercard, Amex, Klarna, Afterpay — 4-payment plans where available</span>
+                                                    <span className="font-black text-base text-white">Pay by Card</span>
+                                                    <span className="text-xs text-gray-400">Visa, Mastercard, Amex — no account or extra steps needed</span>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1.5">
-                                                <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">Klarna</span>
-                                                <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">Afterpay</span>
+                                                <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">Visa</span>
+                                                <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">Mastercard</span>
+                                                <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">Amex</span>
                                             </div>
                                         </label>
+                                        )}
 
-                                        {/* Crypto Option - SECONDARY */}
-                                        <label className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition group ${paymentMethod === 'crypto' ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30 text-gray-400'}`}>
-                                            <div className="flex items-center gap-4">
-                                                <input
-                                                    type="radio"
-                                                    name="paymentMethod"
-                                                    checked={paymentMethod === 'crypto'}
-                                                    onChange={() => setPaymentMethod('crypto')}
-                                                    className="w-5 h-5 border-gray-500 text-blue-500 focus:ring-blue-500"
-                                                />
-                                                <div className="flex flex-col">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-bold text-sm text-white">Pay with Crypto</span>
-                                                        <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded font-bold tracking-wider">SAVE {getDiscountPercentageText()}</span>
-                                                    </div>
-                                                    <span className="text-xs text-gray-400 flex items-center gap-1">
-                                                        USDC on Polygon Network <Info className="w-3 h-3" />
-                                                    </span>
+                                        {/* Everything else - SECONDARY, behind a disclosure.
+                                            Klarna runs on its own Stripe intent; Pay in 4 reuses
+                                            the PayPal flow; Crypto is the USDC path. Rendered only
+                                            when at least one secondary option is enabled. */}
+                                        {(paymentSettings.klarna || paymentSettings.paypal || paymentSettings.crypto) && (
+                                        <div className="rounded-xl border border-white/10 bg-black/20">
+                                            <button
+                                                type="button"
+                                                onClick={() => setMoreOptionsOpen(o => !o)}
+                                                aria-expanded={moreOptionsOpen}
+                                                className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-bold text-gray-300 hover:text-white transition"
+                                            >
+                                                <span className="flex items-center gap-2">
+                                                    More payment options
+                                                    {(paymentMethod !== 'paypal' && (paymentMethod === 'crypto' || stripeMethod === 'klarna')) && (
+                                                        <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">
+                                                            {paymentMethod === 'crypto' ? 'Crypto' : 'Klarna'} selected
+                                                        </span>
+                                                    )}
+                                                </span>
+                                                <ChevronDown className={`w-4 h-4 transition-transform ${moreOptionsOpen ? 'rotate-180' : ''}`} />
+                                            </button>
+
+                                            {moreOptionsOpen && (
+                                                <div className="px-3 pb-3 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                                    {paymentSettings.klarna && (
+                                                    <label className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition group ${paymentMethod === 'card' && stripeMethod === 'klarna' ? 'bg-violet-600/10 border-violet-500/60 text-white' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30 text-gray-400'}`}>
+                                                        <div className="flex items-center gap-4">
+                                                            <input
+                                                                type="radio"
+                                                                name="paymentMethod"
+                                                                checked={paymentMethod === 'card' && stripeMethod === 'klarna'}
+                                                                onChange={() => { setPaymentMethod('card'); setStripeMethod('klarna'); setMoreOptionsOpen(true); }}
+                                                                className="w-4 h-4 border-gray-500 text-violet-500 focus:ring-violet-500"
+                                                            />
+                                                            <div className="flex flex-col">
+                                                                <span className="font-bold text-sm text-white">Klarna — Pay in 4</span>
+                                                                <span className="text-xs text-gray-400">Split into four interest-free payments where eligible</span>
+                                                            </div>
+                                                        </div>
+                                                        <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">Klarna</span>
+                                                    </label>
+                                                    )}
+
+                                                    {paymentSettings.paypal && (
+                                                    <label className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition group ${paymentMethod === 'paypal' ? 'bg-purple-600/10 border-purple-500/60 text-white' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30 text-gray-400'}`}>
+                                                        <div className="flex items-center gap-4">
+                                                            <input
+                                                                type="radio"
+                                                                name="paymentMethod"
+                                                                checked={paymentMethod === 'paypal'}
+                                                                onChange={() => { setPaymentMethod('paypal'); setMoreOptionsOpen(true); }}
+                                                                className="w-4 h-4 border-gray-500 text-purple-500 focus:ring-purple-500"
+                                                            />
+                                                            <div className="flex flex-col">
+                                                                <span className="font-bold text-sm text-white">PayPal Pay in 4</span>
+                                                                <span className="text-xs text-gray-400">Split into four payments at the PayPal checkout</span>
+                                                            </div>
+                                                        </div>
+                                                        <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">Pay in 4</span>
+                                                    </label>
+                                                    )}
+
+                                                    {paymentSettings.crypto && (
+                                                    <label className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition group ${paymentMethod === 'crypto' ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30 text-gray-400'}`}>
+                                                        <div className="flex items-center gap-4">
+                                                            <input
+                                                                type="radio"
+                                                                name="paymentMethod"
+                                                                checked={paymentMethod === 'crypto'}
+                                                                onChange={() => { setPaymentMethod('crypto'); setMoreOptionsOpen(true); }}
+                                                                className="w-4 h-4 border-gray-500 text-blue-500 focus:ring-blue-500"
+                                                            />
+                                                            <div className="flex flex-col">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-bold text-sm text-white">Pay with Crypto</span>
+                                                                    <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded font-bold tracking-wider">SAVE {getDiscountPercentageText()}</span>
+                                                                </div>
+                                                                <span className="text-xs text-gray-400 flex items-center gap-1">
+                                                                    USDC on Polygon Network <Info className="w-3 h-3" />
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <Wallet className={`w-5 h-5 ${paymentMethod === 'crypto' ? 'text-blue-400' : 'text-gray-500'}`} />
+                                                    </label>
+                                                    )}
                                                 </div>
-                                            </div>
-                                            <Wallet className={`w-5 h-5 ${paymentMethod === 'crypto' ? 'text-blue-400' : 'text-gray-500'}`} />
-                                        </label>
+                                            )}
+                                        </div>
+                                        )}
                                     </div>
 
                                     <div className="mb-6 rounded-xl border border-white/10 bg-black/30 p-4">
@@ -1433,7 +1575,7 @@ const Checkout: React.FC = () => {
 
                                             {paypalLoadFailed && !paypalReady && (
                                                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
-                                                    PayPal could not load on this device. Choose <button type="button" onClick={() => setPaymentMethod('card')} className="font-bold underline">Card, Klarna & Afterpay</button> instead.
+                                                    PayPal could not load on this device. Choose <button type="button" onClick={() => { setPaymentMethod('card'); setStripeMethod('card'); }} className="font-bold underline">Pay by Card</button> instead.
                                                 </div>
                                             )}
 
@@ -1449,14 +1591,16 @@ const Checkout: React.FC = () => {
                                     {paymentMethod === 'card' && (
                                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                             <div className="bg-white/[0.03] border border-white/10 p-4 rounded-lg">
-                                                <div className="flex items-start gap-3">
-                                                    <div>
-                                                        <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wide mb-1">Card, Klarna & Afterpay</h4>
-                                                        <p className="text-sm text-gray-300">
-                                                            Pay by credit or debit card, or split the order into four interest-free payments with Klarna or Afterpay where available. Klarna and Afterpay are offered when your order and region qualify.
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                        <div className="flex items-start gap-3">
+                                            <div>
+                                                <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wide mb-1">{stripeMethod === 'klarna' ? 'Klarna — Pay in 4' : 'Pay by Card'}</h4>
+                                                <p className="text-sm text-gray-300">
+                                                    {stripeMethod === 'klarna'
+                                                        ? 'Split your order into four interest-free payments. Klarna is offered when your order and region qualify.'
+                                                        : 'Pay by credit or debit card. Visa, Mastercard, Amex, and more — no account or extra steps needed.'}
+                                                </p>
+                                            </div>
+                                        </div>
                                             </div>
 
                                             {stripePromise && clientSecret ? (
@@ -1475,7 +1619,7 @@ const Checkout: React.FC = () => {
                                                 <div className="rounded-xl border border-white/10 bg-black/30 p-6 text-center">
                                                     {!stripePromise ? (
                                                         <p className="text-sm text-gray-400">
-                                                            Card, Klarna, and Afterpay are unavailable right now. Please use PayPal or contact support.
+                                                            Card and Klarna are unavailable right now. Please use PayPal or contact support.
                                                         </p>
                                                     ) : (
                                                         <div className="flex items-center justify-center gap-2 text-sm text-gray-400">

@@ -6,6 +6,24 @@
 
 import type { ApiRequest, ApiResponse } from './_types.js';
 
+// The ONLY payment methods checkout is allowed to offer. Every Stripe
+// PaymentIntent must be created with exactly this allow-list — the
+// PaymentElement renders nothing else. Do NOT switch back to
+// automatic_payment_methods (it silently surfaces every method enabled in the
+// Stripe dashboard, including Link / Cash App / Amazon Pay, which the owner
+// chose to hide).
+//
+// FOOTGUN WARNING: passing a method type that is NOT enabled on the Stripe
+// account makes Stripe fail the ENTIRE PaymentIntent — card included. So a
+// new method (e.g. 'afterpay_clearpay') may ONLY be added here AFTER it is
+// toggled on in the Stripe dashboard (Settings → Payment methods). Code
+// before dashboard = total Stripe checkout outage.
+//
+// The /api/health handler compares this list against what the account
+// actually has enabled and reports the mismatch, so the admin card surfaces
+// the outage instead of silently failing.
+export const CHECKOUT_PAYMENT_METHOD_TYPES = ['card', 'klarna'] as const;
+
 export interface HttpError extends Error {
     status?: number;
 }
