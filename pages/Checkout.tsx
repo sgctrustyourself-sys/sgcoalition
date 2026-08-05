@@ -1453,7 +1453,14 @@ const Checkout: React.FC = () => {
                                                         <div className="flex items-center gap-4">
                                                             <input
                                                                 type="radio"
-                                                                name="paymentMethod"
+                                                                // Distinct name on purpose: the primary PayPal radio up top
+                                                                // (name="paymentMethod", checked={paymentMethod === 'paypal'})
+                                                                // and this secondary Pay in 4 radio express the SAME state. In
+                                                                // one radio group the browser would uncheck the primary's dot
+                                                                // the moment this one mounts (group exclusivity) — the exact
+                                                                // "empty dot on the PayPal card" bug. Its own group keeps both
+                                                                // dots filled while PayPal is selected.
+                                                                name="payIn4Method"
                                                                 checked={paymentMethod === 'paypal'}
                                                                 onChange={() => { setPaymentMethod('paypal'); setMoreOptionsOpen(true); }}
                                                                 className="w-4 h-4 border-gray-500 text-purple-500 focus:ring-purple-500"
