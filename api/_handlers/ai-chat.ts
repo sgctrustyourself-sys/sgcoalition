@@ -446,6 +446,7 @@ async function handleSaveToBrain(body: any) {
     const tags = Array.isArray(body.tags) ? body.tags.map((tag: unknown) => String(tag).trim()).filter(Boolean).slice(0, 10) : [];
 
     if (!title || !content) throw createHttpError(400, 'Title and content are required.');
+    if (!supabase) throw createHttpError(503, 'Brain write service is not configured.');
 
     const { error } = await supabase
         .from('brain_entries')

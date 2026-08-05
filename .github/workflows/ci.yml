@@ -1,0 +1,62 @@
+name: CI — Vitest + Build + Depcheck
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Required secrets (Settings → Secrets and variables → Actions):
+#   This workflow does NOT require any secrets. All tests in the suite
+#   (including rendererSmoke.test.ts with Playwright) are fully self-
+#   contained — Supabase-dependent tests mock the database client.
+#
+# If a future test needs env vars (e.g. VITE_SUPABASE_URL), add them
+# either as repository secrets or as env on the relevant step.
+
+jobs:
+  test:
+    name: Vitest + Build + Depcheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    concurrency:
+      group: ci-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium (for rendererSmoke tests)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run full vitest suite
+        run: npm test
+        env:
+          # jsdom environment — no browser or Supabase secrets needed.
+          # Playwright headless Chromium is resolved from the install above.
+
+      - name: Validate production build (Vite + Rollup)
+        run: npm run build
+        env:
+          # The prebuild hook (generateSeoArtifacts.mjs) parses
+          # INITIAL_PRODUCTS from source to generate sitemaps and
+          # static SEO pages. No Supabase or Imgur secrets required.
+
+      - name: Audit dependencies (depcheck)
+        run: npx depcheck --ignores="@types/*,eslint*,vitest,@vitejs/*,typescript,tsx,tslib,prettier,playwright-core,depcheck"
+        env:
+          # Curated ignore list for known false positives:
+          #   prettier          — config-driven (.prettierrc), not imported
+          #   playwright-core   — bundled by playwright (direct dep)
+          #   depcheck          — self-reference
+          #   @types/*, eslint*, vitest, @vitejs/*, typescript, tsx, tslib
+          #                     — dev tooling, not production deps

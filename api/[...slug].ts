@@ -12,19 +12,28 @@ type Handler = (req: any, res: any) => unknown | Promise<unknown>;
 type Loader = () => Promise<{ default: Handler }>;
 
 const handlers: Record<string, Loader> = {
-    'ai-chat': () => import('./_handlers/ai-chat'),
-    'complete-order': () => import('./_handlers/complete-order'),
-    'create-checkout-session': () => import('./_handlers/create-checkout-session'),
-    'create-payment-intent': () => import('./_handlers/create-payment-intent'),
-    'create-subscription-session': () => import('./_handlers/create-subscription-session'),
-    'git-operations': () => import('./_handlers/git-operations'),
-    'paypal-order': () => import('./_handlers/paypal-order'),
-    'place-order-credits': () => import('./_handlers/place-order-credits'),
-    'send-email': () => import('./_handlers/send-email'),
-    'send-order-confirmation': () => import('./_handlers/send-order-confirmation'),
-    'subscribe-drop': () => import('./_handlers/subscribe-drop'),
-    'unsubscribe': () => import('./_handlers/unsubscribe'),
-    'verify-subscription': () => import('./_handlers/verify-subscription'),
+    'admin-products': () => import('./_handlers/admin-products.js'),
+    'admin-verify': () => import('./_handlers/admin-verify.js'),
+    'ai-chat': () => import('./_handlers/ai-chat.js'),
+    'complete-order': () => import('./_handlers/complete-order.js'),
+    'csp-report': () => import('./_handlers/csp-report.js'),
+    'create-checkout-session': () => import('./_handlers/create-checkout-session.js'),
+    'create-payment-intent': () => import('./_handlers/create-payment-intent.js'),
+    'create-subscription-session': () => import('./_handlers/create-subscription-session.js'),
+    'git-operations': () => import('./_handlers/git-operations.js'),
+    'health': () => import('./_handlers/health.js'),
+    'marketing-subscribe': () => import('./_handlers/marketing-subscribe.js'),
+    'marketing-stats': () => import('./_handlers/marketing-stats.js'),
+    'paypal-order': () => import('./_handlers/paypal-order.js'),
+    'payment-settings': () => import('./_handlers/payment-settings.js'),
+    'pricing-preview': () => import('./_handlers/pricing-preview.js'),
+    'place-order-credits': () => import('./_handlers/place-order-credits.js'),
+    'send-email': () => import('./_handlers/send-email.js'),
+    'send-order-confirmation': () => import('./_handlers/send-order-confirmation.js'),
+    'subscribe-drop': () => import('./_handlers/subscribe-drop.js'),
+    'update-piece-metadata': () => import('./_handlers/update-piece-metadata.js'),
+    'unsubscribe': () => import('./_handlers/unsubscribe.js'),
+    'verify-subscription': () => import('./_handlers/verify-subscription.js'),
 };
 
 export default async function handler(req: any, res: any) {
@@ -56,6 +65,11 @@ export default async function handler(req: any, res: any) {
             return;
         }
         slug = fallback;
+    }
+
+    if (!slug) {
+        res.status(404).json({ error: 'Endpoint not found' });
+        return;
     }
 
     const loader = handlers[slug];

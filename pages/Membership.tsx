@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, CreditCard, ShoppingBag, Check, Star, Zap, X, Loader, Sparkles as SparklesIcon, Ticket } from 'lucide-react';
+import { Shield, CreditCard, ShoppingBag, Check, Star, Zap, X, Loader, Ticket } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 
@@ -10,6 +10,7 @@ const Membership = () => {
 
     const [isLoading, setIsLoading] = React.useState(false);
     const [showPayment, setShowPayment] = React.useState(false);
+    const [paypalReady, setPaypalReady] = React.useState(() => Boolean(window.paypal || window.__coalitionPaypalReady));
     const [paymentError, setPaymentError] = React.useState<string | null>(null);
 
     const handleSubscribe = () => {
@@ -89,10 +90,29 @@ const Membership = () => {
     };
 
     React.useEffect(() => {
-        if (showPayment) {
+        if (!showPayment || paypalReady) return;
+        const markReady = () => setPaypalReady(Boolean(window.paypal || window.__coalitionPaypalReady));
+        const markFailed = () => setPaymentError('PayPal could not load on this device. Please try again or contact support.');
+        window.addEventListener('coalition:paypal-ready', markReady);
+        window.addEventListener('coalition:paypal-failed', markFailed);
+        const poll = window.setInterval(markReady, 250);
+        const stop = window.setTimeout(() => {
+            window.clearInterval(poll);
+            if (!window.paypal && !window.__coalitionPaypalReady) markFailed();
+        }, 15000);
+        return () => {
+            window.removeEventListener('coalition:paypal-ready', markReady);
+            window.removeEventListener('coalition:paypal-failed', markFailed);
+            window.clearInterval(poll);
+            window.clearTimeout(stop);
+        };
+    }, [showPayment, paypalReady]);
+
+    React.useEffect(() => {
+        if (showPayment && paypalReady) {
             initializePayPal();
         }
-    }, [showPayment]);
+    }, [showPayment, paypalReady]);
 
 
     return (
@@ -401,10 +421,12 @@ const Membership = () => {
                                 )}
 
                                 <div id="paypal-button-container-membership" className="min-h-[150px]">
-                                    {isLoading && (
+                                    {(!paypalReady || isLoading) && !paymentError && (
                                         <div className="flex flex-col items-center justify-center py-10">
                                             <Loader className="w-8 h-8 text-purple-500 animate-spin mb-4" />
-                                            <span className="text-sm text-gray-400 font-bold uppercase tracking-widest">Initialising PayPal...</span>
+                                            <span className="text-sm text-gray-400 font-bold uppercase tracking-widest">
+                                                {paypalReady ? 'Initialising PayPal...' : 'Waiting for PayPal...'}
+                                            </span>
                                         </div>
                                     )}
                                 </div>

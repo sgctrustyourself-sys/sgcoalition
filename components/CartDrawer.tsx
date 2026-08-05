@@ -1,11 +1,13 @@
 import React, { useMemo } from 'react';
-import { X, ShoppingBag, Trash2, Hexagon, Sparkles } from 'lucide-react';
+import { X, ShoppingBag, Trash2, Hexagon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import NoRefundsBanner from './NoRefundsBanner';
-import FreeShippingBar from './ui/FreeShippingBar';
-import CartUpsells from './CartUpsells';
-import CompleteTheFitCart from './CompleteTheFitCart';
+// FreeShippingBar + CartUpsells were removed as part of the "Peaceful
+// Space" wedge. The gamified "X away from free shipping!" progress bar
+// and the generic "You may also like" recommendations both manufacture
+// cart anxiety. The contextual Above-as-Below set bonus is rendered
+// inline below — that's the only cross-sell copy that earns its place.
 import { SALES_FINAL_ENABLED } from '../constants';
 import { getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
@@ -40,7 +42,13 @@ const CartDrawer = () => {
             <div className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity" onClick={() => setCartOpen(false)} />
 
             {/* Drawer */}
-            <div className="relative w-full max-w-md bg-black h-full shadow-2xl flex flex-col animate-slide-in border-l border-white/10">
+            {/* animationDuration override slows the default animate-slide-in
+                (Tailwind default ~150ms) to a deliberate 500ms ease. The
+                cart drawer should feel like a quiet handoff, not a snap. */}
+            <div
+                className="relative w-full max-w-md bg-black h-full shadow-2xl flex flex-col animate-slide-in border-l border-white/10"
+                style={{ animationDuration: '500ms', animationTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)' }}
+            >
                 <div className="p-4 flex items-center justify-between border-b border-white/10">
                     <h2 className="font-display text-xl font-bold uppercase text-white">Your Cart</h2>
                     <button onClick={() => setCartOpen(false)} className="p-1 hover:bg-white/10 rounded-full transition text-gray-400 hover:text-white" aria-label="Close cart">
@@ -78,45 +86,22 @@ const CartDrawer = () => {
                         ))
                     )}
 
-                    {/* Above-as-Below complete-the-outfit upsell. Renders when exactly */}
-                    {/* one of (tee, shorts) is in cart; stays silent when both are */}
-                    {/* present so the existing set-bonus card isn't doubled up. */}
-                    <CompleteTheFitCart variant="drawer" />
-
-                    {/* Above-as-Below Set Bonus Announcement */}
+                    {/* Above-as-Below Set Bonus — contextual, not gamified. */}
                     {setBonusCents > 0 && (
-                        <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4 flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2">
-                            <Sparkles className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                            <div>
-                                <p className="text-sm font-bold text-green-300 uppercase tracking-wide">
-                                    Save ${setBonusDollars.toFixed(2)} with the set!
-                                </p>
-                                <p className="mt-1 text-xs text-green-200/80 leading-relaxed">
-                                    Above-as-Below tee + shorts matched — $30 set bonus auto-applied.
-                                </p>
-                            </div>
+                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 mb-1">
+                                Set bonus applied
+                            </p>
+                            <p className="text-sm leading-relaxed text-gray-200">
+                                ${setBonusDollars.toFixed(2)} off the pair — the tee and shorts were built as a set.
+                            </p>
                         </div>
                     )}
 
-                    {/* Free Shipping Progress */}
-                    {cart.length > 0 && (
-                        <FreeShippingBar
-                            cartTotal={total}
-                            // hasFreeShippingItems mirrors how CompleteTheFitCart
-                            // already reassures the shopper that the present
-                            // line ships free — without it, the bar would
-                            // still plead "add $X more for free shipping" on
-                            // every cart that contains a wallet, tee, shorts,
-                            // or hoodie (all flagged freeShipping: true).
-                            hasFreeShippingItems={cart.some((item) => item.freeShipping)}
-                            className="mt-6"
-                        />
-                    )}
-
-                    {/* Cart Upsells */}
-                    {cart.length > 0 && (
-                        <CartUpsells cartItems={cart} cartTotal={total} className="mt-6" />
-                    )}
+                    {/* Free shipping progress + generic cart upsells were
+                        removed (see "Peaceful Space" wedge). The
+                        Above-as-Below set bonus above is the only
+                        cross-sell copy that ships in the cart drawer. */}
                 </div>
 
                 {cart.length > 0 && (
@@ -127,7 +112,7 @@ const CartDrawer = () => {
                                 <span>${total.toFixed(2)}</span>
                             </div>
                             {setBonusCents > 0 && (
-                                <div className="flex justify-between text-xs text-green-400">
+                                <div className="flex justify-between text-xs text-gray-400">
                                     <span>Above as Below set bonus</span>
                                     <span>-${setBonusDollars.toFixed(2)}</span>
                                 </div>

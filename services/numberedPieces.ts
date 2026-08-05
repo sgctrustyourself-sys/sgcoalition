@@ -1,5 +1,5 @@
-import { supabase } from './supabase';
-import type { Product, NumberedPiece } from '../types';
+import { supabase } from './supabase.js';
+import type { Product, NumberedPiece } from '../types.js';
 
 export interface PaidCountsByProduct {
     [productId: string]: number;
@@ -81,14 +81,14 @@ export async function fetchPiecesByOrder(orderId: string): Promise<NumberedPiece
 
 /**
  * Editorial helper for the admin OrderDetails inline NFT/NFC editor.
- * Routes the write through /api/admin/update-piece-metadata (server-side
+ * Routes the write through /api/update-piece-metadata (server-side
  * service-role JWT) rather than direct supabase.from(...).update(...).
  *
  * WHY SERVER-ROUTED (reviewer note):
  * The admin UPDATE policy on numbered_pieces requires
  *   EXISTS (SELECT 1 FROM admin_users WHERE user_id = auth.uid())
  * -- which fails for Coalition admins because the admin login flow
- * (sessionStorage.coalition_admin_token + /api/admin/verify) does NOT mint
+ * (sessionStorage.coalition_admin_token + /api/admin-verify) does NOT mint
  * a Supabase auth session. Anonymous UPDATE returns 403 with an opaque
  * error and the operator can't tell whether the migration is wrong or auth
  * is missing. The server-side handler uses ADMIN_SESSION_TOKEN as the
@@ -111,7 +111,7 @@ export async function updatePieceMetadata(
     }
 
     try {
-        const res = await fetch('/api/admin/update-piece-metadata', {
+        const res = await fetch('/api/update-piece-metadata', {
             method: 'POST',
             headers,
             body: JSON.stringify({ pieceId, ...updates }),

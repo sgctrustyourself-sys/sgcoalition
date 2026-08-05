@@ -19,6 +19,7 @@ const ProductManager: React.FC = () => {
     const [editForm, setEditForm] = useState<Partial<Product>>({});
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [togglingSoldId, setTogglingSoldId] = useState<string | null>(null);
     const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
     const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
     const [dragOverImageIndex, setDragOverImageIndex] = useState<number | null>(null);
@@ -78,6 +79,8 @@ const ProductManager: React.FC = () => {
         setIsSaving(true);
         try {
             const normalizedSizes = normalizeProductSizeData(editForm.sizes, editForm.sizeInventory);
+            // Preserve sold/archive timestamps when editing so a normal save doesn't clear them.
+            const existingProduct = !isAdding ? products.find(p => p.id === editForm.id) : undefined;
             const productData: Product = {
                 id: editForm.id || `prod_${Date.now()}`,
                 name: editForm.name,
@@ -91,6 +94,8 @@ const ProductManager: React.FC = () => {
                 nft: editForm.nft,
                 archived: editForm.archived || false,
                 founderNote: editForm.founderNote,
+                soldAt: existingProduct?.soldAt ?? null,
+                archivedAt: existingProduct?.archivedAt ?? null,
             };
 
             if (isAdding) {
@@ -121,12 +126,20 @@ const ProductManager: React.FC = () => {
         setError(null);
         setSuccess(null);
         try {
-            const hash = await syncProductsToCode();
-            setSuccess(`Sync Complete! Constants updated and committed (${hash})`);
+            const result = await syncProductsToCode();
+            if (result && result.noChanges) {
+                const commitRef = result.hash ? ` (HEAD ${result.hash})` : '';
+                setSuccess(`Already up to date — no changes since last sync${commitRef}`);
+            } else {
+                setSuccess(`Sync Complete! Constants updated and committed (${result?.hash ?? 'ok'})`);
+            }
             setTimeout(() => setSuccess(null), 5000);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Core sync failed:', err);
-            setError('Failed to sync products to codebase. Make sure the local server is running.');
+            // Surface the actual error from the server (was previously hidden
+            // by a misleading "make sure the local server is running" message).
+            const detail = err?.message || 'Unknown error';
+            setError(`Sync failed: ${detail}. Open the browser console for the full response.`);
         } finally {
             setIsSyncing(false);
         }
@@ -207,6 +220,44 @@ const ProductManager: React.FC = () => {
         } catch (err) {
             console.error("Failed to duplicate product", err);
             setError("Failed to duplicate product");
+        }
+    };
+
+    // Toggle sold/archived status from the product list
+    const toggleSoldStatus = async (product: Product) => {
+        const markAsSold = !product.archived;
+        const actionLabel = markAsSold ? 'mark as sold' : 'unarchive';
+
+        if (!window.confirm(`Are you sure you want to ${actionLabel} "${product.name}"? ${markAsSold ? 'All inventory will be set to 0 and the product will be hidden from the storefront.' : 'Inventory will remain at 0 — edit the product to restock.'}`)) {
+            return;
+        }
+
+        setTogglingSoldId(product.id);
+        setError(null);
+        setSuccess(null);
+
+        try {
+            const now = new Date().toISOString();
+            const zeroedInventory = product.sizeInventory
+                ? Object.keys(product.sizeInventory).reduce((acc, size) => ({ ...acc, [size]: 0 }), {})
+                : {};
+
+            const updatedProduct: Product = {
+                ...product,
+                archived: markAsSold,
+                soldAt: markAsSold ? now : null,
+                archivedAt: markAsSold ? now : null,
+                sizeInventory: markAsSold ? zeroedInventory : (product.sizeInventory || {}),
+            };
+
+            await updateProduct(updatedProduct);
+            setSuccess(markAsSold ? `"${product.name}" marked as sold` : `"${product.name}" unarchived`);
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err) {
+            console.error('Failed to toggle sold status:', err);
+            setError(`Failed to ${actionLabel} product`);
+        } finally {
+            setTogglingSoldId(null);
         }
     };
 
@@ -383,11 +434,10 @@ const ProductManager: React.FC = () => {
                                         <option value="apparel">Apparel</option>
                                         <option value="accessory">Accessory</option>
                                         <option value="shirt">Shirt</option>
-                                        <option value="shorts">Shorts</option>
-                                        <option value="sweatshirt">Sweatshirt</option>
                                         <option value="hoodie">Hoodie</option>
                                         <option value="hat">Hat</option>
                                         <option value="jeans">Jeans</option>
+                                        <option value="wallet">Wallet</option>
                                     </select>
                                 </div>
                             </div>
@@ -669,19 +719,20 @@ const ProductManager: React.FC = () => {
                                 <th className="p-4">Price</th>
                                 <th className="p-4">Inventory</th>
                                 <th className="p-4">Category</th>
+                                <th className="p-4 text-center">Sold</th>
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {filteredProducts.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-12 text-center text-gray-500 italic">
+                                    <td colSpan={6} className="p-12 text-center text-gray-500 italic">
                                         No products found matching your search.
                                     </td>
                                 </tr>
                             ) : (
                                 filteredProducts.map(product => (
-                                    <tr key={product.id} className="hover:bg-white/5 transition group">
+                                    <tr key={product.id} className="hover:bg-white/5 transition group hover:ring-1 hover:ring-white/10">
                                         <td className="p-4">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-12 h-12 rounded bg-black/40 overflow-hidden flex-shrink-0 border border-white/10 group-hover:border-white/30 transition">
@@ -721,8 +772,23 @@ const ProductManager: React.FC = () => {
                                                 {product.category}
                                             </span>
                                         </td>
+                                        <td className="p-4 text-center">
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    className="sr-only peer"
+                                                    checked={!!product.archived}
+                                                    onChange={() => toggleSoldStatus(product)}
+                                                    disabled={togglingSoldId === product.id}
+                                                    title={product.archived ? 'Unarchive product' : 'Mark product as sold'}
+                                                    aria-label={product.archived ? `Unarchive ${product.name}` : `Mark ${product.name} as sold`}
+                                                />
+                                                <div className="w-10 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-500 shadow-inner"></div>
+                                            </label>
+                                            {togglingSoldId === product.id && <Loader2 className="w-3 h-3 animate-spin text-gray-400 inline ml-2" />}
+                                        </td>
                                         <td className="p-4 text-right">
-                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition">
+                                            <div className="flex items-center justify-end gap-2 opacity-60 hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={() => duplicateProduct(product)}
                                                     className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition"

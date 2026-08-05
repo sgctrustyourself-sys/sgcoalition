@@ -14,16 +14,12 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execSync } from 'child_process';
-// Top-level `fs` for sync + stream helpers (`readdirSync`, `rmSync`,
-// `createReadStream`); `fs.promises.X` for async ops (`rm`, `writeFile`).
-// The top-level `fs.rm` / `fs.writeFile` are callback-style and throw
-// "The 'cb' argument must be of type function. Received undefined" when
-// called without a callback (Node's internal `rimraf` validates the
-// callback up front), so async file ops must go through `fs.promises`
-// to return a Promise that `await` can wait on. Sync + stream calls
-// stay on the top-level namespace so a single `fs` import covers the
-// whole file.
+// Two `fs` imports: `fs` is the regular (sync + stream) module, `fsPromises`
+// is the async `fs/promises` namespace. The previous version only imported
+// `promises as fs`, which broke `fs.readdirSync` and `fs.createReadStream`
+// (neither exists on the `fs/promises` namespace).
 import fs from 'fs';
+import { promises as fsPromises } from 'fs';
 import path from 'path';
 import { PNG } from 'pngjs';
 
@@ -90,44 +86,34 @@ function hasOrangeBleed(data) {
     return false;
 }
 
+// `beforeAll` cleans the reveal dirs, and `npm run reveal` (the alias) only
+// creates docs/story-reveal/ — the grid-reveal/ and x-reveal/ dirs may not
+// exist yet. Return [] in that case (semantically "0 files in this dir").
+// Note: `fs.readdirSync` does NOT support a `throwIfNoEntry` option (that's
+// only for statSync/lstatSync/rmSync), so we use `existsSync` instead.
 function listPngs(dir) {
-    // The first test legitimately expects 0 grid / 0 x PNGs even when
-    // `npm run reveal` never created those reveal dirs in the first
-    // place -- on a fresh checkout, grid-reveal/ and x-reveal/ do not
-    // exist at all. `fs.readdirSync` throws ENOENT on a missing dir, so
-    // return [] for that case and let the count assertion (0 === 0)
-    // pass. Rethrow on any other error so we don't silently swallow
-    // genuine failures (permission, EIO, etc.).
-    try {
-        return fs.readdirSync(dir).filter(f => f.endsWith('.png')).sort();
-    } catch (err) {
-        if (err && err.code === 'ENOENT') return [];
-        throw err;
-    }
+    if (!fs.existsSync(dir)) return [];
+    return fs.readdirSync(dir).filter(f => f.endsWith('.png')).sort();
 }
 function listHtml(dir) {
-    try {
-        return fs.readdirSync(dir).filter(f => f.endsWith('.html')).sort();
-    } catch (err) {
-        if (err && err.code === 'ENOENT') return [];
-        throw err;
-    }
+    if (!fs.existsSync(dir)) return [];
+    return fs.readdirSync(dir).filter(f => f.endsWith('.html')).sort();
 }
 
 describe('Coalition Drop Renderer smoke test', () => {
     beforeAll(async () => {
         // Clean output dirs so this run is deterministic.
         await Promise.all([
-            fs.promises.rm(DIRS.story, { recursive: true, force: true }),
-            fs.promises.rm(DIRS.grid,  { recursive: true, force: true }),
-            fs.promises.rm(DIRS.x,     { recursive: true, force: true }),
+            fsPromises.rm(DIRS.story, { recursive: true, force: true }),
+            fsPromises.rm(DIRS.grid,  { recursive: true, force: true }),
+            fsPromises.rm(DIRS.x,     { recursive: true, force: true }),
         ]);
-        await fs.promises.writeFile(SPEC, THROWAWAY_SPEC, 'utf8');
+        await fsPromises.writeFile(SPEC, THROWAWAY_SPEC, 'utf8');
     }, 60_000);
 
     afterAll(async () => {
         // Drop the synthetic spec so dev machines don't accumulate stray files.
-        await fs.promises.rm(SPEC, { force: true });
+        await fsPromises.rm(SPEC, { force: true });
     });
 
     // REGRESSION CATCH:
@@ -146,7 +132,7 @@ describe('Coalition Drop Renderer smoke test', () => {
     // Full coverage: 14 PNGs at correct viewports, 14 matching HTML aids, 0 orange bleed.
     it('3 explicit scripts render exactly 14 PNGs + 14 HTML aids at correct viewports with 0 orange bleed', async () => {
         // Clear the alias-run output before chained-three run.
-        fs.rmSync(DIRS.story, { recursive: true, force: true });
+        await fsPromises.rm(DIRS.story, { recursive: true, force: true });
 
         execSync('npm run story:reveal -- --slug throwaway', { cwd: ROOT, stdio: 'pipe' });
         execSync('npm run grid:reveal -- --slug throwaway',  { cwd: ROOT, stdio: 'pipe' });

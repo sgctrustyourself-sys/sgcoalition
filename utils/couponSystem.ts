@@ -1,10 +1,19 @@
-import { supabase } from '../services/supabase';
-import { getReferralStatsByCode } from './referralSystem';
+import { supabase } from '../services/supabase.js';
+import { getReferralStatsByCode } from './referralSystem.js';
 
 /**
- * Validate if a coupon code exists as a referral code
+ * Validate if a coupon code exists as a referral code.
+ *
+ * `currentUserId` is optional for backward compatibility, but passing the
+ * signed-in user is what enables the self-referral block. The block is
+ * also enforced server-side in the `track_referral_event` RPC for the
+ * events that matter (signup, purchase); this is the fast-fail at the
+ * coupon-input layer so users get an immediate error message.
  */
-export const validateCouponCode = async (code: string): Promise<{ valid: boolean; error?: string; referrerName?: string }> => {
+export const validateCouponCode = async (
+    code: string,
+    currentUserId?: string
+): Promise<{ valid: boolean; error?: string; referrerName?: string }> => {
     try {
         if (!code || code.trim() === '') {
             return { valid: false, error: 'Please enter a coupon code' };
@@ -15,6 +24,11 @@ export const validateCouponCode = async (code: string): Promise<{ valid: boolean
 
         if (!stats) {
             return { valid: false, error: 'Invalid coupon code' };
+        }
+
+        // Self-referral block: a logged-in user cannot use their own code.
+        if (currentUserId && stats.user_id === currentUserId) {
+            return { valid: false, error: "You can't use your own referral code" };
         }
 
         // Get referrer's name for display
@@ -44,12 +58,11 @@ export const applyCouponCode = (code: string): void => {
 };
 
 /**
- * Get currently applied coupon/referral code
+ * Get currently applied coupon/referral code.
+ * Re-export of `getActiveReferralCode` from utils/referralSystem so the
+ * storage-lifecycle lives in one place.
  */
-export const getAppliedCouponCode = (): string | null => {
-    // Check both sessionStorage (from coupon input) and localStorage (from URL)
-    return sessionStorage.getItem('referralCode') || localStorage.getItem('referral_code');
-};
+export { getActiveReferralCode as getAppliedCouponCode } from './referralSystem.js';
 
 /**
  * Clear applied coupon code

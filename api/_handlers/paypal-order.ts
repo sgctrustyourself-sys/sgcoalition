@@ -1,57 +1,41 @@
-import { createClient } from '@supabase/supabase-js';
-import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet';
-
-interface HttpError extends Error {
-    status?: number;
-}
-
-type NormalizedCheckoutItem = {
-    productId: string;
-    selectedSize: string;
-    quantity: number;
-    keychainClipOn: boolean;
-};
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import {
+    type ApiRequest,
+    type ApiResponse,
+    type PayPalCaptureOrderInput,
+    type PayPalCreateOrderInput,
+    type PayPalNormalizedCheckoutItem,
+    type PayPalOAuthResponse,
+    type PayPalOrderResponse,
+} from '../_types.js';
+import {
+    createHttpError,
+    parseBody,
+    setCorsHeaders,
+} from '../_helpers.js';
+import { resolvePricing, type PricingItem, HttpError } from '../../services/orderIntake.js';
+import { loadPaymentSettings, DEFAULT_PAYMENT_SETTINGS } from '../../services/paymentSettings.js';
 
 const PAYPAL_LIVE_API = 'https://api-m.paypal.com';
 const PAYPAL_SANDBOX_API = 'https://api-m.sandbox.paypal.com';
 const CURRENCY_CODE = 'USD';
+
+// Service-role client for the owner-controlled payment_settings read.
+// Created lazily so a cold start without a request never touches Supabase.
+let supabaseAdmin: SupabaseClient | null = null;
+function getSupabaseAdmin(): SupabaseClient {
+    if (!supabaseAdmin) {
+        const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+        if (!supabaseUrl || !serviceRoleKey) {
+            throw createHttpError(503, 'Supabase admin service is not configured.');
+        }
+        supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+    }
+    return supabaseAdmin;
+}
 const KEYCHAIN_CLIP_PRICE_CENTS = 1000;
 const MAX_PAYPAL_QUANTITY = 99;
-
-function setCorsHeaders(req: any, res: any) {
-    const configuredOrigin = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
-    const allowedOrigins = new Set([
-        configuredOrigin,
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3001',
-    ]);
-    const requestOrigin = req.headers?.origin;
-    const responseOrigin = requestOrigin && allowedOrigins.has(requestOrigin) ? requestOrigin : configuredOrigin;
-
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', responseOrigin);
-    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-}
-
-function createHttpError(status: number, message: string): HttpError {
-    const error = new Error(message) as HttpError;
-    error.status = status;
-    return error;
-}
-
-function parseBody(req: any) {
-    if (!req.body) return {};
-    if (typeof req.body !== 'string') return req.body;
-
-    try {
-        return JSON.parse(req.body);
-    } catch {
-        throw createHttpError(400, 'Invalid JSON request body.');
-    }
-}
 
 function getPaypalBaseUrl() {
     const explicitBaseUrl = process.env.PAYPAL_API_BASE_URL?.trim();
@@ -72,38 +56,17 @@ function getPaypalCredentials() {
     return { clientId, clientSecret };
 }
 
-function getSupabaseAdmin() {
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-
-    if (!supabaseUrl || !serviceRoleKey) {
-        throw createHttpError(503, 'Supabase product verification is not configured.');
-    }
-
-    return createClient(supabaseUrl, serviceRoleKey);
-}
-
 function moneyFromCents(cents: number) {
     return (Math.max(0, cents) / 100).toFixed(2);
 }
 
-function parseMoneyCents(value: unknown, fieldName: string) {
-    const parsed = Number(value ?? 0);
-    if (!Number.isFinite(parsed)) {
-        throw createHttpError(400, `${fieldName} must be a valid amount.`);
-    }
-    if (parsed < 0) {
-        throw createHttpError(400, `${fieldName} cannot be negative.`);
-    }
-    return Math.round(parsed * 100);
-}
-
-function normalizeCheckoutItems(items: any[] = []): NormalizedCheckoutItem[] {
+function normalizeCheckoutItems(items: unknown[]): PayPalNormalizedCheckoutItem[] {
     if (!Array.isArray(items) || items.length === 0) {
         throw createHttpError(400, 'PayPal order requires at least one item.');
     }
 
-    return items.map((item, index) => {
+    return items.map((rawItem, index) => {
+        const item = (rawItem ?? {}) as Record<string, unknown>;
         const productId = String(item.productId || item.product_id || item.id || '').trim();
         if (!productId) {
             throw createHttpError(400, `Item ${index + 1} is missing a product ID.`);
@@ -123,72 +86,9 @@ function normalizeCheckoutItems(items: any[] = []): NormalizedCheckoutItem[] {
     });
 }
 
-async function loadProductsForItems(items: NormalizedCheckoutItem[]) {
-    const productIds = [...new Set(items.map(item => item.productId))];
-    const { data, error } = await getSupabaseAdmin()
-        .from('products')
-        .select('id,name,price,category,archived,size_inventory')
-        .in('id', productIds);
-
-    if (error) {
-        throw createHttpError(500, error.message || 'Unable to verify checkout products.');
-    }
-
-    const products = new Map<string, any>((data || []).map((product: any) => [String(product.id), product]));
-    const missing = productIds.filter(id => !products.has(id));
-    if (missing.length > 0) {
-        throw createHttpError(409, `Checkout contains unavailable product(s): ${missing.join(', ')}.`);
-    }
-
-    return products;
-}
-
-function getExpectedUnitAmountCents(product: any, item: NormalizedCheckoutItem) {
-    if (product?.archived) {
-        throw createHttpError(409, `${product.name || 'This item'} is no longer available.`);
-    }
-
-    const basePriceCents = parseMoneyCents(product?.price, 'Product price');
-    const category = String(product?.category || '').toLowerCase();
-    const addOnCents = item.keychainClipOn && category === 'wallet' ? KEYCHAIN_CLIP_PRICE_CENTS : 0;
-
-    if (item.keychainClipOn && category !== 'wallet') {
-        throw createHttpError(409, `${product.name || 'This item'} does not support the keychain clip add-on.`);
-    }
-
-    const inventory = product?.size_inventory || {};
-    if (inventory && Object.prototype.hasOwnProperty.call(inventory, item.selectedSize)) {
-        const available = Number(inventory[item.selectedSize] || 0);
-        if (available < item.quantity) {
-            throw createHttpError(409, `${product.name || 'This item'} is no longer available in the requested quantity.`);
-        }
-    }
-
-    return basePriceCents + addOnCents;
-}
-
-async function buildPayPalItems(items: NormalizedCheckoutItem[]) {
-    const products = await loadProductsForItems(items);
-
-    return items.map((item, index) => {
-        const product = products.get(item.productId);
-        const unitAmountCents = getExpectedUnitAmountCents(product, item);
-        const name = String(product?.name || `Coalition Item ${index + 1}`).slice(0, 127);
-
-        return {
-            productId: item.productId,
-            lineTotalCents: unitAmountCents * item.quantity,
-            paypalItem: {
-                name,
-                quantity: String(item.quantity),
-                category: 'PHYSICAL_GOODS',
-                unit_amount: {
-                    currency_code: CURRENCY_CODE,
-                    value: moneyFromCents(unitAmountCents),
-                },
-            },
-        };
-    });
+// Pricing delegated to the shared Order intake module.
+function pricingItemsFromCheckout(items: PayPalNormalizedCheckoutItem[]): PricingItem[] {
+    return items.map(i => ({ productId: i.productId, selectedSize: i.selectedSize, quantity: i.quantity, keychainClipOn: i.keychainClipOn }));
 }
 
 function getRequestId(prefix: string, value: unknown) {
@@ -198,7 +98,7 @@ function getRequestId(prefix: string, value: unknown) {
     return normalized || `${prefix}_${Date.now()}`;
 }
 
-async function getAccessToken() {
+async function getAccessToken(): Promise<string> {
     const { clientId, clientSecret } = getPaypalCredentials();
     const response = await fetch(`${getPaypalBaseUrl()}/v1/oauth2/token`, {
         method: 'POST',
@@ -209,83 +109,94 @@ async function getAccessToken() {
         body: 'grant_type=client_credentials',
     });
 
-    const data = await response.json().catch(() => ({}));
+    const data = (await response.json().catch(() => ({}))) as PayPalOAuthResponse;
     if (!response.ok || !data.access_token) {
         throw createHttpError(response.status || 502, data.error_description || data.error || 'Unable to authenticate with PayPal.');
     }
 
-    return data.access_token as string;
+    return data.access_token;
 }
 
-async function createPaypalOrder(body: any) {
+async function createPaypalOrder(body: PayPalCreateOrderInput) {
+    // Owner-controlled visibility: PayPal checkout can be switched off from
+    // the admin Command Center. Reject order creation so a disabled method
+    // is not payable even from a stale client page. The read wraps BOTH the
+    // env-missing path (getSupabaseAdmin 503) and any DB failure: if we
+    // cannot learn the setting we fail OPEN (all-enabled) — a settings
+    // outage must never lock PayPal checkout, and PayPal previously had no
+    // Supabase dependency at all.
+    let paymentSettings = { ...DEFAULT_PAYMENT_SETTINGS };
+    try {
+        paymentSettings = await loadPaymentSettings(getSupabaseAdmin());
+    } catch (error) {
+        console.warn('[PayPal API] payment settings read failed — assuming PayPal enabled:', error);
+    }
+    if (!paymentSettings.paypal) {
+        throw createHttpError(409, 'PayPal checkout is currently unavailable. Please use another payment method.');
+    }
+
     const normalizedItems = normalizeCheckoutItems(Array.isArray(body.items) ? body.items : []);
-    const lineItems = await buildPayPalItems(normalizedItems);
-    const itemTotalCents = lineItems.reduce((sum, item) => sum + item.lineTotalCents, 0);
-    const shippingCents = parseMoneyCents(body.shipping || 0, 'Shipping');
-    const requestedDiscountCents = parseMoneyCents(body.discount || 0, 'Discount');
-    // Server is the source of truth for the set bonus: re-derive it from the
-    // cart contents regardless of what the client sent. Anything beyond the
-    // legitimate bonus is treated as store-credit abuse and rejected.
-    const setBonusCents = calculateAboveAsBelowSetBonusCents(
-        normalizedItems.map(item => ({ productId: item.productId, quantity: item.quantity })),
+
+    // Use the shared pricing authority
+    const pricing = await resolvePricing(
+        pricingItemsFromCheckout(normalizedItems),
+        Number(body.shipping || 0),
+        Number(body.discount || 0),
+        'paypal',
     );
-    const otherDiscountCents = Math.max(0, requestedDiscountCents - setBonusCents);
-    if (otherDiscountCents > 0) {
-        throw createHttpError(400, 'Store credit cannot be combined with PayPal yet. Turn off store credit or use it to cover the full order.');
-    }
-    const discountCents = setBonusCents;
 
-    if (shippingCents !== 0 && shippingCents !== 1000) {
-        throw createHttpError(400, 'Invalid PayPal shipping amount.');
+    // Client total sanity check
+    if (body.expectedTotal !== undefined) {
+        const expectedCents = Math.round(Number(body.expectedTotal) * 100);
+        if (expectedCents !== pricing.totalCents) {
+            console.warn('[PayPal API] expectedTotal mismatch: client=' + expectedCents + 'c server=' + pricing.totalCents + 'c');
+        }
     }
 
-    const orderTotalCents = itemTotalCents + shippingCents - discountCents;
-    if (orderTotalCents <= 0) throw createHttpError(400, 'PayPal order total must be greater than zero.');
+    if (pricing.totalCents <= 0) throw createHttpError(400, 'PayPal order total must be greater than zero.');
 
-    const expectedTotalCents = body.expectedTotal === undefined ? orderTotalCents : parseMoneyCents(body.expectedTotal, 'Expected total');
-    if (expectedTotalCents !== orderTotalCents) {
-        throw createHttpError(409, 'PayPal order total changed. Refresh checkout and try again.');
-    }
+    // Build PayPal line items from the resolved pricing
+    const paypalItems = pricing.items.map((pi, i) => ({
+        name: pi.productName.slice(0, 127),
+        quantity: String(pi.quantity),
+        category: 'PHYSICAL_GOODS' as const,
+        unit_amount: { currency_code: CURRENCY_CODE, value: moneyFromCents(pi.unitCents) },
+    }));
 
     const accessToken = await getAccessToken();
-    const referenceId = String(body.referenceId || `coalition_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
-    const response = await fetch(`${getPaypalBaseUrl()}/v2/checkout/orders`, {
+    const referenceId = String(body.referenceId || 'coalition_' + Date.now()).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
+    const response = await fetch(getPaypalBaseUrl() + '/v2/checkout/orders', {
         method: 'POST',
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-            Prefer: 'return=representation',
-            'PayPal-Request-Id': getRequestId('create', referenceId),
-        },
+        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json', Prefer: 'return=representation', 'PayPal-Request-Id': getRequestId('create', referenceId) },
         body: JSON.stringify({
             intent: 'CAPTURE',
             purchase_units: [{
                 reference_id: referenceId,
-                custom_id: referenceId,
+                custom_id: body.orderId || referenceId,
                 description: String(body.description || 'Coalition order').slice(0, 127),
                 amount: {
                     currency_code: CURRENCY_CODE,
-                    value: moneyFromCents(orderTotalCents),
+                    value: moneyFromCents(pricing.totalCents),
                     breakdown: {
-                        item_total: { currency_code: CURRENCY_CODE, value: moneyFromCents(itemTotalCents) },
-                        shipping: { currency_code: CURRENCY_CODE, value: moneyFromCents(shippingCents) },
-                        discount: { currency_code: CURRENCY_CODE, value: moneyFromCents(discountCents) },
+                        item_total: { currency_code: CURRENCY_CODE, value: moneyFromCents(pricing.itemTotalCents) },
+                        shipping: { currency_code: CURRENCY_CODE, value: moneyFromCents(pricing.shippingCents) },
+                        discount: { currency_code: CURRENCY_CODE, value: moneyFromCents(pricing.discountCents) },
                     },
                 },
-                items: lineItems.map(item => item.paypalItem),
+                items: paypalItems,
             }],
         }),
     });
 
-    const data = await response.json().catch(() => ({}));
+    const data: PayPalOrderResponse = await response.json().catch(() => ({}));
     if (!response.ok || !data.id) {
         throw createHttpError(response.status || 502, data.message || data.error || 'Unable to create PayPal order.');
     }
 
-    return { id: data.id, status: data.status, amount: moneyFromCents(orderTotalCents), referenceId };
+    return { id: data.id, status: data.status, amount: moneyFromCents(pricing.totalCents), referenceId };
 }
 
-async function capturePaypalOrder(body: any) {
+async function capturePaypalOrder(body: PayPalCaptureOrderInput) {
     const orderId = String(body.orderId || '').trim();
     if (!orderId) throw createHttpError(400, 'PayPal order ID is required.');
 
@@ -300,7 +211,7 @@ async function capturePaypalOrder(body: any) {
         },
     });
 
-    const data = await response.json().catch(() => ({}));
+    const data: PayPalOrderResponse = await response.json().catch(() => ({}));
     if (!response.ok) {
         throw createHttpError(response.status || 502, data.message || data.error || 'Unable to capture PayPal order.');
     }
@@ -322,7 +233,7 @@ async function capturePaypalOrder(body: any) {
     };
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
     setCorsHeaders(req, res);
 
     if (req.method === 'OPTIONS') {
@@ -336,23 +247,24 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const body = parseBody(req);
+        const body = parseBody(req) as PayPalCreateOrderInput & PayPalCaptureOrderInput;
         const action = String(body.action || '');
 
         if (action === 'create') {
-            res.status(200).json(await createPaypalOrder(body));
+            res.status(200).json(await createPaypalOrder(body as PayPalCreateOrderInput));
             return;
         }
 
         if (action === 'capture') {
-            res.status(200).json(await capturePaypalOrder(body));
+            res.status(200).json(await capturePaypalOrder(body as PayPalCaptureOrderInput));
             return;
         }
 
         res.status(400).json({ error: 'Invalid PayPal action.' });
-    } catch (error: any) {
-        const status = Number(error?.status || 500);
-        console.error('[PayPal API]', error?.message || error);
-        res.status(status).json({ error: error?.message || 'PayPal request failed.' });
+    } catch (error: unknown) {
+        const httpError = error as { status?: number; message?: string };
+        const status = Number(httpError?.status || 500);
+        console.error('[PayPal API]', httpError?.message || error);
+        res.status(status).json({ error: httpError?.message || 'PayPal request failed.' });
     }
 }

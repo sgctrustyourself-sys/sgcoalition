@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Flame, ArrowUpRight, TrendingUp, ShoppingBag, Zap, Ticket } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Flame, ArrowUpRight, TrendingUp, ShoppingBag, Zap, Ticket, ExternalLink } from 'lucide-react';
+import { SGCOIN_V2_CONTRACT_ADDRESS } from '../constants';
+
+// PolygonScan URL for the V2 token contract (same destination LiveTransactions uses for its
+// "View Verified Source" footer link). Keeps explorer verification consistent across the page.
+const V2_CONTRACT_POLYGONSCAN_URL = `https://polygonscan.com/token/${SGCOIN_V2_CONTRACT_ADDRESS}`;
 
 interface BurnTrackerProps {
     initialBurn?: string;
+    isLoading?: boolean;
 }
 
-const BurnTracker: React.FC<BurnTrackerProps> = ({ initialBurn = "1,777,161" }) => {
+const BurnTracker: React.FC<BurnTrackerProps> = ({ initialBurn = "1,777,161", isLoading = false }) => {
     const [burnAmount, setBurnAmount] = useState<string | number>(initialBurn);
 
     useEffect(() => {
@@ -20,6 +26,43 @@ const BurnTracker: React.FC<BurnTrackerProps> = ({ initialBurn = "1,777,161" }) 
         { id: 'dead', label: 'Protocol Burns', icon: Zap, color: 'text-purple-500', bg: 'bg-purple-500', percent: 12 },
         { id: 'treasury', label: 'Treasury Recycling', icon: Ticket, color: 'text-orange-500', bg: 'bg-orange-500', percent: 3 },
     ];
+
+    if (isLoading) {
+        return (
+            <div className="relative overflow-hidden rounded-3xl border border-orange-500/20 bg-gradient-to-br from-orange-900/10 via-black to-black p-8 animate-pulse min-h-[17rem]">
+                <div className="flex flex-col md:flex-row gap-12 items-center">
+                    {/* Left: skeleton counter */}
+                    <div className="text-center md:text-left">
+                        <div className="flex items-center gap-2 justify-center md:justify-start mb-2">
+                            <div className="p-2 rounded-full bg-orange-500/10 border border-orange-500/20">
+                                <div className="w-5 h-5" />
+                            </div>
+                            <div className="h-4 bg-white/5 rounded w-40" />
+                        </div>
+                        <div className="h-14 bg-white/5 rounded w-48 mb-4" />
+                        <div className="h-3 bg-white/5 rounded w-36" />
+                    </div>
+
+                    {/* Right: skeleton source bars */}
+                    <div className="flex-1 w-full max-w-md space-y-5">
+                        {[...Array(3)].map((_, i) => (
+                            <div key={i} className="space-y-1.5">
+                                <div className="flex justify-between">
+                                    <div className="h-3 bg-white/5 rounded w-28" />
+                                    <div className="h-3 bg-white/5 rounded w-8" />
+                                </div>
+                                <div className="h-2 bg-white/5 rounded-full" />
+                            </div>
+                        ))}
+                        <div className="pt-4 border-t border-white/5 flex justify-between items-center">
+                            <div className="h-3 bg-white/5 rounded w-40" />
+                            <div className="h-3 bg-white/5 rounded w-24" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="relative overflow-hidden rounded-3xl border border-orange-500/20 bg-gradient-to-br from-orange-900/10 via-black to-black p-8">
@@ -86,8 +129,13 @@ const BurnTracker: React.FC<BurnTrackerProps> = ({ initialBurn = "1,777,161" }) 
                         <p className="text-[10px] text-gray-500 max-w-[200px] leading-tight">
                             Every transaction permanently removes SGCOIN from circulation, increasing scarcity.
                         </p>
-                        <a href="#" className="flex items-center gap-1 text-[10px] uppercase font-bold text-orange-400 hover:text-orange-300 transition-colors">
-                            View Contract <ArrowUpRight className="w-3 h-3" />
+                        <a
+                            href={V2_CONTRACT_POLYGONSCAN_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-[10px] uppercase font-bold text-orange-400 hover:text-orange-300 transition-colors"
+                        >
+                            View Contract <ExternalLink className="w-3 h-3" />
                         </a>
                     </div>
                 </div>

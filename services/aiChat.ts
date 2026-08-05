@@ -1,5 +1,5 @@
-import { buildApiUrl } from './apiBase';
-import { supabase } from './supabase';
+import { buildApiUrl } from './apiBase.js';
+import { supabase } from './supabase.js';
 
 export type ChatMode = 'brand' | 'full';
 

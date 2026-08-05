@@ -9,15 +9,14 @@ import RequestSimilarModal from '../components/RequestSimilarModal';
 import ImageCropperModal from '../components/ui/ImageCropperModal';
 import PageLoader from '../components/ui/PageLoader';
 import Seo from '../components/Seo';
-import CompleteTheFit from '../components/CompleteTheFit';
-import { INITIAL_PRODUCTS, PRODUCT_LOCAL_OVERRIDES } from '../constants';
-import { ethers } from 'ethers';
 import { checkNftOwnership, switchToPolygon } from '../services/web3Service';
 import { uploadProductImage } from '../services/productUpload';
 import { moveArrayItem, remapIndexAfterMove } from '../utils/arrayMove';
 import { getProductEditableSizes, normalizeProductSizeData } from '../utils/productSizes';
 import { getReferralStats, generateProductReferralLink } from '../utils/referralSystem';
+import { trackReferralShare } from '../utils/referralAnalytics';
 import { isWalletProduct, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
+import { PRODUCT_IDS, WHITE_BG_PRODUCT_IDS } from '../constants/productIds';
 import { buildProductJsonLd, getProductSeo } from '../utils/seo';
 import { isNumberedEdition, getActiveTierPrice } from '../types';
 import { formatTierCalloutCopy } from '../services/numberedPieces';
@@ -36,17 +35,11 @@ const ProductDetails = () => {
     const { products, addToCart, isAdminMode, updateProduct, deleteProduct, user, toggleFavorite, loginUser, isLoading } = useApp();
     const { addToast } = useToast();
 
-    // Resolve from live context first, then fall back to the static catalog so
-    // local/drop products still paint if Supabase is slow or temporarily empty.
-    const product = React.useMemo(() => {
-        const resolvedProduct = products.find(p => p.id === id);
-        if (resolvedProduct) return resolvedProduct;
-
-        const localProduct = INITIAL_PRODUCTS.find(p => p.id === id);
-        return localProduct
-            ? { ...localProduct, ...(PRODUCT_LOCAL_OVERRIDES[localProduct.id] || {}) }
-            : undefined;
-    }, [products, id]);
+    // Derive the resolved product directly from context on every render.
+    // No local copy = no risk of drift between context.products and a stale
+    // local snapshot, and no `if (!product) return null` while products=[] on
+    // the cold-load tick before AppContext finishes fetching.
+    const product = React.useMemo(() => products.find(p => p.id === id), [products, id]);
     const [selectedSize, setSelectedSize] = useState<string>('');
     const [activeImageIndex, setActiveImageIndex] = useState(0);
     const [includeKeychainClipOn, setIncludeKeychainClipOn] = useState(false);
@@ -69,6 +62,7 @@ const ProductDetails = () => {
 
     const [showRequestModal, setShowRequestModal] = useState(false);
     const [referralCode, setReferralCode] = useState<string | null>(null);
+    const [referralCommissionRate, setReferralCommissionRate] = useState<number | null>(null);
 
     const handleUnlockPerks = async () => {
         if (!product?.nft) return;
@@ -101,7 +95,8 @@ const ProductDetails = () => {
             }
 
             // 3. Check Ownership
-            const provider = new ethers.BrowserProvider(window.ethereum);
+            const { ethers: e } = await import('ethers');
+            const provider = new e.BrowserProvider(window.ethereum);
             const isOwner = await checkNftOwnership(
                 product.nft.contractAddress,
                 product.nft.tokenId,
@@ -172,6 +167,7 @@ const ProductDetails = () => {
             if (!active) return;
 
             setReferralCode(stats?.referral_code ?? null);
+            setReferralCommissionRate(stats?.current_commission_rate ?? null);
         };
 
         loadReferralCode();
@@ -199,11 +195,7 @@ const ProductDetails = () => {
     const tierInfo = isNumbered ? formatTierCalloutCopy(product, soldCount) : null;
     const editableSizes = getProductEditableSizes(editForm.sizes, editForm.sizeInventory);
     const galleryImages = isEditing && editForm.images ? editForm.images : product.images;
-    const shouldFitFullImage = product.id === 'prod_tee_above_as_below'
-        || product.id === 'prod_shorts_above_as_below'
-        || product.id === 'prod_hoodie_overwhelmingly_patient'
-        || product.id === 'Coalition_Grey_Wave_Wallet_1_2'
-        || product.id === 'Coalition_Grey_Wave_Wallet_2_2';
+    const shouldFitFullImage = WHITE_BG_PRODUCT_IDS.has(product.id);
     const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-dark';
     const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';
     const totalStock = Object.values(product.sizeInventory || {}).reduce((sum, count) => sum + Number(count || 0), 0);
@@ -212,18 +204,34 @@ const ProductDetails = () => {
     const isSoldOut = !isSold && totalStock === 0;
     const isUnavailable = isArchived || isSoldOut;
     const selectedSizeStock = resolvedSize ? product.sizeInventory?.[resolvedSize] ?? totalStock : totalStock;
-    const soldDate = formatProductDate(product.soldAt);
+    const maxSizeStock = Math.max(1, ...Object.values(product.sizeInventory || {}).map(v => Number(v || 0)));
+    // Low-stock threshold: a size is "low" when it has 3 or fewer remaining
+    const LOW_STOCK_THRESHOLD = 3;
+    // Inventory bar color: green→amber→red gradient based on remaining stock
+    const getInventoryBarColor = (stock: number): string => {
+        if (stock === 0) return '#ef4444'; // red
+        if (stock <= LOW_STOCK_THRESHOLD) return '#f59e0b'; // amber
+        return '#10b981'; // green
+    };
+    const soldDate = formatProductDate(product.soldAt ?? undefined);
+    // Voice consistency with the card grid. Three distinct terminal
+    // states with three distinct labels:
+    //   isSold     -> "Claimed"  (a 1/1 piece is owned by a buyer)
+    //   isArchived -> "Archived" (manually retired, kept in the archive)
+    //   isSoldOut  -> "Archived" (a standard catalog item ran out of stock;
+    //                            treated the same as a manual archive from
+    //                            the customer's POV -- it is not for sale).
+    // The "Claimed" framing is reserved for 1/1 provenance, not generic
+    // stockouts. Conflating them would dilute the word.
     const availabilityLabel = isSold
-        ? 'Sold'
-        : isArchived
+        ? 'Claimed'
+        : (isArchived || isSoldOut)
             ? 'Archived'
-            : isSoldOut
-            ? 'Sold Out'
             : product.isLimitedEdition
                 ? 'Limited Run Available'
                 : 'Available Now';
     const availabilityDetail = isSold
-        ? soldDate ? `Sold ${soldDate}` : 'Archived piece'
+        ? soldDate ? `Claimed ${soldDate}` : 'Archived piece'
         : isArchived
             ? 'Archived piece'
             : isSoldOut
@@ -236,13 +244,11 @@ const ProductDetails = () => {
         : `${selectedSize || resolvedSize || 'Select size'}${resolvedSize ? ` - ${selectedSizeStock} left` : ''}`;
     const shippingDetail = isArchived
         ? 'This exact piece is archived'
-        : product.shippingFulfillment
-            ? product.shippingFulfillment
-            : product.freeShipping
-                ? 'Free shipping on this item'
-                : displayPrice >= 200
-                    ? 'Free shipping unlocked'
-                    : 'Ships in 1-2 business days';
+        : product.freeShipping
+            ? 'Free shipping on this item'
+            : displayPrice >= 200
+                ? 'Free shipping unlocked'
+                : 'Ships in 1-2 business days';
     const makingVideoUrl = product.makingVideoUrl?.trim();
     const productSeo = getProductSeo(product);
     const productJsonLd = buildProductJsonLd(product);
@@ -403,6 +409,12 @@ const ProductDetails = () => {
         const url = referralCode
             ? generateProductReferralLink(referralCode, product.id)
             : window.location.href;
+
+        // Fire-and-forget share tracking — never blocks the clipboard/share action
+        if (referralCode) {
+            void trackReferralShare(referralCode, 'pdp');
+        }
+
         const shareText = referralCode
             ? `Check out ${product.name} on SG Coalition. This link includes my Coalition referral code if you decide to pick it up.`
             : `Check out ${product.name} on SG Coalition!`;
@@ -455,8 +467,8 @@ const ProductDetails = () => {
                             <div className="absolute left-4 top-4 flex max-w-[calc(100%-2rem)] flex-wrap gap-2">
                                 <span className={`border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] backdrop-blur-md ${
                                     isUnavailable
-                                        ? 'border-red-500/40 bg-red-500/20 text-red-200'
-                                        : 'border-green-500/30 bg-green-500/15 text-green-300'
+                                        ? 'border-white/15 text-gray-400'
+                                        : 'border-white/10 text-gray-300'
                                 }`}>
                                     {availabilityLabel}
                                 </span>
@@ -709,8 +721,8 @@ const ProductDetails = () => {
                                     <div className="flex flex-wrap gap-2 pt-2">
                                         <span className={`inline-flex items-center border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ${
                                             isUnavailable
-                                                ? 'border-red-500/40 bg-red-500/10 text-red-300'
-                                                : 'border-green-500/30 bg-green-500/10 text-green-300'
+                                                ? 'border-white/15 text-gray-400'
+                                                : 'border-white/10 text-gray-300'
                                         }`}>
                                             <CheckCircle2 className="mr-1.5 h-3 w-3" />
                                             {availabilityLabel}
@@ -731,11 +743,17 @@ const ProductDetails = () => {
                                             </span>
                                         )}
                                     </div>
+                                    {/* Lever 2 — Scarcity → Provenance. The "12 / 44 minted at
+                                        $75" callout is factual provenance (it tells the
+                                        customer which tier of the numbered run they're
+                                        buying into), but yellow reads as a warning. Restyled
+                                        to neutral archival so it sits in the same family as
+                                        the status pill above it and the founderNote below. */}
                                     {tierInfo && (
-                                        <div className="border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-yellow-200 space-y-1">
-                                            <div className="text-yellow-300">{tierInfo.headline}</div>
+                                        <div className="border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-gray-300 space-y-1">
+                                            <div className="text-gray-200">{tierInfo.headline}</div>
                                             {tierInfo.subline && (
-                                                <div className="text-[10px] text-yellow-200/80 font-bold uppercase tracking-[0.18em]">
+                                                <div className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.18em]">
                                                     {tierInfo.subline}
                                                 </div>
                                             )}
@@ -758,7 +776,7 @@ const ProductDetails = () => {
 
                                 <div className="grid grid-cols-1 gap-3 border-y border-white/10 py-5 sm:grid-cols-3">
                                     <div className="flex gap-3">
-                                        <CheckCircle2 className={`mt-0.5 h-4 w-4 ${isUnavailable ? 'text-red-300' : 'text-green-300'}`} />
+                                        <CheckCircle2 className="mt-0.5 h-4 w-4 text-gray-400" />
                                         <div>
                                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Status</p>
                                             <p className="mt-1 text-sm font-bold uppercase tracking-widest text-white">{availabilityDetail}</p>
@@ -807,7 +825,7 @@ const ProductDetails = () => {
                                                 {product.sizes?.join(', ') || 'One Size'}
                                             </p>
                                             <p className="mt-2 text-sm leading-relaxed text-gray-400">
-                                                This exact piece is sold. Use request similar to start a new version based on the same direction.
+                                                This exact piece is claimed. Use request similar to start a new version based on the same direction.
                                             </p>
                                         </div>
                                     </div>
@@ -815,15 +833,30 @@ const ProductDetails = () => {
                                     <div className="pt-8 space-y-4">
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">Select Size</h3>
-                                            <a href="#" className="text-xs font-bold uppercase tracking-widest text-brand-accent hover:text-white transition-colors border-b border-brand-accent/30 hover:border-white">Size guide</a>
                                         </div>
 
                                         {product.sizes && product.sizes.length === 1 && product.sizes[0].toLowerCase().includes('one') ? (
-                                            <div className="bg-white/5 border border-brand-accent/30 p-4 rounded-sm flex items-center justify-between">
+                                            <div className="bg-white/5 border border-brand-accent/30 p-4 rounded-sm flex items-center justify-between relative overflow-hidden">
                                                 <span className="text-sm font-bold uppercase tracking-widest text-white">ORDERING {product.sizes[0]}</span>
-                                                <span className={`text-[10px] font-bold uppercase tracking-widest py-1 px-2 rounded ${isSoldOut ? 'bg-red-500/10 text-red-300' : 'bg-green-500/10 text-green-500'}`}>
-                                                    {isSoldOut ? 'SOLD OUT' : `${product.sizeInventory?.[product.sizes[0]] || 0} LEFT`}
-                                                </span>
+                                        {/* Match the surrounding PDP voice: 'Claimed' for a 1/1
+                                            piece that sold, 'Archived' for a standard one-size
+                                            item that ran out, 'X left' for in-stock. Never
+                                            'Sold out' — that reads as a fast-fashion stockout. */}
+                                        <span className={`text-[10px] font-bold uppercase tracking-widest py-1 px-2 rounded ${(isSold || isSoldOut) ? 'bg-white/5 text-gray-400' : 'bg-white/5 text-gray-300'}`}>
+                                            {isSold ? 'Claimed' : isSoldOut ? 'Archived' : `${product.sizeInventory?.[product.sizes[0]] || 0} left`}
+                                        </span>
+                                                {/* Inventory bar — one-size products */}
+                                                {!isUnavailable && (
+                                                    <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/5">
+                                                        <div
+                                                            className="h-full transition-all duration-500"
+                                                            style={{
+                                                                width: `${Math.min(100, ((product.sizeInventory?.[product.sizes[0]] || 0) / 10) * 100)}%`,
+                                                                backgroundColor: getInventoryBarColor(product.sizeInventory?.[product.sizes[0]] || 0),
+                                                            }}
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
                                         ) : (
                                             <div className="grid grid-cols-4 gap-3">
@@ -843,11 +876,26 @@ const ProductDetails = () => {
                                                                     : 'border-white/10 text-white hover:border-white hover:bg-white/5'
                                                                 }`}
                                                             title={isOutOfStock ? 'Out of stock' : `${sizeStock} in stock`}
-                                                        >
-                                                            <span>{size}</span>
-                                                            <span className={`text-[9px] mt-1 ${isSelected ? 'text-black/60' : isOutOfStock ? 'text-red-500/50' : sizeStock < 5 ? 'text-yellow-500' : 'text-brand-accent'}`}>
-                                                                {isOutOfStock ? 'OUT' : `${sizeStock} left`}
-                                                            </span>
+                                                        >                                                            <span>{size}</span>
+                                                                {/* Per-size stock text uses a single neutral gray
+                                                                    scale instead of the red/yellow/brand-accent
+                                                                    urgency gradient. The number itself communicates
+                                                                    availability; the color doesn't need to. */}
+                                                                <span className={`text-[9px] mt-1 ${isSelected ? 'text-black/60' : isOutOfStock ? 'text-gray-600' : sizeStock < 5 ? 'text-gray-400' : 'text-gray-300'}`}>
+                                                                    {isOutOfStock ? 'Out' : `${sizeStock} left`}
+                                                                </span>
+                                                                {/* Inventory bar — proportional to max stock across all sizes */}
+                                                                {!isOutOfStock && (
+                                                                    <div className="w-full mt-2 h-[3px] bg-white/10 rounded-full overflow-hidden">
+                                                                        <div
+                                                                            className="h-full rounded-full transition-all duration-500"
+                                                                            style={{
+                                                                                width: `${Math.max(4, (sizeStock / maxSizeStock) * 100)}%`,
+                                                                                backgroundColor: getInventoryBarColor(sizeStock),
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                )}
                                                         </button>
                                                     );
                                                 })}
@@ -892,21 +940,15 @@ const ProductDetails = () => {
                                     </div>
                                 )}
 
-                                <CompleteTheFit
-                                    currentProduct={product}
-                                    selectedSize={resolvedSize}
-                                    isUnavailable={isUnavailable}
-                                />
-
                                 <div className="pt-10 flex flex-col gap-4">
                                     {isUnavailable ? (
                                         /* Sold / Archived State */
                                         <div className="flex flex-col gap-3">
-                                            <div className="flex items-start gap-3 border border-red-500/30 bg-red-500/10 px-4 py-4">
-                                                <Clock3 className="mt-0.5 h-4 w-4 text-red-300" />
+                                            <div className="flex items-start gap-3 border border-white/10 bg-white/[0.03] px-4 py-4">
+                                                <Clock3 className="mt-0.5 h-4 w-4 text-gray-400" />
                                                 <div>
-                                                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-200">
-                                                        {isSold ? 'Sold - This exact item is no longer available' : 'Sold out - Request the next version'}
+                                                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-300">
+                                                        {isSold ? 'Claimed - this exact piece is no longer available' : 'Archived - request the next version'}
                                                     </p>
                                                     <p className="mt-2 text-sm leading-relaxed text-gray-300">
                                                         {isSold
@@ -951,35 +993,46 @@ const ProductDetails = () => {
                                                 disabled={(!selectedSize && (product.sizes?.length || 0) > 1) || totalStock === 0}
                                                 className="flex-1 bg-white text-black py-4 px-8 flex items-center justify-center text-sm font-bold uppercase tracking-[0.2em] hover:bg-brand-accent hover:text-white transition-all focus:outline-none focus:ring-2 focus:ring-brand-accent focus:ring-offset-2 focus:ring-offset-black disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed box-glow"
                                             >
-                                                {totalStock === 0 ? 'SOLD OUT' : (selectedSize || (product.sizes?.length === 1) ? `Add to bag${walletProduct && includeKeychainClipOn ? ' + clip-on' : ''}` : 'Select a size')}
+                                                {/* Match the availabilityLabel routing exactly: 'Claimed' is
+                                                    reserved for 1/1 provenance, 'Archived' for anything
+                                                    else that's not for sale. The button is also disabled
+                                                    when totalStock === 0, so these labels are belt-and-
+                                                    suspenders for the edge case where inventory tracking
+                                                    is briefly inconsistent. Never 'SOLD OUT' — that reads
+                                                    as a fast-fashion stockout. */}
+                                                {isSold ? 'Claimed' : (isArchived || isSoldOut) ? 'Archived' : (selectedSize || (product.sizes?.length === 1) ? `Add to bag${walletProduct && includeKeychainClipOn ? ' + clip-on' : ''}` : 'Select a size')}
                                             </button>
 
                                             <button
                                                 type="button"
                                                 onClick={handleShare}
-                                                className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 hover:border-white/20 transition-all group"
-                                                title={referralCode ? 'Share referral product link' : 'Share Product'}
+                                                className={`px-5 py-4 border rounded-sm transition-all group flex items-center gap-2 ${referralCode
+                                                    ? 'bg-brand-accent/10 border-brand-accent/30 hover:bg-brand-accent/20 hover:border-brand-accent/50'
+                                                    : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
+                                                }`}
+                                                title={referralCode ? 'Share your referral product link and earn commission' : 'Share Product'}
                                             >
-                                                <Share2 className="h-5 w-5 text-white opacity-60 group-hover:opacity-100 transition-opacity" />
+                                                <Share2 className={`h-5 w-5 transition-opacity ${referralCode ? 'text-brand-accent' : 'text-white opacity-60 group-hover:opacity-100'}`} />
+                                                {referralCode && (
+                                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent whitespace-nowrap">
+                                                        Share & Earn {referralCommissionRate ?? 5}%
+                                                    </span>
+                                                )}
                                             </button>
                                         </div>
                                     )}
-                                    <p className="text-[10px] text-gray-500 text-center uppercase tracking-[0.2em] font-bold py-2">
-                                        {isUnavailable ? (
-                                            <span>Request similar pieces with preferred timeline and budget</span>
-                                        ) : (
-                                            <><span className="text-white">FREE SHIPPING</span> ON ALL ORDERS OVER $200</>
-                                        )}
-                                    </p>
-
-                                    {/* Local Impact Message */}
-                                    <ImpactMessage className="mt-2" />
-
-                                    {/* Founder's Note - anti-tricky-brand voice at the conviction moment.
-                                        Renders only when product.founderNote is set and non-whitespace.
-                                        Whitespace-pre-line preserves the founder's intentional line breaks. */}
-                                    {product.founderNote?.trim() && (
-                                        <div className="border border-brand-accent/20 bg-brand-accent/5 px-5 py-5 text-left">
+                                    {/* Founder's Note — Lever 4: Amplify Founder Voice.
+                                        Elevated to sit directly under the Add to bag
+                                        button, before the shipping line and the
+                                        ImpactMessage. The founder note is the
+                                        conviction-moment anti-tricky-brand voice; it
+                                        should be the first thing the shopper reads
+                                        after the CTA, not a buried footer element.
+                                        Renders only when product.founderNote is set and
+                                        non-whitespace. Whitespace-pre-line preserves
+                                        the founder's intentional line breaks. */}
+                                    {!isUnavailable && product.founderNote?.trim() && (
+                                        <div className="border border-brand-accent/20 bg-brand-accent/5 px-5 py-5 text-left mt-2">
                                             <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-brand-accent mb-3">
                                                 From the Founder
                                             </p>
@@ -989,10 +1042,28 @@ const ProductDetails = () => {
                                         </div>
                                     )}
 
+                                    <p className="text-[10px] text-gray-500 text-center uppercase tracking-[0.2em] font-bold py-2">
+                                        {isUnavailable ? (
+                                            <span>Request similar pieces with preferred timeline and budget</span>
+                                        ) : (
+                                            <span>Free shipping on all orders over $200</span>
+                                        )}
+                                    </p>
+
+                                    {/* Referral hint — shown when the user is logged in and has a code */}
+                                    {referralCode && !isUnavailable && (
+                                        <p className="text-[10px] text-brand-accent/70 text-center uppercase tracking-[0.2em] font-bold -mt-1">
+                                            Share your code — earn {referralCommissionRate ?? 5}% on every friend's purchase
+                                        </p>
+                                    )}
+
+                                    {/* Local Impact Message */}
+                                    <ImpactMessage className="mt-2" />
+
                                     {/* Reddit Community Banner */}
                                     {(() => {
                                         const redditLinks: Record<string, { url: string; label: string; description: string }> = {
-                                            'Coalition_NF_Tee': {
+                                            [PRODUCT_IDS.NF_TEE]: {
                                                 url: 'https://www.reddit.com/user/Complex-Discipline86/comments/1ri70fm/coalition_nftee_50/',
                                                 label: 'View on Reddit',
                                                 description: 'Check out the full Reddit listing for the Coalition NF-Tee — pricing, details, and community discussion.'
@@ -1039,7 +1110,9 @@ const ProductDetails = () => {
                                         <div className="bg-white/5 rounded-sm p-6 border border-white/10 antigravity-card space-y-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center">
-                                                    <span className="w-2 h-2 rounded-full bg-green-500 mr-3 animate-pulse"></span>
+                                                    {/* Green stays — "on-chain asset" is a factual status indicator,
+                                                    not urgency. Drop the pulse animation; the dot is enough. */}
+                                                <span className="w-2 h-2 rounded-full bg-green-500 mr-3"></span>
                                                     <span className="text-xs font-bold text-white uppercase tracking-widest">On-Chain Asset</span>
                                                 </div>
                                                 <span className="text-[10px] bg-brand-accent/20 text-brand-accent border border-brand-accent/30 px-3 py-1 rounded-full font-bold uppercase tracking-widest">{product.nft.chain}</span>

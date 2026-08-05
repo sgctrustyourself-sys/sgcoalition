@@ -1,19 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Trophy, ExternalLink, Gift, Clock, Users, CheckCircle, ArrowRight, MessageCircle, Star, Share2, DollarSign, ShoppingBag, Wallet, Flame, Zap, Shield, Sparkles, Activity } from 'lucide-react';
+import { Trophy, ExternalLink, Gift, Clock, Users, CheckCircle, ArrowRight, MessageCircle, Star, Share2, DollarSign, ShoppingBag, Wallet, Flame, Zap, Shield, Sparkles, Activity, Copy, Check, Mail } from 'lucide-react';
 import SGCoinCard from '../components/SGCoinCard';
 import LiveTransactions from '../components/LiveTransactions';
 import BurnTracker from '../components/BurnTracker';
 import FeeTransparency from '../components/FeeTransparency';
 import FeedbackLoop from '../components/FeedbackLoop';
+import LiveOrdersTicker from '../components/LiveOrdersTicker';
 import { useApp } from '../context/AppContext';
-import { fetchSGCoinData, fetchRecentTrades } from '../utils/sgcoinApi';
+import { fetchSGCoinData, fetchRecentTrades, fetchPoolBreakdown, PoolBreakdown } from '../utils/sgcoinApi';
 import { getGiveawayTicketCount, isSubscriberEligible } from '../utils/giveawayUtils';
 
-import { V2_REWARD_RATE, POLYGON_RPC_URL, POLYGON_RPC_URLS } from '../constants';
+import { V2_REWARD_RATE, POLYGON_RPC_URLS, FOUNDER_WALLET_ADDRESS, TREASURY_WALLET_ADDRESS } from '../constants';
 import { getBurnedSGCoinV1 } from '../services/web3Service';
-import { ethers } from 'ethers';
+
+/**
+ * Live-data freshness label. Pure factual copy matching the GitHub
+ * status-page / Stripe dashboard convention visitors trust — no
+ * celebration framing, no countdowns (peaceful-space framework).
+ * Output progression: "Loading…" → "just now" → "Ns ago" → "Nm ago".
+ */
+const formatLastRefreshed = (lastUpdatedAt: Date | null, now: number): string => {
+    if (!lastUpdatedAt) return 'Loading…';
+    const elapsedSec = Math.max(0, Math.floor((now - lastUpdatedAt.getTime()) / 1000));
+    if (elapsedSec < 5) return 'just now';
+    if (elapsedSec < 60) return `${elapsedSec}s ago`;
+    return `${Math.floor(elapsedSec / 60)}m ago`;
+};
 
 const Ecosystem = () => {
     const { user, giveaways } = useApp();
@@ -23,29 +37,48 @@ const Ecosystem = () => {
     const [activeGiveaway, setActiveGiveaway] = useState<any>(null);
     const [hasEntered, setHasEntered] = useState(false);
     const [isLoadingCoinData, setIsLoadingCoinData] = useState(true);
+    const [poolBreakdown, setPoolBreakdown] = useState<PoolBreakdown | null>(null);
+    // Live-data freshness. `lastUpdatedAt` is stamped at the end of each
+    // successful loadData() (the 30-second polling cycle); `now` ticks
+    // every second so the rendered "Xs ago" string reflects the true
+    // elapsed time without waiting for the next poll.
+    const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+    const [now, setNow] = useState<number>(() => Date.now());
+    // Pre-filled to "100" so the calculator shows the meaningful "$100 → 25 SGC" preview on first paint.
+    const [projectionInput, setProjectionInput] = useState<string>('100');
+
+    // Reward Projection (Value Matrix) — derived; no direct DOM writes.
+    const val = parseFloat(projectionInput) || 0;
+    const rewardsInUsd = val * V2_REWARD_RATE;
+    const sgcPrice = coinData?.price || 0.0001;
+    const projectedSGC = (rewardsInUsd / sgcPrice).toFixed(1).toLocaleString();
 
     useEffect(() => {
         const loadData = async () => {
             setIsLoadingCoinData(true);
             try {
                 // Try multiple RPCs for the burn stats
-                let provider = new ethers.JsonRpcProvider(POLYGON_RPC_URLS[0]);
+                const { ethers: e } = await import('ethers');
+                let provider = new e.JsonRpcProvider(POLYGON_RPC_URLS[0]);
                 try {
                     await provider.getNetwork();
-                } catch (e) {
-                    provider = new ethers.JsonRpcProvider(POLYGON_RPC_URLS[1]);
+                } catch (err) {
+                    provider = new e.JsonRpcProvider(POLYGON_RPC_URLS[1]);
                 }
 
-                const [data, burned] = await Promise.all([
+                const [data, burned, breakdown] = await Promise.all([
                     fetchSGCoinData(),
-                    getBurnedSGCoinV1(provider)
+                    getBurnedSGCoinV1(provider),
+                    fetchPoolBreakdown(),
                 ]);
 
                 setCoinData(data);
                 setTotalBurned(burned);
+                setPoolBreakdown(breakdown);
 
                 const recentTrades = await fetchRecentTrades(data?.price || 0);
                 setTrades(recentTrades);
+                setLastUpdatedAt(new Date());
             } catch (error) {
                 console.error('Error loading ecosystem data:', error);
             } finally {
@@ -56,6 +89,15 @@ const Ecosystem = () => {
         loadData();
         const interval = setInterval(loadData, 30000);
         return () => clearInterval(interval);
+    }, []);
+
+    // 1-second tick drives the "Last refreshed: Xs ago" labels so the
+    // relative-time readout increments independently of the 30s polling.
+    // Cheap (~10 components re-render per second) and only updates the
+    // text node via React's keyed diffing.
+    useEffect(() => {
+        const tick = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(tick);
     }, []);
 
     // Load Active Giveaway
@@ -76,8 +118,11 @@ const Ecosystem = () => {
             </div>
 
             <main className="relative z-10">
-                {/* Hero Section: Cyber-Luxe Welcome */}
-                <section className="relative h-[80vh] flex items-center justify-center px-6 overflow-hidden">
+                {/* Hero Section: Cyber-Luxe Welcome.
+                     Mobile: min-h-[60vh] + smaller title so the 3 hero CTAs
+                     sit above the fold on phones (was 80vh + 7xl baseline
+                     which pushed the buttons below the fold on most phones). */}
+                <section className="relative min-h-[60vh] md:min-h-[80vh] flex items-center justify-center px-6 overflow-hidden">
                     {/* ... (Hero Content) ... */}
                     <div className="max-w-7xl mx-auto text-center">
                         <motion.div
@@ -117,7 +162,7 @@ const Ecosystem = () => {
                                     className="relative group px-14 py-6 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black uppercase tracking-widest text-xs flex items-center gap-3 rounded-full shadow-[0_0_30px_rgba(147,51,234,0.3)] hover:shadow-[0_0_50px_rgba(147,51,234,0.5)] transition-all overflow-hidden"
                                 >
                                     <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-                                    <Sparkles size={16} className="animate-pulse" />
+                                    <Sparkles size={16} />
                                     Wizard Dashboard
                                 </motion.button>
                             </Link>
@@ -141,8 +186,43 @@ const Ecosystem = () => {
                     </div>
                 </section>
 
+                {/* Shop the Drop — bridge from Ecosystem rewards to product catalog.
+                     Sits cleanly below the hero (no negative margin overlap)
+                     so the 3 hero CTAs (Wizard Dashboard, Access Migration,
+                     Ecosystem Guide) remain fully visible above this card. */}
+                <section className="max-w-7xl mx-auto px-6 mb-24 relative z-30">
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, margin: "-100px" }}
+                        transition={{ duration: 0.6 }}
+                    >
+                        <Link to="/product/prod_set_above_as_below" className="block">
+                            <div className="bg-gradient-to-r from-orange-500/10 via-purple-500/10 to-orange-500/10 border border-orange-500/20 rounded-2xl p-6 md:p-8 flex flex-col sm:flex-row items-center justify-between gap-4 hover:border-orange-500/40 transition-all group">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center shrink-0">
+                                        <ShoppingBag className="w-6 h-6 text-orange-400" />
+                                    </div>
+                                    <div>
+                                        <div className="text-xs font-black uppercase tracking-[0.2em] text-orange-400 mb-1">Ready to earn?</div>
+                                        <div className="text-lg md:text-xl font-black uppercase tracking-tight text-white group-hover:text-orange-300 transition-colors">
+                                            Shop the Coalition Set — Tee + Shorts $120
+                                        </div>
+                                        <div className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Every purchase earns SGCoin rewards</div>
+                                    </div>
+                                </div>
+                                <div className="shrink-0">
+                                    <span className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white text-black text-[10px] font-black uppercase tracking-widest group-hover:bg-orange-500 group-hover:text-white transition-all">
+                                        Shop Now <ArrowRight size={14} />
+                                    </span>
+                                </div>
+                            </div>
+                        </Link>
+                    </motion.div>
+                </section>
+
                 {/* SGCoin Stats: The Core Data Module */}
-                <section className="max-w-7xl mx-auto px-6 -mt-32 mb-40 relative z-30">
+                <section className="max-w-7xl mx-auto px-6 mb-40 relative z-30">
                     <motion.div
                         initial={{ opacity: 0, y: 50 }}
                         whileInView={{ opacity: 1, y: 0 }}
@@ -151,7 +231,93 @@ const Ecosystem = () => {
                     >
                         <SGCoinCard data={coinData} isLoading={isLoadingCoinData} />
                     </motion.div>
+                    <div
+                        role="status"
+                        aria-live="polite"
+                        className="mt-3 text-[10px] text-gray-500 uppercase tracking-widest font-bold text-right"
+                    >
+                        Last refreshed: {formatLastRefreshed(lastUpdatedAt, now)}
+                    </div>
                 </section>
+
+                {/* Pool Breakdown */}
+                <section className="max-w-7xl mx-auto px-6 -mt-24 mb-24 relative z-30">
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, margin: "-100px" }}
+                        transition={{ duration: 0.6 }}
+                    >
+                        {poolBreakdown ? (
+                            <div className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-8 md:p-10 min-h-[26rem]">
+                                <h2 className="text-xl font-black uppercase tracking-tight mb-6 flex items-center gap-3">
+                                    <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                                    Live Liquidity Pools
+                                </h2>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    {/* V2 */}
+                                    <div className="p-5 rounded-xl bg-white/[0.03] border border-white/5">
+                                        <div className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 mb-3">QuickSwap V2</div>
+                                        <div className="text-2xl font-black text-white mb-1">${poolBreakdown.v2.tvlUsd.toFixed(0)}</div>
+                                        <div className="text-[10px] text-gray-500">
+                                            {poolBreakdown.v2.wpol.toFixed(1)} WPOL · {poolBreakdown.v2.sgc.toLocaleString(undefined, { maximumFractionDigits: 0 })} SGC
+                                        </div>
+                                        <div className="text-[11px] text-purple-400 font-bold mt-2">${poolBreakdown.v2.priceUsd.toFixed(6)} / SGC</div>
+                                    </div>
+
+                                    {/* V3 */}
+                                    {poolBreakdown.v3 ? (
+                                        <div className="p-5 rounded-xl bg-white/[0.03] border border-white/5">
+                                            <div className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 mb-3">QuickSwap V3</div>
+                                            <div className="text-2xl font-black text-white mb-1">${poolBreakdown.v3.tvlUsd.toFixed(0)}</div>
+                                            <div className="text-[10px] text-gray-500">
+                                                {poolBreakdown.v3.wpol.toFixed(1)} WPOL · {poolBreakdown.v3.sgc.toLocaleString(undefined, { maximumFractionDigits: 0 })} SGC
+                                            </div>
+                                            <div className="text-[11px] text-purple-400 font-bold mt-2">${poolBreakdown.v3.priceUsd.toFixed(6)} / SGC</div>
+                                        </div>
+                                    ) : (
+                                        <div className="p-5 rounded-xl bg-white/[0.01] border border-white/5 flex items-center justify-center">
+                                            <span className="text-[10px] text-gray-600">V3 inactive</span>
+                                        </div>
+                                    )}
+
+                                    {/* Combined */}
+                                    <div className="p-5 rounded-xl bg-purple-500/5 border border-purple-500/10">
+                                        <div className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-400 mb-3">Blended</div>
+                                        <div className="text-2xl font-black text-white mb-1">${poolBreakdown.combinedTvlUsd.toFixed(0)}</div>
+                                        <div className="text-[10px] text-gray-500">Total liquidity</div>
+                                        <div className="text-lg font-black text-purple-300 mt-2">${poolBreakdown.blendedPriceUsd.toFixed(6)}</div>
+                                        <div className="text-[9px] text-purple-400/60">per SGCOIN</div>
+                                        <a
+                                            href="https://dapp.quickswap.exchange/swap/best/ETH/0xd53e417107d0e01bbe74a704bb90fe7a6916ee1e?chainId=137"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-300 text-[10px] font-black uppercase tracking-widest hover:bg-purple-500/30 hover:text-white transition-all"
+                                        >
+                                            <ExternalLink size={12} /> Trade on QuickSwap
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-8 md:p-10 animate-pulse min-h-[26rem]">
+                                <div className="h-5 bg-white/5 rounded w-48 mb-6"></div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div className="h-36 bg-white/[0.03] rounded-xl"></div>
+                                    <div className="h-36 bg-white/[0.03] rounded-xl"></div>
+                                <div className="h-36 bg-white/[0.03] rounded-xl"></div>
+                            </div>
+                        </div>
+                    )}
+                </motion.div>
+                <div
+                    role="status"
+                    aria-live="polite"
+                    className="mt-3 text-[10px] text-gray-500 uppercase tracking-widest font-bold text-right"
+                >
+                    Last refreshed: {formatLastRefreshed(lastUpdatedAt, now)}
+                </div>
+            </section>
 
                 <section className="max-w-7xl mx-auto px-6 mb-24 relative z-30">
                     <motion.div
@@ -160,9 +326,21 @@ const Ecosystem = () => {
                         viewport={{ once: true, margin: "-100px" }}
                         transition={{ duration: 0.8 }}
                     >
-                        <BurnTracker initialBurn={totalBurned} />
+                        <BurnTracker initialBurn={totalBurned} isLoading={isLoadingCoinData} />
                     </motion.div>
+                    <div
+                        role="status"
+                        aria-live="polite"
+                        className="mt-3 text-[10px] text-gray-500 uppercase tracking-widest font-bold text-right"
+                    >
+                        Last refreshed: {formatLastRefreshed(lastUpdatedAt, now)}
+                    </div>
                 </section>
+
+                {/* Live orders ticker — mirrors the social-proof strip on Home,
+                     showing the latest paid orders sourced from INITIAL_ORDERS
+                     and Supabase realtime. Pure factual data, no urgency chrome. */}
+                <LiveOrdersTicker />
 
                 <div className="max-w-7xl mx-auto px-6 pb-40 grid grid-cols-1 lg:grid-cols-12 gap-16 font-bold">
                     {/* Left Column: Utility Infrastructure */}
@@ -188,26 +366,39 @@ const Ecosystem = () => {
 
                             <div className="grid md:grid-cols-2 gap-8">
                                 {[
-                                    { icon: <MessageCircle />, title: 'Community Pulse', desc: 'Participate in governance & discourse to build brand social weight.', color: 'blue' },
-                                    { icon: <Star />, title: 'Signal Feedback', desc: 'Direct feedback loops on physical product R&D earn deep equity.', color: 'purple' },
-                                    { icon: <Share2 />, title: 'Digital Amplification', desc: 'High-quality content creation integrated with SGC Oracle verification.', color: 'pink' },
-                                    { icon: <DollarSign />, title: 'Referral Synthesis', desc: 'Up to 40% commissions on physical-digital hybrid bridge sales.', color: 'orange' }
-                                ].map((way, idx) => (
-                                    <motion.div
-                                        key={idx}
-                                        initial={{ opacity: 0, y: 20 }}
-                                        whileInView={{ opacity: 1, y: 0 }}
-                                        viewport={{ once: true }}
-                                        transition={{ delay: idx * 0.1, duration: 0.5 }}
-                                        className="p-8 rounded-[2rem] border border-white/5 bg-white/[0.03] backdrop-blur-3xl group hover:border-orange-500/20 transition-all"
-                                    >
-                                        <div className="bg-white/5 w-14 h-14 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform border border-white/5 font-bold">
-                                            {React.cloneElement(way.icon as React.ReactElement<any>, { className: 'w-6 h-6 text-white' })}
-                                        </div>
-                                        <h3 className="font-display text-2xl font-black uppercase tracking-tight mb-4">{way.title}</h3>
-                                        <p className="text-gray-400 text-sm leading-relaxed font-light">{way.desc}</p>
-                                    </motion.div>
-                                ))}
+                                    // `href` works as both internal route ("/profile",
+                                    // "/signup") and in-page fragment ("#feedback-loop").
+                                    // /community is intentionally absent (no route yet);
+                                    // /signup is the closest genuine "join the community" CTA.
+                                    { icon: <MessageCircle />, title: 'Community Pulse', desc: 'Participate in governance & discourse to build brand social weight.', color: 'blue', href: '/community' },
+                                    { icon: <Star />, title: 'Signal Feedback', desc: 'Direct feedback loops on physical product R&D earn deep equity.', color: 'purple', href: '#feedback-loop' },
+                                    { icon: <Share2 />, title: 'Digital Amplification', desc: 'High-quality content creation integrated with SGC Oracle verification.', color: 'pink', href: '/profile' },
+                                    { icon: <DollarSign />, title: 'Referral Synthesis', desc: 'Up to 40% commissions on physical-digital hybrid bridge sales.', color: 'orange', href: '/profile' },
+                                ].map((way, idx) => {
+                                    const cardInner = (
+                                        <>
+                                            <div className="bg-white/5 w-14 h-14 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform border border-white/5 font-bold">
+                                                {React.cloneElement(way.icon as React.ReactElement<any>, { className: 'w-6 h-6 text-white' })}
+                                            </div>
+                                            <h3 className="font-display text-2xl font-black uppercase tracking-tight mb-4">{way.title}</h3>
+                                            <p className="text-gray-400 text-sm leading-relaxed font-light">{way.desc}</p>
+                                        </>
+                                    );
+                                    const motionProps = {
+                                        initial: { opacity: 0, y: 20 },
+                                        whileInView: { opacity: 1, y: 0 },
+                                        viewport: { once: true },
+                                        transition: { delay: idx * 0.1, duration: 0.5 },
+                                        className: 'p-8 rounded-[2rem] border border-white/5 bg-white/[0.03] backdrop-blur-3xl group hover:border-orange-500/20 transition-all h-full',
+                                    };
+                                    return way.href ? (
+                                        <Link key={idx} to={way.href} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 rounded-[2rem]">
+                                            <motion.div {...motionProps}>{cardInner}</motion.div>
+                                        </Link>
+                                    ) : (
+                                        <motion.div {...motionProps} key={idx}>{cardInner}</motion.div>
+                                    );
+                                })}
                             </div>
                         </motion.section>
 
@@ -259,7 +450,10 @@ const Ecosystem = () => {
                                 <div className="space-y-8 relative z-10">
                                     <div className="bg-white/5 p-6 rounded-2xl border border-white/5 text-center">
                                         <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3">Core Exchange rate</div>
-                                        <div className="text-3xl font-black font-display tracking-tight text-white">1 SGC V2 = $0.045</div>
+                                        <div className="text-3xl font-black font-display tracking-tight text-white">1 SGC V2 = ${coinData?.price?.toFixed(6) || '0.0001'}</div>
+                                        {coinData?.price && (
+                                            <div className="text-[9px] text-green-400/60 uppercase tracking-widest mt-1 font-bold">Live on-chain price</div>
+                                        )}
                                     </div>
 
                                     <div className="space-y-4 font-bold">
@@ -269,20 +463,15 @@ const Ecosystem = () => {
                                             <input
                                                 type="number"
                                                 placeholder="100.00"
+                                                value={projectionInput}
+                                                onChange={(e) => setProjectionInput(e.target.value)}
                                                 className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 pl-12 pr-6 text-white text-xl font-mono focus:border-orange-500/50 focus:outline-none transition-all"
-                                                onChange={(e) => {
-                                                    const val = parseFloat(e.target.value) || 0;
-                                                    const rewardsInUsd = val * V2_REWARD_RATE;
-                                                    const sgV2Tokens = (rewardsInUsd / 0.045);
-                                                    const el = document.getElementById('calc-output');
-                                                    if (el) el.innerText = sgV2Tokens.toFixed(1).toLocaleString();
-                                                }}
                                             />
                                         </div>
                                         <div className="flex items-center justify-between px-2 pt-2">
                                             <span className="text-[10px] text-gray-500 uppercase tracking-widest">Projected SGC V2</span>
                                             <div className="text-2xl font-black font-display text-orange-500 tracking-tighter">
-                                                <span id="calc-output">25.0</span> SGC
+                                                <span>{projectedSGC}</span> SGC
                                             </div>
                                         </div>
                                     </div>
@@ -293,8 +482,11 @@ const Ecosystem = () => {
                         {/* Integration Transmissions */}
                         <LiveTransactions />
 
-                        {/* Concept Feedback Loop */}
+                        {/* Concept Feedback Loop.
+                             id="feedback-loop": anchor target for "Signal Feedback"
+                             card on this page (scrolls into view on click). */}
                         <motion.div
+                            id="feedback-loop"
                             initial={{ opacity: 0, y: 50 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
@@ -318,7 +510,7 @@ const Ecosystem = () => {
                                 <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-purple-600 rounded-[2.5rem] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
                                 <div className="relative bg-black rounded-[2.5rem] border border-white/10 p-10 overflow-hidden font-bold">
                                     <div className="flex items-center justify-between mb-10">
-                                        <div className="bg-orange-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse">
+                                        <div className="bg-white/10 border border-white/10 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-gray-300">
                                             In Transit
                                         </div>
                                         <Gift className="text-white/20 w-8 h-8" />
@@ -345,14 +537,15 @@ const Ecosystem = () => {
                                                 </div>
                                             </div>
 
+                                            <div className="h-[152px] flex items-center">
                                             {hasEntered ? (
-                                                <div className="p-8 rounded-3xl bg-orange-500/10 border border-orange-500/20 text-center">
+                                                <div className="p-8 rounded-3xl bg-orange-500/10 border border-orange-500/20 text-center w-full">
                                                     <CheckCircle className="w-10 h-10 text-orange-500 mx-auto mb-4" />
                                                     <div className="font-display text-xl font-black uppercase text-orange-400">Signal Logged</div>
                                                     <p className="text-[10px] text-orange-500/60 uppercase tracking-widest mt-1 font-bold">Awaiting oracle confirmation</p>
                                                 </div>
                                             ) : (
-                                                <Link to={`/giveaway/${activeGiveaway.id}`}>
+                                                <Link to={`/giveaway/${activeGiveaway.id}`} className="w-full">
                                                     <motion.button
                                                         whileHover={{ scale: 1.02 }}
                                                         className="w-full bg-white text-black font-black uppercase py-6 rounded-full text-xs tracking-widest hover:bg-orange-500 hover:text-white transition-all shadow-2xl"
@@ -361,6 +554,7 @@ const Ecosystem = () => {
                                                     </motion.button>
                                                 </Link>
                                             )}
+                                            </div>
                                         </>
                                     ) : (
                                         <div className="text-center py-24">
@@ -405,6 +599,52 @@ const Ecosystem = () => {
                                 <Link to="/signup" className="mt-8 block w-full py-4 text-center border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all font-bold">
                                     Initialize Identity →
                                 </Link>
+                            </motion.div>
+
+                            {/* Direct Send Wallet */}
+                            <motion.div
+                                initial={{ opacity: 0, x: 20 }}
+                                whileInView={{ opacity: 1, x: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ duration: 0.8, delay: 0.8 }}
+                                className="p-10 rounded-[2.5rem] bg-gradient-to-br from-orange-500/[0.03] to-transparent border border-orange-500/10 backdrop-blur-3xl font-bold"
+                            >
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+                                        <Wallet className="w-5 h-5 text-orange-400" />
+                                    </div>
+                                    <h4 className="font-display text-xl font-black uppercase tracking-tight">Direct Send</h4>
+                                </div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3 font-bold">POL / USDC on Polygon</p>
+                                <div
+                                    className="bg-black/40 border border-white/5 rounded-xl p-4 flex items-center justify-between group/item hover:border-orange-500/30 transition-all cursor-pointer"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(FOUNDER_WALLET_ADDRESS);
+                                    }}
+                                >
+                                    <div>
+                                        <p className="text-white font-mono text-xs break-all select-all">{FOUNDER_WALLET_ADDRESS}</p>
+                                    </div>
+                                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover/item:bg-orange-500/20 transition-colors shrink-0 ml-2">
+                                        <Copy className="w-4 h-4 text-gray-400 group-hover/item:text-orange-300 transition-colors" />
+                                    </div>
+                                </div>
+                                {/* Email instructions */}
+                                <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 mt-4">
+                                    <div className="flex items-start gap-3">
+                                        <Mail className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-[11px] text-orange-300 font-bold mb-1">After sending, email me</p>
+                                            <p className="text-[10px] text-orange-200/70 leading-relaxed">
+                                                Send your receipt, transaction hash, your shipping name & address, and the item you ordered to{' '}
+                                                <a href="mailto:sgctrustyourself@gmail.com" className="text-orange-300 underline decoration-orange-400/30 hover:decoration-orange-300 transition-all font-mono">
+                                                    sgctrustyourself@gmail.com
+                                                </a>
+                                                . I'll confirm and ship within 24 hours.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
                             </motion.div>
                         </div>
                     </div>

@@ -1,11 +1,169 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { PenTool, Shirt, Package, Building, SprayCan, Music, TrendingUp, ArrowRight } from 'lucide-react';
+import {
+    PenTool, Shirt, Package, Building, SprayCan, Music, TrendingUp, ArrowRight,
+    Instagram, Twitter, Youtube, MessageCircle as MessageCircleIcon, Mail,
+    ArrowUpRight, Loader,
+} from 'lucide-react';
+import { format, isValid } from 'date-fns';
+import { supabase } from '../services/supabase';
+import { BlogPost } from '../types';
+import { blogFallbackPosts, normalizeBlogRows, filterBlogPostsByCategory } from '../data/blogPosts';
 import Newsletter from '../components/Newsletter';
+import Seo from '../components/Seo';
+import { ABOUT_PAGE_TITLE, ABOUT_PAGE_DESCRIPTION, BRAND_SAME_AS_LINKS } from '../constants';
+import { SITE_NAME } from '../utils/seo';
+
+// safeDate is duplicated from pages/Blog.tsx so the About page is self-
+// contained (no cross-page util import — the about page renders the same
+// shape but inline). If pages/Blog.tsx's safeDate evolves, mirror the
+// change here.
+const safeDate = (dateStr: any) => {
+    if (!dateStr) return new Date();
+    const d = new Date(dateStr);
+    return isValid(d) ? d : new Date();
+};
+
+// AboutRecentPosts: 3 most-recent blog posts fetched live from the `posts`
+// table (the same source pages/Blog.tsx queries). Falls back to the static
+// `blogFallbackPosts` array on network failure or empty result so crawlers + JS-
+// disabled visitors see the most-recent 3 entries regardless of backend health.
+// Mirrors the /blog card pattern (cover + category chip + date + excerpt
+// + Read More → /blog/:slug), toned for the lighter About-page surface.
+const AboutRecentPosts: React.FC = () => {
+    // Lazy initializer: SSR / first paint already shows the 3 fallback
+    // posts so crawlers + JS-disabled visitors see real content (not a
+    // spinner) during the brief window before `useEffect` upgrades to
+    // live posts from the `posts` table. This was the SE gap that almost
+    // cost us an SSR-snapshot in Google.
+    const [posts, setPosts] = useState<BlogPost[]>(() =>
+        filterBlogPostsByCategory(blogFallbackPosts, 'all').slice(0, 3)
+    );
+    // isLoading starts FALSE because the lazy init already populated `posts`.
+    // We only flip it true when the useEffect actually swaps in live data.
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const query = supabase
+                    .from('posts')
+                    .select('*')
+                    .eq('is_published', true)
+                    .order('published_at', { ascending: false })
+                    .limit(3);
+                const { data, error } = await query;
+                if (cancelled) return;
+                if (error) throw error;
+                const rows = normalizeBlogRows(data || []);
+                if (rows.length > 0) {
+                    setPosts(rows.slice(0, 3));
+                } else {
+                    setPosts(filterBlogPostsByCategory(blogFallbackPosts, 'all').slice(0, 3));
+                }
+            } catch (err: any) {
+                console.error('AboutRecentPosts fetch failed:', err?.message || err);
+                if (!cancelled) {
+                    setPosts(filterBlogPostsByCategory(blogFallbackPosts, 'all').slice(0, 3));
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center py-12">
+                <Loader className="w-6 h-6 text-gray-400 animate-spin" />
+            </div>
+        );
+    }
+
+    if (posts.length === 0) {
+        return (
+            <div className="text-center py-12 border border-gray-100 rounded-2xl">
+                <p className="text-sm text-gray-500 uppercase tracking-widest font-bold">No updates yet</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="grid md:grid-cols-3 gap-6">
+            {posts.map(post => (
+                <Link
+                    key={post.id}
+                    to={`/blog/${post.slug}`}
+                    className="group bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-gray-300 hover:shadow-xl transition-all flex flex-col"
+                >
+                    {post.coverImage && (
+                        <div className="aspect-[16/9] overflow-hidden bg-gray-50">
+                            <img
+                                src={post.coverImage}
+                                alt={post.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                        </div>
+                    )}
+                    <div className="p-6 flex-grow">
+                        <div className="flex items-center gap-3 text-[9px] font-bold uppercase tracking-widest mb-3">
+                            <span className="px-2 py-0.5 bg-black text-white rounded-sm">{post.category}</span>
+                            <span className="text-gray-500">{format(safeDate(post.publishedAt || post.createdAt), 'MMM dd, yyyy')}</span>
+                        </div>
+                        <h3 className="text-lg font-bold uppercase tracking-tight mb-3 group-hover:underline line-clamp-2">{post.title}</h3>
+                        <p className="text-sm text-gray-600 leading-relaxed mb-4 line-clamp-3">{post.excerpt}</p>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-black">Read More →</span>
+                    </div>
+                </Link>
+            ))}
+        </div>
+    );
+};
+
+// JSON-LD AboutPage structured data so the React route matches the
+// structured-data graph of the static about.html mirror (both include
+// the expanded sameAs array). Dumped as dangerouslySetInnerHTML so React
+// doesn't escape the JSON. Crawlers running JS on /about now see the
+// same Organization sameAs signal as the no-JS /about.html mirror.
+// `@id` is the canonical ENTITY identifier (vs `url` which is the page URL).
+// Crawlers identity-match via @id, so a future BlogPosting or BreadcrumbList node
+// that references this AboutPage will dedupe to the same entity graph node
+// (corresponding @id on the static /about.html mirror keeps both surfaces locked).
+// description + sameAs are sourced from constants.ts so this structured-data
+// graph stays in lock-step with public/about.html (which mirrors the same
+// values — see ABOUT_PAGE_TITLE / ABOUT_PAGE_DESCRIPTION / BRAND_SAME_AS_LINKS).
+const ABOUT_PAGE_LD = {
+    '@context': 'https://schema.org',
+    '@id': 'https://sgcoalition.xyz/about',
+    '@type': 'AboutPage',
+    name: `About ${SITE_NAME}`, // derives from SITE_NAME (utils/seo.ts) so the brand name stays in lock-step with ABOUT_PAGE_TITLE
+    description: ABOUT_PAGE_DESCRIPTION,
+    url: 'https://sgcoalition.xyz/about',
+    mainEntity: {
+        '@type': 'Organization',
+        name: 'Coalition',
+        description: 'Premium streetwear brand born in Baltimore. Quality, community, and the hustle.',
+        url: 'https://sgcoalition.xyz',
+        logo: 'https://sgcoalition.xyz/images/logo.png',
+        sameAs: [...BRAND_SAME_AS_LINKS],
+    },
+};
 
 const Story = () => {
     return (
         <div className="bg-white w-full overflow-hidden">
+            {/* Title + description + canonical + JSON-LD must mirror public/about.html. */}
+            {/* All three SEO strings are sourced from constants.ts (ABOUT_PAGE_TITLE / */}
+            {/* ABOUT_PAGE_DESCRIPTION / BRAND_SAME_AS_LINKS) so a single edit propagates. */}
+            {/* Seo injects + cleans up the JSON-LD via `data-seo-jsonld="true"`. */}
+            <Seo
+                title={ABOUT_PAGE_TITLE}
+                description={ABOUT_PAGE_DESCRIPTION}
+                canonicalPath="/about"
+                jsonLd={ABOUT_PAGE_LD}
+            />
             {/* Hero Section */}
             <div className="relative h-[80vh] w-full bg-black flex items-center justify-center overflow-hidden">
                 <div className="absolute inset-0 opacity-60">
@@ -208,6 +366,68 @@ const Story = () => {
                     </div>
 
                 </div>
+            </section>
+
+            {/* Connect — social links, lifted onto the About page so the brand
+                channels are visible AFTER the story but BEFORE the conversion
+                funnels (Newsletter + Join The Movement CTA). Mirrors the
+                gradient-chip pattern used in the global Footer so visitors
+                recognise the brand vocabulary across both surfaces. */}
+            <section className="py-16 px-4 max-w-5xl mx-auto border-t border-gray-100">
+                <div className="text-center mb-10">
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mb-3">Connect</p>
+                    <h2 className="font-display text-3xl md:text-4xl font-bold uppercase mb-2">Follow The Movement</h2>
+                    <p className="text-sm text-gray-600">Drops, behind-the-scenes, the grind — across every channel.</p>
+                </div>
+                <div className="flex flex-wrap justify-center gap-3">
+                    <a href="https://www.instagram.com/sgcoalition" target="_blank" rel="noopener noreferrer" className="group">
+                        <div className="flex items-center justify-center bg-gradient-to-r from-purple-900/20 to-pink-900/20 border border-gray-200 text-gray-900 px-5 py-3 rounded-sm text-xs font-bold uppercase tracking-wide group-hover:border-pink-500/50 group-hover:bg-pink-900/10 transition-all">
+                            <Instagram className="w-4 h-4 mr-2 text-pink-500" /> Instagram
+                        </div>
+                    </a>
+                    <a href="https://twitter.com/sgcoalition" target="_blank" rel="noopener noreferrer" className="group">
+                        <div className="flex items-center justify-center bg-gradient-to-r from-sky-900/20 to-blue-900/20 border border-gray-200 text-gray-900 px-5 py-3 rounded-sm text-xs font-bold uppercase tracking-wide group-hover:border-sky-500/50 group-hover:bg-sky-900/10 transition-all">
+                            <Twitter className="w-4 h-4 mr-2 text-sky-500" /> X / Twitter
+                        </div>
+                    </a>
+                    <a href="https://www.youtube.com/@sgctrustyourself" target="_blank" rel="noopener noreferrer" className="group">
+                        <div className="flex items-center justify-center bg-gradient-to-r from-red-900/20 to-rose-900/20 border border-gray-200 text-gray-900 px-5 py-3 rounded-sm text-xs font-bold uppercase tracking-wide group-hover:border-red-500/50 group-hover:bg-red-900/10 transition-all">
+                            <Youtube className="w-4 h-4 mr-2 text-red-500" /> YouTube
+                        </div>
+                    </a>
+                    <a href="https://www.reddit.com/r/SGCoalition/" target="_blank" rel="noopener noreferrer" className="group">
+                        <div className="flex items-center justify-center bg-gradient-to-r from-orange-900/20 to-amber-900/20 border border-gray-200 text-gray-900 px-5 py-3 rounded-sm text-xs font-bold uppercase tracking-wide group-hover:border-orange-500/50 group-hover:bg-orange-900/10 transition-all">
+                            <MessageCircleIcon className="w-4 h-4 mr-2 text-orange-500" /> Reddit
+                        </div>
+                    </a>
+                    <a href="https://discord.gg/bByqsC5f5V" target="_blank" rel="noopener noreferrer" className="group">
+                        <div className="flex items-center justify-center bg-gradient-to-r from-indigo-900/20 to-blue-900/20 border border-gray-200 text-gray-900 px-5 py-3 rounded-sm text-xs font-bold uppercase tracking-wide group-hover:border-indigo-500/50 group-hover:bg-indigo-900/10 transition-all">
+                            <MessageCircleIcon className="w-4 h-4 mr-2 text-indigo-500" /> Discord
+                        </div>
+                    </a>
+                    <a href="mailto:admin@sgcoalition.xyz" className="group">
+                        <div className="flex items-center justify-center bg-white border border-gray-200 text-gray-900 px-5 py-3 rounded-sm text-xs font-bold uppercase tracking-wide group-hover:border-brand-accent transition-all">
+                            <Mail className="w-4 h-4 mr-2 text-brand-accent" /> Email
+                        </div>
+                    </a>
+                </div>
+            </section>
+
+            {/* From The Blog — 3 most-recent posts embedded inline so visitors
+                who finish the Story see the freshest thinking without clicking
+                away. Uses the AboutRecentPosts helper above (live fetch with
+                static fallback). Mirrors the /blog card shape at lighter weight. */}
+            <section className="py-16 px-4 max-w-5xl mx-auto">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mb-3">From The Blog</p>
+                        <h2 className="font-display text-3xl md:text-4xl font-bold uppercase">Latest Updates</h2>
+                    </div>
+                    <Link to="/blog" className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-700 hover:text-black transition-colors">
+                        View All <ArrowUpRight className="w-3 h-3" />
+                    </Link>
+                </div>
+                <AboutRecentPosts />
             </section>
 
             {/* Drop-list invite: most natural moment to convert voice-believers

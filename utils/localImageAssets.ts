@@ -9,18 +9,6 @@ export const PRODUCT_IMAGE_URLS = {
         front: '/images/above-as-below-tee-front.png',
         back: '/images/above-as-below-tee-back.png',
     },
-    aboveAsBelowShorts: {
-        front: '/images/shorts%201.webp',
-        back: '/images/short%201%20back.png',
-        setFront: '/images/above-as-below-set-front.png',
-        setBack: '/images/above-as-below-set-back.png',
-    },
-    overwhelminglyPatientHoodie: {
-        flatFront: '/images/front.png',
-        flatBack: '/images/back.png',
-        modelFront: '/images/ChatGPT%20Image%20Jun%2028%2C%202026%2C%2011_31_20%20AM.png',
-        modelBack: '/images/ChatGPT%20Image%20Jun%2028%2C%202026%2C%2011_35_18%20AM.png',
-    },
     greyWaveWallet: {
         front: '/images/grey-wave-wallet-1-2-front.png',
         back: '/images/grey-wave-wallet-1-2-back.png',
@@ -28,6 +16,30 @@ export const PRODUCT_IMAGE_URLS = {
     greyWaveWallet22: {
         front: '/images/grey-wave-wallet-2-2-front.jpg',
         back: '/images/grey-wave-wallet-2-2-back.jpg',
+    },
+    // Imgur URLs are authoritative for the Racing Team 1/4 wallet —
+    // both are read directly from imgur (no local /images/* mirrors).
+    // Mirrored into REMOTE_TO_LOCAL_IMAGE_URLS below so the bare
+    // 'https://imgur.com/<id>' form also resolves to the canonical
+    // .jpg URL the storefront renders.
+    racingTeamWallet1_4: {
+        front: 'https://i.imgur.com/3UUmYQa.jpg',
+        back: 'https://i.imgur.com/vRqjRG4.jpg',
+    },
+    // 2/4, 3/4, 4/4 follow the same single-image-pair shape.
+    // All sold in the May 2026 wholesale bundle (see constants.ts
+    // INITIAL_PRODUCTS + INITIAL_ORDERS.public-md-wholesale-wallets-2026_05_22).
+    racingTeamWallet2_4: {
+        front: 'https://i.imgur.com/IRhVbhN.jpg',
+        back: 'https://i.imgur.com/7ScdBnE.jpg',
+    },
+    racingTeamWallet3_4: {
+        front: 'https://i.imgur.com/dcw5qLQ.jpg',
+        back: 'https://i.imgur.com/hmPBbY3.jpg',
+    },
+    racingTeamWallet4_4: {
+        front: 'https://i.imgur.com/EylCpDU.jpg',
+        back: 'https://i.imgur.com/w8dahYm.jpg',
     },
     walletGreen: {
         front: 'https://i.imgur.com/kzIWQzA.jpg',
@@ -70,6 +82,25 @@ export const PRODUCT_IMAGE_URLS = {
         front3: 'https://i.imgur.com/EsvBcv4.jpg',
         front4: 'https://i.imgur.com/J9EmRZq.jpg',
     },
+    // Coalition 'Parts' Wallet 1/4 — Imgur URLs are authoritative.
+    // Bare imgur.com/<id> + canonical i.imgur.com/<id>.jpg both resolve
+    // to the same canonical URL (see REMOTE_TO_LOCAL_IMAGE_URLS below).
+    partsWallet1_4: {
+        front: 'https://i.imgur.com/uqOcs5G.jpg',
+        back: 'https://i.imgur.com/LEPl7MK.jpg',
+    },
+    partsWallet2_4: {
+        front: 'https://i.imgur.com/LBiZUtf.jpg',
+        back: 'https://i.imgur.com/lLcjckD.jpg',
+    },
+    partsWallet3_4: {
+        front: 'https://i.imgur.com/83jXZKg.jpg',
+        back: 'https://i.imgur.com/0OMUUgV.jpg',
+    },
+    partsWallet4_4: {
+        front: 'https://i.imgur.com/RqcU0I9.jpg',
+        back: 'https://i.imgur.com/Lnimi33.jpg',
+    },
 } as const;
 
 // Maps old local paths to canonical Imgur/Supabase URLs (for Supabase-stored data)
@@ -103,10 +134,6 @@ const LOCAL_TO_REMOTE_IMAGE_URLS: Record<string, string> = {
     '/images/products/true-religion-s1/front-2.jpg': PRODUCT_IMAGE_URLS.trueReligionJeans.front2,
     '/images/products/true-religion-s1/front-3.jpg': PRODUCT_IMAGE_URLS.trueReligionJeans.front3,
     '/images/products/true-religion-s1/front-4.jpg': PRODUCT_IMAGE_URLS.trueReligionJeans.front4,
-    '/images/above-as-below-shorts-front.png': PRODUCT_IMAGE_URLS.aboveAsBelowShorts.front,
-    '/images/above-as-below-shorts-back.png': PRODUCT_IMAGE_URLS.aboveAsBelowShorts.back,
-    '/images/coalition-overwhelmingly-patient-hoodie-front.png': PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatFront,
-    '/images/coalition-overwhelmingly-patient-hoodie-back.png': PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatBack,
 };
 
 const REMOTE_TO_LOCAL_IMAGE_URLS: Record<string, string> = {
@@ -128,6 +155,29 @@ const REMOTE_TO_LOCAL_IMAGE_URLS: Record<string, string> = {
     'https://i.imgur.com/FVMHZoq.jpg': PRODUCT_IMAGE_URLS.greyWaveWallet22.front,
     'https://i.imgur.com/LLoGORu.jpeg': PRODUCT_IMAGE_URLS.greyWaveWallet22.back,
     'https://i.imgur.com/LLoGORu.jpg': PRODUCT_IMAGE_URLS.greyWaveWallet22.back,
+    // Racing Team 1/4: bare imgur ID + canonical .jpg both resolve to
+    // the same canonical URL. Matches the distortionTee pattern.
+    'https://imgur.com/3UUmYQa': PRODUCT_IMAGE_URLS.racingTeamWallet1_4.front,
+    'https://i.imgur.com/3UUmYQa.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet1_4.front,
+    'https://imgur.com/vRqjRG4': PRODUCT_IMAGE_URLS.racingTeamWallet1_4.back,
+    'https://i.imgur.com/vRqjRG4.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet1_4.back,
+    // Racing Team 2/4 — bare imgur ID + canonical .jpg both normalize to
+    // the same canonical URL. Same defensive pattern as 1/4 and the
+    // distortionTee bare-id canonicalization.
+    'https://imgur.com/IRhVbhN': PRODUCT_IMAGE_URLS.racingTeamWallet2_4.front,
+    'https://i.imgur.com/IRhVbhN.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet2_4.front,
+    'https://imgur.com/7ScdBnE': PRODUCT_IMAGE_URLS.racingTeamWallet2_4.back,
+    'https://i.imgur.com/7ScdBnE.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet2_4.back,
+    // Racing Team 3/4
+    'https://imgur.com/dcw5qLQ': PRODUCT_IMAGE_URLS.racingTeamWallet3_4.front,
+    'https://i.imgur.com/dcw5qLQ.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet3_4.front,
+    'https://imgur.com/hmPBbY3': PRODUCT_IMAGE_URLS.racingTeamWallet3_4.back,
+    'https://i.imgur.com/hmPBbY3.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet3_4.back,
+    // Racing Team 4/4
+    'https://imgur.com/EylCpDU': PRODUCT_IMAGE_URLS.racingTeamWallet4_4.front,
+    'https://i.imgur.com/EylCpDU.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet4_4.front,
+    'https://imgur.com/w8dahYm': PRODUCT_IMAGE_URLS.racingTeamWallet4_4.back,
+    'https://i.imgur.com/w8dahYm.jpg': PRODUCT_IMAGE_URLS.racingTeamWallet4_4.back,
     'https://i.imgur.com/iYBlwm8.png': PRODUCT_IMAGE_URLS.trustYourselfHat.cover,
     'https://i.imgur.com/jwnVHoI.png': PRODUCT_IMAGE_URLS.trustYourselfHat.detail,
     'https://i.imgur.com/YNiTSFA.png': PRODUCT_IMAGE_URLS.trustYourselfHat.side,
@@ -147,6 +197,27 @@ const REMOTE_TO_LOCAL_IMAGE_URLS: Record<string, string> = {
     'https://i.imgur.com/hJgvL2K.jpg': PRODUCT_IMAGE_URLS.trueReligionJeans.front2,
     'https://i.imgur.com/EsvBcv4.jpg': PRODUCT_IMAGE_URLS.trueReligionJeans.front3,
     'https://i.imgur.com/J9EmRZq.jpg': PRODUCT_IMAGE_URLS.trueReligionJeans.front4,
+    // Parts Wallet 1/4 — bare imgur ID + canonical .jpg both normalize to
+    // the same canonical URL. Same defensive pattern as Racing Team wallets.
+    'https://imgur.com/uqOcs5G': PRODUCT_IMAGE_URLS.partsWallet1_4.front,
+    'https://i.imgur.com/uqOcs5G.jpg': PRODUCT_IMAGE_URLS.partsWallet1_4.front,
+    'https://imgur.com/LEPl7MK': PRODUCT_IMAGE_URLS.partsWallet1_4.back,
+    'https://i.imgur.com/LEPl7MK.jpg': PRODUCT_IMAGE_URLS.partsWallet1_4.back,
+    // Parts Wallet 2/4
+    'https://imgur.com/LBiZUtf': PRODUCT_IMAGE_URLS.partsWallet2_4.front,
+    'https://i.imgur.com/LBiZUtf.jpg': PRODUCT_IMAGE_URLS.partsWallet2_4.front,
+    'https://imgur.com/lLcjckD': PRODUCT_IMAGE_URLS.partsWallet2_4.back,
+    'https://i.imgur.com/lLcjckD.jpg': PRODUCT_IMAGE_URLS.partsWallet2_4.back,
+    // Parts Wallet 3/4
+    'https://imgur.com/83jXZKg': PRODUCT_IMAGE_URLS.partsWallet3_4.front,
+    'https://i.imgur.com/83jXZKg.jpg': PRODUCT_IMAGE_URLS.partsWallet3_4.front,
+    'https://imgur.com/0OMUUgV': PRODUCT_IMAGE_URLS.partsWallet3_4.back,
+    'https://i.imgur.com/0OMUUgV.jpg': PRODUCT_IMAGE_URLS.partsWallet3_4.back,
+    // Parts Wallet 4/4
+    'https://imgur.com/RqcU0I9': PRODUCT_IMAGE_URLS.partsWallet4_4.front,
+    'https://i.imgur.com/RqcU0I9.jpg': PRODUCT_IMAGE_URLS.partsWallet4_4.front,
+    'https://imgur.com/Lnimi33': PRODUCT_IMAGE_URLS.partsWallet4_4.back,
+    'https://i.imgur.com/Lnimi33.jpg': PRODUCT_IMAGE_URLS.partsWallet4_4.back,
 };
 
 export const resolveLocalImageUrl = (url?: string | null) => {

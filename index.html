@@ -6,10 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Coalition | Crafted in Baltimore</title>
   <meta name="description"
-    content="Coalition is a premium streetwear brand born in Baltimore. Quality, community, and the hustle. Shop the latest drops and join the movement." />
+    content="Coalition — handcrafted streetwear from Baltimore. Shop limited-edition wallets, custom tees, 1/1 denim, and archive drops. Live order map & SGCoin rewards." />
   <meta property="og:title" content="Coalition | Crafted in Baltimore" />
   <meta property="og:description"
-    content="Premium streetwear designed for the city that built us. Join the Coalition." />
+    content="Handcrafted streetwear from Baltimore. Limited wallets, custom tees, 1/1 denim, and archive drops with live order tracking." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://sgcoalition.xyz" />
   <meta property="og:image"
@@ -19,7 +19,7 @@
   <meta name="twitter:site" content="@sgcoalition" />
   <meta name="twitter:title" content="Coalition | Crafted in Baltimore" />
   <meta name="twitter:description"
-    content="Premium streetwear designed for the city that built us. Join the Coalition." />
+    content="Handcrafted streetwear from Baltimore. Limited wallets, custom tees, 1/1 denim, and archive drops with live order tracking." />
   <meta name="twitter:image" content="https://sgcoalition.xyz/hero-cinematic.png" />
   <link rel="canonical" href="https://sgcoalition.xyz" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -30,17 +30,46 @@
   <!-- Preconnect to external domains for faster loading -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://cdn.tailwindcss.com">
+
+  <!-- Preload Google Fonts CSS at highest priority so Oswald & Inter
+       download before first paint. Eliminates font-swap CLS from the
+       font-display custom font (Oswald) swapping in after paint.
+       crossorigin is required for preload-as-style with Google Fonts. -->
+  <link rel="preload"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Oswald:wght@500;700&display=swap"
+        as="style"
+        crossorigin>
+
   <link rel="dns-prefetch" href="https://neftyblocks.com">
   <link rel="dns-prefetch" href="https://opensea.io">
   <link rel="dns-prefetch" href="https://api.dexscreener.com">
   <link rel="dns-prefetch" href="https://polygon-rpc.com">
 
-  <!-- PayPal SDK -->
-  <script
-    src="https://www.paypal.com/sdk/js?client-id=%VITE_PAYPAL_CLIENT_ID%&currency=USD&intent=capture&components=buttons"></script>
+  <!-- PayPal SDK.
+       enable-funding=paylater activates PayPal's "Pay Later" funding
+       source — the Pay in 4 / Pay Monthly split-payment buttons that
+       appear next to the standard PayPal button for eligible buyers.
+       PayPal decides eligibility per buyer, currency, and order amount
+       (US Pay in 4 range is $10–$2,000); no code path changes are
+       needed because Pay Later captures through the same order flow.
+       components=messages enables Pay Later messaging widgets for a
+       future installment-messaging pass on product pages.
 
-  <script src="https://cdn.tailwindcss.com"></script>
+       NOTE: this tag is intentionally NOT gated behind a cookie-consent
+       CMP. The previous deploy shipped a Cookiebot placeholder
+       (data-cbid="YOUR_DOMAIN_GROUP_ID") that never initialized, which
+       both errored on every page load and left this SDK permanently
+       blocked (type="text/plain" is never executed by the browser on its
+       own). If/when a real Cookiebot domain-group ID is configured,
+       re-gate this tag with type="text/plain" + data-cookieconsent and
+       add a fallback that loads the SDK only when the CMP is genuinely
+       missing. -->
+  <script async defer
+    src="https://www.paypal.com/sdk/js?client-id=%VITE_PAYPAL_CLIENT_ID%&currency=USD&intent=capture&components=buttons,messages&enable-funding=paylater"
+    onload="window.__coalitionPaypalReady = true; window.dispatchEvent(new Event('coalition:paypal-ready'));"
+    onerror="window.__coalitionPaypalLoadFailed = true; window.dispatchEvent(new Event('coalition:paypal-failed'));">
+  </script>
+
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Oswald:wght@500;700&display=swap"
     rel="stylesheet">
@@ -53,31 +82,6 @@
           console.log('SW unregistered:', registration.scope);
         }
       });
-    }
-  </script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            display: ['Oswald', 'sans-serif'],
-          },
-          colors: {
-            brand: {
-              black: '#050505', // Deep Black
-              dark: '#111111',  // Off-Black
-              gray: '#222222',  // Dark Gray
-              chrome: '#E5E5E5', // Silver/Chrome
-              accent: '#3B82F6', // Web3 Blue
-            }
-          },
-          backgroundImage: {
-            'noise': "url('/images/patterns/noise.svg')",
-          }
-        }
-      }
     }
   </script>
   <style>
@@ -154,6 +158,137 @@
       transform: translateY(-2px);
     }
 
+    /* Initial Loader (shown before React mounts).
+       Lives in <head> (not inside #root) so the styles are guaranteed
+       to be applied before the loader is painted, even on extremely
+       slow connections where the browser might otherwise paint an
+       unstyled loader. */
+    #initial-loader {
+      position: fixed;
+      inset: 0;
+      background-color: #050505;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 99999;
+      font-family: 'Oswald', sans-serif;
+      color: #E5E5E5;
+      transition: opacity 0.5s ease;
+    }
+    #initial-loader .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #3B82F6; /* Brand accent blue */
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    #initial-loader .brand {
+      letter-spacing: 4px;
+      font-weight: 700;
+      font-size: 14px;
+      text-transform: uppercase;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* No-JS fallback. Only visible when JavaScript is disabled.
+       z-index sits above #initial-loader so it covers the spinner. */
+    #noscript-fallback {
+      position: fixed;
+      inset: 0;
+      background-color: #050505;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 100000;
+      font-family: 'Oswald', sans-serif;
+      color: #E5E5E5;
+      text-align: center;
+      padding: 2rem;
+    }
+    #noscript-fallback .brand {
+      letter-spacing: 4px;
+      font-weight: 700;
+      font-size: 14px;
+      text-transform: uppercase;
+      margin-bottom: 2rem;
+    }
+    #noscript-fallback h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin: 0 0 1rem;
+      color: #E5E5E5;
+    }
+    #noscript-fallback p {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      color: #999;
+      max-width: 30rem;
+      line-height: 1.5;
+      margin: 0;
+    }
+    #noscript-fallback .basic-site-link {
+      margin-top: 1.5rem;
+    }
+    #noscript-fallback .basic-site-link a {
+      color: #3B82F6;
+      text-decoration: none;
+      font-family: 'Oswald', sans-serif;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      font-size: 0.85rem;
+      border-bottom: 1px solid transparent;
+      padding-bottom: 2px;
+      transition: border-color 0.2s ease;
+    }
+    #noscript-fallback .basic-site-link a:hover {
+      border-bottom-color: #3B82F6;
+    }
+
+    /* Device-safe recovery if the entry module is blocked or rejected before
+       React can remove #initial-loader. This is deliberately inline and has
+       no dependency on React, Vite chunks, or third-party scripts. */
+    #load-recovery {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100001;
+      background: #050505;
+      color: #E5E5E5;
+      padding: 2rem;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-family: 'Inter', sans-serif;
+    }
+    #load-recovery.visible { display: flex; }
+    #load-recovery .recovery-card { max-width: 28rem; }
+    #load-recovery h1 {
+      font-family: 'Oswald', sans-serif;
+      font-size: 1.5rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin: 0 0 1rem;
+    }
+    #load-recovery p { color: #999; line-height: 1.5; margin: 0 0 1.5rem; }
+    #load-recovery a {
+      display: inline-block;
+      margin: .35rem;
+      padding: .75rem 1rem;
+      border: 1px solid #3B82F6;
+      border-radius: .5rem;
+      color: #E5E5E5;
+      text-decoration: none;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-size: .75rem;
+    }
+    #load-recovery a.primary { background: #3B82F6; color: #050505; }
+
     @media print {
       @page {
         margin: 1cm;
@@ -168,6 +303,14 @@
 
       body::before {
         display: none;
+      }
+
+      #initial-loader {
+        display: none !important;
+      }
+
+      #noscript-fallback {
+        display: none !important;
       }
 
       .print\:hidden {
@@ -186,7 +329,62 @@
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <!-- This loader shows instantly before your React app loads.
+         Styles live in the <head> <style> block to avoid any flash
+         of unstyled content on extremely slow connections. -->
+    <div id="initial-loader">
+      <div class="spinner"></div>
+      <div class="brand">Coalition</div>
+    </div>
+
+    <!-- Shown only when JavaScript is disabled (browsers ignore
+         <noscript> content when JS is on). Covers the loader so the
+         user gets a clear message instead of an infinite spinner. -->
+    <noscript>
+      <div id="noscript-fallback">
+        <div class="brand">Coalition</div>
+        <h1>JavaScript is required</h1>
+        <p>This site needs JavaScript to run. Please enable it in your browser settings, then reload the page.</p>
+        <p class="basic-site-link"><a href="/nojs.html">View our basic site &rarr;</a></p>
+      </div>
+    </noscript>
+
+    <div id="load-recovery" data-load-recovery aria-live="assertive">
+      <div class="recovery-card">
+        <h1>Coalition is taking longer than expected</h1>
+        <p>Your browser may be holding an older site file. Reload once to refresh it, or open the lightweight site while the full experience reconnects.</p>
+        <a class="primary" href="/" data-reload-site>Reload site</a>
+        <a href="/nojs.html">Open basic site</a>
+      </div>
+    </div>
+  </div>
+  <script>
+    // Keep this recovery timer outside the module graph. If index.tsx never
+    // executes, the user still gets an actionable screen instead of a logo.
+    (function () {
+      var BOOT_TIMEOUT_MS = 8000;
+      window.__coalitionBooted = false;
+      window.setTimeout(function () {
+        if (window.__coalitionBooted) return;
+        var loader = document.getElementById('initial-loader');
+        var recovery = document.querySelector('[data-load-recovery]');
+        if (loader) loader.style.display = 'none';
+        if (recovery) recovery.className += ' visible';
+      }, BOOT_TIMEOUT_MS);
+    }());
+  </script>
+  <script>
+    (function () {
+      var reloadLink = document.querySelector('[data-reload-site]');
+      if (reloadLink) {
+        reloadLink.addEventListener('click', function (event) {
+          event.preventDefault();
+          window.location.reload();
+        });
+      }
+    }());
+  </script>
   <script type="module" src="/index.tsx"></script>
 </body>
 

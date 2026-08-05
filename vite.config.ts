@@ -1,6 +1,8 @@
 import path from 'path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig(() => {
   return {
@@ -15,7 +17,16 @@ export default defineConfig(() => {
         }
       }
     },
-    plugins: [react()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      visualizer({
+        filename: 'dist/stats.html',
+        open: false,
+        gzipSize: true,
+        brotliSize: true,
+      }),
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
@@ -27,5 +38,13 @@ export default defineConfig(() => {
     // through esbuild's transform pipeline. On Vercel's tighter build-worker
     // RAM ceiling this OOM-kills mid-`transforming...`. Rollup's default
     // chunker tree-shakes per export, so we intentionally omit manualChunks.
+    build: {
+      // iPad Safari versions in the field can be older than the current
+      // default browser target. Lowering the target keeps the entry module
+      // parseable so a syntax rejection cannot strand users behind the
+      // inline #initial-loader before React mounts.
+      target: 'safari12',
+      sourcemap: true,
+    },
   };
 });

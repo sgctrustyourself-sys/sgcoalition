@@ -1,8 +1,9 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { ShoppingBag, Star, ArrowRight, ShieldCheck, Zap, Scissors, Eye, Sparkles } from 'lucide-react';
+import { motion } from 'motion/react';
+import { ShoppingBag, Star, ArrowRight, ShieldCheck, Zap, Scissors, Eye, Sparkles, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { SGCOIN_V2_CONTRACT_ADDRESS } from '../constants';
 
 // Local branded hero imagery
 const heroImg = "/story-hero.png";
@@ -31,11 +32,8 @@ const SGCoalitionPortal = () => {
                     </Link>
                     <div className="flex items-center gap-10 text-[10px] uppercase tracking-[0.4em] font-bold">
                         <Link to="/sgminiwizards" className="text-gray-400 hover:text-purple-400 transition-colors">Wizards</Link>
-                        <Link to="/migrate" className="text-orange-500 hover:text-orange-400 transition-colors flex items-center gap-2">
-                            <span className="relative">
-                                Migration
-                                <span className="absolute -top-1 -right-4 w-1 h-1 bg-orange-500 rounded-full animate-ping" />
-                            </span>
+                        <Link to="/migrate" className="text-orange-500 hover:text-orange-400 transition-colors">
+                            Migration
                         </Link>
                         <a href="https://shop.sgcoalition.xyz" className="bg-white text-black px-6 py-2.5 rounded-full hover:bg-orange-500 hover:text-white transition-all transform hover:scale-105 active:scale-95 shadow-lg font-black tracking-widest">Shop Drops</a>
                     </div>
@@ -208,15 +206,23 @@ const SGCoalitionPortal = () => {
                     <div className="flex flex-wrap justify-center md:justify-end gap-12 text-[10px] font-bold uppercase tracking-[0.4em] text-gray-500">
                         <Link to="/about" className="hover:text-white transition-colors">Our Story</Link>
                         <Link to="/shop" className="hover:text-white transition-colors">Archive</Link>
-                        <a href="#" className="hover:text-white transition-colors border-t border-orange-500/50 pt-2">V2 Mainnet</a>
+                        <a
+                            href={`https://polygonscan.com/token/${SGCOIN_V2_CONTRACT_ADDRESS}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-white transition-colors border-t border-orange-500/50 pt-2 inline-flex items-center gap-2"
+                        >
+                            V2 Mainnet
+                            <ExternalLink size={11} className="opacity-70" />
+                        </a>
                     </div>
                 </div>
                 <div className="max-w-7xl mx-auto mt-20 pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between gap-8 text-[9px] uppercase tracking-widest text-gray-700 font-bold">
                     <span>© 2026 SGCoalition | Crafted in Baltimore</span>
                     <div className="flex gap-8">
-                        <a href="#">Security</a>
-                        <a href="#">Governance</a>
-                        <a href="#">Terms</a>
+                        <Link to="/privacy" className="hover:text-white transition-colors">Security</Link>
+                        <Link to="/community" className="hover:text-white transition-colors">Governance</Link>
+                        <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
                     </div>
                 </div>
             </footer>

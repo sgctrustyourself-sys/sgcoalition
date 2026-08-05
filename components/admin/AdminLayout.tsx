@@ -1,37 +1,63 @@
 import React from 'react';
-import { Activity, Package, ShoppingCart, GitBranch, Gift, Settings, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3, TrendingUp, Instagram, Megaphone, Users, Brain, Send } from 'lucide-react';
+import { Activity, Package, ShoppingCart, GitBranch, Gift, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3, TrendingUp, Instagram, Megaphone, Users, Brain, Image as ImageIcon, UserCircle2, Banknote } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'marketing' | 'users' | 'brain' | 'settings';
-    onTabChange: (tab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'marketing' | 'users' | 'brain' | 'settings') => void;
+    activeTab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'sgcoin-payouts' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'images' | 'users' | 'brain' | 'settings' | 'customer-profile';
+    onTabChange: (tab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'sgcoin-payouts' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'images' | 'users' | 'brain' | 'settings' | 'customer-profile') => void;
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange }) => {
     const { logoutAdmin } = useApp();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
-    const navItems = [
-        { id: 'command-center', label: 'Command Center', icon: Activity },
-        { id: 'products', label: 'Products', icon: Package },
-        { id: 'orders', label: 'Orders', icon: ShoppingCart },
-        { id: 'blog', label: 'Blog Manager', icon: MessageSquare },
-        { id: 'reviews', label: 'Reviews', icon: Star },
-        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-        { id: 'referrals', label: 'Referrals', icon: TrendingUp },
-        { id: 'sgcoin-distribution', label: 'SGCoin Distribution', icon: Coins },
-        { id: 'sgcoin-requests', label: 'SGCoin Requests', icon: Coins },
-        { id: 'instagram', label: 'Instagram Links', icon: Instagram },
-        { id: 'git', label: 'Version Control', icon: GitBranch },
-        { id: 'giveaways', label: 'Giveaways', icon: Gift },
-        { id: 'inquiries', label: 'Custom Inquiries', icon: MessageSquare },
-        { id: 'signals', label: 'Signal Broadcast', icon: Megaphone },
-        { id: 'marketing', label: 'Marketing', icon: Send },
-        { id: 'brain', label: 'Coalition Brain', icon: Brain },
-        { id: 'users', label: 'User Directory', icon: Users },
-        // { id: 'settings', label: 'Settings', icon: Settings },
-    ] as const;
+    const navGroups: Array<{ label: string; items: Array<{ id: typeof activeTab; label: string; icon: React.ComponentType<{ className?: string }> }> }> = [
+        {
+            label: 'Commerce',
+            items: [
+                { id: 'products', label: 'Products', icon: Package },
+                { id: 'orders', label: 'Orders', icon: ShoppingCart },
+                { id: 'reviews', label: 'Reviews', icon: Star },
+            ]
+        },
+        {
+            label: 'Content',
+            items: [
+                { id: 'blog', label: 'Blog Manager', icon: MessageSquare },
+                { id: 'images', label: 'Image Manager', icon: ImageIcon },
+            ]
+        },
+        {
+            label: 'Community',
+            items: [
+                { id: 'giveaways', label: 'Giveaways', icon: Gift },
+                { id: 'inquiries', label: 'Custom Inquiries', icon: MessageSquare },
+                { id: 'instagram', label: 'Instagram Links', icon: Instagram },
+                { id: 'signals', label: 'Signal Broadcast', icon: Megaphone },
+                { id: 'users', label: 'User Directory', icon: Users },
+                { id: 'customer-profile', label: 'Customer Profile', icon: UserCircle2 },
+            ]
+        },
+        {
+            label: 'Finance',
+            items: [
+                { id: 'sgcoin-distribution', label: 'SGCoin Distribution', icon: Coins },
+                { id: 'sgcoin-requests', label: 'SGCoin Requests', icon: Coins },
+                { id: 'sgcoin-payouts', label: 'SGCoin Payouts', icon: Banknote },
+                { id: 'referrals', label: 'Referral Analytics', icon: TrendingUp },
+            ]
+        },
+        {
+            label: 'System',
+            items: [
+                { id: 'command-center', label: 'Command Center', icon: Activity },
+                { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+                { id: 'git', label: 'Version Control', icon: GitBranch },
+                { id: 'brain', label: 'Coalition Brain', icon: Brain },
+            ]
+        },
+    ];
 
     return (
         <div className="min-h-screen bg-black text-white flex font-sans">
@@ -43,19 +69,34 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                     </h1>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-2">
-                    {navItems.map((item) => (
-                        <button
-                            key={item.id}
-                            onClick={() => onTabChange(item.id)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${activeTab === item.id
-                                ? 'bg-white text-black font-bold shadow-[0_0_15px_rgba(255,255,255,0.3)]'
-                                : 'text-gray-400 hover:text-white hover:bg-white/5'
-                                }`}
-                        >
-                            <item.icon className={`w-5 h-5 ${activeTab === item.id ? 'text-black' : 'text-gray-400 group-hover:text-white'}`} />
-                            <span className="uppercase tracking-wide text-sm">{item.label}</span>
-                        </button>
+                <nav className="flex-1 overflow-y-auto p-3 space-y-4 scrollbar-thin scrollbar-thumb-white/10">
+                    {navGroups.map((group) => (
+                        <div key={group.label}>
+                            <div className="px-3 pb-1.5">
+                                <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-600">
+                                    {group.label}
+                                </span>
+                            </div>
+                            <div className="space-y-0.5">
+                                {group.items.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => onTabChange(item.id)}
+                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${activeTab === item.id
+                                            ? 'bg-white text-black font-bold shadow-[0_0_15px_rgba(255,255,255,0.3)]'
+                                            : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                            }`}
+                                        title={item.label}
+                                    >
+                                        <item.icon className={`w-4 h-4 ${activeTab === item.id ? 'text-black' : 'text-gray-400 group-hover:text-white'}`} />
+                                        <span className="uppercase tracking-wide text-xs font-semibold">{item.label}</span>
+                                        {activeTab === item.id && (
+                                            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     ))}
                 </nav>
 
@@ -80,31 +121,47 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
 
             {/* Mobile Menu */}
             {isMobileMenuOpen && (
-                <div className="md:hidden fixed inset-0 z-20 bg-black pt-20 px-4">
-                    <nav className="space-y-2">
-                        {navItems.map((item) => (
-                            <button
-                                key={item.id}
-                                onClick={() => {
-                                    onTabChange(item.id);
-                                    setIsMobileMenuOpen(false);
-                                }}
-                                className={`w-full flex items-center gap-3 px-4 py-4 rounded-lg border ${activeTab === item.id
-                                    ? 'bg-white text-black border-white'
-                                    : 'border-white/10 text-gray-400'
-                                    }`}
-                            >
-                                <item.icon className="w-5 h-5" />
-                                <span className="uppercase tracking-wide font-bold">{item.label}</span>
-                            </button>
+                <div className="md:hidden fixed inset-0 z-20 bg-black/95 backdrop-blur-lg pt-20 px-4 overflow-y-auto">
+                    <nav className="pb-8 space-y-6">
+                        {navGroups.map((group) => (
+                            <div key={group.label}>
+                                <div className="px-1 pb-2">
+                                    <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-600">
+                                        {group.label}
+                                    </span>
+                                </div>
+                                <div className="space-y-1">
+                                    {group.items.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            onClick={() => {
+                                                onTabChange(item.id);
+                                                setIsMobileMenuOpen(false);
+                                            }}
+                                            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-lg transition-all border ${activeTab === item.id
+                                                ? 'bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.15)]'
+                                                : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+                                                }`}
+                                        >
+                                            <item.icon className={`w-5 h-5 ${activeTab === item.id ? 'text-black' : ''}`} />
+                                            <span className="uppercase tracking-wide font-bold text-sm">{item.label}</span>
+                                            {activeTab === item.id && (
+                                                <span className="ml-auto w-2 h-2 rounded-full bg-black"></span>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         ))}
-                        <button
-                            onClick={logoutAdmin}
-                            className="w-full flex items-center gap-3 px-4 py-4 rounded-lg border border-red-500/30 text-red-400 mt-8"
-                        >
-                            <LogOut className="w-5 h-5" />
-                            <span className="uppercase tracking-wide font-bold">Logout</span>
-                        </button>
+                        <div className="pt-6 border-t border-white/10">
+                            <button
+                                onClick={logoutAdmin}
+                                className="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
+                            >
+                                <LogOut className="w-5 h-5" />
+                                <span className="uppercase tracking-wide font-bold text-sm">Logout</span>
+                            </button>
+                        </div>
                     </nav>
                 </div>
             )}

@@ -1,4 +1,3 @@
-import { ethers, BrowserProvider } from 'ethers';
 import {
     SGCOIN_V1_CONTRACT_ADDRESS,
     SGCOIN_V2_CONTRACT_ADDRESS,
@@ -8,13 +7,23 @@ import {
     MINI_WIZARDS_CONTRACT_ADDRESS,
     POLYGON_RPC_URLS,
     POLYGON_RPC_URL
-} from '../constants';
-import { fetchBurnActivity } from '../utils/polygonScanApi';
+} from '../constants.js';
+import { fetchBurnActivity } from '../utils/polygonScanApi.js';
+
+// Lazy-loaded ethers — ~100 KB chunk only downloaded when a crypto function
+// is first called (connect wallet, check balance, pay with crypto, etc.).
+// Cached at module level so subsequent calls resolve instantly.
+let ethersModule: Promise<typeof import('ethers')> | null = null;
+const getEthers = () => {
+    if (!ethersModule) ethersModule = import('ethers');
+    return ethersModule;
+};
 
 /**
  * Creates a robust Ethers provider with static network info
  */
-export const getStaticProvider = () => {
+export const getStaticProvider = async () => {
+    const { ethers } = await getEthers();
     return new ethers.JsonRpcProvider(POLYGON_RPC_URL, {
         chainId: 137,
         name: 'polygon'
@@ -27,6 +36,7 @@ export const getStaticProvider = () => {
  * Attempts to get a working provider from a list of RPCs
  */
 export const getRobustProvider = async (): Promise<any> => {
+    const { ethers } = await getEthers();
     for (const url of POLYGON_RPC_URLS) {
         try {
             const provider = new ethers.JsonRpcProvider(url, { chainId: 137, name: 'polygon' }, { staticNetwork: true });
@@ -61,12 +71,88 @@ const SAFE_MIGRATION_ABI = [
     'event Migrated(address indexed user, uint256 v1Amount, uint256 v2Amount, string tier)'
 ];
 
+/**
+ * Migration event emitted by the SafeMigration contract when a user migrates V1 → V2.
+ * topic0 = keccak256('Migrated(address,uint256,uint256,string)') =
+ *         0x84c19c0cbe7ff683ba321044828863b5fc1427c0dfedb486a7cd8a1bf9b00515
+ */
+export interface MigrationEvent {
+    txHash: string;
+    blockNumber: number;
+    timestamp: number | null;
+    v1Amount: string;
+    v2Amount: string;
+    tier: string;
+}
+
+export const fetchRecentMigrations = async (
+    walletAddress: string,
+    provider: any
+): Promise<MigrationEvent[]> => {
+    const { ethers } = await getEthers();
+    const SAFE_MIGRATION_TOPIC0 = '0x84c19c0cbe7ff683ba321044828863b5fc1427c0dfedb486a7cd8a1bf9b00515';
+
+    try {
+        const network = await provider.getNetwork();
+        if (Number(network.chainId) !== 137) {
+            console.warn('[fetchRecentMigrations] Not on Polygon — returning empty');
+            return [];
+        }
+
+        // Fetch the SafeMigration contract's Migrated events filtered by user.
+        // ethers' topic filtering handles the indexed `user` parameter automatically.
+        const contract = new ethers.Contract(
+            '0xc6c1EB54E5Ed966C0B48154d6e22eaA8a4c4C536',
+            SAFE_MIGRATION_ABI,
+            provider
+        );
+
+        // Use a generous block range. SafeMigration was deployed ~mid-2026;
+        // 20 million blocks back on Polygon covers roughly mid-2025 onward.
+        const currentBlock = await provider.getBlockNumber();
+        const fromBlock = Math.max(0, currentBlock - 5_000_000);
+
+        const filter = contract.filters.Migrated(walletAddress);
+        const events = await contract.queryFilter(filter, fromBlock);
+
+        // Sort descending by block number, take last 5
+        const sorted = events.sort((a: any, b: any) => b.blockNumber - a.blockNumber);
+        const recent = sorted.slice(0, 5);
+
+        // Resolve block timestamps for human-readable dates
+        const migrations: MigrationEvent[] = await Promise.all(
+            recent.map(async (event: any) => {
+                let timestamp: number | null = null;
+                try {
+                    const block = await provider.getBlock(event.blockNumber);
+                    timestamp = block ? block.timestamp * 1000 : null;
+                } catch { /* best-effort */ }
+
+                return {
+                    txHash: event.transactionHash,
+                    blockNumber: event.blockNumber,
+                    timestamp,
+                    v1Amount: ethers.formatUnits(event.args.v1Amount, 9),
+                    v2Amount: ethers.formatUnits(event.args.v2Amount, 18),
+                    tier: event.args.tier,
+                };
+            })
+        );
+
+        return migrations;
+    } catch (error) {
+        console.error('[fetchRecentMigrations] Error:', error);
+        return [];
+    }
+};
+
 // ERC-1155 ABI (for OpenSea Shared Storefront)
 const ERC1155_ABI = [
     'function balanceOf(address account, uint256 id) view returns (uint256)'
 ];
 
 export const getSGCoinBalance = async (address: string, provider: any): Promise<string> => {
+    const { ethers } = await getEthers();
     try {
         const network = await provider.getNetwork();
 
@@ -89,6 +175,7 @@ export const getSGCoinBalance = async (address: string, provider: any): Promise<
 };
 
 export const getSGCoinV2Balance = async (address: string, provider: any): Promise<string> => {
+    const { ethers } = await getEthers();
     try {
         const network = await provider.getNetwork();
 
@@ -110,6 +197,7 @@ export const getSGCoinV2Balance = async (address: string, provider: any): Promis
 };
 
 export const getBurnedSGCoinV1 = async (provider: any): Promise<string> => {
+    const { ethers } = await getEthers();
     // Audit-verified fallback if live data fails
     const AUDITED_BURN = '1,777,161';
 
@@ -142,6 +230,7 @@ export const getBurnedSGCoinV1 = async (provider: any): Promise<string> => {
 };
 
 export const getNativeBalance = async (address: string, provider: any): Promise<string> => {
+    const { ethers } = await getEthers();
     try {
         const balance = await provider.getBalance(address);
         return ethers.formatEther(balance);
@@ -152,6 +241,7 @@ export const getNativeBalance = async (address: string, provider: any): Promise<
 };
 
 export const getLiquidityProviderV2Balance = async (provider: any): Promise<string> => {
+    const { ethers } = await getEthers();
     try {
         const contract = new ethers.Contract(SGCOIN_V2_CONTRACT_ADDRESS, ERC20_ABI, provider);
         const balance = await contract.balanceOf(SGCOIN_LIQUIDITY_PROVIDER);
@@ -172,6 +262,7 @@ export interface BurnActivity {
 }
 
 export const getRecentBurnActivity = async (provider: any): Promise<BurnActivity[]> => {
+    const { ethers } = await getEthers();
     try {
         // First try PolygonScan API for a richer history
         const apiActivities = await fetchBurnActivity(20);
@@ -217,7 +308,8 @@ export const checkNftOwnership = async (
     try {
         if (!window.ethereum) return false;
 
-        const provider = existingProvider || new ethers.BrowserProvider(window.ethereum);
+        const { ethers, BrowserProvider } = await getEthers();
+        const provider = existingProvider || new BrowserProvider(window.ethereum);
         const network = await provider.getNetwork();
 
         if (Number(network.chainId) !== POLYGON_CHAIN_ID) {
@@ -241,7 +333,8 @@ export const connectWallet = async (): Promise<WalletData | null> => {
     }
 
     try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        const { ethers, BrowserProvider } = await getEthers();
+        const provider = new BrowserProvider(window.ethereum);
         const accounts = await provider.send("eth_requestAccounts", []);
 
         if (accounts.length === 0) {
@@ -336,6 +429,7 @@ export const switchToPolygon = async (): Promise<boolean> => {
 };
 
 export const getAllowance = async (tokenAddress: string, owner: string, spender: string, provider: any): Promise<bigint> => {
+    const { ethers } = await getEthers();
     try {
         const abi = ['function allowance(address owner, address spender) view returns (uint256)'];
         const contract = new ethers.Contract(tokenAddress, abi, provider);
@@ -347,6 +441,7 @@ export const getAllowance = async (tokenAddress: string, owner: string, spender:
 };
 
 export const approveTokens = async (tokenAddress: string, spender: string, amount: bigint, signer: any): Promise<string | null> => {
+    const { ethers } = await getEthers();
     try {
         const abi = ['function approve(address spender, uint256 amount) returns (bool)'];
         const contract = new ethers.Contract(tokenAddress, abi, signer);
@@ -363,7 +458,8 @@ export const payWithCrypto = async (amountUSD: number, merchantAddress: string):
     try {
         if (!window.ethereum) throw new Error("No crypto wallet found");
 
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        const { ethers, BrowserProvider } = await getEthers();
+        const provider = new BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
 
         // For MVP, we'll convert USD to ETH roughly (assuming $3000 ETH for safety/demo)
@@ -392,6 +488,7 @@ const MINIWIZARD_ABI = [
 ];
 
 export const fetchUserMiniWizards = async (ownerAddress: string, provider: any): Promise<any[]> => {
+    const { ethers } = await getEthers();
     try {
         const network = await provider.getNetwork();
         if (Number(network.chainId) !== POLYGON_CHAIN_ID) {

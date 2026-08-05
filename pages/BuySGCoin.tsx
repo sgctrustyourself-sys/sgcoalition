@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Wallet, Mail, DollarSign, CheckCircle, Zap, ArrowUpRight, Sparkles, TrendingUp } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { ArrowLeft, Wallet, Mail, DollarSign, CheckCircle, Zap, ArrowUpRight, TrendingUp, Copy, Check } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
+import { FOUNDER_WALLET_ADDRESS } from '../constants';
 import { sendAdminNotification } from '../services/emailService';
 
 // Declare PayPal SDK types
@@ -172,19 +173,22 @@ const BuySGCoin = () => {
         return (
             <div className="min-h-screen bg-[#050505] text-white pt-24 pb-16 px-4">
                 <div className="max-w-2xl mx-auto">
+                    {/* Success celebration — Lever 3-style neutral archival.
+                            The brand voice is "payment received", not green spotlight.
+                            No gradient, no brand-color CheckCircle, no exclamation. */}
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-gradient-to-br from-green-900/20 to-green-800/20 border border-green-500/30 rounded-3xl p-12 text-center backdrop-blur-xl"
+                        className="border border-white/10 bg-white/[0.03] rounded-3xl p-12 text-center backdrop-blur-xl"
                     >
                         <motion.div
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
                             transition={{ delay: 0.2, type: "spring" }}
                         >
-                            <CheckCircle className="w-24 h-24 text-green-500 mx-auto mb-6" />
+                            <CheckCircle className="w-24 h-24 text-gray-300 mx-auto mb-6" />
                         </motion.div>
-                        <h1 className="font-display text-5xl font-black uppercase mb-4">Payment Received!</h1>
+                        <h1 className="font-display text-5xl font-black uppercase mb-4">Payment received</h1>
                         <p className="text-gray-300 text-lg mb-8">
                             Your SGCOIN purchase has been confirmed
                         </p>
@@ -198,12 +202,11 @@ const BuySGCoin = () => {
                                 <span className="text-gray-400">SGCOIN (Base)</span>
                                 <span className="text-xl font-bold">{sgcoinAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                             </div>
-                            <div className="flex justify-between items-center pb-4 border-b border-green-500/20">
-                                <span className="text-green-400 flex items-center gap-2">
-                                    <Sparkles className="w-4 h-4" />
-                                    10% Bonus
+                            <div className="flex justify-between items-center pb-4 border-b border-white/10">
+                                <span className="text-gray-300 flex items-center gap-2">
+                                    10% bonus
                                 </span>
-                                <span className="text-xl font-bold text-green-400">+{bonusAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                                <span className="text-xl font-bold text-white">+{bonusAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                             </div>
                             <div className="flex justify-between items-center pt-2">
                                 <span className="text-white font-bold text-lg">Total SGCOIN</span>
@@ -277,14 +280,26 @@ const BuySGCoin = () => {
                         animate={{ opacity: 1, y: 0 }}
                         className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-green-500/20 bg-green-500/10 text-green-400 text-[10px] mb-6 uppercase tracking-[0.3em] font-bold"
                     >
-                        <Sparkles className="w-3 h-3" /> +10% Bonus on Direct Purchases
+                        +10% bonus added at checkout
                     </motion.div>
                     <h1 className="font-display text-6xl md:text-7xl font-black uppercase mb-4">
                         Buy <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-blue-400 to-purple-500">SGCOIN V2</span>
                     </h1>
                     <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-                        Purchase SGCOIN directly and receive <span className="text-green-400 font-bold">10% more coins</span> than swapping. Delivered to your wallet within 24 hours.
+                        Purchase SGCOIN directly and receive <span className="text-white font-bold">10% more coins</span> than swapping. Delivered to your wallet within 24 hours.
                     </p>
+
+                    {/* QuickSwap Instant Trade Banner */}
+                    <a
+                        href="https://dapp.quickswap.exchange/swap/best/ETH/0xd53e417107d0e01bbe74a704bb90fe7a6916ee1e?chainId=137"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-6 inline-flex items-center gap-3 px-6 py-3 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-black uppercase tracking-widest hover:bg-purple-500/20 hover:text-white transition-all group"
+                    >
+                        <Zap className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        Trade instantly on QuickSwap
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                    </a>
                 </div>
 
                 {error && (
@@ -389,12 +404,11 @@ const BuySGCoin = () => {
                                 <span className="text-gray-400 text-sm">Base Amount</span>
                                 <span className="text-2xl font-bold">{sgcoinAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                             </div>
-                            <div className="flex justify-between items-center pb-4 border-b border-green-500/20">
-                                <span className="text-green-400 text-sm flex items-center gap-2">
-                                    <Sparkles className="w-4 h-4" />
-                                    10% Bonus
+                            <div className="flex justify-between items-center pb-4 border-b border-white/10">
+                                <span className="text-gray-300 text-sm">
+                                    10% bonus
                                 </span>
-                                <span className="text-2xl font-bold text-green-400">+{bonusAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                                <span className="text-2xl font-bold text-white">+{bonusAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                             </div>
                             <div className="flex justify-between items-center pt-2">
                                 <span className="text-white font-bold">Total SGCOIN</span>
@@ -472,26 +486,51 @@ const BuySGCoin = () => {
 
                             <div className="flex flex-col gap-3 min-w-[280px]">
                                 {[
+                                    { label: 'POL / USDC (Direct Send)', value: FOUNDER_WALLET_ADDRESS, type: 'crypto' },
                                     { label: 'SOL/ETH Address', value: '0x39451d0ee9Fc5dd861C985d2a3e227F6Ac7387f4', type: 'crypto' },
                                     { label: 'Cash App', value: '$SGCoalition', type: 'cash' }
-                                ].map((method, idx) => (
-                                    <div
-                                        key={idx}
-                                        className="bg-black/40 border border-white/5 rounded-xl p-4 flex items-center justify-between group/item hover:border-white/20 transition-all cursor-pointer"
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(method.value);
-                                            // Optional: Add toast notification here if you have a toast system
-                                        }}
-                                    >
-                                        <div>
-                                            <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">{method.label}</p>
-                                            <p className="text-white font-mono text-xs">{method.value.substring(0, 10)}...{method.value.substring(method.value.length - 4)}</p>
+                                ].map((method, idx) => {
+                                    const [copiedIdx, setCopiedIdx] = React.useState<number | null>(null);
+                                    return (
+                                        <div
+                                            key={idx}
+                                            className="bg-black/40 border border-white/5 rounded-xl p-4 flex items-center justify-between group/item hover:border-white/20 transition-all cursor-pointer"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(method.value);
+                                                setCopiedIdx(idx);
+                                                setTimeout(() => setCopiedIdx(null), 2000);
+                                            }}
+                                        >
+                                            <div>
+                                                <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">{method.label}</p>
+                                                <p className="text-white font-mono text-xs">{method.value.substring(0, 10)}...{method.value.substring(method.value.length - 4)}</p>
+                                            </div>
+                                            <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover/item:bg-white/10 transition-colors">
+                                                {copiedIdx === idx ? (
+                                                    <Check className="w-4 h-4 text-green-400" />
+                                                ) : (
+                                                    <Copy className="w-4 h-4 text-gray-400 group-hover/item:text-white transition-colors" />
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover/item:bg-white/10 transition-colors">
-                                            <TrendingUp className="w-4 h-4 text-gray-400 group-hover/item:text-white transition-colors" />
+                                    );
+                                })}
+                                {/* Email instructions for manual sends */}
+                                <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 mt-2">
+                                    <div className="flex items-start gap-3">
+                                        <Mail className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-[11px] text-orange-300 font-bold mb-1">After sending, email me</p>
+                                            <p className="text-[10px] text-orange-200/70 leading-relaxed">
+                                                Send your receipt, transaction hash, your shipping name & address, and the item you ordered to{' '}
+                                                <a href="mailto:sgctrustyourself@gmail.com" className="text-orange-300 underline decoration-orange-400/30 hover:decoration-orange-300 transition-all font-mono">
+                                                    sgctrustyourself@gmail.com
+                                                </a>
+                                                . I'll confirm and ship within 24 hours.
+                                            </p>
                                         </div>
                                     </div>
-                                ))}
+                                </div>
                             </div>
                         </div>
                     </div>
