@@ -22,6 +22,7 @@ const BrainManager = lazy(() => import('../components/admin/BrainManager'));
 const UserManager = lazy(() => import('../components/admin/UserManager'));
 const ImageManager = lazy(() => import('../components/admin/ImageManager'));
 const CustomerProfileAdmin = lazy(() => import('../components/admin/CustomerProfileAdmin'));
+const TrustCircleManager = lazy(() => import('../components/admin/TrustCircleManager'));
 
 // Loading component for Suspense fallback
 const LoadingSpinner = () => (
@@ -37,7 +38,7 @@ const LoadingSpinner = () => (
 
 const Admin: React.FC = () => {
     const { user } = useApp();
-    const [activeTab, setActiveTab] = useState<'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'sgcoin-payouts' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'users' | 'brain' | 'settings' | 'images' | 'customer-profile'>('command-center');
+    const [activeTab, setActiveTab] = useState<'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'sgcoin-payouts' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'users' | 'brain' | 'settings' | 'images' | 'customer-profile' | 'trust-circle'>('command-center');
 
     const renderContent = () => {
         switch (activeTab) {
@@ -84,6 +85,8 @@ const Admin: React.FC = () => {
                 // drill from a customer's profile straight into their
                 // withdrawal requests).
                 return <CustomerProfileAdmin onNavigateToPayouts={() => setActiveTab('sgcoin-payouts')} />;
+            case 'trust-circle':
+                return <TrustCircleManager />;
             case 'settings':
                 return (
                     <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">

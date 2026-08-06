@@ -1,11 +1,11 @@
 import React from 'react';
-import { Activity, Package, ShoppingCart, GitBranch, Gift, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3, TrendingUp, Instagram, Megaphone, Users, Brain, Image as ImageIcon, UserCircle2, Banknote } from 'lucide-react';
+import { Activity, Package, ShoppingCart, GitBranch, Gift, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3, TrendingUp, Instagram, Megaphone, Users, Brain, Image as ImageIcon, UserCircle2, Banknote, Award } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'sgcoin-payouts' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'images' | 'users' | 'brain' | 'settings' | 'customer-profile';
-    onTabChange: (tab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'sgcoin-payouts' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'images' | 'users' | 'brain' | 'settings' | 'customer-profile') => void;
+    activeTab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'sgcoin-payouts' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'images' | 'users' | 'brain' | 'settings' | 'customer-profile' | 'trust-circle';
+    onTabChange: (tab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'sgcoin-payouts' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'images' | 'users' | 'brain' | 'settings' | 'customer-profile' | 'trust-circle') => void;
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange }) => {
@@ -37,6 +37,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                 { id: 'signals', label: 'Signal Broadcast', icon: Megaphone },
                 { id: 'users', label: 'User Directory', icon: Users },
                 { id: 'customer-profile', label: 'Customer Profile', icon: UserCircle2 },
+                { id: 'trust-circle', label: 'Trust Circle', icon: Award },
             ]
         },
         {
