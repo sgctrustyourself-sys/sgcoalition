@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Hexagon, Package, Truck, CheckCircle, Clock, Settings, Wallet, Link as LinkIcon, AlertCircle, CheckCircle2, Copy, Check, DollarSign, Star, Ticket, Heart, Vote, Users } from 'lucide-react';
+import { Hexagon, Package, Truck, CheckCircle, Clock, Settings, Wallet, Link as LinkIcon, AlertCircle, CheckCircle2, Copy, Check, DollarSign, Star, Ticket, Heart, Users } from 'lucide-react';
 import { getReferralStats, generateReferralLink, type ReferralStats } from '../utils/referralSystem';
 import { trackReferralShare } from '../utils/referralAnalytics';
 import { useApp } from '../context/AppContext';
@@ -12,7 +12,7 @@ import OrderSkeleton from '../components/OrderSkeleton';
 // drops ~63 KB raw (ReferralDashboard 22 + AccountLinking 31 +
 // PurchaseRequestsTab 10). They only download the first time their tab
 // is opened, with a skeleton fallback during the fetch.
-const ReferralDashboard = React.lazy(() => import('../components/ReferralDashboard'));
+const TrustedFewDashboard = React.lazy(() => import('../components/ReferralDashboard'));
 const AccountLinking = React.lazy(() => import('../components/AccountLinking'));
 const PurchaseRequestsTab = React.lazy(() => import('../components/profile/PurchaseRequestsTab'));
 // SGCoinPayoutTab ships as a separate chunk so the eager Profile bundle
@@ -192,7 +192,7 @@ const Profile = () => {
                                     <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl border border-white/10 min-w-[220px] cursor-pointer hover:bg-white/[0.15] transition" onClick={() => setActiveTab('referrals')}>
                                         <div className="text-xs text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
                                             <Users className="w-3.5 h-3.5 text-purple-400" />
-                                            Referral Code
+                                            Partner Code
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <code className="text-xl font-bold text-white font-mono tracking-wider">
@@ -213,7 +213,7 @@ const Profile = () => {
                                                     }, 2000);
                                                 }}
                                                 className="p-2 rounded-lg hover:bg-white/10 transition text-gray-400 hover:text-white"
-                                                title="Copy referral link"
+                                                title="Copy partner link"
                                             >
                                                 {profileReferralCopied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
                                             </button>
@@ -228,13 +228,6 @@ const Profile = () => {
 
             {!isLoading && (
                 <div className="relative z-10 mt-6 pt-6 border-t border-white/10 flex flex-wrap gap-3">
-                    <Link
-                        to="/blog/referendum-referral-program-2027"
-                        className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-200 hover:text-amber-100 hover:bg-amber-500/20 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] transition"
-                    >
-                        <Vote className="w-4 h-4" />
-                        Continue referrals in 2027?
-                    </Link>
                     {trackableOrder && (
                         <a
                             href={`https://www.ups.com/track?tracknum=${encodeURIComponent(trackableOrder.trackingNumber!)}`}
@@ -281,15 +274,15 @@ const Profile = () => {
                 </button>
                 <button
                     onClick={() => setActiveTab('referrals')}
-                    title="Referrals"
-                    aria-label="Referrals"
+                    title="Partner Program"
+                    aria-label="Partner Program"
                     className={`pb-4 px-2 font-bold uppercase tracking-wide transition border-b-2 flex items-center gap-2 whitespace-nowrap ${activeTab === 'referrals'
                         ? 'border-black text-black'
                         : 'border-transparent text-gray-400 hover:text-gray-600'
                         }`}
                 >
                     <DollarSign className="w-5 h-5 flex-shrink-0" />
-                    <span className="hidden sm:inline">Referrals</span>
+                    <span className="hidden sm:inline">Partner Program</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('vip')}
@@ -502,8 +495,8 @@ const Profile = () => {
                     }
                 >
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-                        <h2 className="font-display text-2xl font-bold uppercase mb-6">Referral Program</h2>
-                        <ReferralDashboard />
+                        <h2 className="font-display text-2xl font-bold uppercase mb-6">The Trusted Few</h2>
+                        <TrustedFewDashboard />
                     </div>
                 </Suspense>
             )}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Copy, Check, TrendingUp, Users, DollarSign, Award, ExternalLink, Eye, MousePointerClick, Calendar, Clock, X } from 'lucide-react';
+import { Copy, Check, TrendingUp, Users, DollarSign, Award, ExternalLink, Eye, MousePointerClick } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import {
@@ -13,21 +13,16 @@ import {
     type Referral
 } from '../utils/referralSystem';
 import { getReferrerAnalytics } from '../utils/referralAnalytics';
+import {
+    getMembership,
+    getMyApplication,
+    acceptInvite,
+    declineInvite,
+    TRUST_CIRCLE_FLAT_RATE,
+    type TrustCircleMembership
+} from '../services/trustCircle';
 
-// The Coalition referral program is scheduled to sunset on Dec 31, 2026.
-// A community vote will decide whether the program continues into 2027 or
-// wraps for the year. Surfaced to users here so the timeline is unambiguous.
-const PROGRAM_SUNSET_DATE = 'December 31, 2026';
-// Recommended window for tallying the vote. The operator closes the vote
-// manually (see FOLLOWUPS.md) so this is a hint, not a hard deadline.
-const VOTE_RECOMMENDED_WINDOW = 'December 15–22';
-// The referendum blog post is live now; the dashboard surfaces that.
-const VOTE_BLOG_SLUG = '/blog/referendum-referral-program-2027';
-// localStorage key for the per-user "I've seen the notice" dismiss. Keep it
-// namespaced so we can reset it when the message materially changes.
-const SUNSET_NOTICE_DISMISSED_KEY = 'sgcoalition.referral.sunsetNoticeDismissed.v1';
-
-const ReferralDashboard = () => {
+const TrustedFewDashboard = () => {
     const { user } = useApp();
     const { addToast } = useToast();
     const [stats, setStats] = useState<ReferralStats | null>(null);
@@ -35,29 +30,27 @@ const ReferralDashboard = () => {
     const [analytics, setAnalytics] = useState({ clicks: 0, views: 0, signups: 0, purchases: 0, conversionRate: 0 });
     const [loading, setLoading] = useState(true);
     const [copied, setCopied] = useState(false);
-    // Per-user dismiss for the sunset banner. Lazy-initialized from
-    // localStorage so SSR / pre-hydration renders stay consistent.
-    const [showSunsetNotice, setShowSunsetNotice] = useState<boolean>(() => {
-        if (typeof window === 'undefined') return true;
-        try {
-            return localStorage.getItem(SUNSET_NOTICE_DISMISSED_KEY) !== 'true';
-        } catch {
-            return true;
-        }
-    });
-    const dismissSunsetNotice = () => {
-        setShowSunsetNotice(false);
-        try {
-            localStorage.setItem(SUNSET_NOTICE_DISMISSED_KEY, 'true');
-        } catch {
-            // localStorage may be disabled (private mode, quota); the
-            // in-memory state still hides the banner for this session.
-        }
-    };
+    // Trust Circle membership + application state (drives the brand-team
+    // panel: member view / invite banner / apply card).
+    const [trustCircleMembership, setTrustCircleMembership] = useState<TrustCircleMembership | null>(null);
+    const [trustCircleLoading, setTrustCircleLoading] = useState(true);
 
     useEffect(() => {
         if (user) {
             loadReferralData();
+        }
+    }, [user]);
+
+    useEffect(() => {
+        if (user) {
+            void (async () => {
+                const [membership] = await Promise.all([
+                    getMembership(user.uid),
+                    getMyApplication(user.uid),
+                ]);
+                setTrustCircleMembership(membership);
+                setTrustCircleLoading(false);
+            })();
         }
     }, [user]);
 
@@ -75,6 +68,28 @@ const ReferralDashboard = () => {
         setHistory(historyData);
         setAnalytics(analyticsData);
         setLoading(false);
+    };
+
+    const handleAcceptInvite = async () => {
+        if (!user) return;
+        const result = await acceptInvite(user.uid);
+        if (result.success) {
+            addToast('Welcome to the Trust Circle!', 'success');
+            setTrustCircleMembership(await getMembership(user.uid));
+        } else {
+            addToast(result.error || 'Could not accept invite.', 'error');
+        }
+    };
+
+    const handleDeclineInvite = async () => {
+        if (!user) return;
+        const result = await declineInvite(user.uid);
+        if (result.success) {
+            addToast('Invite declined.', 'success');
+            setTrustCircleMembership(await getMembership(user.uid));
+        } else {
+            addToast(result.error || 'Could not decline invite.', 'error');
+        }
     };
 
     const copyReferralLink = () => {
@@ -151,44 +166,71 @@ const ReferralDashboard = () => {
 
     return (
         <div className="space-y-6">
-            {/* Program Sunset Notice */}
-            {showSunsetNotice && (
-                <div className="relative bg-gradient-to-r from-amber-900/40 to-orange-900/40 rounded-xl p-5 pr-12 border border-amber-500/30 flex flex-col sm:flex-row items-start gap-4">
-                    <button
-                        onClick={dismissSunsetNotice}
-                        aria-label="Dismiss sunset notice"
-                        title="Dismiss"
-                        className="absolute top-3 right-3 p-1.5 rounded-md text-amber-200/70 hover:text-amber-100 hover:bg-amber-500/20 transition"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
-                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                        <Calendar className="w-5 h-5 text-amber-300" />
+            {/* Trust Circle status panel — member view / invite banner / apply card */}
+            {trustCircleLoading ? (
+                <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 animate-pulse">
+                    <div className="h-6 bg-gray-800 rounded w-1/2 mb-3"></div>
+                    <div className="h-4 bg-gray-800 rounded w-3/4"></div>
+                </div>
+            ) : trustCircleMembership?.partner_tier === 'trust_circle' ? (
+                <div className="bg-gradient-to-r from-emerald-900/40 to-teal-900/40 rounded-xl p-6 border border-emerald-500/30">
+                    <div className="flex items-center gap-3 mb-2">
+                        <Award className="w-6 h-6 text-emerald-400" />
+                        <h3 className="font-bold text-emerald-100 uppercase tracking-wide text-sm">Welcome to the Trust Circle</h3>
                     </div>
-                    <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-bold text-amber-100 uppercase tracking-wide text-sm">
-                                Program runs through {PROGRAM_SUNSET_DATE}
-                            </h3>
-                            <span className="text-[10px] font-bold uppercase tracking-widest bg-amber-500/20 text-amber-200 px-2 py-0.5 rounded">
-                                Heads up
-                            </span>
-                        </div>                    <p className="text-sm text-amber-100/80 leading-relaxed">
-                        The Coalition referral program is scheduled to wrap at the end of this year. A community vote is now open and will decide whether we continue the program into 2027 or sunset it for the year. Keep stacking commissions — every successful referral between now and {PROGRAM_SUNSET_DATE} still pays out. Vote is weighted by SGCoin v2 governance power.
+                    <p className="text-sm text-emerald-100/80">
+                        You're on the brand team. Your commission is a flat{' '}
+                        <span className="font-bold text-white">{TRUST_CIRCLE_FLAT_RATE}%</span> on every sale —
+                        no ladder, no caps. Watch for drop vouchers and early-access emails.
                     </p>
-                    <Link
-                        to={VOTE_BLOG_SLUG}
-                        className="inline-flex items-center gap-1.5 text-xs text-amber-200 hover:text-amber-100 font-bold uppercase tracking-widest mt-3 underline decoration-amber-500/40 underline-offset-4"
-                    >
-                        Cast your vote →
-                    </Link>
+                    <p className="text-xs text-emerald-200/60 mt-2 font-mono">
+                        Member since {trustCircleMembership.circle_member_since ? new Date(trustCircleMembership.circle_member_since).toLocaleDateString() : '—'}
+                    </p>
+                </div>
+            ) : trustCircleMembership?.invited_at ? (
+                <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 rounded-xl p-6 border border-purple-500/30">
+                    <div className="flex items-center gap-3 mb-2">
+                        <Award className="w-6 h-6 text-purple-300" />
+                        <h3 className="font-bold text-purple-100 uppercase tracking-wide text-sm">You've been invited to the Trust Circle</h3>
                     </div>
-                    <div className="flex-shrink-0 self-stretch sm:self-center flex flex-col items-end gap-1 text-xs text-amber-200/80 font-mono">
-                        <span className="flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            Vote tally {VOTE_RECOMMENDED_WINDOW}
-                        </span>
-                        <span className="text-[10px] text-amber-300/70">Sunset {PROGRAM_SUNSET_DATE}</span>
+                    <p className="text-sm text-purple-100/80 mb-4">
+                        The Coalition brand team wants you in. Accept to lock in a flat {TRUST_CIRCLE_FLAT_RATE}% rate,
+                        free drops, and early access.
+                    </p>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleAcceptInvite}
+                            className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold transition"
+                        >
+                            Accept
+                        </button>
+                        <button
+                            onClick={handleDeclineInvite}
+                            className="px-6 py-2 rounded-lg border border-white/20 text-gray-300 hover:bg-white/10 transition"
+                        >
+                            Decline
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div>
+                            <h3 className="font-bold text-white flex items-center gap-2">
+                                <Award className="w-5 h-5 text-purple-400" />
+                                Join the Trust Circle
+                            </h3>
+                            <p className="text-sm text-gray-400 mt-1">
+                                The Coalition brand team — flat {TRUST_CIRCLE_FLAT_RATE}% commission, free drops, early access.
+                                Invite-only, or apply and let us see your work.
+                            </p>
+                        </div>
+                        <Link
+                            to="/trust-circle"
+                            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white px-6 py-2.5 rounded-lg font-bold uppercase tracking-wider transition"
+                        >
+                            Apply
+                        </Link>
                     </div>
                 </div>
             )}
@@ -198,7 +240,7 @@ const ReferralDashboard = () => {
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <h2 className="text-2xl font-display font-bold uppercase text-white mb-1">
-                            Referral Program
+                            The Trusted Few
                         </h2>
                         <p className="text-purple-200 text-sm">Earn up to 40% commission on every sale!</p>
                     </div>
@@ -300,12 +342,12 @@ const ReferralDashboard = () => {
                 </div>
             </div>
 
-            {/* Coupon Code - NEW */}
+            {/* Coupon Code */}
             <div className="bg-gradient-to-br from-green-900 to-emerald-900 rounded-xl p-6 border border-green-500/20">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="font-bold text-white flex items-center gap-2">
                         <Award size={18} className="text-green-400" />
-                        Your Referral Code
+                        Your Partner Code
                     </h3>
                     <div className="bg-green-500/20 px-3 py-1 rounded-full">
                         <span className="text-xs font-bold text-green-300">EASY TO SHARE!</span>
@@ -452,4 +494,4 @@ const ReferralDashboard = () => {
     );
 };
 
-export default ReferralDashboard;
+export default TrustedFewDashboard;
