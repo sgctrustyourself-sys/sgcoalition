@@ -33,6 +33,7 @@ const Shop = React.lazy(() => import('./pages/Shop'));
 const ProductDetails = React.lazy(() => import('./pages/ProductDetails'));
 const About = React.lazy(() => import('./pages/About'));
 const Profile = React.lazy(() => import('./pages/Profile'));
+const TrustCircle = React.lazy(() => import('./pages/TrustCircle'));
 const Membership = React.lazy(() => import('./pages/Membership'));
 const Ecosystem = React.lazy(() => import('./pages/Ecosystem'));
 const Community = React.lazy(() => import('./pages/Community'));
@@ -187,6 +188,7 @@ const App = () => {
                     <Route path="/favorites" element={<Favorites />} />
                     <Route path="/wishlist/:shareId" element={<PublicWishlist />} />
                     <Route path="/profile" element={<Profile />} />
+                    <Route path="/trust-circle" element={<TrustCircle />} />
                     <Route path="/order-history" element={<OrderHistory />} />
                     <Route path="/saved-addresses" element={<SavedAddresses />} />
                     <Route path="/my-reviews" element={<MyReviews />} />
