@@ -12,7 +12,10 @@ describe('productionState realtime-driven shop-floor texture', () => {
     const appCtx  = read('context/AppContext.tsx');
     const table   = read('supabase/migrations/20260722_create_production_state_table.sql');
     const pub     = read('supabase/migrations/20260722_publish_production_state_for_realtime.sql');
-    const runner  = read('scripts/applyProductionState.cjs');
+    // The dedicated two-phase .cjs runner was superseded by the unified
+    // scripts/applyMigrations.ts (which auto-discovers every timestamped
+    // migration, including this table + publication pair).
+    const runner  = read('scripts/applyMigrations.ts');
 
     describe('Home.tsx renders the production-floor pair', () => {
         it('destructure pulls productionState (no longer walletMints7d)', () => {
@@ -157,27 +160,19 @@ describe('productionState realtime-driven shop-floor texture', () => {
         });
     });
 
-    describe('Two-phase runner', () => {
-        it('reads both migration files by YYYY-MM-DD prefix', () => {
-            expect(runner).toContain('20260722_create_production_state_table.sql');
-            expect(runner).toContain('20260722_publish_production_state_for_realtime.sql');
+    describe('Unified migration runner', () => {
+        it('auto-discovers every timestamped migration (no hardcoded list)', () => {
+            expect(runner).toMatch(/TIMESTAMP_RE\s*=\s*\/\^\(\\d\{8\}\)/);
+            expect(runner).toMatch(/readdirSync\(MIGRATIONS_DIR\)/);
         });
-        it('tags candidates as direct=true / direct=false', () => {
-            expect(runner).toMatch(/direct:\s*true/);
-            expect(runner).toMatch(/direct:\s*false/);
+        it('applies in timestamp order and tracks applied versions in schema_migrations', () => {
+            expect(runner).toMatch(/schema_migrations/);
+            expect(runner).toMatch(/version\s+text\s+PRIMARY\s+KEY/);
+            expect(runner).toMatch(/localeCompare/);
         });
-        it('phase-1 (table + RLS + seed) walks all candidates (pooler + direct both covered)', () => {
-            // The runner inlines the predicate as `all.filter(c => true)` — no
-            // intermediate `phase1Conn =` variable. Loose regex anchored to
-            // the filter call.
-            expect(runner).toMatch(/all\.filter\(\s*c\s*=>\s*true\s*\)/);
-        });
-        it('phase-2 (publication) ONLY walks direct candidates', () => {
-            expect(runner).toMatch(/all\.filter\(\s*c\s*=>\s*c\.direct\s*\)/);
-        });
-        it('sniffs the user-supplied SUPABASE_DB_URL host for pooler', () => {
-            expect(runner).toContain('pooler');
-            expect(runner).toContain('.supabase.com');
+        it('honors the .deferred manifest (skip listed files, report as deferred)', () => {
+            expect(runner).toMatch(/loadDeferred/);
+            expect(runner).toMatch(/deferred\.has\(m\.version\)/);
         });
     });
 });

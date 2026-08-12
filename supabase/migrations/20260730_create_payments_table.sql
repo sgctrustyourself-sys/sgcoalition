@@ -166,7 +166,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION record_partial_payment(TEXT, NUMERIC, TEXT, TEXT, TEXT) IS
+COMMENT ON FUNCTION record_partial_payment(TEXT, NUMERIC, TEXT, TEXT, TEXT, UUID) IS
     'Records a payment against a pending partial-deposit order. Supports incremental payments (p_amount < balance_due) and final payments (p_amount = balance_due, which flips the order to paid + updates profiles.lifetime_spend_usd). Writes an audit row to the payments table. SECURITY DEFINER.';
 
 GRANT EXECUTE ON FUNCTION record_partial_payment(TEXT, NUMERIC, TEXT, TEXT, TEXT, UUID) TO authenticated;

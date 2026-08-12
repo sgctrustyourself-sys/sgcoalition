@@ -11,8 +11,12 @@ describe('walletMints7d realtime-driven count', () => {
     const ctx = read('context/useWallets.ts');
     const appCtx = read('context/AppContext.tsx');
     const view = read('supabase/migrations/20260721_create_wallet_mints_7d_view.sql');
-    const pub  = read('supabase/migrations/20260721_publish_wallet_mints_7d_for_realtime.sql');
-    const runner = read('scripts/applyWalletMints7dView.cjs');
+    // The original phase-2 plan (publish the VIEW) is impossible — Postgres
+    // rejects views in publications on every version. It was replaced by a
+    // materialized singleton TABLE kept fresh by a trigger on orders, which
+    // IS publishable. The .deferred manifest documents the deletion.
+    const materialized = read('supabase/migrations/20260812_materialize_wallet_mints_7d_for_realtime.sql');
+    const deferred = read('supabase/migrations/.deferred');
 
     // Visible-surface assertions for Home + Wallets moved to tests/productionStateSource.test.ts (Home.tsx + Wallets.tsx now read productionState, not walletMints7d).
     describe('useWallets exposes walletMints7d', () => {
@@ -77,38 +81,37 @@ describe('walletMints7d realtime-driven count', () => {
         });
     });
 
-    describe('Phase-2 publication SQL — direct-only', () => {
-        it('adds the view to the supabase_realtime publication in a DO/EXCEPTION block (idempotent)', () => {
-            expect(pub).toMatch(/ALTER\s+PUBLICATION\s+supabase_realtime\s+ADD\s+TABLE\s+public\.wallet_mints_7d/);
-            expect(pub).toMatch(/DO\s+\$\$/);
-            expect(pub).toMatch(/EXCEPTION/);
-            expect(pub).toMatch(/duplicate_object/);
+    describe('Materialized realtime table — 20260812 (replaces the impossible view publication)', () => {
+        it('drops the view before creating the table (same-name conflict)', () => {
+            expect(materialized).toMatch(/DROP\s+VIEW\s+IF\s+EXISTS\s+public\.wallet_mints_7d/);
         });
-        it('does NOT include CREATE OR REPLACE VIEW (must live in phase-1)', () => {
-            expect(pub).not.toMatch(/CREATE\s+OR\s+REPLACE\s+VIEW/);
+        it('creates a singleton TABLE with the mint_count scalar (same read shape as the view)', () => {
+            expect(materialized).toMatch(/CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\.wallet_mints_7d/);
+            expect(materialized).toMatch(/mint_count\s+bigint\s+NOT\s+NULL/);
+            expect(materialized).toMatch(/CHECK\s*\(\s*id\s*=\s*1\s*\)/);
         });
-    });
-
-    describe('Two-phase runner', () => {
-        it('reads both migration files', () => {
-            expect(runner).toMatch(/20260721_create_wallet_mints_7d_view\.sql/);
-            expect(runner).toMatch(/20260721_publish_wallet_mints_7d_for_realtime\.sql/);
+        it('keeps the paid/7-days/wallet filter via a trigger-maintained refresh function', () => {
+            expect(materialized).toMatch(/refresh_wallet_mints_7d/);
+            expect(materialized).toMatch(/payment_status\s*=\s*'paid'/);
+            expect(materialized).toMatch(/INTERVAL\s+'7\s*days'/);
+            expect(materialized).toMatch(/p\.category\s*=\s*'wallet'/);
         });
-        it('tags candidates as direct=true / direct=false', () => {
-            expect(runner).toMatch(/direct:\s*true/);
-            expect(runner).toMatch(/direct:\s*false/);
+        it('wires the trigger on orders so every order change recomputes the count', () => {
+            expect(materialized).toMatch(/CREATE\s+TRIGGER\s+trg_wallet_mints_7d_refresh/);
+            expect(materialized).toMatch(/AFTER\s+INSERT\s+OR\s+UPDATE\s+OR\s+DELETE\s+ON\s+public\.orders/);
         });
-        it('phase-1 (view+grant) walks all candidates (pooler + direct)', () => {
-            expect(runner).toMatch(/phase1Conn\s*=\s*all\.filter\(\s*c\s*=>\s*true\s*\)/);
+        it('grants SELECT to anon + authenticated (public read, same as the view)', () => {
+            expect(materialized).toMatch(/GRANT\s+SELECT\s+ON\s+public\.wallet_mints_7d\s+TO\s+anon,\s*authenticated/);
         });
-        it('phase-2 (publication) ONLY walks direct candidates', () => {
-            expect(runner).toMatch(/phase2Conn\s*=\s*all\.filter\(\s*c\s*=>\s*c\.direct\s*\)/);
+        it('publishes the TABLE (not a view) idempotently in a DO/EXCEPTION block', () => {
+            expect(materialized).toMatch(/ALTER\s+PUBLICATION\s+supabase_realtime\s+ADD\s+TABLE\s+public\.wallet_mints_7d/);
+            expect(materialized).toMatch(/DO\s+\$\$/);
+            expect(materialized).toMatch(/EXCEPTION/);
+            expect(materialized).toMatch(/duplicate_object/);
         });
-        it('sniffs the user-supplied SUPABASE_DB_URL host for pooler', () => {
-            // The runner must contain a regex literal that detects pooler URLs.
-            // Loose substring check avoids exact regex-escape fragility.
-            expect(runner).toContain('pooler');
-            expect(runner).toContain('.supabase.com');
+        it('documents why the view publication was deleted in the .deferred manifest', () => {
+            expect(deferred).toContain('20260812_materialize_wallet_mints_7d');
+            expect(deferred).toContain('cannot add relation');
         });
     });
 });
