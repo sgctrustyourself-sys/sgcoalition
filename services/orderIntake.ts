@@ -298,6 +298,8 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
         items: pricing.items.map(pi => ({ productId: pi.productId, productName: pi.productName, productImage: '', selectedSize: pi.selectedSize, quantity: pi.quantity, price: Number(c2d(pi.unitCents)), basePrice: pi.basePriceDollars, addOnPrice: pi.keychainClipOn ? KEYCHAIN_CLIP_CENTS / 100 : 0, keychainClipOn: pi.keychainClipOn, addOnLabel: pi.keychainClipOn ? 'Keychain Clip (+$10)' : undefined, total: Number(c2d(pi.lineCents)), name: pi.productName, image: '', size: pi.selectedSize } satisfies OrderItemRow)),
         subtotal: Number(c2d(pricing.itemTotalCents)), tax: 0, discount: Number(c2d(pricing.discountCents)),
         total: Number(c2d(pricing.totalCents)),
+        // Legacy NOT NULL column (predates the refactor) — mirrors total.
+        total_amount: Number(c2d(pricing.totalCents)),
         payment_method: payment.method, payment_status: payment.method === 'crypto' || payment.method === 'cashapp' ? 'pending' : 'paid',
         payment_reference: payment.paymentReference || null, paypal_order_id: payment.paypalOrderId, order_type: 'online',
         shipping_address: (attempt.shippingAddress || null) as OrderRow['shipping_address'],

@@ -144,6 +144,8 @@ export interface OrderRow {
     tax: number;
     discount: number;
     total: number;
+    // Legacy NOT NULL column in the live orders table — mirrors total.
+    total_amount?: number;
     payment_method: string;
     payment_status: string;
     payment_reference: string | null;
