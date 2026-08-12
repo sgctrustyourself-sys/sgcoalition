@@ -34,6 +34,12 @@ const COUPON_INACTIVE = {
     min_order_value: 0, max_uses: null, used_count: 0,
     start_date: null, end_date: null, is_active: false,
 };
+const COUPON_EXHAUSTED = {
+    id: 'cp-003', code: 'DROP2026',
+    discount_type: 'percent' as const, discount_value: 100,
+    min_order_value: 0, max_uses: 1, used_count: 1,
+    start_date: null, end_date: null, is_active: true,
+};
 
 
 describe('CouponManager render flow', () => {
@@ -59,9 +65,9 @@ describe('CouponManager render flow', () => {
         vi.restoreAllMocks();
     });
 
-    it('LOADED: renders Coupon Manager h2, Create toggle, 2 rows with ACTIVE/INACTIVE buttons', async () => {
+    it('LOADED: renders Coupon Manager h2, Create toggle, rows with Used counters + ACTIVE/INACTIVE buttons', async () => {
         mockSupabase.setOutcomes([
-            { kind: 'resolve', value: { data: [COUPON_ACTIVE, COUPON_INACTIVE], error: null } },
+            { kind: 'resolve', value: { data: [COUPON_ACTIVE, COUPON_INACTIVE, COUPON_EXHAUSTED], error: null } },
         ]);
 
         await act(async () => {
@@ -75,8 +81,17 @@ describe('CouponManager render flow', () => {
         expect(html).toContain('WINTER2025');
         expect(html).toContain('20% OFF');
         expect(html).toContain('$10 OFF');
-        expect(html).toContain('15 uses');
-        expect(html).toContain('100</span>'); // max_uses appears inside the usage cell
+        // Capped coupon: "Used 15/100" with a progress bar (green at 15%).
+        expect(html).toContain('Used 15/100');
+        expect(html).toContain('bg-green-500');
+        expect(html).toMatch(/width:\s*15%/);
+        // Uncapped coupon: "Used 0 · Unlimited".
+        expect(html).toContain('Used 0 · Unlimited');
+        // Exhausted coupon (used_count === max_uses): red bar + red text.
+        expect(html).toContain('Used 1/1');
+        expect(html).toContain('bg-red-500');
+        expect(html).toContain('text-red-400');
+        expect(html).toMatch(/width:\s*100%/);
         expect(html).toContain('ACTIVE');
         expect(html).toContain('INACTIVE');
         expect(html).not.toContain('No coupons created yet');
@@ -96,6 +111,7 @@ describe('CouponManager render flow', () => {
         expect(html).toContain('No coupons created yet');
         expect(html).not.toContain('SUMMER2025');
         expect(html).not.toContain('WINTER2025');
+        expect(html).not.toContain('Used ');
         // ACTIVE/INACTIVE buttons only render when there are rows.
         expect(html).not.toMatch(/>\s*ACTIVE\s*</);
         expect(html).not.toMatch(/>\s*INACTIVE\s*</);
