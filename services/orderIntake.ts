@@ -301,6 +301,13 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
         payment_method: payment.method, payment_status: payment.method === 'crypto' || payment.method === 'cashapp' ? 'pending' : 'paid',
         payment_reference: payment.paymentReference || null, paypal_order_id: payment.paypalOrderId, order_type: 'online',
         shipping_address: (attempt.shippingAddress || null) as OrderRow['shipping_address'],
+        // The production orders table requires NOT NULL shipping_info (the
+        // column predates the refactor and is still live). Writing only
+        // shipping_address made every insert fail with a NOT NULL violation
+        // after the order-intake refactor — which is why all checkout paths
+        // (Stripe, PayPal, crypto) stopped creating orders. Mirror the
+        // shipping address into both columns.
+        shipping_info: (attempt.shippingAddress || null) as OrderRow['shipping_address'],
         notes: attempt.notes || '', created_at: now, paid_at: payment.paidAt || null,
         facebook_username: attempt.facebookUsername || null,
         sg_coin_reward: Number(attempt.sgCoinReward || 0),

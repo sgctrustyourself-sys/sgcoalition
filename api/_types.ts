@@ -150,6 +150,12 @@ export interface OrderRow {
     paypal_order_id: string | null;
     order_type: string;
     shipping_address: ShippingAddress | null;
+    // The production orders table predates the order-intake refactor and
+    // carries BOTH columns. shipping_info is NOT NULL in the live schema, so
+    // every insert must write it (mirror of shipping_address) or the whole
+    // order write fails — which silently killed all checkout paths after the
+    // refactor dropped it.
+    shipping_info?: ShippingAddress | null;
     notes: string;
     created_at: string;
     paid_at: string | null;

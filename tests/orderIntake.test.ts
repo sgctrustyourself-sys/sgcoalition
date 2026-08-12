@@ -637,6 +637,39 @@ describe('acceptCheckout', () => {
         // At minimum, confirm acceptCheckout doesn't crash on the field.
     });
 
+    // REGRESSION: after the order-intake refactor the row write dropped the
+    // production orders.shipping_info column (NOT NULL in the live schema),
+    // so EVERY checkout path failed with a NOT NULL violation — the real
+    // reason all payment methods stopped creating orders. The upsert payload
+    // must carry shipping_info mirrored from the attempt.
+    it('writes shipping_info alongside shipping_address (NOT NULL column)', async () => {
+        stubMocks();
+        const shipping = {
+            name: 'Test Buyer', address1: '100 Test St', city: 'Baltimore',
+            state: 'MD', zip: '21201', country: 'US',
+        };
+        const attempt: CheckoutAttempt = {
+            items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+            clientSubtotal: 25, clientDiscount: 0, clientTotal: 30,
+            shippingDollars: 5,
+            shippingAddress: shipping,
+            paymentEvidence: { method: 'cashapp' },
+            customerName: 'Test Buyer', customerEmail: 'buyer@test.com',
+        };
+
+        const result = await acceptCheckout(attempt);
+        expect(result.created).toBe(true);
+
+        // Capture the upsert payload: from('orders') → chain → upsert(record).
+        const orderQuery = mockSupabaseFrom.mock.results
+            .map((r: { value: any }) => r.value)
+            .find((q: any) => q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0);
+        expect(orderQuery).toBeTruthy();
+        const record = orderQuery.upsert.mock.calls[0][0] as Record<string, unknown>;
+        expect(record.shipping_address).toEqual(shipping);
+        expect(record.shipping_info).toEqual(shipping);
+    });
+
     it('logs warning on total mismatch (does not throw)', async () => {
         stubMocks();
         const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
