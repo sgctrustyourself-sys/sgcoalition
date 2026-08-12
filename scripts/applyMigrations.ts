@@ -11,6 +11,11 @@
 // prefix), so re-runs are no-ops and each migration runs exactly once — in
 // timestamp order.
 //
+// Deferred files: supabase/migrations/.deferred lists migrations that must
+// NOT be auto-applied (production was provisioned selectively; several
+// authored migrations were never run there). Deferred files are skipped in
+// every mode unless a line is removed from the manifest.
+//
 // USAGE (from project root):
 //   npx tsx scripts/applyMigrations.ts                      # apply pending migrations
 //   npx tsx scripts/applyMigrations.ts --check              # show applied vs pending, apply nothing
@@ -37,6 +42,19 @@ const ROOT = process.cwd();
 const MIGRATIONS_DIR = path.join(ROOT, 'supabase', 'migrations');
 // Only proper timestamped migrations are auto-picked-up.
 const TIMESTAMP_RE = /^(\d{8})_.*\.sql$/;
+const DEFERRED_FILE = path.join(MIGRATIONS_DIR, '.deferred');
+
+/** Load the deferred manifest (migration filenames to skip), if present. */
+function loadDeferred(): Set<string> {
+    const set = new Set<string>();
+    if (!fs.existsSync(DEFERRED_FILE)) return set;
+    for (const raw of fs.readFileSync(DEFERRED_FILE, 'utf8').split(/\r?\n/)) {
+        const line = raw.trim();
+        if (!line || line.startsWith('#')) continue;
+        set.add(line);
+    }
+    return set;
+}
 
 const TRACKING_DDL = `
 CREATE TABLE IF NOT EXISTS public.schema_migrations (
@@ -154,10 +172,14 @@ async function main() {
         }
     }
 
+    const deferred = loadDeferred();
     const migrations = discoverMigrations();
     console.log(`Coalition Migration Runner — ${mode === '--check' ? 'check' : mode === '--baseline' ? 'baseline' : 'apply'}`);
-    console.log(`Discovered ${migrations.length} timestamped migrations:`);
-    for (const m of migrations) console.log(`  ${m.version}  ${m.file}`);
+    console.log(`Discovered ${migrations.length} timestamped migrations` + (deferred.size ? ` (${deferred.size} deferred)` : '') + ':');
+    for (const m of migrations) {
+        const tag = deferred.has(m.version) ? '  [deferred]' : '';
+        console.log(`  ${m.version}  ${m.file}${tag}`);
+    }
     console.log('');
 
     const { client, pool } = await connect();
@@ -167,12 +189,20 @@ async function main() {
         const tracked = await client.query('SELECT version FROM public.schema_migrations');
         const appliedSet = new Set<string>(tracked.rows.map((r: any) => r.version));
 
-        const pending = migrations.filter((m) => !appliedSet.has(m.version));
         const applied = migrations.filter((m) => appliedSet.has(m.version));
+        const deferredList = migrations.filter((m) => !appliedSet.has(m.version) && deferred.has(m.version));
+        const pending = migrations.filter((m) => !appliedSet.has(m.version) && !deferred.has(m.version));
 
         console.log(`Applied:  ${applied.length}`);
+        console.log(`Deferred: ${deferredList.length}`);
         console.log(`Pending:  ${pending.length}`);
         console.log('');
+
+        if (mode !== '--baseline' && deferredList.length) {
+            console.log('Deferred (skipped — remove from supabase/migrations/.deferred to apply):');
+            for (const m of deferredList) console.log(`  deferred  ${m.version}`);
+            console.log('');
+        }
 
         if (mode === '--check') {
             for (const m of pending) console.log(`  pending  ${m.version}`);

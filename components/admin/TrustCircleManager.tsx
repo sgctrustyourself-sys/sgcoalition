@@ -98,7 +98,9 @@ const TrustCircleManager: React.FC = () => {
     };
 
     const handleDropVoucher = async (member: CircleMemberRow) => {
-        const code = `DROP-${new Date().toISOString().slice(0, 7).replace('-', '')}`;
+        // Month-prefixed + random suffix: coupons.code is UNIQUE, so a bare
+        // DROP-YYYYMM would collide on the second voucher of a month.
+        const code = `DROP-${new Date().toISOString().slice(0, 7).replace('-', '')}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
         const { error } = await supabase.from('coupons').insert({
             code,
             discount_type: 'percent',

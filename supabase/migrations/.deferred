@@ -1,0 +1,22 @@
+# Deferred migrations — authored for this app but NEVER applied to production.
+#
+# Production was provisioned selectively (SQL-editor pastes + ad-hoc SQL), so
+# these files exist in the repo but the live DB never ran them. The runner
+# (scripts/applyMigrations.ts) skips every file listed here and reports it as
+# "deferred" — remove a line to let that migration apply on the next run, or
+# mark it applied-without-executing via:
+#   npx tsx scripts/applyMigrations.ts --baseline <YYYYMMDD_filename.sql>
+#
+# 20260711_referendum_referral_2027.sql is additionally INCOMPATIBLE with the
+# production posts table (id is UUID; the migration inserts a text slug) and
+# the referendum is retired anyway — keep it listed.
+
+20260711_referendum_referral_2027.sql
+20260716_create_sgcoin_payout_requests.sql
+20260721_create_wallet_mints_7d_view.sql
+20260721_publish_wallet_mints_7d_for_realtime.sql
+20260722_create_production_state_table.sql
+20260722_publish_production_state_for_realtime.sql
+20260725_add_paid_amount_balance_due_to_orders.sql
+20260730_create_payments_table.sql
+20260730_create_reconcile_balance_payment.sql
