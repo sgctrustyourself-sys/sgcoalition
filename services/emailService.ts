@@ -9,6 +9,7 @@ export interface EmailData {
     html: string;
 }
 import { renderReferralCodeOnboardingHtml, REFERRAL_CODE_EMAIL_SUBJECT } from '../utils/referralEmailTemplate.js';
+import { renderDropVoucherEmailHtml, DROP_VOUCHER_EMAIL_SUBJECT } from '../utils/dropVoucherEmailTemplate.js';
 
 /**
  * Send approval email to customer
@@ -383,6 +384,34 @@ export async function sendReferralCodeOnboardingEmail(
     await sendEmail({
         to: email,
         subject: REFERRAL_CODE_EMAIL_SUBJECT,
+        html,
+    });
+}
+
+/**
+ * Send the Trust Circle drop-voucher redemption email: tells the member
+ * their one-time 100%-off code is live and where to enter it. Triggered by
+ * the admin TrustCircleManager right after issueDropVoucher succeeds.
+ */
+export async function sendDropVoucherEmail(
+    email: string,
+    displayName: string | null,
+    couponCode: string,
+): Promise<void> {
+    const html = renderDropVoucherEmailHtml(
+        {
+            email,
+            displayName: (displayName || "").trim(),
+            couponCode,
+            checkoutUrl: "https://sgcoalition.xyz/checkout",
+            profileUrl: "https://sgcoalition.xyz/#/profile",
+        },
+        "https://sgcoalition.xyz",
+    );
+
+    await sendEmail({
+        to: email,
+        subject: DROP_VOUCHER_EMAIL_SUBJECT,
         html,
     });
 }

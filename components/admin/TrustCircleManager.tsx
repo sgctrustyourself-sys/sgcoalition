@@ -12,6 +12,7 @@ import {
     TRUST_CIRCLE_FLAT_RATE,
     type TrustCircleApplication,
 } from '../../services/trustCircle';
+import { sendDropVoucherEmail } from '../../services/emailService';
 
 interface CircleMemberRow {
     user_id: string;
@@ -20,6 +21,7 @@ interface CircleMemberRow {
     trust_circle_commission_rate: number | null;
     circle_member_since: string | null;
     email?: string;
+    full_name?: string;
 }
 
 interface ApplicantContext {
@@ -60,7 +62,23 @@ const TrustCircleManager: React.FC = () => {
             .from('referral_stats')
             .select('user_id, referral_code, partner_tier, trust_circle_commission_rate, circle_member_since')
             .eq('partner_tier', 'trust_circle');
-        setMembers((data as CircleMemberRow[]) || []);
+        const rows = (data as CircleMemberRow[]) || [];
+        // Attach emails so the Drop action can email the member their code.
+        if (rows.length) {
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, email, full_name')
+                .in('id', rows.map(m => m.user_id));
+            const emailById = new Map<string, { email?: string; full_name?: string }>(
+                ((profiles as any[]) || []).map(p => [p.id, p]),
+            );
+            for (const m of rows) {
+                const p = emailById.get(m.user_id);
+                m.email = p?.email || '';
+                m.full_name = p?.full_name || '';
+            }
+        }
+        setMembers(rows);
     };
 
     useEffect(() => { void reload(); }, []);
@@ -111,8 +129,21 @@ const TrustCircleManager: React.FC = () => {
         });
         if (error) { addToast('Coupon creation failed.', 'error'); return; }
         const result = await issueDropVoucher(member.user_id, code);
-        if (result.success) addToast(`Drop voucher ${code} issued.`, 'success');
-        else addToast(result.error || 'Voucher ledger failed.', 'error');
+        if (!result.success) { addToast(result.error || 'Voucher ledger failed.', 'error'); return; }
+        addToast(`Drop voucher ${code} issued.`, 'success');
+        // Email the member their code automatically. Non-blocking: a delivery
+        // failure must not roll back the issued voucher.
+        if (member.email) {
+            try {
+                await sendDropVoucherEmail(member.email, member.full_name || null, code);
+                addToast(`Code emailed to ${member.email}.`, 'success');
+            } catch (e) {
+                console.error('[TrustCircle] drop voucher email failed:', e);
+                addToast('Voucher issued, but the email failed to send.', 'error');
+            }
+        } else {
+            addToast('Voucher issued — no email on file for this member.', 'error');
+        }
     };
 
     const searchUser = async () => {
@@ -229,6 +260,7 @@ const TrustCircleManager: React.FC = () => {
                                 <div>
                                     <p className="text-sm font-bold text-white font-mono">{m.referral_code}</p>
                                     <p className="text-[10px] text-gray-500 font-mono">{m.user_id}</p>
+                                    {m.email && <p className="text-[10px] text-gray-400 mt-0.5">{m.email}</p>}
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <span className="text-xs text-emerald-400 font-bold">{m.trust_circle_commission_rate ?? TRUST_CIRCLE_FLAT_RATE}%</span>
