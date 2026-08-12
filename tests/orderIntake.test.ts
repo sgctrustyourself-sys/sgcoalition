@@ -15,6 +15,7 @@ function freshMockQuery(resolveOnAwait?: unknown) {
         in: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         upsert: vi.fn().mockReturnThis(),
+        update: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn(),
         single: vi.fn(),
         order: vi.fn().mockReturnThis(),
@@ -291,6 +292,125 @@ describe('resolvePricing', () => {
         await expect(
             resolvePricing([{ productId: 'prod-1', selectedSize: 'M', quantity: 5, keychainClipOn: false }], 0, 0, 'store_credit'),
         ).rejects.toThrow('insufficient');
+    });
+
+    // ---- Admin-created coupons (coupons table) --------------------------
+
+    function stubCouponRouting(productData: unknown[], couponRow: unknown) {
+        mockSupabaseFrom.mockImplementation((table: string) =>
+            table === 'coupons'
+                ? chain('maybeSingle', { data: couponRow, error: null })
+                : chain('maybeSingle', { data: productData, error: null }),
+        );
+    }
+
+    const PERCENT_COUPON = {
+        code: 'SAVE25', discount_type: 'percent', discount_value: 25,
+        min_order_value: 0, max_uses: null, used_count: 0, end_date: null, is_active: true,
+    };
+    const FIXED_COUPON = {
+        code: 'TAKE10', discount_type: 'fixed', discount_value: 10,
+        min_order_value: 0, max_uses: null, used_count: 0, end_date: null, is_active: true,
+    };
+
+    it('applies a percent coupon on Stripe (all methods)', async () => {
+        stubCouponRouting([stubProduct({ id: 'prod-1', price: 100 })], PERCENT_COUPON);
+        const result = await resolvePricing(
+            [{ productId: 'prod-1', selectedSize: 'M', quantity: 1, keychainClipOn: false }],
+            0, 0, 'stripe', 0, 'SAVE25',
+        );
+        expect(result.couponDiscountCents).toBe(2500);
+        expect(result.couponCode).toBe('SAVE25');
+        expect(result.discountCents).toBe(2500);
+        expect(result.totalCents).toBe(7500);
+    });
+
+    it('applies a fixed coupon capped at the order total', async () => {
+        stubCouponRouting([stubProduct({ id: 'prod-1', price: 25 })], FIXED_COUPON);
+        const result = await resolvePricing(
+            [{ productId: 'prod-1', selectedSize: 'M', quantity: 1, keychainClipOn: false }],
+            0, 0, 'paypal', 0, 'TAKE10',
+        );
+        expect(result.couponDiscountCents).toBe(1000);
+        expect(result.totalCents).toBe(1500);
+    });
+
+    it('coupon applies before store credit (credit capped at remainder)', async () => {
+        stubCouponRouting([stubProduct({ id: 'prod-1', price: 100 })], PERCENT_COUPON);
+        const result = await resolvePricing(
+            [{ productId: 'prod-1', selectedSize: 'M', quantity: 1, keychainClipOn: false }],
+            0, 0, 'stripe', 5000, 'SAVE25',
+        );
+        // $100 → 25% coupon → $75 → $50 store credit → $25 due
+        expect(result.couponDiscountCents).toBe(2500);
+        expect(result.storeCreditCents).toBe(5000);
+        expect(result.totalCents).toBe(2500);
+    });
+
+    it('coupon discount applies on top of the set bonus', async () => {
+        // $120 Above-as-Below set (tee+shorts, real product IDs) earns the $30
+        // set bonus; the 25% coupon discounts the remaining $90 base.
+        stubCouponRouting([
+            stubProduct({ id: 'prod_tee_above_as_below', name: 'Tee', price: 60 }),
+            stubProduct({ id: 'prod_shorts_above_as_below', name: 'Shorts', price: 60 }),
+        ], PERCENT_COUPON);
+        const result = await resolvePricing(
+            [
+                { productId: 'prod_tee_above_as_below', selectedSize: 'M', quantity: 1, keychainClipOn: false },
+                { productId: 'prod_shorts_above_as_below', selectedSize: 'M', quantity: 1, keychainClipOn: false },
+            ],
+            0, 0, 'stripe', 0, 'SAVE25',
+        );
+        expect(result.couponDiscountCents).toBe(2250); // 25% of (12000 - 3000)
+        expect(result.totalCents).toBe(6750); // 12000 - 3000 - 2250
+    });
+
+    it('throws for an unknown coupon code', async () => {
+        stubCouponRouting([stubProduct()], null);
+        await expect(
+            resolvePricing([{ productId: 'prod-1', selectedSize: 'M', quantity: 1, keychainClipOn: false }], 0, 0, 'stripe', 0, 'NOPE'),
+        ).rejects.toThrow('Invalid coupon code');
+    });
+
+    it('throws for an inactive coupon', async () => {
+        stubCouponRouting([stubProduct()], { ...PERCENT_COUPON, is_active: false });
+        await expect(
+            resolvePricing([{ productId: 'prod-1', selectedSize: 'M', quantity: 1, keychainClipOn: false }], 0, 0, 'stripe', 0, 'SAVE25'),
+        ).rejects.toThrow('no longer active');
+    });
+
+    it('throws for an expired coupon', async () => {
+        stubCouponRouting([stubProduct()], { ...PERCENT_COUPON, end_date: '2020-01-01T00:00:00Z' });
+        await expect(
+            resolvePricing([{ productId: 'prod-1', selectedSize: 'M', quantity: 1, keychainClipOn: false }], 0, 0, 'stripe', 0, 'SAVE25'),
+        ).rejects.toThrow('has expired');
+    });
+
+    it('throws when the coupon hit its usage limit', async () => {
+        stubCouponRouting([stubProduct()], { ...PERCENT_COUPON, max_uses: 5, used_count: 5 });
+        await expect(
+            resolvePricing([{ productId: 'prod-1', selectedSize: 'M', quantity: 1, keychainClipOn: false }], 0, 0, 'stripe', 0, 'SAVE25'),
+        ).rejects.toThrow('usage limit');
+    });
+
+    it('throws when the order is below the coupon minimum', async () => {
+        stubCouponRouting([stubProduct({ id: 'prod-1', price: 25 })], { ...PERCENT_COUPON, min_order_value: 100 });
+        await expect(
+            resolvePricing([{ productId: 'prod-1', selectedSize: 'M', quantity: 1, keychainClipOn: false }], 0, 0, 'stripe', 0, 'SAVE25'),
+        ).rejects.toThrow('minimum order of $100.00');
+    });
+
+    it('skips coupon lookup entirely when no coupon code passed', async () => {
+        mockSupabaseFrom.mockReturnValue(chain('maybeSingle', {
+            data: [stubProduct()], error: null,
+        }));
+        const result = await resolvePricing(
+            [{ productId: 'prod-1', selectedSize: 'M', quantity: 1, keychainClipOn: false }],
+            0, 0, 'store_credit',
+        );
+        expect(result.couponDiscountCents).toBe(0);
+        expect(result.couponCode).toBeNull();
+        expect(mockSupabaseFrom).not.toHaveBeenCalledWith('coupons');
     });
 });
 
@@ -686,5 +806,86 @@ describe('acceptCheckout', () => {
         expect(result.created).toBe(true);
         expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Total mismatch'));
         warnSpy.mockRestore();
+    });
+
+    // ---- Admin-created coupons (coupons table) --------------------------
+
+    it('increments coupon used_count once when the order is created', async () => {
+        const couponRow = {
+            code: 'SAVE25', discount_type: 'percent', discount_value: 25,
+            min_order_value: 0, max_uses: 10, used_count: 2, end_date: null, is_active: true,
+        };
+        const savedRow = stubOrderRow({ id: 'saved-order', total: 18.75 });
+        mockSupabaseFrom.mockImplementation((table: string) => {
+            if (table === 'coupons') return chain('maybeSingle', { data: couponRow, error: null });
+            if (table === 'orders') return chain('single', { data: savedRow, error: null });
+            return chain('maybeSingle', { data: [stubProduct({ id: 'prod-1', price: 25 })], error: null });
+        });
+
+        const attempt: CheckoutAttempt = {
+            items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+            clientSubtotal: 25, clientDiscount: 0, clientTotal: 18.75,
+            shippingDollars: 0,
+            paymentEvidence: { method: 'store_credit' },
+            customerName: 'Coupon Buyer', customerEmail: 'coupon@test.com',
+            couponCode: 'SAVE25',
+        };
+
+        const result = await acceptCheckout(attempt);
+        expect(result.created).toBe(true);
+
+        // The increment: from('coupons').update({ used_count: 3 }).eq('code','SAVE25').eq('used_count', 2)
+        const couponQuery = mockSupabaseFrom.mock.results
+            .map((r: { value: any }) => r.value)
+            .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.length > 0);
+        expect(couponQuery).toBeTruthy();
+        expect(couponQuery.update.mock.calls[0][0]).toEqual({ used_count: 3 });
+        expect(couponQuery.eq.mock.calls[0]).toEqual(['code', 'SAVE25']);
+        expect(couponQuery.eq.mock.calls[1]).toEqual(['used_count', 2]);
+    });
+
+    it('records the coupon in order notes', async () => {
+        const couponRow = {
+            code: 'SAVE25', discount_type: 'percent', discount_value: 25,
+            min_order_value: 0, max_uses: null, used_count: 0, end_date: null, is_active: true,
+        };
+        const savedRow = stubOrderRow({ id: 'saved-order', total: 18.75 });
+        mockSupabaseFrom.mockImplementation((table: string) => {
+            if (table === 'coupons') return chain('maybeSingle', { data: couponRow, error: null });
+            if (table === 'orders') return chain('single', { data: savedRow, error: null });
+            return chain('maybeSingle', { data: [stubProduct({ id: 'prod-1', price: 25 })], error: null });
+        });
+
+        const attempt: CheckoutAttempt = {
+            items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+            clientSubtotal: 25, clientDiscount: 0, clientTotal: 18.75,
+            shippingDollars: 0,
+            paymentEvidence: { method: 'store_credit' },
+            customerName: 'Notes Buyer', customerEmail: 'notes@test.com',
+            couponCode: 'SAVE25',
+        };
+
+        await acceptCheckout(attempt);
+        const orderQuery = mockSupabaseFrom.mock.results
+            .map((r: { value: any }) => r.value)
+            .find((q: any) => q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0);
+        const record = orderQuery.upsert.mock.calls[0][0] as Record<string, unknown>;
+        expect(record.notes).toContain('Coupon: SAVE25');
+        expect(record.notes).toContain('-$6.25');
+    });
+
+    it('does not touch the coupons table when no coupon code is passed', async () => {
+        stubMocks();
+        const attempt: CheckoutAttempt = {
+            items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+            clientSubtotal: 25, clientDiscount: 0, clientTotal: 30,
+            shippingDollars: 5,
+            paymentEvidence: { method: 'store_credit' },
+            customerName: 'No Coupon', customerEmail: 'nocoupon@test.com',
+        };
+
+        const result = await acceptCheckout(attempt);
+        expect(result.created).toBe(true);
+        expect(mockSupabaseFrom).not.toHaveBeenCalledWith('coupons');
     });
 });

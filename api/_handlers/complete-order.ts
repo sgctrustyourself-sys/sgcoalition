@@ -104,6 +104,7 @@ async function createOrder(req: ApiRequest): Promise<OrderRow | null> {
         sgCoinReward: Number(orderInput.sgCoinReward || orderInput.sg_coin_reward || 0),
         notes: orderInput.notes || '',
         facebookUsername: (orderInput as any).facebookUsername || (orderInput as any).facebook_username || null,
+        couponCode: (orderInput as any).couponCode || (orderInput as any).coupon_code || null,
     };
 
     // For crypto/cashapp/store_credit: shipping address needs Method + Cost

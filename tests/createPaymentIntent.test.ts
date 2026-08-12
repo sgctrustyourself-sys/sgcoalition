@@ -118,11 +118,68 @@ describe('POST /api/create-payment-intent', () => {
 
         expect(res._status).toBe(200);
         expect(res._body.clientSecret).toBe('pi_test_secret_abc');
+
         expect(res._body.finalAmount).toBe(30);
         expect(res._body.creditApplied).toBe(0);
         expect(res._body.pricing.itemTotalCents).toBe(2500);
         expect(res._body.pricing.shippingCents).toBe(500);
         expect(res._body.pricing.totalCents).toBe(3000);
+    });
+
+    it('applies an admin coupon discount to the server-computed amount', async () => {
+        stubSettings();
+        mockSupabaseFrom.mockReturnValueOnce(
+            chain({ data: [stubProduct('prod-1', 'Test Tee', 25)], error: null }),
+        );
+        mockSupabaseFrom.mockReturnValueOnce(chain({
+            data: {
+                code: 'SAVE25', discount_type: 'percent', discount_value: 25,
+                min_order_value: 0, max_uses: null, used_count: 0, end_date: null, is_active: true,
+            },
+            error: null,
+        }));
+
+        const req = makeReq('POST', {
+            items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+            shippingCost: 0,
+            couponCode: 'SAVE25',
+        });
+        const res = makeRes();
+        await handler(req, res);
+
+        expect(res._status).toBe(200);
+        // $25 tee − 25% coupon = $18.75 charged on the card.
+        expect(mockStripeCreate.mock.calls[0][0].amount).toBe(1875);
+        expect(res._body.finalAmount).toBe(18.75);
+        expect(res._body.pricing.couponDiscountCents).toBe(625);
+        expect(res._body.pricing.totalCents).toBe(1875);
+    });
+
+    it('returns zeroAmount:true for a 100%-off coupon (no PaymentIntent created)', async () => {
+        stubSettings();
+        mockSupabaseFrom.mockReturnValueOnce(
+            chain({ data: [stubProduct('prod-1', 'Test Tee', 25)], error: null }),
+        );
+        mockSupabaseFrom.mockReturnValueOnce(chain({
+            data: {
+                code: 'DROP-QA', discount_type: 'percent', discount_value: 100,
+                min_order_value: 0, max_uses: 1, used_count: 0, end_date: null, is_active: true,
+            },
+            error: null,
+        }));
+
+        const req = makeReq('POST', {
+            items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+            shippingCost: 0,
+            couponCode: 'DROP-QA',
+        });
+        const res = makeRes();
+        await handler(req, res);
+
+        expect(res._status).toBe(200);
+        expect(res._body.zeroAmount).toBe(true);
+        expect(res._body.clientSecret).toBeNull();
+        expect(mockStripeCreate).not.toHaveBeenCalled();
     });
 
     it('restricts the PaymentIntent to card + Klarna only (no automatic_payment_methods, no Link/CashApp/Amazon Pay)', async () => {

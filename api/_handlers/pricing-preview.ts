@@ -22,7 +22,7 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const { items, shippingCost, paymentMethod } = req.body;
+        const { items, shippingCost, paymentMethod, couponCode } = req.body;
 
         const pricingItems: PricingItem[] = Array.isArray(items) ? items.map((i: any) => ({
             productId: String(i.productId || ''),
@@ -43,6 +43,8 @@ export default async function handler(req: any, res: any) {
             Number(shippingCost || 0),
             0, // client discount — preview only, no store credit
             pm,
+            0, // no store credit in preview
+            couponCode ? String(couponCode) : undefined,
         );
 
         // Compute the set bonus independently so the UI can split
@@ -63,6 +65,8 @@ export default async function handler(req: any, res: any) {
             shippingCents: pricing.shippingCents,
             setBonusCents,
             cryptoDiscountCents,
+            couponDiscountCents: pricing.couponDiscountCents,
+            couponCode: pricing.couponCode,
             discountCents: pricing.discountCents,
             totalCents: pricing.totalCents,
             items: pricing.items,

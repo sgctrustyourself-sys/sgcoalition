@@ -83,7 +83,49 @@ export interface PricingItem { productId: string; selectedSize: string; quantity
 
 export interface PriceSnapshot {
     itemTotalCents: number; shippingCents: number; discountCents: number; storeCreditCents: number; totalCents: number;
+    couponDiscountCents: number; couponCode: string | null;
     items: Array<{ productId: string; productName: string; selectedSize: string; quantity: number; unitCents: number; lineCents: number; basePriceDollars: number; addOnCents: number; keychainClipOn: boolean; }>;
+}
+
+export interface CouponRow {
+    code: string; discount_type: 'percent' | 'fixed'; discount_value: number;
+    min_order_value: number; max_uses: number | null; used_count: number;
+    end_date: string | null; is_active: boolean;
+}
+
+// ---- Coupon helpers (admin-created coupons from the `coupons` table) ----
+
+async function loadCoupon(code: string | null | undefined): Promise<CouponRow | null> {
+    const c = String(code || '').trim().toUpperCase();
+    if (!c) return null;
+    const { data, error } = await sb().from('coupons')
+        .select('code,discount_type,discount_value,min_order_value,max_uses,used_count,end_date,is_active')
+        .eq('code', c)
+        .maybeSingle();
+    if (error) throw err(500, error.message || 'Coupon lookup failed.');
+    return (data as CouponRow) || null;
+}
+
+function couponDiscountCentsOf(coupon: CouponRow, baseCents: number): number {
+    if (baseCents <= 0) return 0;
+    const value = Math.max(0, Number(coupon.discount_value || 0));
+    if (coupon.discount_type === 'percent') {
+        return Math.min(baseCents, Math.round(baseCents * Math.min(100, value) / 100));
+    }
+    return Math.min(baseCents, Math.round(value * 100));
+}
+
+/** Validate a coupon against the `coupons` table; throws on invalid. */
+async function validateCoupon(code: string | null | undefined, baseCents: number): Promise<{ coupon: CouponRow; discountCents: number } | null> {
+    if (!String(code || '').trim()) return null;
+    const coupon = await loadCoupon(code);
+    if (!coupon) throw err(400, 'Invalid coupon code.');
+    if (!coupon.is_active) throw err(409, 'This coupon is no longer active.');
+    if (coupon.end_date && new Date(coupon.end_date).getTime() < Date.now()) throw err(409, 'This coupon has expired.');
+    if (coupon.max_uses != null && (coupon.used_count || 0) >= coupon.max_uses) throw err(409, 'This coupon has reached its usage limit.');
+    const minCents = Math.round(Number(coupon.min_order_value || 0) * 100);
+    if (baseCents < minCents) throw err(409, 'This coupon requires a minimum order of $' + Number(coupon.min_order_value || 0).toFixed(2) + '.');
+    return { coupon, discountCents: couponDiscountCentsOf(coupon, baseCents) };
 }
 
 async function loadProducts(ids: string[]): Promise<Map<string, ProductRow>> {
@@ -95,7 +137,7 @@ async function loadProducts(ids: string[]): Promise<Map<string, ProductRow>> {
     return m;
 }
 
-export async function resolvePricing(items: PricingItem[], shippingDollars: number, clientDiscountDollars: number, paymentMethod: string, storeCreditCents: number = 0): Promise<PriceSnapshot> {
+export async function resolvePricing(items: PricingItem[], shippingDollars: number, clientDiscountDollars: number, paymentMethod: string, storeCreditCents: number = 0, couponCode?: string | null): Promise<PriceSnapshot> {
     if (!items.length) throw err(400, 'At least one item required.');
     const products = await loadProducts([...new Set(items.map(i => i.productId))]);
     let itemTotalCents = 0;
@@ -127,11 +169,17 @@ export async function resolvePricing(items: PricingItem[], shippingDollars: numb
     // The returned storeCreditCents is capped to the actual amount used —
     // if credit exceeds the pre-credit total, the excess is ignored.
     const rawScCents = Math.max(0, Math.round(Number(storeCreditCents) || 0));
-    const preCreditTotal = itemTotalCents + shipCents - setBonus - (paymentMethod === 'paypal' || paymentMethod === 'stripe' ? 0 : otherDisc);
-    const scCents = Math.min(rawScCents, Math.max(0, preCreditTotal));
-    const discCents = setBonus + (paymentMethod === 'paypal' || paymentMethod === 'stripe' ? 0 : otherDisc) + scCents;
+    // The coupon base is the pre-coupon payable total (after set bonus and
+    // the method-specific crypto discount). Coupon discounts apply to ALL
+    // payment methods — they're an explicit discount the customer applied.
+    const couponBaseCents = Math.max(0, itemTotalCents + shipCents - setBonus - (paymentMethod === 'paypal' || paymentMethod === 'stripe' ? 0 : otherDisc));
+    const couponApplied = await validateCoupon(couponCode, couponBaseCents);
+    const couponDiscountCents = couponApplied?.discountCents || 0;
+    const preCreditTotal = Math.max(0, couponBaseCents - couponDiscountCents);
+    const scCents = Math.min(rawScCents, preCreditTotal);
+    const discCents = setBonus + (paymentMethod === 'paypal' || paymentMethod === 'stripe' ? 0 : otherDisc) + couponDiscountCents + scCents;
     const totalCents = Math.max(0, itemTotalCents + shipCents - discCents);
-    return { itemTotalCents, shippingCents: shipCents, discountCents: discCents, storeCreditCents: scCents, totalCents, items: resolved };
+    return { itemTotalCents, shippingCents: shipCents, discountCents: discCents, storeCreditCents: scCents, totalCents, couponDiscountCents, couponCode: couponApplied?.coupon.code || null, items: resolved };
 }
 
 // =========================================================================
@@ -275,6 +323,7 @@ export interface CheckoutAttempt {
     userId?: string | null; customerName: string; customerEmail: string; customerPhone?: string; isGuest?: boolean; facebookUsername?: string | null;
     shippingAddress?: Record<string, unknown> | null;
     sgCoinReward?: number; notes?: string;
+    couponCode?: string | null;
 }
 
 export interface AcceptCheckoutResult { order: OrderRow; created: boolean; }
@@ -282,7 +331,7 @@ export interface AcceptCheckoutResult { order: OrderRow; created: boolean; }
 export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCheckoutResult> {
     const pricing = await resolvePricing(
         attempt.items.map(i => ({ productId: i.productId, selectedSize: i.selectedSize, quantity: i.quantity, keychainClipOn: Boolean(i.keychainClipOn) })),
-        attempt.shippingDollars, attempt.clientDiscount, attempt.paymentEvidence.method);
+        attempt.shippingDollars, attempt.clientDiscount, attempt.paymentEvidence.method, 0, attempt.couponCode);
     if (attempt.clientTotal !== undefined) {
         const cc = toCents(attempt.clientTotal, 'Client total');
         if (cc !== pricing.totalCents) console.warn('[OrderIntake] Total mismatch: client=' + cc + 'c server=' + pricing.totalCents + 'c');
@@ -310,7 +359,10 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
         // (Stripe, PayPal, crypto) stopped creating orders. Mirror the
         // shipping address into both columns.
         shipping_info: (attempt.shippingAddress || null) as OrderRow['shipping_address'],
-        notes: attempt.notes || '', created_at: now, paid_at: payment.paidAt || null,
+        notes: [attempt.notes || '', pricing.couponCode && pricing.couponDiscountCents > 0
+            ? 'Coupon: ' + pricing.couponCode + ' (-$' + c2d(pricing.couponDiscountCents) + ')'
+            : ''].filter(Boolean).join('\n'),
+        created_at: now, paid_at: payment.paidAt || null,
         facebook_username: attempt.facebookUsername || null,
         sg_coin_reward: Number(attempt.sgCoinReward || 0),
         paid_amount: 0, balance_due: 0, // resolved below via resolvePaymentState
@@ -324,6 +376,24 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
     row.balance_due = paymentState.balanceDue;
 
     const saved = await persistOrder(row);
+
+    // Redeemed a coupon → count the usage exactly once per order. Optimistic
+    // CAS on used_count so a concurrent checkout can't double-count; if the
+    // counter moved, the increment no-ops (log only — never fail the order).
+    if (saved.created && pricing.couponCode && pricing.couponDiscountCents > 0) {
+        try {
+            const { data: curRow } = await sb().from('coupons').select('used_count').eq('code', pricing.couponCode).maybeSingle();
+            const cur = Number((curRow as CouponRow | null)?.used_count || 0);
+            const { error: incErr } = await sb().from('coupons')
+                .update({ used_count: cur + 1 })
+                .eq('code', pricing.couponCode)
+                .eq('used_count', cur);
+            if (incErr) console.warn('[OrderIntake] Coupon usage increment failed:', incErr.message);
+        } catch (e) {
+            console.warn('[OrderIntake] Coupon usage increment failed:', (e as Error)?.message || e);
+        }
+    }
+
     if (saved.created && payment.method !== 'crypto') void sendOrderEmails(saved.record);
     return { order: saved.record, created: saved.created };
 }

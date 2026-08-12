@@ -39,7 +39,7 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const { items, shippingCost, userId, useStoreCredit, orderId, email, shipping, paymentMethodTypes } = req.body;
+        const { items, shippingCost, userId, useStoreCredit, orderId, email, shipping, paymentMethodTypes, couponCode } = req.body;
 
         // Pricing authority lives in orderIntake.resolvePricing().
         // Accept raw items + shipping choice; the server computes the
@@ -124,6 +124,7 @@ export default async function handler(req: any, res: any) {
                 0, // client discount — crypto/other discounts, no store credit
                 'stripe',
                 storeCreditCents,
+                couponCode ? String(couponCode) : undefined,
             );
         } catch (e: unknown) {
             const he = e as HttpError;

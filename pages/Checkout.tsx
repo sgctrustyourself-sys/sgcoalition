@@ -10,7 +10,7 @@ import FloatingHelpButton from '../components/FloatingHelpButton';
 import { isSGCoinDiscountEnabled, getDiscountPercentageText } from '../utils/pricing';
 import { trackReferralEvent } from '../utils/referralAnalytics';
 import { processReferralOnPurchase, clearReferralCode } from '../utils/referralSystem';
-import { validateCouponCode, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
+import { validateCouponCode, validateDiscountCoupon, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
 import { getCartItemAddOnPrice, getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 
 const reportErrorToAdmin = async (error: string, context: string, metadata: any = {}) => {
@@ -318,6 +318,7 @@ const Checkout: React.FC = () => {
     const [pricingPreview, setPricingPreview] = useState<{
         itemTotalCents: number; shippingCents: number;
         setBonusCents: number; cryptoDiscountCents: number;
+        couponDiscountCents: number; couponCode: string | null;
         discountCents: number; totalCents: number;
     } | null>(null);
 
@@ -363,12 +364,17 @@ const Checkout: React.FC = () => {
     // twice. A component ref survives StrictMode's cycle.
     const paypalRedirectRenderedRef = useRef(false);
 
-    // Coupon code state
+    // Coupon code state — a code can be either a referral (attribution, no
+    // discount) or an admin-created discount coupon from the `coupons` table.
+    // Only discount coupons are sent to the server as couponCode (the server
+    // pricing authority would reject a referral code as an unknown coupon).
     const [couponCode, setCouponCode] = useState('');
     const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
     const [couponReferrerName, setCouponReferrerName] = useState<string | null>(null);
     const [couponError, setCouponError] = useState<string | null>(null);
     const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+    const [isDiscountCoupon, setIsDiscountCoupon] = useState(false);
+    const [couponDiscountLabel, setCouponDiscountLabel] = useState<string | null>(null);
     const [isValidatingZip, setIsValidatingZip] = useState(false);
 
     // Shipping information state - Lifted up. Lazy-initialized from
@@ -524,6 +530,7 @@ const Checkout: React.FC = () => {
                     })),
                     shippingCost,
                     paymentMethod,
+                    couponCode: isDiscountCoupon && appliedCoupon ? appliedCoupon : undefined,
                 }),
             })
             .then(r => r.json())
@@ -534,36 +541,75 @@ const Checkout: React.FC = () => {
             .catch(() => setPricingPreview(null));
         }, 400);
         return () => clearTimeout(timer);
-    }, [cart, shippingCost, paymentMethod]);
+    }, [cart, shippingCost, paymentMethod, appliedCoupon, isDiscountCoupon]);
 
-    // Check for existing coupon on mount
+    // Check for existing coupon on mount — classify it as a discount coupon
+    // or a referral so the pricing preview can include the discount.
     useEffect(() => {
         const existingCoupon = getAppliedCouponCode();
         if (existingCoupon) {
             setAppliedCoupon(existingCoupon);
             setCouponCode(existingCoupon);
+            void validateDiscountCoupon(existingCoupon).then((c) => {
+                if (c.valid && c.coupon) {
+                    setIsDiscountCoupon(true);
+                    setCouponDiscountLabel(
+                        c.coupon.discount_type === 'percent'
+                            ? `${c.coupon.discount_value}% off`
+                            : `$${c.coupon.discount_value.toFixed(2)} off`,
+                    );
+                }
+            });
         }
     }, []);
 
     const handleApplyCoupon = async () => {
         setCouponError(null);
         setIsValidatingCoupon(true);
+        try {
+            // 1. Admin-created discount coupon (coupons table) — real discount,
+            //    applied server-side at pricing time. Not stored as a referral.
+            const couponCheck = await validateDiscountCoupon(couponCode);
+            if (couponCheck.valid && couponCheck.coupon) {
+                sessionStorage.removeItem('referralCode');
+                setAppliedCoupon(couponCheck.coupon.code);
+                setIsDiscountCoupon(true);
+                setCouponDiscountLabel(
+                    couponCheck.coupon.discount_type === 'percent'
+                        ? `${couponCheck.coupon.discount_value}% off`
+                        : `$${couponCheck.coupon.discount_value.toFixed(2)} off`,
+                );
+                setCouponReferrerName(null);
+                addToast('Coupon applied!', 'success');
+                return;
+            }
+            // The code IS in the coupons table but is unusable (inactive /
+            // expired / used up) — surface that instead of falling through to
+            // the referral lookup, which would give a misleading error.
+            if (couponCheck.error) {
+                setCouponError(couponCheck.error);
+                addToast(couponCheck.error, 'error');
+                return;
+            }
 
-        // Pass the signed-in user so the validator can reject self-referrals
-        // at the coupon-input layer (server-side RPC enforces this too).
-        const result = await validateCouponCode(couponCode, user?.uid);
-
-        if (result.valid) {
-            applyCouponCode(couponCode);
-            setAppliedCoupon(couponCode.toUpperCase());
-            setCouponReferrerName(result.referrerName || null);
-            addToast('Coupon code applied successfully!', 'success');
-        } else {
-            setCouponError(result.error || 'Invalid code');
-            addToast(result.error || 'Invalid coupon code', 'error');
+            // 2. Referral code (referral_stats) — attribution, no discount.
+            // Pass the signed-in user so the validator can reject self-referrals
+            // at the coupon-input layer (server-side RPC enforces this too).
+            const result = await validateCouponCode(couponCode, user?.uid);
+            if (result.valid) {
+                applyCouponCode(couponCode);
+                setAppliedCoupon(couponCode.toUpperCase());
+                setIsDiscountCoupon(false);
+                setCouponDiscountLabel(null);
+                setCouponReferrerName(result.referrerName || null);
+                addToast('Coupon code applied successfully!', 'success');
+            } else {
+                setCouponError(result.error || 'Invalid code');
+                addToast(result.error || 'Invalid coupon code', 'error');
+            }
+        } finally {
+            setIsValidatingCoupon(false);
         }
-
-        setIsValidatingCoupon(false);
     };
 
     const handleRemoveCoupon = () => {
@@ -572,6 +618,8 @@ const Checkout: React.FC = () => {
         setCouponCode('');
         setCouponReferrerName(null);
         setCouponError(null);
+        setIsDiscountCoupon(false);
+        setCouponDiscountLabel(null);
         addToast('Coupon code removed', 'info');
     };
 
@@ -600,6 +648,7 @@ const Checkout: React.FC = () => {
                     useStoreCredit,
                     paymentMethodTypes: [stripeMethod],
                     orderId: seed.orderId,
+                    couponCode: isDiscountCoupon && appliedCoupon ? appliedCoupon : undefined,
                     email: shippingInfo.email,
                     // Country is normalized to ISO-3166 for Stripe; if it
                     // can't be mapped, shipping is omitted so card payments
@@ -824,6 +873,7 @@ const Checkout: React.FC = () => {
                         description: `Coalition ${paypalOrderSeed.orderNumber} - ${cart.length} item(s)`,
                         expectedTotal: finalTotal,
                         shipping: shippingCost,
+                        couponCode: isDiscountCoupon && appliedCoupon ? appliedCoupon : undefined,
                         items: cart.map(item => ({
                             productId: item.id,
                             name: item.name,
@@ -933,6 +983,7 @@ const Checkout: React.FC = () => {
                 total: finalTotal,
                 paymentMethod: paymentMethodUsed as any,
                 paymentStatus: paymentMethodUsed === 'crypto' || paymentMethodUsed === 'cashapp' ? OrderStatus.PENDING : OrderStatus.PAID,
+                couponCode: isDiscountCoupon && appliedCoupon ? appliedCoupon : undefined,
                 paymentReference,
                 paypalOrderId: paymentVerification?.paypalOrderId,
                 paypalCaptureId: paymentVerification?.paypalCaptureId,
@@ -1272,6 +1323,11 @@ const Checkout: React.FC = () => {
                                                 Remove
                                             </button>
                                         </div>
+                                        {couponDiscountLabel && (
+                                            <p className="text-xs text-emerald-400 font-bold">
+                                                {couponDiscountLabel} discount applied
+                                            </p>
+                                        )}
                                         {couponReferrerName && (
                                             <p className="text-xs text-gray-300">
                                                 Supporting {couponReferrerName}'s referral
@@ -1303,7 +1359,7 @@ const Checkout: React.FC = () => {
                                             <p className="text-red-400 text-xs">{couponError}</p>
                                         )}
                                         <p className="text-xs text-gray-500">
-                                            Have a referral code from a friend? Enter it here!
+                                            Have a referral or discount code? Enter it here!
                                         </p>
                                     </div>
                                 )}
@@ -1896,6 +1952,12 @@ const Checkout: React.FC = () => {
                                     <div className="flex justify-between text-blue-400">
                                         <span>Crypto Discount ({getDiscountPercentageText()})</span>
                                         <span>-${(pricingPreview.cryptoDiscountCents / 100).toFixed(2)}</span>
+                                    </div>
+                                )}
+                                {pricingPreview && pricingPreview.couponDiscountCents > 0 && (
+                                    <div className="flex justify-between text-emerald-400">
+                                        <span>Coupon ({appliedCoupon})</span>
+                                        <span>-${(pricingPreview.couponDiscountCents / 100).toFixed(2)}</span>
                                     </div>
                                 )}
                                 {showPairAnotherItemHint && (

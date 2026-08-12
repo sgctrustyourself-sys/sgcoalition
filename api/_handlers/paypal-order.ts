@@ -143,6 +143,8 @@ async function createPaypalOrder(body: PayPalCreateOrderInput) {
         Number(body.shipping || 0),
         Number(body.discount || 0),
         'paypal',
+        0,
+        body.couponCode ? String(body.couponCode) : undefined,
     );
 
     // Client total sanity check

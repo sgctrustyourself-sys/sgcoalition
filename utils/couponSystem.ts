@@ -51,6 +51,45 @@ export const validateCouponCode = async (
 };
 
 /**
+ * Validate an admin-created coupon from the `coupons` table (client-side
+ * fast-fail for UX — the SERVER is authoritative at pricing time via
+ * resolvePricing). Returns the coupon row when valid so the UI can show
+ * the discount; min_order_value is checked by the server against the
+ * server-computed base, so it's deliberately not enforced here.
+ */
+export const validateDiscountCoupon = async (
+    code: string,
+): Promise<{ valid: boolean; error?: string; coupon?: { code: string; discount_type: 'percent' | 'fixed'; discount_value: number } }> => {
+    try {
+        const trimmed = String(code || '').trim().toUpperCase();
+        if (!trimmed) return { valid: false, error: 'Please enter a coupon code' };
+
+        const { data, error } = await supabase
+            .from('coupons')
+            .select('code, discount_type, discount_value, min_order_value, max_uses, used_count, end_date, is_active')
+            .eq('code', trimmed)
+            .maybeSingle();
+
+        if (error || !data) return { valid: false }; // not a coupon → fall through to referral codes
+        if (!data.is_active) return { valid: false, error: 'This coupon is no longer active.' };
+        if (data.end_date && new Date(data.end_date).getTime() < Date.now()) return { valid: false, error: 'This coupon has expired.' };
+        if (data.max_uses != null && (data.used_count || 0) >= data.max_uses) return { valid: false, error: 'This coupon has reached its usage limit.' };
+
+        return {
+            valid: true,
+            coupon: {
+                code: data.code,
+                discount_type: data.discount_type as 'percent' | 'fixed',
+                discount_value: Number(data.discount_value || 0),
+            },
+        };
+    } catch (error) {
+        console.error('Error validating discount coupon:', error);
+        return { valid: false, error: 'Failed to validate code' };
+    }
+};
+
+/**
  * Apply a coupon code (store in sessionStorage for tracking)
  */
 export const applyCouponCode = (code: string): void => {
