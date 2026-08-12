@@ -64,6 +64,7 @@ What's been done:
 - The 2027 referendum blog post (slug `referendum-referral-program-2027`) remains as historical content; the dashboard no longer links to it. The `VotingSystem` still powers blog-post votes.
 - The Trust Circle tier (flat 20% commission, application flow, invites, drop vouchers) is implemented: `services/trustCircle.ts`, `pages/TrustCircle.tsx`, `components/admin/TrustCircleManager.tsx`. The `trust_circle_applications` + `drop_vouchers` tables and the RPC Trust Circle branch are live in production (migrations `20260804_create_payment_settings.sql` + `20260806_trusted_few_partner_program.sql` applied Aug 12).
 - The `coupons` table now exists in production (`20260812_create_coupons_table.sql`): the admin CouponManager and TrustCircleManager create coupons client-side, and `drop_vouchers.coupon_code` is FK'd to `coupons(code)` so every drop voucher references a real coupon.
+- `referral_stats` RLS drift fixed (`20260812_fix_referral_stats_client_writes.sql`): production's policies were service_role-only, silently breaking the Trust Circle approve/invite/revoke writes and the members list from the anon-key admin UI. Restored the intended public `FOR ALL USING (true)` "System can manage stats" policy (codebase's documented lax posture). **Hardening still open**: the passphrase admin flow creates no Supabase session, so admin writes run as anon — move them behind a SECURITY DEFINER RPC or mint a real session for the admin flow.
 
 What's still needed (track as operator + maintainer work):
 
