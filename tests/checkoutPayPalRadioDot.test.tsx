@@ -143,9 +143,13 @@ describe('Checkout PayPal primary radio dot stays checked', () => {
         await act(async () => { root.render(createElement(Checkout)); });
         await act(async () => { await Promise.resolve(); });
 
-        // Default state: PayPal is the priority primary and selected.
+        // The owner can re-enable PayPal live; with it ON the buyer selects
+        // the PayPal primary radio (the default is now Card). PayPal renders
+        // first among the paymentMethod radios.
         const radios = () => [...container.querySelectorAll<HTMLInputElement>('input[type=radio]')]
             .filter(r => r.name === 'paymentMethod');
+        await act(async () => { radios()[0].click(); });
+        await act(async () => { await Promise.resolve(); });
         expect(radios()[0].checked).toBe(true);
 
         // The 'More payment options' disclosure is closed at first.

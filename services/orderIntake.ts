@@ -141,7 +141,7 @@ export async function resolvePricing(items: PricingItem[], shippingDollars: numb
 export type PaymentEvidence =
     | { method: 'paypal'; paypalOrderId: string; paypalCaptureId: string; referenceId: string }
     | { method: 'stripe'; paymentIntentId: string }
-    | { method: 'crypto' | 'store_credit' };
+    | { method: 'crypto' | 'cashapp' | 'store_credit' };
 
 export interface VerifiedPayment { method: string; paymentReference: string; paypalOrderId: string | null; paidAt: string | null; }
 
@@ -181,7 +181,9 @@ export async function verifyPayment(evidence: PaymentEvidence, expectedTotalCent
         await verifySPI(evidence.paymentIntentId, expectedTotalCents);
         return { method: 'stripe', paymentReference: evidence.paymentIntentId, paypalOrderId: null, paidAt: now };
     }
-    return { method: evidence.method, paymentReference: '', paypalOrderId: null, paidAt: evidence.method !== 'crypto' ? now : null };
+    // Manual methods (crypto, cashapp) are verified by the operator off-
+    // platform and stay pending until confirmed — paidAt stays null.
+    return { method: evidence.method, paymentReference: '', paypalOrderId: null, paidAt: evidence.method !== 'crypto' && evidence.method !== 'cashapp' ? now : null };
 }
 
 // =========================================================================
@@ -296,7 +298,7 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
         items: pricing.items.map(pi => ({ productId: pi.productId, productName: pi.productName, productImage: '', selectedSize: pi.selectedSize, quantity: pi.quantity, price: Number(c2d(pi.unitCents)), basePrice: pi.basePriceDollars, addOnPrice: pi.keychainClipOn ? KEYCHAIN_CLIP_CENTS / 100 : 0, keychainClipOn: pi.keychainClipOn, addOnLabel: pi.keychainClipOn ? 'Keychain Clip (+$10)' : undefined, total: Number(c2d(pi.lineCents)), name: pi.productName, image: '', size: pi.selectedSize } satisfies OrderItemRow)),
         subtotal: Number(c2d(pricing.itemTotalCents)), tax: 0, discount: Number(c2d(pricing.discountCents)),
         total: Number(c2d(pricing.totalCents)),
-        payment_method: payment.method, payment_status: payment.method === 'crypto' ? 'pending' : 'paid',
+        payment_method: payment.method, payment_status: payment.method === 'crypto' || payment.method === 'cashapp' ? 'pending' : 'paid',
         payment_reference: payment.paymentReference || null, paypal_order_id: payment.paypalOrderId, order_type: 'online',
         shipping_address: (attempt.shippingAddress || null) as OrderRow['shipping_address'],
         notes: attempt.notes || '', created_at: now, paid_at: payment.paidAt || null,
@@ -308,7 +310,7 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
     // or infer from payment_status. This preserves the admin backfill workflow where
     // deposit markers in notes override the default full-payment computation.
     const totalDollars = Number(c2d(pricing.totalCents));
-    const paymentState = resolvePaymentState(attempt.notes, payment.method === 'crypto' ? 'pending' : 'paid', totalDollars);
+    const paymentState = resolvePaymentState(attempt.notes, payment.method === 'crypto' || payment.method === 'cashapp' ? 'pending' : 'paid', totalDollars);
     row.paid_amount = paymentState.paidAmount;
     row.balance_due = paymentState.balanceDue;
 

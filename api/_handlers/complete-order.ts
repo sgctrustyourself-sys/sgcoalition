@@ -67,7 +67,7 @@ function buildPaymentEvidence(order: Record<string, unknown>, verification: PayP
         const pi = String(order.paymentReference || order.payment_reference || '').trim();
         return { method: 'stripe', paymentIntentId: pi };
     }
-    return { method: method as 'crypto' | 'store_credit' };
+    return { method: method as 'crypto' | 'cashapp' | 'store_credit' };
 }
 
 async function createOrder(req: ApiRequest): Promise<OrderRow | null> {
@@ -106,8 +106,8 @@ async function createOrder(req: ApiRequest): Promise<OrderRow | null> {
         facebookUsername: (orderInput as any).facebookUsername || (orderInput as any).facebook_username || null,
     };
 
-    // For crypto/store_credit: shipping address needs Method + Cost
-    if (method === 'crypto' || method === 'store_credit') {
+    // For crypto/cashapp/store_credit: shipping address needs Method + Cost
+    if (method === 'crypto' || method === 'cashapp' || method === 'store_credit') {
         (attempt.shippingAddress as any) = {
             ...(attempt.shippingAddress as any || {}),
             shippingMethod: attempt.shippingMethod,

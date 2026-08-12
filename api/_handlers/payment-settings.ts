@@ -52,6 +52,7 @@ const FLAG_TO_KEY: Record<string, keyof PaymentSettings> = {
     card_enabled: 'card',
     paypal_enabled: 'paypal',
     klarna_enabled: 'klarna',
+    cashapp_enabled: 'cashapp',
     crypto_enabled: 'crypto',
 };
 
@@ -62,6 +63,7 @@ function toWire(settings: PaymentSettings) {
         card_enabled: settings.card,
         paypal_enabled: settings.paypal,
         klarna_enabled: settings.klarna,
+        cashapp_enabled: settings.cashapp,
         crypto_enabled: settings.crypto,
     };
 }
@@ -76,7 +78,7 @@ async function saveSettings(patch: Partial<PaymentSettings>): Promise<PaymentSet
     const { data, error } = await supabase
         .from('payment_settings')
         .upsert({ id: 1, ...row }, { onConflict: 'id' })
-        .select('card_enabled, paypal_enabled, klarna_enabled, crypto_enabled')
+        .select('card_enabled, paypal_enabled, klarna_enabled, cashapp_enabled, crypto_enabled')
         .single();
 
     if (error || !data) {
@@ -87,6 +89,7 @@ async function saveSettings(patch: Partial<PaymentSettings>): Promise<PaymentSet
         card: data.card_enabled !== false,
         paypal: data.paypal_enabled !== false,
         klarna: data.klarna_enabled !== false,
+        cashapp: data.cashapp_enabled !== false,
         crypto: data.crypto_enabled !== false,
     };
 }

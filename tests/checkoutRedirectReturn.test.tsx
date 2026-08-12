@@ -155,6 +155,11 @@ function mockLocationWithCancelledToken(token: string): void {
 function mockFetchForCapture(): ReturnType<typeof vi.fn> {
     const fetchFn = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
         const path = String(url);
+        if (path.includes('/api/payment-settings')) {
+            // PayPal must be ON for the redirect-return to be a real flow
+            // (the owner re-enables it live when verification clears).
+            return { ok: true, json: async () => ({ card_enabled: true, paypal_enabled: true, klarna_enabled: false, cashapp_enabled: true, crypto_enabled: true }) };
+        }
         if (path.includes('/api/paypal-order')) {
             const body = JSON.parse(String(init?.body || '{}'));
             if (body.action === 'capture') {

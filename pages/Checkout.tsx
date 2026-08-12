@@ -50,7 +50,7 @@ interface SavedCheckoutState {
     shippingInfo?: typeof DEFAULT_SHIPPING_INFO;
     shippingMethod?: 'standard' | 'express';
     shippingCost?: number;
-    paymentMethod?: 'paypal' | 'crypto' | 'card';
+    paymentMethod?: 'paypal' | 'crypto' | 'cashapp' | 'card';
     // Which Stripe method the 'card' path shows: card-only (primary) or
     // Klarna (secondary 'More payment options'). Persisted so a Klarna
     // redirect-return can restore the exact checkout in progress.
@@ -247,14 +247,15 @@ const Checkout: React.FC = () => {
     // Restore form state from sessionStorage when PayPal's Pay Later redirect
     // bounces the browser back through /checkout with ?token=&PayerID= (full
     // page reload). Fall back to defaults for a fresh checkout.
-    const [paymentMethod, setPaymentMethod] = useState<'paypal' | 'crypto' | 'card'>(() =>
-        loadCheckoutState()?.paymentMethod || 'paypal');
-    // PayPal is the default (the owner's priority checkout path); Card sits
-    // right beside it as co-primary, and Klarna/Crypto are one click away
-    // behind 'More payment options'.
+    const [paymentMethod, setPaymentMethod] = useState<'paypal' | 'crypto' | 'cashapp' | 'card'>(() =>
+        // Card is the default. PayPal is paused until seller verification
+        // clears; the owner can re-enable it live from the admin Command
+        // Center (payment-settings toggles), after which this default still
+        // falls back to the first enabled option below.
+        loadCheckoutState()?.paymentMethod || 'card');
     const [stripeMethod, setStripeMethod] = useState<'card' | 'klarna'>(() =>
         loadCheckoutState()?.stripeMethod || 'card');
-    // Secondary 'More payment options' disclosure (Klarna, Pay in 4, Crypto).
+    // Secondary 'More payment options' disclosure (Cash App, Crypto).
     const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
 
     // Owner-controlled payment option visibility (admin Command Center
@@ -262,7 +263,7 @@ const Checkout: React.FC = () => {
     // the owner disabled. A failed/unreachable fetch defaults to everything
     // enabled so a settings outage never locks checkout.
     const [paymentSettings, setPaymentSettings] = useState({
-        card: true, paypal: true, klarna: true, crypto: true,
+        card: true, paypal: false, klarna: false, cashapp: true, crypto: true,
     });
     const [paymentSettingsLoaded, setPaymentSettingsLoaded] = useState(false);
 
@@ -277,6 +278,7 @@ const Checkout: React.FC = () => {
                         card: !!data.card_enabled,
                         paypal: !!data.paypal_enabled,
                         klarna: !!data.klarna_enabled,
+                        cashapp: !!data.cashapp_enabled,
                         crypto: !!data.crypto_enabled,
                     });
                 }
@@ -287,18 +289,21 @@ const Checkout: React.FC = () => {
     }, []);
 
     // If the owner just turned off the currently selected option, fall back
-    // to the first still-enabled one (paypal -> card -> klarna -> crypto —
-    // matching the priority order the owner set).
+    // to the first still-enabled one (card -> cashapp -> crypto — the
+    // working primary paths; paypal/klarna only when re-enabled).
     useEffect(() => {
         if (!paymentSettingsLoaded) return;
         const selectedEnabled = paymentMethod === 'card'
             ? (stripeMethod === 'klarna' ? paymentSettings.klarna : paymentSettings.card)
-            : paymentMethod === 'paypal' ? paymentSettings.paypal : paymentSettings.crypto;
+            : paymentMethod === 'paypal' ? paymentSettings.paypal
+            : paymentMethod === 'cashapp' ? paymentSettings.cashapp
+            : paymentSettings.crypto;
         if (selectedEnabled) return;
-        if (paymentSettings.paypal) setPaymentMethod('paypal');
-        else if (paymentSettings.card) { setPaymentMethod('card'); setStripeMethod('card'); }
-        else if (paymentSettings.klarna) { setPaymentMethod('card'); setStripeMethod('klarna'); }
+        if (paymentSettings.card) { setPaymentMethod('card'); setStripeMethod('card'); }
+        else if (paymentSettings.cashapp) setPaymentMethod('cashapp');
         else if (paymentSettings.crypto) setPaymentMethod('crypto');
+        else if (paymentSettings.paypal) setPaymentMethod('paypal');
+        else if (paymentSettings.klarna) { setPaymentMethod('card'); setStripeMethod('klarna'); }
     }, [paymentSettingsLoaded, paymentSettings, paymentMethod, stripeMethod]);
 
     const [copied, setCopied] = useState(false);
@@ -423,12 +428,14 @@ const Checkout: React.FC = () => {
     const finalTotal = Math.max(0, total + shippingCost - creditToApply);
     const requiresNoExternalPayment = isZeroAmount || finalTotal <= 0;
     const paymentLabel = paymentMethod === 'paypal'
-        ? 'PayPal, Apple Pay, or Pay in 4'
+        ? 'PayPal'
         : paymentMethod === 'crypto'
             ? 'USDC on Polygon'
-            : stripeMethod === 'klarna'
-                ? 'Klarna — Pay in 4'
-                : 'Card';
+            : paymentMethod === 'cashapp'
+                ? 'Cash App'
+                : stripeMethod === 'klarna'
+                    ? 'Klarna — Pay in 4'
+                    : 'Card';
     const shippingCostLabel = shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`;
     const shippingMethodLabel = shippingMethod === 'express' ? 'Express' : 'Standard';
     const fulfillmentExpectation = shippingMethod === 'express'
@@ -437,15 +444,16 @@ const Checkout: React.FC = () => {
     const contactEmailLabel = shippingInfo.email.trim() || 'your checkout email';
     const paymentAvailability = [
         ...(paymentSettings.card ? ['Secure card checkout — Visa, Mastercard, Amex'] : []),
-        ...(paymentSettings.paypal ? ['PayPal, Apple Pay, and Pay in 4'] : []),
+        ...(paymentSettings.paypal ? ['PayPal'] : []),
         ...(paymentSettings.klarna ? ['Klarna — 4 interest-free payments'] : []),
+        ...(paymentSettings.cashapp ? ['Cash App — send to $sgcoalition'] : []),
         ...(paymentSettings.crypto ? [discountEnabled ? `USDC on Polygon saves ${getDiscountPercentageText()}` : 'USDC on Polygon available'] : []),
     ];
     const checkoutTrustItems = [
         {
             icon: ShieldCheck,
-            title: 'Secure PayPal payment',
-            detail: 'PayPal handles payment details before capture.'
+            title: 'Secure checkout',
+            detail: 'Card is processed by Stripe; Cash App and crypto are verified before fulfillment.'
         },
         {
             icon: Mail,
@@ -478,8 +486,8 @@ const Checkout: React.FC = () => {
     );
 
     useEffect(() => {
-        // If payment method is crypto, we don't need payment intent
-        if (paymentMethod === 'crypto') {
+        // If payment method is crypto or cashapp, we don't need payment intent
+        if (paymentMethod === 'crypto' || paymentMethod === 'cashapp') {
             setClientSecret('');
             setIsZeroAmount(false);
             return;
@@ -924,13 +932,13 @@ const Checkout: React.FC = () => {
                 discount: 0,  // server-authoritative via resolvePricing()
                 total: finalTotal,
                 paymentMethod: paymentMethodUsed as any,
-                paymentStatus: paymentMethodUsed === 'crypto' ? OrderStatus.PENDING : OrderStatus.PAID,
+                paymentStatus: paymentMethodUsed === 'crypto' || paymentMethodUsed === 'cashapp' ? OrderStatus.PENDING : OrderStatus.PAID,
                 paymentReference,
                 paypalOrderId: paymentVerification?.paypalOrderId,
                 paypalCaptureId: paymentVerification?.paypalCaptureId,
                 orderType: 'online' as const,
                 createdAt: new Date().toISOString(),
-                paidAt: paymentMethodUsed !== 'crypto' ? new Date().toISOString() : undefined,
+                paidAt: paymentMethodUsed !== 'crypto' && paymentMethodUsed !== 'cashapp' ? new Date().toISOString() : undefined,
                 sgCoinReward: reward,
                 shippingAddress: {
                     address1: shippingInfo.address1,
@@ -1036,6 +1044,23 @@ const Checkout: React.FC = () => {
             sessionStorage.setItem('orderNumber', orderNumber);
             console.log('✅ Crypto order created, redirecting...');
             window.location.href = '/order/success?payment_method=crypto';
+        } catch (error) {
+            addToast('Failed to create order. Please try again.', 'error');
+        }
+    };
+
+    // Cash App is a manual off-platform payment like crypto: the buyer sends
+    // the total to $sgcoalition and notes the items bought in the payment,
+    // then confirms here. The order is created as PENDING — the owner
+    // verifies the Cash App payment before fulfillment.
+    const handleCashAppConfirmation = async () => {
+        if (!validateShipping()) return;
+        try {
+            const orderNumber = await createOrder('cashapp');
+            sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
+            sessionStorage.setItem('orderNumber', orderNumber);
+            console.log('✅ Cash App order created, redirecting...');
+            window.location.href = '/order/success?payment_method=cashapp';
         } catch (error) {
             addToast('Failed to create order. Please try again.', 'error');
         }
@@ -1348,9 +1373,11 @@ const Checkout: React.FC = () => {
                             ) : (
                                 <>
                                     <div className="space-y-3 mb-6">
-                                        {/* PayPal - PRIMARY #1 (the owner's top priority). Includes
-                                            Apple Pay and Pay in 4 when the buyer's device/account
-                                            qualifies. Hidden when the owner turns PayPal off. */}
+                                        {/* PayPal - PRIMARY #1 (paused until seller verification
+                                            clears — owner re-enables live via admin Command Center).
+                                            Includes Apple Pay and Pay in 4 when the buyer's
+                                            device/account qualifies. Hidden when the owner turns
+                                            PayPal off. */}
                                         {paymentSettings.paypal && (
                                         <label className={`flex items-center justify-between p-5 rounded-xl border-2 cursor-pointer transition group relative overflow-hidden ${paymentMethod === 'paypal' ? 'bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-purple-500 shadow-lg shadow-purple-500/20' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30'}`}>
                                             <div className="flex items-center gap-4">
@@ -1405,10 +1432,11 @@ const Checkout: React.FC = () => {
                                         )}
 
                                         {/* Everything else - SECONDARY, behind a disclosure.
-                                            Klarna runs on its own Stripe intent; Pay in 4 reuses
-                                            the PayPal flow; Crypto is the USDC path. Rendered only
-                                            when at least one secondary option is enabled. */}
-                                        {(paymentSettings.klarna || paymentSettings.paypal || paymentSettings.crypto) && (
+                                            Cash App is a manual payment to $sgcoalition; Crypto is
+                                            the USDC path; Klarna/Pay in 4 appear only if the owner
+                                            re-enables them. Rendered only when at least one
+                                            secondary option is enabled. */}
+                                        {(paymentSettings.klarna || paymentSettings.paypal || paymentSettings.cashapp || paymentSettings.crypto) && (
                                         <div className="rounded-xl border border-white/10 bg-black/20">
                                             <button
                                                 type="button"
@@ -1418,9 +1446,9 @@ const Checkout: React.FC = () => {
                                             >
                                                 <span className="flex items-center gap-2">
                                                     More payment options
-                                                    {(paymentMethod !== 'paypal' && (paymentMethod === 'crypto' || stripeMethod === 'klarna')) && (
+                                                    {(paymentMethod !== 'paypal' && (paymentMethod === 'crypto' || paymentMethod === 'cashapp' || stripeMethod === 'klarna')) && (
                                                         <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">
-                                                            {paymentMethod === 'crypto' ? 'Crypto' : 'Klarna'} selected
+                                                            {paymentMethod === 'crypto' ? 'Crypto' : paymentMethod === 'cashapp' ? 'Cash App' : 'Klarna'} selected
                                                         </span>
                                                     )}
                                                 </span>
@@ -1471,6 +1499,30 @@ const Checkout: React.FC = () => {
                                                             </div>
                                                         </div>
                                                         <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">Pay in 4</span>
+                                                    </label>
+                                                    )}
+
+                                                    {paymentSettings.cashapp && (
+                                                    <label className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition group ${paymentMethod === 'cashapp' ? 'bg-green-600/10 border-green-500 text-white' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30 text-gray-400'}`}>
+                                                        <div className="flex items-center gap-4">
+                                                            <input
+                                                                type="radio"
+                                                                name="paymentMethod"
+                                                                checked={paymentMethod === 'cashapp'}
+                                                                onChange={() => { setPaymentMethod('cashapp'); setMoreOptionsOpen(true); }}
+                                                                className="w-4 h-4 border-gray-500 text-green-500 focus:ring-green-500"
+                                                            />
+                                                            <div className="flex flex-col">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-bold text-sm text-white">Cash App</span>
+                                                                    <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded font-bold tracking-wider">$sgcoalition</span>
+                                                                </div>
+                                                                <span className="text-xs text-gray-400 flex items-center gap-1">
+                                                                    Send the total to $sgcoalition and note the items you bought
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <Wallet className={`w-5 h-5 ${paymentMethod === 'cashapp' ? 'text-green-400' : 'text-gray-500'}`} />
                                                     </label>
                                                     )}
 
@@ -1651,7 +1703,7 @@ const Checkout: React.FC = () => {
                                                 <div className="rounded-xl border border-white/10 bg-black/30 p-6 text-center">
                                                     {!stripePromise ? (
                                                         <p className="text-sm text-gray-400">
-                                                            Card and Klarna are unavailable right now. Please use PayPal or contact support.
+                                                            Card is unavailable right now. Please use Cash App, crypto, or contact support.
                                                         </p>
                                                     ) : (
                                                         <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
@@ -1670,6 +1722,78 @@ const Checkout: React.FC = () => {
                                                     {error}
                                                 </div>
                                             )}
+                                        </div>
+                                    )}
+
+                                    {/* Cash App Payment — manual off-platform payment.
+                                        Buyer sends the total to $sgcoalition and notes the
+                                        items bought in the Cash App payment note, then
+                                        confirms below. Order lands PENDING until the owner
+                                        verifies the Cash App transfer. */}
+                                    {paymentMethod === 'cashapp' && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                            <div className="bg-white/[0.03] border border-white/10 p-4 rounded-lg">
+                                                <div className="flex items-start gap-3">
+                                                    <div>
+                                                        <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wide mb-1">Pay with Cash App</h4>
+                                                        <p className="text-sm text-gray-300">
+                                                            Send ${finalTotal.toFixed(2)} to <span className="text-green-400 font-bold">$sgcoalition</span> on Cash App.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-black/50 p-4 rounded-lg border border-green-500/30">
+                                                <p className="text-sm text-gray-400 mb-2">Send <span className="text-white font-bold">${finalTotal.toFixed(2)}</span> to:</p>
+                                                <div className="flex items-center justify-between bg-white/5 p-3 rounded border border-white/10">
+                                                    <code className="text-xs sm:text-sm font-mono text-green-300 truncate mr-2">$sgcoalition</code>
+                                                    <button onClick={copyAddress} className="text-gray-400 hover:text-white transition">
+                                                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                                                    </button>
+                                                </div>
+                                                <p className="text-xs text-gray-500 mt-2">Cash App handle — open the app, send to this tag</p>
+                                            </div>
+
+                                            {/* Important: note the items */}
+                                            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+                                                <div className="flex items-start gap-3">
+                                                    <Info className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-[11px] text-green-300 font-bold mb-1">Note what you're buying</p>
+                                                        <p className="text-[10px] text-green-200/70 leading-relaxed">
+                                                            In the Cash App payment note, list the items you ordered
+                                                            (e.g. "Puffer Jacket — Large") so I can match the payment to
+                                                            your order. Your order number is shown on the confirmation
+                                                            screen after you tap below.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Email instructions */}
+                                            <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4">
+                                                <div className="flex items-start gap-3">
+                                                    <Mail className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-[11px] text-orange-300 font-bold mb-1">After sending, email me your details</p>
+                                                        <p className="text-[10px] text-orange-200/70 leading-relaxed">
+                                                            Send your Cash App receipt (or confirmation), your shipping name
+                                                            & address, and the item ordered to{' '}
+                                                            <a href="mailto:sgctrustyourself@gmail.com" className="text-orange-300 underline decoration-orange-400/30 hover:decoration-orange-300 transition-all font-mono">
+                                                                sgctrustyourself@gmail.com
+                                                            </a>
+                                                            . I'll confirm and ship within 24 hours.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={handleCashAppConfirmation}
+                                                className="w-full bg-green-600 text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-green-500 transition shadow-[0_0_20px_rgba(34,197,94,0.3)]"
+                                            >
+                                                I Have Sent the Payment
+                                            </button>
                                         </div>
                                     )}
 

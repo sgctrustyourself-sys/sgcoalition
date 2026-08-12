@@ -2,13 +2,16 @@
 //
 // Handler tests for GET/PATCH /api/payment-settings — the owner-controlled
 // checkout payment-option toggles (admin Command Center -> live on/off for
-// Card / PayPal / Klarna / Crypto).
+// Card / PayPal / Klarna / Cash App / Crypto).
 //
-//   GET   public   -> { card_enabled, paypal_enabled, klarna_enabled, crypto_enabled }
+//   GET   public   -> { card_enabled, paypal_enabled, klarna_enabled,
+//                       cashapp_enabled, crypto_enabled }
 //   PATCH admin    -> partial { <flag>_enabled: boolean }, Bearer token === ADMIN_API_TOKEN
 //
 // Failure semantics under test: a broken/missing DB read must return the
-// all-enabled defaults so checkout can never be locked out.
+// WORKING set (card/cashapp/crypto on, paypal/klarna off) so checkout can
+// never be locked out — and the paused pay-later options stay hidden even
+// during a settings outage.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -73,8 +76,9 @@ function makeReq(method = 'GET', body: any = {}, headers: Record<string, string>
 const DEFAULT_ROW = {
     id: 1,
     card_enabled: true,
-    paypal_enabled: true,
-    klarna_enabled: true,
+    paypal_enabled: false,
+    klarna_enabled: false,
+    cashapp_enabled: true,
     crypto_enabled: true,
 };
 
@@ -110,13 +114,14 @@ describe('GET/PATCH /api/payment-settings', () => {
         expect(res._status).toBe(200);
         expect(res._body).toEqual({
             card_enabled: false,
-            paypal_enabled: true,
-            klarna_enabled: true,
+            paypal_enabled: false,
+            klarna_enabled: false,
+            cashapp_enabled: true,
             crypto_enabled: false,
         });
     });
 
-    it('GET degrades to all-enabled when the table read returns an error', async () => {
+    it('GET degrades to the working set (paypal/klarna off) when the table read returns an error', async () => {
         mockSupabaseFrom.mockReturnValueOnce(
             chain({ data: null, error: new Error('relation payment_settings does not exist') }),
         );
@@ -127,13 +132,14 @@ describe('GET/PATCH /api/payment-settings', () => {
         expect(res._status).toBe(200);
         expect(res._body).toEqual({
             card_enabled: true,
-            paypal_enabled: true,
-            klarna_enabled: true,
+            paypal_enabled: false,
+            klarna_enabled: false,
+            cashapp_enabled: true,
             crypto_enabled: true,
         });
     });
 
-    it('GET degrades to all-enabled when the DB read rejects (outage-safe)', async () => {
+    it('GET degrades to the working set when the DB read rejects (outage-safe)', async () => {
         mockSupabaseFrom.mockReturnValueOnce(rejectingChain());
 
         const res = makeRes();
@@ -141,7 +147,9 @@ describe('GET/PATCH /api/payment-settings', () => {
 
         expect(res._status).toBe(200);
         expect(res._body.card_enabled).toBe(true);
-        expect(res._body.paypal_enabled).toBe(true);
+        expect(res._body.cashapp_enabled).toBe(true);
+        expect(res._body.paypal_enabled).toBe(false);
+        expect(res._body.klarna_enabled).toBe(false);
     });
 
     it('PATCH requires the admin Bearer token (401 without it)', async () => {

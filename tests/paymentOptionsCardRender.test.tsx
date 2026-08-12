@@ -22,6 +22,7 @@ const ALL_ON = {
     card_enabled: true,
     paypal_enabled: true,
     klarna_enabled: true,
+    cashapp_enabled: true,
     crypto_enabled: true,
 };
 
@@ -29,6 +30,7 @@ const ALL_OFF = {
     card_enabled: false,
     paypal_enabled: false,
     klarna_enabled: false,
+    cashapp_enabled: false,
     crypto_enabled: false,
 };
 
@@ -88,12 +90,12 @@ describe('PaymentOptionsCard', () => {
         return el as HTMLButtonElement;
     }
 
-    it('renders four switches reflecting the GET response', async () => {
+    it('renders five switches reflecting the GET response', async () => {
         mockFetch(ALL_ON);
         await renderCard();
 
         expect(container.querySelector('[data-testid="payment-options-card"]')).toBeTruthy();
-        for (const key of ['card', 'paypal', 'klarna', 'crypto']) {
+        for (const key of ['card', 'paypal', 'klarna', 'cashapp', 'crypto']) {
             expect(toggleFor(key).getAttribute('aria-checked')).toBe('true');
         }
     });

@@ -10,6 +10,7 @@
 --    * paypal_enabled  — PayPal wallet / Apple Pay / Pay in 4
 --    * klarna_enabled  — Klarna Pay in 4 (secondary, behind 'More payment
 --                        options' in the checkout)
+--    * cashapp_enabled — Cash App manual payment to $sgcoalition (secondary)
 --    * crypto_enabled  — USDC on Polygon (secondary)
 --
 --  Why a table not an env var? The owner needs to flip options without a
@@ -33,10 +34,16 @@ CREATE TABLE IF NOT EXISTS public.payment_settings (
     card_enabled    boolean     NOT NULL DEFAULT true,
     paypal_enabled  boolean     NOT NULL DEFAULT true,
     klarna_enabled  boolean     NOT NULL DEFAULT true,
+    cashapp_enabled boolean     NOT NULL DEFAULT true,
     crypto_enabled  boolean     NOT NULL DEFAULT true,
     updated_at      timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT payment_settings_singleton CHECK (id = 1)
 );
+
+-- Additive for environments where the phase-1 table already exists without
+-- the cashapp flag (20260804 phase 1 shipped card/paypal/klarna/crypto only).
+ALTER TABLE public.payment_settings
+    ADD COLUMN IF NOT EXISTS cashapp_enabled boolean NOT NULL DEFAULT true;
 
 -- Idempotent singleton-seed — first run inserts the all-enabled default,
 -- every subsequent run is a no-op.

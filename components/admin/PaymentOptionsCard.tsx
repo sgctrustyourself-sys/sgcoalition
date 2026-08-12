@@ -18,10 +18,14 @@ interface PaymentFlags {
     card: boolean;
     paypal: boolean;
     klarna: boolean;
+    cashapp: boolean;
     crypto: boolean;
 }
 
-const DEFAULT_FLAGS: PaymentFlags = { card: true, paypal: true, klarna: true, crypto: true };
+// NOTE: PayPal + Klarna default OFF — seller verification paused PayPal and
+// the owner asked to hide the pay-later options. Card + Cash App + Crypto
+// are the working primary paths.
+const DEFAULT_FLAGS: PaymentFlags = { card: true, paypal: false, klarna: false, cashapp: true, crypto: true };
 
 const ROWS: { key: keyof PaymentFlags; label: string; detail: string; icon: React.ReactNode; accent: string }[] = [
     {
@@ -41,9 +45,16 @@ const ROWS: { key: keyof PaymentFlags; label: string; detail: string; icon: Reac
     {
         key: 'klarna',
         label: 'Klarna',
-        detail: 'Pay in 4 — behind “More payment options” at checkout',
+        detail: 'Pay in 4 — behind “More payment options” at checkout (currently OFF)',
         icon: <Landmark className="w-4 h-4" />,
         accent: 'bg-purple-500/10 border-purple-500/20 text-purple-400',
+    },
+    {
+        key: 'cashapp',
+        label: 'Cash App',
+        detail: 'Manual payment to $sgcoalition — behind “More payment options”',
+        icon: <Wallet className="w-4 h-4" />,
+        accent: 'bg-green-500/10 border-green-500/20 text-green-400',
     },
     {
         key: 'crypto',
@@ -78,10 +89,12 @@ const PaymentOptionsCard: React.FC = () => {
                     card: !!body.card_enabled,
                     paypal: !!body.paypal_enabled,
                     klarna: !!body.klarna_enabled,
+                    cashapp: !!body.cashapp_enabled,
                     crypto: !!body.crypto_enabled,
                 });
             }
-            // On failure keep the current (default = all enabled) state — the
+            // On failure keep the current (default = card/cashapp/crypto on,
+            // paypal/klarna off) state — the
             // checkout does the same, so the card never shows a state the
             // live site doesn't match.
         } catch {
@@ -128,6 +141,7 @@ const PaymentOptionsCard: React.FC = () => {
                     card: !!body.card_enabled,
                     paypal: !!body.paypal_enabled,
                     klarna: !!body.klarna_enabled,
+                    cashapp: !!body.cashapp_enabled,
                     crypto: !!body.crypto_enabled,
                 });
             }
@@ -217,8 +231,8 @@ const PaymentOptionsCard: React.FC = () => {
                     ))}
 
                     <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest pt-1">
-                        Changes apply to the live checkout immediately. Card + PayPal are the primary options;
-                        Klarna and Crypto sit behind “More payment options”.
+                        Changes apply to the live checkout immediately. Card is primary; Cash App, Crypto,
+                        and any re-enabled options sit behind “More payment options”.
                     </p>
                 </div>
             )}

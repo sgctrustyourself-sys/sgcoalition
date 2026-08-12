@@ -17,13 +17,20 @@ export interface PaymentSettings {
     card: boolean;
     paypal: boolean;
     klarna: boolean;
+    cashapp: boolean;
     crypto: boolean;
 }
 
+// NOTE: PayPal and Klarna default OFF — PayPal's seller verification was
+// still in progress (checkout was failing), and Klarna/Pay in 4 are the
+// 'pay later' options the owner asked to hide. Card + Cash App + Crypto are
+// the working primary paths. The owner can re-enable any flag live from the
+// admin Command Center without a redeploy.
 export const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
     card: true,
-    paypal: true,
-    klarna: true,
+    paypal: false,
+    klarna: false,
+    cashapp: true,
     crypto: true,
 };
 
@@ -31,7 +38,7 @@ export async function loadPaymentSettings(supabase: SupabaseClient): Promise<Pay
     try {
         const { data } = await supabase
             .from('payment_settings')
-            .select('card_enabled, paypal_enabled, klarna_enabled, crypto_enabled')
+            .select('card_enabled, paypal_enabled, klarna_enabled, cashapp_enabled, crypto_enabled')
             .eq('id', 1)
             .maybeSingle();
 
@@ -41,6 +48,7 @@ export async function loadPaymentSettings(supabase: SupabaseClient): Promise<Pay
             card: data.card_enabled !== false,
             paypal: data.paypal_enabled !== false,
             klarna: data.klarna_enabled !== false,
+            cashapp: data.cashapp_enabled !== false,
             crypto: data.crypto_enabled !== false,
         };
     } catch (error) {
