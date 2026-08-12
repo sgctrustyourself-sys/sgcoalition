@@ -432,6 +432,17 @@ const Checkout: React.FC = () => {
 
     // Final Total Calculation (raw estimate — server is authoritative)
     const finalTotal = Math.max(0, total + shippingCost - creditToApply);
+    // Server-authoritative total for display in the review card + trust copy.
+    // Prefer the actual PaymentIntent pricing (includes coupon + store
+    // credit), then the pricing preview, then the raw client estimate. This
+    // keeps every total on the page consistent — previously the review card
+    // showed the client estimate and ignored the applied coupon, disagreeing
+    // with the order summary's server-computed total.
+    const reviewTotal = serverPricing
+        ? serverPricing.totalCents / 100
+        : pricingPreview
+            ? pricingPreview.totalCents / 100
+            : finalTotal;
     const requiresNoExternalPayment = isZeroAmount || finalTotal <= 0;
     const paymentLabel = paymentMethod === 'paypal'
         ? 'PayPal'
@@ -474,7 +485,7 @@ const Checkout: React.FC = () => {
         {
             icon: RefreshCw,
             title: 'No surprise fees',
-            detail: `Shipping is ${shippingCostLabel}; total is $${finalTotal.toFixed(2)}.`
+            detail: `Shipping is ${shippingCostLabel}; total is $${reviewTotal.toFixed(2)}.`
         }
     ];
 
@@ -1630,7 +1641,7 @@ const Checkout: React.FC = () => {
                                             </div>
                                             <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                                                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Total</p>
-                                                <p className="mt-1 text-sm font-bold text-white">${finalTotal.toFixed(2)}</p>
+                                                <p className="mt-1 text-sm font-bold text-white">${reviewTotal.toFixed(2)}</p>
                                             </div>
                                             <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                                                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Fulfillment</p>

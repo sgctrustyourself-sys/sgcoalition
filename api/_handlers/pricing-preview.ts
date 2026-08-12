@@ -55,10 +55,16 @@ export default async function handler(req: any, res: any) {
             pricingItems.map(i => ({ productId: i.productId, quantity: i.quantity }))
         );
 
-        // For non-crypto payment methods, discountCents == setBonusCents
-        // (because otherDisc is zeroed). For crypto, the remainder is the
-        // crypto-specific discount.
-        const cryptoDiscountCents = Math.max(0, pricing.discountCents - setBonusCents);
+        // discountCents = setBonus + otherDisc + coupon + storeCredit.
+        // The UI needs each component on its own line, so the crypto-specific
+        // remainder is discountCents minus the pieces that have their own
+        // display lines (set bonus and coupon). For non-crypto payment
+        // methods otherDisc is zeroed, so this correctly yields 0 instead of
+        // leaking the coupon amount into a fake "Crypto Discount" line.
+        const cryptoDiscountCents = Math.max(
+            0,
+            pricing.discountCents - setBonusCents - pricing.couponDiscountCents,
+        );
 
         res.status(200).json({
             itemTotalCents: pricing.itemTotalCents,
