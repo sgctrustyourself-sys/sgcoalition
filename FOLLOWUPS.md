@@ -62,12 +62,12 @@ What's been done:
 
 - The Trusted Few partner program replaced the sunsetting referral program; the sunset banner, `PROGRAM_SUNSET_DATE` messaging, and the "Cast your vote" link were removed from `components/ReferralDashboard.tsx`.
 - The 2027 referendum blog post (slug `referendum-referral-program-2027`) remains as historical content; the dashboard no longer links to it. The `VotingSystem` still powers blog-post votes.
-- The Trust Circle tier (flat 20% commission, application flow, invites, drop vouchers) is implemented: `services/trustCircle.ts`, `pages/TrustCircle.tsx`, `components/admin/TrustCircleManager.tsx`. The `trust_circle_applications` + `drop_vouchers` tables and the RPC Trust Circle branch are in `supabase/migrations/20260806_trusted_few_partner_program.sql` — still needs to be pasted into the Supabase SQL editor (same as the pending `payment_settings` migration).
+- The Trust Circle tier (flat 20% commission, application flow, invites, drop vouchers) is implemented: `services/trustCircle.ts`, `pages/TrustCircle.tsx`, `components/admin/TrustCircleManager.tsx`. The `trust_circle_applications` + `drop_vouchers` tables and the RPC Trust Circle branch are live in production (migrations `20260804_create_payment_settings.sql` + `20260806_trusted_few_partner_program.sql` applied Aug 12).
 
 What's still needed (track as operator + maintainer work):
 
-1. **Apply the Trusted Few migration** (Operator) — paste `supabase/migrations/20260806_trusted_few_partner_program.sql` into the Supabase SQL editor so Trust Circle applications, invites, and drop vouchers persist.
-2. **First Trust Circle invites** (Operator) — use the admin Trust Circle tab to invite the initial branding team and review any applications.
+1. **First Trust Circle invites** (Operator) — use the admin Trust Circle tab to invite the initial branding team and review any applications.
+2. **Decide on the 12 never-applied migrations** (Operator) — production was provisioned selectively (SQL-editor pastes + ad-hoc SQL), so `schema_migrations` (seeded by `scripts/applyMigrations.ts --baseline`) records 10 applied files and leaves 12 pending: the brain seed, the brain admin-lock, subscribe emails, the retired referendum post, SGCoin payout requests, wallet_mints_7d + realtime, production_state + realtime, orders paid_amount/balance_due, and the payments + reconcile RPC. They were authored but never applied to the live DB; run `npx tsx scripts/applyMigrations.ts --check` to list them and `apply` to apply any that should launch.
 
 No vote will be scheduled — the referendum machinery (VotingSystem, `post_votes` RLS) stays in place for general blog-post voting and historical content only.
 

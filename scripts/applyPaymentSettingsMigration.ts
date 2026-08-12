@@ -14,9 +14,9 @@ dotenv.config({ path: '.env' });
 
 // Run from the project root (npx tsx scripts/applyPaymentSettingsMigration.ts).
 // Optional argv[2] = migration path (defaults to the payment_settings
-// migration). To apply both pending migrations at once, pass the combined
-// file:
-//   npx tsx scripts/applyPaymentSettingsMigration.ts supabase/migrations/PENDING_COMBINED_paste_into_sql_editor.sql
+// migration). NOTE: the timestamped migrations are already applied to
+// production — prefer the auto-discovering runner going forward:
+//   npx tsx scripts/applyMigrations.ts [--check | --baseline [versions]]
 const ROOT = process.cwd();
 const DEFAULT_MIGRATION = 'supabase/migrations/20260804_create_payment_settings.sql';
 const MIGRATION = (process.argv[2] || DEFAULT_MIGRATION).replace(/^\/+/, '');

@@ -43,6 +43,7 @@
     "**/*.test.ts",
     "scripts/*.mjs",
     "scripts/applyMigrationsSql.ts",
-    "scripts/applyPaymentSettingsMigration.ts"
+    "scripts/applyPaymentSettingsMigration.ts",
+    "scripts/applyMigrations.ts"
   ]
 }
