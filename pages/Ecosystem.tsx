@@ -373,7 +373,7 @@ const Ecosystem = () => {
                                     { icon: <MessageCircle />, title: 'Community Pulse', desc: 'Participate in governance & discourse to build brand social weight.', color: 'blue', href: '/community' },
                                     { icon: <Star />, title: 'Signal Feedback', desc: 'Direct feedback loops on physical product R&D earn deep equity.', color: 'purple', href: '#feedback-loop' },
                                     { icon: <Share2 />, title: 'Digital Amplification', desc: 'High-quality content creation integrated with SGC Oracle verification.', color: 'pink', href: '/profile' },
-                                    { icon: <DollarSign />, title: 'Referral Synthesis', desc: 'Up to 40% commissions on physical-digital hybrid bridge sales.', color: 'orange', href: '/profile' },
+                                    { icon: <DollarSign />, title: 'The Trusted Few', desc: 'Partner commissions from 5% to 40% on every sale you bring in.', color: 'orange', href: '/profile' },
                                 ].map((way, idx) => {
                                     const cardInner = (
                                         <>

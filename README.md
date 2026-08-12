@@ -51,7 +51,7 @@ vercel rollback dpl_75Vza3u5F1cqwmK83qvGXV9x4ANg --yes
 - [Recently Ordered Live Map](#recently-ordered-live-map)
 - [Above As Below Set Offers](#above-as-below-set-offers)
 - [SGCOIN Payout Request System](#sgcoin-payout-request-system)
-- [Referral Program](#referral-program)
+- [Partner Program (The Trusted Few)](#referral-program)
 - [Production Deployment](#production-deployment)
 - [Project Structure](#project-structure)
 - [Environment Variables](#environment-variables)
@@ -946,14 +946,14 @@ The Coalition platform is built around four end-to-end data flows ("loops"). Eac
 - **Companion:** `updateLifetimeStats(userId, orderTotal)` in the same file — fire-and-forget increment of `profiles.lifetime_spend_usd` and `profiles.lifetime_orders` after a successful checkout; called from `AppContext.addOrder`
 - **Deep dive:** [Customer Profile](#customer-profile)
 
-### Referral loop
+### Partner loop (The Trusted Few)
 
 - **Entry:** `trackReferralEvent(code, type[, userId])` via `supabase.rpc('track_referral_event', { p_referral_code, p_event_type, p_user_id, p_visitor_ip, p_user_agent, p_referrer_url })` in [`utils/referralAnalytics.ts`](utils/referralAnalytics.ts). Pipes into `trackSignupReferral(code, userId)` on signup and `processReferralOnPurchase(code, buyer, orderId, total)` on checkout (both in [`utils/referralSystem.ts`](utils/referralSystem.ts))
 - **Trigger:** every cold-open of `?ref=CODE` fires `trackReferralEvent('click')`; every signup with a non-empty stored code fires `('signup')` + the duplicate-guarded `trackReferral` insert; every completed purchase fires `('purchase')` + the find-or-create → `completeReferral` → `updateReferralStats` pipeline
 - **Side-effects:** inserts into `referrals` (find-or-create via `trackReferral`); updates `referral_stats.total_referrals`, `successful_referrals`, `pending_earnings`, `paid_earnings`, `total_earnings`, tier, and rate. **Tier recompute is atomic on the SQL side** via the `track_referral_event` RPC — the client `calculateCommissionTier()` (`utils/referralSystem.ts`) is read-side only between events. The `referrals` table has no unique index on `(referrer_id, referred_user_id)`; the find-or-create pattern is what prevents duplicate commission rows
 - **Contract tests:** [`tests/trackReferralEvent.test.ts`](tests/trackReferralEvent.test.ts) (10 assertions × 2 describe groups; rpc contract per event type + silent error handling — fire-and-forget never throws) + [`tests/referralFlows.test.ts`](tests/referralFlows.test.ts) (17 assertions × 3 describe groups; `processReferralOnPurchase` idempotency, `trackSignupReferral` duplicate guard, full UPDATE-payload pinning via `find`-based lookup + strict `toEqual`)
 - **Self-referral guard:** enforced at four independent layers — `trackReferral`, `processReferralOnPurchase`, `trackSignupReferral`, and the SQL `track_referral_event` RPC. A future helper that touches referral rows must respect all four
-- **Deep dive:** [Referral Program](#referral-program)
+- **Deep dive:** [Partner Program (The Trusted Few)](#referral-program)
 
 ### Live Orders loop
 
@@ -988,9 +988,9 @@ Three invariants need to hold across multiple loops or downstream surfaces silen
 
 1. **`order.id` dedup** (Live Orders) — `PUBLIC_RECENT_ORDER_SEEDS` ids MUST be mirrored in `constants.ts > INITIAL_ORDERS` so Layer 1 ≠ Layer 2. Any new seed needs the matching `INITIAL_ORDERS` row.
 2. **Paid-only filter consistency** (Customer Profile) — both `buildCustomerProfile` and `buildCustomerProfileByEmail` filter on `payment_status IN ('paid', 'completed', 'shipped', 'delivered')`. The admin `StatusBadge` uses the same set so a sale flips green across both surfaces simultaneously.
-3. **Self-referral guard** (Referral) — `processReferralOnPurchase`, `trackReferral`, `trackSignupReferral`, and the SQL `track_referral_event` RPC all reject `referrer_id === buyer` independently. A future helper that touches referral rows MUST respect all four guard sites.
+3. **Self-referral guard** (Partner) — `processReferralOnPurchase`, `trackReferral`, `trackSignupReferral`, and the SQL `track_referral_event` RPC all reject `referrer_id === buyer` independently. A future helper that touches referral rows MUST respect all four guard sites.
 
-The four deep dives below — [Customer Profile](#customer-profile), [Referral Program](#referral-program), [Recently Ordered Live Map](#recently-ordered-live-map), and [Above As Below Set Offers](#above-as-below-set-offers) — are the implementation references for each loop's contract and change procedure.
+The four deep dives below — [Customer Profile](#customer-profile), [Partner Program (The Trusted Few)](#referral-program), [Recently Ordered Live Map](#recently-ordered-live-map), and [Above As Below Set Offers](#above-as-below-set-offers) — are the implementation references for each loop's contract and change procedure.
 
 ## Recently Ordered Live Map
 
@@ -1371,17 +1371,17 @@ The Postgres `FOR UPDATE` row-lock inside `approve_payout_request` is the load-b
 - Race-condition stress test: `scripts/testPayoutRaceCondition.mjs`
 - Wrapper lock: `tests/payoutRpcWrappers.test.ts` (16 assertions across 8 describe groups)
 
-## Referral Program
+## Partner Program (The Trusted Few)
 
-> **Loops · Referral — tiered commission (5–40%) with 4-layer self-referral guard**
+> **Loops · Partner — The Trusted Few tiered commission (5–40%) + Trust Circle flat rate, with 4-layer self-referral guard**
 >
 > - **Entry:** [`utils/referralAnalytics.ts > trackReferralEvent(code, type[, userId])`](utils/referralAnalytics.ts) → `supabase.rpc('track_referral_event', { p_referral_code, p_event_type, p_user_id, p_visitor_ip, p_user_agent, p_referrer_url })`. Pipes into `trackSignupReferral(code, userId)` on signup and `processReferralOnPurchase(code, buyer, orderId, total)` on checkout (both in [`utils/referralSystem.ts`](utils/referralSystem.ts)).
 > - **Trigger:** Every cold-open of `?ref=CODE` fires `trackReferralEvent('click')`; every signup with a non-empty stored code fires `('signup')` + the duplicate-guarded `trackReferral` insert; every completed purchase fires `('purchase')` + the find-or-create → `completeReferral` → `updateReferralStats` pipeline.
 > - **Side-effects:** Inserts into `referrals` (find-or-create via `trackReferral`); updates `referral_stats.total_referrals`, `successful_referrals`, `pending_earnings`, `paid_earnings`, `total_earnings`, tier, and rate. **Tier recompute is atomic on the SQL side** via the `track_referral_event` RPC — the client `calculateCommissionTier()` (`utils/referralSystem.ts`) is read-side only between events. The `referrals` table has no unique index on `(referrer_id, referred_user_id)`; the find-or-create pattern is what prevents duplicate commission rows.
 > - **Contract test:** [`tests/trackReferralEvent.test.ts`](tests/trackReferralEvent.test.ts) (10 assertions × 2 groups — rpc contract per event type + silent error handling, fire-and-forget never throws) + [`tests/referralFlows.test.ts`](tests/referralFlows.test.ts) (17 assertions × 3 groups — `processReferralOnPurchase` idempotency, `trackSignupReferral` duplicate guard, full UPDATE-payload pinning via `find`-based lookup + strict `toEqual`).
-> - **Deep dive:** [## Referral Program](#referral-program) — tier table v2 + 4 self-referral guard sites + commission tier math + payout paths. **Self-referral guard enforced at 4 independent layers:** `trackReferral`, `processReferralOnPurchase`, `trackSignupReferral`, and the SQL `track_referral_event` RPC — a future helper that touches referral rows MUST respect all four.
+> - **Deep dive:** [## Partner Program (The Trusted Few)](#referral-program) — tier table v2 + Trust Circle flat-rate override + 4 self-referral guard sites + commission tier math + payout paths. **Self-referral guard enforced at 4 independent layers:** `trackReferral`, `processReferralOnPurchase`, `trackSignupReferral`, and the SQL `track_referral_event` RPC — a future helper that touches referral rows MUST respect all four.
 
-The Coalition referral program lives across `utils/referralSystem.ts`, `utils/referralAnalytics.ts`, `utils/couponSystem.ts`, `utils/customizeReferralCode.ts`, `data/blogPosts.ts`, and the `referral_*` Supabase tables. The user-facing dashboard is `components/ReferralDashboard.tsx` (mounted as the Referrals tab in `pages/Profile.tsx`). The admin overview is `admin/ReferralAnalytics.tsx`. Coupon input + self-referral check live in `pages/Checkout.tsx`.
+The Coalition partner program (**The Trusted Few**) lives across `utils/referralSystem.ts`, `utils/referralAnalytics.ts`, `utils/couponSystem.ts`, `utils/customizeReferralCode.ts`, `services/trustCircle.ts`, `data/blogPosts.ts`, and the `referral_*` Supabase tables. Every account holder is automatically a Trusted Few partner with a shareable code; the Trust Circle is the hand-picked branding-team tier (flat 20% commission, drop vouchers, site profile). The user-facing dashboard is `components/ReferralDashboard.tsx` (mounted as the Referrals tab in `pages/Profile.tsx`), the application page is `pages/TrustCircle.tsx` (`/trust-circle`), and the admin overview is `admin/ReferralAnalytics.tsx` + the Trust Circle tab in `pages/Admin.tsx`. Coupon input + self-referral check live in `pages/Checkout.tsx`. See `docs/superpowers/specs/2026-08-06-trusted-few-partner-program-design.md` for the full design.
 
 ### Commission tier table (v2)
 
@@ -1413,15 +1413,11 @@ The `track_referral_event` RPC and the surrounding client code were hardened thi
 
 The prior `updateReferralStats` summed `status='completed'` twice (once for `totalEarnings`, once for `pendingEarnings`), making the dashboard's two numbers identical. v2 partitions a single `.in('status', ['completed', 'paid'])` query by status: `pendingEarnings = Σ completed`, `paidEarnings = Σ paid`, `totalEarnings = pendingEarnings + paidEarnings`. The dashboard's "Current tier" highlight is now computed client-side from `stats.successful_referrals` (via `calculateCommissionTier`) so it cannot drift between RPC events.
 
-### Program sunset & community vote (Dec 31, 2026)
+### Trusted Few replaces the sunset/referendum plan
 
-The Coalition referral program is scheduled to run through **December 31, 2026**. A community vote in mid-December will decide whether the program continues into 2027 or wraps for the year.
+The referral program is now **The Trusted Few partner program — no sunset, no vote**. The dismissal banner, the "Cast your vote →" link, and the `PROGRAM_SUNSET_DATE` messaging were removed from `components/ReferralDashboard.tsx`; the dashboard no longer links to the referendum.
 
-- A dismissible amber sunset banner is live at the top of `components/ReferralDashboard.tsx` (localStorage-persisted dismiss key: `sgcoalition.referral.sunsetNoticeDismissed.v1`).
-- A referendum blog post is seeded at `/blog/referendum-referral-program-2027` in both `data/blogPosts.ts > blogFallbackPosts` AND the production `posts` table (via `supabase/migrations/20260711_referendum_referral_2027.sql` — idempotent `INSERT ... ON CONFLICT (slug) DO UPDATE`).
-- The existing `components/VotingSystem.tsx` is auto-mounted by `pages/BlogPostView.tsx` — no further wiring needed. Upvote = continue, downvote = sunset. Vote weight = `user.v2Balance`.
-- The dashboard banner's "Cast your vote →" link routes to the referendum post.
-- To close the vote when tallying, the operator runs `UPDATE posts SET is_published = false WHERE slug = 'referendum-referral-program-2027';` in the Supabase SQL editor. The `VotingSystem` has no `closed_at` path; flipping `is_published` is the canonical close.
+The 2027 referendum blog post (slug `referendum-referral-program-2027`) remains in `data/blogPosts.ts` and the production `posts` table as historical content only. `components/VotingSystem.tsx` still powers blog-post votes.
 
 ### Where to read it
 
@@ -1431,10 +1427,12 @@ The Coalition referral program is scheduled to run through **December 31, 2026**
 - Coupon validation: `utils/couponSystem.ts > validateCouponCode(code, currentUserId?)` (self-referral block on the second arg)
 - Custom code: `utils/customizeReferralCode.ts` (banned-words list, reserved-prefix regex, graceful pre-v2 fallback)
 - Event tracking: `utils/referralAnalytics.ts > trackReferralEvent`, `getReferrerAnalytics`, `getTopReferrers`
-- User dashboard: `components/ReferralDashboard.tsx` (banner + tier cards + analytics cards + code/link/tier-table/history)
-- Admin view: `admin/ReferralAnalytics.tsx`
-- DB schema + RPC: `supabase/migrations/20260711_referral_v2_columns_and_rpc.sql`
-- Referendum seed: `supabase/migrations/20260711_referendum_referral_2027.sql`
+- User dashboard: `components/ReferralDashboard.tsx` (Trusted Few header + Trust Circle panel + tier cards + analytics cards + code/link/tier-table/history)
+- Trust Circle application page: `pages/TrustCircle.tsx` (`/trust-circle`)
+- Trust Circle service: `services/trustCircle.ts`
+- Admin views: `admin/ReferralAnalytics.tsx` + Trust Circle tab (`components/admin/TrustCircleManager.tsx`)
+- DB schema + RPC: `supabase/migrations/20260711_referral_v2_columns_and_rpc.sql` + `supabase/migrations/20260806_trusted_few_partner_program.sql`
+- Referendum seed (historical only): `supabase/migrations/20260711_referendum_referral_2027.sql`
 - Operator runbook: [FOLLOWUPS.md](./FOLLOWUPS.md)
 
 ## Production Deployment

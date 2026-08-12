@@ -416,7 +416,7 @@ const ProductDetails = () => {
         }
 
         const shareText = referralCode
-            ? `Check out ${product.name} on SG Coalition. This link includes my Coalition referral code if you decide to pick it up.`
+            ? `Check out ${product.name} on SG Coalition. This link includes my Coalition partner code if you decide to pick it up.`
             : `Check out ${product.name} on SG Coalition!`;
         if (navigator.share) {
             try {
@@ -1010,7 +1010,7 @@ const ProductDetails = () => {
                                                     ? 'bg-brand-accent/10 border-brand-accent/30 hover:bg-brand-accent/20 hover:border-brand-accent/50'
                                                     : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
                                                 }`}
-                                                title={referralCode ? 'Share your referral product link and earn commission' : 'Share Product'}
+                                                title={referralCode ? 'Share your partner link and earn commission' : 'Share Product'}
                                             >
                                                 <Share2 className={`h-5 w-5 transition-opacity ${referralCode ? 'text-brand-accent' : 'text-white opacity-60 group-hover:opacity-100'}`} />
                                                 {referralCode && (

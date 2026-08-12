@@ -486,7 +486,7 @@ const OrderSuccess = () => {
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-white uppercase tracking-wide text-sm">Share the Coalition</h3>
-                                    <p className="text-xs text-gray-400">Earn commission on every referral sale</p>
+                                    <p className="text-xs text-gray-400">Earn commission with The Trusted Few</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 mb-3">
@@ -503,7 +503,7 @@ const OrderSuccess = () => {
                                         setTimeout(() => setReferralCopied(false), 2000);
                                     }}
                                     className="px-4 py-3 bg-purple-500/20 border border-purple-500/30 rounded-lg hover:bg-purple-500/30 transition text-purple-200"
-                                    title="Copy referral link"
+                                    title="Copy partner link"
                                 >
                                     {referralCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                                 </button>

@@ -54,24 +54,22 @@ Until resolved: checkout is gated, but browsing + carting still work.
 
 ## Active program notice
 
-### 0. Referral program sunset & community vote (Dec 31, 2026)
+### 0. Partner program (The Trusted Few) — sunset & referendum retired
 
-The Coalition referral program is scheduled to run through **December 31, 2026**. A community vote in the days leading up to that date will decide whether the program continues into 2027 or wraps for the year.
+The referral program has been replaced by **The Trusted Few partner program** — no sunset, no community vote (owner decision, see `docs/superpowers/specs/2026-08-06-trusted-few-partner-program-design.md`).
 
 What's been done:
 
-- Sunset notice banner is live at the top of `components/ReferralDashboard.tsx` (visible to every user who opens the Referrals tab on their profile). Programmatic constant: `PROGRAM_SUNSET_DATE` in the same file, value `'December 31, 2026'`. Banner now links to `/blog/referendum-referral-program-2027` and reads "Cast your vote" so the dashboard never says "vote opens later" while the post is already live.
-- Notice mentions the vote is weighted by SGCoin v2 governance power — the same `VotingSystem` (in `components/VotingSystem.tsx`) handles upvotes/downvotes for blog posts, so the same RPC + `post_votes` table is reused for the one-question referendum.
-- **Referendum blog post is seeded** at slug `referendum-referral-program-2027` (id `blog-referendum-referral-program-2027`) in BOTH `data/blogPosts.ts -> blogFallbackPosts` (for local/no-backend) AND `supabase/migrations/20260711_referendum_referral_2027.sql` (idempotent `INSERT ... ON CONFLICT (slug) DO UPDATE` for production). The `VotingSystem` is auto-mounted by `BlogPostView.tsx`. Upvote = continue, Downvote = sunset. Body restates the v2 tier table and the v2 RPC hardening.
+- The Trusted Few partner program replaced the sunsetting referral program; the sunset banner, `PROGRAM_SUNSET_DATE` messaging, and the "Cast your vote" link were removed from `components/ReferralDashboard.tsx`.
+- The 2027 referendum blog post (slug `referendum-referral-program-2027`) remains as historical content; the dashboard no longer links to it. The `VotingSystem` still powers blog-post votes.
+- The Trust Circle tier (flat 20% commission, application flow, invites, drop vouchers) is implemented: `services/trustCircle.ts`, `pages/TrustCircle.tsx`, `components/admin/TrustCircleManager.tsx`. The `trust_circle_applications` + `drop_vouchers` tables and the RPC Trust Circle branch are in `supabase/migrations/20260806_trusted_few_partner_program.sql` — still needs to be pasted into the Supabase SQL editor (same as the pending `payment_settings` migration).
 
 What's still needed (track as operator + maintainer work):
 
-1. **Close the vote when tallying** (Operator) — the existing `VotingSystem` has no `closed_at` / `is_closed` path. To close the vote in December (recommended window Dec 15–22), run this in the Supabase SQL editor: `UPDATE posts SET is_published = false WHERE slug = 'referendum-referral-program-2027';`. The blog post falls out of the public grid, the dashboard's "Cast your vote" link 404s the post view, and any votes already on `post_votes.post_id` are preserved.
-2. ~~Seed the referendum post~~ **DONE** (see "What's been done" above).
-3. **Pre-vote eligibility check** (Maintainer) — confirm that the existing RLS policies on `post_votes` allow `v2Balance`-weighted votes; if the existing policy is one-row-per-user, add a `weight` column override path or a `referral_sunset_vote` table that allows per-user weight but enforces one row per `(user_id, referendum_id)`.
-4. **Outcomes path** (Operator) — if the vote favors sunset, set a hard cutoff in `track_referral_event` (RPC) and `validateCouponCode` so new signups after Dec 31, 2026 do not attribute to any code. If the vote favors continue, no code change needed; the dashboard banner auto-stales and can be removed in a follow-up commit.
+1. **Apply the Trusted Few migration** (Operator) — paste `supabase/migrations/20260806_trusted_few_partner_program.sql` into the Supabase SQL editor so Trust Circle applications, invites, and drop vouchers persist.
+2. **First Trust Circle invites** (Operator) — use the admin Trust Circle tab to invite the initial branding team and review any applications.
 
-Not blocking. Schedule the vote at least 30 days before Dec 31 to give the community time to participate.
+No vote will be scheduled — the referendum machinery (VotingSystem, `post_votes` RLS) stays in place for general blog-post voting and historical content only.
 
 ---
 
