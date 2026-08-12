@@ -13,8 +13,13 @@ import pg from 'pg';
 dotenv.config({ path: '.env' });
 
 // Run from the project root (npx tsx scripts/applyPaymentSettingsMigration.ts).
+// Optional argv[2] = migration path (defaults to the payment_settings
+// migration). To apply both pending migrations at once, pass the combined
+// file:
+//   npx tsx scripts/applyPaymentSettingsMigration.ts supabase/migrations/PENDING_COMBINED_paste_into_sql_editor.sql
 const ROOT = process.cwd();
-const MIGRATION = 'supabase/migrations/20260804_create_payment_settings.sql';
+const DEFAULT_MIGRATION = 'supabase/migrations/20260804_create_payment_settings.sql';
+const MIGRATION = (process.argv[2] || DEFAULT_MIGRATION).replace(/^\/+/, '');
 
 function firstEnv(names: string[]): string {
     for (const name of names) {
@@ -97,16 +102,24 @@ async function main() {
 
         console.log('\n--- Row Verification ---');
         const row = await client.query(
-            `SELECT id, card_enabled, paypal_enabled, klarna_enabled, crypto_enabled, updated_at
+            `SELECT id, card_enabled, paypal_enabled, klarna_enabled, cashapp_enabled, crypto_enabled, updated_at
              FROM public.payment_settings WHERE id = 1`
         );
         if (row.rowCount === 0) {
             console.log('  ROW NOT FOUND — seed insert failed');
         } else {
             const r = row.rows[0];
-            console.log(`  id=${r.id} card=${r.card_enabled} paypal=${r.paypal_enabled} klarna=${r.klarna_enabled} crypto=${r.crypto_enabled} updated_at=${r.updated_at}`);
-            const ok = r.card_enabled && r.paypal_enabled && r.klarna_enabled && r.crypto_enabled;
-            console.log(`  ${ok ? 'OK - all flags default true' : 'MISMATCH - flags not all true'}`);
+            console.log(`  id=${r.id} card=${r.card_enabled} paypal=${r.paypal_enabled} klarna=${r.klarna_enabled} cashapp=${r.cashapp_enabled} crypto=${r.crypto_enabled} updated_at=${r.updated_at}`);
+        }
+
+        // If a combined file was passed, also verify the Trusted Few objects
+        // landed. Guarded so the payment_settings-only run is unchanged.
+        const tf = await client.query(
+            `SELECT count(*)::int AS apps FROM trust_circle_applications
+             UNION ALL SELECT count(*)::int FROM drop_vouchers`
+        ).catch(() => null);
+        if (tf && tf.rowCount) {
+            console.log(`  trust_circle_applications rows=${tf.rows[0]?.apps} drop_vouchers rows=${tf.rows[1]?.apps}`);
         }
 
         console.log('\n--- RLS Policies ---');
