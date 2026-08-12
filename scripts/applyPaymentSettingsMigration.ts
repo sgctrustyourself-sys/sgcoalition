@@ -49,19 +49,29 @@ async function connect(): Promise<{ client: pg.PoolClient; pool: pg.Pool }> {
     const projectRef = inferProjectRef();
     const password = firstEnv(['SUPABASE_DB_PASSWORD', 'POSTGRES_PASSWORD', 'SUPABASE']);
 
-    if (!projectRef) {
-        console.error('Cannot infer Supabase project ref. Set VITE_SUPABASE_URL.');
-        process.exit(1);
-    }
-    if (!password) {
-        console.error('No database password found. Set SUPABASE_DB_PASSWORD or SUPABASE in .env.');
-        process.exit(1);
+    const attempts: [string, string][] = [];
+    // Direct full connection string (host:port + user + encoded password)
+    // wins when supplied — e.g. the one shown in the Supabase dashboard.
+    const directUrl = firstEnv(['DATABASE_URL', 'SUPABASE_DB_URL', 'POSTGRES_URL']);
+    if (directUrl) {
+        attempts.push(['direct url', directUrl]);
     }
 
-    const attempts: [string, string][] = [
-        ['pooler session', buildConnectionString(projectRef, password, '5432')],
-        ['pooler transaction', buildConnectionString(projectRef, password, '6543')],
-    ];
+    if (projectRef && password) {
+        attempts.push(
+            ['pooler session', buildConnectionString(projectRef, password, '5432')],
+            ['pooler transaction', buildConnectionString(projectRef, password, '6543')],
+        );
+    }
+
+    if (attempts.length === 0) {
+        if (!projectRef) {
+            console.error('Cannot infer Supabase project ref. Set VITE_SUPABASE_URL.');
+            process.exit(1);
+        }
+        console.error('No database credentials found. Set SUPABASE_DB_PASSWORD (or DATABASE_URL).');
+        process.exit(1);
+    }
 
     for (const [label, connStr] of attempts) {
         const pool = new pg.Pool({

@@ -1,35 +1,47 @@
 -- ============================================================================
 -- COALITION — PENDING MIGRATIONS (combined, paste into Supabase SQL Editor)
---
--- This file merges the two migrations that have NOT been applied to the
--- production Supabase database yet:
+-- Generated from the two source migration files — do NOT hand-edit.
 --   1. supabase/migrations/20260804_create_payment_settings.sql
---      (owner-controlled payment-option toggles — the admin Command Center
---       switches; without this the toggles cannot persist)
 --   2. supabase/migrations/20260806_trusted_few_partner_program.sql
---      (Trusted Few / Trust Circle — tier columns, applications table,
---       drop vouchers, RPC Trust Circle branch)
---
--- Both are idempotent (IF NOT EXISTS / ON CONFLICT guarded) and safe to run
--- twice. Paste the WHOLE file into the Supabase SQL Editor and Run.
---
--- What changes on the live site once applied:
---   * The admin Command Center "Payment Options" card switches persist
---     (Card / PayPal / Klarna / Cash App / Crypto). Until then the live
---     site keeps the code fallback: card/cashapp/crypto ON, paypal/klarna OFF.
---   * Trust Circle: applications, invites, member tiers, and drop vouchers
---     persist; the track_referral_event RPC keeps Trust Circle members on
---     their flat rate instead of the 5–40% tier ladder.
+-- Idempotent (IF NOT EXISTS / ON CONFLICT guarded). Safe to run twice.
 -- ============================================================================
 
--- uuid-ossp must exist for uuid_generate_v4() (used by both new tables).
--- Production already has it for the payments table; the guard makes this
--- self-sufficient anywhere.
+-- uuid-ossp must exist for uuid_generate_v4() (used by the new tables).
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================================
 -- MIGRATION 1: payment_settings (20260804)
 -- ============================================================================
+-- =========================================================================
+--  payment_settings (phase 1 — table + RLS + seed)
+--
+--  Single-row singleton table holding which payment options are shown to
+--  customers at checkout. The shop owner flips these live from the admin
+--  Command Center (PaymentOptionsCard) — no redeploy, no code change.
+--
+--  Flags:
+--    * card_enabled    — Stripe card payments (primary checkout path)
+--    * paypal_enabled  — PayPal wallet / Apple Pay / Pay in 4
+--    * klarna_enabled  — Klarna Pay in 4 (secondary, behind 'More payment
+--                        options' in the checkout)
+--    * cashapp_enabled — Cash App manual payment to $sgcoalition (secondary)
+--    * crypto_enabled  — USDC on Polygon (secondary)
+--
+--  Why a table not an env var? The owner needs to flip options without a
+--  Vercel redeploy, and both the serverless handlers (create-payment-intent,
+--  paypal-order) and the checkout client must agree on the same source of
+--  truth. A singleton row read with the service-role client is that source.
+--
+--  Failure semantics: services/paymentSettings.loadPaymentSettings() treats
+--  ANY read failure (table missing, migration not applied, transient DB
+--  error) as ALL-ENABLED, so a settings outage can never silently lock
+--  customers out of checkout.
+--
+--  Access:
+--    anon + authenticated get SELECT (the checkout needs it).
+--    Writes go through the admin-only /api/payment-settings handler using
+--    SUPABASE_SERVICE_ROLE_KEY — no public mutation RPC.
+-- =========================================================================
 
 CREATE TABLE IF NOT EXISTS public.payment_settings (
     id              int         PRIMARY KEY DEFAULT 1,
@@ -43,11 +55,12 @@ CREATE TABLE IF NOT EXISTS public.payment_settings (
 );
 
 -- Additive for environments where the phase-1 table already exists without
--- the cashapp flag.
+-- the cashapp flag (20260804 phase 1 shipped card/paypal/klarna/crypto only).
 ALTER TABLE public.payment_settings
     ADD COLUMN IF NOT EXISTS cashapp_enabled boolean NOT NULL DEFAULT true;
 
--- Idempotent singleton-seed.
+-- Idempotent singleton-seed — first run inserts the all-enabled default,
+-- every subsequent run is a no-op.
 INSERT INTO public.payment_settings (id) VALUES (1)
 ON CONFLICT (id) DO NOTHING;
 
@@ -64,6 +77,17 @@ GRANT SELECT ON public.payment_settings TO anon, authenticated;
 -- ============================================================================
 -- MIGRATION 2: Trusted Few / Trust Circle (20260806)
 -- ============================================================================
+-- The Trusted Few / Trust Circle partner program -- additive migration
+--
+-- Extends the existing referral engine:
+--   * referral_stats gains tier columns (partner_tier, flat-rate override,
+--     invite/member timestamps)
+--   * trust_circle_applications holds the brand-voice application flow
+--   * drop_vouchers is the operator ledger for per-drop 100%-off vouchers
+--   * track_referral_event is re-created with a Trust Circle branch so the
+--     tier ladder never clobbers the flat 20% rate
+--
+-- SAFE to run twice -- every change is IF NOT EXISTS guarded.
 
 -- ---------------------------------------------------------------------------
 -- 1. referral_stats tier columns
@@ -95,43 +119,49 @@ CREATE TABLE IF NOT EXISTS trust_circle_applications (
     review_note TEXT
 );
 
--- One pending application per user.
-CREATE UNIQUE INDEX IF NOT EXISTS uq_trust_circle_app_pending
+-- One pending application per user (partial unique index).
+CREATE UNIQUE INDEX IF NOT EXISTS trust_circle_applications_one_pending
     ON trust_circle_applications (user_id)
     WHERE status = 'pending';
 
-CREATE INDEX IF NOT EXISTS idx_trust_circle_app_status
-    ON trust_circle_applications (status, created_at DESC);
-
 ALTER TABLE trust_circle_applications ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Owner can view applications" ON trust_circle_applications;
-CREATE POLICY "Owner can view applications"
-    ON trust_circle_applications
-    FOR SELECT
-    USING (true);
+-- User reads/writes only their own application.
+DROP POLICY IF EXISTS "Users can view own applications" ON trust_circle_applications;
+CREATE POLICY "Users can view own applications"
+    ON trust_circle_applications FOR SELECT
+    USING (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Users can create own application" ON trust_circle_applications;
-CREATE POLICY "Users can create own application"
-    ON trust_circle_applications
-    FOR INSERT
+DROP POLICY IF EXISTS "Users can create own applications" ON trust_circle_applications;
+CREATE POLICY "Users can create own applications"
+    ON trust_circle_applications FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
+-- Admin dashboard reads all applications client-side (wallet-gated UI),
+-- matching the codebase's established lax posture (cf. custom_inquiries,
+-- referral_stats "System can manage stats"). Hardening note: move review
+-- writes behind a SECURITY DEFINER RPC if this ever ships to untrusted admins.
+DROP POLICY IF EXISTS "System can read all applications" ON trust_circle_applications;
+CREATE POLICY "System can read all applications"
+    ON trust_circle_applications FOR SELECT
+    USING (true);
+
+DROP POLICY IF EXISTS "System can review applications" ON trust_circle_applications;
+CREATE POLICY "System can review applications"
+    ON trust_circle_applications FOR UPDATE
+    USING (true);
+
 -- ---------------------------------------------------------------------------
--- 3. drop_vouchers
+-- 3. drop_vouchers (operator ledger for free drops)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS drop_vouchers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     member_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    drop_name TEXT NOT NULL,
-    coupon_code TEXT NOT NULL REFERENCES coupons(code),
-    amount_off_percent NUMERIC(5,2) NOT NULL DEFAULT 100,
-    issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    notes TEXT
+    coupon_code TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'issued'
+        CHECK (status IN ('issued', 'redeemed', 'expired')),
+    issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
-CREATE INDEX IF NOT EXISTS idx_drop_vouchers_member
-    ON drop_vouchers (member_user_id, issued_at DESC);
 
 ALTER TABLE drop_vouchers ENABLE ROW LEVEL SECURITY;
 
@@ -254,12 +284,26 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 GRANT EXECUTE ON FUNCTION track_referral_event(VARCHAR, VARCHAR, UUID, VARCHAR, TEXT, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION track_referral_event(VARCHAR, VARCHAR, UUID, VARCHAR, TEXT, TEXT) TO anon;
 
--- ============================================================================
--- VERIFY (run after): both tables exist and the settings row is seeded
--- ============================================================================
--- SELECT id, card_enabled, paypal_enabled, klarna_enabled, cashapp_enabled,
---        crypto_enabled FROM public.payment_settings;
--- SELECT count(*) AS applications FROM trust_circle_applications;
--- SELECT count(*) AS vouchers FROM drop_vouchers;
--- SELECT count(*) AS circle_rpc
--- FROM pg_proc WHERE proname = 'track_referral_event';
+DO $sgcoalition_notice$
+BEGIN
+    RAISE NOTICE 'Trusted Few migration complete';
+END $sgcoalition_notice$;
+
+SELECT
+    'referral_stats tier cols' AS what,
+    count(*) FILTER (WHERE column_name IN ('partner_tier','trust_circle_commission_rate','invited_at','circle_member_since'))::int AS n
+FROM information_schema.columns
+WHERE table_name = 'referral_stats'
+UNION ALL SELECT
+    'trust_circle_applications',
+    count(*)::int
+FROM trust_circle_applications
+UNION ALL SELECT
+    'drop_vouchers',
+    count(*)::int
+FROM drop_vouchers
+UNION ALL SELECT
+    'trust_circle RPC branch',
+    count(*) FILTER (WHERE proname = 'track_referral_event')::int
+FROM pg_proc
+WHERE proname = 'track_referral_event';
