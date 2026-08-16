@@ -114,6 +114,20 @@ const OrderManager: React.FC = () => {
         }
     };
 
+    // Cash App + crypto are manual off-platform payments: the order lands
+    // PENDING and the owner must verify the transfer before fulfillment.
+    // This flags exactly those rows so they're visible at a glance.
+    const needsManualVerification = (order: Order): boolean => {
+        if (order.paymentStatus !== 'pending') return false;
+        const method = (order.paymentMethod || '').toLowerCase();
+        return method === 'cashapp' || method === 'crypto';
+    };
+
+    const manualVerificationMethodLabel = (order: Order): string => {
+        const method = (order.paymentMethod || '').toLowerCase();
+        return method === 'cashapp' ? 'Cash App' : method === 'crypto' ? 'Crypto' : 'Payment';
+    };
+
     const getStatusColor = (status: string) => {
         switch (status.toLowerCase()) {
             case 'paid': return 'text-green-400 bg-green-500/10 border-green-500/20';
@@ -205,6 +219,14 @@ const OrderManager: React.FC = () => {
                     <p className="text-2xl font-bold text-yellow-400 mt-1">
                         {orders.filter(o => o.paymentStatus === 'pending').length}
                     </p>
+                    {(() => {
+                        const manualCount = orders.filter(needsManualVerification).length;
+                        return manualCount > 0 ? (
+                            <p className="mt-1 text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                                {manualCount} need manual verification
+                            </p>
+                        ) : null;
+                    })()}
                 </div>
                 <div className="bg-white/5 border border-white/10 p-5 rounded-xl backdrop-blur-sm">
                     <p className="text-xs font-bold text-gray-400 uppercase">Manual</p>
@@ -294,9 +316,20 @@ const OrderManager: React.FC = () => {
                                         </td>
                                         <td className="p-4 font-bold text-white">${order.total.toFixed(2)}</td>
                                         <td className="p-4">
-                                            <span className={`text-xs px-2 py-1 rounded border font-bold uppercase ${getStatusColor(order.paymentStatus)}`}>
-                                                {order.paymentStatus}
-                                            </span>
+                                            {needsManualVerification(order) ? (
+                                                <span
+                                                    className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border font-bold uppercase animate-pulse bg-amber-500/20 border-amber-500/50 text-amber-300"
+                                                    title={`${manualVerificationMethodLabel(order)} payment sent off-platform — verify the transfer, then mark as paid`}
+                                                    data-testid="manual-verification-badge"
+                                                >
+                                                    <AlertCircle size={13} />
+                                                    Verify {manualVerificationMethodLabel(order)}
+                                                </span>
+                                            ) : (
+                                                <span className={`text-xs px-2 py-1 rounded border font-bold uppercase ${getStatusColor(order.paymentStatus)}`}>
+                                                    {order.paymentStatus}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="p-4">
                                             <div className="flex items-center justify-end gap-2">
@@ -417,10 +450,19 @@ const OrderManager: React.FC = () => {
                                             {isUpdatingStatus ? '...' : 'Save'}
                                         </button>
                                     </div>
-                                    <div className="mt-2">
+                                    <div className="mt-2 flex items-center gap-2 flex-wrap">
                                         <span className={`inline-block text-[10px] px-2 py-0.5 rounded border ${getStatusColor(selectedOrder.paymentStatus)}`}>
                                             Current: {selectedOrder.paymentStatus}
                                         </span>
+                                        {needsManualVerification(selectedOrder) && (
+                                            <span
+                                                className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border font-bold uppercase bg-amber-500/20 border-amber-500/50 text-amber-300 animate-pulse"
+                                                data-testid="manual-verification-badge-modal"
+                                            >
+                                                <AlertCircle size={11} />
+                                                Verify {manualVerificationMethodLabel(selectedOrder)} payment
+                                            </span>
+                                        )}
                                     </div>
                                     {selectedOrder.balanceDue != null && selectedOrder.balanceDue > 0 && selectedOrder.paymentStatus === 'pending' && (
                                         <div className="mt-3 pt-3 border-t border-amber-500/20">

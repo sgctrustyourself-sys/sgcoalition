@@ -490,6 +490,158 @@ describe('OrderManager wholesale badge render', () => {
         expect(firstCell!.querySelector('[data-testid="wholesale-attribution"]')).toBeNull();
     });
 
+    // ============================================
+    // MANUAL VERIFICATION BADGE - "pending verification" for Cash App + crypto
+    // ============================================
+    // Cash App + crypto are manual off-platform payments: the order lands
+    // PENDING and the owner must verify the transfer before fulfillment.
+    // OrderManager renders a prominent amber "Verify <Method>" badge (with
+    // data-testid="manual-verification-badge") exactly for those rows, and a
+    // plain pending badge otherwise. These tests pin the positive cases
+    // (cashapp + crypto) and the negative case (stripe pending = NO badge),
+    // plus the stat-card "N need manual verification" line.
+    describe('OrderManager manual verification badge', () => {
+        let container: HTMLDivElement;
+        let root: Root;
+
+        // 1 cashapp pending + 1 crypto pending + 1 stripe pending (negative
+        // control: same status, but the payment is automated so no badge).
+        const MANUAL_FIXTURE: TestOrder[] = [
+            {
+                id: 'cashapp-1', orderNumber: 'SG-CASHAPP',
+                customerName: 'Dana', customerEmail: 'dana@x.com',
+                paymentMethod: 'cashapp', paymentStatus: 'pending',
+                orderType: 'online', total: 90, subtotal: 90,
+                items: [{
+                    productName: 'Tee', productImage: '/t.png',
+                    selectedSize: 'M', quantity: 1, total: 90,
+                }],
+                createdAt: '2026-07-16T10:00:00Z',
+            },
+            {
+                id: 'crypto-1', orderNumber: 'SG-CRYPTO',
+                customerName: 'Eli', customerEmail: 'eli@x.com',
+                paymentMethod: 'crypto', paymentStatus: 'pending',
+                orderType: 'online', total: 60, subtotal: 60,
+                items: [{
+                    productName: 'Wallet', productImage: '/w.png',
+                    selectedSize: 'One Size', quantity: 1, total: 60,
+                }],
+                createdAt: '2026-07-15T10:00:00Z',
+            },
+            {
+                id: 'stripe-1', orderNumber: 'SG-STRIPE',
+                customerName: 'Faye', customerEmail: 'faye@x.com',
+                paymentMethod: 'stripe', paymentStatus: 'pending',
+                orderType: 'online', total: 50, subtotal: 50,
+                items: [{
+                    productName: 'Hat', productImage: '/h.png',
+                    selectedSize: 'L', quantity: 1, total: 50,
+                }],
+                createdAt: '2026-07-14T10:00:00Z',
+            },
+        ];
+
+        beforeEach(() => {
+            vi.clearAllMocks();
+            mockSupabase.setOutcomes([]);
+            localStorage.clear();
+            vi.spyOn(console, 'error').mockImplementation(() => {});
+
+            container = document.createElement('div');
+            document.body.appendChild(container);
+            root = createRoot(container);
+
+            vi.mocked(useApp).mockReturnValue({
+                orders: MANUAL_FIXTURE,
+                updateOrderStatus: vi.fn().mockResolvedValue(undefined),
+                deleteOrder: vi.fn().mockResolvedValue(undefined),
+            });
+        });
+
+        afterEach(() => {
+            act(() => { root.unmount(); });
+            if (container.parentNode === document.body) document.body.removeChild(container);
+            vi.restoreAllMocks();
+        });
+
+        it('BADGE_POSITIVE: cashapp + crypto pending rows render the amber Verify badge with the method label', async () => {
+            await act(async () => {
+                root.render(createElement(OrderManager));
+            });
+            const html = container.innerHTML;
+
+            // Two badges - one per manual-verification row.
+            const badges = container.querySelectorAll('[data-testid="manual-verification-badge"]');
+            expect(badges.length).toBe(2);
+
+            // Cash App row: badge text names the method; amber color classes.
+            const cashappRow = Array.from(container.querySelectorAll('tr')).find(
+                (r) => (r.textContent || '').includes('SG-CASHAPP'),
+            );
+            expect(cashappRow).toBeTruthy();
+            expect((cashappRow!.textContent || '').trim()).toContain('Verify Cash App');
+            // Amber color classes live on the badge element itself.
+            const cashappBadge = cashappRow!.querySelector('[data-testid="manual-verification-badge"]');
+            expect(cashappBadge).toBeTruthy();
+            expect(cashappBadge!.className).toContain('text-amber-300');
+            expect(cashappBadge!.className).toContain('bg-amber-500/20');
+
+            // Crypto row: badge text names Crypto.
+            const cryptoRow = Array.from(container.querySelectorAll('tr')).find(
+                (r) => (r.textContent || '').includes('SG-CRYPTO'),
+            );
+            expect(cryptoRow).toBeTruthy();
+            expect((cryptoRow!.textContent || '').trim()).toContain('Verify Crypto');
+
+            // Stat card: "2 need manual verification" line renders.
+            expect(html).toContain('2 need manual verification');
+            expect(mockSupabase.getRemainingOutcomes()).toBe(0);
+        });
+
+        it('BADGE_NEGATIVE: stripe pending row renders the plain pending badge, NOT the verify badge', async () => {
+            await act(async () => {
+                root.render(createElement(OrderManager));
+            });
+            const html = container.innerHTML;
+
+            // Only 2 badges for the manual methods; stripe row has none.
+            const badges = container.querySelectorAll('[data-testid="manual-verification-badge"]');
+            expect(badges.length).toBe(2);
+
+            const stripeRow = Array.from(container.querySelectorAll('tr')).find(
+                (r) => (r.textContent || '').includes('SG-STRIPE'),
+            );
+            expect(stripeRow).toBeTruthy();
+            // No amber badge in the stripe row.
+            expect(stripeRow!.querySelector('[data-testid="manual-verification-badge"]')).toBeNull();
+            // Plain yellow pending badge instead.
+            expect(stripeRow!.textContent || '').toContain('pending');
+            // Stat card line absent (only 2 manual, not 3).
+            expect(html).not.toContain('3 need manual verification');
+            expect(mockSupabase.getRemainingOutcomes()).toBe(0);
+        });
+
+        it('BADGE_MODAL: opening the cashapp order detail shows the modal verify badge', async () => {
+            await act(async () => {
+                root.render(createElement(OrderManager));
+            });
+            // Newest-first: SG-CASHAPP (07-16) is the FIRST row, so the first
+            // Eye click opens the cashapp order.
+            const eyeBtn = document.body.querySelector(
+                'button[title="View Details"]',
+            ) as HTMLButtonElement | null;
+            expect(eyeBtn).toBeTruthy();
+
+            await act(async () => { eyeBtn!.click(); });
+
+            const modalBadge = document.body.querySelector('[data-testid="manual-verification-badge-modal"]');
+            expect(modalBadge).toBeTruthy();
+            expect((modalBadge!.textContent || '').trim()).toContain('Verify Cash App payment');
+            expect(mockSupabase.getRemainingOutcomes()).toBe(0);
+        });
+    });
+
     // 3rd test identified by code-reviewer: lock the strict customerName-only
     // gate so a future contributor can't accidentally re-broaden it to
     // instagramUsername. Pre-broaden, this row would have rendered the chip
