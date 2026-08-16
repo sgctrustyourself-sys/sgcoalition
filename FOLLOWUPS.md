@@ -52,6 +52,25 @@ The README's top banner shows `/api/*` returning 503 in production (per-operator
 
 Until resolved: checkout is gated, but browsing + carting still work.
 
+### 5. Verify a Resend sending domain (real member emails)
+
+The Trust Circle drop-voucher email (commit `d760273`), referral onboarding, and order notifications all route through Resend via `/api/send-email`. Resend is currently on its **free / testing plan**, which only delivers to the account owner's verified address (`sgctrustyourself@gmail.com`) until a sending domain is verified at resend.com/domains. Real member sends fail today — gracefully: the voucher still lands and the admin toast reads "issued, but the email failed to send," so the failure is silent to the owner unless the toast is caught.
+
+Steps:
+
+1. Log in at https://resend.com → **Domains** → **Add Domain**. Use a dedicated subdomain (e.g. `mail.sgcoalition.xyz` or `updates.sgcoalition.xyz`) — Resend recommends a subdomain so the root apex stays clean and the SPF/DKIM records never conflict with other mail on the root domain.
+2. Copy the DNS records Resend shows (one SPF `TXT` record + the DKIM `TXT` records) and add them at wherever `sgcoalition.xyz` DNS is hosted (registrar or Cloudflare).
+3. Wait for propagation — Resend polls automatically; verification usually lands in minutes but can take up to an hour depending on DNS TTL. The domain row flips to **Verified**.
+4. Set `RESEND_FROM_EMAIL` in Vercel → Project Settings → Environment Variables for **Production** (and Preview if you want test flows) to `SG Coalition <noreply@mail.sgcoalition.xyz>` (use your subdomain). The `send-email` handler defaults to `SG Coalition <onboarding@resend.dev>` when this env var is unset — and that address can never deliver to members, so skipping this step is a loud tripwire rather than a silent one.
+5. Trigger a redeploy. This env var is read server-side at request time, so no Build Cache OFF is needed — a normal redeploy picks it up.
+6. Verify: issue a test Drop voucher in admin → Trust Circle (or trigger any order/referral email) to a **non-owner** address (e.g. a personal Gmail), and confirm delivery. Check resend.com → **Logs** for send status.
+
+Notes:
+
+- `RESEND_API_KEY` is already configured in Vercel — the owner-address send returned 200 during live verification.
+- **No plan upgrade is required** — domain verification is free and lifts the testing restriction on its own.
+- DNS record values are generated per-domain by Resend; don't copy values from this doc or another project.
+
 ## Active program notice
 
 ### 0. Partner program (The Trusted Few) — sunset & referendum retired
@@ -77,7 +96,7 @@ No vote will be scheduled — the referendum machinery (VotingSystem, `post_vote
 
 ## Tech debt (next-session commits)
 
-### 5. Lazy-load the 3 remaining framer-motion consumers
+### 6. Lazy-load the 3 remaining framer-motion consumers
 
 `README.md > Bundle analyzer and lazy-loaded chunks` documents the refactor. Today `SignalAlert`, `RewardActivation`, and `components/ui/ToastContainer` still import `framer-motion` synchronously, keeping ~22 KB gzipped in the eager `index-*.js` chunk. None of them touch auth or realtime state, so wrapping each in `React.lazy + <Suspense fallback={null}>` is straightforward.
 
@@ -87,11 +106,11 @@ Verification: re-run `node scripts/parseStatsHtml.mjs` against `npx.cmd vite bui
 
 Not blocking; do when bundle slices accumulate.
 
-### 6. Session replay — wire the integration AND the rate together
+### 7. Session replay — wire the integration AND the rate together
 
 `services/sentryInit.ts` documents that session replay is DEFERRED. If a maintainer later wants to enable it, BOTH `Sentry.replayIntegration()` in the `integrations: []` array AND a matching `replaysSessionSampleRate: ...` config field must be added together. The SDK silently drops the rate when no integration is registered, so leaving one without the other is a footgun. The readiness test makes the absence a regression-catch — the comment in the file (and the lock in the test) both pin the deferral as intentional.
 
-### 7. Anchor `PUBLIC_RECENT_ORDER_SEEDS` timestamps
+### 8. Anchor `PUBLIC_RECENT_ORDER_SEEDS` timestamps
 
 `README.md > minutesAgo drift vs createdAt` documents that the live-orders map uses a floating `minutesAgo` for stable relative-time display, while the matching `INITIAL_ORDERS` row uses an anchored ISO timestamp. Today the two surfaces drift over time. To make both stay aligned forever, the seed record should grow an optional `absoluteTimestamp` field that wins over `minutesAgo` when present. Currently a tracked follow-up; not part of the contract.
 
@@ -105,9 +124,10 @@ Not blocking; do when bundle slices accumulate.
 | 2 | Configure Sentry alert rule | Operator | sentry.io dashboard | 5 min |
 | 3 | PayPal live cutover | Operator | PayPal developer + Vercel + sandbox smoke pass | 30 min |
 | 4 | Resolve 503 incident | Operator | Vercel Dashboard | 20 min (per the 4-click recipe) |
-| 5 | Lazy-load 3 framer-motion consumers | Maintainer | n/a (code) | 30 min |
-| 6 | Wire Sentry session replay (when wanted) | Maintainer | n/a (code) | 10 min |
-| 7 | Anchor live-orders seed timestamps | Maintainer | n/a (code) | 30 min |
+| 5 | Verify Resend sending domain | Operator | resend.com + DNS provider + Vercel env | 15 min |
+| 6 | Lazy-load 3 framer-motion consumers | Maintainer | n/a (code) | 30 min |
+| 7 | Wire Sentry session replay (when wanted) | Maintainer | n/a (code) | 10 min |
+| 8 | Anchor live-orders seed timestamps | Maintainer | n/a (code) | 30 min |
 
 ---
 
