@@ -221,7 +221,7 @@ const PaymentStatusCard: React.FC = () => {
                     <p className="text-xs text-red-300/90 leading-relaxed">{health.error}</p>
                     <p className="text-[10px] text-red-400/70 mt-2 leading-relaxed">
                         Card, Klarna, and Afterpay payments will fail for customers until the Stripe key is
-                        renewed in the Vercel dashboard. PayPal checkout is unaffected.
+                        renewed in the Vercel dashboard. Cash App and crypto checkout are unaffected.
                     </p>
                 </div>
             )}

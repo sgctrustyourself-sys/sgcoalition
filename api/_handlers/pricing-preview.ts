@@ -36,7 +36,7 @@ export default async function handler(req: any, res: any) {
             return;
         }
 
-        const pm = String(paymentMethod || 'paypal');
+        const pm = String(paymentMethod || 'card');
 
         const pricing = await resolvePricing(
             pricingItems,
@@ -55,16 +55,13 @@ export default async function handler(req: any, res: any) {
             pricingItems.map(i => ({ productId: i.productId, quantity: i.quantity }))
         );
 
-        // discountCents = setBonus + otherDisc + coupon + storeCredit.
-        // The UI needs each component on its own line, so the crypto-specific
-        // remainder is discountCents minus the pieces that have their own
-        // display lines (set bonus and coupon). For non-crypto payment
-        // methods otherDisc is zeroed, so this correctly yields 0 instead of
-        // leaking the coupon amount into a fake "Crypto Discount" line.
-        const cryptoDiscountCents = Math.max(
-            0,
-            pricing.discountCents - setBonusCents - pricing.couponDiscountCents,
-        );
+        // discountCents = setBonus + cryptoDiscount + otherDisc + coupon +
+        // storeCredit. The UI renders each component on its own line, so the
+        // crypto (SGCoin) discount comes straight from the pricing authority
+        // (already method-gated: always 0 for card/Stripe) instead of a
+        // remainder that could leak the coupon into a fake "Crypto Discount"
+        // line.
+        const cryptoDiscountCents = pricing.cryptoDiscountCents;
 
         res.status(200).json({
             itemTotalCents: pricing.itemTotalCents,

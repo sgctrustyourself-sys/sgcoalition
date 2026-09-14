@@ -8,6 +8,7 @@ import { OrderStatus } from '../types';
 import { useToast } from '../context/ToastContext';
 import FloatingHelpButton from '../components/FloatingHelpButton';
 import { isSGCoinDiscountEnabled, getDiscountPercentageText } from '../utils/pricing';
+import { resolveCryptoDiscountCents } from '../utils/cryptoDiscount';
 import { trackReferralEvent } from '../utils/referralAnalytics';
 import { processReferralOnPurchase, clearReferralCode } from '../utils/referralSystem';
 import { validateCouponCode, validateDiscountCoupon, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
@@ -26,11 +27,6 @@ const reportErrorToAdmin = async (error: string, context: string, metadata: any 
     }
 };
 
-type PaymentVerification = {
-    paypalOrderId?: string;
-    paypalCaptureId?: string;
-};
-
 type OrderSeed = {
     orderId: string;
     orderNumber: string;
@@ -38,27 +34,33 @@ type OrderSeed = {
 
 const SUPPORT_EMAIL = 'sgctrustyourself@gmail.com';
 
-// ---- PayPal Pay Later redirect-return recovery ------------------------
-// PayPal Pay in 4 uses a redirect flow: the browser fully leaves /checkout
-// for PayPal and returns with ?token=...&PayerID=... in the URL, reloading
-// the page. The cart survives via localStorage (useCart); the shipping form
-// + order seed survive via this sessionStorage key so the returned page can
-// re-render the PayPal buttons and the SDK can fire onApprove normally.
+// ---- Redirect-return state -------------------------------------------
+// The Stripe 3DS/Klarna/Afterpay flow can bounce the browser out of
+// /checkout and back with a full page reload. The cart survives via
+// localStorage (useCart); the shipping form + order seed survive via this
+// sessionStorage key so the returned page can resume the exact checkout.
 const CHECKOUT_STATE_KEY = 'coalition_checkout_state';
 
 interface SavedCheckoutState {
     shippingInfo?: typeof DEFAULT_SHIPPING_INFO;
     shippingMethod?: 'standard' | 'express';
     shippingCost?: number;
-    paymentMethod?: 'paypal' | 'crypto' | 'cashapp' | 'card';
+    paymentMethod?: 'crypto' | 'cashapp' | 'card';
     // Which Stripe method the 'card' path shows: card-only (primary) or
     // Klarna (secondary 'More payment options'). Persisted so a Klarna
     // redirect-return can restore the exact checkout in progress.
     stripeMethod?: 'card' | 'klarna';
-    // Payment-agnostic order seed (orderId/orderNumber). Used by BOTH the
-    // PayPal Pay Later redirect-return AND the Stripe 3DS/Klarna/Afterpay
-    // redirect-return so the created order keeps a stable identity.
+    // Payment-agnostic order seed (orderId/orderNumber). Used by the
+    // Stripe 3DS/Klarna/Afterpay redirect-return so the created order keeps
+    // a stable identity.
     orderSeed?: OrderSeed | null;
+    // Amount of store credit the Stripe intent actually applied (dollars).
+    // Persisted so the 3DS/Klarna/Afterpay redirect-return can forward it to
+    // /api/complete-order and the order's re-pricing matches the charged PI.
+    storeCreditApplied?: number;
+    // Discount coupon sent to the server pricing path (referral codes are
+    // attribution-only and must NOT reach the coupon validation).
+    couponCode?: string | null;
 }
 
 const DEFAULT_SHIPPING_INFO = {
@@ -241,17 +243,12 @@ const Checkout: React.FC = () => {
     const { cart, cartTotal, calculateReward, clearCart, addOrder, generateOrderNumber, user, deductInventory } = useApp();
     const { addToast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
-    const [paypalReady, setPaypalReady] = useState(() => Boolean(window.paypal || window.__coalitionPaypalReady));
-    const [paypalLoadFailed, setPaypalLoadFailed] = useState(() => Boolean(window.__coalitionPaypalLoadFailed));
     const [error, setError] = useState<string | null>(null);
-    // Restore form state from sessionStorage when PayPal's Pay Later redirect
-    // bounces the browser back through /checkout with ?token=&PayerID= (full
-    // page reload). Fall back to defaults for a fresh checkout.
-    const [paymentMethod, setPaymentMethod] = useState<'paypal' | 'crypto' | 'cashapp' | 'card'>(() =>
-        // Card is the default. PayPal is paused until seller verification
-        // clears; the owner can re-enable it live from the admin Command
-        // Center (payment-settings toggles), after which this default still
-        // falls back to the first enabled option below.
+    // Restore form state from sessionStorage when the Stripe 3DS/Klarna
+    // redirect bounces the browser back through /checkout (full page
+    // reload). Fall back to defaults for a fresh checkout.
+    const [paymentMethod, setPaymentMethod] = useState<'crypto' | 'cashapp' | 'card'>(() =>
+        // Card is the default; falls back to the first enabled option below.
         loadCheckoutState()?.paymentMethod || 'card');
     const [stripeMethod, setStripeMethod] = useState<'card' | 'klarna'>(() =>
         loadCheckoutState()?.stripeMethod || 'card');
@@ -263,7 +260,7 @@ const Checkout: React.FC = () => {
     // the owner disabled. A failed/unreachable fetch defaults to everything
     // enabled so a settings outage never locks checkout.
     const [paymentSettings, setPaymentSettings] = useState({
-        card: true, paypal: false, klarna: false, cashapp: true, crypto: true,
+        card: true, klarna: false, cashapp: true, crypto: true,
     });
     const [paymentSettingsLoaded, setPaymentSettingsLoaded] = useState(false);
 
@@ -276,7 +273,6 @@ const Checkout: React.FC = () => {
                 if (data && typeof data === 'object' && data.card_enabled !== undefined) {
                     setPaymentSettings({
                         card: !!data.card_enabled,
-                        paypal: !!data.paypal_enabled,
                         klarna: !!data.klarna_enabled,
                         cashapp: !!data.cashapp_enabled,
                         crypto: !!data.crypto_enabled,
@@ -290,19 +286,17 @@ const Checkout: React.FC = () => {
 
     // If the owner just turned off the currently selected option, fall back
     // to the first still-enabled one (card -> cashapp -> crypto — the
-    // working primary paths; paypal/klarna only when re-enabled).
+    // working primary paths; klarna only when re-enabled).
     useEffect(() => {
         if (!paymentSettingsLoaded) return;
         const selectedEnabled = paymentMethod === 'card'
             ? (stripeMethod === 'klarna' ? paymentSettings.klarna : paymentSettings.card)
-            : paymentMethod === 'paypal' ? paymentSettings.paypal
             : paymentMethod === 'cashapp' ? paymentSettings.cashapp
             : paymentSettings.crypto;
         if (selectedEnabled) return;
         if (paymentSettings.card) { setPaymentMethod('card'); setStripeMethod('card'); }
         else if (paymentSettings.cashapp) setPaymentMethod('cashapp');
         else if (paymentSettings.crypto) setPaymentMethod('crypto');
-        else if (paymentSettings.paypal) setPaymentMethod('paypal');
         else if (paymentSettings.klarna) { setPaymentMethod('card'); setStripeMethod('klarna'); }
     }, [paymentSettingsLoaded, paymentSettings, paymentMethod, stripeMethod]);
 
@@ -324,45 +318,9 @@ const Checkout: React.FC = () => {
 
     const stripePromise = useMemo(() => getStripePromise(), []);
 
-    useEffect(() => {
-        if (paypalReady) return;
-        const markReady = () => setPaypalReady(Boolean(window.paypal || window.__coalitionPaypalReady));
-        const markFailed = () => setPaypalLoadFailed(true);
-        window.addEventListener('coalition:paypal-ready', markReady);
-        window.addEventListener('coalition:paypal-failed', markFailed);
-        const poll = window.setInterval(markReady, 250);
-        const stop = window.setTimeout(() => {
-            window.clearInterval(poll);
-            if (!window.paypal && !window.__coalitionPaypalReady) setPaypalLoadFailed(true);
-        }, 15000);
-        return () => {
-            window.removeEventListener('coalition:paypal-ready', markReady);
-            window.removeEventListener('coalition:paypal-failed', markFailed);
-            window.clearInterval(poll);
-            window.clearTimeout(stop);
-        };
-    }, [paypalReady]);
-
     // The order seed that backs the current Stripe PaymentIntent — created
     // once per intent so the webhook's order_id metadata stays anchored.
     const stripeOrderSeedRef = useRef<OrderSeed | null>(null);
-
-    // The order seed that backs the current PayPal order. Persisted to
-    // sessionStorage so a Pay Later redirect-return reuses the SAME seed
-    // (orderId/orderNumber) and the capture dedupes correctly.
-    const paypalOrderSeedRef = useRef<OrderSeed | null>(null);
-    if (paypalOrderSeedRef.current === null) {
-        // Lazy-init from sessionStorage (useRef does not call initializers).
-        paypalOrderSeedRef.current = loadCheckoutState()?.orderSeed || null;
-    }
-
-    // Component-scope guard for the PayPal redirect-return button render.
-    // MUST live at the component level, not inside the effect: React
-    // StrictMode (used in index.tsx) mounts -> unmounts -> mounts, and an
-    // in-effect ref would be recreated per instance, letting BOTH the
-    // pre-mount markReady() and the re-mount markReady() render the buttons
-    // twice. A component ref survives StrictMode's cycle.
-    const paypalRedirectRenderedRef = useRef(false);
 
     // Coupon code state — a code can be either a referral (attribution, no
     // discount) or an admin-created discount coupon from the `coupons` table.
@@ -378,7 +336,7 @@ const Checkout: React.FC = () => {
     const [isValidatingZip, setIsValidatingZip] = useState(false);
 
     // Shipping information state - Lifted up. Lazy-initialized from
-    // sessionStorage so a PayPal Pay Later redirect-return keeps the form.
+    // sessionStorage so a Stripe 3DS/Klarna redirect-return keeps the form.
     const [shippingInfo, setShippingInfo] = useState(() => {
         const saved = loadCheckoutState()?.shippingInfo;
         return saved ? { ...DEFAULT_SHIPPING_INFO, ...saved } : DEFAULT_SHIPPING_INFO;
@@ -414,6 +372,16 @@ const Checkout: React.FC = () => {
     const total = cartTotal();
     const reward = calculateReward(total);
 
+    // The checkout only advertises the crypto discount when the pricing
+    // authority (services/orderIntake.ts → resolveCryptoDiscountCents)
+    // confirms the server will honor it for this cart — otherwise the badge
+    // would promise a discount the order total never shows. The estimate is
+    // only meaningful pre-discount (before serverPricing), because the
+    // server already includes the discount in its totals.
+    const cryptoDiscountAdvertised = !serverPricing && total > 0
+        ? resolveCryptoDiscountCents(cart.map(item => ({ productId: item.id, quantity: item.quantity, price: getCartItemUnitPrice(item) })), shippingCost) > 0
+        : false;
+
     // Pricing authority lives in services/orderIntake.ts → resolvePricing().
     // The client passes raw items + shipping choice; the server computes the
     // real total including set bonuses, crypto discount, and add-on pricing.
@@ -430,7 +398,10 @@ const Checkout: React.FC = () => {
     // not computed client-side.
     const discountEnabled = isSGCoinDiscountEnabled();
 
-    // Final Total Calculation (raw estimate — server is authoritative)
+    // Final Total Calculation (raw estimate — server is authoritative).
+    // Pre-discount ONLY: the crypto discount applies server-side, so this
+    // raw estimate must stay discount-free — for card the intent re-prices
+    // from DB.
     const finalTotal = Math.max(0, total + shippingCost - creditToApply);
     // Server-authoritative total for display in the review card + trust copy.
     // Prefer the actual PaymentIntent pricing (includes coupon + store
@@ -444,15 +415,13 @@ const Checkout: React.FC = () => {
             ? pricingPreview.totalCents / 100
             : finalTotal;
     const requiresNoExternalPayment = isZeroAmount || finalTotal <= 0;
-    const paymentLabel = paymentMethod === 'paypal'
-        ? 'PayPal'
-        : paymentMethod === 'crypto'
-            ? 'USDC on Polygon'
-            : paymentMethod === 'cashapp'
-                ? 'Cash App'
-                : stripeMethod === 'klarna'
-                    ? 'Klarna — Pay in 4'
-                    : 'Card';
+    const paymentLabel = paymentMethod === 'crypto'
+        ? 'USDC on Polygon'
+        : paymentMethod === 'cashapp'
+            ? 'Cash App'
+            : stripeMethod === 'klarna'
+                ? 'Klarna — Pay in 4'
+                : 'Card';
     const shippingCostLabel = shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`;
     const shippingMethodLabel = shippingMethod === 'express' ? 'Express' : 'Standard';
     const fulfillmentExpectation = shippingMethod === 'express'
@@ -461,10 +430,9 @@ const Checkout: React.FC = () => {
     const contactEmailLabel = shippingInfo.email.trim() || 'your checkout email';
     const paymentAvailability = [
         ...(paymentSettings.card ? ['Secure card checkout — Visa, Mastercard, Amex'] : []),
-        ...(paymentSettings.paypal ? ['PayPal'] : []),
         ...(paymentSettings.klarna ? ['Klarna — 4 interest-free payments'] : []),
         ...(paymentSettings.cashapp ? ['Cash App — send to $sgcoalition'] : []),
-        ...(paymentSettings.crypto ? [discountEnabled ? `USDC on Polygon saves ${getDiscountPercentageText()}` : 'USDC on Polygon available'] : []),
+        ...(paymentSettings.crypto ? [(discountEnabled && cryptoDiscountAdvertised) ? `USDC on Polygon saves ${getDiscountPercentageText()}` : 'USDC on Polygon available'] : []),
     ];
     const checkoutTrustItems = [
         {
@@ -525,7 +493,7 @@ const Checkout: React.FC = () => {
     // Fetch server-authoritative pricing preview for the order summary.
     // Debounced — fires when cart, shipping, or payment method change.
     // The preview is display-only; actual payment amounts are computed
-    // separately by create-payment-intent / paypal-order / complete-order.
+    // separately by create-payment-intent / complete-order.
     useEffect(() => {
         if (cart.length === 0) return;
         const timer = setTimeout(() => {
@@ -695,10 +663,19 @@ const Checkout: React.FC = () => {
             if (data.zeroAmount) {
                 setIsZeroAmount(true);
                 setClientSecret('');
+                serverCreditAppliedRef.current = 0;
             } else {
                 setIsZeroAmount(false);
                 setClientSecret(data.clientSecret);
+                serverCreditAppliedRef.current = typeof data.creditApplied === 'number' ? data.creditApplied : 0;
             }
+
+            // Persist the applied credit for the 3DS/Klarna/Afterpay
+            // redirect-return: the server re-prices the order through
+            // acceptCheckout, which needs the same credit the intent applied
+            // or verification fails with "Stripe amount mismatch".
+            const saved = loadCheckoutState() || {};
+            saveCheckoutState({ ...saved, storeCreditApplied: serverCreditAppliedRef.current });
 
         } catch (err: any) {
             console.error('Payment intent error:', err);
@@ -766,199 +743,27 @@ const Checkout: React.FC = () => {
             orderId: `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
             orderNumber: generateOrderNumber(),
         };
-        // Persist so a PayPal/Stripe redirect-return reuses the same seed.
+        // Persist so a Stripe 3DS/Klarna redirect-return reuses the same seed.
         const saved = loadCheckoutState() || {};
         saveCheckoutState({ ...saved, orderSeed: seed });
         return seed;
     };
 
-    // Persist form state whenever it changes so the PayPal Pay Later or
-    // Stripe 3DS/Klarna/Afterpay redirect-return page can restore the exact
-    // checkout in progress.
+    // Persist form state whenever it changes so the Stripe 3DS/Klarna/Afterpay
+    // redirect-return page can restore the exact checkout in progress.
     useEffect(() => {
         const saved = loadCheckoutState() || {};
         saveCheckoutState({ ...saved, shippingInfo, shippingMethod, shippingCost, paymentMethod, stripeMethod });
     }, [shippingInfo, shippingMethod, shippingCost, paymentMethod, stripeMethod]);
 
-    // PayPal Pay Later redirect-return recovery. When the browser bounces
-    // back from PayPal with ?token=&PayerID= in the URL, the buttons must be
-    // re-rendered into the container so the SDK can fire onApprove and finish
-    // the capture. Without this, the order hangs after the redirect.
-    //
-    // NOTE: this []-deps effect deliberately reads first-render closures for
-    // cart/shippingInfo/finalTotal. That is SAFE because both the cart
-    // (localStorage, useCart) and the shipping form (sessionStorage) restore
-    // SYNCHRONOUSLY in lazy initializers before the first render commits.
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const token = params.get('token');
-        const payerId = params.get('PayerID') || params.get('payer_id');
+    // Server-stated amount of store credit applied to the current Stripe
+    // PaymentIntent (create-payment-intent response). Persisted to checkout
+    // state and forwarded to complete-order so the order re-pricing matches
+    // the charged amount exactly (otherwise verification fails with "Stripe
+    // amount mismatch" and the buyer is charged with no order).
+    const serverCreditAppliedRef = useRef(0);
 
-        // PayPal redirect-return: token AND PayerID present → re-render buttons.
-        const isReturn = Boolean(token && payerId);
-        // Cancel-return: token only (no PayerID) → surface the cancellation.
-        const isCancelReturn = Boolean(token && !payerId);
-        if (!isReturn && !isCancelReturn) return;
-
-        // Ensure the PayPal payment method is selected so the button container
-        // is present in the DOM.
-        setPaymentMethod('paypal');
-
-        if (isCancelReturn) {
-            setError('Payment was cancelled. Your cart is still saved — you can try again whenever you like.');
-            return;
-        }
-
-        // Component-scope guard so StrictMode's mount→unmount→mount (and the
-        // poll + event both firing) can never render the buttons a second
-        // time. See paypalRedirectRenderedRef declaration above.
-        const renderReturnedButtons = () => {
-            if (paypalRedirectRenderedRef.current) return;
-            const container = document.getElementById('paypal-button-container-checkout');
-            if (!container || typeof window.paypal === 'undefined') return;
-            paypalRedirectRenderedRef.current = true;
-
-            const seed = paypalOrderSeedRef.current || createOrderSeed();
-            paypalOrderSeedRef.current = seed;
-
-            setIsLoading(true);
-            renderPaypalButtons(seed)
-                .catch((err: any) => {
-                    console.error('PayPal redirect-return render error:', err);
-                    setError('PayPal could not be re-initialized after the redirect. Your cart is saved — please try again.');
-                })
-                .finally(() => setIsLoading(false));
-        };
-
-        let poll: number | undefined;
-        let stopPoll: number | undefined;
-        const markReady = () => {
-            if (typeof window.paypal !== 'undefined') {
-                window.removeEventListener('coalition:paypal-ready', markReady);
-                if (poll !== undefined) window.clearInterval(poll);
-                if (stopPoll !== undefined) window.clearTimeout(stopPoll);
-                // Give the DOM a tick to mount the paypal container now that
-                // the payment method is selected.
-                window.setTimeout(renderReturnedButtons, 100);
-            }
-        };
-
-        if (typeof window.paypal !== 'undefined') {
-            markReady();
-        } else {
-            window.addEventListener('coalition:paypal-ready', markReady);
-            // Also poll briefly — the SDK may load without firing the event.
-            poll = window.setInterval(markReady, 250);
-            stopPoll = window.setTimeout(() => {
-                if (poll !== undefined) window.clearInterval(poll);
-                window.removeEventListener('coalition:paypal-ready', markReady);
-            }, 15000);
-        }
-
-        // Cleanup: never leak the listener/intervals (StrictMode, navigation).
-        return () => {
-            window.removeEventListener('coalition:paypal-ready', markReady);
-            if (poll !== undefined) window.clearInterval(poll);
-            if (stopPoll !== undefined) window.clearTimeout(stopPoll);
-        };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Renders the PayPal Smart Buttons into the checkout container. Shared by
-    // the 'Continue to PayPal' flow and the Pay Later redirect-return recovery.
-    const renderPaypalButtons = async (paypalOrderSeed: OrderSeed): Promise<void> => {
-        const paypalButtonContainer = document.getElementById('paypal-button-container-checkout');
-        if (!paypalButtonContainer) {
-            throw new Error('PayPal checkout container was not found.');
-        }
-
-        paypalButtonContainer.innerHTML = '';
-
-        await window.paypal.Buttons({
-            createOrder: async () => {
-                const response = await fetch('/api/paypal-order', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'create',
-                        referenceId: paypalOrderSeed.orderId,
-                        description: `Coalition ${paypalOrderSeed.orderNumber} - ${cart.length} item(s)`,
-                        expectedTotal: finalTotal,
-                        shipping: shippingCost,
-                        couponCode: isDiscountCoupon && appliedCoupon ? appliedCoupon : undefined,
-                        items: cart.map(item => ({
-                            productId: item.id,
-                            name: item.name,
-                            selectedSize: item.selectedSize || 'One Size',
-                            keychainClipOn: Boolean(item.keychainClipOn),
-                            quantity: item.quantity,
-                        })),
-                    }),
-                });
-                const paypalOrder = await response.json().catch(() => ({}));
-                if (!response.ok || !paypalOrder.id) {
-                    throw new Error(paypalOrder.error || 'Failed to create PayPal order.');
-                }
-                return paypalOrder.id;
-            },
-            onApprove: async (data: any) => {
-                try {
-                    const captureResponse = await fetch('/api/paypal-order', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            action: 'capture',
-                            orderId: data.orderID,
-                        }),
-                    });
-                    const capture = await captureResponse.json().catch(() => ({}));
-                    if (!captureResponse.ok || capture.captureStatus !== 'COMPLETED' || !capture.captureId) {
-                        throw new Error(capture.error || 'PayPal payment was not completed.');
-                    }
-
-                    // Create order in database
-                    const orderNumber = await createOrder('paypal', capture.captureId, {
-                        paypalOrderId: capture.orderId || data.orderID,
-                        paypalCaptureId: capture.captureId,
-                    }, paypalOrderSeed);
-
-                    // Store for success page
-                    sessionStorage.setItem('orderNumber', orderNumber);
-                    sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
-
-                    // Redirect to success page
-                    console.log('✅ PayPal payment approved, redirecting...');
-                    window.location.href = `/order/success?payment_method=paypal&shippingMethod=${shippingMethod}&shippingCost=${shippingCost}`;
-                } catch (err: any) {
-                    console.error('Order creation error:', err);
-                    reportErrorToAdmin(err.message || 'Capture Success but API Failure', 'PayPal onApprove Process', {
-                        customerEmail: shippingInfo.email,
-                        total: finalTotal
-                    });
-                    setError('Payment succeeded but order creation failed. Please contact support.');
-                    setIsLoading(false);
-                }
-            },
-            onError: (err: any) => {
-                console.error('PayPal error:', err);
-                reportErrorToAdmin(err?.message || 'Unknown PayPal SDK Error', 'PayPal onError', {
-                    customerEmail: shippingInfo.email,
-                    total: finalTotal
-                });
-                setError('Payment failed. Please try again or contact support.');
-                setIsLoading(false);
-            },
-            onCancel: () => {
-                reportErrorToAdmin('User cancelled PayPal checkout', 'PayPal onCancel', {
-                    customerEmail: shippingInfo.email,
-                    total: finalTotal
-                });
-                setError('Payment was cancelled.');
-                setIsLoading(false);
-            }
-        }).render('#paypal-button-container-checkout');
-    };
-
-    const createOrder = async (paymentMethodUsed: string, paymentReference?: string, paymentVerification?: PaymentVerification, orderSeed?: OrderSeed) => {
+    const createOrder = async (paymentMethodUsed: string, paymentReference?: string, orderSeed?: OrderSeed) => {
         try {
             const orderNumber = orderSeed?.orderNumber || generateOrderNumber();
             const isGuest = !user;
@@ -995,9 +800,11 @@ const Checkout: React.FC = () => {
                 paymentMethod: paymentMethodUsed as any,
                 paymentStatus: paymentMethodUsed === 'crypto' || paymentMethodUsed === 'cashapp' ? OrderStatus.PENDING : OrderStatus.PAID,
                 couponCode: isDiscountCoupon && appliedCoupon ? appliedCoupon : undefined,
+                // Store credit already applied + charged upstream (Stripe
+                // intent). The server re-verifies against the live balance
+                // and debits the profile exactly once per order.
+                storeCreditApplied: serverCreditAppliedRef.current,
                 paymentReference,
-                paypalOrderId: paymentVerification?.paypalOrderId,
-                paypalCaptureId: paymentVerification?.paypalCaptureId,
                 orderType: 'online' as const,
                 createdAt: new Date().toISOString(),
                 paidAt: paymentMethodUsed !== 'crypto' && paymentMethodUsed !== 'cashapp' ? new Date().toISOString() : undefined,
@@ -1013,7 +820,7 @@ const Checkout: React.FC = () => {
                 }
             };
 
-            await addOrder(order, paymentVerification);
+            await addOrder(order);
 
             // Decrement client-side size_inventory so the storefront reflects the
             // latest availability without waiting for Supabase realtime to sync.
@@ -1049,7 +856,7 @@ const Checkout: React.FC = () => {
             }
 
             clearCart();
-            // Checkout state (form + PayPal seed) is consumed on success.
+            // Checkout state (form + seed) is consumed on success.
             clearCheckoutState();
             return orderNumber;
         } catch (error) {
@@ -1129,12 +936,12 @@ const Checkout: React.FC = () => {
     };
 
     // Called by StripePaymentSection after confirmPayment succeeds (card,
-    // Klarna, or Afterpay all land here). Mirrors the PayPal onApprove path:
+    // Klarna, or Afterpay all land here). Mirrors the manual-confirm paths:
     // write the order, stash session data, redirect to /order/success.
     const handleStripePaid = async (paymentIntentId: string) => {
         try {
             const seed = stripeOrderSeedRef.current || createOrderSeed();
-            const orderNumber = await createOrder('stripe', paymentIntentId, undefined, seed);
+            const orderNumber = await createOrder('stripe', paymentIntentId, seed);
             sessionStorage.setItem('orderNumber', orderNumber);
             sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
             console.log('✅ Stripe payment confirmed, redirecting...');
@@ -1431,7 +1238,7 @@ const Checkout: React.FC = () => {
                                         {isLoading ? 'Processing...' : 'Complete Order'}
                                     </button>
                                 </div>
-                            ) : paymentSettingsLoaded && !paymentSettings.card && !paymentSettings.paypal && !paymentSettings.klarna && !paymentSettings.crypto ? (
+                            ) : paymentSettingsLoaded && !paymentSettings.card && !paymentSettings.klarna && !paymentSettings.crypto ? (
                                 <div className="text-center py-6">
                                     <p className="text-sm text-gray-400">
                                         Payment options are currently unavailable. Please contact support.
@@ -1440,37 +1247,7 @@ const Checkout: React.FC = () => {
                             ) : (
                                 <>
                                     <div className="space-y-3 mb-6">
-                                        {/* PayPal - PRIMARY #1 (paused until seller verification
-                                            clears — owner re-enables live via admin Command Center).
-                                            Includes Apple Pay and Pay in 4 when the buyer's
-                                            device/account qualifies. Hidden when the owner turns
-                                            PayPal off. */}
-                                        {paymentSettings.paypal && (
-                                        <label className={`flex items-center justify-between p-5 rounded-xl border-2 cursor-pointer transition group relative overflow-hidden ${paymentMethod === 'paypal' ? 'bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-purple-500 shadow-lg shadow-purple-500/20' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30'}`}>
-                                            <div className="flex items-center gap-4">
-                                                <input
-                                                    type="radio"
-                                                    name="paymentMethod"
-                                                    checked={paymentMethod === 'paypal'}
-                                                    onChange={() => setPaymentMethod('paypal')}
-                                                    className="w-5 h-5 border-gray-500 text-purple-600 focus:ring-purple-500"
-                                                />
-                                                <div className="flex flex-col">
-                                                    <span className="font-black text-base text-white">PayPal</span>
-                                                    <span className="text-xs text-gray-400">PayPal, Apple Pay, or Pay in 4 when eligible</span>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-2 opacity-80">
-                                                <svg className="h-6" viewBox="0 0 100 32" fill="currentColor">
-                                                    <path d="M12 4.917v.583c0 1.78-1.4 3.5-3.5 3.5h-2C5.67 9 5 9.67 5 10.5v.583c0 .83.67 1.5 1.5 1.5h2c3.59 0 6.5-2.91 6.5-6.5V4.917c0-.83-.67-1.5-1.5-1.5h-2c-.83 0-1.5.67-1.5 1.5z" fill="#003087" />
-                                                    <path d="M35 4h-5c-.55 0-1 .45-1 1v14c0 .55.45 1 1 1h5c2.76 0 5-2.24 5-5v-6c0-2.76-2.24-5-5-5zm2 11c0 1.1-.9 2-2 2h-2V7h2c1.1 0 2 .9 2 2v6z" fill="#0070BA" />
-                                                </svg>
-                                                <CreditCard className="w-5 h-5 text-white" />
-                                            </div>
-                                        </label>
-                                        )}
-
-                                        {/* Card - PRIMARY #2. A card-only intent is requested
+                                        {/* Card - PRIMARY. A card-only intent is requested
                                             (paymentMethodTypes: ['card']) so customers who just
                                             want to pay by card never see Klarna tabs or any other
                                             extra service — those live under 'More payment options'.
@@ -1503,7 +1280,7 @@ const Checkout: React.FC = () => {
                                             the USDC path; Klarna/Pay in 4 appear only if the owner
                                             re-enables them. Rendered only when at least one
                                             secondary option is enabled. */}
-                                        {(paymentSettings.klarna || paymentSettings.paypal || paymentSettings.cashapp || paymentSettings.crypto) && (
+                                        {(paymentSettings.klarna || paymentSettings.cashapp || paymentSettings.crypto) && (
                                         <div className="rounded-xl border border-white/10 bg-black/20">
                                             <button
                                                 type="button"
@@ -1513,7 +1290,7 @@ const Checkout: React.FC = () => {
                                             >
                                                 <span className="flex items-center gap-2">
                                                     More payment options
-                                                    {(paymentMethod !== 'paypal' && (paymentMethod === 'crypto' || paymentMethod === 'cashapp' || stripeMethod === 'klarna')) && (
+                                                    {(paymentMethod === 'crypto' || paymentMethod === 'cashapp' || stripeMethod === 'klarna') && (
                                                         <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">
                                                             {paymentMethod === 'crypto' ? 'Crypto' : paymentMethod === 'cashapp' ? 'Cash App' : 'Klarna'} selected
                                                         </span>
@@ -1540,32 +1317,6 @@ const Checkout: React.FC = () => {
                                                             </div>
                                                         </div>
                                                         <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">Klarna</span>
-                                                    </label>
-                                                    )}
-
-                                                    {paymentSettings.paypal && (
-                                                    <label className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition group ${paymentMethod === 'paypal' ? 'bg-purple-600/10 border-purple-500/60 text-white' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30 text-gray-400'}`}>
-                                                        <div className="flex items-center gap-4">
-                                                            <input
-                                                                type="radio"
-                                                                // Distinct name on purpose: the primary PayPal radio up top
-                                                                // (name="paymentMethod", checked={paymentMethod === 'paypal'})
-                                                                // and this secondary Pay in 4 radio express the SAME state. In
-                                                                // one radio group the browser would uncheck the primary's dot
-                                                                // the moment this one mounts (group exclusivity) — the exact
-                                                                // "empty dot on the PayPal card" bug. Its own group keeps both
-                                                                // dots filled while PayPal is selected.
-                                                                name="payIn4Method"
-                                                                checked={paymentMethod === 'paypal'}
-                                                                onChange={() => { setPaymentMethod('paypal'); setMoreOptionsOpen(true); }}
-                                                                className="w-4 h-4 border-gray-500 text-purple-500 focus:ring-purple-500"
-                                                            />
-                                                            <div className="flex flex-col">
-                                                                <span className="font-bold text-sm text-white">PayPal Pay in 4</span>
-                                                                <span className="text-xs text-gray-400">Split into four payments at the PayPal checkout</span>
-                                                            </div>
-                                                        </div>
-                                                        <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">Pay in 4</span>
                                                     </label>
                                                     )}
 
@@ -1606,10 +1357,10 @@ const Checkout: React.FC = () => {
                                                             <div className="flex flex-col">
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="font-bold text-sm text-white">Pay with Crypto</span>
-                                                                    <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded font-bold tracking-wider">SAVE {getDiscountPercentageText()}</span>
+                                                                    <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded font-bold tracking-wider">{cryptoDiscountAdvertised ? `SAVE ${getDiscountPercentageText()}` : 'USDC'}</span>
                                                                 </div>
                                                                 <span className="text-xs text-gray-400 flex items-center gap-1">
-                                                                    USDC on Polygon Network <Info className="w-3 h-3" />
+                                                            USDC on Polygon Network. {cryptoDiscountAdvertised ? `${getDiscountPercentageText()} off the order total.` : ''} <Info className="w-3 h-3" />
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -1649,85 +1400,6 @@ const Checkout: React.FC = () => {
                                             </div>
                                         </div>
                                     </div>
-
-                                    {/* PayPal Payment */}
-                                    {paymentMethod === 'paypal' && (
-                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                            <div className="bg-white/[0.03] border border-white/10 p-4 rounded-lg">
-                                                <div className="flex items-start gap-3">
-                                                    <div>
-                                                        <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wide mb-1">Checkout</h4>
-                                                        <p className="text-sm text-gray-300">
-                                                            Pay with <span className="text-white font-bold">PayPal, Apple Pay, Card, or Pay in 4</span>. PayPal shows the available wallet, card, and installment options for your device before any capture.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* PayPal Button Container */}
-                                            <div id="paypal-button-container-checkout" className="min-h-[50px]"></div>
-
-                                            <button
-                                                onClick={async () => {
-                                                    if (!validateShipping()) return;
-
-                                                    setIsLoading(true);
-                                                    setError(null);
-
-                                                    try {
-                                                        if (creditToApply > 0) {
-                                                            throw new Error('Store credit cannot be combined with PayPal yet. Turn off store credit or use it to cover the full order.');
-                                                        }
-
-                                                        if (!paypalReady || typeof window.paypal === 'undefined') {
-                                                            throw new Error(paypalLoadFailed
-                                                                ? 'PayPal is temporarily unavailable. Please use card checkout or try again later.'
-                                                                : 'PayPal is still loading. Please wait a moment and try again.');
-                                                        }
-
-                                                        const paypalButtonContainer = document.getElementById('paypal-button-container-checkout');
-                                                        if (!paypalButtonContainer) {
-                                                            throw new Error('PayPal checkout container was not found.');
-                                                        }
-
-                                                        const paypalOrderSeed = createOrderSeed();
-                                                        paypalOrderSeedRef.current = paypalOrderSeed;
-
-                                                        await renderPaypalButtons(paypalOrderSeed);
-                                                        setIsLoading(false);
-
-                                                    } catch (err: any) {
-                                                        console.error('PayPal initialization error:', err);
-                                                        setError(err.message || 'Failed to initialize PayPal. Please try again.');
-                                                        setIsLoading(false);
-                                                    }
-                                                }}
-                                                disabled={isLoading || (!paypalReady && !paypalLoadFailed)}
-                                                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-widest hover:from-purple-700 hover:to-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20"
-                                            >
-                                                {isLoading ? (
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <Loader className="w-5 h-5 animate-spin" />
-                                                        Loading PayPal...
-                                                    </div>
-                                                ) : (
-                                                    paypalReady ? 'Continue to PayPal' : paypalLoadFailed ? 'PayPal unavailable' : 'Loading PayPal...'
-                                                )}
-                                            </button>
-
-                                            {paypalLoadFailed && !paypalReady && (
-                                                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
-                                                    PayPal could not load on this device. Choose <button type="button" onClick={() => { setPaymentMethod('card'); setStripeMethod('card'); }} className="font-bold underline">Pay by Card</button> instead.
-                                                </div>
-                                            )}
-
-                                            {error && (
-                                                <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-lg text-red-400 text-sm">
-                                                    {error}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
 
                                     {/* Stripe Payment Element: Card, Klarna, Afterpay */}
                                     {paymentMethod === 'card' && (
@@ -1870,9 +1542,10 @@ const Checkout: React.FC = () => {
                                             <div className="bg-white/[0.03] border border-white/10 p-4 rounded-lg">
                                                 <div className="flex items-start gap-3">
                                                     <div>
-                                                        <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wide mb-1">Pay with Crypto</h4>
+                                                        <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wide mb-1">                                                            Pay with Crypto
+                                                        </h4>
                                                         <p className="text-sm text-gray-300">
-                                                            USDC on Polygon network. {getDiscountPercentageText()} off the order total.
+                                                            USDC on Polygon network.{cryptoDiscountAdvertised ? ` ${getDiscountPercentageText()} off the order total.` : ''}
                                                         </p>
                                                     </div>
                                                 </div>

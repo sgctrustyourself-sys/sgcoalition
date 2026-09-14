@@ -42,7 +42,7 @@ interface AppState {
     updateSection: (id: string, data: Partial<Section>) => void;
     cartTotal: () => number;
     calculateReward: (total: number) => number;
-    addOrder: (order: Order, verification?: { paypalOrderId?: string; paypalCaptureId?: string }) => Promise<void>;
+    addOrder: (order: Order) => Promise<void>;
     updateOrderStatus: (orderId: string, newStatus: string) => Promise<void>;
     deleteOrder: (orderId: string) => Promise<void>;
     getOrderById: (orderId: string) => Order | undefined;

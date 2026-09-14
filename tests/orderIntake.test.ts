@@ -14,6 +14,7 @@ function freshMockQuery(resolveOnAwait?: unknown) {
         select: vi.fn().mockReturnThis(),
         in: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
+        gte: vi.fn().mockReturnThis(),
         upsert: vi.fn().mockReturnThis(),
         update: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn(),
@@ -126,7 +127,10 @@ describe('resolvePricing', () => {
         withSupabaseEnv();
         mockSupabaseFrom.mockReset();
     });
-    afterEach(clearSupabaseEnv);
+    afterEach(() => {
+        clearSupabaseEnv();
+        delete process.env.VITE_SGCOIN_DISCOUNT_ENABLED;
+    });
 
     it('resolves pricing for a single item with $5 shipping', async () => {
         mockSupabaseFrom.mockReturnValue(chain('maybeSingle', {
@@ -220,13 +224,13 @@ describe('resolvePricing', () => {
         ).rejects.toThrow('does not support clip add-on');
     });
 
-    it('applies store credit for PayPal via storeCreditCents', async () => {
+    it('applies store credit for manual methods via storeCreditCents', async () => {
         mockSupabaseFrom.mockReturnValue(chain('maybeSingle', {
             data: [stubProduct()], error: null,
         }));
         const result = await resolvePricing(
             [{ productId: 'prod-1', selectedSize: 'M', quantity: 1, keychainClipOn: false }],
-            0, 0, 'paypal',
+            0, 0, 'crypto',
             500, // $5 store credit via dedicated param
         );
         expect(result.storeCreditCents).toBe(500);
@@ -263,6 +267,7 @@ describe('resolvePricing', () => {
     });
 
     it('allows store credit with crypto', async () => {
+        process.env.VITE_SGCOIN_DISCOUNT_ENABLED = 'true';
         mockSupabaseFrom.mockReturnValue(chain('maybeSingle', {
             data: [stubProduct()], error: null,
         }));
@@ -271,9 +276,41 @@ describe('resolvePricing', () => {
             0, 0, 'crypto',
             100, // $1 store credit
         );
+        // Crypto now carries the SGCoin incentive discount ($2.50 of a $25
+        // cart at 10%) IN ADDITION to the $1 store credit.
         expect(result.storeCreditCents).toBe(100);
-        expect(result.discountCents).toBe(100);
+        expect(result.cryptoDiscountCents).toBe(250);
+        expect(result.discountCents).toBe(350);
+        expect(result.totalCents).toBe(2150);
+    });
+
+    it('adds zero crypto discount when the SGCoin flag is off', async () => {
+        delete process.env.VITE_SGCOIN_DISCOUNT_ENABLED;
+        mockSupabaseFrom.mockReturnValue(chain('maybeSingle', {
+            data: [stubProduct()], error: null,
+        }));
+        const result = await resolvePricing(
+            [{ productId: 'prod-1', selectedSize: 'M', quantity: 1, keychainClipOn: false }],
+            0, 0, 'crypto',
+            100,
+        );
+        expect(result.cryptoDiscountCents).toBe(0);
         expect(result.totalCents).toBe(2400);
+    });
+
+    it('uses the server-stated credit (storeCreditAppliedCents) over the requested amount', async () => {
+        mockSupabaseFrom.mockReturnValue(chain('maybeSingle', {
+            data: [stubProduct()], error: null,
+        }));
+        const result = await resolvePricing(
+            [{ productId: 'prod-1', selectedSize: 'M', quantity: 1, keychainClipOn: false }],
+            0, 0, 'stripe',
+            0,     // requested credit not sent on the stripe path
+            undefined,
+            500,   // server-stated: create-payment-intent applied $5
+        );
+        expect(result.storeCreditCents).toBe(500);
+        expect(result.totalCents).toBe(2000);
     });
 
     it('throws for quantity > 99', async () => {
@@ -329,7 +366,7 @@ describe('resolvePricing', () => {
         stubCouponRouting([stubProduct({ id: 'prod-1', price: 25 })], FIXED_COUPON);
         const result = await resolvePricing(
             [{ productId: 'prod-1', selectedSize: 'M', quantity: 1, keychainClipOn: false }],
-            0, 0, 'paypal', 0, 'TAKE10',
+            0, 0, 'crypto', 0, 'TAKE10',
         );
         expect(result.couponDiscountCents).toBe(1000);
         expect(result.totalCents).toBe(1500);
@@ -486,7 +523,7 @@ describe('persistOrder', () => {
 
     it('inserts new order → created: true', async () => {
         const record = stubOrderRow();
-        // findDup checks: paypal_order_id (null → skip), payment_reference (null → skip)
+        // findDup checks: payment_reference (null → skip)
         // then upsert
         mockSupabaseFrom.mockReturnValue(chain('single', { data: record, error: null }));
 
@@ -495,8 +532,8 @@ describe('persistOrder', () => {
         expect(result.record.id).toBe(record.id);
     });
 
-    it('returns existing on duplicate PayPal order (idempotent)', async () => {
-        const record = stubOrderRow({ paypal_order_id: 'PP-EXISTING', total: 30 });
+    it('returns existing on duplicate payment reference (idempotent)', async () => {
+        const record = stubOrderRow({ payment_reference: 'PP-EXISTING', total: 30 });
         mockSupabaseFrom.mockReturnValue(
             chain('maybeSingle', { data: { ...record, id: 'earlier-id' }, error: null }),
         );
@@ -507,7 +544,7 @@ describe('persistOrder', () => {
 
     it('throws 409 on duplicate with mismatched total', async () => {
         const existing = stubOrderRow({ total: 50 });
-        const record = stubOrderRow({ paypal_order_id: 'PP-EXISTING', total: 30 });
+        const record = stubOrderRow({ payment_reference: 'PP-EXISTING', total: 30 });
         mockSupabaseFrom.mockReturnValue(
             chain('maybeSingle', { data: existing, error: null }),
         );
@@ -639,6 +676,12 @@ describe('reconcilePayment', () => {
 describe('acceptCheckout', () => {
     beforeEach(() => {
         withSupabaseEnv();
+        // Pin the SGCoin incentive OFF for the end-to-end suite: the
+        // store_credit/crypto fixtures below assert totals WITHOUT the
+        // crypto discount, and env leakage between test files must not
+        // flip real money math (envFlag trims quotes, so a pasted
+        // "true" would otherwise activate it here).
+        delete process.env.VITE_SGCOIN_DISCOUNT_ENABLED;
         process.env.RESEND_API_KEY = 're_test_key';
         process.env.RESEND_FROM_EMAIL = 'test@coalition.com';
         process.env.ORDER_NOTIFICATION_EMAIL = 'admin@coalition.com';
@@ -654,13 +697,21 @@ describe('acceptCheckout', () => {
     });
 
     function stubMocks(productData = [stubProduct()]) {
-        // products lookup (1st from call) → upsert (2nd from call).
+        // products lookup (1st from call) → orders upsert (2nd from call).
         // findDup skips both fields because paypal_order_id / payment_reference
         // are null for store_credit/crypto checkouts, so it consumes 0 calls.
+        // The post-create loops (credit debit + inventory decrement) read
+        // profiles/products and write with .update(); mockImplementation
+        // covers every read (select/maybeSingle) and write (update chain)
+        // without counting exact calls. Note: the inventory decrement CAS
+        // (.gte) must NOT fail for paid methods — the mock's gte resolves
+        // with error: null, so decrements land and paid checkouts stay paid.
         const savedRow = stubOrderRow({ id: 'saved-order', total: 30 });
-        mockSupabaseFrom
-            .mockReturnValueOnce(chain('maybeSingle', { data: productData, error: null }))
-            .mockReturnValueOnce(chain('single', { data: savedRow, error: null }));
+        mockSupabaseFrom.mockImplementation((table: string) => {
+            if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 100 }, error: null });
+            if (table === 'orders') return chain('single', { data: savedRow, error: null });
+            return chain('maybeSingle', { data: productData, error: null });
+        });
     }
 
     it('completes store_credit checkout end-to-end', async () => {
@@ -853,6 +904,7 @@ describe('acceptCheckout', () => {
         mockSupabaseFrom.mockImplementation((table: string) => {
             if (table === 'coupons') return chain('maybeSingle', { data: couponRow, error: null });
             if (table === 'orders') return chain('single', { data: savedRow, error: null });
+            if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 0 }, error: null });
             return chain('maybeSingle', { data: [stubProduct({ id: 'prod-1', price: 25 })], error: null });
         });
 
@@ -887,5 +939,179 @@ describe('acceptCheckout', () => {
         const result = await acceptCheckout(attempt);
         expect(result.created).toBe(true);
         expect(mockSupabaseFrom).not.toHaveBeenCalledWith('coupons');
+    });
+
+    // ---- Server-stated store credit (Stripe path) -----------------------
+
+    it('re-prices with the server-stated credit and debits the profile once', async () => {
+        process.env.STRIPE_SECRET_KEY = 'sk_test_stripe';
+        mockStripeRetrieve.mockResolvedValue({ status: 'succeeded', amount_received: 2000 });
+        const savedRow = stubOrderRow({ id: 'saved-order', total: 20 });
+        // orders call counter: 1st from('orders') is findDup's dup check
+        // (payment_reference is truthy on the stripe path), 2nd is the upsert.
+        let ordersCalls = 0;
+        mockSupabaseFrom.mockImplementation((table: string) => {
+            if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 8 }, error: null });
+            if (table === 'orders') {
+                ordersCalls += 1;
+                return ordersCalls === 1
+                    ? chain('maybeSingle', { data: null, error: null })
+                    : chain('single', { data: savedRow, error: null });
+            }
+            return chain('maybeSingle', { data: [stubProduct({ id: 'prod-1', price: 25 })], error: null });
+        });
+
+        const attempt: CheckoutAttempt = {
+            items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+            clientSubtotal: 25, clientDiscount: 0, clientTotal: 20,
+            shippingDollars: 0,
+            paymentEvidence: { method: 'stripe', paymentIntentId: 'pi_test_credit' },
+            orderId: 'order_credit_1', orderNumber: 'ORD-CREDIT-1',
+            userId: '9b2f8a5c-1d4e-4f6a-9c3b-7e8d2a1b4c5d',
+            customerName: 'Credit Buyer', customerEmail: 'credit@test.com',
+            serverCreditCents: 500, // intent applied $5
+        };
+
+        const result = await acceptCheckout(attempt);
+        expect(result.created).toBe(true);
+        delete process.env.STRIPE_SECRET_KEY;
+
+        const profileUpdate = mockSupabaseFrom.mock.results
+            .map((r: { value: any }) => r.value)
+            .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.store_credit !== undefined));
+        expect(profileUpdate).toBeTruthy();
+        expect(profileUpdate.update.mock.calls[0][0]).toEqual({ store_credit: 3 });
+    });
+
+    it('declines when the live balance cannot cover the stated credit', async () => {
+        mockSupabaseFrom.mockImplementation((table: string) => {
+            if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 1 }, error: null });
+            return chain('maybeSingle', { data: [stubProduct({ id: 'prod-1', price: 25 })], error: null });
+        });
+
+        const attempt: CheckoutAttempt = {
+            items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+            clientSubtotal: 25, clientDiscount: 0, clientTotal: 20,
+            shippingDollars: 0,
+            paymentEvidence: { method: 'stripe', paymentIntentId: 'pi_test_credit' },
+            userId: '9b2f8a5c-1d4e-4f6a-9c3b-7e8d2a1b4c5d',
+            customerName: 'Stale Credit', customerEmail: 'stale@test.com',
+            serverCreditCents: 500, // intent says $5, balance only $1
+        };
+
+        await expect(acceptCheckout(attempt)).rejects.toThrow('Store credit balance has changed');
+    });
+
+    // ---- Inventory reservation (oversell guard) -------------------------
+
+    it('decrements size_inventory server-side for a paid method', async () => {
+        const savedRow = stubOrderRow({ id: 'saved-order', total: 30 });
+        let ordersCalls = 0;
+        let productReads = 0;
+        mockSupabaseFrom.mockImplementation((table: string) => {
+            if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 0 }, error: null });
+            if (table === 'orders') {
+                ordersCalls += 1;
+                return ordersCalls === 1
+                    ? chain('maybeSingle', { data: null, error: null })
+                    : chain('single', { data: savedRow, error: null });
+            }
+            if (table === 'products') {
+                // Read 1 = loadProducts (.in, expects rows array); read 2 =
+                // the post-persist inventory loop (.maybeSingle, expects a
+                // single row object).
+                productReads += 1;
+                return productReads === 1
+                    ? chain('maybeSingle', { data: [stubProduct({ id: 'prod-1', price: 25, size_inventory: { M: 3, L: 5 } })], error: null })
+                    : chain('maybeSingle', { data: { id: 'prod-1', size_inventory: { M: 3, L: 5 } }, error: null });
+            }
+            return chain('maybeSingle', { data: null, error: null });
+        });
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+        const attempt: CheckoutAttempt = {
+            items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+            clientSubtotal: 25, clientDiscount: 0, clientTotal: 30,
+            shippingDollars: 5,
+            paymentEvidence: { method: 'store_credit' },
+            customerName: 'Stock Buyer', customerEmail: 'stock@test.com',
+        };
+
+        const result = await acceptCheckout(attempt);
+        expect(result.created).toBe(true);
+
+        const productUpdate = mockSupabaseFrom.mock.results
+            .map((r: { value: any }) => r.value)
+            .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.size_inventory !== undefined));
+        expect(productUpdate).toBeTruthy();
+        expect(productUpdate.update.mock.calls[0][0]).toEqual({ size_inventory: { M: 2, L: 5 } });
+        expect(productUpdate.eq.mock.calls[0]).toEqual(['id', 'prod-1']);
+        logSpy.mockRestore();
+    });
+
+    it('throws 409 when stock hit 0 before the decrement (oversell guard)', async () => {
+        const savedRow = stubOrderRow({ id: 'saved-order', total: 30 });
+        // products read counter: 1st read is resolvePricing's loadProducts
+        // (stock M:1 → validation passes), the 2nd is the post-persist
+        // inventory loop (stock hit 0 mid-checkout → guard fires). orders
+        // calls: 1st is findDup (payment_reference truthy on paid methods),
+        // 2nd is the upsert.
+        let productReads = 0;
+        let ordersCalls = 0;
+        mockSupabaseFrom.mockImplementation((table: string) => {
+            if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 0 }, error: null });
+            if (table === 'orders') {
+                ordersCalls += 1;
+                return ordersCalls === 1
+                    ? chain('maybeSingle', { data: null, error: null })
+                    : chain('single', { data: savedRow, error: null });
+            }
+            if (table === 'products') {
+                // Read 1 = loadProducts (.in, rows array, stock M:1 so
+                // validation passes); read 2 = the inventory loop
+                // (.maybeSingle row object, stock hit 0 mid-checkout →
+                // the guard fires).
+                productReads += 1;
+                return productReads === 1
+                    ? chain('maybeSingle', { data: [stubProduct({ id: 'prod-1', price: 25, size_inventory: { M: 1 } })], error: null })
+                    : chain('maybeSingle', { data: { id: 'prod-1', size_inventory: { M: 0 } }, error: null });
+            }
+            return chain('maybeSingle', { data: null, error: null });
+        });
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+        const attempt: CheckoutAttempt = {
+            items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+            clientSubtotal: 25, clientDiscount: 0, clientTotal: 30,
+            shippingDollars: 5,
+            paymentEvidence: { method: 'store_credit' },
+            customerName: 'Race Buyer', customerEmail: 'race@test.com',
+        };
+
+        await expect(acceptCheckout(attempt)).rejects.toThrow('just sold out');
+        logSpy.mockRestore();
+    });
+
+    it('does not decrement inventory for pending manual methods', async () => {
+        mockSupabaseFrom.mockImplementation((table: string) => {
+            if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 0 }, error: null });
+            if (table === 'orders') return chain('single', { data: stubOrderRow({ id: 'saved-order', total: 30 }), error: null });
+            return chain('maybeSingle', { data: [stubProduct({ id: 'prod-1', price: 25, size_inventory: { M: 3 } })], error: null });
+        });
+
+        const attempt: CheckoutAttempt = {
+            items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+            clientSubtotal: 25, clientDiscount: 0, clientTotal: 30,
+            shippingDollars: 5,
+            paymentEvidence: { method: 'cashapp' },
+            customerName: 'Pending Buyer', customerEmail: 'pending@test.com',
+        };
+
+        const result = await acceptCheckout(attempt);
+        expect(result.created).toBe(true);
+        const productUpdate = mockSupabaseFrom.mock.results
+            .map((r: { value: any }) => r.value)
+            .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.size_inventory !== undefined));
+        expect(productUpdate).toBeFalsy();
     });
 });

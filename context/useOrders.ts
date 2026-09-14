@@ -102,11 +102,10 @@ export function useOrders(
         return () => { channel.unsubscribe(); };
     }, [isSupabaseConfigured, fetchOrders]);
 
-    const addOrder = useCallback(async (order: Order, verification?: { paypalOrderId?: string; paypalCaptureId?: string }) => {
-        const mustUseOrderApi = order.paymentMethod === 'paypal';
-        if (isSupabaseConfigured || mustUseOrderApi) {
+    const addOrder = useCallback(async (order: Order) => {
+        if (isSupabaseConfigured) {
             try {
-                const response = await fetch('/api/complete-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order, verification }) });
+                const response = await fetch('/api/complete-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order }) });
                 if (!response.ok) {
                     const payload = await response.json().catch(() => ({}));
                     throw new Error(payload.error || 'Order completion failed');

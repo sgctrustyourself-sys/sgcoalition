@@ -196,31 +196,14 @@ describe('device boot recovery', () => {
         expect(indexHtml).toContain('/nojs.html');
     });
 
-    it('does not let the PayPal SDK block the entry module', () => {
-        const paypalStart = indexHtml.indexOf('https://www.paypal.com/sdk/js');
-        const paypalTag = paypalStart >= 0 ? indexHtml.slice(indexHtml.lastIndexOf('<script', paypalStart), indexHtml.indexOf('</script>', paypalStart)) : '';
-        expect(paypalTag).toContain('async');
-        expect(paypalTag).toContain('defer');
+    it('no longer ships the removed PayPal SDK or its CSP allowances', () => {
+        expect(indexHtml).not.toContain('paypal.com/sdk/js');
+        expect(indexHtml).not.toContain('__coalitionPaypalReady');
+        expect(read('pages/Checkout.tsx')).not.toMatch(/paypal/i);
+        expect(vercel).not.toContain('paypal');
     });
 
-    it('removes recovery after the React entry starts', () => {
-        expect(indexTsx).toContain("classList.remove('visible')");
-        expect(indexTsx).toContain('const BootMarker');
-        expect(indexTsx).toContain('useEffect');
-    });
-
-    it('marks PayPal readiness without blocking the entry module', () => {
-        expect(indexHtml).toContain("window.__coalitionPaypalReady = true");
-        expect(indexHtml).toContain("window.__coalitionPaypalLoadFailed = true");
-        expect(read('pages/Checkout.tsx')).toContain("coalition:paypal-ready");
-        expect(read('pages/Checkout.tsx')).toContain("coalition:paypal-failed");
-        expect(read('pages/Checkout.tsx')).toContain("disabled={isLoading || (!paypalReady && !paypalLoadFailed)}");
-        expect(read('pages/Membership.tsx')).toContain("coalition:paypal-ready");
-        expect(read('pages/Membership.tsx')).toContain("coalition:paypal-failed");
-    });
-
-    it('allows PayPal telemetry and Supabase realtime in CSP', () => {
-        expect(vercel).toMatch(/connect-src[^\"]*https:\/\/www\.paypal\.com/);
+    it('keeps Supabase realtime in CSP', () => {
         expect(vercel).toContain('wss://*.supabase.co');
     });
 });

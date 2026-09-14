@@ -216,7 +216,7 @@ type RateLimitEntry = { count: number; resetAt: number };
 // Per-instance counters. Map keyed by `${slug}:${ip}` so each
 // (endpoint, caller) pair gets its own bucket; sharing a key
 // across slugs would let an attacker max out marketing-send to
-// lock out paypal-order (a single global counter is a worse
+// lock out complete-order (a single global counter is a worse
 // surface).
 const rateLimitStore = new Map<string, RateLimitEntry>();
 
@@ -229,7 +229,6 @@ const DEFAULT_LIMIT_PER_MINUTE = 60;
 const SLUG_LIMITS_PER_MINUTE: Record<string, number> = {
     // Payment surface -- tightest. A legitimate buyer hits this
     // endpoint at most a handful of times per checkout.
-    'paypal-order': 10,
     'create-checkout-session': 20,
     'create-payment-intent': 20,
     'complete-order': 20,

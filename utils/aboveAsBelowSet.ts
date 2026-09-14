@@ -5,9 +5,9 @@ import { PRODUCT_IDS } from '../constants/productIds.js';
 // $30 saving kicks in whenever a shopper buys both pieces together. Lives in
 // `utils/` (not under `api/_handlers/`) so the same source-of-truth is shared
 // by the React UI (Checkout / Cart / CartDrawer) and the Vercel Lambda
-// handlers (paypal-order, complete-order). Keeping the math on both sides of
-// the network prevents the storefront total from drifting away from the
-// amount PayPal / Stripe actually captures.
+// handler (complete-order). Keeping the math on both sides of the network
+// prevents the storefront total from drifting away from the amount Stripe
+// actually captures.
 
 // One-shot auto-applied bonus for the Above-as-Below tee+shorts set. Caps at
 // $30 per cart — extra quantities of either piece do not stack additional

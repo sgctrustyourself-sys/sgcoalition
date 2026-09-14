@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { resolvePricing, type PricingItem, HttpError } from '../../services/orderIntake.js';
+import { resolveCryptoDiscountCents } from '../../utils/cryptoDiscount.js';
 import { loadPaymentSettings } from '../../services/paymentSettings.js';
 import { CHECKOUT_PAYMENT_METHOD_TYPES } from '../_helpers.js';
 
@@ -55,6 +56,11 @@ export default async function handler(req: any, res: any) {
             res.status(400).json({ error: 'At least one item required.' });
             return;
         }
+
+        // The crypto (SGCoin) discount the checkout UI advertises, computed
+        // with the same helper resolvePricing() uses so the estimate shown
+        // before payment and the actual intent amount can never disagree.
+        const cryptoDiscountEstimateCents = resolveCryptoDiscountCents(pricingItems, Number(shippingCost || 0));
 
         // Optional per-intent method allow-list, used by the checkout UI to
         // offer a card-only primary path (['card']) and Klarna as a separate
@@ -207,10 +213,10 @@ export default async function handler(req: any, res: any) {
         res.status(200).json({
             clientSecret: paymentIntent.client_secret,
             creditApplied,
+            cryptoDiscountEstimate: cryptoDiscountEstimateCents / 100,
             finalAmount,
             pricing, // server-computed breakdown for display
         });
-
     } catch (err: any) {
         console.error('Stripe error:', err);
         // Never surface raw Stripe internals (e.g. "Expired API Key provided:
@@ -220,7 +226,7 @@ export default async function handler(req: any, res: any) {
             || /expired api key|invalid api key/i.test(message);
         res.status(500).json({
             error: isStripeAuthFailure
-                ? 'Card, Klarna, and Afterpay are temporarily unavailable. Please try PayPal or contact support.'
+                ? 'Card, Klarna, and Afterpay are temporarily unavailable. Please try another payment method or contact support.'
                 : (message || 'Internal server error'),
         });
     }

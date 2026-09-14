@@ -6,13 +6,6 @@ import { useApp } from '../context/AppContext';
 import { FOUNDER_WALLET_ADDRESS } from '../constants';
 import { sendAdminNotification } from '../services/emailService';
 
-// Declare PayPal SDK types
-declare global {
-    interface Window {
-        paypal?: any;
-    }
-}
-
 const BuySGCoin = () => {
     const navigate = useNavigate();
     const { user } = useApp();
@@ -80,48 +73,19 @@ const BuySGCoin = () => {
         return true;
     };
 
-    const handlePayPalCheckout = async () => {
+    // PayPal checkout was removed from the product. SGCOIN purchases are
+    // funded via QuickSwap swap or by emailing the details below.
+    const handlePurchaseRequest = async () => {
         if (!validateForm()) return;
 
         setIsProcessing(true);
         setError(null);
 
         try {
-            // Check if PayPal SDK is loaded
-            if (typeof window.paypal === 'undefined') {
-                throw new Error('PayPal SDK not loaded. Please refresh the page.');
-            }
+            const notificationMessage = `
+🎉 New SGCOIN Purchase Request!
 
-            // Create PayPal order
-            const paypalButtonContainer = document.getElementById('paypal-button-container');
-            if (!paypalButtonContainer) return;
-
-            // Clear any existing buttons
-            paypalButtonContainer.innerHTML = '';
-
-            window.paypal.Buttons({
-                createOrder: (data: any, actions: any) => {
-                    return actions.order.create({
-                        purchase_units: [{
-                            description: `SGCOIN V2 Purchase - ${totalAmount.toLocaleString()} SGCOIN (includes 10% bonus)`,
-                            amount: {
-                                currency_code: 'USD',
-                                value: formData.usdAmount
-                            },
-                            custom_id: `${formData.walletAddress}_${Date.now()}`
-                        }]
-                    });
-                },
-                onApprove: async (data: any, actions: any) => {
-                    try {
-                        const order = await actions.order.capture();
-
-                        // Send admin notification with PayPal transaction details
-                        const transactionId = order.purchase_units[0].payments.captures[0].id;
-                        const notificationMessage = `
-🎉 New SGCOIN Purchase!
-
-💰 Amount Paid: $${formData.usdAmount} USD
+💰 Amount: $${formData.usdAmount} USD
 🪙 SGCOIN Total: ${totalAmount.toLocaleString()} SGCOIN
    - Base: ${sgcoinAmount.toLocaleString()}
    - 10% Bonus: ${bonusAmount.toLocaleString()}
@@ -129,42 +93,20 @@ const BuySGCoin = () => {
 👤 Customer Email: ${formData.email}
 💼 Wallet Address: ${formData.walletAddress}
 
-📋 PayPal Details:
-   - Order ID: ${order.id}
-   - Transaction ID: ${transactionId}
-   - Status: ${order.status}
+⏰ Please send SGCOIN within 24 hours of payment confirmation.
+            `.trim();
 
-⏰ Please send SGCOIN within 24 hours.
-                        `.trim();
+            await sendAdminNotification(
+                formData.email,
+                'SGCOIN Purchase Request',
+                notificationMessage
+            );
 
-                        await sendAdminNotification(
-                            formData.email,
-                            'SGCOIN Purchase Notification',
-                            notificationMessage
-                        );
-
-                        setSuccess(true);
-                        setIsProcessing(false);
-                    } catch (err: any) {
-                        console.error('Payment capture error:', err);
-                        setError('Payment was approved but failed to process. Please contact support.');
-                        setIsProcessing(false);
-                    }
-                },
-                onError: (err: any) => {
-                    console.error('PayPal error:', err);
-                    setError('Payment failed. Please try again or contact support.');
-                    setIsProcessing(false);
-                },
-                onCancel: () => {
-                    setError('Payment was cancelled.');
-                    setIsProcessing(false);
-                }
-            }).render('#paypal-button-container');
-
+            setSuccess(true);
         } catch (err: any) {
-            console.error('Payment error:', err);
-            setError(err.message || 'Payment failed. Please try again.');
+            console.error('Purchase request error:', err);
+            setError(err.message || 'Failed to submit purchase request. Please try again.');
+        } finally {
             setIsProcessing(false);
         }
     };
@@ -426,23 +368,20 @@ const BuySGCoin = () => {
 
                         {/* Payment Buttons */}
                         <div className="space-y-3">
-                            {/* PayPal Button Container */}
-                            <div id="paypal-button-container" className="min-h-[50px]"></div>
-
                             <button
-                                onClick={handlePayPalCheckout}
+                                onClick={handlePurchaseRequest}
                                 disabled={isProcessing || !formData.usdAmount || parseFloat(formData.usdAmount) < 10}
                                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-widest hover:from-purple-700 hover:to-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm shadow-lg shadow-purple-500/20"
                             >
                                 {isProcessing ? (
                                     <>
                                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        Loading PayPal...
+                                        Submitting...
                                     </>
                                 ) : (
                                     <>
                                         <DollarSign className="w-5 h-5" />
-                                        Pay with PayPal
+                                        Request Purchase Details
                                     </>
                                 )}
                             </button>

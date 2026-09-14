@@ -136,7 +136,7 @@ function mockApiFetch(): ReturnType<typeof vi.fn> {
             };
         }
         if (path.includes('/api/payment-settings')) {
-            return { ok: true, json: async () => ({ card_enabled: true, paypal_enabled: true, klarna_enabled: true, crypto_enabled: true }) };
+            return { ok: true, json: async () => ({ card_enabled: true, klarna_enabled: true, crypto_enabled: true }) };
         }
         // pricing-preview + anything else: benign.
         return { ok: true, json: async () => ({}) };

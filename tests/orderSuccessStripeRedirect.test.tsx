@@ -27,7 +27,7 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
   });
   afterEach(() => { act(() => root.unmount()); if (container.parentNode) container.parentNode.removeChild(container); vi.restoreAllMocks(); });
   it('completes once and clears cart plus persisted checkout state', async () => {
-    sessionStorage.setItem(STATE_KEY, JSON.stringify({ shippingInfo: { name: 'Guest Buyer', email: 'guest@example.com', address1: '1 Coalition Way', city: 'Baltimore', state: 'MD', zip: '21201', country: 'US' }, shippingMethod: 'standard', shippingCost: 0, orderSeed: { orderId: 'order-3ds-1', orderNumber: 'ORD-3DS-0001' } }));
+    sessionStorage.setItem(STATE_KEY, JSON.stringify({ shippingInfo: { name: 'Guest Buyer', email: 'guest@example.com', address1: '1 Coalition Way', city: 'Baltimore', state: 'MD', zip: '21201', country: 'US' }, shippingMethod: 'standard', shippingCost: 0, orderSeed: { orderId: 'order-3ds-1', orderNumber: 'ORD-3DS-0001' }, storeCreditApplied: 5, couponCode: 'SAVE10' }));
     const clearCart = vi.fn(); const fetchFn = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => savedOrder() }); vi.stubGlobal('fetch', fetchFn);
     vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: (n: number) => Math.floor(n / 10), clearCart, user: null, updateUser: vi.fn() } as any);
     await act(async () => { root.render(createElement(StrictMode, null, createElement(OrderSuccess))); for (let i = 0; i < 8; i++) await Promise.resolve(); });
@@ -38,6 +38,9 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
       id: 'order-3ds-1', orderNumber: 'ORD-3DS-0001', paymentMethod: 'stripe', paymentStatus: 'paid',
       paymentReference: 'pi_3ds_123', customerEmail: 'guest@example.com', guestEmail: 'guest@example.com',
       isGuest: true, total: 45,
+      // The credit + coupon the Stripe intent priced MUST reach the server
+      // so the re-pricing matches the charged PaymentIntent exactly.
+      storeCreditApplied: 5, couponCode: 'SAVE10',
       shippingAddress: expect.objectContaining({ address1: '1 Coalition Way', city: 'Baltimore', state: 'MD', zip: '21201', shippingMethod: 'standard', shippingCost: 0 }),
     }));
     expect(request.order.items).toEqual([expect.objectContaining({ productId: 'prod-tee', selectedSize: 'M', quantity: 1, price: 45 })]);

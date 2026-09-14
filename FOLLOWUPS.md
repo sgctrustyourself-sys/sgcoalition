@@ -34,17 +34,7 @@ Add one alert rule:
 
 Without this filter, you'll get paged for errors the user already saw a recovery UI for. The trade-off is also documented in `.env.example > Sentry` so whoever sets the DSN is reminded.
 
-### 3. PayPal live cutover
-
-The full runbook is in [`DEPLOYMENT_CHECKLIST.md` §6 Live PayPal Cutover Runbook](./DEPLOYMENT_CHECKLIST.md#6-live-paypal-cutover-runbook).
-
-Blockers to flip from sandbox to live on production:
-
-- A live PayPal REST app's `CLIENT_ID` + `CLIENT_SECRET` (different from sandbox).
-- A confirmed sandbox pass through §6.3 step 6-7 (Supabase `orders` row has `payment_status = paid` + matching PayPal dashboard `COMPLETED` + matching capture amount in both tables).
-- A redeploy with **Build Cache OFF** so the new `VITE_PAYPAL_CLIENT_ID` is baked into `index.html`.
-
-Until this is done, the storefront can still complete PayPal sandbox orders but real buyers cannot pay.
+### 3. (Removed — PayPal checkout has been removed from the product.)
 
 ### 4. Resolve the 503 production incident
 
@@ -122,7 +112,7 @@ Not blocking; do when bundle slices accumulate.
 |---|---|---|---|---|
 | 1 | Provision Sentry + DSN | Operator | sentry.io + Vercel env | 10 min |
 | 2 | Configure Sentry alert rule | Operator | sentry.io dashboard | 5 min |
-| 3 | PayPal live cutover | Operator | PayPal developer + Vercel + sandbox smoke pass | 30 min |
+| 3 | ~~PayPal live cutover~~ | — | Removed: PayPal checkout is no longer part of the product | — |
 | 4 | Resolve 503 incident | Operator | Vercel Dashboard | 20 min (per the 4-click recipe) |
 | 5 | Verify Resend sending domain | Operator | resend.com + DNS provider + Vercel env | 15 min |
 | 6 | Lazy-load 3 framer-motion consumers | Maintainer | n/a (code) | 30 min |

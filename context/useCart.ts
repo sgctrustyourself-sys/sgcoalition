@@ -16,7 +16,7 @@ const persistCart = (cart: CartItem[]) => {
 export function useCart() {
     // Lazy-init from localStorage so a refresh restores the cart on any device.
     // Written SYNCHRONOUSLY on every mutation (not via useEffect) so the cart
-    // survives even a hard page reload mid-flow — e.g. the PayPal Pay Later
+    // survives even a hard page reload mid-flow — e.g. the Stripe 3DS/Klarna
     // redirect round-trip, which fully reloads the page. A useEffect-based
     // persist can lose data when the browser navigates away before React
     // flushes the effect.

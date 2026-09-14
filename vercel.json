@@ -32,7 +32,7 @@
                 },
                 {
                     "key": "Content-Security-Policy",
-                    "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://consent.cookiebot.com https://consentcdn.cookiebot.com https://www.paypal.com https://www.paypalobjects.com https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src 'self' https://consentcdn.cookiebot.com https://www.paypal.com https://js.stripe.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.paypal.com https://api.dexscreener.com https://polygon-rpc.com https://api-m.paypal.com https://api-m.sandbox.paypal.com https://consent.cookiebot.com https://api.stripe.com https://m.stripe.com https://api.ipify.org https://api.zippopotam.us"
+                    "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://consent.cookiebot.com https://consentcdn.cookiebot.com https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src 'self' https://consentcdn.cookiebot.com https://js.stripe.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.dexscreener.com https://polygon-rpc.com https://consent.cookiebot.com https://api.stripe.com https://m.stripe.com https://api.ipify.org https://api.zippopotam.us"
                 }
             ]
         }

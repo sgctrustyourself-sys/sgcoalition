@@ -76,13 +76,6 @@ export function hasConsented(category: 'necessary' | 'preferences' | 'statistics
 }
 
 /**
- * Check if preferences consent has been given (required for PayPal SDK).
- */
-export function hasPaypalConsent(): boolean {
-    return hasConsented('preferences');
-}
-
-/**
  * Listen for Cookiebot consent changes. The callback fires when the
  * visitor accepts, declines, or changes their cookie preferences.
  * Returns an unsubscribe function.

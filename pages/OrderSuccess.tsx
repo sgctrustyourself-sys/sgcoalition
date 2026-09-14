@@ -20,6 +20,11 @@ interface ReturnedCheckoutState {
     shippingMethod?: 'standard' | 'express';
     shippingCost?: number;
     orderSeed?: { orderId?: string; orderNumber?: string } | null;
+    // Store credit the Stripe intent applied (dollars) + the discount coupon
+    // that was priced into it — forwarded to /api/complete-order so the
+    // server re-pricing matches the charged PaymentIntent exactly.
+    storeCreditApplied?: number;
+    couponCode?: string | null;
 }
 
 const loadReturnedCheckoutState = (): ReturnedCheckoutState | null => {
@@ -172,6 +177,12 @@ const OrderSuccess = () => {
                         paymentMethod: 'stripe',
                         paymentStatus: 'paid',
                         paymentReference: paymentIntentId,
+                        // Forward what the Stripe intent actually applied so
+                        // the server re-pricing matches the charged amount
+                        // (otherwise verification fails "Stripe amount
+                        // mismatch") and the profile is debited once.
+                        storeCreditApplied: returnedState?.storeCreditApplied || 0,
+                        couponCode: returnedState?.couponCode || undefined,
                         orderType: 'online',
                         createdAt: new Date().toISOString(),
                         paidAt: new Date().toISOString(),

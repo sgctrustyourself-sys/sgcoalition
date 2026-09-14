@@ -127,6 +127,10 @@ export interface OrderInput {
     paid_at?: string | null;
     sgCoinReward?: number;
     sg_coin_reward?: number;
+    // Store credit already applied + charged upstream (create-payment-intent
+    // returns creditApplied in dollars). complete-order forwards it to the
+    // order-intake module so the re-priced total matches the PaymentIntent.
+    storeCreditApplied?: number;
     [key: string]: unknown;
 }
 
@@ -167,8 +171,8 @@ export interface OrderRow {
     balance_due: number;
 }
 
-// OrderRow without the PayPal payment columns — used when migrating legacy
-// schemas that haven't applied the PayPal order migration yet.
+// OrderRow without the payment-reference columns — used when migrating legacy
+// schemas that haven't applied the payment-columns migration yet.
 export type OrderRowLegacy = Omit<OrderRow, 'payment_reference' | 'paypal_order_id'>;
 
 // ---------- Product ----------
@@ -179,71 +183,6 @@ export interface ProductRow {
     category: string;
     archived?: boolean;
     size_inventory?: Record<string, number>;
-    [key: string]: unknown;
-}
-
-// ---------- PayPal ----------
-export interface PayPalVerification {
-    paypalOrderId?: string;
-    paypalCaptureId?: string;
-}
-
-export interface PayPalAmount {
-    currency_code?: string;
-    value?: string;
-}
-
-export interface PayPalCapture {
-    id: string;
-    status: string;
-    amount?: PayPalAmount;
-    [key: string]: unknown;
-}
-
-export interface PayPalPurchaseUnit {
-    reference_id?: string;
-    custom_id?: string;
-    description?: string;
-    amount?: PayPalAmount;
-    payments?: { captures?: PayPalCapture[] };
-    [key: string]: unknown;
-}
-
-export interface PayPalPayer {
-    email_address?: string;
-    name?: { given_name?: string; surname?: string };
-}
-
-// Confirmed capture returned by verifyPayPalCapture — IDs are guaranteed present
-// because the function throws otherwise. Distinct from PayPalVerification, which
-// is the *input* shape from the client request body (still optional fields).
-export interface PayPalCaptureConfirmation {
-    paypalOrderId: string;
-    paypalCaptureId: string;
-    payerEmail: string | null;
-}
-
-// OAuth2 token endpoint response shape. Distinct from PayPalOrderResponse
-// because the OAuth endpoint returns { access_token, expires_in, scope }
-// whereas /v2/checkout/orders returns { id, status, purchase_units }.
-export interface PayPalOAuthResponse {
-    access_token?: string;
-    token_type?: string;
-    expires_in?: number;
-    scope?: string;
-    error?: string;
-    error_description?: string;
-    [key: string]: unknown;
-}
-
-export interface PayPalOrderResponse {
-    id?: string;
-    status?: string;
-    intent?: string;
-    message?: string;
-    error?: string;
-    purchase_units?: PayPalPurchaseUnit[];
-    payer?: PayPalPayer;
     [key: string]: unknown;
 }
 
@@ -265,7 +204,6 @@ export interface SupabasePgError {
 // ---------- Body shapes ----------
 export interface CreateOrderBody {
     order?: OrderInput;
-    verification?: PayPalVerification;
     [key: string]: unknown;
 }
 
@@ -299,33 +237,6 @@ export interface EmailOrder {
 export interface OrderSaveResult {
     record: OrderRow;
     created: boolean;
-}
-
-// ---------- PayPal normalized item (used by paypal-order.ts) ----------
-export interface PayPalNormalizedCheckoutItem {
-    productId: string;
-    selectedSize: string;
-    quantity: number;
-    keychainClipOn: boolean;
-}
-
-// Body shape for create-paypal-order.
-export interface PayPalCreateOrderInput {
-    items?: unknown[];
-    shipping?: number;
-    discount?: number;
-    couponCode?: string | null;
-    expectedTotal?: number;
-    referenceId?: string;
-    description?: string;
-    orderId?: string;
-    [key: string]: unknown;
-}
-
-// Body shape for capture-paypal-order.
-export interface PayPalCaptureOrderInput {
-    orderId?: string;
-    [key: string]: unknown;
 }
 
 // ---------- Brain (used by ai-chat.ts) ----------

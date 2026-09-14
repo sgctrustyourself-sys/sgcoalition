@@ -5,7 +5,6 @@ import {
     type CreateOrderBody,
     type UpdateOrderBody,
     type OrderRow,
-    type PayPalVerification,
 } from '../_types.js';
 import {
     createHttpError,
@@ -55,14 +54,8 @@ async function isAdminRequest(req: ApiRequest): Promise<boolean> {
 // Thin createOrder adapter — delegates to Order intake module
 // ---------------------------------------------------------------------------
 
-function buildPaymentEvidence(order: Record<string, unknown>, verification: PayPalVerification | undefined): PaymentEvidence {
+function buildPaymentEvidence(order: Record<string, unknown>): PaymentEvidence {
     const method = String(order.paymentMethod || order.payment_method || '').toLowerCase();
-    if (method === 'paypal') {
-        const pid = String(verification?.paypalOrderId || order.paypalOrderId || '').trim();
-        const cid = String(verification?.paypalCaptureId || order.paymentReference || '').trim();
-        const refId = String(order.id || '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
-        return { method: 'paypal', paypalOrderId: pid, paypalCaptureId: cid, referenceId: refId };
-    }
     if (method === 'stripe') {
         const pi = String(order.paymentReference || order.payment_reference || '').trim();
         return { method: 'stripe', paymentIntentId: pi };
@@ -92,7 +85,7 @@ async function createOrder(req: ApiRequest): Promise<OrderRow | null> {
         clientTotal: Number(orderInput.total || 0),
         shippingDollars: (shippingAddr as any)?.shippingCost || orderInput.shippingCost || 0,
         shippingMethod: (shippingAddr as any)?.shippingMethod || orderInput.shippingMethod || 'standard',
-        paymentEvidence: buildPaymentEvidence(orderInput as Record<string, unknown>, body.verification),
+        paymentEvidence: buildPaymentEvidence(orderInput as Record<string, unknown>),
         orderId: (orderInput.id || orderInput.order_id) as string | undefined,
         orderNumber: (orderInput.orderNumber || orderInput.order_number) as string | undefined,
         userId: orderInput.userId || orderInput.user_id || null,
@@ -105,6 +98,10 @@ async function createOrder(req: ApiRequest): Promise<OrderRow | null> {
         notes: orderInput.notes || '',
         facebookUsername: (orderInput as any).facebookUsername || (orderInput as any).facebook_username || null,
         couponCode: (orderInput as any).couponCode || (orderInput as any).coupon_code || null,
+        // Store credit already applied + charged by create-payment-intent
+        // (Stripe path). acceptCheckout re-verifies against the live profile
+        // balance and debits the profile exactly once per order.
+        serverCreditCents: Math.max(0, Math.round(Number((orderInput as any).storeCreditApplied || 0) * 100)),
     };
 
     // For crypto/cashapp/store_credit: shipping address needs Method + Cost

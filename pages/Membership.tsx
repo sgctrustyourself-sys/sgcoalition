@@ -1,118 +1,40 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, CreditCard, ShoppingBag, Check, Star, Zap, X, Loader, Ticket } from 'lucide-react';
+import { Shield, CreditCard, ShoppingBag, Check, Star, Zap, X, Mail, Ticket } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+
+const MEMBERSHIP_SUPPORT_EMAIL = 'sgctrustyourself@gmail.com';
 
 const Membership = () => {
     const { addToast } = useToast();
     const { user } = useApp();
 
-    const [isLoading, setIsLoading] = React.useState(false);
     const [showPayment, setShowPayment] = React.useState(false);
-    const [paypalReady, setPaypalReady] = React.useState(() => Boolean(window.paypal || window.__coalitionPaypalReady));
-    const [paymentError, setPaymentError] = React.useState<string | null>(null);
 
     const handleSubscribe = () => {
         setShowPayment(true);
     };
 
-    const initializePayPal = async () => {
-        if (!window.paypal) {
-            setPaymentError('PayPal SDK not loaded. Please refresh.');
-            return;
-        }
+    // PayPal self-checkout was removed from the product. VIP activation is
+    // now requested by email: the owner confirms the $15 payment off-platform
+    // (Card / Cash App / crypto) and flips the VIP flag manually, mirroring
+    // the Cash App + crypto manual-verification flows at checkout.
+    const membershipRequestBody = [
+        'Hi, I want to join the Coalition VIP membership ($15/month).',
+        '',
+        user?.email ? `Account email: ${user.email}` : 'Account email: (not signed in)',
+        user?.uid ? `User ID: ${user.uid}` : '',
+        '',
+        'Please send me payment instructions (card / Cash App / crypto).',
+    ].filter(Boolean).join('\n');
 
-        try {
-            setIsLoading(true);
-            const container = document.getElementById('paypal-button-container-membership');
-            if (container) {
-                container.innerHTML = '';
-            }
-
-            window.paypal.Buttons({
-                createOrder: (data: any, actions: any) => {
-                    return actions.order.create({
-                        purchase_units: [{
-                            amount: {
-                                currency_code: 'USD',
-                                value: '15.00',
-                                breakdown: {
-                                    item_total: { currency_code: 'USD', value: '15.00' }
-                                }
-                            },
-                            description: 'Coalition VIP Membership (1 Month)',
-                            items: [{
-                                name: 'Coalition VIP Membership',
-                                quantity: '1',
-                                unit_amount: { currency_code: 'USD', value: '15.00' },
-                                category: 'DIGITAL_GOODS'
-                            }]
-                        }]
-                    });
-                },
-                onApprove: async (data: any, actions: any) => {
-                    try {
-                        const order = await actions.order.capture();
-                        const transactionId = order.purchase_units[0].payments.captures[0].id;
-
-                        // Notify admin and update user status
-                        await fetch('/api/notify-membership', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                orderId: transactionId,
-                                userId: user?.uid,
-                                userEmail: user?.email,
-                                amount: '15.00',
-                                tier: 'VIP'
-                            })
-                        });
-
-                        addToast('Welcome to the Elite Circle! Your VIP status is being activated.', 'success');
-                        setShowPayment(false);
-                    } catch (err: any) {
-                        console.error('Membership activation error:', err);
-                        setPaymentError('Payment succeeded but membership activation failed. Please contact support.');
-                    }
-                },
-                onError: (err: any) => {
-                    console.error('PayPal error:', err);
-                    setPaymentError('Payment failed. Please try again.');
-                }
-            }).render('#paypal-button-container-membership');
-            setIsLoading(false);
-        } catch (err: any) {
-            console.error('PayPal init error:', err);
-            setPaymentError('Failed to initialize PayPal.');
-            setIsLoading(false);
-        }
+    const handleEmailMembershipRequest = () => {
+        const subject = encodeURIComponent('Coalition VIP membership request');
+        const body = encodeURIComponent(membershipRequestBody);
+        window.location.href = `mailto:${MEMBERSHIP_SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+        addToast('Opening your email app to request VIP activation...', 'info');
     };
-
-    React.useEffect(() => {
-        if (!showPayment || paypalReady) return;
-        const markReady = () => setPaypalReady(Boolean(window.paypal || window.__coalitionPaypalReady));
-        const markFailed = () => setPaymentError('PayPal could not load on this device. Please try again or contact support.');
-        window.addEventListener('coalition:paypal-ready', markReady);
-        window.addEventListener('coalition:paypal-failed', markFailed);
-        const poll = window.setInterval(markReady, 250);
-        const stop = window.setTimeout(() => {
-            window.clearInterval(poll);
-            if (!window.paypal && !window.__coalitionPaypalReady) markFailed();
-        }, 15000);
-        return () => {
-            window.removeEventListener('coalition:paypal-ready', markReady);
-            window.removeEventListener('coalition:paypal-failed', markFailed);
-            window.clearInterval(poll);
-            window.clearTimeout(stop);
-        };
-    }, [showPayment, paypalReady]);
-
-    React.useEffect(() => {
-        if (showPayment && paypalReady) {
-            initializePayPal();
-        }
-    }, [showPayment, paypalReady]);
 
 
     return (
@@ -141,10 +63,9 @@ const Membership = () => {
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
                         <button
                             onClick={handleSubscribe}
-                            disabled={isLoading}
                             className="w-full sm:w-auto px-10 py-5 bg-white text-black font-bold text-lg uppercase tracking-widest hover:bg-gray-200 hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {isLoading ? 'Loading...' : 'Join for $15/mo'}
+                            Join for $15/mo
                         </button>
                         <Link
                             to="/shop"
@@ -375,7 +296,7 @@ const Membership = () => {
                             Upgrade to VIP
                         </span>
                     </button>
-                    <p className="mt-6 text-[10px] text-gray-500 uppercase tracking-widest font-medium">Cancel anytime. Secure payment via PayPal.</p>
+                    <p className="mt-6 text-[10px] text-gray-500 uppercase tracking-widest font-medium">Cancel anytime. Activated after payment confirmation.</p>
                 </div>
             </div>
 
@@ -414,27 +335,24 @@ const Membership = () => {
                             </div>
 
                             <div className="space-y-4">
-                                {paymentError && (
-                                    <div className="bg-red-500/10 border border-red-500/30 p-3 rounded-xl text-red-400 text-xs text-center">
-                                        {paymentError}
-                                    </div>
-                                )}
-
-                                <div id="paypal-button-container-membership" className="min-h-[150px]">
-                                    {(!paypalReady || isLoading) && !paymentError && (
-                                        <div className="flex flex-col items-center justify-center py-10">
-                                            <Loader className="w-8 h-8 text-purple-500 animate-spin mb-4" />
-                                            <span className="text-sm text-gray-400 font-bold uppercase tracking-widest">
-                                                {paypalReady ? 'Initialising PayPal...' : 'Waiting for PayPal...'}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
+                                <button
+                                    onClick={handleEmailMembershipRequest}
+                                    className="w-full bg-purple-600 text-white py-4 rounded-xl font-black uppercase tracking-widest hover:bg-purple-500 transition flex items-center justify-center gap-2 text-sm shadow-lg shadow-purple-500/20"
+                                >
+                                    <Mail className="w-5 h-5" />
+                                    Request Payment Instructions
+                                </button>
+                                <a
+                                    href={`mailto:${MEMBERSHIP_SUPPORT_EMAIL}`}
+                                    className="block text-center text-xs text-gray-400 underline decoration-white/20 underline-offset-4 hover:text-white transition"
+                                >
+                                    {MEMBERSHIP_SUPPORT_EMAIL}
+                                </a>
                             </div>
 
                             <p className="text-[10px] text-gray-500 text-center mt-8 uppercase tracking-widest leading-relaxed">
-                                Processed via PayPal Secure Checkout.<br />
-                                Cancel or manage subscription in your PayPal account.
+                                Pay by card, Cash App, or crypto — confirmed by email.<br />
+                                Your VIP status is activated manually after payment.
                             </p>
                         </div>
                     </div>

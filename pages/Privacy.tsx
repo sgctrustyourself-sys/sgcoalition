@@ -44,11 +44,10 @@ const Privacy = () => {
                         <h3 className="font-bold text-black text-lg uppercase mt-6 mb-3">2.2 Preference Cookies</h3>
                         <p>
                             These cookies remember choices you make to improve your experience — such as your region, whether you've
-                            dismissed a banner, or your preferred payment method. They also control whether the PayPal payment SDK
-                            loads on the checkout page.
+                            dismissed a banner, or your preferred payment method.
                         </p>
                         <ul className="list-disc pl-5 space-y-1 mt-2">
-                            <li><strong>PayPal SDK:</strong> Loaded only after you accept preferences, enabling PayPal and card checkout.</li>
+                            <li><strong>Cookie consent state:</strong> Remembers your cookie choices so you aren't asked again on repeat visits.</li>
                             <li><strong>Cookie consent state:</strong> Remembers your cookie choices so you aren't asked again on repeat visits.</li>
                             <li><strong>Font preferences:</strong> Google Fonts (Oswald, Inter) for consistent brand typography.</li>
                         </ul>
@@ -78,7 +77,6 @@ const Privacy = () => {
                             their own cookies:
                         </p>
                         <ul className="list-disc pl-5 space-y-1 mt-2">
-                            <li><strong>PayPal (paypal.com):</strong> Processes payments on the checkout page. PayPal's own privacy policy applies to data they collect during payment.</li>
                             <li><strong>Stripe (stripe.com):</strong> Processes card payments via Stripe Payment Intents. Stripe's privacy policy applies to payment data they handle.</li>
                             <li><strong>Supabase (supabase.co):</strong> Hosts our database and authentication. Session tokens are stored locally; no third-party cookies from Supabase are set on your browser.</li>
                             <li><strong>Google Fonts (fonts.googleapis.com):</strong> Delivers the Oswald and Inter typefaces. Google's privacy policy applies to font requests.</li>
@@ -91,7 +89,7 @@ const Privacy = () => {
                         <ul className="list-disc pl-5 space-y-1 mt-2">
                             <li><strong>On this site:</strong> Click "Cookie Settings" in the footer to reopen the consent banner and adjust your choices.</li>
                             <li><strong>In your browser:</strong> Most browsers let you block or delete cookies. Check your browser's help documentation for instructions.</li>
-                            <li><strong>Withdraw consent:</strong> Changing your preferences to "Necessary only" will disable PayPal checkout and other preference-based features.</li>
+                            <li><strong>Withdraw consent:</strong> Changing your preferences to "Necessary only" will disable preference-based features such as font personalization.</li>
                         </ul>
                         <p>
                             Cookie preferences are stored for 12 months. After that, you will be asked again on your next visit.
@@ -106,7 +104,7 @@ const Privacy = () => {
                         <ul className="list-disc pl-5 space-y-2 mt-2">
                             <li><strong>Identity Data:</strong> includes first name, last name, username or similar identifier.</li>
                             <li><strong>Contact Data:</strong> includes billing address, delivery address, email address and telephone numbers.</li>
-                            <li><strong>Financial Data:</strong> includes payment card details (processed securely by Stripe and PayPal — we never see your full card number).</li>
+                            <li><strong>Financial Data:</strong> includes payment card details (processed securely by Stripe — we never see your full card number).</li>
                             <li><strong>Transaction Data:</strong> includes details about payments to and from you and other details of products you have purchased from us.</li>
                             <li><strong>Technical Data:</strong> includes IP address, browser type, time zone, and device information collected through necessary session cookies.</li>
                         </ul>
@@ -130,7 +128,7 @@ const Privacy = () => {
                             We do not sell, rent, or trade your personal data. We share only the minimum necessary with:
                         </p>
                         <ul className="list-disc pl-5 space-y-2 mt-2">
-                            <li><strong>Payment processors</strong> (PayPal, Stripe) — to complete your purchase.</li>
+                            <li><strong>Payment processors</strong> (Stripe) — to complete your purchase.</li>
                             <li><strong>Supabase</strong> — our database and authentication provider (data stored in US regions).</li>
                             <li><strong>Shipping carriers</strong> — name and address only, to deliver your order.</li>
                             <li><strong>Resend</strong> — to send order confirmation and shipping notification emails.</li>

@@ -13,7 +13,7 @@
 // lookups are the only chains resolvePricing touches — the preview handler
 // does NOT read payment_settings).
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mock helpers — chainable Supabase query stubs (mirrors createPaymentIntent.test.ts)
@@ -79,6 +79,15 @@ beforeEach(() => {
     mockSupabaseFrom.mockReset();
     process.env.SUPABASE_URL = 'https://test.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
+    // Pin the SGCoin incentive OFF: these fixtures assert discount-line
+    // SPLITTING (coupon vs crypto vs set bonus), not the crypto amount.
+    // Vercel exposes VITE_* vars to functions, so a real deployment env
+    // would otherwise flip the crypto line on and break these totals.
+    delete process.env.VITE_SGCOIN_DISCOUNT_ENABLED;
+});
+
+afterEach(() => {
+    delete process.env.VITE_SGCOIN_DISCOUNT_ENABLED;
 });
 
 describe('/api/pricing-preview line-splitting contract', () => {
@@ -116,7 +125,7 @@ describe('/api/pricing-preview line-splitting contract', () => {
         expect(res._body.totalCents).toBe(7500);
     });
 
-    it('crypto + coupon: crypto remainder excludes the coupon (still 0 here since the preview passes no client discount)', async () => {
+    it('crypto + coupon: crypto line comes from the shared SGCoin helper (0 while the incentive flag is off)', async () => {
         if (!handler) handler = (await import('../api/_handlers/pricing-preview')).default;
         stubProductAndCoupon(PERCENT_COUPON);
         const req = makeReq('POST', {

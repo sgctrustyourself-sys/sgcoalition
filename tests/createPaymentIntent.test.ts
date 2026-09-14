@@ -70,7 +70,7 @@ function stubProduct(id: string, name: string, price: number, category = 'shirt'
 // The payment_settings singleton row. The handler reads it first (owner
 // toggles), so every test that reaches pricing must stub it before the
 // product/profile chains.
-const DEFAULT_SETTINGS_ROW = { id: 1, card_enabled: true, paypal_enabled: true, klarna_enabled: true, crypto_enabled: true };
+const DEFAULT_SETTINGS_ROW = { id: 1, card_enabled: true, klarna_enabled: true, crypto_enabled: true };
 
 function stubSettings(overrides: Partial<typeof DEFAULT_SETTINGS_ROW> = {}) {
     mockSupabaseFrom.mockReturnValueOnce(

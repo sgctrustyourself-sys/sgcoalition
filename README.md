@@ -15,17 +15,17 @@ The best-known UI generation is **deployment `dpl_75Vza3u5F1cqwmK83qvGXV9x4ANg`*
 vercel rollback dpl_75Vza3u5F1cqwmK83qvGXV9x4ANg --yes
 ```
 
-⚠️ **Trade-off:** the perfect UI ships with an older `api/[...slug].ts` that uses extensionless dynamic imports (`import('./_handlers/paypal-order')` instead of `import('./_handlers/paypal-order.js')`), causing `ERR_MODULE_NOT_FOUND` on every /api/* endpoint. To restore the perfect UI WITH working API:
+⚠️ **Trade-off:** the perfect UI ships with an older `api/[...slug].ts` that uses extensionless dynamic imports (`import('./_handlers/complete-order')` instead of `import('./_handlers/complete-order.js')`), causing `ERR_MODULE_NOT_FOUND` on every /api/* endpoint. To restore the perfect UI WITH working API:
 
 1. Check out commit `e3b94e2` as baseline.
 2. Cherry-pick the ESM .js extension fix from commit `7ef19f7` (adds .js to all dynamic imports).
 3. Rebuild and deploy with build cache off (`vercel --prod --force`).
-4. Verify /api/paypal-order returns 200.
+4. Verify /api/complete-order returns 200.
 
 ### Current working state (`sgcoalition.xyz`)
 
 - **Bundle:** `assets/index-CFMsameB.js` (latest deploy — contains the SearchResults loading-guard fix, 7 missing products added to INITIAL_PRODUCTS, category type fixes, and real image URLs)
-- **API handlers:** all fixed — api/_handlers/*.ts uses .js extensions for ESM import resolution. /api/paypal-order, /api/complete-order, /api/ai-chat, /api/marketing-subscribe all return 200.
+- **API handlers:** all fixed — api/_handlers/*.ts uses .js extensions for ESM import resolution. /api/complete-order, /api/ai-chat, /api/marketing-subscribe all return 200.
 - **Products:** 26 on the live shop page (up from 19), including all Women's products, Halo Mini Dress, and Above As Below Set — verified working in the browser with no broken images.
 - **Search:** "Women" returns 4 results (all Women's products) — loading guard prevents false "No results found" during Supabase fetch.
 - **Test-campaign guard:** verified buyers auto-excluded from any campaign whose name contains `test` (substring). Locked by `tests/marketingAudience.test.ts`.
@@ -149,7 +149,7 @@ npx.cmd vitest run tests/audit-urgency-chrome.test.ts    # locks the rule logic 
 
 - **Frontend**: React 19, TypeScript, Vite
 - **Styling**: Vanilla CSS with modern design
-- **Payments**: Stripe (Card + Crypto) + BNPL (PayPal Pay in 4, Klarna, Afterpay)
+- **Payments**: Stripe (Card, Klarna, Afterpay) + manual (Cash App, USDC crypto)
 - **Backend**: Vercel serverless functions under `api/`
 - **Database/Auth/Realtime**: Supabase
 - **Email**: Resend API
@@ -179,8 +179,7 @@ If step 2 is missed, the frontend can call a real-looking endpoint and still get
 
 | Route | Handler | Purpose |
 | --- | --- | --- |
-| `/api/complete-order` | `api/_handlers/complete-order.ts` | Final order write, admin order reads/updates, PayPal capture verification, server-side price checks, order email sends. |
-| `/api/paypal-order` | `api/_handlers/paypal-order.ts` | Creates/captures PayPal orders after re-checking product prices, inventory, coupons, and set discounts. |
+| `/api/complete-order` | `api/_handlers/complete-order.ts` | Final order write, admin order reads/updates, Stripe payment verification, server-side price checks, order email sends. |
 | `/api/create-payment-intent` | `api/_handlers/create-payment-intent.ts` | Creates Stripe PaymentIntents and applies store credit when requested. |
 | `/api/create-checkout-session` | `api/_handlers/create-checkout-session.ts` | Legacy Stripe Checkout Session path. |
 | `/api/marketing-subscribe` | `api/_handlers/marketing-subscribe.ts` | Unified email/SMS opt-in. Writes `marketing_contacts` and attribution metadata. |
@@ -213,8 +212,8 @@ Because of that merge order, product bugs usually need two checks:
 
 The client can display prices, but the backend is the source of truth when money moves.
 
-1. PayPal order creation re-loads products from Supabase, verifies item IDs, prices, inventory, keychain clip add-ons, promo discounts, and Above as Below set discounts.
-2. PayPal order completion re-checks the PayPal capture ID, capture status, reference ID, and captured amount before writing the order.
+1. Stripe order completion re-checks the PaymentIntent status and captured amount against server-computed pricing (product prices, inventory, keychain clip add-ons, coupons, Above as Below set discounts) before writing the order.
+2. Manual methods (Cash App, crypto) write PENDING orders the owner verifies off-platform before fulfillment.
 3. Stripe PaymentIntent creation applies store credit server-side before creating a payment intent.
 4. `/api/complete-order` writes orders with the Supabase service-role key, then sends customer/admin emails through Resend when configured.
 
@@ -298,7 +297,7 @@ Use this when something disappears, prices are wrong, checkout fails, or a form 
    - `utils/aboveAsBelowSet.ts`
    - `utils/promoCodes.ts`
    - `utils/walletAddOns.ts`
-   - `api/_handlers/paypal-order.ts`
+   - `services/orderIntake.ts`
    - `api/_handlers/complete-order.ts`
 7. If a lead form fails, check the router entry, `marketing-subscribe` env vars, and `marketing_contacts` schema.
 8. Add or update a focused test for the bug before pushing. Keep tests near the failing behavior, for example `tests/CompleteTheFit.test.tsx` for PDP set cards.
@@ -745,52 +744,42 @@ Use Stripe test cards:
 - **Decline**: `4000 0000 0000 0002`
 - Any future expiry date and CVC
 
-### PayPal Checkout Smoke Test
-
-PayPal checkout is server-verified before an order is saved. The browser SDK uses `VITE_PAYPAL_CLIENT_ID`; `/api/paypal-order` creates/captures the PayPal order; `/api/complete-order` verifies the capture against PayPal and Supabase product pricing before writing `orders`.
-
-Pay Later / BNPL is enabled in the PayPal browser SDK with `components=buttons,messages&enable-funding=paylater`. There is no extra BNPL env var; PayPal decides whether to show Pay Later (Pay in 4 / Pay Monthly) for the buyer, order amount, device, and merchant account.
-
-Klarna and Afterpay are offered through Stripe's Payment Element on checkout (`pages/Checkout.tsx` → `/api/create-payment-intent` with `automatic_payment_methods`). They appear automatically once (1) both methods are toggled on in the Stripe dashboard (Settings → Payment methods) and (2) the buyer/order qualifies — Afterpay is domestic-only and needs the checkout shipping form, Klarna spans US/EU. No extra env var; the checkout form's email + shipping address are forwarded to the PaymentIntent for underwriting. Stripe.js is loaded lazily from `js.stripe.com` only when the Card/Klarna/Afterpay option is selected (CSP allowlisted in `vercel.json`).
-
-Required environment variables:
-
-```env
-VITE_PAYPAL_CLIENT_ID=your_paypal_client_id
-PAYPAL_CLIENT_ID=your_paypal_client_id
-PAYPAL_CLIENT_SECRET=your_paypal_client_secret
-PAYPAL_ENV=sandbox
-VITE_APP_URL=http://localhost:3000
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-```
-
-Optional order email variables:
-
-```env
-RESEND_API_KEY=re_your_key
-RESEND_FROM_EMAIL="SG Coalition <orders@your-domain.com>"
-ORDER_NOTIFICATION_EMAIL=orders@your-domain.com
-```
-
-Before testing, apply `supabase/migrations/20260617_add_paypal_order_fields.sql` so PayPal order and capture IDs are stored and de-duplicated.
-
-Smoke-test flow:
-
-1. Use a PayPal sandbox REST app and set all PayPal variables from the same sandbox app. Do not mix sandbox browser IDs with live server secrets.
-2. Run `npm run build`.
-3. Run the app through Vercel dev or a Vercel preview so `/api/paypal-order` and `/api/complete-order` execute as serverless functions.
-4. Add a physical product to cart, fill all shipping fields, leave partial store credit off, and choose PayPal.
-5. Check the checkout page for the Pay Later message. If the sandbox buyer/order is eligible, Pay Later messaging or a Pay Later funding button appears; if it does not appear, continue with the normal PayPal sandbox buyer flow.
-6. Click `Continue to PayPal`, approve with a PayPal sandbox personal buyer account, and let the app return from PayPal.
-7. Confirm the app lands on `/order/success?payment_method=paypal`.
-8. In Supabase, confirm one `orders` row exists with `payment_method = paypal`, `payment_status = paid`, `paypal_order_id` populated, `payment_reference` populated with the capture ID, and `total` equal to the PayPal capture amount.
-9. In the PayPal sandbox dashboard, confirm the order is `COMPLETED` and the captured amount matches the Supabase order total.
-
-For production, switch to live PayPal credentials and set `PAYPAL_ENV=live`, then redeploy so the Vite `VITE_PAYPAL_CLIENT_ID` is rebuilt into `index.html`.
-
+### Checkout Smoke Test
+
+Payments are server-verified before an order is saved. `/api/create-payment-intent` creates the Stripe PaymentIntent; `/api/complete-order` verifies the capture against Stripe and server-computed product pricing before writing `orders`.
+
+Klarna and Afterpay are offered through Stripe's Payment Element on checkout (`pages/Checkout.tsx` → `/api/create-payment-intent` with `automatic_payment_methods`). They appear automatically once (1) both methods are toggled on in the Stripe dashboard (Settings → Payment methods) and (2) the buyer/order qualifies — Afterpay is domestic-only and needs the checkout shipping form, Klarna spans US/EU. No extra env var; the checkout form's email + shipping address are forwarded to the PaymentIntent for underwriting. Stripe.js is loaded lazily from `js.stripe.com` only when the Card/Klarna/Afterpay option is selected (CSP allowlisted in `vercel.json`).
+
+Cash App and crypto (USDC on Polygon) are manual methods: the buyer sends payment off-platform, confirms on the checkout page, and the order is written PENDING until the owner verifies it.
+
+Required environment variables:
+
+```env
+VITE_APP_URL=http://localhost:3000
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+```
+
+Optional order email variables:
+
+```env
+RESEND_API_KEY=re_your_key
+RESEND_FROM_EMAIL="SG Coalition <orders@your-domain.com>"
+ORDER_NOTIFICATION_EMAIL=orders@your-domain.com
+```
+
+Smoke-test flow:
+
+1. Run `npm run build`.
+2. Run the app through Vercel dev or a Vercel preview so `/api/create-payment-intent` and `/api/complete-order` execute as serverless functions.
+3. Add a physical product to cart, fill all shipping fields, leave partial store credit off, and pay by card with the Stripe test key.
+4. Confirm the app lands on `/order/success?payment_method=stripe`.
+5. In Supabase, confirm one `orders` row exists with `payment_method = stripe`, `payment_status = paid`, `payment_reference` populated with the PaymentIntent ID, and `total` equal to the Stripe captured amount.
+6. Repeat once with Cash App or crypto to confirm the PENDING order flow.
+
+
 ### Coalition Brain Bootstrap
 
 Populate the Brain table and seed entries with one idempotent admin bootstrap command:
@@ -968,9 +957,9 @@ The Coalition platform is built around four end-to-end data flows ("loops"). Eac
 ### Above As Below loop
 
 - **Entry:** `calculateAboveAsBelowSetBonusCents(items)` in [`utils/aboveAsBelowSet.ts`](utils/aboveAsBelowSet.ts) — single `$30` bonus (`ABOVE_AS_BELOW_SET_BONUS_CENTS = 3000` cents = $30) earned ONCE per cart when both `prod_tee_above_as_below` AND `prod_shorts_above_as_below` are present, regardless of quantity (buying two tees + two shorts still saves only $30)
-- **Trigger:** every cart subtotal calculation. Called from BOTH the React UI (`pages/Checkout.tsx`, `pages/Cart.tsx`, `components/CartDrawer.tsx`) AND the Vercel Lambda handlers (`api/_handlers/paypal-order.ts`, `api/_handlers/complete-order.ts`). Keeping the math on both sides of the network prevents the storefront total from drifting away from the amount PayPal / Stripe actually captures — the price the React UI displays is the price the backend captures
+- **Trigger:** every cart subtotal calculation. Called from BOTH the React UI (`pages/Checkout.tsx`, `pages/Cart.tsx`, `components/CartDrawer.tsx`) AND the Vercel Lambda handler (`api/_handlers/complete-order.ts` via `services/orderIntake.ts`). Keeping the math on both sides of the network prevents the storefront total from drifting away from the amount Stripe actually captures — the price the React UI displays is the price the backend captures
 - **Side-effects:** subtracts `-3000` cents from the cart total. No DB writes
-- **Contract test:** there is no dedicated unit-test file for the math itself — the bonus is verified by (1) server-side re-verification in `api/_handlers/paypal-order.ts`, which imports `calculateAboveAsBelowSetBonusCents` from `utils/aboveAsBelowSet.ts` and re-runs it on the cart items before PayPal capture (~line 229), and (2) the symmetric React-UI call in `pages/Checkout.tsx` / `pages/Cart.tsx` / `components/CartDrawer.tsx` that surfaces the bonus to the buyer. Any future PDP-set integration test should be added under `tests/CompleteTheFit.test.tsx` following the [Backend Bug-Fix Checklist](#backend-bug-fix-checklist) example filename convention (the file is currently aspirational, not yet on disk)
+- **Contract test:** there is no dedicated unit-test file for the math itself — the bonus is verified by (1) server-side re-verification in `services/orderIntake.ts` (`resolvePricing` → `calculateAboveAsBelowSetBonusCents` from `utils/aboveAsBelowSet.ts`), and (2) the symmetric React-UI call in `pages/Checkout.tsx` / `pages/Cart.tsx` / `components/CartDrawer.tsx` that surfaces the bonus to the buyer. Any future PDP-set integration test should be added under `tests/CompleteTheFit.test.tsx` following the [Backend Bug-Fix Checklist](#backend-bug-fix-checklist) example filename convention (the file is currently aspirational, not yet on disk)
 - **Tolerates both shapes:** `calculateAboveAsBelowSetBonusCents` accepts `{ productId, quantity }` objects (realistic cart shape) OR a flat array of product ID strings (back-compat for callers without quantities handy)
 - **Deep dive:** [Above As Below Set Offers](#above-as-below-set-offers)
 
@@ -1209,9 +1198,9 @@ Open `/live-orders` in dev, click through every range button, and confirm the ne
 > **Loops · Above As Below Set — single $30 bonus shared between React UI and Vercel handlers**
 >
 > - **Entry:** [`utils/aboveAsBelowSet.ts > calculateAboveAsBelowSetBonusCents(items)`](utils/aboveAsBelowSet.ts) — single `$30` bonus (`ABOVE_AS_BELOW_SET_BONUS_CENTS = 3000` cents) earned ONCE per cart when both `prod_tee_above_as_below` AND `prod_shorts_above_as_below` are present, regardless of quantity (buying two tees + two shorts still saves only $30).
-> - **Trigger:** Every cart subtotal calculation. Called from BOTH the React UI (`pages/Checkout.tsx`, `pages/Cart.tsx`, `components/CartDrawer.tsx`) AND the Vercel Lambda handlers (`api/_handlers/paypal-order.ts`, `api/_handlers/complete-order.ts`). Keeping the math on both sides of the network prevents the storefront total from drifting away from the amount PayPal / Stripe actually captures.
+> - **Trigger:** Every cart subtotal calculation. Called from BOTH the React UI (`pages/Checkout.tsx`, `pages/Cart.tsx`, `components/CartDrawer.tsx`) AND the Vercel Lambda handler (`api/_handlers/complete-order.ts` via `services/orderIntake.ts`). Keeping the math on both sides of the network prevents the storefront total from drifting away from the amount Stripe actually captures.
 > - **Side-effects:** subtracts `-3000` cents from the cart total. No DB writes.
-> - **Contract test:** No dedicated unit-test file for the math itself — the bonus is verified by (1) server-side re-verification in `api/_handlers/paypal-order.ts` (imports `calculateAboveAsBelowSetBonusCents` from `utils/aboveAsBelowSet.ts` and re-runs it on cart items before PayPal capture, ~line 229), and (2) the symmetric React-UI call in `pages/Checkout.tsx` / `pages/Cart.tsx` / `components/CartDrawer.tsx` that surfaces the bonus to the buyer.
+> - **Contract test:** No dedicated unit-test file for the math itself — the bonus is verified by (1) server-side re-verification in `services/orderIntake.ts` (`resolvePricing` → `calculateAboveAsBelowSetBonusCents` from `utils/aboveAsBelowSet.ts`), and (2) the symmetric React-UI call in `pages/Checkout.tsx` / `pages/Cart.tsx` / `components/CartDrawer.tsx` that surfaces the bonus to the buyer.
 > - **Deep dive:** [## Above As Below Set Offers](#above-as-below-set-offers) — full set math + per-product USD reference prices + the women's variant + dev/test checklist. **Both shapes accepted:** `{ productId, quantity }` objects (realistic cart shape) OR a flat array of product ID strings (back-compat for callers without quantities handy).
 
 Use this checklist before changing the Above as Below tees, shorts, crop tank, or set pricing.
@@ -2033,8 +2022,8 @@ One H3 per page the visitor can land on. `/shop` and `/live-orders` get sections
 - **/profile** (`pages/Profile.tsx`) — authed buyer profile. Pinned-to-wallet buyers see their SGCoin balance, wallet link status, and first-link timestamp.
 - **/order-history** (`pages/OrderHistory.tsx`) — authed order history. Pulls from Supabase `orders` filtered by `customer_email`.
 - **/order/:orderId** (`pages/OrderDetails.tsx`) — single-order detail page.
-- **/order/success** (`pages/OrderSuccess.tsx`) — Stripe + PayPal dual-mode landing. Reads `payment_method` from the URL.
-- **/order/cancel** (`pages/OrderCancel.tsx`) — Stripe/crypto/paypal handoff-cancel landing.
+- **/order/success** (`pages/OrderSuccess.tsx`) — Payment landing page. Reads `payment_method` from the URL.
+- **/order/cancel** (`pages/OrderCancel.tsx`) — Stripe/crypto handoff-cancel landing.
 - **/saved-addresses** (`pages/SavedAddresses.tsx`) — authed multi-address book. Saved addresses boost the customer's reorder flow.
 - **/my-reviews** (`pages/MyReviews.tsx`) — buyer-authored reviews list. Only visible to the buyer who wrote them; the public PDP reads from the same `reviews` table but without the buyer-side filter.
 - **/search** (`pages/SearchResults.tsx`) — full-catalog search. Matches product.name + product.description + product.category against the live merged catalog (Supabase + INITIAL_PRODUCTS + PRODUCT_LOCAL_OVERRIDES).

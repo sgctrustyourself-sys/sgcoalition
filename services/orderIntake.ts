@@ -6,14 +6,12 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import Stripe from 'stripe';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet.js';
+import { resolveCryptoDiscountCents } from '../utils/cryptoDiscount.js';
 import { resolvePaymentState } from '../utils/orderDepositNotes.js';
 import type {
-    OrderRow, OrderItemRow, OrderSaveResult, PayPalCaptureConfirmation,
-    PayPalOAuthResponse, PayPalOrderResponse, ProductRow,
+    OrderRow, OrderItemRow, OrderSaveResult, ProductRow,
 } from '../api/_types.js';
 
-const PAYPAL_LIVE = 'https://api-m.paypal.com';
-const PAYPAL_SANDBOX = 'https://api-m.sandbox.paypal.com';
 const CURRENCY = 'USD';
 const KEYCHAIN_CLIP_CENTS = 1000;
 const MAX_QTY = 99;
@@ -45,26 +43,6 @@ function sb(): SupabaseClient {
     return createClient(u, k);
 }
 
-// ---- PayPal helpers ----
-function ppBase(): string {
-    const e = process.env.PAYPAL_API_BASE_URL?.trim();
-    if (e) return e.replace(/\/$/, '');
-    return (process.env.PAYPAL_ENV || process.env.PAYPAL_MODE || 'live').toLowerCase() === 'sandbox' ? PAYPAL_SANDBOX : PAYPAL_LIVE;
-}
-function ppCreds() {
-    const c = (process.env.PAYPAL_CLIENT_ID || process.env.VITE_PAYPAL_CLIENT_ID || '').trim();
-    const s = (process.env.PAYPAL_CLIENT_SECRET || '').trim();
-    if (!c || !s) throw err(503, 'PayPal credentials not configured.');
-    return { clientId: c, clientSecret: s };
-}
-async function ppToken(): Promise<string> {
-    const { clientId, clientSecret } = ppCreds();
-    const r = await fetch(ppBase() + '/v1/oauth2/token', { method: 'POST', headers: { Authorization: 'Basic ' + Buffer.from(clientId + ':' + clientSecret).toString('base64'), 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=client_credentials' });
-    const d = await r.json().catch(() => ({})) as PayPalOAuthResponse;
-    if (!r.ok || !d.access_token) throw err(r.status || 502, d.error_description || d.error || 'PayPal auth failed');
-    return d.access_token;
-}
-
 // ---- Email helpers ----
 function fromAddr(): string { return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>'; }
 function adminRcpt(): string[] { return (process.env.ORDER_NOTIFICATION_EMAIL || process.env.ADMIN_ORDER_EMAIL || ADMIN_EMAIL).split(',').map(e => e.trim()).filter(Boolean); }
@@ -84,6 +62,9 @@ export interface PricingItem { productId: string; selectedSize: string; quantity
 export interface PriceSnapshot {
     itemTotalCents: number; shippingCents: number; discountCents: number; storeCreditCents: number; totalCents: number;
     couponDiscountCents: number; couponCode: string | null;
+    // Method-specific crypto (SGCoin) discount, split out so the checkout
+    // order summary can render its own line. Always 0 for card (Stripe).
+    cryptoDiscountCents: number;
     items: Array<{ productId: string; productName: string; selectedSize: string; quantity: number; unitCents: number; lineCents: number; basePriceDollars: number; addOnCents: number; keychainClipOn: boolean; }>;
 }
 
@@ -137,7 +118,20 @@ async function loadProducts(ids: string[]): Promise<Map<string, ProductRow>> {
     return m;
 }
 
-export async function resolvePricing(items: PricingItem[], shippingDollars: number, clientDiscountDollars: number, paymentMethod: string, storeCreditCents: number = 0, couponCode?: string | null): Promise<PriceSnapshot> {
+// storeCreditAppliedCents: store credit the server ALREADY applied when the
+// PaymentIntent was charged (create-payment-intent recomputes it from the
+// profile and returns the applied amount). complete-order forwards it so the
+// order's re-pricing matches the charged amount exactly instead of failing
+// verification with "Stripe amount mismatch". Capped against the requested
+// store-credit path below, and re-verified against the live profile balance
+// in acceptCheckout, so a stale client value can never over-credit.
+// ---- Crypto (SGCoin) discount -------------------------------------------
+// The shared helper lives in utils/cryptoDiscount.ts (client-safe — the
+// checkout UI imports the SAME calculation for its badge, so the advertised
+// offer and the server math can never disagree). resolvePricing consumes it
+// for the `crypto` method only.
+
+export async function resolvePricing(items: PricingItem[], shippingDollars: number, clientDiscountDollars: number, paymentMethod: string, storeCreditCents: number = 0, couponCode?: string | null, storeCreditAppliedCents: number = 0): Promise<PriceSnapshot> {
     if (!items.length) throw err(400, 'At least one item required.');
     const products = await loadProducts([...new Set(items.map(i => i.productId))]);
     let itemTotalCents = 0;
@@ -163,23 +157,36 @@ export async function resolvePricing(items: PricingItem[], shippingDollars: numb
     if (shipCents !== 0 && shipCents !== 500 && shipCents !== 1000) throw err(400, 'Shipping must be 0, 5, or 10.');
     const setBonus = calculateAboveAsBelowSetBonusCents(items.map(i => ({ productId: i.productId, quantity: i.quantity })));
     const otherDisc = Math.max(0, toCents(clientDiscountDollars, 'Discount') - setBonus);
+    // Crypto discount (SGCoin incentive): applies to the `crypto` method
+    // ONLY — card (Stripe) never sees it, matching the rule that the crypto
+    // discount cannot combine with external processors. Gated on the same
+    // env flag the checkout UI badge reads, so the advertised offer and the
+    // server math can never disagree. Capped at $10 so large carts stay
+    // bounded. Computed on the post-set-bonus payable base.
+    const basePayableCents = Math.max(0, itemTotalCents + shipCents - setBonus);
+    const cryptoDiscountCents = paymentMethod === 'crypto'
+        ? resolveCryptoDiscountCents(items.map(i => ({ productId: i.productId, quantity: i.quantity, price: (products.get(i.productId)?.price || 0) })), shippingDollars, setBonus)
+        : 0;
     // Crypto/store_credit discounts (passed via clientDiscountDollars) only
-    // apply to non-PayPal/Stripe methods. Store credit itself is handled
+    // apply to non-card methods. Store credit itself is handled
     // via the separate storeCreditCents param and applies to ALL methods.
     // The returned storeCreditCents is capped to the actual amount used —
     // if credit exceeds the pre-credit total, the excess is ignored.
     const rawScCents = Math.max(0, Math.round(Number(storeCreditCents) || 0));
+    // Server-stated credit (already charged into a PaymentIntent upstream)
+    // is authoritative when present; the requested amount is the fallback.
+    const statedAppliedCents = Math.max(0, Math.round(Number(storeCreditAppliedCents) || 0));
     // The coupon base is the pre-coupon payable total (after set bonus and
     // the method-specific crypto discount). Coupon discounts apply to ALL
     // payment methods — they're an explicit discount the customer applied.
-    const couponBaseCents = Math.max(0, itemTotalCents + shipCents - setBonus - (paymentMethod === 'paypal' || paymentMethod === 'stripe' ? 0 : otherDisc));
+    const couponBaseCents = Math.max(0, itemTotalCents + shipCents - setBonus - cryptoDiscountCents - (paymentMethod === 'stripe' ? 0 : otherDisc));
     const couponApplied = await validateCoupon(couponCode, couponBaseCents);
     const couponDiscountCents = couponApplied?.discountCents || 0;
     const preCreditTotal = Math.max(0, couponBaseCents - couponDiscountCents);
-    const scCents = Math.min(rawScCents, preCreditTotal);
-    const discCents = setBonus + (paymentMethod === 'paypal' || paymentMethod === 'stripe' ? 0 : otherDisc) + couponDiscountCents + scCents;
+    const scCents = Math.min(statedAppliedCents > 0 ? statedAppliedCents : rawScCents, preCreditTotal);
+    const discCents = setBonus + cryptoDiscountCents + (paymentMethod === 'stripe' ? 0 : otherDisc) + couponDiscountCents + scCents;
     const totalCents = Math.max(0, itemTotalCents + shipCents - discCents);
-    return { itemTotalCents, shippingCents: shipCents, discountCents: discCents, storeCreditCents: scCents, totalCents, couponDiscountCents, couponCode: couponApplied?.coupon.code || null, items: resolved };
+    return { itemTotalCents, shippingCents: shipCents, discountCents: discCents, storeCreditCents: scCents, cryptoDiscountCents, totalCents, couponDiscountCents, couponCode: couponApplied?.coupon.code || null, items: resolved };
 }
 
 // =========================================================================
@@ -187,24 +194,10 @@ export async function resolvePricing(items: PricingItem[], shippingDollars: numb
 // =========================================================================
 
 export type PaymentEvidence =
-    | { method: 'paypal'; paypalOrderId: string; paypalCaptureId: string; referenceId: string }
     | { method: 'stripe'; paymentIntentId: string }
     | { method: 'crypto' | 'cashapp' | 'store_credit' };
 
-export interface VerifiedPayment { method: string; paymentReference: string; paypalOrderId: string | null; paidAt: string | null; }
-
-async function verifyPP(paypalOrderId: string, paypalCaptureId: string, refId: string, expectedDollars: string): Promise<PayPalCaptureConfirmation> {
-    const tok = await ppToken();
-    const r = await fetch(ppBase() + '/v2/checkout/orders/' + encodeURIComponent(paypalOrderId), { headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' } });
-    const d: PayPalOrderResponse = await r.json().catch(() => ({}));
-    if (!r.ok) throw err(r.status || 502, d.message || d.error || 'PayPal verify failed.');
-    const pu = d.purchase_units?.[0];
-    const cap = pu?.payments?.captures?.find((c: any) => c.id === paypalCaptureId);
-    if (d.status !== 'COMPLETED' || cap?.status !== 'COMPLETED') throw err(402, 'PayPal capture not completed.');
-    if (pu?.reference_id && refId && pu.reference_id !== refId) throw err(409, 'PayPal reference mismatch.');
-    if (cap.amount?.currency_code !== CURRENCY || money(cap.amount?.value) !== expectedDollars) throw err(409, 'PayPal amount mismatch.');
-    return { paypalOrderId, paypalCaptureId, payerEmail: d.payer?.email_address || null };
-}
+export interface VerifiedPayment { method: string; paymentReference: string; paidAt: string | null; }
 
 async function verifySPI(pi: string, expectedCents: number): Promise<void> {
     const k = process.env.STRIPE_SECRET_KEY;
@@ -221,17 +214,13 @@ async function verifySPI(pi: string, expectedCents: number): Promise<void> {
 
 export async function verifyPayment(evidence: PaymentEvidence, expectedTotalCents: number): Promise<VerifiedPayment> {
     const now = new Date().toISOString();
-    if (evidence.method === 'paypal') {
-        await verifyPP(evidence.paypalOrderId, evidence.paypalCaptureId, evidence.referenceId, c2d(expectedTotalCents));
-        return { method: 'paypal', paymentReference: evidence.paypalCaptureId, paypalOrderId: evidence.paypalOrderId, paidAt: now };
-    }
     if (evidence.method === 'stripe') {
         await verifySPI(evidence.paymentIntentId, expectedTotalCents);
-        return { method: 'stripe', paymentReference: evidence.paymentIntentId, paypalOrderId: null, paidAt: now };
+        return { method: 'stripe', paymentReference: evidence.paymentIntentId, paidAt: now };
     }
     // Manual methods (crypto, cashapp) are verified by the operator off-
     // platform and stay pending until confirmed — paidAt stays null.
-    return { method: evidence.method, paymentReference: '', paypalOrderId: null, paidAt: evidence.method !== 'crypto' && evidence.method !== 'cashapp' ? now : null };
+    return { method: evidence.method, paymentReference: '', paidAt: evidence.method !== 'crypto' && evidence.method !== 'cashapp' ? now : null };
 }
 
 // =========================================================================
@@ -240,17 +229,17 @@ export async function verifyPayment(evidence: PaymentEvidence, expectedTotalCent
 
 function isColErr(e: any): boolean {
     const t = (e?.code + ' ' + e?.message + ' ' + e?.details).toLowerCase();
-    return t.includes('payment_reference') || t.includes('paypal_order_id') || t.includes('schema cache') || t.includes('column');
+    return t.includes('payment_reference') || t.includes('schema cache') || t.includes('column');
 }
 function legacyRow(r: OrderRow): any {
-    const ref = r.payment_reference, pid = r.paypal_order_id;
+    const ref = r.payment_reference;
     const l: any = { ...r }; delete l.payment_reference; delete l.paypal_order_id; delete l.paid_amount; delete l.balance_due;
-    const n = [ref ? 'Payment reference: ' + ref : '', pid ? 'PayPal order ID: ' + pid : ''].filter(Boolean).join('\n');
+    const n = [ref ? 'Payment reference: ' + ref : ''].filter(Boolean).join('\n');
     if (n) l.notes = [l.notes, n].filter(Boolean).join('\n');
     return l;
 }
 async function findDup(s: SupabaseClient, r: OrderRow): Promise<OrderRow | null> {
-    for (const f of ['paypal_order_id', 'payment_reference'] as const) {
+    for (const f of ['payment_reference'] as const) {
         if (!r[f]) continue;
         const { data, error } = await s.from('orders').select('*').eq(f, r[f]).maybeSingle();
         if (error) { if (isColErr(error)) throw err(503, 'Schema missing payment columns.'); throw err(500, error.message); }
@@ -293,14 +282,12 @@ async function sendAdm(rec: OrderRow): Promise<void> {
     const r = new Resend(key);
     const shipping = (rec.shipping_address || {}) as Record<string, unknown>;
     const payRef = rec.payment_reference || '';
-    const ppId = rec.paypal_order_id || '';
     const itemsRows = (rec.items || []).map((i: any) => {
         const up = Number(i.price || 0); const q = Math.max(1, Number(i.quantity || 1));
         return '<tr><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;"><strong>' + esc(i.productName || i.name) + '</strong><br><span style="color:#6b7280;font-size:13px;">Size: ' + esc(i.selectedSize || i.size) + ' - Qty: ' + q + '</span></td><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;text-align:right;">$' + up.toFixed(2) + '</td><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;text-align:right;">$' + (up * q).toFixed(2) + '</td></tr>';
     }).join('');
     const payRefRow = payRef ? '<tr><td style="padding:12px;background:#f9fafb;"><strong>Payment Ref</strong></td><td style="padding:12px;text-align:right;">' + esc(payRef) + '</td></tr>' : '';
-    const ppRow = ppId ? '<tr><td style="padding:12px;background:#f9fafb;"><strong>PayPal Order</strong></td><td style="padding:12px;text-align:right;">' + esc(ppId) + '</td></tr>' : '';
-    const html = '<div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:28px;background:#fff;color:#111827;"><h1 style="margin:0 0 8px;letter-spacing:2px;text-transform:uppercase;">Order Ready To Fulfill</h1><p style="margin:0 0 24px;color:#6b7280;">A paid order was placed on sgcoalition.xyz. Prepare, pack, and ship the items below.</p><div style="background:#111827;color:#fff;border-radius:8px;padding:18px;margin-bottom:24px;"><div style="font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#9ca3af;">Fulfillment Summary</div><div style="font-size:28px;font-weight:bold;margin-top:4px;">' + esc(rec.order_number) + '</div><div style="margin-top:8px;">Total: <strong>$' + Number(rec.total || 0).toFixed(2) + '</strong> | Payment: <strong>' + esc(rec.payment_method) + ' / ' + esc(rec.payment_status) + '</strong></div></div><table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;"><tr><td style="padding:12px;background:#f9fafb;"><strong>Order</strong></td><td style="padding:12px;text-align:right;">' + esc(rec.order_number) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Total</strong></td><td style="padding:12px;text-align:right;">$' + Number(rec.total || 0).toFixed(2) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Payment</strong></td><td style="padding:12px;text-align:right;">' + esc(rec.payment_method) + ' / ' + esc(rec.payment_status) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Shipping</strong></td><td style="padding:12px;text-align:right;">' + esc(shipping.shippingMethod || 'standard') + ' ($' + Number(shipping.shippingCost || 0).toFixed(2) + ')</td></tr>' + payRefRow + ppRow + '</table><h2 style="font-size:18px;margin:0 0 10px;">Customer</h2><p style="margin:0 0 20px;line-height:1.6;">' + esc(rec.customer_name) + '<br><a href="mailto:' + esc(rec.customer_email) + '">' + esc(rec.customer_email) + '</a><br>' + esc(rec.customer_phone || '') + '</p><h2 style="font-size:18px;margin:0 0 10px;">Ship To</h2><p style="margin:0 0 20px;line-height:1.6;">' + formatAddr(rec.shipping_address as any) + '</p><h2 style="font-size:18px;margin:0 0 10px;">Items</h2><table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;"><tr><th align="left" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Item</th><th align="right" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Unit</th><th align="right" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Line</th></tr>' + itemsRows + '</table><div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;padding:16px;margin-bottom:24px;"><strong>Next step:</strong> Pull the items, verify size/quantity, pack the order, then update the admin dashboard when it ships.</div><p style="margin-top:24px;"><a href="https://sgcoalition.xyz/#/admin" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Admin Dashboard</a></p></div>';
+    const html = '<div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:28px;background:#fff;color:#111827;"><h1 style="margin:0 0 8px;letter-spacing:2px;text-transform:uppercase;">Order Ready To Fulfill</h1><p style="margin:0 0 24px;color:#6b7280;">A paid order was placed on sgcoalition.xyz. Prepare, pack, and ship the items below.</p><div style="background:#111827;color:#fff;border-radius:8px;padding:18px;margin-bottom:24px;"><div style="font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#9ca3af;">Fulfillment Summary</div><div style="font-size:28px;font-weight:bold;margin-top:4px;">' + esc(rec.order_number) + '</div><div style="margin-top:8px;">Total: <strong>$' + Number(rec.total || 0).toFixed(2) + '</strong> | Payment: <strong>' + esc(rec.payment_method) + ' / ' + esc(rec.payment_status) + '</strong></div></div><table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;"><tr><td style="padding:12px;background:#f9fafb;"><strong>Order</strong></td><td style="padding:12px;text-align:right;">' + esc(rec.order_number) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Total</strong></td><td style="padding:12px;text-align:right;">$' + Number(rec.total || 0).toFixed(2) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Payment</strong></td><td style="padding:12px;text-align:right;">' + esc(rec.payment_method) + ' / ' + esc(rec.payment_status) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Shipping</strong></td><td style="padding:12px;text-align:right;">' + esc(shipping.shippingMethod || 'standard') + ' ($' + Number(shipping.shippingCost || 0).toFixed(2) + ')</td></tr>' + payRefRow + '</table><h2 style="font-size:18px;margin:0 0 10px;">Customer</h2><p style="margin:0 0 20px;line-height:1.6;">' + esc(rec.customer_name) + '<br><a href="mailto:' + esc(rec.customer_email) + '">' + esc(rec.customer_email) + '</a><br>' + esc(rec.customer_phone || '') + '</p><h2 style="font-size:18px;margin:0 0 10px;">Ship To</h2><p style="margin:0 0 20px;line-height:1.6;">' + formatAddr(rec.shipping_address as any) + '</p><h2 style="font-size:18px;margin:0 0 10px;">Items</h2><table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;"><tr><th align="left" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Item</th><th align="right" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Unit</th><th align="right" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Line</th></tr>' + itemsRows + '</table><div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;padding:16px;margin-bottom:24px;"><strong>Next step:</strong> Pull the items, verify size/quantity, pack the order, then update the admin dashboard when it ships.</div><p style="margin-top:24px;"><a href="https://sgcoalition.xyz/#/admin" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Admin Dashboard</a></p></div>';
     const result = await r.emails.send({ from: fromAddr(), to: rcpts, subject: 'ACTION REQUIRED: Prepare Coalition order ' + rec.order_number, html } as any);
     if ((result as any)?.error) throw new Error((result as any).error.message);
 }
@@ -324,14 +311,41 @@ export interface CheckoutAttempt {
     shippingAddress?: Record<string, unknown> | null;
     sgCoinReward?: number; notes?: string;
     couponCode?: string | null;
+    // Store credit the payment-creation step already applied and charged
+    // (Stripe intents). acceptCheckout re-verifies it against the live
+    // profile balance and debits the profile exactly once per order.
+    serverCreditCents?: number;
 }
 
 export interface AcceptCheckoutResult { order: OrderRow; created: boolean; }
 
 export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCheckoutResult> {
+    // Store credit: create-payment-intent applies + debits the intent amount
+    // from the live profile and forwards the applied amount here. Re-verify
+    // against the CURRENT profile balance before re-pricing — the intent may
+    // be older than the balance (another order spent credit in between), and
+    // a stale value must not resurrect spent credit. If the balance can no
+    // longer cover the stated credit the order is declined (409) rather than
+    // silently repriced: the buyer already paid the discounted amount.
+    const statedCreditCents = Math.max(0, Math.round(Number(attempt.serverCreditCents) || 0));
+    let serverCreditCents = 0;
+    if (statedCreditCents > 0 && attempt.userId && uuid(attempt.userId)) {
+        const { data: profile, error: profileErr } = await sb()
+            .from('profiles')
+            .select('store_credit')
+            .eq('id', attempt.userId)
+            .maybeSingle();
+        if (profileErr) throw err(500, profileErr.message || 'Profile lookup failed.');
+        const balanceCents = Math.round(Number(profile?.store_credit || 0) * 100);
+        if (balanceCents < statedCreditCents) {
+            throw err(409, 'Store credit balance has changed since payment started. Contact support.');
+        }
+        serverCreditCents = statedCreditCents;
+    }
+
     const pricing = await resolvePricing(
         attempt.items.map(i => ({ productId: i.productId, selectedSize: i.selectedSize, quantity: i.quantity, keychainClipOn: Boolean(i.keychainClipOn) })),
-        attempt.shippingDollars, attempt.clientDiscount, attempt.paymentEvidence.method, 0, attempt.couponCode);
+        attempt.shippingDollars, attempt.clientDiscount, attempt.paymentEvidence.method, 0, attempt.couponCode, serverCreditCents);
     if (attempt.clientTotal !== undefined) {
         const cc = toCents(attempt.clientTotal, 'Client total');
         if (cc !== pricing.totalCents) console.warn('[OrderIntake] Total mismatch: client=' + cc + 'c server=' + pricing.totalCents + 'c');
@@ -350,17 +364,21 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
         // Legacy NOT NULL column (predates the refactor) — mirrors total.
         total_amount: Number(c2d(pricing.totalCents)),
         payment_method: payment.method, payment_status: payment.method === 'crypto' || payment.method === 'cashapp' ? 'pending' : 'paid',
-        payment_reference: payment.paymentReference || null, paypal_order_id: payment.paypalOrderId, order_type: 'online',
+        payment_reference: payment.paymentReference || null, paypal_order_id: null, order_type: 'online',
         shipping_address: (attempt.shippingAddress || null) as OrderRow['shipping_address'],
         // The production orders table requires NOT NULL shipping_info (the
         // column predates the refactor and is still live). Writing only
         // shipping_address made every insert fail with a NOT NULL violation
         // after the order-intake refactor — which is why all checkout paths
-        // (Stripe, PayPal, crypto) stopped creating orders. Mirror the
+        // (Stripe, crypto) stopped creating orders. Mirror the
         // shipping address into both columns.
         shipping_info: (attempt.shippingAddress || null) as OrderRow['shipping_address'],
         notes: [attempt.notes || '', pricing.couponCode && pricing.couponDiscountCents > 0
             ? 'Coupon: ' + pricing.couponCode + ' (-$' + c2d(pricing.couponDiscountCents) + ')'
+            : '', pricing.storeCreditCents > 0
+            ? 'Store credit applied: -$' + c2d(pricing.storeCreditCents)
+            : '', pricing.cryptoDiscountCents > 0
+            ? 'Crypto discount (' + Math.min(100, Number(process.env.VITE_SGCOIN_DISCOUNT_PERCENTAGE || 10)) + '%): -$' + c2d(pricing.cryptoDiscountCents)
             : ''].filter(Boolean).join('\n'),
         created_at: now, paid_at: payment.paidAt || null,
         facebook_username: attempt.facebookUsername || null,
@@ -376,6 +394,75 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
     row.balance_due = paymentState.balanceDue;
 
     const saved = await persistOrder(row);
+
+    // Store credit was applied → debit the buyer's profile balance exactly
+    // once per order. The balance re-verification above ran BEFORE
+    // persistOrder, so a profile that spent its credit mid-checkout fails
+    // closed before any money lands. The write itself is guarded by a CAS on
+    // store_credit >= applied — a concurrent spend between the check and the
+    // write no-ops (credit was already consumed; the order is still valid
+    // because the payment verification uses the post-credit total) and logs.
+    if (saved.created && serverCreditCents > 0 && attempt.userId && uuid(attempt.userId)) {
+        try {
+            const { data: curProfile } = await sb()
+                .from('profiles')
+                .select('store_credit')
+                .eq('id', attempt.userId)
+                .maybeSingle();
+            const currentCents = Math.round(Number(curProfile?.store_credit || 0) * 100);
+            const debitCents = Math.min(serverCreditCents, currentCents);
+            const { error: debitErr } = await sb()
+                .from('profiles')
+                .update({ store_credit: (currentCents - debitCents) / 100 })
+                .eq('id', attempt.userId)
+                .gte('store_credit', debitCents / 100);
+            if (debitErr) throw new Error(debitErr.message);
+        } catch (e) {
+            console.warn('[OrderIntake] Store credit debit failed:', (e as Error)?.message || e);
+        }
+    }
+
+    // Inventory reservation (oversell guard). Pricing VALIDATED stock above,
+    // but nothing decremented it server-side — two concurrent buyers of a
+    // stock-1 piece could both pass validation. After a CREATED order on a
+    // PAID method, each purchased size line is decremented. Pending manual
+    // methods (crypto/cashapp) intentionally skip the decrement: the buyer
+    // may never actually pay, and the operator's manual order flow can
+    // already deduct at fulfillment time.
+    const isPaidNow = payment.method !== 'crypto' && payment.method !== 'cashapp';
+    if (saved.created && isPaidNow) {
+        for (const pi of pricing.items) {
+            const { data: curProduct } = await sb()
+                .from('products')
+                .select('size_inventory')
+                .eq('id', pi.productId)
+                .maybeSingle();
+            // Defensive shape handling: the PostgREST select returns
+            // size_inventory as an object; some drivers/proxies (and older
+            // clients) may hand back an array of rows instead.
+            const rawInv = (curProduct as { size_inventory?: unknown } | null)?.size_inventory;
+            const inv = (rawInv && typeof rawInv === 'object' && !Array.isArray(rawInv)
+                ? rawInv
+                : (Array.isArray(rawInv) && rawInv[0]?.size_inventory) || {}) as Record<string, number>;
+            if (!Object.hasOwn(inv, pi.selectedSize)) continue;
+            const currentQty = Number(inv[pi.selectedSize] || 0);
+            if (currentQty <= 0) {
+                throw err(409, (pi.productName || pi.productId) + ' size ' + pi.selectedSize + ' just sold out. Please remove it and try again.');
+            }
+            const { error: decErr } = await sb()
+                .from('products')
+                .update({ size_inventory: { ...inv, [pi.selectedSize]: currentQty - pi.quantity } })
+                .eq('id', pi.productId)
+                .gte('size_inventory->>' + pi.selectedSize, String(pi.quantity));
+            if (decErr || currentQty - pi.quantity < 0) {
+                throw err(409, (pi.productName || pi.productId) + ' size ' + pi.selectedSize + ' just sold out. Please remove it and try again.');
+            }
+            if (currentQty - pi.quantity <= 0) {
+                console.log('[OrderIntake] Sold out flag: ' + pi.productId + ' size ' + pi.selectedSize + ' hit 0 after order ' + saved.record.id);
+            }
+            console.log('[OrderIntake] Inventory: ' + pi.productId + ' size ' + pi.selectedSize + ' ' + currentQty + ' -> ' + (currentQty - pi.quantity) + ' (order ' + saved.record.id + ')');
+        }
+    }
 
     // Redeemed a coupon → count the usage exactly once per order. Optimistic
     // CAS on used_count so a concurrent checkout can't double-count; if the

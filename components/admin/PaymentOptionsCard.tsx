@@ -7,7 +7,7 @@
 // change applies to the live checkout immediately, no redeploy.
 //
 // Endpoint contract (api/_handlers/payment-settings.ts):
-//   GET  -> { card_enabled, paypal_enabled, klarna_enabled, crypto_enabled }
+//   GET  -> { card_enabled, klarna_enabled, cashapp_enabled, crypto_enabled }
 //   PATCH { <flag>_enabled: boolean } (admin) -> updated row
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -16,16 +16,16 @@ import { useToast } from '../../context/ToastContext';
 
 interface PaymentFlags {
     card: boolean;
-    paypal: boolean;
     klarna: boolean;
     cashapp: boolean;
     crypto: boolean;
 }
 
-// NOTE: PayPal + Klarna default OFF — seller verification paused PayPal and
-// the owner asked to hide the pay-later options. Card + Cash App + Crypto
-// are the working primary paths.
-const DEFAULT_FLAGS: PaymentFlags = { card: true, paypal: false, klarna: false, cashapp: true, crypto: true };
+// NOTE: PayPal checkout was removed from the product (its legacy
+// `paypal_enabled` DB column is ignored). Klarna defaults OFF — the owner
+// asked to hide the pay-later options. Card + Cash App + Crypto are the
+// working primary paths.
+const DEFAULT_FLAGS: PaymentFlags = { card: true, klarna: false, cashapp: true, crypto: true };
 
 const ROWS: { key: keyof PaymentFlags; label: string; detail: string; icon: React.ReactNode; accent: string }[] = [
     {
@@ -34,13 +34,6 @@ const ROWS: { key: keyof PaymentFlags; label: string; detail: string; icon: Reac
         detail: 'Visa, Mastercard, Amex via Stripe — the primary checkout path',
         icon: <CreditCard className="w-4 h-4" />,
         accent: 'bg-violet-500/10 border-violet-500/20 text-violet-400',
-    },
-    {
-        key: 'paypal',
-        label: 'PayPal',
-        detail: 'PayPal wallet, Apple Pay, and Pay in 4',
-        icon: <Wallet className="w-4 h-4" />,
-        accent: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
     },
     {
         key: 'klarna',
@@ -87,14 +80,13 @@ const PaymentOptionsCard: React.FC = () => {
             if (response.ok && typeof body.card_enabled === 'boolean') {
                 setFlags({
                     card: !!body.card_enabled,
-                    paypal: !!body.paypal_enabled,
                     klarna: !!body.klarna_enabled,
                     cashapp: !!body.cashapp_enabled,
                     crypto: !!body.crypto_enabled,
                 });
             }
             // On failure keep the current (default = card/cashapp/crypto on,
-            // paypal/klarna off) state — the
+            // klarna off) state — the
             // checkout does the same, so the card never shows a state the
             // live site doesn't match.
         } catch {
@@ -139,7 +131,6 @@ const PaymentOptionsCard: React.FC = () => {
             if (typeof body.card_enabled === 'boolean') {
                 setFlags({
                     card: !!body.card_enabled,
-                    paypal: !!body.paypal_enabled,
                     klarna: !!body.klarna_enabled,
                     cashapp: !!body.cashapp_enabled,
                     crypto: !!body.crypto_enabled,

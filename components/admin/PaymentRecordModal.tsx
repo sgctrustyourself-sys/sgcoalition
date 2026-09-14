@@ -106,7 +106,7 @@ const PaymentRecordModal: React.FC<PaymentRecordModalProps> = ({
                         <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}
                             className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2.5 text-white focus:border-white/30 outline-none text-sm">
                             <option value="cash">Cash</option><option value="cashapp">Cash App</option><option value="venmo">Venmo</option>
-                            <option value="zelle">Zelle</option><option value="paypal">PayPal</option><option value="other">Other</option>
+                            <option value="zelle">Zelle</option><option value="other">Other</option>
                         </select>
                     </div>
                     <div>

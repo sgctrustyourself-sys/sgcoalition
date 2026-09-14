@@ -47,10 +47,11 @@ function getSupabaseAdmin(): SupabaseClient {
     return createClient(supabaseUrl, serviceRoleKey);
 }
 
-// body flag name -> settings key. Only these are writable.
+// body flag name -> settings key. Only these are writable. (The legacy
+// `paypal_enabled` DB column is deliberately not exposed — PayPal checkout
+// was removed from the product.)
 const FLAG_TO_KEY: Record<string, keyof PaymentSettings> = {
     card_enabled: 'card',
-    paypal_enabled: 'paypal',
     klarna_enabled: 'klarna',
     cashapp_enabled: 'cashapp',
     crypto_enabled: 'crypto',
@@ -61,7 +62,6 @@ const FLAG_TO_KEY: Record<string, keyof PaymentSettings> = {
 function toWire(settings: PaymentSettings) {
     return {
         card_enabled: settings.card,
-        paypal_enabled: settings.paypal,
         klarna_enabled: settings.klarna,
         cashapp_enabled: settings.cashapp,
         crypto_enabled: settings.crypto,
@@ -78,7 +78,7 @@ async function saveSettings(patch: Partial<PaymentSettings>): Promise<PaymentSet
     const { data, error } = await supabase
         .from('payment_settings')
         .upsert({ id: 1, ...row }, { onConflict: 'id' })
-        .select('card_enabled, paypal_enabled, klarna_enabled, cashapp_enabled, crypto_enabled')
+        .select('card_enabled, klarna_enabled, cashapp_enabled, crypto_enabled')
         .single();
 
     if (error || !data) {
@@ -87,7 +87,6 @@ async function saveSettings(patch: Partial<PaymentSettings>): Promise<PaymentSet
 
     return {
         card: data.card_enabled !== false,
-        paypal: data.paypal_enabled !== false,
         klarna: data.klarna_enabled !== false,
         cashapp: data.cashapp_enabled !== false,
         crypto: data.crypto_enabled !== false,

@@ -20,18 +20,9 @@ vi.mock('../context/ToastContext', () => ({
 
 const ALL_ON = {
     card_enabled: true,
-    paypal_enabled: true,
     klarna_enabled: true,
     cashapp_enabled: true,
     crypto_enabled: true,
-};
-
-const ALL_OFF = {
-    card_enabled: false,
-    paypal_enabled: false,
-    klarna_enabled: false,
-    cashapp_enabled: false,
-    crypto_enabled: false,
 };
 
 /** Stub global fetch: GET returns `settings`; a successful PATCH applies the
@@ -90,14 +81,16 @@ describe('PaymentOptionsCard', () => {
         return el as HTMLButtonElement;
     }
 
-    it('renders five switches reflecting the GET response', async () => {
+    it('renders four switches reflecting the GET response', async () => {
         mockFetch(ALL_ON);
         await renderCard();
 
         expect(container.querySelector('[data-testid="payment-options-card"]')).toBeTruthy();
-        for (const key of ['card', 'paypal', 'klarna', 'cashapp', 'crypto']) {
+        for (const key of ['card', 'klarna', 'cashapp', 'crypto']) {
             expect(toggleFor(key).getAttribute('aria-checked')).toBe('true');
         }
+        // PayPal was removed from the product — no toggle may exist for it.
+        expect(container.querySelector('[data-testid="payment-option-toggle-paypal"]')).toBeNull();
     });
 
     it('renders disabled options as off when the owner turned them off', async () => {
@@ -130,10 +123,10 @@ describe('PaymentOptionsCard', () => {
         mockFetch(ALL_ON, 401);
         await renderCard();
 
-        await act(async () => { toggleFor('paypal').click(); });
+        await act(async () => { toggleFor('crypto').click(); });
 
         // Reverted to the server truth after the failed write.
-        expect(toggleFor('paypal').getAttribute('aria-checked')).toBe('true');
+        expect(toggleFor('crypto').getAttribute('aria-checked')).toBe('true');
         // The card surfaces the real server error (not the fallback string).
         expect(vi.mocked(useToast).mock.results[0].value.addToast).toHaveBeenCalledWith(
             expect.stringContaining('Admin authorization required.'),

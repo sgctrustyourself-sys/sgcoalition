@@ -188,8 +188,6 @@ export interface Order {
   paymentMethod: string;
   paymentStatus: OrderStatus;
   paymentReference?: string;
-  paypalOrderId?: string;
-  paypalCaptureId?: string;
   orderType: 'online' | 'manual';
   shippingAddress?: {
     address1: string;
