@@ -42,24 +42,18 @@ The README's top banner shows `/api/*` returning 503 in production (per-operator
 
 Until resolved: checkout is gated, but browsing + carting still work.
 
-### 5. Verify a Resend sending domain (real member emails)
+### 5. ~~Verify a Resend sending domain~~ — DONE (2026-09-14)
 
-The Trust Circle drop-voucher email (commit `d760273`), referral onboarding, and order notifications all route through Resend via `/api/send-email`. Resend is currently on its **free / testing plan**, which only delivers to the account owner's verified address (`sgctrustyourself@gmail.com`) until a sending domain is verified at resend.com/domains. Real member sends fail today — gracefully: the voucher still lands and the admin toast reads "issued, but the email failed to send," so the failure is silent to the owner unless the toast is caught.
+Completed end-to-end from the CLI in one session — no dashboard visits:
 
-Steps:
+- **Domain**: `mail.sgcoalition.xyz` registered in Resend via API (id `5f950468-a150-45df-a0cc-59ec4661dab4`, region us-east-1).
+- **DNS** (written via `vercel dns add`, zone hosted on Vercel DNS): DKIM TXT on `resend._domainkey.mail`, SPF MX + TXT on `send.mail`, tracking CNAME `rsend.mail`. All four flipped to **verified** in Resend in ~20 min. Gotcha for future rotations: Resend's lazy poller sat on `not_started` for 5+ minutes — the check only ran after an explicit `POST /domains/{id}/verify` nudge.
+- **Bonus**: monitor-only DMARC record `_dmarc.mail` → `v=DMARC1; p=none; rua=mailto:sgctrustyourself@gmail.com; fo=1` (aggregate reports land in the owner inbox; `p=none` means zero enforcement risk).
+- **`RESEND_FROM_EMAIL`** set in Vercel production: `SG Coalition <noreply@mail.sgcoalition.xyz>`, synced to local `.env`. CLI quirk: `vercel env add`/`rm` raced each other on the existing empty-valued var ("already exists" vs pull showing `""`) — fixed via the REST API (`DELETE /v9/projects/{id}/env/{envId}` then `POST /v10/projects/{id}/env`).
+- **Effect**: the free-plan testing restriction (owner-address-only delivery) is lifted. Order confirmations, admin fulfillment, Trust Circle vouchers, and webhook reconcile alerts now deliver to arbitrary member addresses with SPF/DKIM aligned to `mail.sgcoalition.xyz`.
+- Remaining habit from the old runbook that still matters: verify a real send in resend.com → Logs after any Resend account change.
 
-1. Log in at https://resend.com → **Domains** → **Add Domain**. Use a dedicated subdomain (e.g. `mail.sgcoalition.xyz` or `updates.sgcoalition.xyz`) — Resend recommends a subdomain so the root apex stays clean and the SPF/DKIM records never conflict with other mail on the root domain.
-2. Copy the DNS records Resend shows (one SPF `TXT` record + the DKIM `TXT` records) and add them at wherever `sgcoalition.xyz` DNS is hosted (registrar or Cloudflare).
-3. Wait for propagation — Resend polls automatically; verification usually lands in minutes but can take up to an hour depending on DNS TTL. The domain row flips to **Verified**.
-4. Set `RESEND_FROM_EMAIL` in Vercel → Project Settings → Environment Variables for **Production** (and Preview if you want test flows) to `SG Coalition <noreply@mail.sgcoalition.xyz>` (use your subdomain). The `send-email` handler defaults to `SG Coalition <onboarding@resend.dev>` when this env var is unset — and that address can never deliver to members, so skipping this step is a loud tripwire rather than a silent one.
-5. Trigger a redeploy. This env var is read server-side at request time, so no Build Cache OFF is needed — a normal redeploy picks it up.
-6. Verify: issue a test Drop voucher in admin → Trust Circle (or trigger any order/referral email) to a **non-owner** address (e.g. a personal Gmail), and confirm delivery. Check resend.com → **Logs** for send status.
-
-Notes:
-
-- `RESEND_API_KEY` is already configured in Vercel — the owner-address send returned 200 during live verification.
-- **No plan upgrade is required** — domain verification is free and lifts the testing restriction on its own.
-- DNS record values are generated per-domain by Resend; don't copy values from this doc or another project.
+Known follow-up surfaced during this work: `POST /api/send-email` is an unauthenticated relay (any caller can send email as the brand). Candidate for a shared-secret or origin check.
 
 ## Active program notice
 
@@ -114,7 +108,7 @@ Not blocking; do when bundle slices accumulate.
 | 2 | Configure Sentry alert rule | Operator | sentry.io dashboard | 5 min |
 | 3 | ~~PayPal live cutover~~ | — | Removed: PayPal checkout is no longer part of the product | — |
 | 4 | Resolve 503 incident | Operator | Vercel Dashboard | 20 min (per the 4-click recipe) |
-| 5 | Verify Resend sending domain | Operator | resend.com + DNS provider + Vercel env | 15 min |
+| 5 | ~~Verify Resend sending domain~~ — **done 2026-09-14** | — | — | — |
 | 6 | Lazy-load 3 framer-motion consumers | Maintainer | n/a (code) | 30 min |
 | 7 | Wire Sentry session replay (when wanted) | Maintainer | n/a (code) | 10 min |
 | 8 | Anchor live-orders seed timestamps | Maintainer | n/a (code) | 30 min |
