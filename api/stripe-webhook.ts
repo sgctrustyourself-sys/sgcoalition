@@ -84,7 +84,7 @@ export function isValidOrderId(value: unknown): value is string {
  * option — and returns whether the failure is retryable so the caller can
  * pick the HTTP status that controls Stripe redelivery.
  */
-async function tryAutoReconcile(orderId: string, paymentIntentId: string): Promise<{ reconciled: boolean; retryable: boolean }> {
+async function tryAutoReconcile(orderId: string, paymentIntentId: string, eventId?: string): Promise<{ reconciled: boolean; retryable: boolean }> {
     const result = await reconcilePayment(orderId);
     if (result.success) {
         console.log('[stripe-webhook] Reconciled order ' + orderId + ' (PI ' + paymentIntentId + ')');
@@ -98,7 +98,7 @@ async function tryAutoReconcile(orderId: string, paymentIntentId: string): Promi
     // the response returns, which would silently drop a void'd send. The
     // failure path is rare and the helper swallows its own errors, so the
     // (at most ~1s) delay is worth the delivery guarantee.
-    await notifyAdminReconcileFailure(orderId, paymentIntentId, result.error || 'Unknown reconcile failure', retryable);
+    await notifyAdminReconcileFailure(orderId, paymentIntentId, result.error || 'Unknown reconcile failure', retryable, eventId);
     return { reconciled: false, retryable };
 }
 
@@ -179,7 +179,7 @@ export default async function handler(
                 res.status(400).json({ error: 'Malformed order_id metadata' });
                 return;
             } else {
-                const { reconciled, retryable } = await tryAutoReconcile(orderId, paymentIntent.id);
+                const { reconciled, retryable } = await tryAutoReconcile(orderId, paymentIntent.id, event.id);
                 if (!reconciled) {
                     // 500 only for transient failures (DB/network) — Stripe
                     // retries those. Permanent failures (missing order, RPC

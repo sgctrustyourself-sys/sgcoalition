@@ -191,6 +191,20 @@ describe('stripe-webhook reconcile hardening', () => {
         expect(call.html).toContain('Permanently unreconcilable');
     });
 
+    it('alert email carries Stripe event ID and one-click triage links', async () => {
+        stubOrderLookup({ data: null, error: null });
+
+        await post(piSucceeded());
+        const call = mockResendSend.mock.calls[0][0];
+        // Stripe event ID (from the signed envelope) is in the email body
+        expect(call.html).toContain('evt_test_1');
+        // Deep link into the admin orders view, pre-filtered on the order id
+        // (& is HTML-escaped in the href attribute, as it must be)
+        expect(call.html).toContain('/#/admin?tab=orders&amp;q=order_123');
+        // Direct link to the payment in the Stripe dashboard
+        expect(call.html).toContain('dashboard.stripe.com/payments/pi_test_123');
+    });
+
     it('DB outage during lookup -> 500 (Stripe retries), transient alert', async () => {
         stubOrderLookup({ data: null, error: { message: 'connection reset' } });
 

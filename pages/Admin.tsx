@@ -1,4 +1,5 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, Suspense, lazy, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AdminLayout from '../components/admin/AdminLayout';
 import { useApp } from '../context/AppContext';
 
@@ -37,9 +38,42 @@ const LoadingSpinner = () => (
     </div>
 );
 
+// Tabs addressable via ?tab=<id> (deep links from ops emails). Unknown or
+// missing values fall back to the default tab.
+const VALID_TABS = ['command-center', 'products', 'orders', 'blog', 'reviews', 'analytics', 'referrals', 'sgcoin-distribution', 'sgcoin-requests', 'sgcoin-payouts', 'instagram', 'git', 'giveaways', 'inquiries', 'signals', 'users', 'brain', 'settings', 'images', 'customer-profile', 'trust-circle', 'coupons'] as const;
+type Tab = typeof VALID_TABS[number];
+
 const Admin: React.FC = () => {
     const { user } = useApp();
-    const [activeTab, setActiveTab] = useState<'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'sgcoin-payouts' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'users' | 'brain' | 'settings' | 'images' | 'customer-profile' | 'trust-circle' | 'coupons'>('command-center');
+    const [searchParams, setSearchParams] = useSearchParams();
+    // ?tab=<id> seeds the tab (deep links from ops emails); after mount the
+    // state is authoritative so normal tab clicks keep working.
+    const [activeTab, setActiveTab] = useState<Tab>(() => {
+        const t = searchParams.get('tab');
+        return (t && (VALID_TABS as readonly string[]).includes(t) ? t : 'command-center') as Tab;
+    });
+
+    // ?q=<search> seeds OrderManager's search box (e.g. an order id from a
+    // webhook alert email). Applied on mount via sessionStorage; OrderManager
+    // owns the value afterwards.
+    const [qApplied, setQApplied] = useState(false);
+    useEffect(() => {
+        if (qApplied) return;
+        const q = searchParams.get('q');
+        const tab = searchParams.get('tab');
+        if (q) {
+            sessionStorage.setItem('admin_order_search', q);
+        }
+        // Both params consumed — clean the URL so refreshes don't re-apply a
+        // stale search.
+        if (q || tab) {
+            const next = new URLSearchParams(searchParams);
+            next.delete('q');
+            next.delete('tab');
+            setSearchParams(next, { replace: true });
+        }
+        setQApplied(true);
+    }, [qApplied, searchParams, setSearchParams]);
 
     const renderContent = () => {
         switch (activeTab) {
@@ -59,14 +93,6 @@ const Admin: React.FC = () => {
                 return <ReferralAnalytics />;
             case 'sgcoin-distribution':
                 return <SGCoinDistribution />;
-            case 'instagram':
-                return <InstagramLinksManager />;
-            case 'git':
-                return <GitControl />;
-            case 'giveaways':
-                return <GiveawayManager />;
-            case 'inquiries':
-                return <CustomInquiryManager />;
             case 'sgcoin-requests':
                 return <SGCoinRequestManager adminWalletAddress={user?.walletAddress || ''} />;
             case 'sgcoin-payouts':

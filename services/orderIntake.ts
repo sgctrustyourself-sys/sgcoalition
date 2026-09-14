@@ -295,23 +295,31 @@ async function sendAdm(rec: OrderRow): Promise<void> {
 // Ops alert: money moved (payment_intent.succeeded) but the order could not
 // be reconciled. Fire-and-forget — an email failure must never affect the
 // webhook's HTTP response, which controls Stripe retry behavior.
-export async function notifyAdminReconcileFailure(orderId: string, paymentIntentId: string, reason: string, willRetry: boolean): Promise<void> {
+export async function notifyAdminReconcileFailure(orderId: string, paymentIntentId: string, reason: string, willRetry: boolean, eventId?: string | null): Promise<void> {
     try {
         const key = process.env.RESEND_API_KEY;
         const rcpts = adminRcpt();
         if (!key || !rcpts.length) return;
         const r = new Resend(key);
+        // One-click triage: the admin orders view accepts ?tab=orders&q=<id>
+        // (search matches the raw order id), so this link lands pre-filtered
+        // on the exact order row.
+        const adminUrl = 'https://sgcoalition.xyz/#/admin?tab=orders&q=' + encodeURIComponent(orderId);
+        const stripeUrl = 'https://dashboard.stripe.com/payments/' + encodeURIComponent(paymentIntentId);
         const html = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#fff;color:#111827;">'
             + '<h2 style="letter-spacing:1px;text-transform:uppercase;">Webhook reconcile failed</h2>'
             + '<p>A <strong>payment_intent.succeeded</strong> event arrived for sgcoalition.xyz but the order could not be reconciled automatically. Money has moved — resolve manually in the Stripe dashboard and Admin &rarr; Orders.</p>'
+            + '<p><a href="' + esc(adminUrl) + '" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;margin-right:12px;">Triage order in Admin</a>'
+            + '<a href="' + esc(stripeUrl) + '" style="background:#f3f4f6;color:#111827;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">View payment in Stripe</a></p>'
             + '<table cellpadding="8" style="border:1px solid #e5e7eb;border-radius:8px;margin:16px 0;">'
             + '<tr><td style="background:#f9fafb;"><strong>Order ID</strong></td><td><code>' + esc(orderId) + '</code></td></tr>'
+            + (eventId ? '<tr><td style="background:#f9fafb;"><strong>Stripe event</strong></td><td><code>' + esc(eventId) + '</code></td></tr>' : '')
             + '<tr><td style="background:#f9fafb;"><strong>PaymentIntent</strong></td><td><code>' + esc(paymentIntentId) + '</code></td></tr>'
             + '<tr><td style="background:#f9fafb;"><strong>Reason</strong></td><td>' + esc(reason) + '</td></tr>'
             + '<tr><td style="background:#f9fafb;"><strong>Retry</strong></td><td>' + (willRetry ? 'Stripe will redeliver (transient failure)' : 'Permanently unreconcilable — Stripe was told NOT to retry') + '</td></tr>'
             + '<tr><td style="background:#f9fafb;"><strong>Time (UTC)</strong></td><td>' + esc(new Date().toISOString()) + '</td></tr>'
             + '</table>'
-            + '<p style="color:#6b7280;">Check <a href="https://dashboard.stripe.com/payments/' + encodeURIComponent(paymentIntentId) + '">this payment in Stripe</a> and match it to an order before fulfilling.</p>'
+            + '<p style="color:#6b7280;">Match the Stripe payment to an order before fulfilling. If the order never appears in Admin, the webhook arrived before the order write — wait for Stripe\'s retry (transient) or create/verify it manually.</p>'
             + '</div>';
         await r.emails.send({ from: fromAddr(), to: rcpts, subject: 'ACTION REQUIRED: webhook reconcile failed for ' + orderId, html } as any);
     } catch (e) {

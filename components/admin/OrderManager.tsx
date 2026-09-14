@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 import { Order } from '../../types';
@@ -48,7 +48,6 @@ const renderCustomerAttribution = (order: Order): React.ReactNode => {
 const OrderManager: React.FC = () => {
     const { orders, updateOrderStatus, deleteOrder } = useApp();
     const { addToast } = useToast();
-    const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [filterType, setFilterType] = useState<string>('all');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -61,13 +60,36 @@ const OrderManager: React.FC = () => {
     const [reconcilingOrderId, setReconcilingOrderId] = useState<string | null>(null);
     const [showPaymentModal, setShowPaymentModal] = useState<Order | null>(null);
 
+    const [searchTerm, setSearchTerm] = useState(() => {
+        // One-shot handoff from pages/Admin.tsx: a webhook alert email links
+        // to /#/admin?tab=orders&q=<order id>, Admin stores the q param in
+        // sessionStorage and this seeds the search box on first mount so the
+        // operator lands pre-filtered on the exact order row.
+        try {
+            return sessionStorage.getItem('admin_order_search') || '';
+        } catch {
+            return '';
+        }
+    });
+
+    // The seed is one-shot: consume it after the first render so a later
+    // navigation to the orders tab doesn't resurrect a stale search.
+    useEffect(() => {
+        try { sessionStorage.removeItem('admin_order_search'); } catch { /* private mode */ }
+    }, []);
+
     // Filter and search orders
     const filteredOrders = useMemo(() => {
         return orders.filter(order => {
+            const term = searchTerm.toLowerCase();
             const matchesSearch =
-                order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                order.customerEmail.toLowerCase().includes(searchTerm.toLowerCase());
+                order.orderNumber.toLowerCase().includes(term) ||
+                order.customerName.toLowerCase().includes(term) ||
+                order.customerEmail.toLowerCase().includes(term) ||
+                // Alert-email deep links search by the raw order id
+                // (order_<ts>), which is not the same as orderNumber
+                // (ORD-<ts>) — match both so the id always finds the row.
+                (order as any).id?.toLowerCase?.().includes(term);
 
             const matchesStatus = filterStatus === 'all' || order.paymentStatus === filterStatus;
             const matchesType = filterType === 'all' || order.orderType === filterType;
