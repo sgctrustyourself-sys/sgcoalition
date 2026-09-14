@@ -292,6 +292,33 @@ async function sendAdm(rec: OrderRow): Promise<void> {
     if ((result as any)?.error) throw new Error((result as any).error.message);
 }
 
+// Ops alert: money moved (payment_intent.succeeded) but the order could not
+// be reconciled. Fire-and-forget — an email failure must never affect the
+// webhook's HTTP response, which controls Stripe retry behavior.
+export async function notifyAdminReconcileFailure(orderId: string, paymentIntentId: string, reason: string, willRetry: boolean): Promise<void> {
+    try {
+        const key = process.env.RESEND_API_KEY;
+        const rcpts = adminRcpt();
+        if (!key || !rcpts.length) return;
+        const r = new Resend(key);
+        const html = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#fff;color:#111827;">'
+            + '<h2 style="letter-spacing:1px;text-transform:uppercase;">Webhook reconcile failed</h2>'
+            + '<p>A <strong>payment_intent.succeeded</strong> event arrived for sgcoalition.xyz but the order could not be reconciled automatically. Money has moved — resolve manually in the Stripe dashboard and Admin &rarr; Orders.</p>'
+            + '<table cellpadding="8" style="border:1px solid #e5e7eb;border-radius:8px;margin:16px 0;">'
+            + '<tr><td style="background:#f9fafb;"><strong>Order ID</strong></td><td><code>' + esc(orderId) + '</code></td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>PaymentIntent</strong></td><td><code>' + esc(paymentIntentId) + '</code></td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Reason</strong></td><td>' + esc(reason) + '</td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Retry</strong></td><td>' + (willRetry ? 'Stripe will redeliver (transient failure)' : 'Permanently unreconcilable — Stripe was told NOT to retry') + '</td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Time (UTC)</strong></td><td>' + esc(new Date().toISOString()) + '</td></tr>'
+            + '</table>'
+            + '<p style="color:#6b7280;">Check <a href="https://dashboard.stripe.com/payments/' + encodeURIComponent(paymentIntentId) + '">this payment in Stripe</a> and match it to an order before fulfilling.</p>'
+            + '</div>';
+        await r.emails.send({ from: fromAddr(), to: rcpts, subject: 'ACTION REQUIRED: webhook reconcile failed for ' + orderId, html } as any);
+    } catch (e) {
+        console.warn('[OrderIntake] Reconcile-failure alert email failed:', e);
+    }
+}
+
 export async function sendOrderEmails(record: OrderRow): Promise<void> {
     try { await sendCust(record); } catch (e) { console.warn('[OrderIntake] Cust email failed:', e); }
     try { await sendAdm(record); } catch (e) { console.warn('[OrderIntake] Admin email failed:', e); }
@@ -489,18 +516,25 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
 // 6. PROVIDER-NEUTRAL RECONCILIATION
 // =========================================================================
 
-export interface ReconcileResult { success: boolean; error?: string; balancePaid?: number; newTotalPaid?: number; }
+// permanent=true: retrying can never fix it (order genuinely absent) —
+// callers (the Stripe webhook) must NOT ask Stripe to redeliver.
+// Absence of permanent: transient (DB/network) — retrying is correct.
+export interface ReconcileResult { success: boolean; error?: string; permanent?: boolean; notFound?: boolean; balancePaid?: number; newTotalPaid?: number; }
 
 export async function reconcilePayment(orderId: string): Promise<ReconcileResult> {
     const s = sb();
     const { data: o, error: fe } = await s.from('orders').select('id,balance_due,total,payment_status,paid_amount').eq('id', orderId).maybeSingle();
-    if (fe || !o) return { success: false, error: 'Order not found: ' + orderId };
+    if (fe) return { success: false, error: fe.message || 'Order lookup failed.' };
+    if (!o) return { success: false, error: 'Order not found: ' + orderId, permanent: true, notFound: true };
     const bd = Number(o.balance_due ?? 0), pa = Number(o.paid_amount ?? 0), tot = Number(o.total ?? 0);
     if (String(o.payment_status ?? '') !== 'pending') return { success: true };
     if (bd <= 0) return { success: true };
     const { data, error } = await s.rpc('reconcile_balance_payment', { p_order_id: orderId });
-    if (error) return { success: false, error: error.message };
+    if (error) return { success: false, error: error.message }; // transport/DB error — transient
     const r = data as { success: boolean; error?: string; balance_paid?: number; new_total_paid?: number } | null;
     if (r?.success) { console.log('[OrderIntake] Reconciled ' + orderId + ': $' + pa + ' + $' + bd + ' = $' + tot); return { success: true, balancePaid: r.balance_paid, newTotalPaid: r.new_total_paid }; }
-    return { success: false, error: r?.error || 'RPC failed' };
+    // RPC responded with a business rejection (e.g. balance mismatch, status
+    // changed under FOR UPDATE). Retrying cannot change the outcome — flag it
+    // permanent so the webhook alerts instead of burning Stripe retries.
+    return { success: false, error: r?.error || 'RPC failed', permanent: true };
 }
