@@ -165,23 +165,54 @@ try {
         null,
         { timeout: 25000 },
     );
-    const productHref = await page.evaluate(() =>
-        [...document.querySelectorAll('a')].map((a) => a.getAttribute('href')).find((h) => /\/product\//.test(h || '')),
-    );
-    await check('shop lists a product', () => productHref);
+    const productHrefs = await page.evaluate(() => [
+        ...new Set(
+            [...document.querySelectorAll('a')]
+                .map((a) => a.getAttribute('href'))
+                .filter((href) => /\/product\//.test(href || '')),
+        ),
+    ]);
+    await check('shop lists a product', () => (productHrefs.length ? `${productHrefs.length} listed` : null));
 
     // ---- 2. product page offers a bag button, and a size ------------------
+    // The first listed product is not necessarily buyable: archived pieces
+    // deliberately render no Add to bag button (ProductDetails swaps in
+    // "Request similar style"), so pinning to the first link made this check
+    // fail at random whenever the shop happened to lead with a sold-out drop.
+    // Walk the listed products and use the first that actually sells — the
+    // goal is reaching checkout, not exercising a named product — bounded so a
+    // genuinely broken catalog still fails fast and loudly.
     step = 'product';
-    await page.goto(target + productHref, { waitUntil: 'load' });
-    const addToBag = page.getByRole('button', { name: /add to (bag|cart)/i }).first();
-    await addToBag.waitFor({ state: 'visible' });
+    let productHref = null;
+    let addToBag = null;
+    const notBuyable = [];
+    for (const href of productHrefs.slice(0, 8)) {
+        await page.goto(target + href, { waitUntil: 'load' });
+        const candidate = page.getByRole('button', { name: /add to (bag|cart)/i }).first();
+        const buyable = await candidate
+            .waitFor({ state: 'visible', timeout: 15000 })
+            .then(() => true)
+            .catch(() => false);
+        if (buyable) {
+            productHref = href;
+            addToBag = candidate;
+            break;
+        }
+        notBuyable.push(href);
+    }
+    assert(
+        addToBag,
+        `no purchasable product among the first 8 listed (no Add to bag on: ${notBuyable.join(', ') || 'none'})`,
+    );
     const sizeButton = page.locator('button').filter({ hasText: /LEFT$/i }).first();
     const hasSizes = (await sizeButton.count()) > 0;
     if (hasSizes) {
         await sizeButton.click();
         await page.waitForTimeout(800);
     }
-    await check('product page offers a bag button', () => (hasSizes ? 'with sizes' : 'single size'));
+    await check('product page offers a bag button', () =>
+        hasSizes ? `${productHref} (with sizes)` : `${productHref} (single size)`,
+    );
 
     // ---- 3. quantity stepper ---------------------------------------------
     // Stock may legitimately be 1 on a preview database, so the step-up is
