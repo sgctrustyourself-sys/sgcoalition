@@ -1,7 +1,8 @@
 // Admin piece metadata update endpoint.
-// Accepts POST with pieceId, nftTokenId, nfcTagUrl. Verifies the Bearer
-// token against ADMIN_API_TOKEN, then uses SUPABASE_SERVICE_ROLE_KEY to
-// update the numbered_pieces table bypassing RLS.
+// Accepts POST with pieceId, nftTokenId, nfcTagUrl. The admin gate is
+// withAdminAuth() from api/_adminAuth.ts, which owns the credential policy;
+// this handler then uses SUPABASE_SERVICE_ROLE_KEY to update the
+// numbered_pieces table bypassing RLS.
 //
 // WHY: The numbered_pieces table RLS policy for UPDATE requires
 //   EXISTS (SELECT 1 FROM admin_users WHERE user_id = auth.uid())
@@ -10,25 +11,8 @@
 // mirrors the complete-order / admin-products pattern.
 
 import { createClient } from '@supabase/supabase-js';
-import { requireAdmin } from '../_adminAuth.js';
-
-function setCorsHeaders(req: any, res: any) {
-    const configuredOrigin = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
-    const allowedOrigins = new Set([
-        configuredOrigin,
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3001',
-    ]);
-    const requestOrigin = req.headers?.origin;
-    const responseOrigin = requestOrigin && allowedOrigins.has(requestOrigin) ? requestOrigin : configuredOrigin;
-
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', responseOrigin);
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-}
+import { withAdminAuth } from '../_adminAuth.js';
+import { LOCAL_DEV_ORIGINS, parseBody } from '../_helpers.js';
 
 function getSupabaseAdmin() {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
@@ -39,18 +23,6 @@ function getSupabaseAdmin() {
     }
 
     return createClient(supabaseUrl, serviceRoleKey);
-}
-
-function parseBody(req: any) {
-    if (!req.body) return {};
-    if (typeof req.body === 'string') {
-        try {
-            return JSON.parse(req.body);
-        } catch {
-            throw Object.assign(new Error('Invalid JSON request body.'), { status: 400 });
-        }
-    }
-    return req.body;
 }
 
 async function updateMetadata(body: any) {
@@ -88,16 +60,9 @@ async function updateMetadata(body: any) {
     return data;
 }
 
-export default async function handler(req: any, res: any) {
-    setCorsHeaders(req, res);
-
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-
-    if (!requireAdmin(req, res)) return;
-
+// Whole-handler gate. The allowed CORS methods are pinned to GET,OPTIONS,POST
+// (the set this endpoint always advertised) rather than the wrapper's default.
+async function handler(req: any, res: any) {
     try {
         if (req.method === 'POST') {
             res.status(200).json(await updateMetadata(parseBody(req)));
@@ -111,3 +76,7 @@ export default async function handler(req: any, res: any) {
         res.status(status).json({ error: error?.message || 'Piece metadata update failed.' });
     }
 }
+
+export default withAdminAuth(handler, {
+    cors: { originWhitelist: LOCAL_DEV_ORIGINS, methods: 'GET,OPTIONS,POST' },
+});

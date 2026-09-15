@@ -2,8 +2,10 @@ import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from '@google/ge
 import { createClient } from '@supabase/supabase-js';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 // Brain tools are Supabase-session-only by design (they never accepted the
-// shared secret, and still do not). api/_adminAuth.ts owns that policy.
-import { isSupabaseAdminRequest } from '../_adminAuth.js';
+// shared secret, and still do not). api/_adminAuth.ts owns that policy:
+// withAdminAuth wraps the two brain actions, and isAdminPolicy answers the one
+// question that is an enrichment rather than a gate (see handleChat).
+import { withAdminAuth, isAdminPolicy } from '../_adminAuth.js';
 
 type ChatMode = 'brand' | 'full';
 
@@ -189,16 +191,17 @@ function getGenAI() {
     return new GoogleGenerativeAI(apiKey);
 }
 
-function getSupabaseClient(requireServiceRole = false) {
+// Service-role client for the brain table.
+//
+// This used to take a `requireServiceRole` flag and fall back to the anon key.
+// Both call sites passed `true`, so the anon branch, its `return null`, and the
+// downstream `if (!supabase)` guards were unreachable — a second credential
+// policy nobody could exercise. It is gone rather than left as a decoy.
+function getSupabaseClient() {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-    const supabaseKey = requireServiceRole
-        ? process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-        : process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-    if (!supabaseUrl || !supabaseKey) {
-        if (requireServiceRole) throw createHttpError(503, 'Brain write service is not configured.');
-        return null;
-    }
+    if (!supabaseUrl || !supabaseKey) throw createHttpError(503, 'Brain write service is not configured.');
 
     return createClient(supabaseUrl, supabaseKey);
 }
@@ -212,9 +215,9 @@ function safeSearchTerms(topic: string) {
 }
 
 async function recallBrainContext(topic: string) {
-    const supabase = getSupabaseClient(true);
     const searchTerms = safeSearchTerms(topic);
-    if (!supabase || searchTerms.length === 0) return null;
+    if (searchTerms.length === 0) return null;
+    const supabase = getSupabaseClient();
 
     const conditions = searchTerms.map(term => `title.ilike.%${term}%,content.ilike.%${term}%`).join(',');
     const { data, error } = await supabase
@@ -282,7 +285,9 @@ async function handleChat(req: any, body: any) {
     if (!message && !image) throw createHttpError(400, 'Message is required.');
     if (mode === 'full') requireFullAccess(body);
 
-    const isAdmin = await isSupabaseAdminRequest(req);
+    // Enrichment, not access control: the chat action is public either way, and
+    // an admin caller simply gets the brain notes injected into the prompt.
+    const isAdmin = await isAdminPolicy(req, 'supabase');
     const brainContext = isAdmin ? await recallBrainContext(message) : null;
     const effectiveMessage = brainContext
         ? `RELEVANT COALITION BRAIN KNOWLEDGE (use this context when applicable):\n${brainContext}\n\n---\n\nUSER MESSAGE:\n${message}`
@@ -410,15 +415,14 @@ async function handleDesignShirtFromReference(body: any) {
     };
 }
 
+// No auth check here: the only caller is brainActions below, which is wrapped.
 async function handleSaveToBrain(body: any) {
-    if (!body.__isAdmin) throw createHttpError(403, 'Admin access required.');
-    const supabase = getSupabaseClient(true);
+    const supabase = getSupabaseClient();
     const title = String(body.title || '').trim();
     const content = String(body.content || '').trim();
     const tags = Array.isArray(body.tags) ? body.tags.map((tag: unknown) => String(tag).trim()).filter(Boolean).slice(0, 10) : [];
 
     if (!title || !content) throw createHttpError(400, 'Title and content are required.');
-    if (!supabase) throw createHttpError(503, 'Brain write service is not configured.');
 
     const { error } = await supabase
         .from('brain_entries')
@@ -435,8 +439,8 @@ async function handleSaveToBrain(body: any) {
     return { success: true };
 }
 
+// No auth check here: the only caller is brainActions below, which is wrapped.
 async function handleRecallBrainContext(body: any) {
-    if (!body.__isAdmin) throw createHttpError(403, 'Admin access required.');
     const topic = String(body.topic || '').trim();
     if (!topic) return { context: null };
 
@@ -461,6 +465,32 @@ async function handleVerifyPassword(body: any) {
 async function handleValidateToken(body: any) {
     return { success: verifyFullAIToken(body.unlockToken) };
 }
+
+// The two brain actions are an admin-only surface *inside* this handler, so the
+// gate is applied to that branch rather than the whole handler — the chat and
+// image actions beside them are public.
+//
+// This replaced a `__isAdmin` boolean threaded through the body: the flag made
+// the privilege invisible at the point of use, and every new brain action had to
+// remember to receive it. Wrapped, the gate answers 401 before either action
+// runs and a new action cannot be added without it.
+//
+// 'supabase' policy, unchanged from what these actions always enforced.
+const brainActions = withAdminAuth(async (req: any, res: any) => {
+    const body = parseBody(req);
+    try {
+        if (String(body.action || '') === 'saveToBrain') {
+            json(res, 200, await handleSaveToBrain(body));
+            return;
+        }
+        json(res, 200, await handleRecallBrainContext(body));
+    } catch (error: any) {
+        const status = Number(error?.status || 500);
+        const message = status >= 500 ? error?.message || 'AI request failed.' : error.message;
+        console.error('[AI API]', message);
+        json(res, status, { error: message });
+    }
+}, { policy: 'supabase' });
 
 export default async function handler(req: any, res: any) {
     setCorsHeaders(req, res);
@@ -496,10 +526,8 @@ export default async function handler(req: any, res: any) {
                 json(res, 200, await handleDesignShirtFromReference(body));
                 return;
             case 'saveToBrain':
-                json(res, 200, await handleSaveToBrain({ ...body, __isAdmin: await isSupabaseAdminRequest(req) }));
-                return;
             case 'recallBrainContext':
-                json(res, 200, await handleRecallBrainContext({ ...body, __isAdmin: await isSupabaseAdminRequest(req) }));
+                await brainActions(req, res);
                 return;
             case 'verifyFullAIPassword':
                 json(res, 200, await handleVerifyPassword(body));

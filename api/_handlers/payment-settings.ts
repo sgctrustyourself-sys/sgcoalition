@@ -20,7 +20,7 @@ import {
     parseBody,
     setCorsHeaders,
 } from '../_helpers.js';
-import { requireAdmin } from '../_adminAuth.js';
+import { withAdminAuth } from '../_adminAuth.js';
 import {
     loadPaymentSettings,
     type PaymentSettings,
@@ -81,6 +81,32 @@ async function saveSettings(patch: Partial<PaymentSettings>): Promise<PaymentSet
     };
 }
 
+// The admin branch of this handler: changing these flags changes which payment
+// methods shoppers can use, so it is wrapped rather than checked inline. Errors
+// it throws propagate to the single formatter in the handler below.
+const adminSettings = withAdminAuth(async (req: ApiRequest, res: ApiResponse) => {
+    const body = parseBody(req) as Record<string, unknown>;
+    const patch: Partial<PaymentSettings> = {};
+    let found = false;
+
+    for (const [flag, key] of Object.entries(FLAG_TO_KEY)) {
+        if (body[flag] === undefined) continue;
+        if (typeof body[flag] !== 'boolean') {
+            res.status(400).json({ error: `${flag} must be a boolean.` });
+            return;
+        }
+        patch[key] = body[flag] as boolean;
+        found = true;
+    }
+
+    if (!found) {
+        res.status(400).json({ error: 'At least one payment option flag is required.' });
+        return;
+    }
+
+    res.status(200).json(toWire(await saveSettings(patch)));
+});
+
 export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
     setCorsHeaders(req, res);
 
@@ -90,6 +116,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
     }
 
     try {
+        // Public: the checkout reads which payment options are enabled.
         if (req.method === 'GET') {
             const settings = await loadPaymentSettings(getSupabaseAdmin());
             res.status(200).json(toWire(settings));
@@ -97,28 +124,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
         }
 
         if (req.method === 'PATCH' || req.method === 'POST') {
-            if (!requireAdmin(req, res)) return;
-
-            const body = parseBody(req) as Record<string, unknown>;
-            const patch: Partial<PaymentSettings> = {};
-            let found = false;
-
-            for (const [flag, key] of Object.entries(FLAG_TO_KEY)) {
-                if (body[flag] === undefined) continue;
-                if (typeof body[flag] !== 'boolean') {
-                    res.status(400).json({ error: `${flag} must be a boolean.` });
-                    return;
-                }
-                patch[key] = body[flag] as boolean;
-                found = true;
-            }
-
-            if (!found) {
-                res.status(400).json({ error: 'At least one payment option flag is required.' });
-                return;
-            }
-
-            res.status(200).json(toWire(await saveSettings(patch)));
+            await adminSettings(req, res);
             return;
         }
 

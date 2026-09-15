@@ -11,10 +11,11 @@ import {
     parseBody,
     setCorsHeaders,
 } from '../_helpers.js';
-// The admin gate for order listing/updating. Was a local copy that accepted the
-// static token OR a Supabase admin session; api/_adminAuth.ts is now the single
-// owner of that union (see its header for the one disclosed delta).
-import { isAdminRequest } from '../_adminAuth.js';
+// The admin gate for order listing/updating. api/_adminAuth.ts is the single
+// owner of the credential policy (see its header). This used to be two inline
+// `if (!(await isAdminRequest(req))) throw` checks inside the action functions;
+// it is a wrapper now, so the gate cannot be skipped by a new action.
+import { withAdminAuth } from '../_adminAuth.js';
 import {
     acceptCheckout,
     type CheckoutAttempt,
@@ -109,15 +110,15 @@ async function createOrder(req: ApiRequest): Promise<OrderRow | null> {
 // Admin list / update (unchanged)
 // ---------------------------------------------------------------------------
 
+// No auth check here: the only caller is adminOrders below, which is wrapped.
 async function listOrders(req: ApiRequest) {
-    if (!(await isAdminRequest(req))) throw createHttpError(401, 'Admin authorization required.');
     const { data, error } = await getSupabaseAdmin().from('orders').select('*').order('created_at', { ascending: false });
     if (error) throw createHttpError(500, error.message || 'Failed to fetch orders.');
     return (data as OrderRow[] | null) || [];
 }
 
+// No auth check here: the only caller is adminOrders below, which is wrapped.
 async function updateOrder(req: ApiRequest) {
-    if (!(await isAdminRequest(req))) throw createHttpError(401, 'Admin authorization required.');
     const body = parseBody(req) as UpdateOrderBody;
     const id = String(body.id || '').trim();
     if (!id || !body.updates) throw createHttpError(400, 'Order ID and updates are required.');
@@ -130,14 +131,34 @@ async function updateOrder(req: ApiRequest) {
 // Handler
 // ---------------------------------------------------------------------------
 
-export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
-    setCorsHeaders(req, res);
-    if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+// The admin branch of this handler — order listing and updates. Union policy:
+// the dashboard login is a Supabase session, so these accept one alongside the
+// operator's shared secret.
+const adminOrders = withAdminAuth(async (req: ApiRequest, res: ApiResponse) => {
     try {
-        if (req.method === 'POST') { res.status(200).json(await createOrder(req)); return; }
         if (req.method === 'GET') { res.status(200).json(await listOrders(req)); return; }
         if (req.method === 'PATCH') { res.status(200).json(await updateOrder(req)); return; }
         res.status(405).json({ error: 'Method not allowed' });
+    } catch (error: unknown) {
+        const httpError = error as { status?: number; message?: string };
+        const status = Number(httpError?.status || 500);
+        console.error('[Order API]', httpError?.message || error);
+        res.status(status).json({ error: httpError?.message || 'Order request failed.' });
+    }
+}, { policy: 'union' });
+
+export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
+    setCorsHeaders(req, res);
+    if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+
+    // GET/PATCH are the admin branch; POST is the public checkout action and
+    // dispatches around the gate. Anything else falls through to the admin
+    // branch, which answers 405 — so an unlisted method can never reach code
+    // that assumed a credential was checked.
+    if (req.method !== 'POST') { await adminOrders(req, res); return; }
+
+    try {
+        res.status(200).json(await createOrder(req));
     } catch (error: unknown) {
         const httpError = error as { status?: number; message?: string };
         const status = Number(httpError?.status || 500);

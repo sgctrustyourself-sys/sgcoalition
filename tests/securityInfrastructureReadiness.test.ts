@@ -28,8 +28,10 @@ import {
 import {
     withAdminAuth,
     isSharedSecretAdmin,
+    getSharedAdminSecrets,
     extractBearerToken,
     ADMIN_UNAUTHORIZED_ERROR,
+    type AdminPolicy,
 } from '../api/_adminAuth';
 
 const read = (rel: string) => fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
@@ -42,9 +44,6 @@ beforeEach(() => {
     delete process.env.DISABLE_RATE_LIMIT;
     delete process.env.ADMIN_API_TOKEN;
     delete process.env.ADMIN_PASSPHRASE;
-    delete process.env.ADMIN_SESSION_TOKEN;
-    delete process.env.FULL_AI_PASSWORD;
-    delete process.env.AI_SESSION_SECRET;
 });
 
 afterEach(() => {
@@ -273,15 +272,24 @@ describe('withAdminAuth', () => {
         expect(inner).toHaveBeenCalledTimes(1);
     });
 
-    it('still accepts the legacy ADMIN_SESSION_TOKEN (back-compat)', async () => {
+    it('REJECTS the legacy admin secrets — the orphaned credential path is gone', async () => {
+        // ADMIN_SESSION_TOKEN / FULL_AI_PASSWORD / AI_SESSION_SECRET used to be
+        // accepted. None of the three is configured in any environment, so the
+        // path was dead weight kept alive by its own tests — and because two of
+        // the three are ai-chat's AI-ACCESS secrets, accepting them here also
+        // meant that knowing the AI password made you an admin. Pinned so the
+        // path cannot come back: this test fails if the trio is honoured again.
+        process.env.ADMIN_API_TOKEN = 'the-admin-token';
         process.env.ADMIN_SESSION_TOKEN = 'legacy-session-token';
         const inner = vi.fn(async () => {});
+        const res = makeRes();
         await withAdminAuth(inner)(
             makeReq({ headers: { authorization: 'Bearer legacy-session-token' } }) as never,
-            makeRes() as never,
+            res as never,
         );
 
-        expect(inner).toHaveBeenCalledTimes(1);
+        expect(res.statusCode).toBe(401);
+        expect(inner).not.toHaveBeenCalled();
     });
 
     it('rejects a wrong bearer even when secrets are configured', async () => {
@@ -319,44 +327,189 @@ describe('isSharedSecretAdmin / extractBearerToken', () => {
         expect(extractBearerToken(makeReq() as never)).toBe('');
     });
 
-    it('still honours the legacy shared secrets so old deployments keep working', () => {
-        process.env.ADMIN_SESSION_TOKEN = 'legacy-a';
-        expect(isSharedSecretAdmin(makeReq({ headers: { authorization: 'Bearer legacy-a' } }) as never)).toBe(true);
+    it('the credential set is exactly the canonical pair, canonical first', () => {
+        process.env.ADMIN_API_TOKEN = 'token-a';
+        process.env.ADMIN_PASSPHRASE = 'pass-b';
+        process.env.FULL_AI_PASSWORD = 'ai-password';
+        process.env.AI_SESSION_SECRET = 'ai-secret';
+
+        // Order matters: admin-verify returns the first entry as the bearer.
+        expect(getSharedAdminSecrets()).toEqual(['token-a', 'pass-b']);
+        expect(isSharedSecretAdmin(makeReq({ headers: { authorization: 'Bearer ai-password' } }) as never)).toBe(false);
+        expect(isSharedSecretAdmin(makeReq({ headers: { authorization: 'Bearer ai-secret' } }) as never)).toBe(false);
     });
 });
 
 // ---------------------------------------------------------------------------
-// The structural invariant this whole file exists for: admin authorization has
-// exactly ONE implementation. Until 2026-09-15 it had six, and the endpoint
-// with none of them (/api/git-operations) was an unauthenticated repo-write
-// primitive. These assertions fail if anyone re-grows a local copy.
+// The structural invariant this whole file exists for.
+//
+// Admin authorization has exactly ONE gate. Until 2026-09-15 it had six copies,
+// and the endpoint with none of them (/api/git-operations) was an unauthenticated
+// repo-write primitive — a gap nobody had to state out loud, because nothing
+// asked. So nothing below is a hand-kept list of "the handlers we remembered":
+// the handler set is read off disk AND off the route table, and EVERY handler has
+// to be classified as gated or public-with-a-reason. A new handler ships
+// unclassified and fails this suite until someone decides, in writing, which it
+// is and why.
 // ---------------------------------------------------------------------------
-describe('source invariants: admin authorization has one owner', () => {
-    const HANDLERS = [
-        'api/_handlers/git-operations.ts',
-        'api/_handlers/send-email.ts',
-        'api/_handlers/admin-products.ts',
-        'api/_handlers/payment-settings.ts',
-        'api/_handlers/update-piece-metadata.ts',
-        'api/_handlers/complete-order.ts',
-        'api/_handlers/ai-chat.ts',
-        'api/_handlers/marketing-stats.ts',
-    ] as const;
+describe('source invariants: admin authorization has one gate', () => {
+    const HANDLER_DIR = path.join(__dirname, '..', 'api', '_handlers');
 
-    it('no handler implements its own bearer check', () => {
-        for (const file of HANDLERS) {
-            const src = read(file);
-            expect(src, `${file} must not define getBearerToken`).not.toMatch(/function\s+getBearerToken\s*\(/);
-            expect(src, `${file} must not define isAuthorized`).not.toMatch(/function\s+isAuthorized\s*\(/);
-            expect(src, `${file} must not define isAdminRequest`).not.toMatch(/function\s+isAdminRequest\s*\(/);
+    /** Every handler on disk. Derived, so a new file cannot be overlooked. */
+    const handlerFiles = (): string[] =>
+        fs.readdirSync(HANDLER_DIR)
+            .filter((f) => f.endsWith('.ts'))
+            .map((f) => f.replace(/\.ts$/, ''))
+            .sort();
+
+    /** The slugs the route table actually serves. */
+    const routedSlugs = (): string[] =>
+        [...new Set(
+            [...read('api/[...slug].ts').matchAll(/^\s*'([a-z0-9-]+)':\s*\(\)\s*=>\s*import\(/gm)].map((m) => m[1]),
+        )].sort();
+
+    /**
+     * Handlers that MUST go through withAdminAuth, with the policy they accept.
+     * 'union' and 'supabase' are named: a surface that widens or narrows its
+     * accepted credentials has to say so here, deliberately.
+     */
+    const GATED: Record<string, { policy: AdminPolicy; why: string }> = {
+        'git-operations': { policy: 'shared', why: 'repo writes' },
+        'marketing-stats': { policy: 'shared', why: 'marketing figures' },
+        'admin-products': { policy: 'shared', why: 'product CRUD' },
+        'payment-settings': { policy: 'shared', why: 'payment flags (admin branch; GET is public)' },
+        'update-piece-metadata': { policy: 'shared', why: 'numbered-piece metadata' },
+        'complete-order': { policy: 'union', why: 'order list/update; the dashboard login is a Supabase session' },
+        'ai-chat': { policy: 'supabase', why: 'brain actions (that branch; chat/image actions are public)' },
+    };
+
+    /** Handlers with no gate, and why each is safe without one. */
+    const PUBLIC: Record<string, string> = {
+        'admin-verify': 'the login endpoint — it is how a caller obtains the credential',
+        'create-checkout-session': 'a shopper starts a checkout',
+        'create-payment-intent': 'a shopper starts a card payment',
+        'create-subscription-session': 'a shopper starts a membership signup',
+        'csp-report': 'browsers report CSP violations anonymously',
+        'health': 'uptime probe',
+        'marketing-subscribe': 'public newsletter signup',
+        'pricing-preview': 'a shopper previews pricing',
+        'send-email': 'deliberate anonymous allowance; the shared-secret predicate decides the recipient',
+        'send-order-confirmation': 'the checkout flow calls it after an order',
+        'subscribe-drop': 'public drop signup',
+        'unsubscribe': 'one-click unsubscribe from an email link',
+        'verify-subscription': 'membership verification',
+    };
+
+    /**
+     * KNOWN UNPROTECTED — handlers that are neither gated nor safe, listed so the
+     * hole is visible in the suite instead of implied by its absence.
+     *
+     * place-order-credits takes { userId, total } from the request body and, with
+     * the service-role client, DEBITS that profile's store_credit. It has no
+     * credential check at all, and pages/Checkout.tsx calls it with no
+     * Authorization header — so any anonymous caller can spend any user's credit
+     * by naming them. It is NOT fixable with withAdminAuth: the legitimate caller
+     * is a shopper spending their OWN credit, which is a user-scoped policy this
+     * module does not own. Listed rather than guarded so the real fix is a
+     * deliberate change instead of an accident.
+     */
+    const KNOWN_UNPROTECTED: Record<string, string> = {
+        'place-order-credits': 'debits any userId\'s store credit with no credential at all',
+    };
+
+    it('every handler on disk is classified: gated, public, or a known gap', () => {
+        const unclassified = handlerFiles().filter(
+            (h) => !(h in GATED) && !(h in PUBLIC) && !(h in KNOWN_UNPROTECTED),
+        );
+        expect(
+            unclassified,
+            `New handler(s) with no stated authorization decision: ${unclassified.join(', ')}. ` +
+            'Gate it with withAdminAuth (see api/_adminAuth.ts), or add it to PUBLIC with a reason.',
+        ).toEqual([]);
+    });
+
+    it('the classification has no stale entries', () => {
+        const onDisk = new Set(handlerFiles());
+        const stale = [...Object.keys(GATED), ...Object.keys(PUBLIC), ...Object.keys(KNOWN_UNPROTECTED), ...Object.keys(PREDICATE_USE)]
+            .filter((h) => !onDisk.has(h));
+        expect(stale, `Classified handlers that no longer exist: ${stale.join(', ')}`).toEqual([]);
+    });
+
+    it('the anti-vacuity floor: the scan found the handlers, the routes and the gated set', () => {
+        // Without this, a parsing change that matched nothing would make every
+        // assertion above pass over an empty list.
+        expect(handlerFiles().length).toBeGreaterThanOrEqual(21);
+        expect(Object.keys(GATED).length).toBeGreaterThanOrEqual(7);
+        expect(routedSlugs().length).toBeGreaterThanOrEqual(21);
+        // A handler file that is never routed, or a route with no file, is a
+        // second orphan class: both are dead surface nobody is watching.
+        expect(handlerFiles()).toEqual(routedSlugs());
+    });
+
+    it('no gated handler implements its own bearer check', () => {
+        for (const name of Object.keys(GATED)) {
+            const src = read(`api/_handlers/${name}.ts`);
+            expect(src, `${name} must not define getBearerToken`).not.toMatch(/function\s+getBearerToken\s*\(/);
+            expect(src, `${name} must not define isAuthorized`).not.toMatch(/function\s+isAuthorized\s*\(/);
+            expect(src, `${name} must not define isAdminRequest`).not.toMatch(/function\s+isAdminRequest\s*\(/);
         }
     });
 
-    it('no handler reads the admin secrets directly', () => {
-        for (const file of HANDLERS) {
-            expect(read(file), `${file} must let api/_adminAuth.ts own the credential set`)
-                .not.toMatch(/process\.env\.(ADMIN_API_TOKEN|ADMIN_PASSPHRASE|ADMIN_SESSION_TOKEN)/);
+    /**
+     * Handlers allowed to call a policy predicate directly. Neither is a gate —
+     * both are conditionals deciding what a PUBLIC request does:
+     *
+     *   ai-chat         — whether the public chat prompt gets admin-only notes.
+     *   send-email      — which recipient an anonymous caller may address.
+     *
+     * Anything else reaching for a predicate is the inline-gate shape that let
+     * git-operations ship ungated, and must use withAdminAuth instead.
+     */
+    const PREDICATE_USE: Record<string, string> = {
+        'ai-chat': 'enriches the public chat prompt when the caller is a Supabase admin',
+        'send-email': 'decides whether an anonymous caller may address anyone but the owner',
+    };
+
+    it('every gated handler uses the wrapper, never an inline policy check', () => {
+        for (const name of Object.keys(GATED)) {
+            const src = read(`api/_handlers/${name}.ts`);
+            expect(src, `${name} must be gated by withAdminAuth`).toMatch(/withAdminAuth\(/);
+            if (name in PREDICATE_USE) continue;
+            // An inline credential check is the shape that let git-operations
+            // ship with no gate at all: a check somewhere inside a body, which a
+            // new action can simply not call.
+            expect(src, `${name} must not call the policy predicates directly`)
+                .not.toMatch(/\b(isAdminPolicy|isSharedSecretAdmin|isSupabaseAdminUser)\s*\(/);
         }
+    });
+
+    it('each allow-listed predicate caller still uses it', () => {
+        for (const [name, why] of Object.entries(PREDICATE_USE)) {
+            expect(read(`api/_handlers/${name}.ts`), `${name} no longer needs its predicate exemption (${why})`)
+                .toMatch(/\b(isAdminPolicy|isSharedSecretAdmin|isSupabaseAdminUser)\s*\(/);
+        }
+    });
+
+    it('no gated handler reads the admin secrets directly', () => {
+        for (const name of Object.keys(GATED)) {
+            expect(read(`api/_handlers/${name}.ts`), `${name} must let api/_adminAuth.ts own the credential set`)
+                .not.toMatch(/process\.env\.(ADMIN_API_TOKEN|ADMIN_PASSPHRASE)/);
+        }
+    });
+
+    it('a non-default policy is stated at the call site, not left implicit', () => {
+        for (const [name, { policy }] of Object.entries(GATED)) {
+            if (policy === 'shared') continue;
+            expect(read(`api/_handlers/${name}.ts`), `${name} must declare policy: '${policy}'`)
+                .toMatch(new RegExp(`policy:\\s*'${policy}'`));
+        }
+    });
+
+    it('the owner module reads no legacy credential name', () => {
+        // The orphaned trio, pinned deleted at the source level too: only the
+        // comment explaining its removal may mention these names.
+        expect(read('api/_adminAuth.ts'))
+            .not.toMatch(/process\.env\.(ADMIN_SESSION_TOKEN|FULL_AI_PASSWORD|AI_SESSION_SECRET)/);
     });
 
     it('git-operations is gated by the wrapper, so the gate cannot be forgotten', () => {

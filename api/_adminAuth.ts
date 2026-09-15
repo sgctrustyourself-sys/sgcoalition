@@ -1,55 +1,54 @@
 // api/_adminAuth.ts
 //
-// THE SINGLE OWNER OF ADMIN AUTHORIZATION.
+// THE SINGLE GATE FOR ADMIN AUTHORIZATION.
 //
-// Before this module existed the policy existed six times over: four
-// `isAdminRequest`/`isAuthorized`/`getBearerToken` copies across
-// complete-order.ts, ai-chat.ts, admin-products.ts, payment-settings.ts and
-// update-piece-metadata.ts, plus one inline compare — and the endpoint with NO
-// copy at all (git-operations.ts) was an unauthenticated repo-write primitive
-// for months. Two of the copies also implemented a *different* policy without
-// saying so (see POLICY below), so reading any one of them gave a misleading
-// picture of who counts as an admin.
+// History worth keeping: the policy used to exist six times over — four
+// isAdminRequest/isAuthorized/getBearerToken copies plus one inline compare —
+// and the endpoint with NO copy at all (git-operations.ts) was an
+// unauthenticated repo-write primitive for months. Two of the copies also
+// implemented a *different* policy without saying so, so reading any one of
+// them gave a misleading picture of who counts as an admin.
 //
-// POLICY — two independent ways to be an admin, and that is deliberate:
+// Now there is exactly one gate, withAdminAuth(), and the only thing a call site
+// chooses is WHICH CREDENTIALS count for that surface:
 //
-//   1. SHARED SECRET (sync). The operator's browser gets ADMIN_API_TOKEN from
-//      /api/admin-verify on login and echoes it as a Bearer token.
-//      ADMIN_PASSPHRASE is accepted too because admin-verify accepts either as
-//      a login credential, which keeps passphrase-only deployments working.
-//      The legacy trio (ADMIN_SESSION_TOKEN / FULL_AI_PASSWORD /
-//      AI_SESSION_SECRET) is honoured for deployments that predate the
-//      canonical pair and are still set somewhere.
+//   policy: 'shared'   (default) — the shared secret. Synchronous, no network.
+//   policy: 'union'              — the shared secret OR a Supabase admin user.
+//   policy: 'supabase'           — a Supabase admin user only.
 //
-//   2. SUPABASE ADMIN USER (async). A real Supabase session JWT belonging to a
-//      row in `admin_users`. This is the only policy ai-chat.ts had, and one of
-//      the two complete-order.ts had; it exists so a Supabase-authenticated
-//      admin (the dashboard login) can act without the shared secret.
+// The policy is stated at each call site, so the surface that differs is visible
+// in a diff instead of buried in a local copy. Every gated surface is WRAPPED,
+// which is the structural property whose absence caused the git-operations hole:
+// a wrapped handler cannot forget its own gate, because the gate runs before any
+// handler code.
 //
-// WHO USES WHICH:
+// WHO USES WHICH POLICY, and why the outliers are outliers:
 //
-//   withAdminAuth(...)        all-or-nothing surfaces: git-operations,
-//                             marketing-stats. Structurally guarantees the gate
-//                             runs before any handler code — the property whose
-//                             absence caused the git-operations hole.
-//   requireAdmin(req, res)    all-or-nothing, but the handler needs its own
-//                             CORS/method shape: admin-products,
-//                             payment-settings, update-piece-metadata.
-//   isSharedSecretAdmin(req)  partial allowance: send-email (anonymous callers
-//                             may still reach the owner address).
-//   isAdminRequest(req)       the full union, for surfaces where a
-//                             Supabase-authenticated admin must also pass:
-//                             complete-order order listing/update.
-//   isSupabaseAdminRequest()  Supabase-session-only surfaces: ai-chat brain
-//                             tools, which never accepted the shared secret and
-//                             still do not (no widening here).
+//   'shared'    git-operations, marketing-stats, admin-products,
+//               payment-settings, update-piece-metadata — the operator tooling.
+//   'union'     complete-order's order listing/update. The dashboard login is a
+//               Supabase session, so those surfaces must accept one.
+//   'supabase'  ai-chat's brain actions. Deliberately narrower than the union —
+//               they have never accepted the shared secret, and this module does
+//               not widen them.
 //
-// DELIBERATE, DISCLOSED DELTA from the copies this replaced: handlers that
-// compared against ADMIN_API_TOKEN only (admin-products, payment-settings,
-// update-piece-metadata, complete-order) now also accept ADMIN_PASSPHRASE and
-// the legacy trio. Nothing new becomes reachable for an anonymous caller; the
-// set of admin credentials simply stops being defined in six places. In
-// production the set resolves to exactly {ADMIN_API_TOKEN, ADMIN_PASSPHRASE}.
+// Mixed handlers (complete-order, payment-settings, ai-chat) carry public
+// actions alongside admin ones, so the wrapper is applied to the ADMIN BRANCH
+// and the public branch dispatches around it. All-or-nothing surfaces wrap the
+// whole handler.
+//
+// send-email is NOT an admin surface: it has a deliberate anonymous allowance
+// (any caller may reach the owner address) and consults isSharedSecretAdmin() to
+// decide whether the caller may address anyone else. It is the one place a
+// predicate is the right shape.
+//
+// CREDENTIAL SET: ADMIN_API_TOKEN and ADMIN_PASSPHRASE, from one list below. The
+// legacy trio this module used to accept (ADMIN_SESSION_TOKEN / FULL_AI_PASSWORD
+// / AI_SESSION_SECRET) is DELETED: none of the three is set in any environment,
+// so it was an orphaned credential path kept alive only by its own tests — and
+// because FULL_AI_PASSWORD / AI_SESSION_SECRET are ai-chat's AI-access secrets,
+// accepting them here also meant that knowing the AI password made you an admin.
+// Only the canonical pair is honoured now.
 
 import { createClient } from '@supabase/supabase-js';
 import type { ApiRequest, ApiResponse } from './_types.js';
@@ -62,15 +61,12 @@ export const ADMIN_UNAUTHORIZED_ERROR = 'Admin authorization required.';
 // Credential policy
 // ---------------------------------------------------------------------------
 
-/** Legacy shared secrets, kept for deployments that predate the canonical pair. */
-const LEGACY_ADMIN_SECRET_KEYS = ['ADMIN_SESSION_TOKEN', 'FULL_AI_PASSWORD', 'AI_SESSION_SECRET'] as const;
-
 /**
- * Every configured shared secret, canonical first. One list, so a rotation that
- * forgets one name is a one-line change here instead of a six-file hunt.
+ * Every configured shared secret. One list, so a rotation that forgets a name is
+ * a one-line change here instead of a six-file hunt.
  */
 export function getSharedAdminSecrets(): string[] {
-    const keys = ['ADMIN_API_TOKEN', 'ADMIN_PASSPHRASE', ...LEGACY_ADMIN_SECRET_KEYS];
+    const keys = ['ADMIN_API_TOKEN', 'ADMIN_PASSPHRASE'] as const;
     return keys.map((key) => (process.env[key] || '').trim()).filter((secret) => secret.length > 0);
 }
 
@@ -85,7 +81,7 @@ export function extractBearerToken(req: ApiRequest): string {
 }
 
 /**
- * Policy 1: the caller presented a configured shared secret.
+ * Policy 'shared': the caller presented a configured shared secret.
  *
  * Fail-closed — with no secret configured, nobody is an admin.
  */
@@ -96,13 +92,12 @@ export function isSharedSecretAdmin(req: ApiRequest): boolean {
 }
 
 /**
- * Policy 2: the caller presented a Supabase session belonging to an
- * `admin_users` row.
+ * Policy 'union'/'supabase': the caller presented a Supabase session belonging
+ * to an `admin_users` row.
  *
- * The SDK is imported lazily so handlers that only use the shared-secret path
- * (send-email, git-operations, the admin tooling) never pay for it. Every
- * failure mode — no config, bad JWT, query error, thrown exception — returns
- * false rather than propagating, because this runs on the auth path.
+ * The SDK is imported at module top but every failure mode — no config, bad JWT,
+ * query error, thrown exception — returns false rather than propagating, because
+ * this runs on the auth path.
  */
 export async function isSupabaseAdminUser(token: string): Promise<boolean> {
     if (!token) return false;
@@ -128,67 +123,86 @@ export async function isSupabaseAdminUser(token: string): Promise<boolean> {
     }
 }
 
-/** Policy 2, request-shaped, for surfaces that never accepted shared secrets. */
-export async function isSupabaseAdminRequest(req: ApiRequest): Promise<boolean> {
-    return isSupabaseAdminUser(extractBearerToken(req));
-}
+/** The credential sets a surface can accept. Stated at every call site. */
+export type AdminPolicy = 'shared' | 'union' | 'supabase';
 
-/** The full union: a shared secret OR a Supabase admin user. */
-export async function isAdminRequest(req: ApiRequest): Promise<boolean> {
-    if (isSharedSecretAdmin(req)) return true;
-    return isSupabaseAdminUser(extractBearerToken(req));
+/**
+ * Which policy would admit this caller. THE policy implementation — the wrapper
+ * below is a thin gate over it, so there is one place the credential rules live.
+ *
+ * Exported for the two surfaces that need a CONDITIONAL rather than a gate, and
+ * for nothing else:
+ *
+ *   send-email   — an anonymous caller may still reach the owner address, so it
+ *                  asks whether the caller is an operator before allowing any
+ *                  other recipient.
+ *   ai-chat      — the public chat action enriches its prompt with admin-only
+ *                  brain notes when the caller is a Supabase admin. That is an
+ *                  enrichment, not access control: the action stays public.
+ *
+ * Neither of those is a gate. A new admin surface must use withAdminAuth, which
+ * is asserted by tests/securityInfrastructureReadiness.test.ts.
+ */
+export function isAdminPolicy(req: ApiRequest, policy: AdminPolicy = 'shared'): boolean | Promise<boolean> {
+    if (policy === 'shared') return isSharedSecretAdmin(req);
+
+    const token = extractBearerToken(req);
+    if (policy === 'supabase') return isSupabaseAdminUser(token);
+    // 'union' — shared secret first: the operator's own token answers without a
+    // network round trip, so the common admin call never waits on Supabase.
+    return isSharedSecretAdmin(req) || isSupabaseAdminUser(token);
 }
 
 // ---------------------------------------------------------------------------
-// Gates
+// The gate
 // ---------------------------------------------------------------------------
 
 /**
- * All-or-nothing gate for handlers that manage their own CORS/method shape.
- * Writes the 401 itself and returns false, so callers read:
- *
- *     if (!requireAdmin(req, res)) return;
- *
  * Logs the rejection once, here, rather than in each handler — the earlier
  * per-handler warnings were the only reason a blocked call was visible at all,
  * and git-operations' copy logged a caller-controlled action string.
  */
-export function requireAdmin(req: ApiRequest, res: ApiResponse): boolean {
-    if (isSharedSecretAdmin(req)) return true;
-
+function rejectUnauthenticated(req: ApiRequest, res: ApiResponse): void {
     const path = typeof req?.url === 'string' ? req.url.split('?')[0] : '';
     const safePath = /^[\w\-./]{0,80}$/.test(path) && path ? path : '[non-conforming]';
     console.warn('[admin-auth] rejected unauthenticated request', { path: safePath });
     res.status(401).json({ error: ADMIN_UNAUTHORIZED_ERROR });
-    return false;
 }
 
 export interface WithAdminAuthOptions {
     cors?: CorsOptions;
+    /** Which credentials this surface accepts. Defaults to the shared secret. */
+    policy?: AdminPolicy;
 }
 
 /**
- * Wrap a whole handler so it cannot run without an admin credential:
+ * Wrap a handler so it cannot run without an admin credential:
  *
  *   1. CORS headers (so preflight AND the 401 both echo Origin/Methods/Headers).
  *   2. OPTIONS short-circuit (preflight never carries auth).
- *   3. Shared-secret check, 401 on failure.
+ *   3. The policy check for this surface, 401 on failure.
  *   4. Forward to the inner handler.
  *
  * Step 3 happening before step 4 is the structural guarantee that made
  * git-operations safe; a handler written this way cannot forget its own gate.
+ * For a mixed handler with public actions, wrap the admin branch and let the
+ * public branch dispatch around it — never inline the check.
  */
 export function withAdminAuth(
     handler: (req: ApiRequest, res: ApiResponse) => Promise<unknown>,
     options: WithAdminAuthOptions = {},
 ): (req: ApiRequest, res: ApiResponse) => Promise<void> {
+    const policy = options.policy ?? 'shared';
     return async (req, res) => {
         setCorsHeaders(req, res, options.cors);
         if (req.method === 'OPTIONS') {
             res.status(200).end();
             return;
         }
-        if (!requireAdmin(req, res)) return;
+        if (!(await isAdminPolicy(req, policy))) {
+            rejectUnauthenticated(req, res);
+            return;
+        }
 
         await handler(req, res);
     };

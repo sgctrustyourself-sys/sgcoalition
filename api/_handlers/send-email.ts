@@ -27,8 +27,9 @@ function getOwnerNotificationAddress() {
 
 // The admin-caller check lives in api/_adminAuth.ts (single owner of the whole
 // credential policy). This handler deliberately calls the SHARED-SECRET
-// predicate rather than the all-or-nothing `requireAdmin` gate, because an
+// predicate rather than the all-or-nothing `withAdminAuth` gate, because an
 // anonymous caller is still allowed to reach one recipient (the owner address).
+// It is a conditional, not a gate: it decides WHICH recipient is permitted.
 
 function normalizeRecipient(raw: unknown): string {
     return String(raw ?? '').trim().toLowerCase();

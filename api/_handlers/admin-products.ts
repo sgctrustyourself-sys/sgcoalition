@@ -21,10 +21,9 @@ import {
 import {
     createHttpError,
     parseBody,
-    setCorsHeaders,
     type HttpError,
 } from '../_helpers.js';
-import { requireAdmin } from '../_adminAuth.js';
+import { withAdminAuth } from '../_adminAuth.js';
 
 function getSupabaseAdmin(): SupabaseClient {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
@@ -173,16 +172,10 @@ async function deleteProduct(body: { id?: string }): Promise<{ deleted: true; id
     return { deleted: true, id };
 }
 
-export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
-    setCorsHeaders(req, res);
-
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-
-    if (!requireAdmin(req, res)) return;
-
+// Every action on this surface is an operator action, so the whole handler is
+// wrapped: CORS, the OPTIONS short-circuit and the gate all come from the
+// wrapper, which is what stopped this file carrying its own three-part preamble.
+async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
     try {
         const body = parseBody(req);
 
@@ -209,3 +202,5 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
         res.status(status).json({ error: httpError?.message || 'Product request failed.' });
     }
 }
+
+export default withAdminAuth(handler);
