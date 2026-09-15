@@ -7,14 +7,28 @@
 //
 // The handler is exercised with a mocked Resend boundary; no real email is
 // sent. ADMIN_API_TOKEN is set per-test via the env-stub pattern.
+//
+// DETERMINISM NOTE: the handler is imported ONCE, statically. It reads every
+// env var at request time (isAdminRequest / getOwnerNotificationAddress read
+// process.env inside the call), so per-test env changes take effect without
+// re-importing. A previous version called vi.resetModules() + dynamic import
+// in every test — 12 re-evaluations of the module graph — which intermittently
+// blew Vitest's 5s default timeout under full-suite parallel load (the
+// "random single-file failure" flake). Do not reintroduce per-test imports.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+// vi.mock calls below are hoisted above this import by Vitest, so the mocked
+// Resend/@supabase modules are what the handler binds to. mockResendSend must
+// be vi.hoisted: the handler constructs `new Resend(...)` at module init, so
+// the mock factory runs during the static import — before a plain top-level
+// const would be initialized (TDZ).
+import sendEmailHandler from '../api/_handlers/send-email';
 
 // ---------------------------------------------------------------------------
 // Mock external modules BEFORE importing the handler
 // ---------------------------------------------------------------------------
 
-const mockResendSend = vi.fn();
+const mockResendSend = vi.hoisted(() => vi.fn());
 vi.mock('resend', () => ({
     Resend: vi.fn(function (this: any) {
         return { emails: { send: mockResendSend } };
@@ -35,13 +49,13 @@ const ADMIN_TOKEN = 'admin-token-e2e-12345';
 const MEMBER_EMAIL = 'member@example.test';
 
 beforeEach(() => {
-    vi.resetModules();
     mockResendSend.mockReset();
     mockResendSend.mockResolvedValue({ data: { id: 'email_test_id' }, error: null });
     process.env.RESEND_API_KEY = 're_test_key';
     process.env.RESEND_FROM_EMAIL = 'SG Coalition <noreply@mail.example.test>';
     process.env.ORDER_NOTIFICATION_EMAIL = OWNER_EMAIL;
     process.env.ADMIN_API_TOKEN = ADMIN_TOKEN;
+    delete process.env.ADMIN_PASSPHRASE; // deterministic baseline regardless of test order
     process.env.VITE_APP_URL = 'https://example.test';
 });
 
@@ -82,19 +96,13 @@ function makeRes() {
     return res;
 }
 
-// Import the handler after mocks/env are in place. vi.resetModules() in
-// beforeEach means each test gets a fresh module evaluation.
-async function importHandler() {
-    return (await import('../api/_handlers/send-email')).default;
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 describe('POST /api/send-email anti-relay gate', () => {
     it('anonymous + owner recipient -> 200, Resend called once', async () => {
-        const handler = await importHandler();
+        const handler = sendEmailHandler;
         const res = makeRes();
         await handler(makeReq({ to: OWNER_EMAIL, subject: 's', html: '<p>h</p>' }), res);
 
@@ -105,7 +113,7 @@ describe('POST /api/send-email anti-relay gate', () => {
     });
 
     it('anonymous + member recipient -> 403, Resend NOT called', async () => {
-        const handler = await importHandler();
+        const handler = sendEmailHandler;
         const res = makeRes();
         await handler(makeReq({ to: MEMBER_EMAIL, subject: 's', html: '<p>h</p>' }), res);
 
@@ -114,7 +122,7 @@ describe('POST /api/send-email anti-relay gate', () => {
     });
 
     it('wrong token + member recipient -> 403, Resend NOT called', async () => {
-        const handler = await importHandler();
+        const handler = sendEmailHandler;
         const res = makeRes();
         await handler(
             makeReq(
@@ -129,7 +137,7 @@ describe('POST /api/send-email anti-relay gate', () => {
     });
 
     it('valid admin token + member recipient -> 200, Resend called', async () => {
-        const handler = await importHandler();
+        const handler = sendEmailHandler;
         const res = makeRes();
         await handler(
             makeReq(
@@ -147,7 +155,7 @@ describe('POST /api/send-email anti-relay gate', () => {
     it('ADMIN_PASSPHRASE-only deployment: passphrase as bearer -> 200 for member', async () => {
         process.env.ADMIN_API_TOKEN = ''; // deployment only set the passphrase
         process.env.ADMIN_PASSPHRASE = 'operator-passphrase';
-        const handler = await importHandler();
+        const handler = sendEmailHandler;
         const res = makeRes();
         await handler(
             makeReq(
@@ -164,7 +172,7 @@ describe('POST /api/send-email anti-relay gate', () => {
     it('no admin secrets configured at all -> member still 403, owner still 200', async () => {
         process.env.ADMIN_API_TOKEN = '';
         delete process.env.ADMIN_PASSPHRASE;
-        const handler = await importHandler();
+        const handler = sendEmailHandler;
 
         const memberRes = makeRes();
         await handler(
@@ -183,7 +191,7 @@ describe('POST /api/send-email anti-relay gate', () => {
     });
 
     it('admin token also works for owner recipient -> 200', async () => {
-        const handler = await importHandler();
+        const handler = sendEmailHandler;
         const res = makeRes();
         await handler(
             makeReq(
@@ -198,7 +206,7 @@ describe('POST /api/send-email anti-relay gate', () => {
     });
 
     it('recipient match is case-insensitive against ORDER_NOTIFICATION_EMAIL', async () => {
-        const handler = await importHandler();
+        const handler = sendEmailHandler;
         const res = makeRes();
         await handler(
             makeReq({ to: '  Owner@Example.Test  ', subject: 's', html: '<p>h</p>' }),
@@ -210,7 +218,7 @@ describe('POST /api/send-email anti-relay gate', () => {
     });
 
     it('missing fields -> 400 before any auth check, Resend NOT called', async () => {
-        const handler = await importHandler();
+        const handler = sendEmailHandler;
         const res = makeRes();
         await handler(makeReq({ to: MEMBER_EMAIL }), res);
 
@@ -219,7 +227,7 @@ describe('POST /api/send-email anti-relay gate', () => {
     });
 
     it('malformed recipient -> 400, Resend NOT called', async () => {
-        const handler = await importHandler();
+        const handler = sendEmailHandler;
         const res = makeRes();
         await handler(makeReq({ to: 'not-an-email', subject: 's', html: '<p>h</p>' }), res);
 
@@ -228,7 +236,7 @@ describe('POST /api/send-email anti-relay gate', () => {
     });
 
     it('GET request -> 405', async () => {
-        const handler = await importHandler();
+        const handler = sendEmailHandler;
         const res = makeRes();
         await handler({ method: 'GET', headers: {}, body: null } as any, res);
 
@@ -238,7 +246,7 @@ describe('POST /api/send-email anti-relay gate', () => {
 
     it('Resend error -> 500', async () => {
         mockResendSend.mockResolvedValue({ data: null, error: { message: 'boom' } });
-        const handler = await importHandler();
+        const handler = sendEmailHandler;
         const res = makeRes();
         await handler(makeReq({ to: OWNER_EMAIL, subject: 's', html: '<p>h</p>' }), res);
 
