@@ -189,9 +189,21 @@ export async function sendGiveawayValidationEmail(
  */
 async function sendEmail(data: EmailData): Promise<void> {
     try {
+        // /api/send-email is an anti-relay-gated endpoint: admin sessions may
+        // email any recipient; anonymous callers may only reach the owner
+        // notification address. Attach the admin token when the session has
+        // one (same sessionStorage key as admin-verify / payment-settings).
+        let adminToken: string | null = null;
+        try {
+            adminToken = sessionStorage.getItem('coalition_admin_token');
+        } catch {
+            adminToken = null;
+        }
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (adminToken) headers.Authorization = `Bearer ${adminToken}`;
         const response = await fetch('/api/send-email', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
                 to: data.to,
                 subject: data.subject,

@@ -53,6 +53,10 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// /api/send-email requires the admin Bearer token for non-owner recipients
+// (anti-relay gate). This script emails arbitrary members, so the token is
+// mandatory — declared before the fail-fast checks that reference it.
+const ADMIN_TOKEN = (process.env.ADMIN_API_TOKEN || '').trim();
 
 if (!SUPABASE_URL) {
     console.error('!! VITE_SUPABASE_URL missing in .env');
@@ -60,6 +64,10 @@ if (!SUPABASE_URL) {
 }
 if (!SERVICE_KEY) {
     console.error('!! SUPABASE_SERVICE_ROLE_KEY missing in .env (required for auth.users read)');
+    process.exit(1);
+}
+if (!ADMIN_TOKEN) {
+    console.error('!! ADMIN_API_TOKEN missing in .env (required: /api/send-email only allows non-owner recipients with the admin Bearer token)');
     process.exit(1);
 }
 
@@ -248,9 +256,11 @@ function applyWindowGuard(recipients: Recipient[], windowHours: number): Recipie
 async function dispatchEmail(recipient: Recipient): Promise<{ ok: boolean; error?: string; id?: string }> {
     const html = renderReferralCodeOnboardingHtml(recipient, SITE_BASE);
     try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (ADMIN_TOKEN) headers.Authorization = `Bearer ${ADMIN_TOKEN}`;
         const response = await fetch(API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
                 to: recipient.email,
                 subject: REFERRAL_CODE_EMAIL_SUBJECT,

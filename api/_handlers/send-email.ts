@@ -1,9 +1,47 @@
 import { Resend } from 'resend';
 
+// Anti-relay auth gate (pinned by tests/sendEmailGate.test.ts):
+//   - Authorization: Bearer <ADMIN_API_TOKEN or ADMIN_PASSPHRASE>
+//     -> any recipient allowed (admin UI flows: drop vouchers, SGCoin
+//     approvals, referral script). Either secret is accepted, mirroring
+//     admin-verify.ts, which accepts both as login credentials — this keeps
+//     deployments that only set ADMIN_PASSPHRASE working.
+//   - No/invalid token                         -> recipient must be the owner
+//     notification address (ORDER_NOTIFICATION_EMAIL, falling back to the
+//     legacy hardcoded admin email). Anything else -> 403.
+// This endpoint used to be an open relay: any caller could send email as the
+// brand from the verified sending domain. The recipient allowlist + shared
+// secret close that while keeping every existing flow working.
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getResendFromAddress() {
     return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>';
+}
+
+function getOwnerNotificationAddress() {
+    return (process.env.ORDER_NOTIFICATION_EMAIL || '').trim() || 'sgctrustyourself@gmail.com';
+}
+
+function extractBearerToken(req: any): string {
+    const header = req.headers?.authorization || req.headers?.Authorization || '';
+    const match = String(header).match(/^Bearer\s+(.+)$/i);
+    return (match?.[1] || '').trim();
+}
+
+function isAdminRequest(req: any): boolean {
+    const bearer = extractBearerToken(req);
+    if (bearer.length === 0) return false;
+    // Accept either server-side admin secret (mirrors admin-verify.ts):
+    const secrets = [
+        (process.env.ADMIN_API_TOKEN || '').trim(),
+        (process.env.ADMIN_PASSPHRASE || '').trim(),
+    ];
+    return secrets.some((s) => s.length > 0 && bearer === s);
+}
+
+function normalizeRecipient(raw: unknown): string {
+    return String(raw ?? '').trim().toLowerCase();
 }
 
 async function sendResendEmail(payload: any) {
@@ -41,6 +79,18 @@ export default async function handler(req: any, res: any) {
 
         if (!to || !subject || !html) {
             res.status(400).json({ error: 'Missing required fields: to, subject, html' });
+            return;
+        }
+
+        const recipient = normalizeRecipient(to);
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+            res.status(400).json({ error: 'Invalid recipient address.' });
+            return;
+        }
+
+        if (!isAdminRequest(req) && recipient !== normalizeRecipient(getOwnerNotificationAddress())) {
+            console.warn('[send-email] blocked unauthenticated send to non-owner recipient');
+            res.status(403).json({ error: 'Admin token required to email this recipient.' });
             return;
         }
 
