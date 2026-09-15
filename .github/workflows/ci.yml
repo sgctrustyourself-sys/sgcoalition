@@ -47,9 +47,12 @@ jobs:
       - name: Validate production build (Vite + Rollup)
         run: npm run build
         env:
-          # The prebuild hook (generateSeoArtifacts.mjs) parses
-          # INITIAL_PRODUCTS from source to generate sitemaps and
-          # static SEO pages. No Supabase or Imgur secrets required.
+          # Both hooks run the SEO generator (generateSeoArtifacts.mjs),
+          # which parses INITIAL_PRODUCTS from source — no Supabase or Imgur
+          # secrets required. prebuild writes sitemap.xml + robots.txt into
+          # public/ (so Vite's copy ships them); postbuild emits the
+          # prerendered pages under dist/<path>/index.html, which needs
+          # dist/index.html to exist first.
 
       - name: Audit dependencies (depcheck)
         run: npx depcheck --ignores="@types/*,eslint*,vitest,@vitejs/*,typescript,tsx,tslib,prettier,playwright-core,depcheck"

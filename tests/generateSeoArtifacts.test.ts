@@ -11,6 +11,8 @@
 // These tests lock in the fix so a future refactor can't reintroduce the bug.
 
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
     readStringField,
     readNumberField,
@@ -221,5 +223,32 @@ describe('SEO sitemap priorities', () => {
             { id: soldNoArchiveLimited, archived: false, soldAt: '2026-03-06T00:00:00+00:00', isLimitedEdition: true },
         ]);
         expect(xml).toMatch(rowRegex(soldNoArchiveLimited, 'weekly', '0.8'));
+    });
+});
+
+// The prerendered pages only exist if the generator runs AFTER `vite build`.
+// Before that was wired, main() ran only in prebuild, always bailed at the
+// `dist/index.html` existence check, and silently emitted nothing — which is
+// how the hand-maintained no-JS mirrors in public/ came to exist. Dropping the
+// postbuild hook would delete /shop, /archive and all 30 product pages again
+// without failing any build, so pin the wiring rather than the output.
+describe('SEO generator — build wiring (two-phase contract)', () => {
+    const read = (rel: string) => fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
+    const pkg = JSON.parse(read('package.json'));
+
+    it('runs the generator after the bundle exists (postbuild)', () => {
+        expect(pkg.scripts.postbuild).toContain('generateSeoArtifacts.mjs');
+    });
+
+    it('still runs the generator before the bundle (prebuild) for sitemap + robots', () => {
+        expect(pkg.scripts.prebuild).toContain('generateSeoArtifacts.mjs');
+    });
+
+    it('keeps the Vercel build command going through npm, so both hooks fire', () => {
+        // Vercel runs buildCommand verbatim; switching it to `vite build`
+        // would skip the npm pre/post lifecycle and silently drop every
+        // prerendered page from the deployment.
+        const vercel = JSON.parse(read('vercel.json'));
+        expect(vercel.buildCommand).toBe('npm run build');
     });
 });

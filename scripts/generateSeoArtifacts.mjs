@@ -472,8 +472,24 @@ const main = () => {
   writeTextFile(PUBLIC_DIR, 'sitemap.xml', sitemap);
   writeTextFile(PUBLIC_DIR, 'robots.txt', robots);
 
+  // TWO-PHASE CONTRACT — this script is wired to BOTH npm hooks, and the
+  // two halves deliberately run at different times:
+  //
+  //   prebuild   (before `vite build`)  -> writes public/sitemap.xml and
+  //              public/robots.txt, so Vite's public/ copy ships them in
+  //              dist/. dist/index.html does not exist yet at this point,
+  //              so the branch below bails and no HTML is written.
+  //   postbuild  (after `vite build`)   -> dist/index.html now exists, so
+  //              the prerendered pages under dist/<path>/index.html are
+  //              emitted here. Vercel's filesystem check runs before its
+  //              rewrite rules, so dist/shop/index.html wins for /shop.
+  //
+  // Removing the `postbuild` hook silently deletes every prerendered page
+  // (this exact branch would bail on every build) without failing the
+  // build, which is how the hand-maintained no-JS mirrors in public/ came
+  // to exist in the first place. Keep both hooks.
   if (!fs.existsSync(DIST_INDEX)) {
-    console.log('[seo] Wrote public sitemap.xml and robots.txt. Skipped static HTML because dist/index.html does not exist yet.');
+    console.log('[seo] Wrote public sitemap.xml and robots.txt. Skipped static HTML because dist/index.html does not exist yet (expected on the prebuild pass; the postbuild pass emits it).');
     return;
   }
 

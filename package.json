@@ -16,6 +16,7 @@
     "dev": "vite",
     "prebuild": "npm run check:serverless-imports && node scripts/generateSeoArtifacts.mjs",
     "build": "vite build",
+    "postbuild": "node scripts/generateSeoArtifacts.mjs",
     "preview": "vite preview",
     "generate:seo": "node scripts/generateSeoArtifacts.mjs",
     "audit:chrome": "tsx scripts/audit-urgency-chrome.ts",
