@@ -2,13 +2,17 @@
 
 A flat list of items that surfaced this session and have not landed yet. Owner-keyed so the operator (Dashboard / sentry.io / Vercel work that needs human verification) and the next maintainer (code work that should land in a follow-up commit) can split the work without re-deciding anything.
 
-> **What's NOT on this list:** the Sentry and Security wire-ins are shipped + locked by the readiness test. The double-gating design on Sentry is intentional, not half-finished. The csp-report Supabase persistence is a separate enhancement, not a missed step. The 503 production incident is on this list as an Operator task because the 4-click recipe requires Dashboard access; resolution does not require code changes.
+> **What's NOT on this list:** the csp-report Supabase persistence is a separate enhancement, not a missed step. The double-gating design on Sentry is intentional, not half-finished.
+>
+> **Correction (2026-09-15):** an earlier version of this header claimed "the Sentry and Security wire-ins are shipped + locked by the readiness test". That was wrong for this tree: `grep -r sentry` returned **zero matches**, `services/sentryInit.ts` did not exist, `@sentry/react` was not a dependency, and `tests/securityInfrastructureReadiness.test.ts` — cited twice inside `api/_helpers.ts` as the lock on the rate limiter and admin wrapper — did not exist either. Both are real as of the 2026-09-15 session (see the "Landed" section at the bottom). The lesson worth keeping: a doc claiming a test exists is not evidence that it does.
 
 ## Operator tasks (Dashboard / sentry.io / Vercel side)
 
 ### 1. Provision Sentry project + set `VITE_SENTRY_DSN`
 
-The Sentry wire-in (commits `387f405` + `dc0ddfe`) is on `main` but the init gates to silent no-op until a project exists and the DSN is in Vercel. Until then, production errors are still caught by `ErrorBoundary` and logged to the Vercel runtime via `console.error` — Sentry just doesn't see them.
+The client-side wiring now exists for real (`services/sentryInit.ts` + the React 19 root handlers in `index.tsx`, added 2026-09-15). It is **lazily imported behind `VITE_SENTRY_DSN`**, which Vite inlines at build time — so with no DSN configured the SDK is tree-shaken out entirely and costs the bundle nothing. Verified in the 2026-09-15 production build: no sentry chunk emitted, zero `ingest.sentry.io` references in `dist/assets/*.js`.
+
+Until a DSN is set, production errors are unreported: there is **no React error boundary in this codebase** (see item 11), so a render error currently blank-screens the app and leaves no client-side trace.
 
 Steps:
 
@@ -16,6 +20,8 @@ Steps:
 2. Copy the project's DSN from Project Settings > SDK Setup > Client Keys.
 3. Set `VITE_SENTRY_DSN` in Vercel > Project Settings > Environment Variables for the Production environment. (Optional: also set it for Preview if you want preview-deploy event flow.)
 4. Trigger a redeploy with **Build Cache OFF** — `VITE_SENTRY_DSN` is a `[build]` Vite env var, so it must be baked into the JS bundle.
+
+**Bundle-cost caveat:** once the DSN exists at build time, `@sentry/react` (v10.x) *will* be emitted as its own lazily-loaded chunk and pulled on first paint. That is the intended trade — but it is a deliberate reversal of the zero-cost state above, so re-check `dist/` weights after the first configured build.
 
 Verify on the next production deploy:
 
@@ -36,11 +42,11 @@ Without this filter, you'll get paged for errors the user already saw a recovery
 
 ### 3. (Removed — PayPal checkout has been removed from the product.)
 
-### 4. Resolve the 503 production incident
+### 4. ~~Resolve the 503 production incident~~ — RESOLVED (kept for history)
 
-The README's top banner shows `/api/*` returning 503 in production (per-operator confirmation after the directory-flattening refactor rollback). The 4-click recipe (Dashboard → Deployments → Functions tab → first invocation) lives in [README.md > Production incident](./README.md#production-incident-customer-checkout-at-503) with paste targets in [`docs/postmortems/postmortem-2026-07-08-vercel-stack-traces.md`](./docs/postmortems/postmortem-2026-07-08-vercel-stack-traces.md).
+This was stale. Verified live on 2026-09-15: `GET /api/health` returns `{"status":"ok","checkoutWorking":true,"stripe":{"configured":true,"keyValid":true}}`, and `/api/complete-order`, `/api/send-email`, `/api/admin-verify`, `/api/pricing-preview` all answer with real application responses (400/401 class), not 503. `docs/audit-2026-09-14.md` reached the same conclusion independently. The README incident banner this item referenced is also gone.
 
-Until resolved: checkout is gated, but browsing + carting still work.
+No action required. The item is left in place so nobody re-opens it from an old chat log.
 
 ### 5. ~~Verify a Resend sending domain~~ — DONE (2026-09-14)
 
@@ -80,9 +86,11 @@ No vote will be scheduled — the referendum machinery (VotingSystem, `post_vote
 
 ## Tech debt (next-session commits)
 
-### 6. Lazy-load the 3 remaining framer-motion consumers
+### 6. Trim the eager animation dependency (the count was wrong)
 
-`README.md > Bundle analyzer and lazy-loaded chunks` documents the refactor. Today `SignalAlert`, `RewardActivation`, and `components/ui/ToastContainer` still import `framer-motion` synchronously, keeping ~22 KB gzipped in the eager `index-*.js` chunk. None of them touch auth or realtime state, so wrapping each in `React.lazy + <Suspense fallback={null}>` is straightforward.
+> **Corrected 2026-09-15.** This item claimed "the 3 remaining framer-motion consumers" (`SignalAlert`, `RewardActivation`, `ToastContainer`). The real number is **~20 files** importing the `motion` package (v12 — note it is `motion`, not `framer-motion`) synchronously, and it is not merely "in the eager chunk": production `index.html` **`modulepreload`s `vendor-motion-*.js` on first paint**, so every visitor downloads ~42 KB gzipped of animation code before the app renders. Verified live against the deployed HTML.
+
+Highest-leverage targets are the always-mounted surfaces rather than the three named above: `components/ui/ToastContainer`, `components/IntroScreen`, `components/LiveMap`, `components/layouts/DashboardLayout`, plus the admin components (already behind the Admin route's lazy boundary, so they matter less).
 
 Expected outcome: drop another ~22 KB gzipped off the eager bucket, the next-largest lever after the CartDrawer lazy-carve + ProfileModal deletion this session already shipped (ProfileModal was removed entirely, not just lazy-loaded; see README "Bundle analyzer and lazy-loaded chunks").
 
@@ -92,7 +100,9 @@ Not blocking; do when bundle slices accumulate.
 
 ### 7. Session replay — wire the integration AND the rate together
 
-`services/sentryInit.ts` documents that session replay is DEFERRED. If a maintainer later wants to enable it, BOTH `Sentry.replayIntegration()` in the `integrations: []` array AND a matching `replaysSessionSampleRate: ...` config field must be added together. The SDK silently drops the rate when no integration is registered, so leaving one without the other is a footgun. The readiness test makes the absence a regression-catch — the comment in the file (and the lock in the test) both pin the deferral as intentional.
+`services/sentryInit.ts` documents that session replay is DEFERRED. If a maintainer later wants to enable it, BOTH `Sentry.replayIntegration()` in the `integrations: []` array AND a matching `replaysSessionSampleRate: ...` config field must be added together. The SDK silently drops the rate when no integration is registered, so leaving one without the other is a footgun.
+
+**Now actually pinned** by `tests/sentryWiring.test.ts` (`session replay stays deliberately deferred`), which strips comments from the source before asserting — so the prose in the file documenting the footgun does not itself satisfy or break the lock.
 
 ### 8. Anchor `PUBLIC_RECENT_ORDER_SEEDS` timestamps
 
@@ -104,14 +114,20 @@ Not blocking; do when bundle slices accumulate.
 
 | # | Item | Owner | External surface | Time est. |
 |---|---|---|---|---|
-| 1 | Provision Sentry + DSN | Operator | sentry.io + Vercel env | 10 min |
-| 2 | Configure Sentry alert rule | Operator | sentry.io dashboard | 5 min |
+| 1 | Provision Sentry + DSN (wiring already ships; no DSN = tree-shaken no-op) | Operator | sentry.io + Vercel env | 10 min |
+| 2 | Configure Sentry alert rule (`tags.source = react19-root-uncaught`) | Operator | sentry.io dashboard | 5 min |
 | 3 | ~~PayPal live cutover~~ | — | Removed: PayPal checkout is no longer part of the product | — |
-| 4 | Resolve 503 incident | Operator | Vercel Dashboard | 20 min (per the 4-click recipe) |
+| 4 | ~~Resolve 503 incident~~ — **resolved (stale item, live-verified 2026-09-15)** | — | — | — |
 | 5 | ~~Verify Resend sending domain~~ — **done 2026-09-14** | — | — | — |
-| 6 | Lazy-load 3 framer-motion consumers | Maintainer | n/a (code) | 30 min |
-| 7 | Wire Sentry session replay (when wanted) | Maintainer | n/a (code) | 10 min |
+| 6 | Trim eager `motion` (~20 files, not 3; modulepreloaded on first paint) | Maintainer | n/a (code) | 30 min |
+| 7 | Wire Sentry session replay (when wanted) — **deferral now pinned by test** | Maintainer | n/a (code) | 10 min |
 | 8 | Anchor live-orders seed timestamps | Maintainer | n/a (code) | 30 min |
+| 9 | Decide `/api/marketing-stats` (authorized but has no caller) | Maintainer | n/a (code) | 20 min |
+| 10 | Decide the dead `upload-imgur` path in `imgurService.ts` | Maintainer | n/a (code) | 15 min |
+| 11 | Add a React error boundary (none exists; `onCaughtError` never fires) | Maintainer | n/a (code) | 45 min |
+| 12 | Delete or token-wire the dead `components/GitManager.tsx` | Maintainer | n/a (code) | 10 min |
+| 13 | Clear `d3-color` (needs a d3 v3 `overrides` decision) | Maintainer | n/a (code) | 30 min |
+| 14 | Real-payment QA: card + store credit + coupon (audit item #4) | Operator | Stripe + Supabase + inbox | 15 min |
 
 ---
 
@@ -161,3 +177,49 @@ Belt-and-suspenders for any operator or LLM dropping credentials into the repo r
 - `*-credentials.json` / `service-account*.json` — GCP/AWS not used in this codebase.
 
 **Future hardening**: a GitHub Action that inverts `git check-ignore -v` to scan staged files against these patterns and fails the push on any match — would catch leaks on a fresh `git add` before they reach origin. Tracked conceptually here; not yet a row in the operator task index above.
+
+---
+
+## Landed 2026-09-15 (session record — read before "fixing" any of it)
+
+### L1. `/api/git-operations` requires an admin bearer now
+
+The endpoint dispatched **every** action without a credential check, and `sync-constants` is exempt from the dev-only 501 guard — so an anonymous `POST` committed to `origin/main` through the server's `GITHUB_TOKEN` (GitHub Contents API) with a **caller-supplied commit message**. Proven reachable before the fix: an unsigned `?action=log` returned the handler's own dev-only payload, i.e. dispatch happened with no auth step.
+
+- `isAdminRequest` / `extractBearerToken` now live in `api/_helpers.ts` as the single definition, reused by `send-email` (two copies is how the contracts drift).
+- The gate runs after CORS/OPTIONS and **before** action dispatch, so unauthenticated callers get 401 rather than a 501 that leaks the action surface.
+- Client call sites attach `coalition_admin_token`: `services/imgurService.ts` (sync-constants), `services/autoCommitService.ts` (commit), `components/admin/GitControl.tsx` (log/branches/checkout/commit). Helpers: `getAdminAuthHeaders()` / `clearAdminSession()` in `services/apiBase.ts`.
+- A 401 clears the stale session and drops admin mode, so `ProtectedRoute` sends the operator back to login instead of leaving a panel where every action fails silently.
+- Pinned by `tests/gitOperationsGate.test.ts` (14 tests, GitHub boundary mocked).
+- Verified live: unsigned POST → 401 · signed `?action=log` → 501 devOnly (gate opened, nothing written) · old token → 401.
+
+### L2. Admin credentials rotated — **the operator must sign in again**
+
+`ADMIN_API_TOKEN` was **11 characters** and load-bearing for every admin write, order listing, payment settings, piece metadata, and branded email send. It is now a 43-char random value (Vercel type `sensitive`, targets preview + production).
+
+`ADMIN_PASSPHRASE` **did not exist in Vercel at all**, so the only login credential was that short token. It now exists, so the browser can hold a strong machine token while the human types something memorable:
+
+- **Login passphrase: `sg-yw7c-qbit-gq7p-uvfw`** (stored in local `.env`; rotate whenever you like — `admin-verify` returns the machine token regardless of which secret you type).
+- Every existing admin session is invalidated once. Live-verified: new passphrase → 200 + the new token; old token as password → 401; the browser receives a token that matches the new machine secret.
+- The env write went through the **REST API**, not the CLI, because of the `vercel env add`/`rm` race documented in item #5 above.
+
+### L3. Dependency advisories: 8 of 9 cleared
+
+`react-router`/`react-router-dom` 7.9.6 → 7.18.4 · `dompurify` 3.4.9 → 3.4.15 · `path-to-regexp` → 8.4.2 · `ws` → 8.21.3 · `body-parser` → 2.3.0. The blog allow-list moved out of `pages/BlogPostView.tsx` into `utils/blogSanitize.ts` so the only `dangerouslySetInnerHTML` path in the app is asserted by behavior (`tests/blogSanitizer.test.ts`), not by trusting a version number.
+
+**Still open (row 13):** `d3-color@2.0.0` ReDoS nested under `react-simple-maps@3 → d3-zoom@2 → d3-transition@2`. Clearing it needs an `overrides` entry that pulls the d3 **v3** module family under a package pinned to v2 — deliberately not forced, because nothing passes untrusted strings to a d3 color parser, so the real exposure is negligible and the override risk (pan/zoom in LiveMap) is not.
+
+### L4. Error reporting now exists; and the "locked by test" claims are true
+
+- `services/sentryInit.ts` + React 19 root handlers in `index.tsx`: DSN-gated, lazily imported, with recursive `beforeSend` redaction (emails, bearer/`sk_live`/`whsec`/`re_` secrets, cookies, auth headers — order and payment ids deliberately survive so incidents stay triageable). Tags `react19-root-uncaught` / `react19-root-caught` are what item #2's alert rule filters on.
+- **Bundle-cost invariant:** because `VITE_SENTRY_DSN` is inlined, an unconfigured build emits no sentry chunk and no `@sentry` reference — verified in `dist/` and against the deployed bundle. `tests/sentryWiring.test.ts` fails if that guard is turned into a static import.
+- `tests/securityInfrastructureReadiness.test.ts` now exists (22 tests): rate-limit budgets/429 shape/per-IP/per-slug/GET-bypass/unknown-IP-fail-open, CORS allow-list echoing, `withAdminAuth` fail-closed + both credential families, and source invariants that keep the admin check shared.
+- `withAdminAuth` now accepts `ADMIN_API_TOKEN`/`ADMIN_PASSPHRASE` first and the legacy trio second. Live: `/api/marketing-stats` went from 401-with-a-valid-token to **200 with real data** (`audience.total: 7`).
+
+### L5. Small diagnostic fix
+
+`services/orderIntake.ts`: a checkout payload omitting `productId` reported `Unavailable: ` with an **empty** id list, because `Array.join` renders `undefined` as an empty string. Now `Unavailable: undefined`. (Found by smoke-testing `/api/pricing-preview`; the endpoint itself was healthy — the probe's payload shape was wrong, items use `productId`, not `id`.)
+
+### Verification state at the end of that session
+
+796 tests across 57 files · `tsc --noEmit` clean · `npm run build` clean (0 warnings) · `main == origin/main == production` · live probes recorded above.
