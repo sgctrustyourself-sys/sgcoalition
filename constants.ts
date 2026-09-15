@@ -215,10 +215,17 @@ export const LIQUIDITY_TARGET_POL = 500;
 export const FALLBACK_LIQUIDITY_POL = 27.6; // Last known good value
 
 export const QUICKSWAP_SWAP_URL = `https://dapp.quickswap.exchange/swap/best/ETH/${SGCOIN_V2_CONTRACT_ADDRESS}?chainId=137`;
+// Public Polygon RPCs, tried in order by services/web3Service.ts.
+// Every entry must also appear in `connect-src` in vercel.json — a host that
+// is not listed there is refused by the browser's CSP before it leaves the
+// page, so the fallback chain silently collapses (verified 2026-09-15: the
+// previous two entries were dead, and the only CSP-allowed one returned
+// "tenant disabled", which left every on-chain read broken in production).
+// All three below answered eth_chainId with 200 when this list was written.
 export const POLYGON_RPC_URLS = [
   "https://polygon-bor.publicnode.com",
-  "https://polygon-rpc.com",
-  "https://rpc-mainnet.maticvigil.com",
+  "https://polygon.drpc.org",
+  "https://rpc.ankr.com/polygon",
 ];
 export const POLYGON_RPC_URL = POLYGON_RPC_URLS[0];
 export const POLYGON_CHAIN_ID = 137;

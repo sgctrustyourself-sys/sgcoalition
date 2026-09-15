@@ -9,11 +9,11 @@ import FeeTransparency from '../components/FeeTransparency';
 import FeedbackLoop from '../components/FeedbackLoop';
 import LiveOrdersTicker from '../components/LiveOrdersTicker';
 import { useApp } from '../context/AppContext';
-import { fetchSGCoinData, fetchRecentTrades, fetchPoolBreakdown, PoolBreakdown } from '../utils/sgcoinApi';
+import { fetchSGCoinData, fetchPoolBreakdown, PoolBreakdown } from '../utils/sgcoinApi';
 import { getGiveawayTicketCount, isSubscriberEligible } from '../utils/giveawayUtils';
 
-import { V2_REWARD_RATE, POLYGON_RPC_URLS, FOUNDER_WALLET_ADDRESS, TREASURY_WALLET_ADDRESS } from '../constants';
-import { getBurnedSGCoinV1 } from '../services/web3Service';
+import { V2_REWARD_RATE, FOUNDER_WALLET_ADDRESS, TREASURY_WALLET_ADDRESS } from '../constants';
+import { getBurnedSGCoinV1, getRobustProvider } from '../services/web3Service';
 
 /**
  * Live-data freshness label. Pure factual copy matching the GitHub
@@ -32,7 +32,6 @@ const formatLastRefreshed = (lastUpdatedAt: Date | null, now: number): string =>
 const Ecosystem = () => {
     const { user, giveaways } = useApp();
     const [coinData, setCoinData] = useState<any>(null);
-    const [trades, setTrades] = useState<any[]>([]);
     const [totalBurned, setTotalBurned] = useState<string>('1,777,161');
     const [activeGiveaway, setActiveGiveaway] = useState<any>(null);
     const [hasEntered, setHasEntered] = useState(false);
@@ -57,14 +56,9 @@ const Ecosystem = () => {
         const loadData = async () => {
             setIsLoadingCoinData(true);
             try {
-                // Try multiple RPCs for the burn stats
-                const { ethers: e } = await import('ethers');
-                let provider = new e.JsonRpcProvider(POLYGON_RPC_URLS[0]);
-                try {
-                    await provider.getNetwork();
-                } catch (err) {
-                    provider = new e.JsonRpcProvider(POLYGON_RPC_URLS[1]);
-                }
+                // One owner for the RPC fallback chain (services/web3Service.ts),
+                // so this page can't collapse when a host dies.
+                const provider = await getRobustProvider();
 
                 const [data, burned, breakdown] = await Promise.all([
                     fetchSGCoinData(),
@@ -76,8 +70,6 @@ const Ecosystem = () => {
                 setTotalBurned(burned);
                 setPoolBreakdown(breakdown);
 
-                const recentTrades = await fetchRecentTrades(data?.price || 0);
-                setTrades(recentTrades);
                 setLastUpdatedAt(new Date());
             } catch (error) {
                 console.error('Error loading ecosystem data:', error);
@@ -451,8 +443,10 @@ const Ecosystem = () => {
                                     <div className="bg-white/5 p-6 rounded-2xl border border-white/5 text-center">
                                         <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3">Core Exchange rate</div>
                                         <div className="text-3xl font-black font-display tracking-tight text-white">1 SGC V2 = ${coinData?.price?.toFixed(6) || '0.0001'}</div>
-                                        {coinData?.price && (
-                                            <div className="text-[9px] text-green-400/60 uppercase tracking-widest mt-1 font-bold">Live on-chain price</div>
+                                        {coinData && (
+                                            <div className={`text-[9px] uppercase tracking-widest mt-1 font-bold ${coinData.isLive ? 'text-green-400/60' : 'text-amber-400/70'}`}>
+                                                {coinData.isLive ? 'Live on-chain price' : 'Live price unavailable — estimate shown'}
+                                            </div>
                                         )}
                                     </div>
 

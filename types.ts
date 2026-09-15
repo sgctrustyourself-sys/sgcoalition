@@ -123,6 +123,12 @@ export interface SGCoinData {
   marketCap: number;
   volume24h: number;
   liquidity: number;
+  /**
+   * True when the numbers above were read from chain. False means the RPC
+   * read failed and these are placeholder values — render them as an
+   * estimate, never as a live price (see utils/sgcoinApi.ts).
+   */
+  isLive?: boolean;
 }
 
 export interface Trade {

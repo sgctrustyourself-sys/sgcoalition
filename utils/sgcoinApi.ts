@@ -218,7 +218,12 @@ export const fetchPoolBreakdown = async (): Promise<PoolBreakdown> => {
 
 /**
  * Fetch live SGCoin price + liquidity from QuickSwap V2 & V3 pools.
- * Falls back to mock data on any RPC error so the UI never breaks.
+ *
+ * Falls back to placeholder data on any RPC error so the UI never breaks,
+ * but the fallback is flagged `isLive: false` — callers must not present
+ * those numbers as a live price. (Before that flag existed, a failed read
+ * left the Ecosystem page labelling `$0.0001` "Live on-chain price" and
+ * computing users' reward projections from it.)
  */
 export const fetchSGCoinData = async (): Promise<SGCoinData> => {
     try {
@@ -243,6 +248,7 @@ export const fetchSGCoinData = async (): Promise<SGCoinData> => {
             volume24h: 0,
             marketCap,
             liquidity: liquidityUsd,
+            isLive: true,
         };
     } catch (error) {
         console.error('[sgcoinApi] On-chain fetch failed, using mock data:', error);
@@ -259,15 +265,6 @@ const getMockData = (): SGCoinData => ({
     volume24h: 0,
     marketCap: 1000,
     liquidity: 4,
+    isLive: false,
 });
 
-// ---------------------------------------------------------------------------
-// Recent trades (unchanged — still mock)
-// ---------------------------------------------------------------------------
-export const fetchRecentTrades = async (currentPrice: number) => {
-    return [
-        { time: Date.now() - 60000, price: currentPrice * 0.98, amount: 1000 },
-        { time: Date.now() - 120000, price: currentPrice * 1.02, amount: 500 },
-        { time: Date.now() - 180000, price: currentPrice, amount: 750 },
-    ];
-};
