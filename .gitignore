@@ -77,6 +77,7 @@ id_ecdsa
 bundle_analysis.txt
 .loader-fade-screenshots/
 .referral-test-screenshots/
+.checkout-smoke-artifacts/
 
 # Freebuff Desktop working directory (SQLite WAL files + db).
 # Reproduce by reinstalling the desktop app — never commit these.

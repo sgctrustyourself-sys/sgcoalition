@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:fade": "node scripts/verify-loader-fade.mjs",
     "test:referral": "node scripts/verify-referral-self-heal.mjs",
+    "smoke:checkout": "node scripts/smoke-checkout.mjs",
     "dev": "vite",
     "prebuild": "npm run check:serverless-imports && node scripts/generateSeoArtifacts.mjs",
     "build": "vite build",

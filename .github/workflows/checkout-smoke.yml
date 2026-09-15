@@ -1,0 +1,138 @@
+name: Checkout Smoke (Playwright)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Fires when the Vercel GitHub app reports a preview deployment ready. If that
+  # app is not installed this trigger never fires — which is exactly why the
+  # pull_request path below exists as the guaranteed runner, so this check can
+  # never silently stop happening.
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Preview URL to smoke (blank = build and smoke a local preview)'
+        required: false
+
+# One optional secret:
+#   VERCEL_AUTOMATION_BYPASS_SECRET — required to smoke a PREVIEW deployment.
+#   Preview URLs of this project are behind Vercel Deployment Protection and
+#   answer 302 to a login wall, so without it the preview step cannot load the
+#   storefront. Create it under Vercel → Project → Settings → Deployment
+#   Protection → Protection Bypass for Automation, and map it to the repo secret
+#   of the same name. Until then this workflow still runs its local-preview step
+#   (client flow; the server-pricing check is reported as skipped).
+
+jobs:
+  smoke:
+    name: Shop-to-checkout smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    concurrency:
+      group: checkout-smoke-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    # Skip the deployment_status path for production deployments: the smoke test
+    # is aimed at previews, and production checkout creates real PaymentIntents.
+    if: >
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment != 'Production')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Resolve target URL
+        id: target
+        # A preview deployment URL when we have one (deployment_status, or a
+        # manual run with an input); otherwise empty, and the fallback step runs.
+        run: |
+          URL="${{ github.event.deployment_status.environment_url || github.event.inputs.base_url }}"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Target: ${URL:-<local preview build>}"
+
+      - name: Check for a protection bypass secret
+        id: bypass
+        # `secrets` is not allowed in a step-level `if`, so surface its presence
+        # as an output here instead of guessing later.
+        env:
+          BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          if [ -n "$BYPASS" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Smoke the preview deployment
+        if: steps.target.outputs.url != '' && steps.bypass.outputs.available == 'true'
+        env:
+          SMOKE_BASE_URL: ${{ steps.target.outputs.url }}
+          SMOKE_BYPASS_TOKEN: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: npm run smoke:checkout
+
+      - name: Note the skipped preview smoke
+        # A URL we cannot reach is not a pass and not a failure: say so loudly so
+        # a green run is never mistaken for "the preview was checked".
+        if: steps.target.outputs.url != '' && steps.bypass.outputs.available != 'true'
+        run: |
+          echo "::notice title=Preview smoke skipped::No VERCEL_AUTOMATION_BYPASS_SECRET is set, and preview deployments here are behind Vercel Deployment Protection. The client flow was smoked against a local build instead; the checkout pricing agreement was NOT verified."
+
+      - name: Build a local preview and smoke the client flow
+        # Runs whenever the preview smoke did NOT run: a plain PR with no preview
+        # URL (no Vercel app installed), or a preview URL we cannot reach without
+        # a bypass secret. Mirrors loader-fade.yml — the server must live in the
+        # same step as the test, because Actions kills background processes when
+        # a step ends.
+        #
+        # `vite preview` serves static files only, so there is no /api here and
+        # the server-pricing check is reported as SKIPPED (SMOKE_SKIP_API). This
+        # step therefore covers the storefront flow — product, quantity, cart
+        # math — and the money-path agreement runs in the preview-deployment
+        # step above, where the API actually exists.
+        if: steps.target.outputs.url == '' || steps.bypass.outputs.available != 'true'
+        run: |
+          npm run build
+          npm run preview -- --port 4173 --host 127.0.0.1 > /tmp/preview.log 2>&1 &
+          PREVIEW_PID=$!
+
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4173/ 2>/dev/null | grep -q 200; then
+              echo "Preview server ready on port 4173"
+              break
+            fi
+            sleep 1
+          done
+
+          if ! curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4173/ 2>/dev/null | grep -q 200; then
+            echo "Preview server failed to start. Log:"
+            cat /tmp/preview.log
+            kill $PREVIEW_PID 2>/dev/null || true
+            exit 1
+          fi
+
+          SMOKE_SKIP_API=1 SMOKE_BASE_URL=http://127.0.0.1:4173 npm run smoke:checkout
+          STATUS=$?
+          kill $PREVIEW_PID 2>/dev/null || true
+          exit $STATUS
+
+      - name: Upload failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkout-smoke-failure
+          path: .checkout-smoke-artifacts/
+          if-no-files-found: ignore

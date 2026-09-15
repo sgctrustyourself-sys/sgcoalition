@@ -12,7 +12,7 @@ A flat list of items that surfaced this session and have not landed yet. Owner-k
 
 The client-side wiring now exists for real (`services/sentryInit.ts` + the React 19 root handlers in `index.tsx`, added 2026-09-15). It is **lazily imported behind `VITE_SENTRY_DSN`**, which Vite inlines at build time — so with no DSN configured the SDK is tree-shaken out entirely and costs the bundle nothing. Verified in the 2026-09-15 production build: no sentry chunk emitted, zero `ingest.sentry.io` references in `dist/assets/*.js`.
 
-Until a DSN is set, production errors are unreported: there is **no React error boundary in this codebase** (see item 11), so a render error currently blank-screens the app and leaves no client-side trace.
+Until a DSN is set, production errors are unreported. A render error no longer blank-screens the app — `components/ErrorBoundary.tsx` (added 2026-09-15, item 11 closed) shows a recovery screen — but nothing leaves the browser, so those failures stay invisible to the operator.
 
 Steps:
 
@@ -60,6 +60,20 @@ Completed end-to-end from the CLI in one session — no dashboard visits:
 - Remaining habit from the old runbook that still matters: verify a real send in resend.com → Logs after any Resend account change.
 
 Known follow-up surfaced during this work: `POST /api/send-email` is an unauthenticated relay (any caller can send email as the brand). Candidate for a shared-secret or origin check.
+
+### 15. Create the Deployment Protection bypass secret (preview smoke test)
+
+`scripts/smoke-checkout.mjs` (`npm run smoke:checkout`) drives shop → product → quantity → cart → checkout against a target URL; `.github/workflows/checkout-smoke.yml` runs it on every PR and on `deployment_status`.
+
+Preview deployments of this project sit **behind Vercel Deployment Protection**: a preview URL answers **302** for both `/` and `/api/*`, so the smoke test cannot load the storefront there. Without a bypass secret the workflow falls back to a locally-built preview — that covers the client flow (product, quantity, cart math) and reports the checkout pricing agreement as **skipped, never passed**, so a green run must not be read as "the preview was checked".
+
+Steps:
+
+1. Vercel → Project → Settings → **Deployment Protection** → *Protection Bypass for Automation* → create a secret.
+2. Add it to the repo as the GitHub Actions secret `VERCEL_AUTOMATION_BYPASS_SECRET`.
+3. Re-run the workflow or open a PR: the preview step then smokes the real preview, pricing agreement included.
+
+Verified locally (2026-09-15): with `SMOKE_BYPASS_TOKEN` / `VERCEL_AUTOMATION_BYPASS_SECRET` set, `x-vercel-protection-bypass` is sent on the API probe *and* every browser request; with it unset, no bypass header is sent. The bypass path itself is untested against a real protected preview — that needs the token.
 
 ## Active program notice
 
@@ -124,10 +138,11 @@ Not blocking; do when bundle slices accumulate.
 | 8 | Anchor live-orders seed timestamps | Maintainer | n/a (code) | 30 min |
 | 9 | Decide `/api/marketing-stats` (authorized but has no caller) | Maintainer | n/a (code) | 20 min |
 | 10 | Decide the dead `upload-imgur` path in `imgurService.ts` | Maintainer | n/a (code) | 15 min |
-| 11 | Add a React error boundary (none exists; `onCaughtError` never fires) | Maintainer | n/a (code) | 45 min |
+| 11 | ~~Add a React error boundary~~ — **done 2026-09-15** (`components/ErrorBoundary.tsx`; `onCaughtError` now fires for boundary-caught errors) | — | — | — |
 | 12 | Delete or token-wire the dead `components/GitManager.tsx` | Maintainer | n/a (code) | 10 min |
 | 13 | Clear `d3-color` (needs a d3 v3 `overrides` decision) | Maintainer | n/a (code) | 30 min |
 | 14 | Real-payment QA: card + store credit + coupon (audit item #4) | Operator | Stripe + Supabase + inbox | 15 min |
+| 15 | Create the Deployment Protection bypass secret so CI can smoke a preview (see §15) | Operator | Vercel + GitHub secrets | 5 min |
 
 ---
 
@@ -220,9 +235,16 @@ The endpoint dispatched **every** action without a credential check, and `sync-c
 
 `services/orderIntake.ts`: a checkout payload omitting `productId` reported `Unavailable: ` with an **empty** id list, because `Array.join` renders `undefined` as an empty string. Now `Unavailable: undefined`. (Found by smoke-testing `/api/pricing-preview`; the endpoint itself was healthy — the probe's payload shape was wrong, items use `productId`, not `id`.)
 
+### L6. Error boundary, quantity control, and a permanent checkout smoke test (later on 2026-09-15)
+
+- `components/ErrorBoundary.tsx`: a render error shows a recovery screen (Try again / Reload page / Back to home) instead of blanking. Wrapped twice — in `App.tsx` around `<Routes>` keyed on `location.key` (navigating clears the error, nav and footer stay usable) and in `index.tsx` *inside* `BootMarker` (last resort; wrapping it outside would stop the boot effect, and index.html's load-recovery overlay would stack on top of the screen). No Sentry import: the root `onCaughtError` already forwards boundary-caught errors with tag `react19-root-caught`. Item 11 closed.
+- Quantity control: `context/useCart.ts` owns the rules — `addToCart(…, quantity)`, `setQuantity` clamped to [1, 99], `getLineMaxQuantity` for the per-size stock ceiling — and `components/QuantityStepper.tsx` is shared by the product page, `/cart` and the drawer. Stepping down to 1 intentionally never deletes a line (Remove stays explicit). **The cap is client-side only:** no order-path handler (`pricing-preview`, `create-payment-intent`, `complete-order`) reads `size_inventory`, so nothing enforces stock server-side or decrements it on payment.
+- `scripts/smoke-checkout.mjs` + `npm run smoke:checkout` + `.github/workflows/checkout-smoke.yml`: permanent shop → checkout smoke test. Entered via `/` and the nav link, because `vite preview` resolves `/shop` to the prerendered `public/shop.html` SEO shell (a page with no React root) while Vercel's rewrite sends `/shop` to `index.html` — a direct `goto('/shop')` would pass against a deployment and fail against the local build the workflow falls back to.
+- Refuses the live store unless `SMOKE_ALLOW_PRODUCTION=1` (production checkout mints real PaymentIntents), never types card details, and writes a failure screenshot to the gitignored `.checkout-smoke-artifacts/`.
+
 ### Verification state at the end of that session
 
-796 tests across 57 files · `tsc --noEmit` clean · `npm run build` clean (0 warnings) · `main == origin/main == production` · live probes recorded above.
+813 tests across 60 files · `tsc --noEmit` clean · `npm run build` clean (0 warnings) · `main == origin/main` (`1e6fade` deployed to production) · smoke test live-verified **6/6 against production**, 5 + 1 skipped against the local static preview · capture-on-failure verified by a deliberate negative control.
 
 ---
 
