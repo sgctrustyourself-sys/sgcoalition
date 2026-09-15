@@ -13,7 +13,7 @@
 // lookups are the only chains resolvePricing touches — the preview handler
 // does NOT read payment_settings).
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mock helpers — chainable Supabase query stubs (mirrors createPaymentIntent.test.ts)
@@ -74,6 +74,19 @@ function stubProductAndCoupon(couponRow: unknown) {
 
 let handler: any;
 
+// Load the handler exactly once. Importing it inside each test re-evaluates
+// the module graph within vitest's 5s default timeout, which intermittently
+// fails under full-suite parallel load ("Test timed out in 5000ms") even
+// though the file passes when run alone. The mocked Supabase factory reads
+// mockSupabaseFrom at import time, so the import has to happen after this
+// file's top-level code — i.e. in a hook, not a static import (which would
+// throw on the not-yet-initialised const).
+beforeAll(async () => {
+    process.env.SUPABASE_URL = 'https://test.supabase.co';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
+    handler = (await import('../api/_handlers/pricing-preview')).default;
+}, 30000);
+
 beforeEach(() => {
     vi.clearAllMocks();
     mockSupabaseFrom.mockReset();
@@ -92,7 +105,6 @@ afterEach(() => {
 
 describe('/api/pricing-preview line-splitting contract', () => {
     it('card + coupon: cryptoDiscountCents is 0 (coupon must NOT leak into the crypto line)', async () => {
-        if (!handler) handler = (await import('../api/_handlers/pricing-preview')).default;
         stubProductAndCoupon(PERCENT_COUPON);
         const req = makeReq('POST', {
             items: [{ productId: 'prod_tee_above_as_below', selectedSize: 'M', quantity: 1 }],
@@ -110,7 +122,6 @@ describe('/api/pricing-preview line-splitting contract', () => {
     });
 
     it('card without coupon: no crypto line, no coupon line, full total', async () => {
-        if (!handler) handler = (await import('../api/_handlers/pricing-preview')).default;
         stubProductAndCoupon(null);
         const req = makeReq('POST', {
             items: [{ productId: 'prod_tee_above_as_below', selectedSize: 'M', quantity: 1 }],
@@ -126,7 +137,6 @@ describe('/api/pricing-preview line-splitting contract', () => {
     });
 
     it('crypto + coupon: crypto line comes from the shared SGCoin helper (0 while the incentive flag is off)', async () => {
-        if (!handler) handler = (await import('../api/_handlers/pricing-preview')).default;
         stubProductAndCoupon(PERCENT_COUPON);
         const req = makeReq('POST', {
             items: [{ productId: 'prod_tee_above_as_below', selectedSize: 'M', quantity: 1 }],
@@ -145,7 +155,6 @@ describe('/api/pricing-preview line-splitting contract', () => {
     });
 
     it('rejects empty item lists with 400', async () => {
-        if (!handler) handler = (await import('../api/_handlers/pricing-preview')).default;
         const req = makeReq('POST', { items: [], shippingCost: 0, paymentMethod: 'card' });
         const res = makeRes();
         await handler(req, res);
