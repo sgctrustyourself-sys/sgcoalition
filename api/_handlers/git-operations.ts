@@ -16,6 +16,7 @@
 // when this handler runs in a writable environment.
 
 import { createClient } from '@supabase/supabase-js';
+import { isAdminRequest } from '../_helpers.js';
 
 function setCorsHeaders(req: any, res: any) {
     const configuredOrigin = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
@@ -148,6 +149,25 @@ export default async function handler(req: any, res: any) {
 
     if (req.method === 'OPTIONS') {
         res.status(200).end();
+        return;
+    }
+
+    // Admin-only surface (pinned by tests/gitOperationsGate.test.ts).
+    //
+    // WHY THIS EXISTS: this endpoint used to accept ANY unauthenticated
+    // caller. The dev-only 501 below leaks nothing by itself, but
+    // `sync-constants` is deliberately EXEMPT from that guard and commits to
+    // origin/main through the server's GITHUB_TOKEN via the GitHub Contents
+    // API, with the commit message taken from the request body. GitHub's own
+    // token check authorizes the *server*, not the *caller* -- so until this
+    // gate existed, an anonymous POST was a repo-write primitive.
+    if (!isAdminRequest(req)) {
+        const rawAction = getAction(req);
+        const safeAction = typeof rawAction === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(rawAction)
+            ? rawAction
+            : '[non-conforming]';
+        console.warn('[git-operations] blocked unauthenticated call', { action: safeAction });
+        res.status(401).json({ error: 'Admin token required.' });
         return;
     }
 

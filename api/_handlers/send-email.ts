@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { isAdminRequest } from '../_helpers.js';
 
 // Anti-relay auth gate (pinned by tests/sendEmailGate.test.ts):
 //   - Authorization: Bearer <ADMIN_API_TOKEN or ADMIN_PASSPHRASE>
@@ -23,22 +24,10 @@ function getOwnerNotificationAddress() {
     return (process.env.ORDER_NOTIFICATION_EMAIL || '').trim() || 'sgctrustyourself@gmail.com';
 }
 
-function extractBearerToken(req: any): string {
-    const header = req.headers?.authorization || req.headers?.Authorization || '';
-    const match = String(header).match(/^Bearer\s+(.+)$/i);
-    return (match?.[1] || '').trim();
-}
-
-function isAdminRequest(req: any): boolean {
-    const bearer = extractBearerToken(req);
-    if (bearer.length === 0) return false;
-    // Accept either server-side admin secret (mirrors admin-verify.ts):
-    const secrets = [
-        (process.env.ADMIN_API_TOKEN || '').trim(),
-        (process.env.ADMIN_PASSPHRASE || '').trim(),
-    ];
-    return secrets.some((s) => s.length > 0 && bearer === s);
-}
+// The admin-caller check now lives in api/_helpers.ts (shared with
+// api/_handlers/git-operations.ts). Keeping two copies was how the env
+// contract could drift between guards. Same behavior: either server-side
+// secret (ADMIN_API_TOKEN or ADMIN_PASSPHRASE), fail-closed when unset.
 
 function normalizeRecipient(raw: unknown): string {
     return String(raw ?? '').trim().toLowerCase();

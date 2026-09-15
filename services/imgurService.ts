@@ -2,7 +2,7 @@
  * Imgur upload service
  */
 
-import { buildGitOperationsUrl } from './apiBase.js';
+import { buildGitOperationsUrl, getAdminAuthHeaders, clearAdminSession } from './apiBase.js';
 
 /**
  * Upload an image to Imgur via the local backend processor
@@ -27,8 +27,10 @@ export async function uploadToImgur(
 
         const response = await fetch(buildGitOperationsUrl('upload-imgur'), {
             method: 'POST',
+            // Admin-only endpoint -- see api/_handlers/git-operations.ts.
             headers: {
                 'Content-Type': 'application/json',
+                ...getAdminAuthHeaders(),
             },
             body: JSON.stringify({
                 image: base64Image,
@@ -38,7 +40,11 @@ export async function uploadToImgur(
         });
 
         if (!response.ok) {
-            const error = await response.json();
+            if (response.status === 401) {
+                clearAdminSession();
+                throw new Error('Admin session expired — sign in again.');
+            }
+            const error = await response.json().catch(() => ({}));
             throw new Error(error.error || 'Imgur upload failed');
         }
 
@@ -59,12 +65,19 @@ export async function syncProductsToCode(): Promise<{ hash?: string; noChanges?:
     try {
         const response = await fetch(buildGitOperationsUrl('sync-constants'), {
             method: 'POST',
+            // sync-constants commits to origin/main through the server's
+            // GITHUB_TOKEN, so it is admin-gated as of the repo-write fix.
             headers: {
                 'Content-Type': 'application/json',
+                ...getAdminAuthHeaders(),
             }
         });
 
         if (!response.ok) {
+            if (response.status === 401) {
+                clearAdminSession();
+                throw new Error('Admin session expired — sign in again to sync products.');
+            }
             const error = await response.json().catch(() => ({}));
             throw new Error(error.error || `Sync failed (HTTP ${response.status})`);
         }

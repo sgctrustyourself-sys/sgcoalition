@@ -47,6 +47,35 @@ export function parseBody(req: ApiRequest): Record<string, unknown> {
     return typeof req.body === 'object' && req.body !== null ? (req.body as Record<string, unknown>) : {};
 }
 
+// Canonical admin-caller check. ONE definition shared by every guarded
+// handler (git-operations, send-email, admin-products, payment-settings,
+// update-piece-metadata) *and* the withAdminAuth wrapper below, so no
+// handler can drift onto a different env contract than the one
+// /api/admin-verify hands out at login.
+//
+// Both server-side secrets are accepted because admin-verify accepts either
+// as a login credential (a passphrase-only deployment is valid):
+//   - ADMIN_API_TOKEN  -- minted to the browser on successful admin login
+//   - ADMIN_PASSPHRASE -- the human-typed login secret
+//
+// Fail-closed: if neither is configured, NO caller is admin.
+export function extractBearerToken(req: ApiRequest): string {
+    const headerRaw = req?.headers?.authorization ?? req?.headers?.Authorization;
+    const authHeader = typeof headerRaw === 'string' ? headerRaw : '';
+    const match = authHeader.match(/^Bearer\s+(.+)$/i);
+    return (match?.[1] || '').trim();
+}
+
+export function isAdminRequest(req: ApiRequest): boolean {
+    const bearer = extractBearerToken(req);
+    if (bearer.length === 0) return false;
+    const secrets = [
+        (process.env.ADMIN_API_TOKEN || '').trim(),
+        (process.env.ADMIN_PASSPHRASE || '').trim(),
+    ];
+    return secrets.some((secret) => secret.length > 0 && bearer === secret);
+}
+
 // Admin auth gate. Wraps a mutating handler so only callers presenting a
 // matching admin Bearer token can reach the inner body. Mirrors the
 // prior-inline admin pattern from marketing-send.ts + marketing-stats.ts
