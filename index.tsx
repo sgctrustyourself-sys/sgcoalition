@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 
 const rootElement = document.getElementById('root');
@@ -49,7 +50,15 @@ const BootMarker: React.FC = () => {
     document.querySelector('[data-load-recovery]')?.classList.remove('visible');
   }, []);
 
-  return <App />;
+  // The boundary sits INSIDE BootMarker, not around it: if it wrapped this
+  // component, a failed App render would stop the effect below from ever
+  // running, and the index.html load-recovery overlay would then appear on top
+  // of this screen with a second, more alarming failure UI.
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
 };
 
 const renderApp = () => {

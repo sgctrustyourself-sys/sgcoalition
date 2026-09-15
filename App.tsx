@@ -10,6 +10,7 @@ import AnnouncementBar from './components/AnnouncementBar';
 import PageLoader from './components/ui/PageLoader';
 import ToastContainer from './components/ui/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Lazy-loaded shell components. Each pulls `motion/react` (~50 KB gzip) at the
 // top level, so wrapping them in React.lazy() splits the framer-motion chunk
@@ -155,6 +156,16 @@ const ConditionalNav = () => {
   );
 };
 
+/**
+ * Route-level error boundary. Passing the router location key as `resetKey`
+ * means navigating to another page clears a caught error, so a failure on one
+ * route can't strand the visitor on a failure screen.
+ */
+const RouteErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const location = useLocation();
+  return <ErrorBoundary resetKey={location.key}>{children}</ErrorBoundary>;
+};
+
 const App = () => {
   return (
     <ToastProvider>
@@ -175,6 +186,7 @@ const App = () => {
               <ToastContainer />
               <main className="flex-grow">
                 <Suspense fallback={<PageLoader />}>
+                  <RouteErrorBoundary>
                   <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/portal" element={<SGCoalitionPortal />} />
@@ -251,6 +263,7 @@ const App = () => {
 
                     <Route path="*" element={<NotFound />} />
                   </Routes>
+                  </RouteErrorBoundary>
                 </Suspense>
               </main>
               <Footer />
