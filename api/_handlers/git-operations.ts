@@ -16,25 +16,13 @@
 // when this handler runs in a writable environment.
 
 import { createClient } from '@supabase/supabase-js';
-import { isAdminRequest } from '../_helpers.js';
+import { LOCAL_DEV_ORIGINS } from '../_helpers.js';
+import { withAdminAuth } from '../_adminAuth.js';
 
-function setCorsHeaders(req: any, res: any) {
-    const configuredOrigin = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
-    const allowedOrigins = new Set([
-        configuredOrigin,
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3001',
-    ]);
-    const requestOrigin = req.headers?.origin;
-    const responseOrigin = requestOrigin && allowedOrigins.has(requestOrigin) ? requestOrigin : configuredOrigin;
-
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', responseOrigin);
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-}
+// CORS + OPTIONS + the admin gate all live in withAdminAuth now (see the export
+// at the bottom of this file). The origin allow-list it is given is the same set
+// the local block used to hardcode: the configured origin falls through as the
+// fallback, plus the Vite dev hosts.
 
 // VERCEL=1 is set on both production and preview deployments by Vercel.
 // A long-running self-hosted Node deployment won't set it.
@@ -144,33 +132,11 @@ function getAction(req: any): string | undefined {
     return undefined;
 }
 
-export default async function handler(req: any, res: any) {
-    setCorsHeaders(req, res);
-
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-
-    // Admin-only surface (pinned by tests/gitOperationsGate.test.ts).
-    //
-    // WHY THIS EXISTS: this endpoint used to accept ANY unauthenticated
-    // caller. The dev-only 501 below leaks nothing by itself, but
-    // `sync-constants` is deliberately EXEMPT from that guard and commits to
-    // origin/main through the server's GITHUB_TOKEN via the GitHub Contents
-    // API, with the commit message taken from the request body. GitHub's own
-    // token check authorizes the *server*, not the *caller* -- so until this
-    // gate existed, an anonymous POST was a repo-write primitive.
-    if (!isAdminRequest(req)) {
-        const rawAction = getAction(req);
-        const safeAction = typeof rawAction === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(rawAction)
-            ? rawAction
-            : '[non-conforming]';
-        console.warn('[git-operations] blocked unauthenticated call', { action: safeAction });
-        res.status(401).json({ error: 'Admin token required.' });
-        return;
-    }
-
+// Every action on this endpoint is admin-only, and the wrapper guarantees the
+// gate runs BEFORE this body — the property this endpoint lacked when an
+// anonymous POST could commit to origin/main through the server's GITHUB_TOKEN
+// with a caller-supplied commit message. Pinned by tests/gitOperationsGate.test.ts.
+const handler = async (req: any, res: any) => {
     const action = getAction(req);
     if (!action) {
         res.status(400).json({ error: 'Missing required query parameter: action' });
@@ -314,7 +280,11 @@ export default async function handler(req: any, res: any) {
             devOnly: isGitNotFoundError(error),
         });
     }
-}
+};
+
+export default withAdminAuth(handler, {
+    cors: { originWhitelist: LOCAL_DEV_ORIGINS, methods: 'GET,OPTIONS,POST' },
+});
 
 // Tight regex anchored on git-context so unrelated ENOENTs (e.g. missing
 // constants.ts) don't get mis-labeled as dev-only.

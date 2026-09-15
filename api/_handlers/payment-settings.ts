@@ -20,23 +20,11 @@ import {
     parseBody,
     setCorsHeaders,
 } from '../_helpers.js';
+import { requireAdmin } from '../_adminAuth.js';
 import {
     loadPaymentSettings,
     type PaymentSettings,
 } from '../../services/paymentSettings.js';
-
-function getBearerToken(req: ApiRequest): string | null {
-    const header = req.headers?.authorization || req.headers?.Authorization || '';
-    const match = String(header).match(/^Bearer\s+(.+)$/i);
-    return match?.[1] || null;
-}
-
-function isAuthorized(req: ApiRequest): boolean {
-    const token = getBearerToken(req);
-    if (!token) return false;
-    const adminToken = (process.env.ADMIN_API_TOKEN || '').trim();
-    return adminToken.length > 0 && token === adminToken;
-}
 
 function getSupabaseAdmin(): SupabaseClient {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
@@ -109,10 +97,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
         }
 
         if (req.method === 'PATCH' || req.method === 'POST') {
-            if (!isAuthorized(req)) {
-                res.status(401).json({ error: 'Admin authorization required.' });
-                return;
-            }
+            if (!requireAdmin(req, res)) return;
 
             const body = parseBody(req) as Record<string, unknown>;
             const patch: Partial<PaymentSettings> = {};

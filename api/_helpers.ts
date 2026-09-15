@@ -47,103 +47,11 @@ export function parseBody(req: ApiRequest): Record<string, unknown> {
     return typeof req.body === 'object' && req.body !== null ? (req.body as Record<string, unknown>) : {};
 }
 
-// Canonical admin-caller check. ONE definition shared by every guarded
-// handler (git-operations, send-email, admin-products, payment-settings,
-// update-piece-metadata) *and* the withAdminAuth wrapper below, so no
-// handler can drift onto a different env contract than the one
-// /api/admin-verify hands out at login.
-//
-// Both server-side secrets are accepted because admin-verify accepts either
-// as a login credential (a passphrase-only deployment is valid):
-//   - ADMIN_API_TOKEN  -- minted to the browser on successful admin login
-//   - ADMIN_PASSPHRASE -- the human-typed login secret
-//
-// Fail-closed: if neither is configured, NO caller is admin.
-export function extractBearerToken(req: ApiRequest): string {
-    const headerRaw = req?.headers?.authorization ?? req?.headers?.Authorization;
-    const authHeader = typeof headerRaw === 'string' ? headerRaw : '';
-    const match = authHeader.match(/^Bearer\s+(.+)$/i);
-    return (match?.[1] || '').trim();
-}
-
-export function isAdminRequest(req: ApiRequest): boolean {
-    const bearer = extractBearerToken(req);
-    if (bearer.length === 0) return false;
-    const secrets = [
-        (process.env.ADMIN_API_TOKEN || '').trim(),
-        (process.env.ADMIN_PASSPHRASE || '').trim(),
-    ];
-    return secrets.some((secret) => secret.length > 0 && bearer === secret);
-}
-
-// Admin auth gate. Wraps a mutating handler so only callers presenting a
-// matching admin Bearer token can reach the inner body. Mirrors the
-// prior-inline admin pattern from marketing-send.ts + marketing-stats.ts
-// + api/admin/update-piece-metadata.ts so the env contract is the same
-// across the surface area: ADMIN_SESSION_TOKEN (primary canonical) with
-// FULL_AI_PASSWORD and AI_SESSION_SECRET run in parallel -- they're
-// actively in use by the marketing-* endpoints (which use the same env
-// contract in their inline bearer checks), so a future operator rotating
-// only ADMIN_SESSION_TOKEN would quietly break the marketing gates
-// while the wrapped handlers here still pass. Rotate all three on a
-// coordinated cadence, OR migrate the marketing-* handlers to the
-// wrapper first. If no admin env is set the gate returns 401 --
-// fail-closed is the right default for a write surface.
-//
-// Usage:
-//   export default withAdminAuth(async (req, res) => {
-//     try { res.status(200).json(await innerLogic(req)); }
-//     catch (err: any) { ... }
-//   }, { cors: { methods: 'POST,OPTIONS', allowedHeaders: EXTENDED_CORS_HEADERS } });
-//
-// Order of operations inside the returned wrapper:
-//   1. CORS headers (so the preflight + 401 response both echo Origin/Methods/Headers).
-//   2. OPTIONS short-circuit (preflight never carries auth).
-//   3. Admin Bearer check (returns 401 on mismatch, missing header, or empty env).
-//   4. Forward to the inner handler.
-export interface WithAdminAuthOptions {
-    cors?: CorsOptions;
-}
-
-export function withAdminAuth(
-    handler: (req: ApiRequest, res: ApiResponse) => Promise<unknown>,
-    options: WithAdminAuthOptions = {}
-): (req: ApiRequest, res: ApiResponse) => Promise<void> {
-    return async (req, res) => {
-        setCorsHeaders(req, res, options.cors);
-        if (req.method === 'OPTIONS') {
-            res.status(200).end();
-            return;
-        }
-
-        // Two credential families are accepted, canonical first:
-        //
-        //   1. ADMIN_API_TOKEN / ADMIN_PASSPHRASE — isAdminRequest(), the
-        //      contract /api/admin-verify actually hands the browser.
-        //   2. The legacy trio below, kept so pre-existing deployments that
-        //      only set ADMIN_SESSION_TOKEN (or FULL_AI_PASSWORD /
-        //      AI_SESSION_SECRET) keep working.
-        //
-        // WHY BOTH: production currently sets ONLY ADMIN_API_TOKEN. A wrapper
-        // that accepted just the legacy trio therefore 401'd every real admin
-        // session — /api/marketing-stats was unreachable in production despite
-        // presenting a valid admin token. Verified live before this change.
-        const bearer = extractBearerToken(req);
-        const legacySecrets = [
-            (process.env.ADMIN_SESSION_TOKEN || '').trim(),
-            (process.env.FULL_AI_PASSWORD || '').trim(),
-            (process.env.AI_SESSION_SECRET || '').trim(),
-        ];
-        const authorized = isAdminRequest(req)
-            || (bearer.length > 0 && legacySecrets.some((s) => s.length > 0 && bearer === s));
-        if (!authorized) {
-            res.status(401).json({ error: 'Admin authorization required.' });
-            return;
-        }
-
-        await handler(req, res);
-    };
-}
+// Admin authorization is NOT here. It lives in api/_adminAuth.ts (single
+// owner: the credential set, both policies, and the gates). This module stays a
+// CORS / body / rate-limit toolkit so the auth policy cannot quietly re-grow a
+// second home — which is exactly how /api/git-operations ended up with no gate
+// at all: six files each carried their own idea of who counts as an admin.
 
 export interface CorsOptions {
     /**

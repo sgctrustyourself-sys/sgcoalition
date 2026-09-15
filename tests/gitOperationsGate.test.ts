@@ -121,7 +121,8 @@ describe('/api/git-operations admin gate', () => {
         );
 
         expect(res.statusCode).toBe(401);
-        expect(res.body).toMatchObject({ error: 'Admin token required.' });
+        // One 401 body for every admin surface, owned by api/_adminAuth.ts.
+        expect(res.body).toMatchObject({ error: 'Admin authorization required.' });
         // The repo-write primitive: no auth means no Supabase read and no PUT.
         expect(mocks.syncFileOnGitHub).not.toHaveBeenCalled();
         expect(mocks.from).not.toHaveBeenCalled();
@@ -282,20 +283,21 @@ describe('/api/git-operations admin gate', () => {
         expect(res.statusCode).toBe(401);
     });
 
-    it('blocked calls never echo a non-conforming action string into logs', async () => {
+    it('blocked calls log a sanitized path, never the caller-supplied action', async () => {
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
         try {
+            const req = makeReq({ action: 'bad\naction-{}', method: 'POST' });
+            req.url = '/api/git-operations?action=bad%0Aaction-{}';
             const res = makeRes();
-            await gitOperationsHandler(
-                makeReq({ action: 'bad\naction-{}', method: 'POST' }),
-                res,
-            );
+            await gitOperationsHandler(req, res);
 
             expect(res.statusCode).toBe(401);
-            const logged = warn.mock.calls.find((c) => String(c[0]).includes('[git-operations]'));
+            // The rejection is now logged once by the gate in api/_adminAuth.ts.
+            const logged = warn.mock.calls.find((c) => String(c[0]).includes('[admin-auth]'));
             expect(logged).toBeTruthy();
-            expect(JSON.stringify(logged)).not.toContain('bad\\naction');
-            expect(JSON.stringify(logged)).toContain('[non-conforming]');
+            const serialized = JSON.stringify(logged);
+            expect(serialized).not.toContain('bad%0Aaction');
+            expect(serialized).toContain('/api/git-operations');
         } finally {
             warn.mockRestore();
         }

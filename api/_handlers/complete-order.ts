@@ -11,6 +11,10 @@ import {
     parseBody,
     setCorsHeaders,
 } from '../_helpers.js';
+// The admin gate for order listing/updating. Was a local copy that accepted the
+// static token OR a Supabase admin session; api/_adminAuth.ts is now the single
+// owner of that union (see its header for the one disclosed delta).
+import { isAdminRequest } from '../_adminAuth.js';
 import {
     acceptCheckout,
     type CheckoutAttempt,
@@ -27,27 +31,6 @@ function getSupabaseAdmin(): SupabaseClient {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
     if (!url || !key) throw createHttpError(503, 'Supabase order service is not configured.');
     return createClient(url, key);
-}
-
-async function isAdminRequest(req: ApiRequest): Promise<boolean> {
-    const header = req.headers?.authorization || req.headers?.Authorization || '';
-    const match = String(header).match(/^Bearer\s+(.+)$/i);
-    const token = match?.[1] || null;
-    if (!token) return false;
-    const staticToken = process.env.ADMIN_API_TOKEN;
-    if (staticToken && token === staticToken) return true;
-    try {
-        const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-        const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
-        if (!url || !anonKey) return false;
-        const authClient = createClient(url, anonKey);
-        const adminClient = getSupabaseAdmin();
-        const { data: userData, error: userError } = await authClient.auth.getUser(token);
-        const userId = userData?.user?.id;
-        if (userError || !userId) return false;
-        const { data, error } = await adminClient.from('admin_users').select('user_id').eq('user_id', userId).maybeSingle();
-        return !error && Boolean(data);
-    } catch { return false; }
 }
 
 // ---------------------------------------------------------------------------

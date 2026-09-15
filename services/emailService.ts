@@ -10,6 +10,7 @@ export interface EmailData {
 }
 import { renderReferralCodeOnboardingHtml, REFERRAL_CODE_EMAIL_SUBJECT } from '../utils/referralEmailTemplate.js';
 import { renderDropVoucherEmailHtml, DROP_VOUCHER_EMAIL_SUBJECT } from '../utils/dropVoucherEmailTemplate.js';
+import { getAdminAuthHeaders } from './adminSession.js';
 
 /**
  * Send approval email to customer
@@ -191,16 +192,9 @@ async function sendEmail(data: EmailData): Promise<void> {
     try {
         // /api/send-email is an anti-relay-gated endpoint: admin sessions may
         // email any recipient; anonymous callers may only reach the owner
-        // notification address. Attach the admin token when the session has
-        // one (same sessionStorage key as admin-verify / payment-settings).
-        let adminToken: string | null = null;
-        try {
-            adminToken = sessionStorage.getItem('coalition_admin_token');
-        } catch {
-            adminToken = null;
-        }
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (adminToken) headers.Authorization = `Bearer ${adminToken}`;
+        // notification address. getAdminAuthHeaders() is empty without a
+        // session, which is exactly the anonymous case.
+        const headers: Record<string, string> = { 'Content-Type': 'application/json', ...getAdminAuthHeaders() };
         const response = await fetch('/api/send-email', {
             method: 'POST',
             headers,

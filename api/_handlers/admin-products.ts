@@ -24,19 +24,7 @@ import {
     setCorsHeaders,
     type HttpError,
 } from '../_helpers.js';
-
-function getBearerToken(req: ApiRequest): string | null {
-    const header = req.headers?.authorization || req.headers?.Authorization || '';
-    const match = String(header).match(/^Bearer\s+(.+)$/i);
-    return match?.[1] || null;
-}
-
-function isAuthorized(req: ApiRequest): boolean {
-    const token = getBearerToken(req);
-    if (!token) return false;
-    const adminToken = (process.env.ADMIN_API_TOKEN || '').trim();
-    return adminToken.length > 0 && token === adminToken;
-}
+import { requireAdmin } from '../_adminAuth.js';
 
 function getSupabaseAdmin(): SupabaseClient {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
@@ -193,10 +181,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
         return;
     }
 
-    if (!isAuthorized(req)) {
-        res.status(401).json({ error: 'Admin authorization required.' });
-        return;
-    }
+    if (!requireAdmin(req, res)) return;
 
     try {
         const body = parseBody(req);

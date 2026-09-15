@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GitBranch, GitCommit, History, RotateCcw, FileText, Clock, User, AlertCircle, CheckCircle } from 'lucide-react';
-import { buildGitOperationsUrl, getAdminAuthHeaders, clearAdminSession } from '../../services/apiBase';
+import { buildGitOperationsUrl } from '../../services/apiBase';
+import { ADMIN_SESSION_EXPIRED_ERROR, getAdminAuthHeaders, handleAdminAuthFailure } from '../../services/adminSession';
 import { useApp } from '../../context/AppContext';
 
 interface GitCommit {
@@ -28,14 +29,14 @@ const GitControl: React.FC = () => {
     const [success, setSuccess] = useState<string | null>(null);
 
     // A 401 means the stashed admin token no longer matches the server secret
-    // (typically after a rotation). Clear it and drop admin mode so
-    // ProtectedRoute returns the operator to the login screen, instead of
-    // leaving them on a panel where every action fails silently.
+    // (typically after a rotation). The session module clears the storage keys;
+    // dropping admin MODE is React state, so it stays here and ProtectedRoute
+    // returns the operator to login instead of leaving them on a panel where
+    // every action fails silently.
     const reportAuthFailure = (status: number): boolean => {
-        if (status !== 401) return false;
-        clearAdminSession();
+        if (!handleAdminAuthFailure(status)) return false;
         logoutAdmin();
-        setError('Admin session expired — sign in again.');
+        setError(ADMIN_SESSION_EXPIRED_ERROR);
         setTimeout(() => setError(null), 5000);
         return true;
     };

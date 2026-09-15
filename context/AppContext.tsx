@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, createContext, useContext } from 'r
 import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderStatus, OrderItem, Giveaway, GiveawayEntry, GiveawayStatus, Review, SocialAccount, CustomInquiry, SGCoinPurchaseRequest } from '../types';
 import { INITIAL_SECTIONS, COIN_REWARD_RATE, ADMIN_WALLETS } from '../constants';
 import { supabase } from '../services/supabase';
+import { getAdminToken } from '../services/adminSession';
 // signOut is now owned by useAuth hook.
 import { useToast } from './ToastContext';
 import { useGiveaways } from './useGiveaways';
@@ -104,13 +105,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(false);
     const [isConfigError, setIsConfigError] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    // Helper: get admin token for server-side API calls that bypass RLS
-    const getAdminToken = () => {
-        if (typeof sessionStorage !== 'undefined') {
-            return sessionStorage.getItem('coalition_admin_token');
-        }
-        return null;
-    };
+    // The admin-token accessor used to be re-implemented here and handed to
+    // useCatalog, which is how the session key ended up read from three
+    // different guard styles. It is imported from services/adminSession.ts.
 
     // ---- Domain hooks (composed into the single provider below) ----
     const authHook = useAuth(isSupabaseConfigured, addToast);

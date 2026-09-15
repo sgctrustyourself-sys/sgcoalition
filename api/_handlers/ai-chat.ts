@@ -1,6 +1,9 @@
 import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
+// Brain tools are Supabase-session-only by design (they never accepted the
+// shared secret, and still do not). api/_adminAuth.ts owns that policy.
+import { isSupabaseAdminRequest } from '../_adminAuth.js';
 
 type ChatMode = 'brand' | 'full';
 
@@ -200,37 +203,6 @@ function getSupabaseClient(requireServiceRole = false) {
     return createClient(supabaseUrl, supabaseKey);
 }
 
-function getBearerToken(req: any) {
-    const header = req.headers?.authorization || req.headers?.Authorization || '';
-    const match = String(header).match(/^Bearer\s+(.+)$/i);
-    return match?.[1] || null;
-}
-
-async function isAdminRequest(req: any) {
-    try {
-        const token = getBearerToken(req);
-        if (!token) return false;
-
-        const authClient = getSupabaseClient(false);
-        const adminClient = getSupabaseClient(true);
-        if (!authClient || !adminClient) return false;
-
-        const { data: userData, error: userError } = await authClient.auth.getUser(token);
-        const userId = userData?.user?.id;
-        if (userError || !userId) return false;
-
-        const { data, error } = await adminClient
-            .from('admin_users')
-            .select('user_id')
-            .eq('user_id', userId)
-            .maybeSingle();
-
-        return !error && Boolean(data);
-    } catch {
-        return false;
-    }
-}
-
 function safeSearchTerms(topic: string) {
     return topic
         .split(/\s+/)
@@ -310,7 +282,7 @@ async function handleChat(req: any, body: any) {
     if (!message && !image) throw createHttpError(400, 'Message is required.');
     if (mode === 'full') requireFullAccess(body);
 
-    const isAdmin = await isAdminRequest(req);
+    const isAdmin = await isSupabaseAdminRequest(req);
     const brainContext = isAdmin ? await recallBrainContext(message) : null;
     const effectiveMessage = brainContext
         ? `RELEVANT COALITION BRAIN KNOWLEDGE (use this context when applicable):\n${brainContext}\n\n---\n\nUSER MESSAGE:\n${message}`
@@ -524,10 +496,10 @@ export default async function handler(req: any, res: any) {
                 json(res, 200, await handleDesignShirtFromReference(body));
                 return;
             case 'saveToBrain':
-                json(res, 200, await handleSaveToBrain({ ...body, __isAdmin: await isAdminRequest(req) }));
+                json(res, 200, await handleSaveToBrain({ ...body, __isAdmin: await isSupabaseAdminRequest(req) }));
                 return;
             case 'recallBrainContext':
-                json(res, 200, await handleRecallBrainContext({ ...body, __isAdmin: await isAdminRequest(req) }));
+                json(res, 200, await handleRecallBrainContext({ ...body, __isAdmin: await isSupabaseAdminRequest(req) }));
                 return;
             case 'verifyFullAIPassword':
                 json(res, 200, await handleVerifyPassword(body));

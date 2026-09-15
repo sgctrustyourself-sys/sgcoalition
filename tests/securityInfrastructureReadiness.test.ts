@@ -20,11 +20,17 @@ import {
     __forceRateLimitForTests,
     __resetRateLimitForTests,
     setCorsHeaders,
-    withAdminAuth,
-    isAdminRequest,
-    extractBearerToken,
     LOCAL_DEV_ORIGINS,
 } from '../api/_helpers';
+// Admin authorization has its own module (single owner of the credential set,
+// both policies, and the gates). api/_helpers.ts deliberately no longer
+// exports any of it.
+import {
+    withAdminAuth,
+    isSharedSecretAdmin,
+    extractBearerToken,
+    ADMIN_UNAUTHORIZED_ERROR,
+} from '../api/_adminAuth';
 
 const read = (rel: string) => fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
 
@@ -294,53 +300,76 @@ describe('withAdminAuth', () => {
 
 // --- 4. the shared check itself + source invariants -------------------------
 
-describe('isAdminRequest / extractBearerToken', () => {
+describe('isSharedSecretAdmin / extractBearerToken', () => {
     it('accepts either server-side secret and trims, case-insensitively on the scheme', () => {
         process.env.ADMIN_API_TOKEN = 'token-a';
         process.env.ADMIN_PASSPHRASE = 'pass-b';
 
-        expect(isAdminRequest(makeReq({ headers: { authorization: 'Bearer token-a' } }) as never)).toBe(true);
-        expect(isAdminRequest(makeReq({ headers: { authorization: 'bearer  pass-b ' } }) as never)).toBe(true);
-        expect(isAdminRequest(makeReq({ headers: { authorization: 'Bearer nope' } }) as never)).toBe(false);
+        expect(isSharedSecretAdmin(makeReq({ headers: { authorization: 'Bearer token-a' } }) as never)).toBe(true);
+        expect(isSharedSecretAdmin(makeReq({ headers: { authorization: 'bearer  pass-b ' } }) as never)).toBe(true);
+        expect(isSharedSecretAdmin(makeReq({ headers: { authorization: 'Bearer nope' } }) as never)).toBe(false);
     });
 
     it('treats a non-Bearer scheme, an empty bearer, and an array header as unauthenticated', () => {
         process.env.ADMIN_API_TOKEN = 'token-a';
 
-        expect(isAdminRequest(makeReq({ headers: { authorization: 'Token token-a' } }) as never)).toBe(false);
-        expect(isAdminRequest(makeReq({ headers: { authorization: 'Bearer   ' } }) as never)).toBe(false);
-        expect(isAdminRequest(makeReq({ headers: { authorization: ['Bearer token-a'] } }) as never)).toBe(false);
+        expect(isSharedSecretAdmin(makeReq({ headers: { authorization: 'Token token-a' } }) as never)).toBe(false);
+        expect(isSharedSecretAdmin(makeReq({ headers: { authorization: 'Bearer   ' } }) as never)).toBe(false);
+        expect(isSharedSecretAdmin(makeReq({ headers: { authorization: ['Bearer token-a'] } }) as never)).toBe(false);
         expect(extractBearerToken(makeReq() as never)).toBe('');
+    });
+
+    it('still honours the legacy shared secrets so old deployments keep working', () => {
+        process.env.ADMIN_SESSION_TOKEN = 'legacy-a';
+        expect(isSharedSecretAdmin(makeReq({ headers: { authorization: 'Bearer legacy-a' } }) as never)).toBe(true);
     });
 });
 
-describe('source invariants: one shared admin check', () => {
-    const sendEmail = read('api/_handlers/send-email.ts');
-    const gitOps = read('api/_handlers/git-operations.ts');
+// ---------------------------------------------------------------------------
+// The structural invariant this whole file exists for: admin authorization has
+// exactly ONE implementation. Until 2026-09-15 it had six, and the endpoint
+// with none of them (/api/git-operations) was an unauthenticated repo-write
+// primitive. These assertions fail if anyone re-grows a local copy.
+// ---------------------------------------------------------------------------
+describe('source invariants: admin authorization has one owner', () => {
+    const HANDLERS = [
+        'api/_handlers/git-operations.ts',
+        'api/_handlers/send-email.ts',
+        'api/_handlers/admin-products.ts',
+        'api/_handlers/payment-settings.ts',
+        'api/_handlers/update-piece-metadata.ts',
+        'api/_handlers/complete-order.ts',
+        'api/_handlers/ai-chat.ts',
+        'api/_handlers/marketing-stats.ts',
+    ] as const;
 
-    it('both gated handlers import the shared isAdminRequest instead of defining their own', () => {
-        for (const [name, src] of [['send-email', sendEmail], ['git-operations', gitOps]] as const) {
-            expect(src, `${name} must import isAdminRequest from ../_helpers.js`).toMatch(
-                /import\s*\{[^}]*isAdminRequest[^}]*\}\s*from\s*'\.\.\/_helpers\.js'/,
-            );
-            expect(src, `${name} must not define a local isAdminRequest`).not.toMatch(/function\s+isAdminRequest\s*\(/);
+    it('no handler implements its own bearer check', () => {
+        for (const file of HANDLERS) {
+            const src = read(file);
+            expect(src, `${file} must not define getBearerToken`).not.toMatch(/function\s+getBearerToken\s*\(/);
+            expect(src, `${file} must not define isAuthorized`).not.toMatch(/function\s+isAuthorized\s*\(/);
+            expect(src, `${file} must not define isAdminRequest`).not.toMatch(/function\s+isAdminRequest\s*\(/);
         }
     });
 
-    it('git-operations gates BEFORE the dev-only guard (no action-surface leak)', () => {
-        const gateAt = gitOps.indexOf('isAdminRequest(req)');
-        const devOnlyAt = gitOps.indexOf("action !== 'sync-constants'");
-        expect(gateAt).toBeGreaterThan(-1);
-        expect(devOnlyAt).toBeGreaterThan(-1);
-        expect(gateAt).toBeLessThan(devOnlyAt);
+    it('no handler reads the admin secrets directly', () => {
+        for (const file of HANDLERS) {
+            expect(read(file), `${file} must let api/_adminAuth.ts own the credential set`)
+                .not.toMatch(/process\.env\.(ADMIN_API_TOKEN|ADMIN_PASSPHRASE|ADMIN_SESSION_TOKEN)/);
+        }
     });
 
-    it('every gated handler denies on the unauthenticated path', () => {
-        // The cheapest regression signal available at the source level: each
-        // handler must still contain a deny branch. git-operations denies with
-        // 401 (nothing is public there); send-email denies with 403 because it
-        // keeps one anonymous-allowed recipient (the owner address).
-        expect(gitOps).toMatch(/401/);
-        expect(sendEmail).toMatch(/403/);
+    it('git-operations is gated by the wrapper, so the gate cannot be forgotten', () => {
+        const src = read('api/_handlers/git-operations.ts');
+        expect(src).toMatch(/withAdminAuth\(handler/);
+        expect(src).toMatch(/export default withAdminAuth/);
+        // The dev-only guard must still exist inside the (already gated) body.
+        expect(src).toMatch(/action !== 'sync-constants'/);
+    });
+
+    it('send-email uses the shared-secret predicate (its anonymous allowance is deliberate)', () => {
+        const src = read('api/_handlers/send-email.ts');
+        expect(src).toMatch(/isSharedSecretAdmin/);
+        expect(src).toMatch(/403/);
     });
 });

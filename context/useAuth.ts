@@ -8,20 +8,21 @@ import { signOut } from '../services/auth';
 import { getStoredReferralCode, trackSignupReferral } from '../utils/referralSystem';
 
 import { safeJsonParse } from '../utils/storage';
+import { ADMIN_MODE_KEY, ADMIN_TOKEN_KEY } from '../services/adminSession';
 const loadWalletActions = () => import('../services/walletActions');
 const loadWalletBalances = () => import('../services/walletBalances');
 
 export function useAuth(isSupabaseConfigured: boolean, addToast: any) {
     const [user, setUser] = useState<UserProfile | null>(null);
     const [isAdminMode, setIsAdminMode] = useState(() => {
-        if (typeof window !== 'undefined') return sessionStorage.getItem('coalition_admin_mode') === 'true';
+        if (typeof window !== 'undefined') return sessionStorage.getItem(ADMIN_MODE_KEY) === 'true';
         return false;
     });
     const [chainId, setChainId] = useState<number | null>(null);
 
     const updateAdminMode = useCallback((val: boolean) => {
         setIsAdminMode(val);
-        if (typeof window !== 'undefined') { if (val) sessionStorage.setItem('coalition_admin_mode', 'true'); else sessionStorage.removeItem('coalition_admin_mode'); }
+        if (typeof window !== 'undefined') { if (val) sessionStorage.setItem(ADMIN_MODE_KEY, 'true'); else sessionStorage.removeItem(ADMIN_MODE_KEY); }
     }, []);
 
     useEffect(() => {
@@ -209,7 +210,7 @@ export function useAuth(isSupabaseConfigured: boolean, addToast: any) {
         try {
             const response = await fetch('/api/admin-verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pwd }) });
             const data = await response.json();
-            if (response.ok && data.token) { sessionStorage.setItem('coalition_admin_token', data.token); updateAdminMode(true); return true; }
+            if (response.ok && data.token) { sessionStorage.setItem(ADMIN_TOKEN_KEY, data.token); updateAdminMode(true); return true; }
         } catch (err) { console.error('Admin login error:', err); }
         if (password) {
             try {

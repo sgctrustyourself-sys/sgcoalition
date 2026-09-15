@@ -22,12 +22,12 @@ import * as Sentry from '@sentry/react';
 import {
     initSentry,
     reportRootError,
-    scrubEvent,
-    scrubText,
     getDsn,
     isSentryEnabled,
     __resetSentryForTests,
 } from '../services/sentryInit';
+// The privacy boundary is a separate, SDK-free module.
+import { scrubEvent, scrubText } from '../services/sentryRedact';
 
 vi.mock('@sentry/react', () => ({
     init: vi.fn(),
@@ -56,6 +56,8 @@ describe('sentry DSN gate', () => {
         expect(getDsn()).toBe('');
         expect(isSentryEnabled()).toBe(false);
         expect(initSentry()).toBe(false);
+        // An explicit empty DSN takes the same path as an unconfigured build.
+        expect(initSentry('')).toBe(false);
 
         reportRootError(new Error('boom'), { componentStack: 'at <App>' }, 'uncaught');
         expect(Sentry.init).not.toHaveBeenCalled();
@@ -79,11 +81,10 @@ describe('sentry DSN gate', () => {
         expect(Sentry.init).toHaveBeenCalledTimes(1);
     });
 
-    it('reads the DSN from the process env when import.meta.env is unset (test path)', () => {
-        process.env.VITE_SENTRY_DSN = 'https://public@o0.ingest.sentry.io/2';
-        expect(getDsn()).toBe('https://public@o0.ingest.sentry.io/2');
-        expect(isSentryEnabled()).toBe(true);
-        expect(initSentry()).toBe(true);
+    it('a whitespace-only DSN counts as unconfigured', () => {
+        expect(isSentryEnabled()).toBe(false);
+        expect(initSentry('   ')).toBe(false);
+        expect(Sentry.init).not.toHaveBeenCalled();
     });
 });
 
@@ -159,6 +160,7 @@ describe('beforeSend redaction', () => {
 describe('source invariants: bundle cost + deliberate deferrals', () => {
     const indexSrc = read('index.tsx');
     const initSrc = read('services/sentryInit.ts');
+    const redactSrc = read('services/sentryRedact.ts');
 
     it('index.tsx guards the sentry import behind VITE_SENTRY_DSN', () => {
         // The whole point: no DSN at build time => Rollup drops the branch and
@@ -183,10 +185,10 @@ describe('source invariants: bundle cost + deliberate deferrals', () => {
         //
         // Comments are stripped first: sentryInit.ts *documents* the footgun in
         // prose, and only real code should satisfy this assertion.
-        const code = initSrc
-            .replace(/\/\*[\s\S]*?\*\//g, '')
-            .replace(/^\s*\/\/.*$/gm, '');
-        expect(code).not.toMatch(/replaysSessionSampleRate/);
-        expect(code).not.toMatch(/replayIntegration/);
+        const strip = (src: string) =>
+            src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+        expect(strip(initSrc)).not.toMatch(/replaysSessionSampleRate/);
+        expect(strip(initSrc)).not.toMatch(/replayIntegration/);
+        expect(strip(redactSrc)).not.toMatch(/replaysSessionSampleRate/);
     });
 });

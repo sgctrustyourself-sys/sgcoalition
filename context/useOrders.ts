@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Order, OrderStatus } from '../types';
 import { INITIAL_ORDERS } from '../constants';
 import { supabase } from '../services/supabase';
+import { getAdminAuthHeaders } from '../services/adminSession';
 import { WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
 import { updateLifetimeStats } from '../utils/customerProfile';
 
@@ -69,8 +70,7 @@ export function useOrders(
     const fetchOrdersViaApi = useCallback(async () => {
         try {
             console.log('🚀 Calling admin API bypass for orders...');
-            const token = sessionStorage.getItem('coalition_admin_token');
-            const response = await fetch('/api/complete-order', { method: 'GET', headers: { Authorization: 'Bearer ' + token } });
+            const response = await fetch('/api/complete-order', { method: 'GET', headers: getAdminAuthHeaders() });
             if (!response.ok) throw new Error('API bypass failed: ' + response.statusText);
             const data = await response.json();
             console.log('✅ API bypass fetched ' + (data?.length || 0) + ' orders');
@@ -126,10 +126,9 @@ export function useOrders(
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, paymentStatus: newStatus as OrderStatus } : o));
         if (isSupabaseConfigured) {
             try {
-                const token = sessionStorage.getItem('coalition_admin_token');
                 const response = await fetch('/api/complete-order', {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                    headers: { 'Content-Type': 'application/json', ...getAdminAuthHeaders() },
                     body: JSON.stringify({ id: orderId, updates: { payment_status: newStatus, paid_at: newStatus === 'paid' ? new Date().toISOString() : null } })
                 });
                 if (!response.ok) throw new Error('Status update failed');

@@ -18,9 +18,11 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 // 2026-07-07 `withAdminAuth` migration: marketing-stats previously had a
 // hand-rolled `isAdminAuthorized` + inline 4-setHeader CORS block. The
-// wrapper now covers both; the env-var chain matches the 3-token
-// canonical surface (ADMIN_SESSION_TOKEN -> FULL_AI_PASSWORD ->
-// AI_SESSION_SECRET) the rest of the admin surface uses.
+// wrapper now covers both.
+// 2026-09-15: the wrapper moved to api/_adminAuth.ts, which owns the whole
+// credential policy. The wrapper previously accepted ONLY the legacy trio, so
+// this endpoint 401'd every real admin session in production (which sets
+// ADMIN_API_TOKEN) — that is fixed, and this endpoint now answers 200.
 // 2026-07-11: Add `.js` extension to the relative import — Vercel's ESM
 // bundler requires explicit extensions on relative value imports. The
 // missing `.js` was the root cause of FUNCTION_INVOCATION_FAILED: the
@@ -29,7 +31,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 // throwing ERR_MODULE_NOT_FOUND at module-load time, before any handler
 // code (or log line) could run. `import type` is erased at compile time
 // so '../_types.js' doesn't need the extension.
-import { withAdminAuth } from '../_helpers.js';
+import { withAdminAuth } from '../_adminAuth.js';
 import type { ApiRequest, ApiResponse } from '../_types.js';
 
 let cachedAdminClient: SupabaseClient | null = null;

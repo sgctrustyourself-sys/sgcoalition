@@ -10,6 +10,7 @@
 // mirrors the complete-order / admin-products pattern.
 
 import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from '../_adminAuth.js';
 
 function setCorsHeaders(req: any, res: any) {
     const configuredOrigin = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
@@ -27,19 +28,6 @@ function setCorsHeaders(req: any, res: any) {
     res.setHeader('Access-Control-Allow-Origin', responseOrigin);
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-}
-
-function getBearerToken(req: any): string | null {
-    const header = req.headers?.authorization || req.headers?.Authorization || '';
-    const match = String(header).match(/^Bearer\s+(.+)$/i);
-    return match?.[1] || null;
-}
-
-function isAuthorized(req: any): boolean {
-    const token = getBearerToken(req);
-    if (!token) return false;
-    const adminToken = (process.env.ADMIN_API_TOKEN || '').trim();
-    return adminToken.length > 0 && token === adminToken;
 }
 
 function getSupabaseAdmin() {
@@ -108,10 +96,7 @@ export default async function handler(req: any, res: any) {
         return;
     }
 
-    if (!isAuthorized(req)) {
-        res.status(401).json({ error: 'Admin authorization required.' });
-        return;
-    }
+    if (!requireAdmin(req, res)) return;
 
     try {
         if (req.method === 'POST') {

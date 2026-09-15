@@ -2,7 +2,8 @@
  * Imgur upload service
  */
 
-import { buildGitOperationsUrl, getAdminAuthHeaders, clearAdminSession } from './apiBase.js';
+import { buildGitOperationsUrl } from './apiBase.js';
+import { ADMIN_SESSION_EXPIRED_ERROR, getAdminAuthHeaders, handleAdminAuthFailure } from './adminSession.js';
 
 /**
  * Upload an image to Imgur via the local backend processor
@@ -40,9 +41,8 @@ export async function uploadToImgur(
         });
 
         if (!response.ok) {
-            if (response.status === 401) {
-                clearAdminSession();
-                throw new Error('Admin session expired — sign in again.');
+            if (handleAdminAuthFailure(response.status)) {
+                throw new Error(ADMIN_SESSION_EXPIRED_ERROR);
             }
             const error = await response.json().catch(() => ({}));
             throw new Error(error.error || 'Imgur upload failed');
@@ -74,9 +74,8 @@ export async function syncProductsToCode(): Promise<{ hash?: string; noChanges?:
         });
 
         if (!response.ok) {
-            if (response.status === 401) {
-                clearAdminSession();
-                throw new Error('Admin session expired — sign in again to sync products.');
+            if (handleAdminAuthFailure(response.status)) {
+                throw new Error(ADMIN_SESSION_EXPIRED_ERROR);
             }
             const error = await response.json().catch(() => ({}));
             throw new Error(error.error || `Sync failed (HTTP ${response.status})`);

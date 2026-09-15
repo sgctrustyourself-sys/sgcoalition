@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
-import { isAdminRequest } from '../_helpers.js';
+import { setCorsHeaders } from '../_helpers.js';
+import { isSharedSecretAdmin } from '../_adminAuth.js';
 
 // Anti-relay auth gate (pinned by tests/sendEmailGate.test.ts):
 //   - Authorization: Bearer <ADMIN_API_TOKEN or ADMIN_PASSPHRASE>
@@ -24,10 +25,10 @@ function getOwnerNotificationAddress() {
     return (process.env.ORDER_NOTIFICATION_EMAIL || '').trim() || 'sgctrustyourself@gmail.com';
 }
 
-// The admin-caller check now lives in api/_helpers.ts (shared with
-// api/_handlers/git-operations.ts). Keeping two copies was how the env
-// contract could drift between guards. Same behavior: either server-side
-// secret (ADMIN_API_TOKEN or ADMIN_PASSPHRASE), fail-closed when unset.
+// The admin-caller check lives in api/_adminAuth.ts (single owner of the whole
+// credential policy). This handler deliberately calls the SHARED-SECRET
+// predicate rather than the all-or-nothing `requireAdmin` gate, because an
+// anonymous caller is still allowed to reach one recipient (the owner address).
 
 function normalizeRecipient(raw: unknown): string {
     return String(raw ?? '').trim().toLowerCase();
@@ -48,10 +49,7 @@ async function sendResendEmail(payload: any) {
 }
 
 export default async function handler(req: any, res: any) {
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
-    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    setCorsHeaders(req, res, { methods: 'POST,OPTIONS' });
 
     if (req.method === 'OPTIONS') {
         res.status(200).end();
@@ -77,7 +75,7 @@ export default async function handler(req: any, res: any) {
             return;
         }
 
-        if (!isAdminRequest(req) && recipient !== normalizeRecipient(getOwnerNotificationAddress())) {
+        if (!isSharedSecretAdmin(req) && recipient !== normalizeRecipient(getOwnerNotificationAddress())) {
             console.warn('[send-email] blocked unauthenticated send to non-owner recipient');
             res.status(403).json({ error: 'Admin token required to email this recipient.' });
             return;

@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { getAdminAuthHeaders } from './adminSession.js';
 import type { Product, NumberedPiece } from '../types.js';
 
 export interface PaidCountsByProduct {
@@ -91,9 +92,8 @@ export async function fetchPiecesByOrder(orderId: string): Promise<NumberedPiece
  * (sessionStorage.coalition_admin_token + /api/admin-verify) does NOT mint
  * a Supabase auth session. Anonymous UPDATE returns 403 with an opaque
  * error and the operator can't tell whether the migration is wrong or auth
- * is missing. The server-side handler uses ADMIN_SESSION_TOKEN as the
- * gate and SUPABASE_SERVICE_ROLE_KEY for the write, mirroring the
- * api/complete-order.ts order-write pattern.
+ * is missing. The server-side handler uses the shared admin gate in
+ * api/_adminAuth.ts and SUPABASE_SERVICE_ROLE_KEY for the write.
  *
  * UPDATEs ONLY nft_token_id + nfc_tag_url; order_id / piece_index / id are
  * admin-protected and bound by the server on order-paid. Strip empty
@@ -104,11 +104,7 @@ export async function updatePieceMetadata(
     pieceId: string,
     updates: { nftTokenId?: string | null; nfcTagUrl?: string | null }
 ): Promise<{ ok: boolean; error?: string }> {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (typeof sessionStorage !== 'undefined') {
-        const token = sessionStorage.getItem('coalition_admin_token');
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-    }
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...getAdminAuthHeaders() };
 
     try {
         const res = await fetch('/api/update-piece-metadata', {

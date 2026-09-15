@@ -13,6 +13,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { CreditCard, Wallet, Loader, Landmark } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { getAdminToken } from '../../services/adminSession';
 
 interface PaymentFlags {
     card: boolean;
@@ -57,14 +58,6 @@ const ROWS: { key: keyof PaymentFlags; label: string; detail: string; icon: Reac
         accent: 'bg-blue-500/10 border-blue-500/20 text-blue-300',
     },
 ];
-
-function getAdminToken(): string | null {
-    try {
-        return sessionStorage.getItem('coalition_admin_token');
-    } catch {
-        return null;
-    }
-}
 
 const PaymentOptionsCard: React.FC = () => {
     const { addToast } = useToast();
