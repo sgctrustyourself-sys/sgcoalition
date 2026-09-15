@@ -6,13 +6,15 @@ import { Trash2, ArrowRight } from 'lucide-react';
 import { COIN_REWARD_RATE } from '../constants';
 import { getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
+import QuantityStepper from '../components/QuantityStepper';
+import { getLineMaxQuantity } from '../context/useCart';
 
 // Named export keeps symbol-search by `Cart` working; default export lets
 // App.tsx register the /cart route via React.lazy(() => import('./pages/Cart')).
 // Both references resolve to the same component instance.
 export const Cart: React.FC = () => {
     const navigate = useNavigate();
-    const { cart, removeFromCart, clearCart, user } = useApp();
+    const { cart, setQuantity, removeFromCart, clearCart, user } = useApp();
 
     const total = cart.reduce((sum, item) => sum + getCartItemLineTotal(item), 0);
     const potentialCoins = Math.floor(total * COIN_REWARD_RATE);
@@ -49,8 +51,19 @@ export const Cart: React.FC = () => {
                                 {item.keychainClipOn && (
                                     <p className="text-gray-500">{WALLET_KEYCHAIN_CLIP_LABEL} (+$10)</p>
                                 )}
-                                <p className="text-gray-500">Qty: {item.quantity}</p>
-                                <p className="text-gray-500 text-sm">Unit Price: ${getCartItemUnitPrice(item).toFixed(2)}</p>
+                                <div className="mt-2 flex items-center gap-3">
+                                    <QuantityStepper
+                                        value={item.quantity}
+                                        onChange={(next) => setQuantity(item.cartId, next)}
+                                        max={getLineMaxQuantity(item)}
+                                        label={`Quantity for ${item.name}`}
+                                        tone="light"
+                                        size="sm"
+                                    />
+                                    <span className="text-gray-500 text-sm">
+                                        Unit Price: ${getCartItemUnitPrice(item).toFixed(2)}
+                                    </span>
+                                </div>
                                 <button
                                     onClick={() => removeFromCart(item.cartId)}
                                     className="text-sm text-red-500 mt-4 flex items-center hover:underline"

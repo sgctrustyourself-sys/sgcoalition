@@ -18,6 +18,7 @@ import { trackReferralShare } from '../utils/referralAnalytics';
 import { isWalletProduct, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
 import { PRODUCT_IDS, WHITE_BG_PRODUCT_IDS } from '../constants/productIds';
 import { buildProductJsonLd, getProductSeo } from '../utils/seo';
+import QuantityStepper from '../components/QuantityStepper';
 import { isNumberedEdition, getActiveTierPrice } from '../types';
 import { formatTierCalloutCopy } from '../services/numberedPieces';
 import { Lock, Unlock, Loader } from 'lucide-react';
@@ -43,6 +44,10 @@ const ProductDetails = () => {
     const [selectedSize, setSelectedSize] = useState<string>('');
     const [activeImageIndex, setActiveImageIndex] = useState(0);
     const [includeKeychainClipOn, setIncludeKeychainClipOn] = useState(false);
+    // How many of the selected size go into the bag. Started at 1 and capped by
+    // stock, so this is the "buy two deliberately" path that used to require
+    // re-adding the same size by hand.
+    const [orderQuantity, setOrderQuantity] = useState(1);
 
     // Admin Edit State
     const [isEditing, setIsEditing] = useState(false);
@@ -204,6 +209,9 @@ const ProductDetails = () => {
     const isSoldOut = !isSold && totalStock === 0;
     const isUnavailable = isArchived || isSoldOut;
     const selectedSizeStock = resolvedSize ? product.sizeInventory?.[resolvedSize] ?? totalStock : totalStock;
+    // Switching to a size with less stock must not leave an unavailable
+    // quantity selected (pick 3 in M, switch to L where 1 is left).
+    const quantityCeiling = Math.max(1, selectedSizeStock);
     const maxSizeStock = Math.max(1, ...Object.values(product.sizeInventory || {}).map(v => Number(v || 0)));
     // Low-stock threshold: a size is "low" when it has 3 or fewer remaining
     const LOW_STOCK_THRESHOLD = 3;
@@ -988,8 +996,14 @@ const ProductDetails = () => {
                                         </div>
                                     ) : (
                                         <div className="flex gap-4">
+                                            <QuantityStepper
+                                                value={Math.min(orderQuantity, quantityCeiling)}
+                                                onChange={setOrderQuantity}
+                                                max={quantityCeiling}
+                                                label="Quantity"
+                                            />
                                             <button
-                                                onClick={() => addToCart(product, resolvedSize, { keychainClipOn: includeKeychainClipOn })}
+                                                onClick={() => addToCart(product, resolvedSize, { keychainClipOn: includeKeychainClipOn }, Math.min(orderQuantity, quantityCeiling))}
                                                 disabled={(!selectedSize && (product.sizes?.length || 0) > 1) || totalStock === 0}
                                                 className="flex-1 bg-white text-black py-4 px-8 flex items-center justify-center text-sm font-bold uppercase tracking-[0.2em] hover:bg-brand-accent hover:text-white transition-all focus:outline-none focus:ring-2 focus:ring-brand-accent focus:ring-offset-2 focus:ring-offset-black disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed box-glow"
                                             >

@@ -28,7 +28,8 @@ interface AppState {
     addProduct: (p: Product) => Promise<void>;
     updateProduct: (p: Product) => Promise<void>;
     deleteProduct: (id: string) => Promise<void>;
-    addToCart: (p: Product, size: string, options?: { keychainClipOn?: boolean }) => void;
+    addToCart: (p: Product, size: string, options?: { keychainClipOn?: boolean }, quantity?: number) => void;
+    setQuantity: (cartId: string, quantity: number) => void;
     removeFromCart: (cartId: string) => void;
     clearCart: () => void;
     toggleFavorite: (pid: string) => void;
@@ -229,7 +230,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         <AppContext.Provider value={{
             products: catalogHook.products, cart: cartHook.cart, user: authHook.user, sections, orders: ordersHook.orders, isCartOpen: cartHook.isCartOpen, isAdminMode: authHook.isAdminMode, isSupabaseConfigured,
             isConfigError, isLoading, addProduct: catalogHook.addProduct, updateProduct: catalogHook.updateProduct, deleteProduct: catalogHook.deleteProduct, addToCart: cartHook.addToCart,
-            removeFromCart: cartHook.removeFromCart, clearCart: cartHook.clearCart, toggleFavorite: authHook.toggleFavorite, login: authHook.login, loginUser: authHook.loginUser, logout: authHook.logout, updateUser: authHook.updateUser,
+            setQuantity: cartHook.setQuantity, removeFromCart: cartHook.removeFromCart, clearCart: cartHook.clearCart, toggleFavorite: authHook.toggleFavorite, login: authHook.login, loginUser: authHook.loginUser, logout: authHook.logout, updateUser: authHook.updateUser,
             setCartOpen: cartHook.setCartOpen, loginAdmin: authHook.loginAdmin, logoutAdmin: authHook.logoutAdmin, updateSections, updateSection, cartTotal: cartHook.cartTotal,
             calculateReward, addOrder: ordersHook.addOrder, updateOrderStatus: ordersHook.updateOrderStatus, deleteOrder: ordersHook.deleteOrder, getOrderById: ordersHook.getOrderById, deductInventory: catalogHook.deductInventory,
             generateOrderNumber: ordersHook.generateOrderNumber, giveaways: giveawaysHook.giveaways, addGiveaway: giveawaysHook.addGiveaway, updateGiveaway: giveawaysHook.updateGiveaway, deleteGiveaway: giveawaysHook.deleteGiveaway,

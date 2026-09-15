@@ -11,10 +11,12 @@ import NoRefundsBanner from './NoRefundsBanner';
 import { SALES_FINAL_ENABLED } from '../constants';
 import { getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
+import QuantityStepper from './QuantityStepper';
+import { getLineMaxQuantity } from '../context/useCart';
 
 const CartDrawer = () => {
     const navigate = useNavigate();
-    const { isCartOpen, setCartOpen, cart, removeFromCart, cartTotal, calculateReward } = useApp();
+    const { isCartOpen, setCartOpen, cart, setQuantity, removeFromCart, cartTotal, calculateReward } = useApp();
 
     // Rules of Hooks: ALL hooks must be called unconditionally on every render
     // in the same order, regardless of whether the drawer is open. Earlier
@@ -76,7 +78,16 @@ const CartDrawer = () => {
                                         <p className="text-xs text-gray-400 mt-1">{WALLET_KEYCHAIN_CLIP_LABEL} (+$10)</p>
                                     )}
                                     <div className="flex items-center justify-between mt-4">
-                                        <span className="text-xs text-gray-400">Qty: {item.quantity} • ${getCartItemUnitPrice(item).toFixed(2)} each</span>
+                                        <div className="flex items-center gap-3">
+                                            <QuantityStepper
+                                                value={item.quantity}
+                                                onChange={(next) => setQuantity(item.cartId, next)}
+                                                max={getLineMaxQuantity(item)}
+                                                label={`Quantity for ${item.name}`}
+                                                size="sm"
+                                            />
+                                            <span className="text-xs text-gray-400">${getCartItemUnitPrice(item).toFixed(2)} each</span>
+                                        </div>
                                         <button onClick={() => removeFromCart(item.cartId)} className="text-red-400 hover:text-red-300" aria-label="Remove item">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
