@@ -26,7 +26,13 @@
 // It never types card details and never submits a payment — the run stops one
 // step before a shopper would start paying. What it proves, in order:
 //   1. /shop renders product links
-//   2. the product page offers Add to bag (and a size, when the product has sizes)
+//   2. a purchasable product page offers Add to bag (and a size, when the
+//      product has sizes). It is chosen from the sellable listings, so a
+//      sold-out leader is not mistaken for a broken shop.
+//   2b. the sold-out state is covered rather than skipped: such a product offers
+//      NO Add to bag, states Claimed or Archived, and points at "Request
+//      similar style" instead. Reported as skipped only when the shop lists no
+//      sold-out product at all.
 //   3. the quantity stepper exists, starts at 1, and steps up when stock allows
 //   4. /cart prices the line at exactly quantity x unit price
 //   5. stepping down returns it to 1 without deleting the line
@@ -165,6 +171,17 @@ try {
         null,
         { timeout: 25000 },
     );
+    // The grid renders progressively, so reading links the instant the first
+    // card appears captures a partial list — an early read of this shop has
+    // returned a single link where a settled page lists all 30. Wait for more
+    // than one card, bounded and tolerant of a genuinely tiny catalog, so the
+    // classification below can actually see both the sellable and sold-out
+    // states instead of reporting a skip on every run.
+    await page
+        .waitForFunction(() => document.querySelectorAll('a[href*="/product/"]').length > 1, null, {
+            timeout: 5000,
+        })
+        .catch(() => {});
     const productHrefs = await page.evaluate(() => [
         ...new Set(
             [...document.querySelectorAll('a')]
@@ -175,35 +192,92 @@ try {
     await check('shop lists a product', () => (productHrefs.length ? `${productHrefs.length} listed` : null));
 
     // ---- 2. product page offers a bag button, and a size ------------------
-    // The first listed product is not necessarily buyable: archived pieces
-    // deliberately render no Add to bag button (ProductDetails swaps in
-    // "Request similar style"), so pinning to the first link made this check
-    // fail at random whenever the shop happened to lead with a sold-out drop.
-    // Walk the listed products and use the first that actually sells — the
-    // goal is reaching checkout, not exercising a named product — bounded so a
-    // genuinely broken catalog still fails fast and loudly.
+    // Both product states get exercised, because both are real and only one is
+    // sellable. A sold-out piece legitimately renders NO Add to bag button —
+    // ProductDetails swaps in an aria-label="Request similar style" control and
+    // a Claimed/Archived status — so taking the first link and demanding a buy
+    // control failed at random whenever the shop led with an archived drop,
+    // while merely skipping those pages left the sold-out state untested.
+    //
+    // Sold-out pieces are identified from the LISTING, where ProductCard
+    // overlays each one with a "Claimed" chip, instead of by probing product
+    // pages one at a time: the shop's ordering is not a contract, so a fixed
+    // slice of the list sometimes contained none and the check reported a skip
+    // on every run.
     step = 'product';
+    const soldOutHrefs = await page.evaluate(() => {
+        const claimed = [...document.querySelectorAll('span')].filter(
+            (span) => (span.textContent || '').trim().toLowerCase() === 'claimed',
+        );
+        const hrefs = new Set();
+        for (const span of claimed) {
+            // Walk up to the nearest ancestor holding the card's link, so this
+            // depends on neither Tailwind class names nor the anchor wrapping
+            // the overlay (it does not).
+            let node = span;
+            while (node && !node.querySelector('a[href*="/product/"]')) node = node.parentElement;
+            const href = node?.querySelector('a[href*="/product/"]')?.getAttribute('href');
+            if (href) hrefs.add(href);
+        }
+        return [...hrefs];
+    });
+
+    // Find something sellable. Bounded: a shop where the first ten sellable
+    // listings all lack a buy button is a real failure, not a reason to crawl
+    // the whole catalogue.
+    const sellable = productHrefs.filter((href) => !soldOutHrefs.includes(href)).slice(0, 10);
     let productHref = null;
-    let addToBag = null;
-    const notBuyable = [];
-    for (const href of productHrefs.slice(0, 8)) {
+    for (const href of sellable) {
         await page.goto(target + href, { waitUntil: 'load' });
-        const candidate = page.getByRole('button', { name: /add to (bag|cart)/i }).first();
-        const buyable = await candidate
+        const bag = page.getByRole('button', { name: /add to (bag|cart)/i }).first();
+        const hasBag = await bag
             .waitFor({ state: 'visible', timeout: 15000 })
             .then(() => true)
             .catch(() => false);
-        if (buyable) {
+        if (hasBag) {
             productHref = href;
-            addToBag = candidate;
             break;
         }
-        notBuyable.push(href);
     }
-    assert(
-        addToBag,
-        `no purchasable product among the first 8 listed (no Add to bag on: ${notBuyable.join(', ') || 'none'})`,
-    );
+    assert(productHref, `no purchasable product among ${sellable.length} sellable listings`);
+
+    // A sold-out product must fail closed: no way to buy, an explicit status,
+    // and a route to something obtainable instead. Skipped only when the shop
+    // lists no sold-out piece at all.
+    if (soldOutHrefs.length) {
+        await page.goto(target + soldOutHrefs[0], { waitUntil: 'load' });
+        await check('sold-out product offers no buy button and states why', async () => {
+            const bagButtons = await page.getByRole('button', { name: /add to (bag|cart)/i }).count();
+            assert(bagButtons === 0, `sold-out product still rendered ${bagButtons} buy button(s)`);
+            // The status renders just after the boot signal, so wait for it
+            // rather than reading the instant the page is interactive.
+            const status = await page
+                .getByText(/^(Claimed|Archived)$/i)
+                .first()
+                .waitFor({ state: 'visible', timeout: 15000 })
+                .then(() => true)
+                .catch(() => false);
+            assert(status, 'sold-out product shows no Claimed/Archived status');
+            const cta = await page
+                .getByRole('button', { name: /request similar style/i })
+                .first()
+                .waitFor({ state: 'visible', timeout: 15000 })
+                .then(() => true)
+                .catch(() => false);
+            assert(cta, 'sold-out product offers no "Request similar style" path');
+            return `${soldOutHrefs[0]} — ${soldOutHrefs.length} of ${productHrefs.length} listed sold out`;
+        });
+    } else {
+        results.push({ name: 'sold-out product offers no buy button and states why', ok: true, skipped: true });
+        console.log(
+            '  skip  sold-out product offers no buy button and states why — the shop lists no sold-out product',
+        );
+    }
+
+    // Continue the money path on the product that actually sells.
+    await page.goto(target + productHref, { waitUntil: 'load' });
+    const addToBag = page.getByRole('button', { name: /add to (bag|cart)/i }).first();
+    await addToBag.waitFor({ state: 'visible' });
     const sizeButton = page.locator('button').filter({ hasText: /LEFT$/i }).first();
     const hasSizes = (await sizeButton.count()) > 0;
     if (hasSizes) {
@@ -316,6 +390,12 @@ try {
 
 const skipped = results.filter((r) => r.skipped).length;
 const passed = results.filter((r) => r.ok && !r.skipped).length;
+// Name the checks that were skipped rather than assuming the only possible skip
+// is a missing API, and keep that reason explicit where it applies.
+const skippedNames = results.filter((r) => r.skipped).map((r) => r.name);
+const skipNote = skippedNames.includes('checkout total matches the server')
+    ? ` — checkout pricing NOT verified (no API at ${host})`
+    : '';
 if (failure) {
     console.error(`\nSMOKE FAILED at "${failure.step}": ${failure.error}`);
     console.error(`${passed}/${results.length} checks passed against ${target}`);
@@ -325,6 +405,6 @@ const total = results.length;
 console.log(
     skipped === 0
         ? `\nSMOKE OK — ${passed}/${total} checks passed against ${target}`
-        : `\nSMOKE OK (partial) — ${passed}/${total} checks passed, ${skipped} skipped ` +
-          `(no API at ${host}: client flow only, checkout pricing NOT verified)`,
+        : `\nSMOKE OK (partial) — ${passed}/${total} checks passed, ${skipped} skipped: ` +
+          `${skippedNames.join('; ')}${skipNote}`,
 );
