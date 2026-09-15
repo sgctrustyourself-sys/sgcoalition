@@ -114,7 +114,10 @@ async function loadProducts(ids: string[]): Promise<Map<string, ProductRow>> {
     if (error) throw err(500, error.message || 'Product lookup failed.');
     const m = new Map<string, ProductRow>(((data as ProductRow[] | null) || []).map(p => [String(p.id), p]));
     const miss = ids.filter(id => !m.has(id));
-    if (miss.length) throw err(409, 'Unavailable: ' + miss.join(', '));
+    // String() matters: Array.join renders undefined/null as an EMPTY string, so
+    // a payload that omits productId used to surface as a bare
+    // "Unavailable: " with no clue which item was at fault.
+    if (miss.length) throw err(409, 'Unavailable: ' + miss.map(id => String(id)).join(', '));
     return m;
 }
 

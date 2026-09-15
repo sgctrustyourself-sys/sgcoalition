@@ -116,16 +116,27 @@ export function withAdminAuth(
             return;
         }
 
-        const expected = process.env.ADMIN_SESSION_TOKEN
-            || process.env.FULL_AI_PASSWORD
-            || process.env.AI_SESSION_SECRET
-            || '';
-        const headerRaw = req.headers?.authorization ?? req.headers?.Authorization;
-        const authHeader = typeof headerRaw === 'string' ? headerRaw : '';
-        const bearer = authHeader.toLowerCase().startsWith('bearer ')
-            ? authHeader.slice(7).trim()
-            : authHeader.trim();
-        if (!expected || !bearer || bearer !== expected) {
+        // Two credential families are accepted, canonical first:
+        //
+        //   1. ADMIN_API_TOKEN / ADMIN_PASSPHRASE — isAdminRequest(), the
+        //      contract /api/admin-verify actually hands the browser.
+        //   2. The legacy trio below, kept so pre-existing deployments that
+        //      only set ADMIN_SESSION_TOKEN (or FULL_AI_PASSWORD /
+        //      AI_SESSION_SECRET) keep working.
+        //
+        // WHY BOTH: production currently sets ONLY ADMIN_API_TOKEN. A wrapper
+        // that accepted just the legacy trio therefore 401'd every real admin
+        // session — /api/marketing-stats was unreachable in production despite
+        // presenting a valid admin token. Verified live before this change.
+        const bearer = extractBearerToken(req);
+        const legacySecrets = [
+            (process.env.ADMIN_SESSION_TOKEN || '').trim(),
+            (process.env.FULL_AI_PASSWORD || '').trim(),
+            (process.env.AI_SESSION_SECRET || '').trim(),
+        ];
+        const authorized = isAdminRequest(req)
+            || (bearer.length > 0 && legacySecrets.some((s) => s.length > 0 && bearer === s));
+        if (!authorized) {
             res.status(401).json({ error: 'Admin authorization required.' });
             return;
         }

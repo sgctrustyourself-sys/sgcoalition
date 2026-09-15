@@ -8,7 +8,37 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
-const root = ReactDOM.createRoot(rootElement);
+// ---------------------------------------------------------------------------
+// Error reporting (Sentry). OPTIONAL and lazy by design:
+// `import.meta.env.VITE_SENTRY_DSN` is inlined by Vite at build time, so with no
+// DSN configured Rollup drops this entire branch and @sentry/react never enters
+// the bundle. The guard is pinned by tests/sentryWiring.test.ts — do not turn
+// this into an unconditional static import.
+//
+// The import is kicked off before render so the SDK is ready if the first paint
+// throws; anything that fails earlier is still caught by the out-of-React
+// recovery path in index.html.
+// ---------------------------------------------------------------------------
+const sentryModule = import.meta.env.VITE_SENTRY_DSN
+  ? import('./services/sentryInit').then((mod) => {
+      mod.initSentry();
+      return mod;
+    })
+  : Promise.resolve(null);
+
+const reportRootError =
+  (kind: 'uncaught' | 'caught') =>
+  (error: unknown, info: { componentStack?: string | null }) => {
+    void sentryModule.then((mod) => mod?.reportRootError(error, info, kind));
+  };
+
+// React 19 root error handlers. `onCaughtError` only ever fires for errors a
+// boundary caught (this app has no boundary yet — wiring it here is free and
+// means adding one later needs no change in this file).
+const root = ReactDOM.createRoot(rootElement, {
+  onUncaughtError: reportRootError('uncaught'),
+  onCaughtError: reportRootError('caught'),
+});
 
 const BootMarker: React.FC = () => {
   useEffect(() => {
