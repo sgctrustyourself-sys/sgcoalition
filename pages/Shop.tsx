@@ -7,6 +7,22 @@ import ProductCardSkeleton from '../components/ProductCardSkeleton';
 import Seo from '../components/Seo';
 import Newsletter from '../components/Newsletter';
 import { buildItemListJsonLd } from '../utils/seo';
+import { Product } from '../types';
+import { sortByNewest } from '../utils/storefront';
+
+// Detect women's products via the `gender` field, with an ID/name fallback
+// for products missing the field (e.g., Supabase rows that pre-date the
+// migration adding the gender column).
+// Used by both the `women` and `men` category filters on the Shop page.
+// Exported so it can be unit-tested independently of the Shop page render.
+export const isWomensProduct = (p: Product) => {
+    if (p.gender) return p.gender === 'womens';
+
+    // Fallback for DB products missing the field
+    const id = p.id?.toLowerCase() || '';
+    const name = p.name?.toLowerCase() || '';
+    return id.includes('womens_') || name.includes("women's") || id === 'prod_halo_mini_dress';
+};
 
 const Shop = () => {
     const { products, isLoading, isConfigError } = useApp();
@@ -30,21 +46,26 @@ const Shop = () => {
     };
 
     // Category structure: top-level and sub-categories
+    // Restored from commit 3d4070a: adds WOMEN+MEN top-level filters and
+    // SHORTS/SWEATSHIRTS/DRESSES sub-categories under APPAREL.
     const categoryGroups = [
         { value: 'all', label: 'ALL' },
+        { value: 'women', label: 'WOMEN' },
+        { value: 'men', label: 'MEN' },
         {
             value: 'apparel', label: 'APPAREL', children: [
                 { value: 'shirts', label: 'SHIRTS' },
                 { value: 'jeans', label: 'JEANS' },
                 { value: 'shorts', label: 'SHORTS' },
                 { value: 'sweatshirt', label: 'SWEATSHIRTS' },
+                { value: 'dresses', label: 'DRESSES' },
             ]
         },
         { value: 'wallets', label: 'WALLETS' },
         { value: 'hats', label: 'HATS' },
     ];
     // Flat list for the top dropdown
-    const categories = ['all', 'apparel', 'shirts', 'jeans', 'shorts', 'sweatshirt', 'wallets', 'hats'];
+    const categories = ['all', 'women', 'men', 'apparel', 'shirts', 'jeans', 'shorts', 'sweatshirt', 'dresses', 'wallets', 'hats'];
     const allSizes = Array.from(new Set(products.flatMap(p => p.sizes || []))) as string[];
     const shopJsonLd = React.useMemo(
         () => buildItemListJsonLd(
@@ -62,24 +83,7 @@ const Shop = () => {
     };
 
     const filteredProducts = React.useMemo(() => {
-        const originalOrder = new Map(products.map((product, index) => [product.id, index]));
-        const getNewestTimestamp = (product: typeof products[number]) => {
-            const candidateDates = [
-                product.createdAt,
-                product.releasedAt,
-                product.archivedAt,
-                product.soldAt
-            ];
-
-            for (const value of candidateDates) {
-                const timestamp = Date.parse(value || '');
-                if (Number.isFinite(timestamp)) return timestamp;
-            }
-
-            return 0;
-        };
-
-        return products
+        let result = products
         .filter(p => {
             // Search filter
             if (!searchQuery) return true;
@@ -90,10 +94,32 @@ const Shop = () => {
         .filter(p => {
             if (!category || category === 'all') return true;
             const cat = p.category?.toLowerCase();
+            const name = p.name?.toLowerCase() || '';
+
+            // Gender-based filters (see `isWomensProduct` helper above for the detection rules).
+            if (category === 'women') return isWomensProduct(p);
+            if (category === 'men') {
+                // Explicit: show both 'mens' and 'unisex' (wallets, hats) — matches the
+                // pre-gender-field behavior where MEN was the inverse of WOMEN and
+                // included accessories. Falls back to the inverse if the field is
+                // missing (e.g., legacy Supabase rows).
+                if (p.gender) return p.gender === 'mens' || p.gender === 'unisex';
+                return !isWomensProduct(p);
+            }
+
+            // Category-based filters
             if (category === 'wallets') return cat === 'wallet' || cat === 'accessory' || cat === 'accessories';
-            if (category === 'shirts') return cat === 'shirt';
             if (category === 'hats') return cat === 'hat' || cat === 'headwear';
-            if (category === 'apparel') return cat === 'shirt' || cat === 'jeans' || cat === 'shorts' || cat === 'sweatshirt' || cat === 'apparel';
+            if (category === 'shirts') return cat === 'shirt';
+            if (category === 'jeans') return cat === 'jeans';
+            if (category === 'shorts') return cat === 'shorts';
+            // No product currently uses a 'sweatshirt' category — the
+            // Overwhelmingly Patient Hoodie is tagged 'apparel'. Match by
+            // category + name so a future hoodie wallet (cat='accessory') or
+            // hoodie tee (cat='shirt') doesn't accidentally match.
+            if (category === 'sweatshirt') return cat === 'apparel' && name.includes('hoodie');
+            if (category === 'dresses') return cat === 'dress';
+            if (category === 'apparel') return cat === 'shirt' || cat === 'jeans' || cat === 'apparel' || cat === 'dress' || cat === 'shorts';
             return cat === category.toLowerCase();
         })
         .filter(p => selectedSizes.length === 0 || (p.sizes && p.sizes.some(s => selectedSizes.includes(s))))
@@ -106,17 +132,18 @@ const Shop = () => {
             if (sortOption === 'name-desc') return b.name.localeCompare(a.name);
             // Popularity Proxy: Featured items first
             if (sortOption === 'popularity') return (a.isFeatured === b.isFeatured) ? 0 : a.isFeatured ? -1 : 1;
-            // Newest sort: use actual added/release timestamps, then preserve original sequence for ties
-            if (sortOption === 'newest') {
-                const timestampDiff = getNewestTimestamp(b) - getNewestTimestamp(a);
-                if (timestampDiff !== 0) return timestampDiff;
-                return (originalOrder.get(a.id) ?? 0) - (originalOrder.get(b.id) ?? 0);
-            }
+            // Newest sort: handled by sortByNewest AFTER the archived-to-end
+            // pass below (so archived items end up at the bottom regardless
+            // of date). The comparator is a no-op for 'newest' here.
+            if (sortOption === 'newest') return 0;
 
             return 0;
-        })
-        // Always push archived/sold items to the end
-        .sort((a, b) => {
+        });
+        // 'newest' sort: apply the unit-tested sortByNewest utility. See
+        // tests/storefront.test.ts for the locked contract.
+        if (sortOption === 'newest') result = sortByNewest(result);
+        // Always push archived/sold items to the end (final pass).
+        return result.sort((a, b) => {
             const aSold = a.archived && !!a.soldAt ? 1 : 0;
             const bSold = b.archived && !!b.soldAt ? 1 : 0;
             return aSold - bSold;
@@ -190,7 +217,7 @@ const Shop = () => {
                             >
                                 {categories.map(cat => (
                                     <option key={cat} value={cat} className="bg-black text-white">
-                                        {cat === 'shirts' || cat === 'jeans' || cat === 'shorts' || cat === 'sweatshirt' ? `  ↳ ${cat.toUpperCase()}` : cat.toUpperCase()}
+                                        {['shirts', 'jeans', 'shorts', 'sweatshirt', 'dresses'].includes(cat) ? `  ↳ ${cat.toUpperCase()}` : cat.toUpperCase()}
                                     </option>
                                 ))}
                             </select>

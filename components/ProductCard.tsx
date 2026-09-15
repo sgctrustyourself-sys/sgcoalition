@@ -5,7 +5,8 @@ import { useApp } from '../context/AppContext';
 import { Product } from '../types';
 import PriceDisplay from './PriceDisplay';
 import UrgencyBadge from './ui/UrgencyBadge';
-import { getStockUrgency, getStockCount, generateViewCount, getMintFraction } from '../utils/urgencyUtils';
+import { PRODUCT_IDS, WHITE_BG_PRODUCT_IDS } from '../constants/productIds';
+import { getStockUrgency, getStockCount, getMintFraction } from '../utils/urgencyUtils';
 import RequestSimilarModal from './RequestSimilarModal';
 
 const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
@@ -16,10 +17,8 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     const primaryImage = product.images && product.images.length > 0 ? product.images[0] : '/images/logo.png';
     const hoverImage = product.images && product.images.length > 1 ? product.images[1] : primaryImage;
     const hasHoverImage = hoverImage !== primaryImage;
-    const shouldFitFullImage = product.id === 'prod_tee_above_as_below'
-        || product.id === 'prod_shorts_above_as_below'
-        || product.id === 'prod_hoodie_overwhelmingly_patient';
-    const keepImageClear = product.id === 'Coalition_NF_Tee';
+    const shouldFitFullImage = WHITE_BG_PRODUCT_IDS.has(product.id);
+    const keepImageClear = product.id === PRODUCT_IDS.NF_TEE;
     const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-gray-900';
     const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';
     const hoverScaleClass = shouldFitFullImage ? 'group-hover:scale-[1.02]' : 'group-hover:scale-105';
@@ -28,7 +27,6 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     const stockUrgency = getStockUrgency(product);
     const stockCount = getStockCount(product);
     const mintFraction = getMintFraction(product);
-    const viewCount = generateViewCount(product);
     const showLowStock = stockUrgency !== 'normal' && !product.archived;
 
     const cardLink = `/product/${product.id}`;
@@ -56,7 +54,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
                     {isSold && (
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
                             <span className="bg-black border border-white/30 text-white text-[10px] font-bold px-4 py-1.5 uppercase tracking-widest">
-                                SOLD
+                                Claimed
                             </span>
                         </div>
                     )}

@@ -1,10 +1,10 @@
-import { Product } from '../types';
+import { Product } from '../types.js';
 
 export const SITE_ORIGIN = 'https://sgcoalition.xyz';
 export const SITE_NAME = 'Coalition';
 export const DEFAULT_SEO_IMAGE = '/hero-cinematic.png';
 export const DEFAULT_SEO_DESCRIPTION =
-    'Coalition is a premium streetwear brand born in Baltimore. Quality, community, and the hustle. Shop the latest drops and join the movement.';
+    'Coalition — handcrafted streetwear from Baltimore. Shop limited-edition wallets, custom tees, 1/1 denim, and archive drops. Live order map & SGCoin rewards.';
 
 export const absoluteUrl = (pathOrUrl?: string) => {
     const value = (pathOrUrl || DEFAULT_SEO_IMAGE).trim();

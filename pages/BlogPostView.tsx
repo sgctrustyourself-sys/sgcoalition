@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 import { BlogPost } from '../types';
 import { User, ArrowLeft, Loader, Share2 } from 'lucide-react';
-import DOMPurify from 'dompurify';
+import { sanitizeBlogHtml } from '../utils/blogSanitize';
 import { format, isValid } from 'date-fns';
 import VotingSystem from '../components/VotingSystem';
 import CommentsSection from '../components/CommentsSection';
@@ -139,10 +139,9 @@ const BlogPostView = () => {
                             ? rawContent
                             : rawContent.replace(/\n/g, '<br />');
 
-                        const sanitizedContent = DOMPurify.sanitize(renderedContent, {
-                            ALLOWED_TAGS: ['b','i','em','strong','a','p','br','ul','ol','li','h1','h2','h3','h4','h5','h6','blockquote','code','pre','img','span','div','hr'],
-                            ALLOWED_ATTR: ['href','target','rel','src','alt','class','id']
-                        });
+                        // Config lives in utils/blogSanitize.ts so it has a
+                        // direct test seam -- see tests/blogSanitizer.test.ts.
+                        const sanitizedContent = sanitizeBlogHtml(renderedContent);
 
                         return (
                             <div

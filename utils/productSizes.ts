@@ -1,8 +1,8 @@
 const ONE_SIZE_LABEL = 'One Size';
 
 export const getProductEditableSizes = (
-    sizes?: string[],
-    sizeInventory?: Record<string, number>
+    sizes?: string[] | null,
+    sizeInventory?: Record<string, number> | null
 ): string[] => {
     if (sizes && sizes.length > 0) {
         return sizes;
@@ -17,8 +17,8 @@ export const getProductEditableSizes = (
 };
 
 export const normalizeProductSizeData = (
-    sizes?: string[],
-    sizeInventory?: Record<string, number>
+    sizes?: string[] | null,
+    sizeInventory?: Record<string, number> | null
 ) => {
     const resolvedSizes = getProductEditableSizes(sizes, sizeInventory);
     const resolvedInventory: Record<string, number> = {};

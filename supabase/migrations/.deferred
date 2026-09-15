@@ -1,0 +1,29 @@
+# Deferred migrations — authored for this app but NOT applied to production.
+#
+# Production was provisioned selectively (SQL-editor pastes + ad-hoc SQL), so
+# some files existed in the repo but the live DB never ran them. All the
+# feature migrations have since been applied one-at-a-time (2026-08-12):
+#   - 20260725 orders.paid_amount/balance_due (partial-deposit tracking)
+#   - 20260730 payments table + record_partial_payment RPC
+#   - 20260730 reconcile_balance_payment RPC
+#   - 20260721 wallet_mints_7d aggregate (materialized, see below)
+#   - 20260722 production_state table + realtime publication
+#   - 20260716 sgcoin_payout_requests + submit/approve/complete/reject RPCs
+# The two realtime publications were applied via the pooler (session mode).
+#
+# NOTE: 20260721_publish_wallet_mints_7d_for_realtime.sql was DELETED because
+# Postgres cannot publish views ("cannot add relation ... to publication" on
+# every PG version). It is replaced by 20260812_materialize_wallet_mints_7d_
+# for_realtime.sql, which turns the aggregate into a trigger-maintained
+# singleton table (same read shape: select mint_count) and publishes the table.
+#
+# 20260711_referendum_referral_2027.sql is additionally INCOMPATIBLE with the
+# production posts table (id is UUID; the migration inserts a text slug) and
+# the referendum is retired anyway — keep it listed.
+#
+# The runner (scripts/applyMigrations.ts) skips every file listed here and
+# reports it as "deferred" — remove a line to let that migration apply on the
+# next run, or mark it applied-without-executing via:
+#   npx tsx scripts/applyMigrations.ts --baseline <YYYYMMDD_filename.sql>
+
+20260711_referendum_referral_2027.sql

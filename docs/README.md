@@ -79,10 +79,11 @@ npm run story:reveal -- --slug grey-wave && npm run grid:reveal -- --slug grey-w
 
 | File | Purpose |
 |---|---|
-| [`../README.md`](../README.md) | Project overview · brand + feature summary · tech stack · local dev setup (Node 18+, npm install, .env.local, `npm run dev`) · Stripe test cards · Coalition Brain bootstrap (`npm run bootstrap:brain`) · project structure tree · env-var catalog (dev + prod) |
+| [`../README.md`](../README.md) | Project overview · brand + feature summary · tech stack · local dev setup (Node 18+, npm install, .env.local, `npm run dev`) · Stripe test cards · Coalition Brain bootstrap (`npm run bootstrap:brain`) · project structure tree · env-var catalog (dev + prod) · **[Loops](./README.md#loops)** index covering Customer Profile / Referral / Live Orders / Above As Below flows |
 | [`../DEPLOYMENT_CHECKLIST.md`](../DEPLOYMENT_CHECKLIST.md) | Vercel deployment runbook · Supabase env-var verification · build-time vs runtime variable distinction · clean redeploy steps · post-deploy smoke check via incognito browser session |
+| [`REPO_RECOVERY.md`](REPO_RECOVERY.md) | OneDrive → non-synced path recovery procedure · when to re-clone, exact `git` commands, 6 Codex worktree re-registration. Operator-local — includes paths under `C:/Users/SG/WebApps/SGCoalition`. |
 
-> Start with `README.md` for the first local boot. Reach for `DEPLOYMENT_CHECKLIST.md` only when pushing to production.
+> Start with `README.md` for the first local boot. Reach for `DEPLOYMENT_CHECKLIST.md` only when pushing to production. Reach for [`REPO_RECOVERY.md`](REPO_RECOVERY.md) only when the local repo is corrupted and a re-clone is needed.
 
 ---
 
@@ -106,6 +107,7 @@ npm run story:reveal -- --slug grey-wave && npm run grid:reveal -- --slug grey-w
 │       └── grey-wave-wallet-1-2-{front,back}.png   ← alpha-free RGB local copies
 └── scripts/
     ├── addGreyWaveWallet.ts               ← Supabase upsert script (use this as the template for new drops)
+    ├── fixProd1784012446238Sizing.ts      ← tactical PDP repair: audits wallet rows against the 3-field shape invariant (category + sizes + size_inventory) and applies the fix via service role only on --confirm. See "Storefront display invariants & repair tools" below.
     ├── render-story.ts                    ← Playwright renderer with `--format story|grid|x` → ready-to-post PNGs at the matching viewport
     ├── story-reveal-specs/                ← typed DropSpecs (one TS file per drop)
     │   └── grey-wave.ts                   ← worked example
@@ -116,6 +118,35 @@ npm run story:reveal -- --slug grey-wave && npm run grid:reveal -- --slug grey-w
 ```
 
 ---
+
+## 🛠 Storefront display invariants & repair tools
+
+The PDP + shop filters and the DB share a small set of shape invariants. These are not enforced by the schema — they are enforced by the React selector paths reading them, so a drift surfaces as a visual bug on the public site rather than a build error.
+
+### Wallet shape invariant (3 fields, no more)
+
+Every row with `category = 'wallet'` MUST hold this 3-line shape — no more, no less:
+
+| Field | Required value |
+|---|---|
+| `category` | `'wallet'` |
+| `sizes` | `['One Size']` |
+| `size_inventory` | `{ 'One Size': N }` (single-key map, integer N) |
+
+The full selector contract (`isWalletProduct(p)` and downstream UI decisions) is documented in [`../README.md`](../README.md) → *Storefront Display Utilities*. Drift on any of these three fields surfaces immediately on the PDP — a wallet will render S/M/L/XL shopping buttons instead of the single *One Size* button.
+
+### Tactical repair tool
+
+[`scripts/fixProd1784012446238Sizing.ts`](../scripts/fixProd1784012446238Sizing.ts) is the one-shot operator fixture for this exact failure mode. It audits any given miscategorized wallet row against a known-good sibling (default: `prod_1784012355221`), lists every *other* wallet-shaped row in the live catalog that drifts from the invariant, then applies the shape fix via the **service role** only when you pass `--confirm`:
+
+```bash
+npx tsx scripts/fixProd1784012446238Sizing.ts           # dry-run: prints full WRONG/GOOD diff + lists every other shape-drifted row
+npx tsx scripts/fixProd1784012446238Sizing.ts --confirm  # applies the fix to the configured row via service role (writes to Supabase)
+```
+
+**Start here** when a wallet PDP renders the wrong sizing. The reference pair is `/product/prod_1784012355221` (good, 3/4 wallet) vs `/product/prod_1784012446238` (the original drift incident, 2/4 wallet) — the 2/4 → 3/4 wallet series in the live catalog is the canonical wallet-shape example.
+
+For broader catalog invariants (featured-exclusivity, newest-sort, archive sort contract, no-refunds banner lifecycle), see the matching test files under [`../tests/`](../tests/).
 
 ## Conventions applied across all docs
 

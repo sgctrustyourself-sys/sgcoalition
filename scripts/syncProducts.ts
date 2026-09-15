@@ -54,8 +54,8 @@ async function syncProducts() {
         soldAt: p.sold_at
     }));
 
-    const constantsPath = path.resolve(__dirname, '../constants.ts');
-    const content = fs.readFileSync(constantsPath, 'utf8');
+    const productsPath = path.resolve(__dirname, '../constants/products.ts');
+    const content = fs.readFileSync(productsPath, 'utf8');
 
     // Regex to find and replace INITIAL_PRODUCTS array
     const updatedContent = content.replace(
@@ -63,8 +63,8 @@ async function syncProducts() {
         `export const INITIAL_PRODUCTS: Product[] = ${JSON.stringify(mappedProducts, null, 2)};`
     );
 
-    fs.writeFileSync(constantsPath, updatedContent);
-    console.log('✅ constants.ts updated with latest products from Supabase');
+    fs.writeFileSync(productsPath, updatedContent);
+    console.log('✅ constants/products.ts updated with latest products from Supabase');
 }
 
 syncProducts().catch(err => {

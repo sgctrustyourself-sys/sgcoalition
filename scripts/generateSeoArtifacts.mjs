@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -8,7 +8,7 @@ const ROOT = path.resolve(__dirname, '..');
 const SITE_ORIGIN = 'https://sgcoalition.xyz';
 const DEFAULT_IMAGE = '/hero-cinematic.png';
 const DEFAULT_DESCRIPTION =
-  'Coalition is a premium streetwear brand born in Baltimore. Quality, community, and the hustle. Shop the latest drops and join the movement.';
+  'Coalition — handcrafted streetwear from Baltimore. Shop limited-edition wallets, custom tees, 1/1 denim, and archive drops. Live order map & SGCoin rewards.';
 
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const DIST_DIR = path.join(ROOT, 'dist');
@@ -134,24 +134,13 @@ const scanToMatching = (source, openIndex, openChar, closeChar) => {
 
 const splitTopLevelObjects = (arraySource) => {
   const objects = [];
+  let start = -1;
+  let depth = 0;
   let quote = '';
   let escaped = false;
-  let inLineComment = false;
-  let inBlockComment = false;
 
   for (let index = 0; index < arraySource.length; index += 1) {
     const char = arraySource[index];
-    const next = arraySource[index + 1];
-
-    if (inLineComment) {
-      if (char === '\n') inLineComment = false;
-      continue;
-    }
-
-    if (inBlockComment) {
-      if (char === '*' && next === '/') { inBlockComment = false; index += 1; }
-      continue;
-    }
 
     if (quote) {
       if (escaped) {
@@ -164,19 +153,22 @@ const splitTopLevelObjects = (arraySource) => {
       continue;
     }
 
-    if (char === '/' && next === '/') { inLineComment = true; index += 1; continue; }
-    if (char === '/' && next === '*') { inBlockComment = true; index += 1; continue; }
-
     if (char === '"' || char === "'" || char === '`') {
       quote = char;
       continue;
     }
 
     if (char === '{') {
-      const objectEnd = scanToMatching(arraySource, index, '{', '}');
-      if (objectEnd >= 0) {
-        objects.push(arraySource.slice(index, objectEnd + 1));
-        index = objectEnd;
+      if (depth === 0) start = index;
+      depth += 1;
+      continue;
+    }
+
+    if (char === '}') {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        objects.push(arraySource.slice(start, index + 1));
+        start = -1;
       }
     }
   }
@@ -191,13 +183,32 @@ const unescapeStringLiteral = (value = '') =>
     .replace(/\\n/g, ' ')
     .replace(/\\u2014/g, '-');
 
-const readStringField = (block, field) => {
-  const match = block.match(new RegExp(`${field}\\s*:\\s*(['"\`])([\\s\\S]*?)\\1`));
+// Field names in constants/products.ts may be either unquoted (`id:`) or quoted (`"id":`).
+// We accept either form. Using `String.raw` avoids the template-literal escape
+// trap where `\b` would become an ASCII backspace (0x08) instead of a regex
+// word boundary — with `String.raw`, `\b` stays as the two characters `\` + `b`,
+// which `new RegExp` interprets as a word boundary. The `\b` word boundaries
+// prevent `id` from matching inside `tokenId` and `archived` from matching
+// inside `archivedAt`.
+// Field-name extractors below use `String.raw` so that `\b` and `\s` stay as
+// the two-character regex escapes (word boundary / whitespace) — in a normal
+// template literal, `\b` would become an ASCII backspace (0x08) and `\s` would
+// collapse to a bare `s`, silently breaking the regex. The character class
+// `['"]` deliberately omits the backtick so the whole pattern fits in one
+// `String.raw` template (a backtick inside the class would terminate it).
+// constants.ts only uses double-quoted string values, so the backtick case
+// is unreachable.
+export const readStringField = (block, field) => {
+  const match = block.match(
+    new RegExp(String.raw`['"]?\b${field}\b['"]?\s*:\s*(['"])([\s\S]*?)\1`)
+  );
   return match ? unescapeStringLiteral(match[2]) : '';
 };
 
-const readNumberField = (block, field) => {
-  const match = block.match(new RegExp(`${field}\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)`));
+export const readNumberField = (block, field) => {
+  const match = block.match(
+    new RegExp(String.raw`['"]?\b${field}\b['"]?\s*:\s*([0-9]+(?:\.[0-9]+)?)`)
+  );
   return match ? Number(match[1]) : 0;
 };
 
@@ -221,7 +232,9 @@ const parseImageCatalog = () => {
 };
 
 const readImageList = (block, imageCatalog) => {
-  const imageStart = block.indexOf('images:');
+  // Field names may be either unquoted (`images:`) or quoted (`"images":`)
+  // in constants.ts, so use a regex that accepts either form.
+  const imageStart = block.search(/['"]?images['"]?\s*:/);
   if (imageStart < 0) return [DEFAULT_IMAGE];
 
   const arrayStart = block.indexOf('[', imageStart);
@@ -248,8 +261,8 @@ const readImageList = (block, imageCatalog) => {
   return images.length > 0 ? images : [DEFAULT_IMAGE];
 };
 
-const parseProducts = () => {
-  const constantsSource = readFile('constants.ts');
+export const parseProducts = () => {
+  const constantsSource = readFile('constants/products.ts');
   const imageCatalog = parseImageCatalog();
   const productsStart = constantsSource.indexOf('export const INITIAL_PRODUCTS');
   const initializerStart = productsStart >= 0 ? constantsSource.indexOf('=', productsStart) : -1;
@@ -258,7 +271,7 @@ const parseProducts = () => {
 
   if (productsStart < 0 || initializerStart < 0 || arrayStart < 0 || arrayEnd < 0) {
     throw new Error(
-      'Unable to locate INITIAL_PRODUCTS in constants.ts. '
+      'Unable to locate INITIAL_PRODUCTS in constants/products.ts. '
       + `productsStart=${productsStart}, initializerStart=${initializerStart}, `
       + `arrayStart=${arrayStart}, arrayEnd=${arrayEnd}, sourceLength=${constantsSource.length}.`
     );
@@ -272,9 +285,9 @@ const parseProducts = () => {
       category: readStringField(block, 'category'),
       price: readNumberField(block, 'price'),
       images: readImageList(block, imageCatalog),
-      archived: /archived\s*:\s*true/.test(block),
+      archived: /['"]?\barchived\b['"]?\s*:\s*true/.test(block),
       soldAt: readStringField(block, 'soldAt'),
-      isLimitedEdition: /isLimitedEdition\s*:\s*true/.test(block),
+      isLimitedEdition: /['"]?\bisLimitedEdition\b['"]?\s*:\s*true/.test(block),
     }))
     .filter((product) => product.id && product.name);
 };
@@ -400,32 +413,128 @@ const writeStaticPage = (baseHtml, pagePath, seo, jsonLd) => {
   fs.writeFileSync(outputDir, injectSeo(baseHtml, seo, jsonLd));
 };
 
-const buildSitemap = (products) => {
+// Exported so tests/generateSeoArtifacts.test.ts can pin the priority +
+// changefreq logic without going through the full prebuild pipeline.
+// The `main()` guard at the bottom only fires when the module is launched
+// directly via `node scripts/generateSeoArtifacts.mjs`, NOT when this file
+// is imported from a test — same convention as the existing field-extractor
+// helpers. The published / prebuild flow writes to public/sitemap.xml and
+// (when present) dist/sitemap.xml; tests call this function with synthetic
+// product fixtures and assert on the returned XML string.
+// Static routes that get their own prerendered page. ONE list drives BOTH the
+// sitemap and the prerenderer, so a route can no longer be advertised in
+// sitemap.xml while its URL serves the generic SPA shell whose canonical is
+// "/" — the drift that left /membership, /about, /wallets, /sgcoin, /help,
+// /live-orders and /community pointing crawlers at the homepage.
+//
+// '/' is deliberately absent: dist/index.html IS its page, and Vite already
+// writes it with the correct canonical.
+//
+// Each `title`/`description` mirrors the copy the page sets at runtime via
+// <Seo>, so the prerendered meta and the client-set meta agree; pages without
+// a <Seo> (membership, sgcoin, help, live-orders) get copy written here, and
+// titles already containing the brand name are left unprefixed exactly as
+// components/Seo.tsx would.
+// `collection` emits an ItemList JSON-LD over the matching products.
+export const STATIC_ROUTES = [
+  {
+    path: '/shop',
+    priority: '0.9',
+    changefreq: 'daily',
+    title: 'Coalition | Shop Streetwear Drops',
+    description: 'Shop Coalition streetwear drops, limited wallets, tees, hats, and archive-ready pieces from Baltimore.',
+    collection: { name: 'Coalition Shop', where: (product) => !product.archived },
+  },
+  {
+    path: '/wallets',
+    priority: '0.6',
+    changefreq: 'monthly',
+    title: 'Coalition | Premium Wallets',
+    description: 'Hand-built, one-of-one, full-grain leather wallets. Made in-house, drop by drop — no factory, no shortcuts, just the process.',
+  },
+  {
+    path: '/archive',
+    priority: '0.7',
+    changefreq: 'weekly',
+    title: 'Coalition | Archive',
+    description: 'Explore the Coalition archive of sold-out drops, 1/1 customs, limited wallets, and past releases.',
+    collection: { name: 'Coalition Archive', where: (product) => product.archived },
+  },
+  {
+    path: '/about',
+    priority: '0.5',
+    changefreq: 'monthly',
+    title: 'About | Coalition | Crafted in Baltimore',
+    description:
+      "Coalition was born from loss. Gmoneyworld — more than a brand, it's a movement. Quality, community, and the hustle, built by hand in Baltimore.",
+  },
+  {
+    path: '/membership',
+    priority: '0.5',
+    changefreq: 'monthly',
+    title: 'Membership | Coalition VIP',
+    description: 'Coalition VIP membership — $15/month. Get $15 monthly store credit, 15 giveaway tickets, early access to drops, and free shipping.',
+  },
+  {
+    path: '/sgcoin',
+    priority: '0.5',
+    changefreq: 'monthly',
+    title: 'Coalition | SGCOIN',
+    description: 'Buy Coalition SGCOIN directly and receive 10% more coins than swapping — delivered to your wallet within 24 hours.',
+  },
+  {
+    path: '/help',
+    priority: '0.4',
+    changefreq: 'monthly',
+    title: 'Coalition | Help Center',
+    description: 'Answers on orders, shipping, returns, membership and SGCOIN, plus AI-powered support from the Coalition team.',
+  },
+  {
+    path: '/live-orders',
+    priority: '0.7',
+    changefreq: 'hourly',
+    title: 'Coalition | Recently Ordered',
+    description: 'A live feed of real Coalition orders moving across the country — recently ordered pieces, updated as they ship.',
+  },
+  {
+    path: '/community',
+    priority: '0.5',
+    changefreq: 'weekly',
+    title: 'Community | Coalition | Built in Baltimore, by hand',
+    description: 'Join the Coalition community — Discord, Instagram, X, YouTube, and the buyer log. Real conversations, real orders, real builds.',
+  },
+];
+
+export const buildSitemap = (products) => {
   const today = new Date().toISOString().slice(0, 10);
+  // Derived from STATIC_ROUTES so the sitemap and the prerendered pages can
+  // never disagree about which static routes exist. '/' leads (it is the
+  // homepage and the highest priority) and is the one route with no separate
+  // prerender — dist/index.html is already its page.
   const staticPages = [
     { loc: '/', priority: '1.0', changefreq: 'weekly' },
-    { loc: '/shop', priority: '0.9', changefreq: 'daily' },
-    { loc: '/archive', priority: '0.7', changefreq: 'weekly' },
-    { loc: '/about', priority: '0.5', changefreq: 'monthly' },
-    { loc: '/membership', priority: '0.5', changefreq: 'monthly' },
-    { loc: '/sgcoin', priority: '0.5', changefreq: 'monthly' },
-    { loc: '/help', priority: '0.4', changefreq: 'monthly' },
+    ...STATIC_ROUTES.map(({ path: loc, priority, changefreq }) => ({ loc, priority, changefreq })),
   ];
-  const productPages = products.map((product) => ({
-    loc: productPath(product.id),
-    priority: product.archived || product.soldAt ? '0.6' : '0.8',
-    changefreq: product.archived || product.soldAt ? 'monthly' : 'weekly',
-  }));
+  // Limited-edition products retain the active-product priority + weekly
+  // changefreq even when archived, because 1/1 and numbered limited pieces
+  // (Coalition 'Grey Wave' 1/2 → 2/2, Coalition 'Racing Team' 1/4 → 4/4,
+  // Coalition x True Religion 1/1, etc.) continue to draw long-tail SEO
+  // queries long after they sell out. Standard archive pieces that are NOT
+  // limited editions still demote to 0.6/monthly per the original rule.
+  // Locked by tests/generateSeoArtifacts.test.ts > SEO sitemap priorities.
+  const productPages = products.map((product) => {
+    const isDemoted = (product.archived || Boolean(product.soldAt)) && !product.isLimitedEdition;
+    return {
+      loc: productPath(product.id),
+      priority: isDemoted ? '0.6' : '0.8',
+      changefreq: isDemoted ? 'monthly' : 'weekly',
+    };
+  });
   const urls = [...staticPages, ...productPages];
 
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
     .map(
-      (entry) => `  <url>
-    <loc>${absoluteUrl(entry.loc)}</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>${entry.changefreq}</changefreq>
-    <priority>${entry.priority}</priority>
-  </url>`
+      (entry) => `  <url>\n    <loc>${absoluteUrl(entry.loc)}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${entry.changefreq}</changefreq>\n    <priority>${entry.priority}</priority>\n  </url>`
     )
     .join('\n')}\n</urlset>\n`;
 };
@@ -443,8 +552,24 @@ const main = () => {
   writeTextFile(PUBLIC_DIR, 'sitemap.xml', sitemap);
   writeTextFile(PUBLIC_DIR, 'robots.txt', robots);
 
+  // TWO-PHASE CONTRACT — this script is wired to BOTH npm hooks, and the
+  // two halves deliberately run at different times:
+  //
+  //   prebuild   (before `vite build`)  -> writes public/sitemap.xml and
+  //              public/robots.txt, so Vite's public/ copy ships them in
+  //              dist/. dist/index.html does not exist yet at this point,
+  //              so the branch below bails and no HTML is written.
+  //   postbuild  (after `vite build`)   -> dist/index.html now exists, so
+  //              the prerendered pages under dist/<path>/index.html are
+  //              emitted here. Vercel's filesystem check runs before its
+  //              rewrite rules, so dist/shop/index.html wins for /shop.
+  //
+  // Removing the `postbuild` hook silently deletes every prerendered page
+  // (this exact branch would bail on every build) without failing the
+  // build, which is how the hand-maintained no-JS mirrors in public/ came
+  // to exist in the first place. Keep both hooks.
   if (!fs.existsSync(DIST_INDEX)) {
-    console.log('[seo] Wrote public sitemap.xml and robots.txt. Skipped static HTML because dist/index.html does not exist yet.');
+    console.log('[seo] Wrote public sitemap.xml and robots.txt. Skipped static HTML because dist/index.html does not exist yet (expected on the prebuild pass; the postbuild pass emits it).');
     return;
   }
 
@@ -452,31 +577,22 @@ const main = () => {
   writeTextFile(DIST_DIR, 'sitemap.xml', sitemap);
   writeTextFile(DIST_DIR, 'robots.txt', robots);
 
-  writeStaticPage(
-    baseHtml,
-    '/shop',
-    {
-      title: 'Coalition | Shop Streetwear Drops',
-      description: 'Shop Coalition streetwear drops, limited wallets, tees, hats, and archive-ready pieces from Baltimore.',
-      image: absoluteUrl(DEFAULT_IMAGE),
-      url: absoluteUrl('/shop'),
-      type: 'website',
-    },
-    collectionJsonLd(products.filter((product) => !product.archived), 'Coalition Shop', '/shop')
-  );
-
-  writeStaticPage(
-    baseHtml,
-    '/archive',
-    {
-      title: 'Coalition | Archive',
-      description: 'Explore the Coalition archive of sold-out drops, 1/1 customs, limited wallets, and past releases.',
-      image: absoluteUrl(DEFAULT_IMAGE),
-      url: absoluteUrl('/archive'),
-      type: 'website',
-    },
-    collectionJsonLd(products.filter((product) => product.archived), 'Coalition Archive', '/archive')
-  );
+  for (const route of STATIC_ROUTES) {
+    writeStaticPage(
+      baseHtml,
+      route.path,
+      {
+        title: route.title,
+        description: route.description,
+        image: absoluteUrl(DEFAULT_IMAGE),
+        url: absoluteUrl(route.path),
+        type: 'website',
+      },
+      route.collection
+        ? collectionJsonLd(products.filter(route.collection.where), route.collection.name, route.path)
+        : undefined
+    );
+  }
 
   for (const product of products) {
     const seo = getProductSeo(product);
@@ -491,7 +607,14 @@ const main = () => {
     );
   }
 
-  console.log(`[seo] Generated sitemap, robots, and ${products.length + 2} static preview pages.`);
+  console.log(`[seo] Generated sitemap, robots, and ${products.length + STATIC_ROUTES.length} static preview pages.`);
 };
 
-main();
+// Only run `main()` when this module is executed directly (e.g. `node scripts/generateSeoArtifacts.mjs`),
+// not when it's imported by the regression test suite. This guard lets the test file import the parser
+// functions without triggering a full sitemap rebuild. We use `pathToFileURL` for cross-platform safety:
+// on Windows, `process.argv[1]` uses backslashes (`C:\Users\...`), so a naive `file://${process.argv[1]}`
+// string would not match the `file:///C:/Users/...` form of `import.meta.url`.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
