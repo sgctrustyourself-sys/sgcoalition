@@ -223,3 +223,37 @@ The endpoint dispatched **every** action without a credential check, and `sync-c
 ### Verification state at the end of that session
 
 796 tests across 57 files · `tsc --noEmit` clean · `npm run build` clean (0 warnings) · `main == origin/main == production` · live probes recorded above.
+
+---
+
+## Structure after the 2026-09-15 architecture pass (build with this)
+
+Two concerns that each had many homes now have exactly one. Commit `d94f0df`.
+
+### Admin authorization → `api/_adminAuth.ts`
+
+| Export | Owns |
+|---|---|
+| `getSharedAdminSecrets()` | The accepted shared-secret set (`ADMIN_API_TOKEN`, `ADMIN_PASSPHRASE`, + legacy trio). One list — a rotation only edits this. |
+| `isSharedSecretAdmin(req)` | Policy 1, sync. |
+| `isSupabaseAdminUser(token)` · `isSupabaseAdminRequest(req)` | Policy 2, async: a Supabase session listed in `admin_users`. |
+| `isAdminRequest(req)` | The union (policy 1 OR 2). |
+| `requireAdmin(req, res)` | All-or-nothing gate for handlers that manage their own CORS/method shape. |
+| `withAdminAuth(handler, opts)` | Wraps a whole handler: CORS → OPTIONS → 401 → body. Use this by default. |
+| `ADMIN_UNAUTHORIZED_ERROR` | The single 401 body every admin surface returns. |
+
+Rules for a new endpoint: use `withAdminAuth`; if it needs its own method/CORS shape, call `requireAdmin` first thing. Never parse the `Authorization` header yourself and never read `ADMIN_*` in a handler — `tests/securityInfrastructureReadiness.test.ts` fails if you do. `api/_helpers.ts` is now only CORS / body parsing / rate limiting.
+
+Before this pass the policy existed six times (four `getBearerToken` copies, three `isAuthorized` copies, two contradictory `isAdminRequest` policies) and the one endpoint with **none** was `/api/git-operations`. That is the failure mode this structure exists to prevent: authorization is now something a handler *gets*, not something it *remembers*.
+
+### Admin session (browser) → `services/adminSession.ts`
+
+Owns `ADMIN_TOKEN_KEY` / `ADMIN_MODE_KEY`, `getAdminToken()`, `getAdminAuthHeaders()`, `clearAdminSession()`, `handleAdminAuthFailure(status)`, and `ADMIN_SESSION_EXPIRED_ERROR`. `context/useAuth.ts` is the **only writer**; nothing else touches those sessionStorage keys. `services/apiBase.ts` is back to addressing the API and knows nothing about sessions. React state (dropping admin mode) stays at the React layer, which is why the policy is reusable from plain services.
+
+### Error reporting → split by responsibility
+
+`services/sentryRedact.ts` is the pure privacy boundary (`scrubText` / `scrubDeep` / `scrubEvent`, no SDK state, readable alone). `services/sentryInit.ts` is lifecycle (DSN gate, `initSentry`, `reportRootError`). `index.tsx` is the only call site and imports it lazily behind `VITE_SENTRY_DSN`, so an unconfigured build emits no Sentry chunk at all (verified both ways: configured = 30,946 B gz chunk; unconfigured = 0).
+
+### The invariants that keep it that way
+
+`tests/securityInfrastructureReadiness.test.ts` asserts: no handler defines `getBearerToken` / `isAuthorized` / `isAdminRequest`; no handler reads `process.env.ADMIN_*`; `git-operations` exports through `withAdminAuth`; `send-email` keeps its deliberate 403 allowance. `tests/serverlessImports.test.ts` (pre-existing) enforces the `.js` extension convention in serverless-reachable dirs — it caught a real miss during this pass.
