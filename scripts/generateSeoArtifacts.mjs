@@ -421,19 +421,99 @@ const writeStaticPage = (baseHtml, pagePath, seo, jsonLd) => {
 // helpers. The published / prebuild flow writes to public/sitemap.xml and
 // (when present) dist/sitemap.xml; tests call this function with synthetic
 // product fixtures and assert on the returned XML string.
+// Static routes that get their own prerendered page. ONE list drives BOTH the
+// sitemap and the prerenderer, so a route can no longer be advertised in
+// sitemap.xml while its URL serves the generic SPA shell whose canonical is
+// "/" — the drift that left /membership, /about, /wallets, /sgcoin, /help,
+// /live-orders and /community pointing crawlers at the homepage.
+//
+// '/' is deliberately absent: dist/index.html IS its page, and Vite already
+// writes it with the correct canonical.
+//
+// Each `title`/`description` mirrors the copy the page sets at runtime via
+// <Seo>, so the prerendered meta and the client-set meta agree; pages without
+// a <Seo> (membership, sgcoin, help, live-orders) get copy written here, and
+// titles already containing the brand name are left unprefixed exactly as
+// components/Seo.tsx would.
+// `collection` emits an ItemList JSON-LD over the matching products.
+export const STATIC_ROUTES = [
+  {
+    path: '/shop',
+    priority: '0.9',
+    changefreq: 'daily',
+    title: 'Coalition | Shop Streetwear Drops',
+    description: 'Shop Coalition streetwear drops, limited wallets, tees, hats, and archive-ready pieces from Baltimore.',
+    collection: { name: 'Coalition Shop', where: (product) => !product.archived },
+  },
+  {
+    path: '/wallets',
+    priority: '0.6',
+    changefreq: 'monthly',
+    title: 'Coalition | Premium Wallets',
+    description: 'Hand-built, one-of-one, full-grain leather wallets. Made in-house, drop by drop — no factory, no shortcuts, just the process.',
+  },
+  {
+    path: '/archive',
+    priority: '0.7',
+    changefreq: 'weekly',
+    title: 'Coalition | Archive',
+    description: 'Explore the Coalition archive of sold-out drops, 1/1 customs, limited wallets, and past releases.',
+    collection: { name: 'Coalition Archive', where: (product) => product.archived },
+  },
+  {
+    path: '/about',
+    priority: '0.5',
+    changefreq: 'monthly',
+    title: 'About | Coalition | Crafted in Baltimore',
+    description:
+      "Coalition was born from loss. Gmoneyworld — more than a brand, it's a movement. Quality, community, and the hustle, built by hand in Baltimore.",
+  },
+  {
+    path: '/membership',
+    priority: '0.5',
+    changefreq: 'monthly',
+    title: 'Membership | Coalition VIP',
+    description: 'Coalition VIP membership — $15/month. Get $15 monthly store credit, 15 giveaway tickets, early access to drops, and free shipping.',
+  },
+  {
+    path: '/sgcoin',
+    priority: '0.5',
+    changefreq: 'monthly',
+    title: 'Coalition | SGCOIN',
+    description: 'Buy Coalition SGCOIN directly and receive 10% more coins than swapping — delivered to your wallet within 24 hours.',
+  },
+  {
+    path: '/help',
+    priority: '0.4',
+    changefreq: 'monthly',
+    title: 'Coalition | Help Center',
+    description: 'Answers on orders, shipping, returns, membership and SGCOIN, plus AI-powered support from the Coalition team.',
+  },
+  {
+    path: '/live-orders',
+    priority: '0.7',
+    changefreq: 'hourly',
+    title: 'Coalition | Recently Ordered',
+    description: 'A live feed of real Coalition orders moving across the country — recently ordered pieces, updated as they ship.',
+  },
+  {
+    path: '/community',
+    priority: '0.5',
+    changefreq: 'weekly',
+    title: 'Community | Coalition | Built in Baltimore, by hand',
+    description: 'Join the Coalition community — Discord, Instagram, X, YouTube, and the buyer log. Real conversations, real orders, real builds.',
+  },
+];
+
 export const buildSitemap = (products) => {
   const today = new Date().toISOString().slice(0, 10);
+  // Derived from STATIC_ROUTES so the sitemap and the prerendered pages can
+  // never disagree about which static routes exist. '/' leads (it is the
+  // homepage and the highest priority) and is the one route with no separate
+  // prerender — dist/index.html is already its page.
   const staticPages = [
     { loc: '/', priority: '1.0', changefreq: 'weekly' },
-    { loc: '/shop', priority: '0.9', changefreq: 'daily' },
-    { loc: '/wallets', priority: '0.6', changefreq: 'monthly' },
-    { loc: '/archive', priority: '0.7', changefreq: 'weekly' },
-    { loc: '/about', priority: '0.5', changefreq: 'monthly' },
-    { loc: '/membership', priority: '0.5', changefreq: 'monthly' },
-    { loc: '/sgcoin', priority: '0.5', changefreq: 'monthly' },
-    { loc: '/help', priority: '0.4', changefreq: 'monthly' },
-    { loc: '/live-orders', priority: '0.7', changefreq: 'hourly' },
-    { loc: '/community', priority: '0.5', changefreq: 'weekly' },
+    ...STATIC_ROUTES.map(({ path: loc, priority, changefreq }) => ({ loc, priority, changefreq })),
   ];
   // Limited-edition products retain the active-product priority + weekly
   // changefreq even when archived, because 1/1 and numbered limited pieces
@@ -497,31 +577,22 @@ const main = () => {
   writeTextFile(DIST_DIR, 'sitemap.xml', sitemap);
   writeTextFile(DIST_DIR, 'robots.txt', robots);
 
-  writeStaticPage(
-    baseHtml,
-    '/shop',
-    {
-      title: 'Coalition | Shop Streetwear Drops',
-      description: 'Shop Coalition streetwear drops, limited wallets, tees, hats, and archive-ready pieces from Baltimore.',
-      image: absoluteUrl(DEFAULT_IMAGE),
-      url: absoluteUrl('/shop'),
-      type: 'website',
-    },
-    collectionJsonLd(products.filter((product) => !product.archived), 'Coalition Shop', '/shop')
-  );
-
-  writeStaticPage(
-    baseHtml,
-    '/archive',
-    {
-      title: 'Coalition | Archive',
-      description: 'Explore the Coalition archive of sold-out drops, 1/1 customs, limited wallets, and past releases.',
-      image: absoluteUrl(DEFAULT_IMAGE),
-      url: absoluteUrl('/archive'),
-      type: 'website',
-    },
-    collectionJsonLd(products.filter((product) => product.archived), 'Coalition Archive', '/archive')
-  );
+  for (const route of STATIC_ROUTES) {
+    writeStaticPage(
+      baseHtml,
+      route.path,
+      {
+        title: route.title,
+        description: route.description,
+        image: absoluteUrl(DEFAULT_IMAGE),
+        url: absoluteUrl(route.path),
+        type: 'website',
+      },
+      route.collection
+        ? collectionJsonLd(products.filter(route.collection.where), route.collection.name, route.path)
+        : undefined
+    );
+  }
 
   for (const product of products) {
     const seo = getProductSeo(product);
@@ -536,7 +607,7 @@ const main = () => {
     );
   }
 
-  console.log(`[seo] Generated sitemap, robots, and ${products.length + 2} static preview pages.`);
+  console.log(`[seo] Generated sitemap, robots, and ${products.length + STATIC_ROUTES.length} static preview pages.`);
 };
 
 // Only run `main()` when this module is executed directly (e.g. `node scripts/generateSeoArtifacts.mjs`),

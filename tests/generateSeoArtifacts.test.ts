@@ -17,6 +17,7 @@ import {
     readStringField,
     readNumberField,
     buildSitemap,
+    STATIC_ROUTES,
 } from '../scripts/generateSeoArtifacts.mjs';
 
 describe('SEO parser — field extractors', () => {
@@ -223,6 +224,56 @@ describe('SEO sitemap priorities', () => {
             { id: soldNoArchiveLimited, archived: false, soldAt: '2026-03-06T00:00:00+00:00', isLimitedEdition: true },
         ]);
         expect(xml).toMatch(rowRegex(soldNoArchiveLimited, 'weekly', '0.8'));
+    });
+});
+
+// A route advertised in sitemap.xml but missing from STATIC_ROUTES would ship
+// no prerendered page, so its URL would serve the generic SPA shell whose
+// canonical is "/" — every sitemap route silently claiming to be the homepage.
+// That is precisely how /membership, /about, /wallets, /sgcoin, /help,
+// /live-orders and /community were broken, so pin the two lists together.
+describe('SEO sitemap and prerendered routes agree', () => {
+    const staticLocs = (buildSitemap([]) as string)
+        .match(/<loc>[^<]*/g)!
+        .map((loc) => loc.replace('<loc>', '').replace('https://sgcoalition.xyz', ''))
+        .filter((loc) => !loc.startsWith('/product/'));
+
+    // Hardcoded on purpose. Because the sitemap is now DERIVED from
+    // STATIC_ROUTES, asserting the two agree is tautological — deleting a
+    // route would remove it from both and still pass. Pinning the expected set
+    // means dropping a route (which silently deletes its prerendered page and
+    // its sitemap entry, an invisible SEO regression) has to be deliberate.
+    it('covers exactly the static routes the site ships', () => {
+        expect(STATIC_ROUTES.map((route) => route.path).sort()).toEqual(
+            [
+                '/about',
+                '/archive',
+                '/community',
+                '/help',
+                '/live-orders',
+                '/membership',
+                '/sgcoin',
+                '/shop',
+                '/wallets',
+            ].sort(),
+        );
+    });
+
+    it('keeps the sitemap derived from that same list (no second route list)', () => {
+        // Guards the original bug's shape: a route advertised in sitemap.xml
+        // with no prerendered page behind it.
+        const prerendered = STATIC_ROUTES.map((route) => route.path);
+        // '/' is the only exception: dist/index.html is already its page.
+        expect([...staticLocs].sort()).toEqual(['/', ...prerendered].sort());
+    });
+
+    it('gives every prerendered route the meta crawlers need', () => {
+        for (const route of STATIC_ROUTES) {
+            expect(route.title, `${route.path} title`).toBeTruthy();
+            expect(route.description, `${route.path} description`).toBeTruthy();
+            expect(route.priority, `${route.path} priority`).toBeTruthy();
+            expect(route.changefreq, `${route.path} changefreq`).toBeTruthy();
+        }
     });
 });
 
