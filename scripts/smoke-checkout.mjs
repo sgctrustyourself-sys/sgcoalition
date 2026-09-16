@@ -43,7 +43,7 @@
 // Exit codes: 0 all checks passed, 1 a check failed, 2 the target is missing or
 // refused. A failure screenshot lands in .checkout-smoke-artifacts/ (gitignored).
 import { chromium } from 'playwright';
-import { mkdirSync } from 'fs';
+import { mkdirSync, readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -73,8 +73,34 @@ if (PRODUCTION_HOSTS.includes(host) && process.env.SMOKE_ALLOW_PRODUCTION !== '1
 // Protection bypass (preview deployments are SSO-protected here)
 // ---------------------------------------------------------------------------
 // One source for the token: the same headers must reach the API probe and every
-// browser request.
-const bypassToken = (process.env.SMOKE_BYPASS_TOKEN || process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '').trim();
+// browser request. The environment wins (CI passes SMOKE_BYPASS_TOKEN or
+// VERCEL_AUTOMATION_BYPASS_SECRET), then .env / .env.local are consulted so a
+// locally-stored secret works without exporting it by hand — this is a plain
+// node script, so Vite's own .env loading does not apply to it.
+function bypassTokenFromDotEnv() {
+    for (const file of ['.env', '.env.local']) {
+        let contents;
+        try {
+            contents = readFileSync(join(__dirname, '..', file), 'utf8');
+        } catch {
+            continue; // absent is normal (CI has no .env)
+        }
+        for (const line of contents.split(/\r?\n/)) {
+            const match = line.match(/^\s*(?:export\s+)?(SMOKE_BYPASS_TOKEN|VERCEL_AUTOMATION_BYPASS_SECRET)\s*=\s*(.*)$/);
+            if (!match) continue;
+            const value = match[2].trim().replace(/^(['"])(.*)\1$/, '$2').trim();
+            if (value) return value;
+        }
+    }
+    return '';
+}
+
+const bypassToken = (
+    process.env.SMOKE_BYPASS_TOKEN ||
+    process.env.VERCEL_AUTOMATION_BYPASS_SECRET ||
+    bypassTokenFromDotEnv() ||
+    ''
+).trim();
 const bypassHeaders = bypassToken
     ? { 'x-vercel-protection-bypass': bypassToken, 'x-vercel-set-bypass-cookie': 'true' }
     : {};

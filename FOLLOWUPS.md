@@ -61,7 +61,7 @@ Completed end-to-end from the CLI in one session — no dashboard visits:
 
 Known follow-up surfaced during this work: `POST /api/send-email` is an unauthenticated relay (any caller can send email as the brand). Candidate for a shared-secret or origin check.
 
-### 15. Create the Deployment Protection bypass secret (preview smoke test)
+### 15. ~~Create the Deployment Protection bypass secret (preview smoke test)~~ — DONE (2026-09-16), one env blocker left
 
 `scripts/smoke-checkout.mjs` (`npm run smoke:checkout`) drives shop → product → quantity → cart → checkout against a target URL; `.github/workflows/checkout-smoke.yml` runs it on every PR and on `deployment_status`.
 
@@ -69,11 +69,21 @@ Preview deployments of this project sit **behind Vercel Deployment Protection**:
 
 Steps:
 
-1. Vercel → Project → Settings → **Deployment Protection** → *Protection Bypass for Automation* → create a secret.
-2. Add it to the repo as the GitHub Actions secret `VERCEL_AUTOMATION_BYPASS_SECRET`.
-3. Re-run the workflow or open a PR: the preview step then smokes the real preview, pricing agreement included.
+1. DONE — secret created through the REST API (`PATCH /v1/projects/coalition-brand/protection-bypass`, scope `automation-bypass`, `isEnvVar: true`). The endpoint does **not** mint the value for you: it rejects anything but a 32-character alphanumeric `generate.secret`, so the value was generated with `crypto.randomBytes` and installed. The dashboard's *Generate secret* button does the equivalent.
+2. DONE — set as the GitHub Actions secret `VERCEL_AUTOMATION_BYPASS_SECRET` and appended to the local (gitignored) `.env`. `scripts/smoke-checkout.mjs` now reads `.env` / `.env.local` for it as a fallback: it is a plain node script, so Vite's env loading never applied to it and a stored secret was silently ignored unless exported by hand.
+3. BLOCKED — a preview can now be loaded, but its `/api/*` routes answer 503, so the pricing-agreement check still cannot pass there. See the blocker below.
 
-Verified locally (2026-09-15): with `SMOKE_BYPASS_TOKEN` / `VERCEL_AUTOMATION_BYPASS_SECRET` set, `x-vercel-protection-bypass` is sent on the API probe *and* every browser request; with it unset, no bypass header is sent. The bypass path itself is untested against a real protected preview — that needs the token.
+Verified against a real protected preview (2026-09-16), target `coalition-brand-da4jkk5l0-derron-byrds-projects.vercel.app`:
+
+- Without the header, `/` and `/api/payment-settings` both answer **302** to `vercel.com/sso-api` — the SSO wall is live, as this item claimed.
+- With `x-vercel-protection-bypass`, `/` answers **200**; adding `x-vercel-set-bypass-cookie: true` makes Vercel issue the `_vercel_jwt` cookie (307 + `Set-Cookie`).
+- `npm run smoke:checkout` against that preview with the token read from `.env` and **nothing exported**: **6/7 checks passed** — shop listing (11 products), archived sold-out state, product page, quantity stepper, cart math, step-down. The client flow now genuinely runs against a real preview deployment.
+
+**Blocker surfaced by that run (pre-existing, not caused by the bypass):** the preview's `/api/payment-settings` answers **503 `Supabase admin service is not configured.`**, so the run reports `no API reachable` and fails the pricing-agreement check by design (a deployment target with no API is a failure, not a skip).
+
+Cause: every server-side Supabase variable is scoped to the **Production** environment only — `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`, plus `ORDER_NOTIFICATION_EMAIL`, `RESEND_FROM_EMAIL` and `VITE_APP_URL`. `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` do cover preview, which is why the storefront reads products and the browser flow passes, while `/api/*` cannot reach Supabase at all. `STRIPE_SECRET_KEY` already carries a separate preview-scoped value, so previews are half-provisioned by design rather than accidentally.
+
+To finish step 3 the Supabase variables have to be attached to the **Preview** environment — or a read-only credential must be, since `resolvePricing` only reads products and coupons. That is a credential-exposure decision: preview URLs are SSO-protected, but the bypass secret now lives in this (public) repo's Actions secrets, so a preview holding the production service-role key becomes a production-write path reachable by anything that can run a workflow on `main`.
 
 ## Active program notice
 
