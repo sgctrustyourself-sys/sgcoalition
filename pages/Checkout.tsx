@@ -4,6 +4,7 @@ import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CreditCard, Loader, Wallet, Copy, Check, Sparkles, Heart, Info, ShieldCheck, Truck, RefreshCw, Mail, Headphones, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { supabase } from '../services/supabase';
 import { OrderStatus } from '../types';
 import { useToast } from '../context/ToastContext';
 import FloatingHelpButton from '../components/FloatingHelpButton';
@@ -874,9 +875,21 @@ const Checkout: React.FC = () => {
         if (!validateShipping()) return;
         setIsLoading(true);
         try {
+            // Prove the caller owns the userId before any credit is debited.
+            // The Supabase client already holds the session from login; getSession()
+            // is the same pattern AIPortal / ResetPassword use to send a token to an API route.
+            let authToken: string | null = null;
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                authToken = session?.access_token || null;
+            } catch { /* leave authToken null — the server will 401 */ }
+
             const response = await fetch('/api/place-order-credits', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+                },
                 body: JSON.stringify({
                     userId: user?.uid,
                     total: creditToApply,

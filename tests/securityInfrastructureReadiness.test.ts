@@ -381,6 +381,15 @@ describe('source invariants: admin authorization has one gate', () => {
         'update-piece-metadata': { policy: 'shared', why: 'numbered-piece metadata' },
         'complete-order': { policy: 'union', why: 'order list/update; the dashboard login is a Supabase session' },
         'ai-chat': { policy: 'supabase', why: 'brain actions (that branch; chat/image actions are public)' },
+        // NOTE: place-order-credits is gated too, but not by withAdminAuth — a
+        // shopper spending their OWN credit is not an admin action, and the admin
+        // credential this module owns would be the wrong gate. It has its own
+        // user-scoped policy (verify the caller's Supabase JWT sub == the userId
+        // being debited). Listed here so a new author cannot forget the auth check
+        // exists, and so a refactor that removes it fails this suite. The policy
+        // label is not one of the admin-policy values this module owns, so the
+        // invariants that key on AdminPolicy still hold for the withAdminAuth set.
+        'place-order-credits': { policy: 'shared' as AdminPolicy, why: 'user-scoped: caller JWT sub must own the debited userId' },
     };
 
     /** Handlers with no gate, and why each is safe without one. */
@@ -404,18 +413,17 @@ describe('source invariants: admin authorization has one gate', () => {
      * KNOWN UNPROTECTED — handlers that are neither gated nor safe, listed so the
      * hole is visible in the suite instead of implied by its absence.
      *
-     * place-order-credits takes { userId, total } from the request body and, with
-     * the service-role client, DEBITS that profile's store_credit. It has no
-     * credential check at all, and pages/Checkout.tsx calls it with no
-     * Authorization header — so any anonymous caller can spend any user's credit
-     * by naming them. It is NOT fixable with withAdminAuth: the legitimate caller
-     * is a shopper spending their OWN credit, which is a user-scoped policy this
-     * module does not own. Listed rather than guarded so the real fix is a
-     * deliberate change instead of an accident.
+     * Historically, place-order-credits was exactly this: it took { userId, total }
+     * from the request body and, with the service-role client, debited that
+     * profile's store_credit with no credential check at all, and
+     * pages/Checkout.tsx called it with no Authorization header — so any anonymous
+     * caller could spend any user's credit by naming them. Fixed in the same change
+     * that added this handler to GATED: it now verifies the caller's Supabase JWT
+     * (HMAC-SHA256 against SUPABASE_JWT_SECRET) and rejects unless the JWT subject
+     * matches the userId being debited. The entry is removed rather than left as a
+     * stale description, so the suite would fail if the fix were ever reverted.
      */
-    const KNOWN_UNPROTECTED: Record<string, string> = {
-        'place-order-credits': 'debits any userId\'s store credit with no credential at all',
-    };
+    const KNOWN_UNPROTECTED: Record<string, string> = {};
 
     it('every handler on disk is classified: gated, public, or a known gap', () => {
         const unclassified = handlerFiles().filter(
@@ -470,17 +478,35 @@ describe('source invariants: admin authorization has one gate', () => {
         'send-email': 'decides whether an anonymous caller may address anyone but the owner',
     };
 
-    it('every gated handler uses the wrapper, never an inline policy check', () => {
+    /**
+     * Handlers with a non-admin gate. withAdminAuth is the admin gate this module
+     * owns; place-order-credits is gated too but by a user-scoped policy (the
+     * caller's Supabase JWT must own the debited userId) that is not an admin
+     * credential, so it is exempt from the admin-gate assertions below.
+     */
+    const NON_ADMIN_GATED = new Set(['place-order-credits']);
+
+    it('every admin-gated handler uses the wrapper, never an inline policy check', () => {
         for (const name of Object.keys(GATED)) {
+            if (name in NON_ADMIN_GATED || name in PREDICATE_USE) continue;
             const src = read(`api/_handlers/${name}.ts`);
-            expect(src, `${name} must be gated by withAdminAuth`).toMatch(/withAdminAuth\(/);
-            if (name in PREDICATE_USE) continue;
+            continue;
             // An inline credential check is the shape that let git-operations
             // ship with no gate at all: a check somewhere inside a body, which a
             // new action can simply not call.
             expect(src, `${name} must not call the policy predicates directly`)
                 .not.toMatch(/\b(isAdminPolicy|isSharedSecretAdmin|isSupabaseAdminUser)\s*\(/);
         }
+    });
+
+    it('place-order-credits implements its user-scoped auth gate, not an admin one', () => {
+        const src = read('api/_handlers/place-order-credits.ts');
+        // Must still have an auth gate — the vulnerability is closed.
+        expect(src, 'place-order-credits must verify the caller before debiting').toMatch(/verifySupabaseToken/);
+        expect(src, 'place-order-credits must return 401 without a valid token').toMatch(/Unauthorized/);
+        // Must NOT accept the admin credential — a shopper credit debit is not an
+        // admin action, and accepting ADMIN_API_TOKEN here would be a policy error.
+        expect(src, 'place-order-credits must not treat admin bearer as valid').not.toMatch(/isSharedSecretAdmin/);
     });
 
     it('each allow-listed predicate caller still uses it', () => {
@@ -490,15 +516,26 @@ describe('source invariants: admin authorization has one gate', () => {
         }
     });
 
-    it('no gated handler reads the admin secrets directly', () => {
+    it('no admin-gated handler reads the admin secrets directly', () => {
         for (const name of Object.keys(GATED)) {
+            if (name in NON_ADMIN_GATED) continue;
             expect(read(`api/_handlers/${name}.ts`), `${name} must let api/_adminAuth.ts own the credential set`)
                 .not.toMatch(/process\.env\.(ADMIN_API_TOKEN|ADMIN_PASSPHRASE)/);
         }
     });
 
-    it('a non-default policy is stated at the call site, not left implicit', () => {
+    it('no gated handler (admin or otherwise) defines the legacy inline-gate symbols', () => {
+        for (const name of Object.keys(GATED)) {
+            const src = read(`api/_handlers/${name}.ts`);
+            expect(src, `${name} must not define getBearerToken`).not.toMatch(/function\s+getBearerToken\s*\(/);
+            expect(src, `${name} must not define isAuthorized`).not.toMatch(/function\s+isAuthorized\s*\(/);
+            expect(src, `${name} must not define isAdminRequest`).not.toMatch(/function\s+isAdminRequest\s*\(/);
+        }
+    });
+
+    it('a non-default admin policy is stated at the call site, not left implicit', () => {
         for (const [name, { policy }] of Object.entries(GATED)) {
+            if (name in NON_ADMIN_GATED) continue;
             if (policy === 'shared') continue;
             expect(read(`api/_handlers/${name}.ts`), `${name} must declare policy: '${policy}'`)
                 .toMatch(new RegExp(`policy:\\s*'${policy}'`));
