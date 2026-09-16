@@ -101,8 +101,17 @@ const bypassToken = (
     bypassTokenFromDotEnv() ||
     ''
 ).trim();
+// Two shapes on purpose. A browser gets BOTH headers: set-bypass-cookie makes
+// Vercel plant the _vercel_jwt cookie, so every later navigation and XHR from
+// the page is authenticated too. A plain fetch must send the bypass header
+// ALONE — asking Vercel to set a cookie answers 307, and following that redirect
+// from Node fails outright, which the API probe would then swallow as "no API
+// reachable": a false negative that hides a real outage behind an auth quirk.
 const bypassHeaders = bypassToken
     ? { 'x-vercel-protection-bypass': bypassToken, 'x-vercel-set-bypass-cookie': 'true' }
+    : {};
+const bypassProbeHeaders = bypassToken
+    ? { 'x-vercel-protection-bypass': bypassToken }
     : {};
 
 // ---------------------------------------------------------------------------
@@ -163,7 +172,7 @@ page.on('response', async (response) => {
 // not the server pricing agreement — that is reported as a skip, never as a
 // pass. On any real deployment a missing API is a failure regardless of
 // SMOKE_SKIP_API, so the flag can't hide an outage.
-const apiAvailable = await fetch(`${target}/api/payment-settings`, { headers: bypassHeaders })
+const apiAvailable = await fetch(`${target}/api/payment-settings`, { headers: bypassProbeHeaders })
     .then(async (response) => response.ok && /json/.test(response.headers.get('content-type') || ''))
     .catch(() => false);
 const allowApiSkip = process.env.SMOKE_SKIP_API === '1' && isLoopback;
