@@ -29,10 +29,11 @@
 //   2. a purchasable product page offers Add to bag (and a size, when the
 //      product has sizes). It is chosen from the sellable listings, so a
 //      sold-out leader is not mistaken for a broken shop.
-//   2b. the sold-out state is covered rather than skipped: such a product offers
-//      NO Add to bag, states Claimed or Archived, and points at "Request
-//      similar style" instead. Reported as skipped only when the shop lists no
-//      sold-out product at all.
+//   2b. each sold-out state is covered rather than skipped: an archived piece
+//      offers NO Add to bag, states Claimed or Archived, and points at "Request
+//      similar style"; a plain stock-out piece (not archived, nothing left)
+//      keeps a disabled Add to bag, states Archived, and still routes out.
+//      Each is reported as skipped only when the shop lists none of that kind.
 //   3. the quantity stepper exists, starts at 1, and steps up when stock allows
 //   4. /cart prices the line at exactly quantity x unit price
 //   5. stepping down returns it to 1 without deleting the line
@@ -192,39 +193,76 @@ try {
     await check('shop lists a product', () => (productHrefs.length ? `${productHrefs.length} listed` : null));
 
     // ---- 2. product page offers a bag button, and a size ------------------
-    // Both product states get exercised, because both are real and only one is
-    // sellable. A sold-out piece legitimately renders NO Add to bag button —
-    // ProductDetails swaps in an aria-label="Request similar style" control and
-    // a Claimed/Archived status — so taking the first link and demanding a buy
-    // control failed at random whenever the shop led with an archived drop,
-    // while merely skipping those pages left the sold-out state untested.
+    // Both sellable and sold-out states get exercised, because both are real and
+    // only one is sellable. A sold-out piece legitimately renders NO working Add
+    // to bag — ProductDetails either disables the button (plain stock-out: the
+    // item ran out, button is greyed) or replaces the whole CTA with a "Request
+    // similar style" control plus an Archived/Claimed status (archived piece).
+    // Taking the first link and demanding a buy control failed at random whenever
+    // the shop led with an archived drop, while merely skipping those pages left
+    // the sold-out state untested.
     //
-    // Sold-out pieces are identified from the LISTING, where ProductCard
-    // overlays each one with a "Claimed" chip, instead of by probing product
+    // Sold-out pieces are identified from the LISTING, not by probing product
     // pages one at a time: the shop's ordering is not a contract, so a fixed
     // slice of the list sometimes contained none and the check reported a skip
-    // on every run.
+    // on every run. Two listing signals cover the two sold-out states:
+    //
+    //   - Archived (archived && soldAt): ProductCard overlays the card with a
+    //     "Claimed" chip. Walk up from that chip to the nearest ancestor holding
+    //     the card's link — depends on neither Tailwind classes nor the anchor
+    //     wrapping the overlay (it does not).
+    //   - Plain stock-out (!archived && totalStock === 0): the card still renders
+    //     its Quick Add / Add to bag button, but disabled. The button is found by
+    //     role/text within the card, and its disabled state is the signal.
+    //
+    // The live shop currently lists archived pieces but no plain stock-out ones;
+    // each branch reports skipped only when its kind is genuinely absent, rather
+    // than passing blindly. The plain-stock-out branch is the less-exercised one
+    // and is flagged as such.
     step = 'product';
-    const soldOutHrefs = await page.evaluate(() => {
+    // Two sold-out states live on the listing, detected two ways:
+    //   - archived pieces: ProductCard overlays the card with a "Claimed" chip.
+    //   - plain stock-out (!archived && totalStock===0): the card's Quick Add /
+    //     Add to bag button is rendered disabled.
+    const { archivedHrefs, stockoutHrefs } = await page.evaluate(() => {
+        const archived = new Set();
         const claimed = [...document.querySelectorAll('span')].filter(
             (span) => (span.textContent || '').trim().toLowerCase() === 'claimed',
         );
-        const hrefs = new Set();
         for (const span of claimed) {
-            // Walk up to the nearest ancestor holding the card's link, so this
-            // depends on neither Tailwind class names nor the anchor wrapping
-            // the overlay (it does not).
             let node = span;
             while (node && !node.querySelector('a[href*="/product/"]')) node = node.parentElement;
             const href = node?.querySelector('a[href*="/product/"]')?.getAttribute('href');
-            if (href) hrefs.add(href);
+            if (href) archived.add(href);
         }
-        return [...hrefs];
+
+        const stockout = new Set();
+        // Each product card's primary call-to-action is a button whose text matches
+        // "Quick Add" / "Add to bag" / "Add to cart". For a plain stock-out card
+        // that button is present but disabled (aria-disabled or the disabled attr),
+        // which is the listing-level signal for !archived && totalStock===0.
+        const cards = document.querySelectorAll('a[href*="/product/"]');
+        for (const link of cards) {
+            const href = link.getAttribute('href');
+            if (!href || !href.includes('/product/')) continue;
+            const card = link.closest('article, div.group, section, li') || link.parentElement?.closest('article, div, section, li') || link;
+            const addBtns = [...card.querySelectorAll('button')].filter(
+                (b) => /add to (bag|cart)|quick add/i.test((b.textContent || '').trim()) ||
+                    (b.getAttribute('aria-label') && /add to (bag|cart)|quick add/i.test(b.getAttribute('aria-label') || '')),
+            );
+            if (addBtns.length && addBtns.every((b) => b.disabled || b.getAttribute('aria-disabled') === 'true')) {
+                stockout.add(href);
+            }
+        }
+
+        return { archivedHrefs: [...archived], stockoutHrefs: [...stockout] };
     });
 
+    const soldOutHrefs = [...archivedHrefs, ...stockoutHrefs];
+
     // Find something sellable. Bounded: a shop where the first ten sellable
-    // listings all lack a buy button is a real failure, not a reason to crawl
-    // the whole catalogue.
+    // listings all lack a working buy button is a real failure, not a reason to
+    // crawl the whole catalogue.
     const sellable = productHrefs.filter((href) => !soldOutHrefs.includes(href)).slice(0, 10);
     let productHref = null;
     for (const href of sellable) {
@@ -241,36 +279,87 @@ try {
     }
     assert(productHref, `no purchasable product among ${sellable.length} sellable listings`);
 
-    // A sold-out product must fail closed: no way to buy, an explicit status,
-    // and a route to something obtainable instead. Skipped only when the shop
-    // lists no sold-out piece at all.
-    if (soldOutHrefs.length) {
-        await page.goto(target + soldOutHrefs[0], { waitUntil: 'load' });
-        await check('sold-out product offers no buy button and states why', async () => {
+    // ---- 2b. archived sold-out piece: no buy button, explicit status, escape ----
+    // A sold-out archived piece offers NO Add to bag at all — ProductDetails swaps
+    // in an aria-label="Request similar style" control and an Archived/Claimed
+    // status. Skipped only when the shop lists no archived piece at all.
+    if (archivedHrefs.length) {
+        await page.goto(target + archivedHrefs[0], { waitUntil: 'load' });
+        await check('archived sold-out product offers no buy button and states why', async () => {
             const bagButtons = await page.getByRole('button', { name: /add to (bag|cart)/i }).count();
-            assert(bagButtons === 0, `sold-out product still rendered ${bagButtons} buy button(s)`);
-            // The status renders just after the boot signal, so wait for it
-            // rather than reading the instant the page is interactive.
+            assert(bagButtons === 0, `archived sold-out product still rendered ${bagButtons} buy button(s)`);
+            // The status renders just after the boot signal, so wait for it rather
+            // than reading the instant the page is interactive.
             const status = await page
                 .getByText(/^(Claimed|Archived)$/i)
                 .first()
                 .waitFor({ state: 'visible', timeout: 15000 })
                 .then(() => true)
                 .catch(() => false);
-            assert(status, 'sold-out product shows no Claimed/Archived status');
+            assert(status, 'archived sold-out product shows no Claimed/Archived status');
             const cta = await page
                 .getByRole('button', { name: /request similar style/i })
                 .first()
                 .waitFor({ state: 'visible', timeout: 15000 })
                 .then(() => true)
                 .catch(() => false);
-            assert(cta, 'sold-out product offers no "Request similar style" path');
-            return `${soldOutHrefs[0]} — ${soldOutHrefs.length} of ${productHrefs.length} listed sold out`;
+            assert(cta, 'archived sold-out product offers no "Request similar style" path');
+            return `${archivedHrefs[0]} — ${archivedHrefs.length} of ${productHrefs.length} listed archived`;
         });
     } else {
-        results.push({ name: 'sold-out product offers no buy button and states why', ok: true, skipped: true });
+        results.push({ name: 'archived sold-out product offers no buy button and states why', ok: true, skipped: true });
         console.log(
-            '  skip  sold-out product offers no buy button and states why — the shop lists no sold-out product',
+            '  skip  archived sold-out product offers no buy button and states why — the shop lists no archived product',
+        );
+    }
+
+    // ---- 2c. plain stock-out piece: buy button present but disabled, status Archived ----
+    // A plain stock-out product (!archived, totalStock===0) is NOT the same surface
+    // as an archived piece: the Add to bag button still renders, greyed/disabled,
+    // because the product is still in the catalogue — it just has nothing left. The
+    // detail page states "Archived" as the availability label and "Request a similar
+    // custom" as the detail, and the button is disabled. Skipped only when the shop
+    // lists no such product at all.
+    if (stockoutHrefs.length) {
+        await page.goto(target + stockoutHrefs[0], { waitUntil: 'load' });
+        await check('plain stock-out product disables the buy button and states why', async () => {
+            const bag = page.getByRole('button', { name: /add to (bag|cart)/i }).first();
+            const present = await bag.waitFor({ state: 'visible', timeout: 15000 }).then(() => true).catch(() => false);
+            assert(present, 'plain stock-out product did not render an Add to bag button at all');
+            const disabled = await bag.isDisabled();
+            assert(disabled, 'plain stock-out product rendered a working Add to bag button');
+            // Availability label is "Archived" for both sold-out states (the detail
+            // page treats a stockout the same as a manual archive from the shopper's
+            // POV — it is not for sale).
+            const status = await page
+                .getByText(/^(Claimed|Archived)$/i)
+                .first()
+                .waitFor({ state: 'visible', timeout: 15000 })
+                .then(() => true)
+                .catch(() => false);
+            assert(status, 'plain stock-out product shows no Claimed/Archived status');
+            // The detail line for a plain stock-out is "Request a similar custom".
+            const detail = await page.locator('body').innerText();
+            assert(
+                detail.includes('Request a similar custom'),
+                `plain stock-out product detail did not include "Request a similar custom"; saw: ${detail.slice(0, 200)}`,
+            );
+            // There must still be a way out — a "Request similar style" path exists
+            // (archived pieces swap the button for it; stock-out pieces keep a disabled
+            // button but the page must not leave the shopper at a dead end).
+            const cta = await page
+                .getByRole('button', { name: /request similar style/i })
+                .first()
+                .waitFor({ state: 'visible', timeout: 15000 })
+                .then(() => true)
+                .catch(() => false);
+            assert(cta, 'plain stock-out product offers no "Request similar style" path');
+            return `${stockoutHrefs[0]} — ${stockoutHrefs.length} of ${productHrefs.length} listed plain stock-out`;
+        });
+    } else {
+        results.push({ name: 'plain stock-out product disables the buy button and states why', ok: true, skipped: true });
+        console.log(
+            '  skip  plain stock-out product disables the buy button and states why — the shop lists no plain stock-out product',
         );
     }
 
@@ -390,12 +479,16 @@ try {
 
 const skipped = results.filter((r) => r.skipped).length;
 const passed = results.filter((r) => r.ok && !r.skipped).length;
-// Name the checks that were skipped rather than assuming the only possible skip
-// is a missing API, and keep that reason explicit where it applies.
+// Name every skipped check rather than assuming the only possible skip is the
+// API one, and keep the API reason explicit where it applies.
 const skippedNames = results.filter((r) => r.skipped).map((r) => r.name);
-const skipNote = skippedNames.includes('checkout total matches the server')
-    ? ` — checkout pricing NOT verified (no API at ${host})`
-    : '';
+let skipNote = '';
+if (skippedNames.includes('checkout total matches the server')) {
+    skipNote = ` — checkout pricing NOT verified (no API at ${host})`;
+}
+if (skippedNames.length > 1 && skippedNames.includes('checkout total matches the server')) {
+    skipNote += `; the other skips are expected when the catalogue does not contain that kind of product`;
+}
 if (failure) {
     console.error(`\nSMOKE FAILED at "${failure.step}": ${failure.error}`);
     console.error(`${passed}/${results.length} checks passed against ${target}`);
