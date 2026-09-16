@@ -152,7 +152,7 @@ try {
     // ---- 1. shop lists products -------------------------------------------
     // Enter through the site root and click into the shop rather than going
     // straight to /shop. `vite preview` resolves /shop to the prerendered
-    // public/shop.html SEO shell (no React root on the page), while Vercel's
+    // dist/shop/index.html prerendered page (no React root on the page until hydration), while Vercel's
     // rewrite sends /shop to index.html — so a direct goto('/shop') would pass
     // against a deployment and fail against the local preview build, which is
     // the workflow's fallback path. Clicking the nav link is the real

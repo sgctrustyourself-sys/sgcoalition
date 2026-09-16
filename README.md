@@ -92,7 +92,6 @@ Coalition wallets are hand-built in-house from a single hide of full-grain leath
 
 ## Brand voice — the Peaceful Space framework
 
-> **Note on `public/about.html` (static /about mirror):** the title, meta-description, and JSON-LD `sameAs` array in that file are sourced from `ABOUT_PAGE_TITLE` / `ABOUT_PAGE_DESCRIPTION` / `BRAND_SAME_AS_LINKS` in `constants.ts`. Because the static mirror has no build hook back to the TS module, any change to those constants must be **manually mirrored** into `public/about.html` (title + meta tag + JSON-LD block).
 
 The storefront is aligned to an internal brand-voice framework called **Peaceful Space — Unhurried Conviction**. The framework treats every UI surface (raw urgency badges, gamified cart meters, shouted shipping copy, fake ticking clocks) as a candidate for elimination, and treats every "kept" chrome (notification pills, status indicators, financial-market color conventions) as a deliberate allowlisted exception. The canonical reference is [`docs/peaceful-space.md`](docs/peaceful-space.md) — read that doc before adding a UI element that touches scarcity, urgency, or the buy moment. Peaceful ≠ soft. Peaceful ≠ sanitized. The grief, the grind, Gmoneyworld, chrome accents, and "Trust Yourself" stay sharp — the manipulative ecommerce chrome does not.
 
