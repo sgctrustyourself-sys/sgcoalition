@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
-import { Plus, Edit2, Trash2, Save, X, Copy, Search, AlertCircle, CheckCircle, RefreshCw, Loader2, Upload, ChevronLeft, ChevronRight, GripVertical, Star } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Copy, Search, AlertCircle, CheckCircle, RefreshCw, Loader2, Upload, ChevronLeft, ChevronRight, GripVertical, Star, Tag } from 'lucide-react';
 import { syncProductsToCode } from '../../services/imgurService';
 import { uploadProductImage } from '../../services/productUpload';
 import ImageCropperModal from '../ui/ImageCropperModal';
@@ -25,6 +25,13 @@ const ProductManager: React.FC = () => {
     const [dragOverImageIndex, setDragOverImageIndex] = useState<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Pricing & edition controls (first-class admin surface).
+    const [pricingTierDraft, setPricingTierDraft] = useState<Array<{ untilCount: string; price: string }>>([]);
+    // Total units in a numbered edition (e.g. 44). Operator-set: it is what the
+    // storefront renders as "X / editionSize" and isNumberedEdition() requires
+    // it, so it can never be inferred from the tier count.
+    const [editionSizeDraft, setEditionSizeDraft] = useState<string>('');
+
     // Initialize new product form
     const initNewProduct = () => {
         setIsAdding(true);
@@ -41,6 +48,8 @@ const ProductManager: React.FC = () => {
             sizes: ['S', 'M', 'L', 'XL'],
             sizeInventory: { 'S': 0, 'M': 0, 'L': 0, 'XL': 0 },
         });
+        setPricingTierDraft([]);
+        setEditionSizeDraft('');
     };
 
     // Start editing existing product
@@ -53,6 +62,14 @@ const ProductManager: React.FC = () => {
         setPendingCropFile(null);
         setDraggedImageIndex(null);
         setDragOverImageIndex(null);
+        // Mirror existing pricing tiers into the editor, if any.
+        setPricingTierDraft(
+            (product.pricingTiers || product.editionSize ? (product.pricingTiers || []).map(t => ({
+                untilCount: t.untilCount == null ? '' : String(t.untilCount),
+                price: String(t.price),
+            })) : [])
+        );
+        setEditionSizeDraft(product.editionSize == null ? '' : String(product.editionSize));
     };
 
     // Cancel editing
@@ -60,6 +77,8 @@ const ProductManager: React.FC = () => {
         setEditingId(null);
         setIsAdding(false);
         setEditForm({});
+        setPricingTierDraft([]);
+        setEditionSizeDraft('');
         setError(null);
         setPendingCropFile(null);
         setDraggedImageIndex(null);
@@ -71,9 +90,45 @@ const ProductManager: React.FC = () => {
         setError(null);
         setSuccess(null);
 
-        if (!editForm.name || !editForm.price || !editForm.images?.[0]) {
-            setError('Please fill in all required fields (Name, Price, Image)');
+        if (!editForm.name || !editForm.images?.[0]) {
+            setError('Please fill in at least Name and one Image. Price can be set later.');
             return;
+        }
+
+        // Build pricing tiers payload from the editor.
+        const parsedTiers: Array<{ untilCount: number | null; price: number }> = [];
+        for (let i = 0; i < pricingTierDraft.length; i++) {
+            const row = pricingTierDraft[i];
+            const price = parseFloat(row.price);
+            if (isNaN(price) || price < 0) {
+                setError(`Tier row ${i + 1}: price must be a non-negative number.`);
+                return;
+            }
+            const untilCount = row.untilCount.trim() === '' ? null : parseInt(row.untilCount, 10);
+            if (untilCount !== null && (isNaN(untilCount) || untilCount < 0)) {
+                setError(`Tier row ${i + 1}: "Until sold count" must be empty (open-ended) or a non-negative whole number.`);
+                return;
+            }
+            parsedTiers.push({ untilCount, price });
+        }
+
+        // Last tier should be open-ended so there is always a catch-all price.
+        if (parsedTiers.length > 0 && parsedTiers[parsedTiers.length - 1].untilCount !== null) {
+            setError('The last pricing tier must be open-ended (leave "Until sold count" blank) so every unit after the previous tiers still has a price.');
+            return;
+        }
+
+        // A numbered edition needs a unit count for the "X / N" mint marker;
+        // how many pricing tiers there are says nothing about that, so require
+        // an explicit edition size rather than inventing one.
+        let editionSize: number | undefined;
+        if (parsedTiers.length > 0) {
+            const parsedEditionSize = parseInt(editionSizeDraft, 10);
+            if (isNaN(parsedEditionSize) || parsedEditionSize < 1) {
+                setError('Edition size must be a whole number of at least 1 when a numbered edition is configured.');
+                return;
+            }
+            editionSize = parsedEditionSize;
         }
 
         setIsSaving(true);
@@ -84,7 +139,7 @@ const ProductManager: React.FC = () => {
             const productData: Product = {
                 id: editForm.id || `prod_${Date.now()}`,
                 name: editForm.name,
-                price: Number(editForm.price),
+                price: Number(editForm.price || 0),
                 images: editForm.images || [],
                 description: editForm.description || '',
                 category: editForm.category || 'apparel',
@@ -96,6 +151,9 @@ const ProductManager: React.FC = () => {
                 founderNote: editForm.founderNote,
                 soldAt: existingProduct?.soldAt ?? null,
                 archivedAt: existingProduct?.archivedAt ?? null,
+                pricingTiers: parsedTiers.length > 0 ? parsedTiers : undefined,
+                editionSize,
+                isLimitedEdition: parsedTiers.length > 0 ? true : (editForm.isLimitedEdition ?? undefined),
             };
 
             if (isAdding) {
@@ -658,6 +716,145 @@ const ProductManager: React.FC = () => {
                                 </p>
                             </div>
 
+                            {/* Pricing & Edition Control */}
+                            <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="font-bold text-white uppercase text-sm">Pricing & Edition</h4>
+                                        <p className="text-xs text-gray-400">Flat price, or a numbered edition with step-up tiers.</p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Base Price ($)</label>
+                                    <input
+                                        type="number"
+                                        value={editForm.price ?? 0}
+                                        onChange={(e) => updateField('price', parseFloat(e.target.value))}
+                                        className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-white/30 outline-none"
+                                        step="0.01"
+                                        min="0"
+                                        title="Base price used when no numbered edition is configured"
+                                        aria-label="Base product price"
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="checkbox"
+                                        id="numbered-edition"
+                                        checked={pricingTierDraft.length > 0}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                if (pricingTierDraft.length === 0) {
+                                                    setPricingTierDraft([
+                                                        { untilCount: '', price: String(editForm.price ?? 0) },
+                                                    ]);
+                                                }
+                                            } else {
+                                                setPricingTierDraft([]);
+                                            }
+                                        }}
+                                        className="w-5 h-5 rounded border-white/10 bg-black/30 text-white focus:ring-0"
+                                        title="Enable numbered edition with tiered pricing"
+                                        aria-label="Enable numbered edition"
+                                    />
+                                    <label htmlFor="numbered-edition" className="text-sm font-bold uppercase text-gray-300 cursor-pointer">
+                                        Numbered Edition
+                                    </label>
+                                </div>
+
+                                {pricingTierDraft.length > 0 && (
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">Edition size (total units)</label>
+                                            <input
+                                                type="number"
+                                                value={editionSizeDraft}
+                                                onChange={(e) => setEditionSizeDraft(e.target.value)}
+                                                className="w-32 bg-black/20 border border-white/10 rounded p-2 text-white text-sm focus:border-white/30 outline-none"
+                                                min="1"
+                                                placeholder="e.g. 44"
+                                                title="Total units in this numbered edition"
+                                                aria-label="Edition size in units"
+                                            />
+                                            <p className="text-[10px] text-gray-500 mt-1 italic">
+                                                Rendered on the product page as "X / edition size".
+                                            </p>
+                                        </div>
+
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold uppercase text-gray-400">Pricing Tiers</span>
+                                            <span className="text-[10px] text-gray-500 italic">Each tier = "until X sold, charge $Y". Leave the last tier open-ended.</span>
+                                        </div>
+
+                                        {pricingTierDraft.map((row, index) => (
+                                            <div key={index} className="flex gap-2 items-center">
+                                                <div className="flex-1">
+                                                    <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">
+                                                        Until sold count (blank = open-ended)
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        value={row.untilCount}
+                                                        onChange={(e) => {
+                                                            const next = [...pricingTierDraft];
+                                                            next[index] = { ...next[index], untilCount: e.target.value };
+                                                            setPricingTierDraft(next);
+                                                        }}
+                                                        className="w-full bg-black/20 border border-white/10 rounded p-2 text-white text-sm focus:border-white/30 outline-none"
+                                                        min="0"
+                                                        placeholder="e.g. 10"
+                                                        aria-label={`Tier ${index + 1} until sold count`}
+                                                    />
+                                                </div>
+                                                <div className="w-28">
+                                                    <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">Price ($)</label>
+                                                    <input
+                                                        type="number"
+                                                        value={row.price}
+                                                        onChange={(e) => {
+                                                            const next = [...pricingTierDraft];
+                                                            next[index] = { ...next[index], price: e.target.value };
+                                                        }}
+                                                        className="w-full bg-black/20 border border-white/10 rounded p-2 text-white text-sm focus:border-white/30 outline-none"
+                                                        step="0.01"
+                                                        min="0"
+                                                        placeholder="0.00"
+                                                        aria-label={`Tier ${index + 1} price`}
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const next = pricingTierDraft.filter((_, i) => i !== index);
+                                                        setPricingTierDraft(next);
+                                                    }}
+                                                    disabled={pricingTierDraft.length === 1}
+                                                    className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                                    title={pricingTierDraft.length === 1 ? 'Need at least one tier' : 'Remove tier'}
+                                                    aria-label={`Remove tier ${index + 1}`}
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setPricingTierDraft(prev => [
+                                                ...prev,
+                                                { untilCount: '', price: String(editForm.price ?? 0) },
+                                            ])}
+                                            className="flex items-center gap-2 text-xs font-bold uppercase text-brand-accent hover:text-white transition"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                            Add Tier
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Archive Toggle */}
                             <div className="bg-white/5 border border-white/10 rounded-lg p-4">
                                 <div className="flex items-center justify-between">
@@ -750,7 +947,14 @@ const ProductManager: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="p-4 font-bold text-white">
-                                            ${product.price ? product.price.toFixed(2) : '0.00'}
+                                            <span className="inline-flex items-baseline gap-1">
+                                                ${product.price ? product.price.toFixed(2) : '0.00'}
+                                                {product.pricingTiers && product.pricingTiers.length > 0 && (
+                                                    <span title="Numbered edition with tiered pricing">
+                                                        <Tag className="w-3 h-3 text-gray-500" aria-hidden="true" />
+                                                    </span>
+                                                )}
+                                            </span>
                                         </td>
                                         <td className="p-4">
                                             <div className="flex flex-wrap gap-2">
