@@ -1,13 +1,11 @@
-import Stripe from 'stripe';
+import { stripeClient } from '../../api/_services.js';
 import { createClient } from '@supabase/supabase-js';
 
 if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is missing');
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    // apiVersion omitted
-});
+const stripe = stripeClient();
 
 // Admin Supabase client to bypass RLS for updates
 const supabaseAdmin = createClient(

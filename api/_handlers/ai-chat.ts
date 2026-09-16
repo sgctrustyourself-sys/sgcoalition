@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from '@google/generative-ai';
+import { geminiClient } from '../_services.js';
 import { createClient } from '@supabase/supabase-js';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 // Brain tools are Supabase-session-only by design (they never accepted the
@@ -188,7 +189,7 @@ function json(res: any, status: number, body: Record<string, unknown>) {
 function getGenAI() {
     const apiKey = getGeminiApiKey();
     if (!apiKey) throw createHttpError(503, 'AI service is not configured.');
-    return new GoogleGenerativeAI(apiKey);
+    return geminiClient();
 }
 
 // Service-role client for the brain table.

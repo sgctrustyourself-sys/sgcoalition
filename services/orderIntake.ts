@@ -3,8 +3,7 @@
 // persistence, idempotency, email, and provider-neutral reconciliation.
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
-import Stripe from 'stripe';
+import { resendClient, stripeClient } from '../api/_services.js';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet.js';
 import { resolveCryptoDiscountCents } from '../utils/cryptoDiscount.js';
 import { resolvePaymentState } from '../utils/orderDepositNotes.js';
@@ -208,7 +207,7 @@ async function verifySPI(pi: string, expectedCents: number): Promise<void> {
     const ref = String(pi || '').trim();
     if (!ref.startsWith('pi_')) throw err(400, 'Valid Stripe reference required.');
     try {
-        const s = new Stripe(k);
+        const s = stripeClient();
         const i = await s.paymentIntents.retrieve(ref);
         if (i.status !== 'succeeded') throw err(402, 'Stripe payment not completed.');
         if (i.amount_received !== expectedCents) throw err(409, 'Stripe amount mismatch.');
@@ -274,7 +273,7 @@ export async function persistOrder(record: OrderRow): Promise<OrderSaveResult> {
 
 async function sendCust(rec: OrderRow): Promise<void> {
     const key = process.env.RESEND_API_KEY; if (!key || !rec.customer_email) return;
-    const r = new Resend(key);
+    const r = resendClient();
     const items = (rec.items || []).map((i: any) => '<tr><td style="padding:12px;border-bottom:1px solid #e5e7eb;"><strong>' + esc(i.productName || i.name) + '</strong><br><span style="color:#6b7280;font-size:14px;">Size: ' + esc(i.selectedSize || i.size) + ' - Qty: ' + (i.quantity || 1) + '</span></td><td style="padding:12px;border-bottom:1px solid #e5e7eb;text-align:right;">$' + Number(i.price || 0).toFixed(2) + '</td></tr>').join('');
     const html = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:32px;background:#fff;color:#111;"><h1 style="letter-spacing:2px;">Coalition</h1><h2>Order Confirmed</h2><p>Thank you, ' + esc(rec.customer_name) + '.</p><p>Order: ' + esc(rec.order_number) + '</p><table style="border:1px solid #e5e7eb;border-radius:8px;">' + items + '<tr><td style="padding:12px;background:#f9fafb;"><b>Total</b></td><td style="padding:12px;background:#f9fafb;text-align:right;"><b>$' + Number(rec.total || 0).toFixed(2) + '</b></td></tr></table><p style="color:#555;">Processed 1-2 days. Contact <a href="mailto:sgctrustyourself@gmail.com">sgctrustyourself@gmail.com</a>.</p></div>';
     const result = await r.emails.send({ from: fromAddr(), to: [rec.customer_email], subject: 'Order Confirmation - ' + rec.order_number, html } as any);
@@ -282,7 +281,7 @@ async function sendCust(rec: OrderRow): Promise<void> {
 }
 async function sendAdm(rec: OrderRow): Promise<void> {
     const key = process.env.RESEND_API_KEY; const rcpts = adminRcpt(); if (!key || !rcpts.length) return;
-    const r = new Resend(key);
+    const r = resendClient();
     const shipping = (rec.shipping_address || {}) as Record<string, unknown>;
     const payRef = rec.payment_reference || '';
     const itemsRows = (rec.items || []).map((i: any) => {
@@ -303,7 +302,7 @@ export async function notifyAdminReconcileFailure(orderId: string, paymentIntent
         const key = process.env.RESEND_API_KEY;
         const rcpts = adminRcpt();
         if (!key || !rcpts.length) return;
-        const r = new Resend(key);
+        const r = resendClient();
         // One-click triage: the admin orders view accepts ?tab=orders&q=<id>
         // (search matches the raw order id), so this link lands pre-filtered
         // on the exact order row.

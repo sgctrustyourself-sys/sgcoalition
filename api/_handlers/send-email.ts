@@ -1,4 +1,4 @@
-import { Resend } from 'resend';
+import { resendClient } from '../../api/_services.js';
 import { setCorsHeaders } from '../_helpers.js';
 import { isSharedSecretAdmin } from '../_adminAuth.js';
 
@@ -14,8 +14,6 @@ import { isSharedSecretAdmin } from '../_adminAuth.js';
 // This endpoint used to be an open relay: any caller could send email as the
 // brand from the verified sending domain. The recipient allowlist + shared
 // secret close that while keeping every existing flow working.
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getResendFromAddress() {
     return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>';
@@ -36,6 +34,7 @@ function normalizeRecipient(raw: unknown): string {
 }
 
 async function sendResendEmail(payload: any) {
+    const resend = resendClient();
     const result = await resend.emails.send({
         ...payload,
         from: getResendFromAddress(),

@@ -18,7 +18,8 @@
 // The config.api.bodyParser = false export tells Vercel to leave the
 // body as a raw Buffer, which is required by stripe.webhooks.constructEvent.
 
-import Stripe from 'stripe';
+import type Stripe from 'stripe';
+import { stripeClient } from './_services.js';
 import { reconcilePayment, notifyAdminReconcileFailure } from '../services/orderIntake.js';
 
 // Disable Vercel's automatic JSON body parsing — Stripe signature
@@ -33,7 +34,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is missing');
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = stripeClient();
 
 // ---------------------------------------------------------------------------
 // Helpers

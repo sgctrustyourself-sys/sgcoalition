@@ -7,7 +7,7 @@
 // - Surfaces no secrets in any branch.
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+import { resendClient } from '../../api/_services.js';
 
 const ALLOWED_SOURCES = new Set(['home', 'shop', 'about', 'footer']);
 
@@ -65,7 +65,7 @@ async function sendConfirmationEmail(opts: {
         );
         return;
     }
-    const resend = new Resend(apiKey);
+    const resend = resendClient();
     const appUrl = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
     const unsubscribeUrl = `${appUrl}/api/unsubscribe?token=${encodeURIComponent(opts.unsubscribeToken)}`;
     const subject = 'You are on the Coalition drop list';

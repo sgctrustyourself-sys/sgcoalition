@@ -509,7 +509,7 @@ export const fetchUserMiniWizards = async (ownerAddress: string, provider: any):
                     const tokenUri = await contract.tokenURI(tokenId);
 
                     // Fetch metadata from IPFS/URL
-                    const httpUri = tokenUri.replace('ipfs://', 'https://cloudflare-ipfs.com/ipfs/').replace('ipfs/ipfs/', 'ipfs/');
+                    const httpUri = tokenUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/').replace('ipfs/ipfs/', 'ipfs/');
                     const metaRes = await fetch(httpUri);
                     if (!metaRes.ok) throw new Error('Metadata fetch failed');
                     const metadata = await metaRes.json();
@@ -517,7 +517,7 @@ export const fetchUserMiniWizards = async (ownerAddress: string, provider: any):
                     return {
                         id: tokenId.toString(),
                         name: metadata.name || `Wizard #${tokenId}`,
-                        image: metadata.image ? metadata.image.replace('ipfs://', 'https://cloudflare-ipfs.com/ipfs/') : '',
+                        image: metadata.image ? metadata.image.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') : '',
                         attributes: metadata.attributes || [],
                         isLegacy: true,
                         level: 1, // Default for now

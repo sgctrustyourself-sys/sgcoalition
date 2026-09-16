@@ -143,11 +143,7 @@ const buildSymbolUrls = (text: string) => {
  * Every entry must still be fetched by the code; if that stops, the entry has to
  * be deleted (asserted below), so this list cannot quietly rot.
  */
-const KNOWN_BROKEN: Record<string, string> = {
-    'cloudflare-ipfs.com':
-        'Cloudflare retired this IPFS gateway and the host no longer resolves (NXDOMAIN), ' +
-        'so the legacy wizard metadata load can never succeed. Needs a gateway swap.',
-};
+const KNOWN_BROKEN: Record<string, string> = {};
 
 // Shared constants (POLYGON_RPC_URLS and friends) are declared in constants.ts
 // and imported everywhere, so resolve against them as well as the local file.

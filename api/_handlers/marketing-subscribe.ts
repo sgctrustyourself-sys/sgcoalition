@@ -5,7 +5,7 @@
 // configured so an unconfigured prod short-circuits gracefully.
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+import { resendClient } from '../../api/_services.js';
 
 const ALLOWED_SOURCES = new Set(['home', 'shop', 'about', 'footer', 'sms_signup', 'product', 'custom_wallets']);
 
@@ -106,7 +106,7 @@ async function sendEmailConfirmation(opts: { to: string; source: string; unsubsc
         );
         return;
     }
-    const resend = new Resend(apiKey);
+    const resend = resendClient();
     const appUrl = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
     const unsubscribeUrl = `${appUrl}/api/marketing-optout?token=${encodeURIComponent(opts.unsubscribeToken)}&channel=email`;
     const sourceLabel = opts.source && opts.source !== 'footer' && opts.source !== 'sms_signup'

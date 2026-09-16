@@ -1,4 +1,4 @@
-import Stripe from 'stripe';
+import { stripeClient } from '../../api/_services.js';
 import { createClient } from '@supabase/supabase-js';
 import { resolvePricing, type PricingItem, HttpError } from '../../services/orderIntake.js';
 import { resolveCryptoDiscountCents } from '../../utils/cryptoDiscount.js';
@@ -9,9 +9,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is missing');
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    // apiVersion omitted to use default
-});
+const stripe = stripeClient();
 
 const supabaseAdmin = createClient(
     process.env.VITE_SUPABASE_URL!,
