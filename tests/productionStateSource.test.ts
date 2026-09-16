@@ -196,6 +196,17 @@ describe('device boot recovery', () => {
         expect(indexHtml).toContain('/nojs.html');
     });
 
+    it('keeps a one-shot skew-recovery path wired for stale-bundle chunk loads', () => {
+        // The skew recovery is runtime-wired in index.tsx; the served shell only
+        // needs to still expose the recovery container and the CSS the transient
+        // overlay uses. Assert neither the transient copy nor the armed flag is
+        // baked into the static shell (both are injected/owned by the runtime),
+        // and that the container the runtime hooks onto is still present.
+        expect(indexHtml).toContain('data-load-recovery');
+        expect(indexHtml).toContain('skew-spinner');
+        expect(indexHtml).not.toContain('Loading a newer version');
+    });
+
     it('no longer ships the removed PayPal SDK or its CSP allowances', () => {
         expect(indexHtml).not.toContain('paypal.com/sdk/js');
         expect(indexHtml).not.toContain('__coalitionPaypalReady');

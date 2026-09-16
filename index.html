@@ -264,6 +264,19 @@
     }
     #load-recovery a.primary { background: #3B82F6; color: #050505; }
 
+    /* Transient overlay shown when a stale bundle hits a version-skew chunk load.
+       One-shot: the reload replaces this page, so there is no manual-dismiss path
+       and no risk of a refresh loop (the armed flag is set before reload). */
+    .skew-spinner {
+      width: 32px;
+      height: 32px;
+      margin: 0 auto 1rem;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #3B82F6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
     @media print {
       @page {
         margin: 1cm;
