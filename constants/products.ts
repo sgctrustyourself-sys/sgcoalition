@@ -2,6 +2,36 @@ import { Product } from "../types.js";
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
+    "id": "prod_coalition_pink_silver_crop_top",
+    "name": "Women's Leopard Print Crop T-Shirt",
+    "price": 45,
+    "images": [
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/pink-silver-crop-top-front.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/pink-silver-crop-top-back.png"
+    ],
+    "description": "Women's Leopard Print Crop T-Shirt. Pink leopard print with 3D silver puff lettering — COALITION across the front, TRUST YOURSELF on the back. A 12-piece run, sized S–XL.",
+    "category": "shirt",
+    "isFeatured": false,
+    "isLimitedEdition": true,
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL"
+    ],
+    "sizeInventory": {
+      "L": 3,
+      "M": 3,
+      "S": 3,
+      "XL": 3
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
+  },
+  {
     "id": "prod_1784012446238",
     "name": "COALITION ABOVE AS BELOW 2/4 WALLET",
     "price": 85,
@@ -345,9 +375,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     },
     "nft": null,
     "archived": true,
-    "archivedAt": "2026-07-24T00:00:00.000+00:00",
+    "archivedAt": "2026-06-25T02:40:12.191+00:00",
     "releasedAt": null,
-    "soldAt": "2026-07-24T00:00:00.000+00:00"
+    "soldAt": "2026-06-25T02:40:12.191+00:00"
   },
   {
     "id": "Coalition_Above_As_Below_Wallet_1_1",
@@ -466,12 +496,12 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     "id": "prod_1773860269374",
     "name": "Coalition Shark Tee - 1/1 Exclusive",
-    "price": 60,
+    "price": 40,
     "images": [
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_evsuOt6.jpg",
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_gaA93ug.jpg",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_cYmL6GQ.webp",
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IVmfRGx.webp"
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_cYmL6GQ.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_IVmfRGx.png"
     ],
     "description": "Unique SGCoalition tie-dye 'Trust Yourself' tee with a striking blue spiral pattern and the iconic crowned-bird graphic. This one-of-a-kind piece features premium print details and a motivational streetwear vibe. Size Small, in excellent condition with no flaws - ideal for collectors or anyone looking to add a standout Coalition piece to their wardrobe.",
     "category": "shirt",

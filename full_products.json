@@ -150,8 +150,8 @@
   {
     "id": "prod_1773860269374",
     "name": "Coalition Shark Tee – 1/1 Exclusive ",
-    "price": 60,
-    "stock": 0,
+    "price": 40,
+    "stock": 1,
     "category": "shirt",
     "images": [
       "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/new-product_1773860282282_tr59x.jpg",

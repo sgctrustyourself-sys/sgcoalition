@@ -12,12 +12,15 @@
 // services/gitService.ts and exercises the same actions as server.cjs.
 //
 // Sync-constants is the most commonly invoked action from the admin
-// panel. Its implementation mirrors server.cjs so behavior is identical
-// when this handler runs in a writable environment.
+// panel. It refreshes constants/products.ts under the rule owned by
+// scripts/productSeed.ts — the same rule the drop publish obeys — so a
+// sync can add and correct but can never delete an entry the products
+// table has never held.
 
 import { createClient } from '@supabase/supabase-js';
 import { LOCAL_DEV_ORIGINS } from '../_helpers.js';
 import { withAdminAuth } from '../_adminAuth.js';
+import { refreshSeed, type ProductRow, type SeedMergeReport } from '../../scripts/productSeed.js';
 
 // CORS + OPTIONS + the admin gate all live in withAdminAuth now (see the export
 // at the bottom of this file). The origin allow-list it is given is the same set
@@ -51,9 +54,10 @@ function getSupabaseAdmin() {
     return createClient(supabaseUrl, serviceRoleKey);
 }
 
-// Mirror of server.cjs sync-constants. Lazy-imports fs/path/gitService so
-// cold start on Vercel skips the git binary until needed (and never is,
-// because the devOnly path returns first).
+// The sync-constants action: refresh constants/products.ts from the products
+// table under the shared rule (scripts/productSeed.ts). Lazy-imports
+// fs/path/gitService so cold start on Vercel skips the git binary until needed
+// (and never is, because the devOnly path returns first).
 async function syncConstantsHandler(req: any) {
     const supabase = getSupabaseAdmin();
     const { data: dbProducts, error: fetchError } = await supabase
@@ -63,31 +67,23 @@ async function syncConstantsHandler(req: any) {
     if (fetchError) throw Object.assign(new Error(fetchError.message), { status: 500 });
     if (!dbProducts) throw Object.assign(new Error('No products returned from Supabase'), { status: 500 });
 
-    // Map to Product[] shape — identical to scripts/syncProducts.ts and
-    // server.cjs so a sync run from either side produces the same diff.
-    const mappedProducts = dbProducts.map((p: any) => ({
-        id: p.id,
-        name: (p.name || '').trim(),
-        price: p.price,
-        images: p.images || [],
-        description: (p.description || '').trim(),
-        category: (() => {
-            const c = (p.category || 'apparel').toLowerCase().trim();
-            return c === 'accessories' ? 'accessory' : c;
-        })(),
-        isFeatured: !!p.is_featured,
-        isLimitedEdition: p.is_limited_edition ?? false,
-        sizes: p.sizes || [],
-        sizeInventory: p.size_inventory || {},
-        nft: p.nft_metadata || null,
-        archived: !!p.archived,
-        archivedAt: p.archived_at || null,
-        releasedAt: p.released_at || null,
-        soldAt: p.sold_at || null,
-    }));
+    // The table is the source of truth for every product it holds, so a sync targets
+    // all of its rows: the operator's edit landed there, and this is what carries it
+    // into the code. It is NOT a rebuild — the table has no opinion about entries it
+    // has never held (the five seed-only wallets), and regenerating the array from the
+    // rows alone is what silently deleted them. scripts/productSeed.ts owns that rule.
+    const rows = dbProducts as ProductRow[];
+    const targetedIds = rows.map((row) => String(row.id));
 
-    const replacement = `export const INITIAL_PRODUCTS: Product[] = ${JSON.stringify(mappedProducts, null, 2)};`;
-    const replaceRegex = /export const INITIAL_PRODUCTS: Product\[\] = \[[\s\S]*?\];/;
+    // Filled in by the transform (which sees the file's real text on whichever path
+    // runs) so the admin is told what the sync wrote, not just that it succeeded.
+    const outcome: { report: SeedMergeReport | null } = { report: null };
+    const transform = (content: string) => {
+        const refresh = refreshSeed(content, rows, targetedIds);
+        outcome.report = refresh.report;
+        return refresh.text;
+    };
+
     const targetFile = 'constants/products.ts';
     const commitMessage = (req.body?.message) || 'Sync products from Supabase';
 
@@ -98,11 +94,8 @@ async function syncConstantsHandler(req: any) {
 
     if (useGithub) {
         const { syncFileOnGitHub } = await import('../../services/githubSync.cjs');
-        return await syncFileOnGitHub(
-            targetFile,
-            (content: string) => content.replace(replaceRegex, replacement),
-            commitMessage
-        );
+        const result = await syncFileOnGitHub(targetFile, transform, commitMessage);
+        return { ...result, report: outcome.report };
     }
 
     // Local dev without GITHUB_TOKEN: use the fs + git workflow which is
@@ -113,16 +106,16 @@ async function syncConstantsHandler(req: any) {
 
     const productsPath = pathMod.resolve(process.cwd(), 'constants/products.ts');
     const beforeContent = fs.readFileSync(productsPath, 'utf8');
-    const afterContent = beforeContent.replace(replaceRegex, replacement);
+    const afterContent = transform(beforeContent);
 
     if (afterContent === beforeContent) {
         const recent = await gitService.getCommitHistory(1);
-        return { noChanges: true, hash: recent[0]?.hash };
+        return { noChanges: true, hash: recent[0]?.hash, report: outcome.report };
     }
 
     fs.writeFileSync(productsPath, afterContent, 'utf8');
     const hash = await gitService.createCommit(commitMessage, 'Coalition Admin <admin@coalition.local>');
-    return { success: true, hash };
+    return { success: true, hash, report: outcome.report };
 }
 
 function getAction(req: any): string | undefined {

@@ -5,30 +5,27 @@ export * from './constants/index';
 import { PRODUCT_IMAGE_URLS } from "./utils/localImageAssets";
 import { SITE_NAME } from "./utils/seo";
 
+// Prose only (archiveNote / founderNote). Whether a piece is sold, archived, or
+// still sellable is owned by the `products` table for the live catalog and by
+// INITIAL_PRODUCTS for the fallback — never restated here. Three copies of one
+// fact is how Coalition_Grey_Wave_Wallet_2_2 came to be sold in two places and
+// live with one in stock in the third; tests/soldStateOwnership.test.ts now fails
+// if an override restates any of it.
+//
+// The notes themselves are local-only data the products table does not carry
+// (useCatalog reads archiveNote from here), so this overlay is the right home for
+// them. Every dated soldAt/archivedAt that used to live here was a stale copy of
+// the sale record in INITIAL_ORDERS: SKYYBLUEWALLET1_2's said 2026-03-26 against a
+// 2026-05-22 wholesale order, and the Grey Wave pair's disagreed with each other.
 export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
   Coalition_Grey_Wave_Wallet_1_2: {
-    archived: true,
-    archivedAt: "2026-06-25T02:40:12.191+00:00",
-    soldAt: "2026-06-25T02:40:12.191+00:00",
-    sizes: ["One Size"],
-    sizeInventory: { "One Size": 0 },
     archiveNote:
       "This exact Grey Wave wallet has sold. Request a similar custom if you want the same charcoal-grey direction rebuilt for a future drop.",
   },
   Coalition_Grey_Wave_Wallet_2_2: {
-    archived: true,
-    archivedAt: "2026-06-25T02:40:12.191+00:00",
-    soldAt: "2026-06-25T02:40:12.191+00:00",
-    sizes: ["One Size"],
-    sizeInventory: { "One Size": 0 },
     archiveNote: "Second and final piece in the Coalition 'Grey Wave' wallet run. Sold on the same day as 1/2.",
   },
   SKYYBLUEWALLET1_2: {
-    archived: true,
-    archivedAt: "2026-03-26T00:00:00Z",
-    soldAt: "2026-03-26T00:00:00Z",
-    sizes: ["One Size"],
-    sizeInventory: { "One Size": 0 },
     archiveNote:
       "This exact wallet was given to an unhoused veteran after a chance encounter on a dirt bike ride. Seeing someone who served the country still left outside stayed with us. Coalition is built on action, dignity, and showing up for people when the moment calls for it, so this piece was given away instead of sold.",
   },

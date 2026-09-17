@@ -20,6 +20,8 @@
 // tests/sendEmailGate.test.ts for the timeout flake that caused.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const mocks = vi.hoisted(() => ({
     syncFileOnGitHub: vi.fn(),
@@ -301,5 +303,119 @@ describe('/api/git-operations admin gate', () => {
         } finally {
             warn.mockRestore();
         }
+    });
+});
+
+// The admin "Sync Code" button reaches this endpoint. The bug this pins is the one
+// the drop publish hit: regenerating INITIAL_PRODUCTS from the products table alone
+// DELETED entries the table has never held — the five seed-only wallets, which
+// failed 21 tests — because "mirror the database" was implemented as "rebuild the
+// array". A sync may add and correct; it may not remove.
+describe('admin sync-constants obeys the same rule as the drop publish', () => {
+    const SEED_ONLY_ID = 'prod_local_only';
+    const ROW_ENTRY = {
+        id: 'p1',
+        name: 'Test Piece',
+        price: 1,
+        images: [],
+        description: '',
+        category: 'apparel',
+        isFeatured: false,
+        isLimitedEdition: false,
+        sizes: [],
+        sizeInventory: {},
+        nft: null,
+        archived: false,
+        archivedAt: null,
+        releasedAt: null,
+        soldAt: null,
+    };
+
+    const block = (entry: unknown) =>
+        JSON.stringify(entry, null, 2).split('\n').map((line) => '  ' + line);
+
+    // p1 is also in the mocked table (price 42); the second entry is not.
+    const seedText = [
+        'export const INITIAL_PRODUCTS: Product[] = [',
+        '  // hand-written note the sync must not destroy',
+        ...block(ROW_ENTRY),
+        '  ,',
+        ...block({ ...ROW_ENTRY, id: SEED_ONLY_ID, name: 'Local Only', price: 7 }),
+        '];',
+        '',
+    ].join('\n');
+
+    /** Behave like services/githubSync.cjs: run the transform on the real file text. */
+    const mockGithubSync = () => {
+        mocks.syncFileOnGitHub.mockImplementation(
+            async (_file: string, transform: (content: string) => string) => ({
+                noChanges: transform(seedText) === seedText,
+                hash: 'blob-sha-abc',
+            }),
+        );
+    };
+
+    const callSync = () =>
+        gitOperationsHandler(
+            makeReq({ action: 'sync-constants', method: 'POST', headers: bearer(ADMIN_TOKEN) }),
+            makeRes(),
+        );
+
+    it('keeps a product the database has never held, and corrects the ones it does', async () => {
+        mockGithubSync();
+        await callSync();
+
+        const transform = mocks.syncFileOnGitHub.mock.calls[0][1] as (content: string) => string;
+        const after = transform(seedText);
+
+        expect(after, 'a product with no DB row must survive the sync').toContain(SEED_ONLY_ID);
+        expect(after, 'unchanged entries keep their value, not a blank').toContain('"price": 7');
+        expect(after, 'comments inside the array must survive a sync').toContain(
+            'hand-written note the sync must not destroy',
+        );
+        expect(after, 'the seed must still be a file the app can import').toContain(
+            'export const INITIAL_PRODUCTS: Product[] = [',
+        );
+        expect(after, "the table's value wins for a row it holds — that is what Sync Code is for").toContain(
+            '"price": 42',
+        );
+        expect(after, 'and the stale local value is gone').not.toContain('"price": 1\n');
+    });
+
+    it('returns what it wrote, so the button can label the outcome honestly', async () => {
+        mockGithubSync();
+
+        const res = makeRes();
+        await gitOperationsHandler(
+            makeReq({ action: 'sync-constants', method: 'POST', headers: bearer(ADMIN_TOKEN) }),
+            res,
+        );
+
+        expect(res.body.report).toMatchObject({
+            targeted: ['p1'],
+            rewritten: ['p1'],
+            seedOnly: [SEED_ONLY_ID],
+            added: [],
+        });
+        expect(res.body.noChanges, 'the fixture differs, so this is a real write').toBe(false);
+    });
+
+    it('folds rows in through the shared rule instead of rebuilding the array', () => {
+        const source = fs.readFileSync(
+            path.resolve(__dirname, '..', 'api', '_handlers', 'git-operations.ts'),
+            'utf8',
+        );
+
+        expect(
+            source,
+            'the rule has one owner; the handler must read it rather than restate it',
+        ).toMatch(/from '\.\.\/\.\.\/scripts\/productSeed\.js'/);
+        expect(source, 'a wholesale replacement is the bug this pins').not.toMatch(
+            /INITIAL_PRODUCTS: Product\[\] = \$\{/,
+        );
+        expect(
+            source,
+            'an admin edit lands in the table, so every row it holds must be rewritten',
+        ).toContain('targetedIds');
     });
 });

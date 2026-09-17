@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
 import { Plus, Edit2, Trash2, Save, X, Copy, Search, AlertCircle, CheckCircle, RefreshCw, Loader2, Upload, ChevronLeft, ChevronRight, GripVertical, Star, Tag } from 'lucide-react';
 import { syncProductsToCode } from '../../services/imgurService';
+import { fetchProductDrift, type ProductDriftReport } from '../../services/productDrift';
 import { uploadProductImage } from '../../services/productUpload';
 import ImageCropperModal from '../ui/ImageCropperModal';
 import { moveArrayItem } from '../../utils/arrayMove';
@@ -24,6 +25,26 @@ const ProductManager: React.FC = () => {
     const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
     const [dragOverImageIndex, setDragOverImageIndex] = useState<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Whether the deployed seed and the live products table still agree. A null
+    // report means "not checked yet", so the line does not flash as "in sync"
+    // before the answer arrives; a failure is held separately because silence and
+    // "no drift" must never look the same to an operator.
+    const [driftReport, setDriftReport] = useState<ProductDriftReport | null>(null);
+    const [driftError, setDriftError] = useState<string | null>(null);
+    const [showDriftDetail, setShowDriftDetail] = useState(false);
+
+    const checkDrift = useCallback(async () => {
+        try {
+            setDriftError(null);
+            setDriftReport(await fetchProductDrift());
+        } catch (err: any) {
+            setDriftReport(null);
+            setDriftError(err?.message || 'unknown error');
+        }
+    }, []);
+
+    useEffect(() => { void checkDrift(); }, [checkDrift]);
 
     // Pricing & edition controls (first-class admin surface).
     const [pricingTierDraft, setPricingTierDraft] = useState<Array<{ untilCount: string; price: string }>>([]);
@@ -176,21 +197,40 @@ const ProductManager: React.FC = () => {
         }
     };
 
-    // Sync to Codebase
+    // Sync to Codebase.
+    //
+    // This refreshes constants/products.ts from the products table and commits it, so
+    // it corrects every product the database holds. It does NOT rebuild the catalog:
+    // entries the table has never held (the seed-only wallets) are kept and reported,
+    // which is the shared rule the drop publish also obeys. The confirm text below
+    // states that, because "sync" used to mean "replace" here.
     const handleSync = async () => {
-        if (!window.confirm('This will update constants.ts with all current database products and create a Git commit. Proceed?')) return;
+        if (!window.confirm(
+            'Sync Code rewrites every product that has a Supabase row into constants/products.ts and commits to main.\n\nProducts the database has never held are kept, not deleted. Proceed?'
+        )) return;
 
         setIsSyncing(true);
         setError(null);
         setSuccess(null);
         try {
             const result = await syncProductsToCode();
+            const report = result?.report;
+            const kept = report?.seedOnly?.length ?? 0;
+            const keptNote = kept ? ` ${kept} product${kept === 1 ? '' : 's'} with no DB row kept.` : '';
+
             if (result && result.noChanges) {
                 const commitRef = result.hash ? ` (HEAD ${result.hash})` : '';
-                setSuccess(`Already up to date — no changes since last sync${commitRef}`);
+                setSuccess(`Already up to date — constants/products.ts matches Supabase${commitRef}.${keptNote}`);
             } else {
-                setSuccess(`Sync Complete! Constants updated and committed (${result?.hash ?? 'ok'})`);
+                const fromDb = (report?.targeted?.length ?? 0) + (report?.added?.length ?? 0);
+                const written = fromDb
+                    ? `${fromDb} from the database (${report?.rewritten?.length ?? 0} rewritten)${report?.added?.length ? `, ${report?.added?.length} appended` : ''}.`
+                    : 'Constants updated.';
+                setSuccess(`Sync complete — ${written}${keptNote} Committed (${result?.hash ?? 'ok'})`);
             }
+            // The sync just rewrote the seed, so re-read the drift instead of
+            // leaving a stale count on screen next to a fresh commit.
+            void checkDrift();
             setTimeout(() => setSuccess(null), 5000);
         } catch (err: any) {
             console.error('Core sync failed:', err);
@@ -412,7 +452,7 @@ const ProductManager: React.FC = () => {
                         onClick={handleSync}
                         disabled={isSyncing}
                         className="flex items-center gap-2 bg-purple-500/20 border border-purple-500/30 text-purple-300 px-4 py-2 rounded-lg font-bold uppercase text-sm hover:bg-purple-500/30 transition disabled:opacity-50"
-                        title="Sync Supabase products to constants.ts"
+                        title="Sync Supabase products into constants.ts (products with no DB row are kept)"
                     >
                         {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                         Sync Code
@@ -426,6 +466,67 @@ const ProductManager: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            {/* Catalog vs database.
+                This is the same report `npx tsx scripts/syncProducts.ts` prints, so the
+                question "do my fallback catalog and my live catalog still agree?" is
+                answerable without knowing a command exists. WHAT counts as drift is
+                decided by scripts/productSeed.ts server-side; this only renders it. */}
+            {driftError && (
+                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 p-4 rounded-lg flex items-start gap-3 text-sm">
+                    <AlertCircle className="w-5 h-5 shrink-0" />
+                    <span>Couldn't check the catalog against the products table ({driftError}). Nothing below reflects the database until this succeeds.</span>
+                </div>
+            )}
+
+            {driftReport && (
+                <div
+                    className={`p-4 rounded-lg border text-sm ${driftReport.drift.length
+                        ? 'bg-amber-500/10 border-amber-500/20 text-amber-200'
+                        : 'bg-white/5 border-white/10 text-gray-400'}`}
+                >
+                    <div className="flex items-start gap-3">
+                        {driftReport.drift.length
+                            ? <AlertCircle className="w-5 h-5 shrink-0" />
+                            : <CheckCircle className="w-5 h-5 shrink-0" />}
+                        <div className="flex-1">
+                            <div className="font-bold uppercase">
+                                {driftReport.drift.length
+                                    ? `${driftReport.drift.length} difference${driftReport.drift.length === 1 ? '' : 's'} between constants/products.ts and the products table`
+                                    : 'Catalog is in sync with the products table'}
+                            </div>
+                            <div className="mt-1 text-xs">
+                                {driftReport.seedEntries} seed entries · {driftReport.dbRows} table rows
+                                {driftReport.seedOnly.length ? ` · ${driftReport.seedOnly.length} kept with no row` : ''}
+                                {driftReport.missingFromSeed.length ? ` · ${driftReport.missingFromSeed.length} in the table only` : ''}
+                            </div>
+                            {driftReport.drift.length > 0 && (
+                                <div className="mt-2">
+                                    <button
+                                        onClick={() => setShowDriftDetail((shown) => !shown)}
+                                        className="underline text-xs uppercase font-bold"
+                                        aria-expanded={showDriftDetail}
+                                    >
+                                        {showDriftDetail ? 'Hide' : 'Show'} the differences
+                                    </button>
+                                    {showDriftDetail && (
+                                        <ul className="mt-2 space-y-1 font-mono text-xs break-all">
+                                            {driftReport.drift.map((difference) => (
+                                                <li key={`${difference.id}.${difference.field}`}>
+                                                    {difference.id}.{difference.field}: seed {difference.seed} vs database {difference.db}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    <div className="mt-2 text-xs">
+                                        Sync Code rewrites every product the table holds, so the next sync corrects these. Products kept with no row are never dropped.
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Feedback Messages */}
             {error && (

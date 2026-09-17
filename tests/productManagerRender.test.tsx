@@ -12,6 +12,9 @@
 //   - ../services/imgurService - syncProductsToCode stubbed with default
 //     mockResolvedValue({ hash: 'abc123' }) so the Sync Code button can succeed
 //     without exercising the real sync logic.
+//   - ../services/productDrift - fetchProductDrift stubbed to a clean report by
+//     default; the catalog-drift tests override it per test to prove the line
+//     shows differences, agreement, and a failed check as three distinct states.
 //   - ../services/productUpload - uploadProductImage stubbed (auto-mock vi.fn()).
 //   - ../components/ui/ImageCropperModal - image cropper stubbed with data-testid
 //     marker (default export pattern matches ManualOrderForm/Invoice stubs in
@@ -34,7 +37,35 @@ vi.mock('../context/AppContext', () => ({
     useApp: vi.fn(),
 }));
 vi.mock('../services/imgurService', () => ({
-    syncProductsToCode: vi.fn().mockResolvedValue({ hash: 'abc123' }),
+    // Carries the seed-merge report, because the success message is built from it:
+    // the button must say what the sync wrote, and how much it deliberately kept.
+    syncProductsToCode: vi.fn().mockResolvedValue({
+        hash: 'abc123',
+        report: {
+            targeted: ['p1', 'p2'],
+            rewritten: ['p2'],
+            seedOnly: ['prod_local_only'],
+            added: [],
+            drift: [],
+        },
+    }),
+}));
+const driftHolder = vi.hoisted(() => ({
+    report: {
+        checkedAt: '2026-09-17T00:00:00.000Z',
+        seedEntries: 31,
+        dbRows: 26,
+        drift: [] as Array<{ id: string; field: string; seed: string; db: string }>,
+        seedOnly: ['prod_local_only'],
+        missingFromSeed: [] as string[],
+    },
+    error: null as Error | null,
+}));
+vi.mock('../services/productDrift', () => ({
+    fetchProductDrift: vi.fn(async () => {
+        if (driftHolder.error) throw driftHolder.error;
+        return driftHolder.report;
+    }),
 }));
 vi.mock('../services/productUpload', () => ({
     uploadProductImage: vi.fn(),
@@ -205,7 +236,7 @@ describe('ProductManager edit form open + sync code interactions', () => {
         // by default, causing handleSync to early-return BEFORE firing
         // syncProductsToCode (the previous version's failure mode).
         const syncBtn = document.body.querySelector(
-            'button[title="Sync Supabase products to constants.ts"]',
+            'button[title="Sync Supabase products into constants.ts (products with no DB row are kept)"]',
         ) as HTMLButtonElement | null;
         expect(syncBtn).toBeTruthy();
 
@@ -215,18 +246,20 @@ describe('ProductManager edit form open + sync code interactions', () => {
 
         // confirm() must have been called. The beforeEach provides a spy with
         // mockReturnValue(true) so handleSync proceeds past the guard to fire
-        // syncProductsToCode (which resolves to { hash: 'abc123' } and renders
-        // the "Sync Complete" success message - the proxy for "the click
-        // reached the post-confirm path").
-        // We do NOT assert on the prompt substring because the JSX uses
-        // "This will update constants.ts with all current database products
-        // and create a Git commit. Proceed?" (no 'sync' word). The previous
-        // callArg.find(...).includes('sync') was searching for a word that
-        // ProductManager.handleSync's confirm prompt simply doesn't have.
+        // syncProductsToCode (which resolves with a merge report and renders the
+        // success message - the proxy for "the click reached the post-confirm
+        // path").
         expect(window.confirm).toHaveBeenCalled();
 
-        // Success message renders with the hash from the mockResolvedValue.
-        expect(html).toContain('Sync Complete');
+        // The prompt must state the rule, because "sync" used to mean "replace":
+        // an operator has to know the local-only products survive the click.
+        expect(String(vi.mocked(window.confirm).mock.calls[0][0])).toContain('never held');
+
+        // Success message renders the counts from the report plus the hash.
+        expect(html).toContain('Sync complete');
+        expect(html).toContain('2 from the database');
+        expect(html).toContain('1 rewritten');
+        expect(html).toContain('kept');
         expect(html).toContain('abc123');
 
         expect(mockSupabase.getRemainingOutcomes()).toBe(0);
@@ -328,6 +361,103 @@ describe('ProductManager render flow', () => {
         expect(editBtnCount).toBe(1);
 
         expect(mockSupabase.getRemainingOutcomes()).toBe(0);
+    });
+});
+
+// The drift report used to exist only in the `syncProducts` CLI's stdout. These pin
+// the three states an operator can be in, because the dangerous one is silence: a
+// failed check must never be indistinguishable from an in-sync catalog.
+describe('ProductManager catalog drift line', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    const clickShowDifferences = () => {
+        const toggle = [...document.body.querySelectorAll('button')].find(
+            (b) => /differences/i.test(b.textContent || ''),
+        ) as HTMLButtonElement | undefined;
+        expect(toggle, 'the differences toggle must be present when there are any').toBeTruthy();
+        act(() => { toggle!.click(); });
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockSupabase.setOutcomes([]);
+        localStorage.clear();
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+        driftHolder.report = {
+            checkedAt: '2026-09-17T00:00:00.000Z',
+            seedEntries: 31,
+            dbRows: 26,
+            drift: [],
+            seedOnly: ['prod_local_only'],
+            missingFromSeed: [],
+        };
+        driftHolder.error = null;
+
+        container = document.createElement('div');
+        document.body.appendChild(container);
+        root = createRoot(container);
+
+        vi.mocked(useApp).mockReturnValue({
+            products: TEST_PRODUCTS,
+            addProduct: vi.fn().mockResolvedValue(undefined),
+            updateProduct: vi.fn().mockResolvedValue(undefined),
+            deleteProduct: vi.fn().mockResolvedValue(undefined),
+        });
+    });
+
+    afterEach(() => {
+        act(() => { root.unmount(); });
+        if (container.parentNode === document.body) document.body.removeChild(container);
+        vi.restoreAllMocks();
+    });
+
+    it('DRIFT_CLEAN: an agreed catalog says so, with the counts', async () => {
+        await act(async () => {
+            root.render(createElement(ProductManager));
+        });
+
+        const html = container.innerHTML;
+        expect(html).toContain('in sync with the products table');
+        expect(html).toContain('31 seed entries');
+        expect(html).toContain('26 table rows');
+        expect(html).toContain('1 kept with no row');
+    });
+
+    it('DRIFT_ROWS: shows the count, and the lines only when asked for them', async () => {
+        driftHolder.report.drift = [
+            { id: 'prod_1773860269374', field: 'price', seed: '60', db: '40' },
+        ];
+
+        await act(async () => {
+            root.render(createElement(ProductManager));
+        });
+
+        expect(container.innerHTML).toContain('1 difference between constants/products.ts and the products table');
+        // Collapsed: the count is the alarm, the detail is on demand.
+        expect(container.innerHTML).not.toContain('seed 60 vs database 40');
+
+        clickShowDifferences();
+
+        expect(container.innerHTML).toContain('prod_1773860269374.price: seed 60 vs database 40');
+        expect(container.innerHTML, 'the operator is told what Sync Code will do about it').toContain(
+            'Sync Code rewrites every product the table holds',
+        );
+    });
+
+    it('DRIFT_ERROR: a failed check says so instead of rendering nothing', async () => {
+        driftHolder.error = new Error('Catalog drift check failed (HTTP 401)');
+
+        await act(async () => {
+            root.render(createElement(ProductManager));
+        });
+
+        const html = container.innerHTML;
+        expect(html).toContain("Couldn't check the catalog against the products table");
+        expect(html).toContain('HTTP 401');
+        expect(html, 'a failure must not read as agreement').not.toContain('in sync with the products table');
     });
 });
 
