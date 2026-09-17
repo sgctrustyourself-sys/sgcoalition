@@ -1,9 +1,27 @@
+/**
+ * scripts/auditWalletPrices.ts — a live wallet/accessory price audit.
+ *
+ * A price has two owners: the `products` table (what the shop charges) and
+ * constants/products.ts (the fallback the storefront renders when Supabase is
+ * unreachable). This script reads the table and asks the shared rule
+ * (scripts/productSeed.ts) whether the seed agrees, so a disagreement is defined in
+ * the same one place the admin drift line and Sync Code use — preserve mode reports
+ * every difference and applies none.
+ *
+ * It used to compare against full_products.json as well: an eight-row dump of an
+ * older, smaller table. That copy is retired. A checked-in dump of the table goes
+ * stale in silence, and while it agrees with an equally stale seed it certifies the
+ * pair as correct — which is how the Shark Tee stayed at $60 here while checkout
+ * charged $40. tests/productPriceConsistency.test.ts now fails if such a copy
+ * reappears.
+ */
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { INITIAL_PRODUCTS } from '../constants/products';
-import fullProducts from '../full_products.json';
+import { refreshSeed } from './productSeed';
+import type { ProductRow } from './productSeed';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,26 +38,14 @@ interface DbProduct {
     updated_at?: string;
 }
 
-interface FullProduct {
-    id: string;
-    name: string;
-    price: number;
-    category: string;
-    archived: boolean;
-}
-
-const typedFullProducts = fullProducts as FullProduct[];
-
-function normalizeCategory(category: string) {
-    return category?.toLowerCase() ?? '';
-}
+const normalizeCategory = (category: string) => category?.toLowerCase() ?? '';
 
 async function audit() {
     console.log('🔍 Auditing wallet/accessory prices in live Supabase...\n');
 
-    const { data: dbProducts, error } = await supabase
+    const { data, error } = await supabase
         .from('products')
-        .select('id,name,price,category,archived,updated_at')
+        .select('*')
         .in('category', ['wallet', 'accessory']);
 
     if (error) {
@@ -47,42 +53,18 @@ async function audit() {
         process.exit(1);
     }
 
-    const wallets = (dbProducts as DbProduct[] || []).filter(p => {
-        const cat = normalizeCategory(p.category);
-        return cat === 'wallet' || cat === 'accessory';
-    }).sort((a, b) => a.id.localeCompare(b.id));
+    const wallets = ((data ?? []) as DbProduct[])
+        .filter(p => {
+            const cat = normalizeCategory(p.category);
+            return cat === 'wallet' || cat === 'accessory';
+        })
+        .sort((a, b) => a.id.localeCompare(b.id));
 
-    const initialMap = new Map(INITIAL_PRODUCTS.map(p => [p.id, p]));
-    const fullMap = new Map(typedFullProducts.map(p => [p.id, p]));
+    const seedText = fs.readFileSync(path.resolve(__dirname, '../constants/products.ts'), 'utf8');
+    const { report } = refreshSeed(seedText, wallets as ProductRow[], []);
+    const priceDrift = report.drift.filter(entry => entry.field === 'price');
 
-    const stale35: DbProduct[] = [];
-    const mismatches: { db: DbProduct; source: string; sourcePrice: number; localPrice: number }[] = [];
-
-    for (const dbProd of wallets) {
-        if (dbProd.price === 35) {
-            stale35.push(dbProd);
-        }
-
-        const initial = initialMap.get(dbProd.id);
-        if (initial && initial.price !== dbProd.price) {
-            mismatches.push({
-                db: dbProd,
-                source: 'INITIAL_PRODUCTS',
-                sourcePrice: dbProd.price,
-                localPrice: initial.price,
-            });
-        }
-
-        const full = fullMap.get(dbProd.id);
-        if (full && full.price !== dbProd.price) {
-            mismatches.push({
-                db: dbProd,
-                source: 'full_products.json',
-                sourcePrice: dbProd.price,
-                localPrice: full.price,
-            });
-        }
-    }
+    const stale35 = wallets.filter(p => p.price === 35);
 
     console.log(`Found ${wallets.length} wallet/accessory rows in Supabase:\n`);
     console.table(wallets.map(p => ({ id: p.id, name: p.name, price: p.price, category: p.category, archived: p.archived })));
@@ -94,17 +76,17 @@ async function audit() {
         console.log('\n✅ No wallets are priced at $35 in the live DB.');
     }
 
-    if (mismatches.length > 0) {
-        console.error(`\n❌ Found ${mismatches.length} price mismatch(es) between live DB and local sources:`);
-        console.table(mismatches.map(m => ({
-            id: m.db.id,
-            name: m.db.name,
-            'live DB': m.sourcePrice,
-            [m.source]: m.localPrice,
+    if (priceDrift.length > 0) {
+        console.error(`\n❌ ${priceDrift.length} wallet price(s) in the live DB disagree with constants/products.ts:`);
+        console.table(priceDrift.map(entry => ({
+            id: entry.id,
+            'live DB': entry.db,
+            'seed (fallback)': entry.seed,
         })));
+        console.error('\nSync Code rewrites every product the table holds, so the next sync corrects the seed from these rows.');
         process.exit(1);
     } else {
-        console.log('\n✅ Live DB wallet prices match INITIAL_PRODUCTS and full_products.json.');
+        console.log('\n✅ Live wallet prices match constants/products.ts, the fallback the storefront renders.');
     }
 }
 
