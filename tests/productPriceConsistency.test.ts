@@ -15,6 +15,11 @@
 //
 // The dump is retired, so this file pins the retirement rather than restating it: a
 // checked-in copy of the table must not come back, whatever it is named.
+//
+// Two things keep that pin honest, because a scan that inspects nothing passes
+// everything: the floor below fails if the walk finds no files, or never leaves the
+// repo root, and the row predicate asks for a product field so a bare {id, price} map
+// — a fee table, a tier list, a price export — does not get reported as a catalog copy.
 
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
@@ -36,17 +41,45 @@ function jsonFilesIn(dir: string, found: string[] = []): string[] {
     return found;
 }
 
-/** Rows that carry a product id and a price are rows of the products table. */
+/**
+ * Fields a row of the products table carries and a bare id→price map does not.
+ * Every row of the retired snapshot had `name` and `category` (and the seed's rows
+ * carry `name`, `images`, `category`, `sizes`), so this does not narrow detection of
+ * a real catalog copy — only of the id-and-price shape that is not one.
+ */
+const PRODUCT_FIELDS = [
+    'name',
+    'category',
+    'images',
+    'stock',
+    'sizes',
+    'size_inventory',
+    'description',
+    'slug',
+    'archived',
+];
+
+/** Rows carrying a product id, a price and at least one product field are catalog rows. */
 function productRowCount(value: unknown): number {
     if (!Array.isArray(value)) return 0;
-    return value.filter(row => row && typeof row === 'object' && 'id' in row && 'price' in row).length;
+    return value.filter(
+        row =>
+            row &&
+            typeof row === 'object' &&
+            'id' in row &&
+            'price' in row &&
+            PRODUCT_FIELDS.some(field => field in row),
+    ).length;
 }
+
+/** Walked once: the check below reads these files, the floor test proves it was not empty. */
+const scannedFiles = jsonFilesIn(projectRoot);
 
 describe('a product price has one owner', () => {
     it('has no checked-in JSON copy of the products table to drift against', () => {
         const offenders: string[] = [];
 
-        for (const file of jsonFilesIn(projectRoot)) {
+        for (const file of scannedFiles) {
             let parsed: unknown;
             try {
                 parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -63,6 +96,21 @@ describe('a product price has one owner', () => {
                 'stale seed it certifies the pair as correct. Compare against the live table instead — ' +
                 'scripts/productSeed.ts owns that comparison, and the drift rule it backs is what shows it.',
         ).toEqual([]);
+    });
+
+    it('the anti-vacuity floor: the scan found files to inspect, in more than one directory', () => {
+        expect(
+            scannedFiles.length,
+            'The scan must produce files to inspect: an empty list makes the check above pass while ' +
+                'checking nothing, which is worse than no check at all.',
+        ).toBeGreaterThanOrEqual(5);
+
+        const nested = scannedFiles.filter(file => path.relative(projectRoot, file).includes(path.sep));
+        expect(
+            nested.length,
+            'and the walk must descend into subdirectories, not stop at the repo root — otherwise a ' +
+                'copy under public/ or data/ would be invisible.',
+        ).toBeGreaterThan(0);
     });
 
     it('compares the seed with the live table, through the rule that owns the comparison', () => {
