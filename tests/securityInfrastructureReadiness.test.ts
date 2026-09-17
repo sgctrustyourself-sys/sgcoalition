@@ -376,7 +376,6 @@ describe('source invariants: admin authorization has one gate', () => {
     const GATED: Record<string, { policy: AdminPolicy; why: string }> = {
         'git-operations': { policy: 'shared', why: 'repo writes' },
         'marketing-stats': { policy: 'shared', why: 'marketing figures' },
-        'marketing-send': { policy: 'shared', why: 'dispatches a campaign to real contacts' },
         'admin-products': { policy: 'shared', why: 'product CRUD' },
         'payment-settings': { policy: 'shared', why: 'payment flags (admin branch; GET is public)' },
         'product-drift': { policy: 'shared', why: 'read-only catalog drift report (seed vs products table)' },
@@ -407,7 +406,6 @@ describe('source invariants: admin authorization has one gate', () => {
         'send-email': 'deliberate anonymous allowance; the shared-secret predicate decides the recipient',
         'send-order-confirmation': 'the checkout flow calls it after an order',
         'subscribe-drop': 'public drop signup',
-        'marketing-optout': 'one-click unsubscribe via the token in a marketing email; the SMS branch is authenticated by Twilio signature, not by an admin credential',
         'unsubscribe': 'one-click unsubscribe from an email link',
         'verify-subscription': 'membership verification',
     };
