@@ -16,10 +16,11 @@
 // The dump is retired, so this file pins the retirement rather than restating it: a
 // checked-in copy of the table must not come back, whatever it is named.
 //
-// Two things keep that pin honest, because a scan that inspects nothing passes
-// everything: the floor below fails if the walk finds no files, or never leaves the
-// repo root, and the row predicate asks for a product field so a bare {id, price} map
-// — a fee table, a tier list, a price export — does not get reported as a catalog copy.
+// Three things keep the pins honest. The floor fails if the scan inspects nothing, or
+// never leaves the repo root. The row predicate asks for a product field, so a bare
+// {id, price} map is not reported as a catalog copy. And the wiring pins below check
+// that each reader actually CALLS the rule — a name in a comment, or an import nobody
+// invokes, is not the comparison this file claims is happening.
 
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
@@ -72,6 +73,56 @@ function productRowCount(value: unknown): number {
     ).length;
 }
 
+/**
+ * The rule's comparison entry points, each with the call that must be present. One list,
+ * so the names a reader is told to look for and the names searched for cannot drift.
+ * Pinned by name on purpose — if the rule renames one, its callers move in the same change.
+ */
+const RULE_COMPARISON_CALLS = [
+    { name: 'refreshSeed', pattern: /\brefreshSeed\s*\(/ },
+    { name: 'mergeSeedProducts', pattern: /\bmergeSeedProducts\s*\(/ },
+];
+const RULE_COMPARISON_ENTRY_POINTS = RULE_COMPARISON_CALLS.map(entry => entry.name);
+
+/** Comments removed, so a name mentioned in prose can never be mistaken for a call. */
+function withoutComments(source: string): string {
+    return source
+        .replace(/\/\*[\s\S]*?\*\//g, ' ')
+        .replace(/(^|[^:\w])\/\/[^\n\r]*/g, '$1');
+}
+
+/** Whether the file pulls the rule in from the module that owns it. */
+function importsRuleModule(code: string): boolean {
+    return /from\s*['"][^'"]*productSeed[^'"]*['"]/.test(withoutComments(code));
+}
+
+/**
+ * The comparison this file actually calls, or null when it merely imports one or writes
+ * one in a comment. Whitespace before the call is irrelevant and import order is
+ * irrelevant, so reformatting cannot change the answer — only removing the invocation,
+ * or moving it out of the file, can.
+ */
+function invokedRuleFunction(source: string): string | null {
+    const code = withoutComments(source);
+    for (const { name, pattern } of RULE_COMPARISON_CALLS) if (pattern.test(code)) return name;
+    return null;
+}
+
+/** Both halves of the claim for one file: it imports the rule, and it calls it. */
+function expectRuleIsInvoked(source: string, file: string): void {
+    expect(
+        importsRuleModule(source),
+        `${file} must import the comparison from the module that owns the rule (scripts/productSeed)`,
+    ).toBe(true);
+
+    const called = invokedRuleFunction(source);
+    expect(
+        called,
+        `${file} must CALL ${RULE_COMPARISON_ENTRY_POINTS.join(' or ')} — an import it never invokes, ` +
+            `or a name in a comment, is not a comparison (found: ${called ?? 'no call'}).`,
+    ).not.toBeNull();
+}
+
 /** Walked once: the check below reads these files, the floor test proves it was not empty. */
 const scannedFiles = jsonFilesIn(projectRoot);
 
@@ -114,11 +165,13 @@ describe('a product price has one owner', () => {
     });
 
     it('compares the seed with the live table, through the rule that owns the comparison', () => {
-        const drift = fs.readFileSync(path.join(projectRoot, 'api', '_handlers', 'product-drift.ts'), 'utf8');
-        expect(drift, 'the drift check must compare through the shared rule').toContain('mergeSeedProducts');
+        expectRuleIsInvoked(
+            fs.readFileSync(path.join(projectRoot, 'api', '_handlers', 'product-drift.ts'), 'utf8'),
+            'api/_handlers/product-drift.ts',
+        );
 
         const audit = fs.readFileSync(path.join(projectRoot, 'scripts', 'auditWalletPrices.ts'), 'utf8');
         expect(audit, 'the live wallet audit must read the table, not a snapshot').not.toMatch(/from\s+['"][^'"]+\.json['"]/);
-        expect(audit, 'and it must ask the rule rather than compare prices itself').toContain('refreshSeed');
+        expectRuleIsInvoked(audit, 'scripts/auditWalletPrices.ts');
     });
 });
