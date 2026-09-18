@@ -83,3 +83,65 @@ jobs:
       #                       reads neither, so it reports it as unused
       - name: Audit dependencies (depcheck)
         run: npx depcheck --ignores="@types/*,eslint*,vitest,@vitejs/*,typescript,tsx,tslib,prettier,playwright-core,depcheck,tailwindcss"
+
+  # A test that silently depends on an undeclared env var is invisible in the
+  # `test` job above: it supplies the two VITE_ fixtures, so the suite is green
+  # whether or not each test is self-sufficient — while a fresh clone, which has
+  # neither those fixtures nor an untracked .env, is red instead. That is not
+  # hypothetical: noRefundsPolicy and stripePaymentElementGate each read a var
+  # they never declared, and only a bare checkout exposed it. This job runs the
+  # same suite with NO VITE_ env at all, so that class of dependence fails here
+  # rather than on somebody's clean checkout.
+  bare-checkout:
+    name: Vitest with no VITE_ env
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    # Deliberately a different concurrency group from `test`: sharing one would
+    # make the two jobs cancel each other.
+    concurrency:
+      group: ci-bare-checkout-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # No `npx playwright install` here: the only tests that launch a browser
+      # (clsRegression, viewContractButton) are excluded in vitest.config.ts, so
+      # the default suite needs no browser binary.
+
+      # ANTI-VACUITY. This job only proves something if the checkout really is
+      # bare. An env file, or a VITE_ var reaching the job from a workflow-level
+      # `env:`, would supply the very values the suite is supposed to do
+      # without — the job would pass while checking nothing. Fail loudly instead.
+      - name: Assert the premise (no env file, no VITE_ var)
+        run: |
+          # Exactly the names Vitest would load (mode `test`), so a .env.example,
+          # a .envrc, or a renamed backup does not trip this by accident.
+          for f in .env .env.local .env.test .env.test.local; do
+            if [ -e "$f" ]; then
+              echo "::error::bare-checkout guard: $f exists and would supply the vars this job exists to prove unnecessary."
+              exit 1
+            fi
+          done
+          leaked=$(env | grep -oE '^VITE_[A-Za-z0-9_]*' | sort -u | tr '\n' ' ')
+          if [ -n "$leaked" ]; then
+            echo "::error::bare-checkout guard: VITE_ vars reached this job ($leaked) — drop them so the suite runs bare."
+            exit 1
+          fi
+          echo "premise holds: none of .env/.env.local/.env.test/.env.test.local exists, and no VITE_ var is set"
+
+      # The guard itself — deliberately no `env:` block. If a test needs a var it
+      # does not declare, it must fail here; the fix belongs in the test (as
+      # vi.stubEnv in a vi.hoisted block), not in this workflow.
+      - name: Run full vitest suite (no VITE_ env)
+        run: npm test
