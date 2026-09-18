@@ -17,10 +17,21 @@
 //   2. Pay becomes ENABLED exactly when onReady fires.
 //   3. The confirmPayment call only happens once onReady has fired.
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { mockSupabase } from './_helpers/supabaseClientMock';
+
+// The suite must not depend on an untracked .env. pages/Checkout.tsx reads
+// VITE_STRIPE_PUBLISHABLE_KEY at module scope and only renders the Stripe
+// section when it is set (getStripePromise()), so on a bare checkout the
+// PaymentElement this test gates on would never mount and the assertion would
+// fail for an unrelated reason. Hoisted so it lands before that module
+// evaluates; a fake key is enough because @stripe/stripe-js is mocked below.
+// Same placeholder ci.yml sets for its job, so bare-local and CI agree.
+vi.hoisted(() => {
+    vi.stubEnv('VITE_STRIPE_PUBLISHABLE_KEY', 'pk_test_ci_placeholder');
+});
 
 vi.mock('../services/supabase', () => ({
     supabase: mockSupabase.client,
@@ -184,6 +195,10 @@ describe('Stripe PaymentElement readiness gate', () => {
         vi.useRealTimers();
         vi.restoreAllMocks();
     });
+
+    // Drop the stubbed key so it cannot leak to whichever file shares this
+    // worker; the module-scope read it exists for has already been consumed.
+    afterAll(() => { vi.unstubAllEnvs(); });
 
     it('PAY_GATE: button disabled until PaymentElement onReady fires, then enabled; confirmPayment never runs early', async () => {
         mockApiFetch();
