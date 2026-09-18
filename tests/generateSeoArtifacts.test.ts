@@ -27,6 +27,12 @@ import {
 } from '../scripts/generateSeoArtifacts.mjs';
 import { sanitizeBlogHtml } from '../utils/blogSanitize';
 import { resolveLocalImageUrl, rewriteImageSrcs } from '../utils/localImageAssets';
+import {
+    PRERENDERED_ARTICLE_CLOSE,
+    PRERENDERED_ARTICLE_ID,
+    PRERENDERED_ARTICLE_OPEN,
+    PRERENDERED_ARTICLE_TAG,
+} from '../utils/prerenderedArticle.mjs';
 
 describe('SEO parser — field extractors', () => {
     // REGRESSION CATCH: this is the exact failure mode that dropped the
@@ -403,7 +409,9 @@ describe('SEO prerender — the post text is in the served HTML', () => {
 
     it('writes the article inside #root, ahead of the loader', () => {
         const page = injectPrerenderedArticle(shell, postArticleHtml(post()));
-        expect(page).toContain('<article id="prerendered-post">');
+        // The node's identity comes from utils/prerenderedArticle.mjs, which the
+        // app's boot imports to remove it — see tests/prerenderedArticle.test.ts.
+        expect(page).toContain(`<${PRERENDERED_ARTICLE_TAG} id="${PRERENDERED_ARTICLE_ID}">`);
         expect(page.indexOf('<article')).toBeGreaterThan(page.indexOf('<div id="root">'));
         // A reader that only takes the top of the page must see the post first,
         // not the loader element or the "JavaScript is required" fallback that
@@ -413,7 +421,7 @@ describe('SEO prerender — the post text is in the served HTML', () => {
     });
 
     it('fails loudly when there is no #root, rather than shipping a body-less page', () => {
-        expect(() => injectPrerenderedArticle('<html><body></body></html>', '<article id="prerendered-post"></article>')).toThrow(
+        expect(() => injectPrerenderedArticle('<html><body></body></html>', PRERENDERED_ARTICLE_OPEN + PRERENDERED_ARTICLE_CLOSE)).toThrow(
             /root/,
         );
     });

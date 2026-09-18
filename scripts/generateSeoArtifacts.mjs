@@ -2,6 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'url';
+// The prerendered node's identity, shared with the app's boot and with the check
+// that drives a real page. Unlike the policies below this is imported rather than
+// parsed: it is plain ESM, so both this Node process and Vite can load the same
+// value — one owner, no second spelling to drift from.
+import {
+  PRERENDERED_ARTICLE_CLOSE,
+  PRERENDERED_ARTICLE_ID,
+  PRERENDERED_ARTICLE_OPEN,
+} from '../utils/prerenderedArticle.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -757,8 +766,8 @@ export const injectSeo = (html, seo, jsonLd) => {
 const NO_JS_ARTICLE_STYLES = `<noscript><style>
     #initial-loader { display: none; }
     #noscript-fallback { position: static; background: transparent; }
-    #prerendered-post { max-width: 56rem; margin: 0 auto; padding: 6rem 1rem 3rem; line-height: 1.7; }
-    #prerendered-post img { max-width: 100%; height: auto; border-radius: 1rem; }
+    #${PRERENDERED_ARTICLE_ID} { max-width: 56rem; margin: 0 auto; padding: 6rem 1rem 3rem; line-height: 1.7; }
+    #${PRERENDERED_ARTICLE_ID} img { max-width: 100%; height: auto; border-radius: 1rem; }
   </style></noscript>`;
 
 const withNoJsArticleStyles = (html) => {
@@ -1158,6 +1167,10 @@ export const postJsonLd = (post) => {
 //   utils/localImageAssets.ts   the rewrites rewriteImageSrcs / resolveLocalImageUrl
 //                               apply to a post row's images
 //
+// The node itself — its id and its tags — comes from utils/prerenderedArticle.mjs,
+// imported at the top of this file because index.tsx imports the same module to
+// remove the node it writes. Those two used to spell the id out separately.
+//
 // Nothing from a post body is copied through: this walks the source and re-emits
 // only what the allow-list names, with every run of text entity-decoded once (as
 // the browser's parser does) and escaped once at write time. A comment disappears,
@@ -1408,7 +1421,7 @@ export const postArticleHtml = (post) => {
     [...body.matchAll(/<img\b[^>]*\bsrc="([^"]*)"/g)].map((match) => match[1])
   );
 
-  const lines = ['<article id="prerendered-post">'];
+  const lines = [PRERENDERED_ARTICLE_OPEN];
 
   const byline = articleByline(post);
   if (byline) lines.push(`  <p>${byline}</p>`);
@@ -1420,7 +1433,7 @@ export const postArticleHtml = (post) => {
   }
 
   if (body.trim()) lines.push(`  ${body}`);
-  lines.push('</article>');
+  lines.push(PRERENDERED_ARTICLE_CLOSE);
   return lines.join('\n');
 };
 

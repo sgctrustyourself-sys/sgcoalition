@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
+import { removePrerenderedArticle } from './utils/prerenderedArticle.mjs';
 import './index.css';
 
 const rootElement = document.getElementById('root');
@@ -18,8 +19,13 @@ if (!rootElement) {
 // static copy is dropped before mounting rather than left in the DOM as a second
 // copy behind the app. It is removed here, not left to the root render: React
 // owns only what it renders.
+//
+// The node's id lives in utils/prerenderedArticle.mjs, which the generator imports
+// too — spelling it out here as well is how a rename on one side would ship the
+// article twice with every check still green. On a route with no prerendered
+// article this is a no-op.
 // ---------------------------------------------------------------------------
-document.getElementById('prerendered-post')?.remove();
+removePrerenderedArticle();
 
 // ---------------------------------------------------------------------------
 // Error reporting (Sentry). OPTIONAL and lazy by design:

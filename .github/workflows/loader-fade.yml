@@ -33,7 +33,7 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
-      - name: Start preview + run loader fade test (Slow 3G)
+      - name: Start preview + run boot checks (loader fade, injected article)
         # GitHub Actions kills background processes when a step ends, so the
         # preview server MUST live in the same step as the test that uses it.
         run: |
@@ -56,10 +56,22 @@ jobs:
             exit 1
           fi
 
-          TEST_URL=http://127.0.0.1:4173 npm run test:fade
-          TEST_EXIT=$?
+          # Both checks run before the step fails, so one report names both
+          # regressions. `|| EXIT=$?` rather than a bare `EXIT=$?`: the step shell
+          # runs with `-e`, and a plain assignment after a failing command is never
+          # reached.
+          TEST_EXIT=0
+          ARTICLE_EXIT=0
+          TEST_URL=http://127.0.0.1:4173 npm run test:fade || TEST_EXIT=$?
+
+          # The same preview serves the injected-article check. It drives a post
+          # page (taken from the sitemap this build wrote), because the loader-fade
+          # URL carries no injected node and so cannot see a node that was never
+          # removed.
+          TEST_URL=http://127.0.0.1:4173 npm run test:prerendered-article || ARTICLE_EXIT=$?
+
           kill $PREVIEW_PID 2>/dev/null || true
-          exit $TEST_EXIT
+          exit $(( TEST_EXIT + ARTICLE_EXIT ))
 
       - name: Upload screenshots + result.json
         if: always()
