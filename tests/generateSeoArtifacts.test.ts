@@ -21,10 +21,12 @@ import {
     getPostSeo,
     injectPrerenderedArticle,
     parseRegistryPosts,
-    postArticleBlocks,
     postArticleHtml,
+    renderPostBody,
     STATIC_ROUTES,
 } from '../scripts/generateSeoArtifacts.mjs';
+import { sanitizeBlogHtml } from '../utils/blogSanitize';
+import { resolveLocalImageUrl, rewriteImageSrcs } from '../utils/localImageAssets';
 
 describe('SEO parser — field extractors', () => {
     // REGRESSION CATCH: this is the exact failure mode that dropped the
@@ -377,8 +379,12 @@ describe('SEO sitemap — blog posts', () => {
 // A post's head was never the problem — its body was. The app renders a post from
 // a network read, so the static page used to be a correct head over an empty
 // #root, and a crawler or an AI reader got nothing. These tests pin that the text
-// is in the served HTML, is built from the same row the page renders, and can
-// never carry markup from the post body through to the page.
+// is in the served HTML, is built from the same row the page renders, and reads
+// exactly as the page renders it — the same allow-list, the same refusals, the
+// same words. The oracle for that is the app's own pipeline
+// (data/blogPosts.ts → utils/localImageAssets → utils/blogSanitize), imported
+// here rather than re-described, so the two renderers are compared and not two
+// copies of one opinion.
 describe('SEO prerender — the post text is in the served HTML', () => {
     const post = (overrides: Record<string, unknown> = {}) => ({
         slug: 'coalition-pink-silver-crop-top',
@@ -400,8 +406,10 @@ describe('SEO prerender — the post text is in the served HTML', () => {
         expect(page).toContain('<article id="prerendered-post">');
         expect(page.indexOf('<article')).toBeGreaterThan(page.indexOf('<div id="root">'));
         // A reader that only takes the top of the page must see the post first,
-        // not the "JavaScript is required" fallback that follows the loader.
-        expect(page.indexOf('<article')).toBeLessThan(page.indexOf('initial-loader'));
+        // not the loader element or the "JavaScript is required" fallback that
+        // follows it. (The no-JS rule that hides the loader also names it, so this
+        // looks for the element, not the string.)
+        expect(page.indexOf('<article')).toBeLessThan(page.indexOf('<div id="initial-loader"'));
     });
 
     it('fails loudly when there is no #root, rather than shipping a body-less page', () => {
@@ -422,76 +430,164 @@ describe('SEO prerender — the post text is in the served HTML', () => {
     });
 
     it('falls back to the excerpt when a row carries no body', () => {
-        expect(postArticleHtml(post({ content: '' }))).toContain('<p>Pink leopard print');
+        expect(textOf(postArticleHtml(post({ content: '' })))).toContain('Pink leopard print');
     });
 
-    // The one rule that matters: nothing from the post body reaches the page as
-    // markup. This builder writes every tag it emits, so the runtime allow-list in
-    // utils/blogSanitize.ts stays the only sanitizer policy in the project.
-    describe('no body markup survives', () => {
-        it('drops embedded content entirely, attributes and all', () => {
-            const html = postArticleHtml(
-                post({
-                    content: '<script>alert(1)</script><style>p{color:red}</style><p>Hello <strong>world</strong></p>'
-                        + '<img src="https://i.imgur.com/x.png" onerror="alert(2)" alt="remote" style="width:100%">',
-                }),
-            );
-            expect(html).not.toContain('alert(1)');
-            expect(html).not.toContain('onerror');
-            expect(html).not.toContain('style=');
-            expect(html).not.toContain('color:red');
-            expect(html).toContain('<p>Hello world</p>');
+    // The page's own rendering of a body, stated from its owners:
+    // pages/BlogPostView.tsx turns a markup-free body's newlines into <br /> and then
+    // sanitizes; data/blogPosts.ts rewrote the srcs before the page saw the row.
+    const asRenderedByThePage = (body: string) => {
+        const authored = /<\/?[a-z][\s\S]*>/i.test(body) ? body : body.replace(/\n/g, '<br />');
+        return sanitizeBlogHtml(rewriteImageSrcs(authored));
+    };
+
+    // What a reader — crawler, AI, or screenshot — actually gets. Entities are
+    // resolved by the parser, so an escaped tag left in the copy reads as text here
+    // and the comparison below fails, which is the point.
+    const textOf = (html: string) => {
+        const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
+        return (doc.body.firstElementChild?.textContent ?? '').replace(/\s+/g, ' ').trim();
+    };
+
+    const tagsOf = (html: string) => {
+        const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
+        const root = doc.body.firstElementChild;
+        return [...(root ? root.querySelectorAll('*') : [])].map((element) => element.tagName.toLowerCase());
+    };
+
+    // The rule this generator exists for: the served copy reads as the page renders
+    // it. A dropped element, a lost word, or authored markup turned into visible
+    // escaped text all break the pair, whichever renderer changed.
+    describe('the served body reads exactly as the page renders it', () => {
+        const authoredBodies: Array<[string, string]> = [
+            ['a real drop body', '<h2>THE BUILD</h2>\n<ul>\n<li>Fitted crop</li>\n</ul>\n<p>One piece.</p>'],
+            ['an authored comment', '<p>Before</p>\n<!-- editor note: drop the third photo -->\n<p>After</p>'],
+            ['emphasis and a link', '<p>Read <a href="https://example.test/x" target="_blank">the notes</a> for <em>more</em> and <strong>more</strong>.</p>'],
+            ['an element the allow-list refuses', '<figure><img src="/images/x.png" alt="x"><figcaption>A caption</figcaption></figure>'],
+            ['an element whose content is dropped', '<p>Hello</p><script>alert(1)</script><p>World</p>'],
+            ['a table', '<table><tr><td>cell</td></tr></table>'],
+            ['a body with no markup at all', 'one\ntwo\n\nthree'],
+        ];
+
+        it.each(authoredBodies)('says the same words as the page: %s', (_name, body) => {
+            expect(textOf(renderPostBody(body))).toBe(textOf(asRenderedByThePage(body)));
         });
 
-        it('reduces links and inline markup to their words', () => {
-            const html = postArticleHtml(
-                post({ content: '<p>Read <a href="https://example.test/x" target="_blank">the notes</a> for <em>more</em>.</p>' }),
+        it.each(authoredBodies.filter(([name]) => name !== 'a body with no markup at all'))(
+            'shows the same elements as the page: %s',
+            (_name, body) => {
+                expect(tagsOf(renderPostBody(body))).toEqual(tagsOf(asRenderedByThePage(body)));
+            },
+        );
+
+        // Both real paths, not a fixture: the live row's body and the registry's
+        // template literal are the two things a deploy can actually serve.
+        it('says the same words as the page for every registry post', () => {
+            const posts = parseRegistryPosts();
+            expect(posts.length).toBeGreaterThan(0);
+            for (const entry of posts) {
+                expect(textOf(renderPostBody(entry.content)), `${entry.slug} reads differently from the page`).toBe(
+                    textOf(asRenderedByThePage(entry.content)),
+                );
+            }
+        });
+
+        it('leaves no markup artifact of what it dropped', () => {
+            const html = renderPostBody('<p>Before</p>\n<!-- editor note -->\n<p>After</p>');
+            expect(html).not.toContain('editor note');
+            expect(html).not.toContain('&lt;!--');
+            expect(html).not.toContain('--&gt;');
+            expect(html).toContain('<p>Before</p>');
+            expect(html).toContain('<p>After</p>');
+        });
+
+        it('keeps an authored heading exactly as authored, including an h1', () => {
+            const html = postArticleHtml(post({ content: '<h1>One</h1><h2>Two</h2><h3>Three</h3>' }));
+            expect(html).toContain('<h1>One</h1>');
+            expect(html).toContain('<h2>Two</h2>');
+            expect(html).toContain('<h3>Three</h3>');
+            // The page has one h1 per authored h1 plus the title, and so does this.
+            expect(html.match(/<h1>/g)).toHaveLength(2);
+            expect(html.indexOf('<h1>Women')).toBeLessThan(html.indexOf('<h1>One</h1>'));
+        });
+    });
+
+    describe('attributes come from the runtime allow-list and nowhere else', () => {
+        it('keeps the attributes the page keeps and drops the rest', () => {
+            const body = '<p class="lede" id="lede" style="color:red" onclick="alert(1)">Hi</p>';
+            const html = renderPostBody(body);
+            expect(html).toContain('class="lede"');
+            expect(html).toContain('id="lede"');
+            expect(html).not.toContain('style=');
+            expect(html).not.toContain('onclick');
+            expect(textOf(html)).toBe(textOf(asRenderedByThePage(body)));
+        });
+
+        it('refuses an unsafe URL scheme and keeps a safe one', () => {
+            const html = renderPostBody(
+                '<p><a href="javascript:alert(1)">bad</a> and <a href="mailto:hi@example.test">good</a></p>',
             );
-            expect(html).toContain('<p>Read the notes for more.</p>');
+            expect(html).not.toContain('javascript:');
+            expect(html).toContain('href="mailto:hi@example.test"');
+            expect(html).toContain('>bad</a>');
+        });
+
+        it('drops an event handler and a style from an image but keeps src and alt', () => {
+            const html = renderPostBody(
+                '<img src="/images/x.png" alt="a &quot;quoted&quot; caption" onerror="alert(2)" style="width:100%">',
+            );
+            expect(html).toContain('<img src="/images/x.png" alt="a &quot;quoted&quot; caption" />');
+            expect(html).not.toContain('onerror');
+            expect(html).not.toContain('style=');
         });
 
         it('decodes entities once and escapes what is left', () => {
-            const html = postArticleHtml(
-                post({ content: '<p>Tier 1 &mdash; 5% &amp; fees</p><p>A &lt; B and a raw < here</p>' }),
+            const html = renderPostBody(
+                '<p>Tier 1 &mdash; 5% &amp; fees</p><p>A &lt; B and a raw < here</p>',
             );
             expect(html).toContain('<p>Tier 1 — 5% &amp; fees</p>');
             expect(html).toContain('<p>A &lt; B and a raw &lt; here</p>');
         });
+    });
 
-        it('keeps only images whose src is already site-relative', () => {
+    describe('the cover photograph is printed once', () => {
+        it('does not repeat a cover the body already shows', () => {
             const html = postArticleHtml(
                 post({
-                    content: '<img src="/images/x.png" alt="a &quot;quoted&quot; caption">'
-                        + '<img src="https://i.imgur.com/y.png" alt="remote">',
+                    content: '<p>Two prints on one piece.</p>'
+                        + '<img src="/images/pink-silver-crop-top-front.png" alt="front">',
                 }),
             );
-            expect(html).toContain('<img src="/images/x.png" alt="a &quot;quoted&quot; caption" />');
-            expect(html).not.toContain('i.imgur.com');
+            expect(html.match(/<img /g)).toHaveLength(1);
+            expect(html.match(/pink-silver-crop-top-front\.png/g)).toHaveLength(1);
+        });
+
+        it('prints the cover when the body does not carry it, resolved as the page resolves it', () => {
+            const cover = '/images/products/wallet-green/front.jpg';
+            const html = postArticleHtml(post({ coverImage: cover, content: '<p>x</p>' }));
+            // resolveLocalImageUrl is the data layer's rule; the served copy has to
+            // agree with it or the page and the crawler would show different photos.
+            expect(html).toContain(`<img src="${resolveLocalImageUrl(cover)}"`);
+            expect(html).not.toContain(`src="${cover}"`);
         });
     });
 
-    describe('structure is preserved', () => {
-        it('keeps headings, with the authored h1 demoted under the post title', () => {
-            const html = postArticleHtml(post({ content: '<h1>One</h1><h2>Two</h2><h3>Three</h3>' }));
-            expect(html).toContain('<h2>One</h2>');
-            expect(html).toContain('<h2>Two</h2>');
-            expect(html).toContain('<h3>Three</h3>');
-            // Exactly one h1 on the page: the post's own title.
-            expect(html.match(/<h1>/g)).toHaveLength(1);
-            expect(html.match(/<h1>/g)![0]).toBeTruthy();
-            expect(html.indexOf('<h1>')).toBeLessThan(html.indexOf('<h2>One</h2>'));
+    // Without JavaScript the shell's own curtain (#noscript-fallback, fixed,
+    // z-index 100000) would cover the article this pass exists to serve, so a page
+    // that carries an article ships the rules that lift it. Scoped to those pages:
+    // every other route keeps the curtain it has always had.
+    describe('a client without JavaScript reads the article, not the curtain', () => {
+        it('hides the loader and un-fixes the curtain on a page carrying an article', () => {
+            const page = injectPrerenderedArticle(shell, postArticleHtml(post()));
+            expect(page).toContain('<noscript><style>');
+            expect(page).toContain('#initial-loader { display: none; }');
+            expect(page).toContain('#noscript-fallback { position: static; background: transparent; }');
+            // In the head, so it wins over the shell's own rules.
+            expect(page.indexOf('<noscript><style>')).toBeLessThan(page.indexOf('<div id="root">'));
         });
 
-        it('groups list items into one list and closes it before the next paragraph', () => {
-            const html = postArticleHtml(post({ content: '<ul>\n<li>alpha</li>\n<li>beta</li>\n</ul>\n<p>after</p>' }));
-            expect(html).toContain('<ul>\n    <li>alpha</li>\n    <li>beta</li>\n  </ul>\n  <p>after</p>');
-            expect(html.match(/<ul>/g)).toHaveLength(1);
-        });
-
-        it('treats a blank line as a paragraph break, like the rendered page does', () => {
-            const html = postArticleHtml(post({ content: 'one\n\ntwo' }));
-            expect(html).toContain('<p>one</p>');
-            expect(html).toContain('<p>two</p>');
+        it('adds none of it to a page with no article', () => {
+            expect(injectPrerenderedArticle(shell, '')).not.toContain('noscript-fallback');
         });
     });
 
@@ -539,10 +635,12 @@ describe('SEO prerender — the post text is in the served HTML', () => {
         const pink = posts.find((entry) => entry.slug === 'coalition-pink-silver-crop-top');
         expect(pink?.content).toContain('<h2>THE BUILD</h2>');
         expect(postArticleHtml(pink)).toContain('<h2>THE BUILD</h2>');
-        expect(postArticleHtml(pink)).toContain('<li>Twelve pieces');
+        expect(postArticleHtml(pink)).toContain('Twelve pieces');
 
         for (const entry of posts) {
-            expect(postArticleBlocks(entry.content).length, `${entry.slug} has no body text`).toBeGreaterThan(0);
+            const served = renderPostBody(entry.content);
+            expect(textOf(served).length, `${entry.slug} has no body text`).toBeGreaterThan(0);
+            expect(served, `${entry.slug} shipped a markup artifact`).not.toMatch(/&lt;[a-z!/]/i);
         }
     });
 });

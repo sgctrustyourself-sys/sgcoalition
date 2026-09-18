@@ -746,6 +746,28 @@ export const injectSeo = (html, seo, jsonLd) => {
   return injectJsonLd(output, jsonLd);
 };
 
+// Without JavaScript a page that carries its own article IS that article, so the
+// two full-viewport layers the shell uses for the opposite case must not cover it:
+// #initial-loader (fixed, opaque, z-index 99999) and #noscript-fallback (fixed,
+// z-index 100000, the "JavaScript is required" curtain). The rules sit inside
+// <noscript>, so they reach only visitors without scripting — everyone with
+// JavaScript sees exactly what they saw before — and the reading column is here
+// because a served copy nobody can read would not be the point. Declaration order
+// matters: this is the last thing in the head, so it wins over the shell's rules.
+const NO_JS_ARTICLE_STYLES = `<noscript><style>
+    #initial-loader { display: none; }
+    #noscript-fallback { position: static; background: transparent; }
+    #prerendered-post { max-width: 56rem; margin: 0 auto; padding: 6rem 1rem 3rem; line-height: 1.7; }
+    #prerendered-post img { max-width: 100%; height: auto; border-radius: 1rem; }
+  </style></noscript>`;
+
+const withNoJsArticleStyles = (html) => {
+  if (!html.includes('</head>')) {
+    throw new Error('The shell has no </head> to put the no-JS article styles in.');
+  }
+  return html.replace('</head>', `  ${NO_JS_ARTICLE_STYLES}\n</head>`);
+};
+
 // Puts the page's own text inside #root, where the app renders it, so the served
 // HTML reads without JavaScript. index.tsx removes this copy on boot and the app
 // renders the same post from the live table, so nothing is shown twice. Throws
@@ -760,7 +782,7 @@ export const injectPrerenderedArticle = (html, articleHtml) => {
   }
 
   const insertAt = match.index + match[0].length;
-  return `${html.slice(0, insertAt)}\n${articleHtml}\n${html.slice(insertAt)}`;
+  return `${withNoJsArticleStyles(html.slice(0, insertAt))}\n${articleHtml}\n${html.slice(insertAt)}`;
 };
 
 const writeStaticPage = (baseHtml, pagePath, seo, jsonLd, articleHtml = '') => {
@@ -1121,29 +1143,109 @@ export const postJsonLd = (post) => {
 // ── The prerendered article ──────────────────────────────────────────────────
 // A crawler or an AI reader has to be able to read a post without running
 // JavaScript, and this app renders posts from a network read — so the served HTML
-// would otherwise be a correct head over an empty body. The text below is built
+// would otherwise be a correct head over an empty body. The article below is built
 // from the same row the page renders (the live table, with the drop registry as
 // the offline fallback) and lands inside the page's own #root.
 //
-// Nothing from the post body is copied through. This walks the authored markup
-// and re-emits only tags it writes itself — headings, paragraphs, list items, hr
-// and site-relative images — with every run of text entity-decoded and escaped
-// once at write time. That is what keeps one allow-list, not two: the runtime
-// allow-list in utils/blogSanitize.ts governs the rendered page, this governs the
-// static copy, and neither can emit what the other refuses. Inline markup and
-// links reduce to their words, and an attribute this builder does not write
-// cannot survive.
+// It is the page's own copy, not a summary of it: the body goes through the exact
+// rules pages/BlogPostView.tsx applies — the same asset rewrite first, then the
+// same allow-list — so what a crawler reads and what a visitor sees cannot drift.
+// Those rules are not restated here. They are parsed out of the modules that own
+// them, the same parse-don't-import contract constants/products.ts, constants.ts
+// and data/helpFaqs.ts already live under:
 //
-// An image is kept only when its src is already site-relative: a remote src would
-// need the runtime's remote→local asset mapping (utils/localImageAssets.ts),
-// which this plain-Node script cannot run, and a stale remote URL inside a
-// canonical page is worse than no image.
-const EMBEDDED_CONTENT_PATTERN = /<(script|style|noscript|iframe|svg|template)\b[\s\S]*?<\/\1\s*>/gi;
+//   utils/blogSanitize.ts       the allow-list DOMPurify is configured with
+//   utils/localImageAssets.ts   the rewrites rewriteImageSrcs / resolveLocalImageUrl
+//                               apply to a post row's images
+//
+// Nothing from a post body is copied through: this walks the source and re-emits
+// only what the allow-list names, with every run of text entity-decoded once (as
+// the browser's parser does) and escaped once at write time. A comment disappears,
+// refused embedded content disappears with its text, a refused tag keeps its text,
+// and an attribute or URL scheme the allow-list does not name cannot survive.
+//
+// Both parses throw rather than degrade: a policy that reads as empty would ship
+// unfiltered post HTML, and an empty rewrite map would ship the wrong images.
+let blogPolicyCache = null;
+const blogSanitizePolicy = () => {
+  if (blogPolicyCache) return blogPolicyCache;
 
-const isSiteRelative = (src) => String(src || '').startsWith('/');
+  const values = (declaration) =>
+    [...readExportedArrayBody('utils/blogSanitize.ts', declaration).matchAll(/(['"])(.*?)\1/g)].map(
+      (match) => match[2]
+    );
 
-// Block-level source tags this builder re-expresses as one of its own elements.
-const BLOCK_TAGS = { p: 'p', div: 'p', blockquote: 'blockquote', pre: 'pre' };
+  const tags = values('BLOG_ALLOWED_TAGS');
+  const attributes = values('BLOG_ALLOWED_ATTR');
+  if (tags.length === 0 || attributes.length === 0) {
+    throw new Error(
+      'utils/blogSanitize.ts parsed to an empty allow-list — the served article would ship unfiltered post HTML.'
+    );
+  }
+
+  blogPolicyCache = { tags: new Set(tags), attributes: new Set(attributes) };
+  return blogPolicyCache;
+};
+
+// The two asset maps from utils/localImageAssets.ts, in declaration order: literal
+// keys, `PRODUCT_IMAGE_URLS.<group>.<key>` values resolved through the catalog the
+// product image parser already builds.
+let imageMapsCache = null;
+const imageUrlMaps = () => {
+  if (imageMapsCache) return imageMapsCache;
+
+  const source = readFile('utils/localImageAssets.ts');
+  const catalog = parseImageCatalog();
+
+  const readMap = (declaration) => {
+    const declarationStart = source.indexOf(`const ${declaration}`);
+    const objectStart = declarationStart >= 0 ? source.indexOf('{', declarationStart) : -1;
+    const objectEnd = objectStart >= 0 ? scanToMatching(source, objectStart, '{', '}') : -1;
+    if (objectStart < 0 || objectEnd < 0) {
+      throw new Error(`Unable to locate the ${declaration} map in utils/localImageAssets.ts.`);
+    }
+
+    const pairs = [];
+    const pairPattern = /(['"])(.*?)\1\s*:\s*(?:PRODUCT_IMAGE_URLS\.([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)|(['"])(.*?)\5)/g;
+    let pair;
+
+    while ((pair = pairPattern.exec(source.slice(objectStart + 1, objectEnd)))) {
+      const from = unescapeStringLiteral(pair[2]);
+      const to = pair[3] ? catalog.get(`${pair[3]}.${pair[4]}`) : unescapeStringLiteral(pair[6]);
+      if (!to) {
+        throw new Error(`No PRODUCT_IMAGE_URLS entry for ${pair[3]}.${pair[4]} — a post image would lose its rewrite.`);
+      }
+      pairs.push([from, to]);
+    }
+
+    if (pairs.length === 0) {
+      throw new Error(`${declaration} parsed to zero entries — post images would ship unrewritten.`);
+    }
+
+    return pairs;
+  };
+
+  const remoteToLocal = readMap('REMOTE_TO_LOCAL_IMAGE_URLS');
+  imageMapsCache = {
+    rewrites: remoteToLocal,
+    remoteToLocal: new Map(remoteToLocal),
+    localToRemote: new Map(readMap('LOCAL_TO_REMOTE_IMAGE_URLS')),
+  };
+  return imageMapsCache;
+};
+
+// Mirrors data/blogPosts.ts, which owns this rewrite: every post row is passed
+// through rewriteImageSrcs there before the page ever sees it, so the served
+// copy has to make the same substitution (in the same declaration order).
+const rewriteKnownImageSrcs = (html) =>
+  imageUrlMaps().rewrites.reduce((acc, [from, to]) => acc.split(from).join(to), String(html || ''));
+
+// Mirrors resolveLocalImageUrl, which data/blogPosts.ts applies to a post's cover
+// photo before the page renders it.
+const resolveCoverImage = (url) => {
+  const maps = imageUrlMaps();
+  return maps.localToRemote.get(url) || maps.remoteToLocal.get(url) || url;
+};
 
 // Decodes the references this content actually carries; everything else is left
 // to escapeHtml at write time. &amp; goes last so a literal "&amp;lt;" decodes to
@@ -1161,105 +1263,124 @@ const decodeHtmlEntities = (value = '') =>
     .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
     .replace(/&amp;/gi, '&');
 
-const readAttribute = (attributes, name) => {
-  const match = attributes.match(
-    new RegExp('\\b' + name + '\\s*=\\s*("([^"]*)"|\'([^\']*)\'|([^\\s"\'>]+))', 'i')
-  );
-  if (!match) return '';
-  return decodeHtmlEntities(match[2] ?? match[3] ?? match[4] ?? '');
+// DOMPurify removes these WITH their content (its FORBID_CONTENTS defaults), so
+// their text never reaches the page and must not reach the served copy either.
+const DROPPED_CONTENT_TAGS = new Set([
+  'script', 'style', 'noscript', 'iframe', 'template', 'svg', 'math', 'title',
+  'xmp', 'plaintext', 'noembed', 'noframes', 'head',
+]);
+
+const VOID_ELEMENTS = new Set([
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta',
+  'source', 'track', 'wbr',
+]);
+
+// A URL attribute survives only with a scheme that cannot execute. DOMPurify
+// strips whitespace and control characters before it checks, so "java\nscript:"
+// is refused there; the same normalization has to refuse it here.
+const SAFE_URL_SCHEMES = new Set(['http', 'https', 'mailto', 'tel']);
+const isSafeUrlValue = (value) => {
+  const normalized = String(value).replace(/[\s\u0000-\u001F\u007F]+/g, '').toLowerCase();
+  if (!normalized) return false;
+  const scheme = normalized.match(/^([a-z][a-z0-9+.-]*):/);
+  return scheme ? SAFE_URL_SCHEMES.has(scheme[1]) : true;
 };
 
-// The article's blocks in order: { tag, text } for text blocks, { tag: 'hr' }, or
-// { tag: 'img', src, alt }. Exported so tests can assert on the walking rules
-// without going through the whole page.
-export const postArticleBlocks = (html) => {
-  const source = String(html || '').replace(EMBEDDED_CONTENT_PATTERN, '');
-  const blocks = [];
-  const tagPattern = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/g;
-  let buffer = '';
-  let currentTag = 'p';
+// Text needs &, < and > escaped; a quote is only dangerous inside an attribute,
+// and escaping it in text would put &quot; where the page shows a quotation mark.
+const escapeText = (value = '') =>
+  String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+// Only attributes the runtime allow-list names are emitted, and only the tags the
+// runtime allows ever call this — so no event handler, style or data-* attribute
+// has a path into the served page.
+const renderAllowedAttributes = (source, policy) => {
+  const rendered = [];
+  const attributePattern = /([a-zA-Z_:][a-zA-Z0-9:._-]*)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+))?/g;
+  let match;
+
+  while ((match = attributePattern.exec(source))) {
+    const name = match[1].toLowerCase();
+    if (!policy.attributes.has(name)) continue;
+
+    const value = decodeHtmlEntities(String(match[2] || '').replace(/^["']|["']$/g, ''));
+    if ((name === 'href' || name === 'src') && !isSafeUrlValue(value)) continue;
+
+    rendered.push(` ${name}="${escapeHtml(value)}"`);
+  }
+
+  return rendered.join('');
+};
+
+// Renders a post body exactly as the page renders it: the same data-layer rewrite,
+// then the same allow-list, with the same refusals and the same output shape. An
+// authored comment disappears (DOMPurify drops it), a refused tag keeps its words,
+// an attribute outside the allow-list is gone, and markup the page shows is markup
+// the served copy shows — "cleanly dropped or faithfully reproduced", never
+// mangled into visible escaped text. Exported so tests can assert the rules without
+// going through a whole page.
+export const renderPostBody = (html) => {
+  const policy = blogSanitizePolicy();
+  const authored = String(html || '');
+  // The page's own rule for a body with no markup: newlines become line breaks.
+  // Anything carrying a tag is rendered as authored.
+  const source = rewriteKnownImageSrcs(
+    /<\/?[a-z][\s\S]*>/i.test(authored) ? authored : authored.replace(/\n/g, '<br />')
+  );
+  const output = [];
+  const open = [];
+  const tagPattern = /<!--[\s\S]*?-->|<(\/?)([a-zA-Z][a-zA-Z0-9]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/g;
   let cursor = 0;
   let match;
 
-  // A blank line is a paragraph break in this copy, exactly as it renders: an
-  // authored body may separate blocks with markup OR with blank lines, and the
-  // runtime turns the plain-text form's newlines into <br />. Single newlines
-  // collapse to a space, so a wrapped paragraph stays one paragraph.
-  const flush = () => {
-    const pending = buffer;
-    buffer = '';
-
-    for (const chunk of decodeHtmlEntities(pending).split(/\n\s*\n/)) {
-      const text = chunk.replace(/\s+/g, ' ').trim();
-      if (text) blocks.push({ tag: currentTag, text });
-    }
-  };
-
   while ((match = tagPattern.exec(source))) {
-    buffer += source.slice(cursor, match.index);
+    output.push(escapeText(decodeHtmlEntities(source.slice(cursor, match.index))));
     cursor = tagPattern.lastIndex;
+
+    if (match[0].startsWith('<!--')) continue;
 
     const closing = match[1] === '/';
     const name = match[2].toLowerCase();
-    const attributes = match[3] || '';
 
-    if (name === 'img') {
-      flush();
-      const src = readAttribute(attributes, 'src');
-      if (isSiteRelative(src)) blocks.push({ tag: 'img', src, alt: readAttribute(attributes, 'alt') });
+    if (DROPPED_CONTENT_TAGS.has(name)) {
+      if (!closing) {
+        const rest = source.slice(cursor).match(new RegExp(`<\/${name}\\s*>`, 'i'));
+        if (rest) {
+          cursor += rest.index + rest[0].length;
+          tagPattern.lastIndex = cursor;
+        }
+      }
       continue;
     }
 
-    if (name === 'hr') {
-      flush();
-      blocks.push({ tag: 'hr' });
+    // A tag the allow-list refuses keeps its text, exactly as DOMPurify leaves it.
+    if (!policy.tags.has(name)) continue;
+
+    if (closing) {
+      const index = open.lastIndexOf(name);
+      if (index < 0) continue;
+      while (open.length > index) output.push(`</${open.pop()}>`);
       continue;
     }
 
-    if (name === 'br') {
-      flush();
-      continue;
-    }
-
-    if (/^h[1-6]$/.test(name)) {
-      flush();
-      // The page's own h1 is the post title, so an authored h1 lands as an h2:
-      // one h1 per page, and the outline still nests under the title.
-      currentTag = closing ? 'p' : `h${Math.max(2, Number(name[1]))}`;
-      continue;
-    }
-
-    if (name === 'li') {
-      flush();
-      currentTag = closing ? 'p' : 'li';
-      continue;
-    }
-
-    if (name === 'ul' || name === 'ol') {
-      flush();
-      continue;
-    }
-
-    if (BLOCK_TAGS[name]) {
-      flush();
-      currentTag = closing ? 'p' : BLOCK_TAGS[name];
-      continue;
-    }
-
-    // Every other tag (strong, em, a, span, code, td, …) contributes its text only.
+    output.push(`<${name}${renderAllowedAttributes(match[3] || '', policy)}${VOID_ELEMENTS.has(name) ? ' /' : ''}>`);
+    if (!VOID_ELEMENTS.has(name)) open.push(name);
   }
 
-  buffer += source.slice(cursor);
-  flush();
+  output.push(escapeText(decodeHtmlEntities(source.slice(cursor))));
+  while (open.length) output.push(`</${open.pop()}>`);
 
-  return blocks;
+  return output.join('');
 };
 
 // The byline the rendered page shows above the title: category, date, author —
 // only the parts the row actually asserts.
 const articleByline = (post) => {
   const parts = [];
-  if (post.category) parts.push(escapeHtml(post.category));
+  if (post.category) parts.push(escapeText(post.category));
 
   const parsed = new Date(post.publishedAt || post.createdAt || '');
   if (!Number.isNaN(parsed.getTime())) {
@@ -1269,52 +1390,36 @@ const articleByline = (post) => {
       year: 'numeric',
       timeZone: 'UTC',
     }).format(parsed);
-    parts.push(`<time datetime="${escapeHtml(parsed.toISOString())}">${escapeHtml(label)}</time>`);
+    parts.push(`<time datetime="${escapeHtml(parsed.toISOString())}">${escapeText(label)}</time>`);
   }
 
-  if (post.author) parts.push(escapeHtml(post.author));
+  if (post.author) parts.push(escapeText(post.author));
   return parts.join(' \u00b7 ');
 };
 
-// The served copy of a post. Falls back to the excerpt so a row with an empty body
+// The served copy of a post: the page's own byline, title and body, in that order,
+// plus the cover photograph only when the body does not already show it — the drop
+// posts open with their cover image, and printing it twice would say the piece has
+// two front photographs. Falls back to the excerpt so a row with an empty body
 // still ships its own words rather than a body-less page.
 export const postArticleHtml = (post) => {
+  const body = renderPostBody(String(post.content || post.excerpt || ''));
+  const shownImages = new Set(
+    [...body.matchAll(/<img\b[^>]*\bsrc="([^"]*)"/g)].map((match) => match[1])
+  );
+
   const lines = ['<article id="prerendered-post">'];
 
   const byline = articleByline(post);
   if (byline) lines.push(`  <p>${byline}</p>`);
-  if (post.title) lines.push(`  <h1>${escapeHtml(post.title)}</h1>`);
-  if (isSiteRelative(post.coverImage)) {
-    lines.push(`  <img src="${escapeHtml(post.coverImage)}" alt="${escapeHtml(post.title || '')}" />`);
+  if (post.title) lines.push(`  <h1>${escapeText(post.title)}</h1>`);
+
+  const cover = post.coverImage ? resolveCoverImage(String(post.coverImage)) : '';
+  if (cover && !shownImages.has(escapeHtml(cover))) {
+    lines.push(`  <img src="${escapeHtml(cover)}" alt="${escapeHtml(post.title || '')}" />`);
   }
 
-  let listOpen = false;
-  const closeList = () => {
-    if (!listOpen) return;
-    lines.push('  </ul>');
-    listOpen = false;
-  };
-
-  for (const block of postArticleBlocks(post.content || post.excerpt || '')) {
-    if (block.tag === 'li') {
-      if (!listOpen) {
-        lines.push('  <ul>');
-        listOpen = true;
-      }
-      lines.push(`    <li>${escapeHtml(block.text)}</li>`);
-      continue;
-    }
-
-    closeList();
-    if (block.tag === 'hr') lines.push('  <hr />');
-    else if (block.tag === 'img') {
-      lines.push(`  <img src="${escapeHtml(block.src)}" alt="${escapeHtml(block.alt)}" />`);
-    } else {
-      lines.push(`  <${block.tag}>${escapeHtml(block.text)}</${block.tag}>`);
-    }
-  }
-
-  closeList();
+  if (body.trim()) lines.push(`  ${body}`);
   lines.push('</article>');
   return lines.join('\n');
 };
