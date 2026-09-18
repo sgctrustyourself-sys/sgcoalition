@@ -10,15 +10,19 @@
 //
 // These tests lock in the fix so a future refactor can't reintroduce the bug.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
     readStringField,
     readNumberField,
     buildSitemap,
+    fetchPublishedPosts,
     getPostSeo,
+    injectPrerenderedArticle,
     parseRegistryPosts,
+    postArticleBlocks,
+    postArticleHtml,
     STATIC_ROUTES,
 } from '../scripts/generateSeoArtifacts.mjs';
 
@@ -366,6 +370,179 @@ describe('SEO sitemap — blog posts', () => {
         const xml = buildSitemap([], posts);
         for (const row of posts) {
             expect(locsOf(xml)).toContain(`https://sgcoalition.xyz${getPostSeo(row).path}`);
+        }
+    });
+});
+
+// A post's head was never the problem — its body was. The app renders a post from
+// a network read, so the static page used to be a correct head over an empty
+// #root, and a crawler or an AI reader got nothing. These tests pin that the text
+// is in the served HTML, is built from the same row the page renders, and can
+// never carry markup from the post body through to the page.
+describe('SEO prerender — the post text is in the served HTML', () => {
+    const post = (overrides: Record<string, unknown> = {}) => ({
+        slug: 'coalition-pink-silver-crop-top',
+        title: "Women's Leopard Print Crop T-Shirt",
+        excerpt: 'Pink leopard print, 3D silver puff lettering, cut fitted.',
+        content: '<p>Two prints on one piece.</p>',
+        coverImage: '/images/pink-silver-crop-top-front.png',
+        publishedAt: '2026-09-17T16:00:00.000Z',
+        tags: ['drop'],
+        category: 'drop',
+        author: 'Founder',
+        ...overrides,
+    });
+
+    const shell = '<html><head></head><body><div id="root"><div id="initial-loader"></div></div></body></html>';
+
+    it('writes the article inside #root, ahead of the loader', () => {
+        const page = injectPrerenderedArticle(shell, postArticleHtml(post()));
+        expect(page).toContain('<article id="prerendered-post">');
+        expect(page.indexOf('<article')).toBeGreaterThan(page.indexOf('<div id="root">'));
+        // A reader that only takes the top of the page must see the post first,
+        // not the "JavaScript is required" fallback that follows the loader.
+        expect(page.indexOf('<article')).toBeLessThan(page.indexOf('initial-loader'));
+    });
+
+    it('fails loudly when there is no #root, rather than shipping a body-less page', () => {
+        expect(() => injectPrerenderedArticle('<html><body></body></html>', '<article id="prerendered-post"></article>')).toThrow(
+            /root/,
+        );
+    });
+
+    it('leaves a page alone when there is no article to inject', () => {
+        expect(injectPrerenderedArticle(shell, '')).toBe(shell);
+    });
+
+    it('ships the title, byline and body words', () => {
+        const html = postArticleHtml(post());
+        expect(html).toContain('<h1>Women\'s Leopard Print Crop T-Shirt</h1>');
+        expect(html).toContain('<time datetime="2026-09-17T16:00:00.000Z">September 17, 2026</time>');
+        expect(html).toContain('<p>Two prints on one piece.</p>');
+    });
+
+    it('falls back to the excerpt when a row carries no body', () => {
+        expect(postArticleHtml(post({ content: '' }))).toContain('<p>Pink leopard print');
+    });
+
+    // The one rule that matters: nothing from the post body reaches the page as
+    // markup. This builder writes every tag it emits, so the runtime allow-list in
+    // utils/blogSanitize.ts stays the only sanitizer policy in the project.
+    describe('no body markup survives', () => {
+        it('drops embedded content entirely, attributes and all', () => {
+            const html = postArticleHtml(
+                post({
+                    content: '<script>alert(1)</script><style>p{color:red}</style><p>Hello <strong>world</strong></p>'
+                        + '<img src="https://i.imgur.com/x.png" onerror="alert(2)" alt="remote" style="width:100%">',
+                }),
+            );
+            expect(html).not.toContain('alert(1)');
+            expect(html).not.toContain('onerror');
+            expect(html).not.toContain('style=');
+            expect(html).not.toContain('color:red');
+            expect(html).toContain('<p>Hello world</p>');
+        });
+
+        it('reduces links and inline markup to their words', () => {
+            const html = postArticleHtml(
+                post({ content: '<p>Read <a href="https://example.test/x" target="_blank">the notes</a> for <em>more</em>.</p>' }),
+            );
+            expect(html).toContain('<p>Read the notes for more.</p>');
+        });
+
+        it('decodes entities once and escapes what is left', () => {
+            const html = postArticleHtml(
+                post({ content: '<p>Tier 1 &mdash; 5% &amp; fees</p><p>A &lt; B and a raw < here</p>' }),
+            );
+            expect(html).toContain('<p>Tier 1 — 5% &amp; fees</p>');
+            expect(html).toContain('<p>A &lt; B and a raw &lt; here</p>');
+        });
+
+        it('keeps only images whose src is already site-relative', () => {
+            const html = postArticleHtml(
+                post({
+                    content: '<img src="/images/x.png" alt="a &quot;quoted&quot; caption">'
+                        + '<img src="https://i.imgur.com/y.png" alt="remote">',
+                }),
+            );
+            expect(html).toContain('<img src="/images/x.png" alt="a &quot;quoted&quot; caption" />');
+            expect(html).not.toContain('i.imgur.com');
+        });
+    });
+
+    describe('structure is preserved', () => {
+        it('keeps headings, with the authored h1 demoted under the post title', () => {
+            const html = postArticleHtml(post({ content: '<h1>One</h1><h2>Two</h2><h3>Three</h3>' }));
+            expect(html).toContain('<h2>One</h2>');
+            expect(html).toContain('<h2>Two</h2>');
+            expect(html).toContain('<h3>Three</h3>');
+            // Exactly one h1 on the page: the post's own title.
+            expect(html.match(/<h1>/g)).toHaveLength(1);
+            expect(html.match(/<h1>/g)![0]).toBeTruthy();
+            expect(html.indexOf('<h1>')).toBeLessThan(html.indexOf('<h2>One</h2>'));
+        });
+
+        it('groups list items into one list and closes it before the next paragraph', () => {
+            const html = postArticleHtml(post({ content: '<ul>\n<li>alpha</li>\n<li>beta</li>\n</ul>\n<p>after</p>' }));
+            expect(html).toContain('<ul>\n    <li>alpha</li>\n    <li>beta</li>\n  </ul>\n  <p>after</p>');
+            expect(html.match(/<ul>/g)).toHaveLength(1);
+        });
+
+        it('treats a blank line as a paragraph break, like the rendered page does', () => {
+            const html = postArticleHtml(post({ content: 'one\n\ntwo' }));
+            expect(html).toContain('<p>one</p>');
+            expect(html).toContain('<p>two</p>');
+        });
+    });
+
+    it('gets the body from the live row it was written from', async () => {
+        const row = {
+            slug: 'a-drop',
+            title: 'A Drop',
+            excerpt: '',
+            content: '<h2>THE BUILD</h2>',
+            cover_image: '/images/a.png',
+            published_at: '2026-09-17T16:00:00.000Z',
+            tags: [],
+            category: 'drop',
+            author: 'Founder',
+        };
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify([row]), { status: 200 }));
+        const originalFetch = globalThis.fetch;
+        const previousUrl = process.env.VITE_SUPABASE_URL;
+        const previousKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+        process.env.VITE_SUPABASE_URL = 'https://example.supabase.co';
+        process.env.VITE_SUPABASE_ANON_KEY = 'anon-key';
+        globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+        try {
+            const rows = await fetchPublishedPosts();
+            // Without `content` in the select the served article would be empty.
+            expect(String(fetchMock.mock.calls[0][0])).toContain('content');
+            expect(rows).toHaveLength(1);
+            expect(rows[0].content).toBe('<h2>THE BUILD</h2>');
+            expect(postArticleHtml(rows[0])).toContain('<h2>THE BUILD</h2>');
+        } finally {
+            globalThis.fetch = originalFetch;
+            if (previousUrl === undefined) delete process.env.VITE_SUPABASE_URL;
+            else process.env.VITE_SUPABASE_URL = previousUrl;
+            if (previousKey === undefined) delete process.env.VITE_SUPABASE_ANON_KEY;
+            else process.env.VITE_SUPABASE_ANON_KEY = previousKey;
+        }
+    });
+
+    // The offline path has to carry the words too, or a build with no database
+    // ships pages whose text exists only in the registry's template literals.
+    it('gets the body from the drop registry, which authors it as a template literal', () => {
+        const posts = parseRegistryPosts();
+        const pink = posts.find((entry) => entry.slug === 'coalition-pink-silver-crop-top');
+        expect(pink?.content).toContain('<h2>THE BUILD</h2>');
+        expect(postArticleHtml(pink)).toContain('<h2>THE BUILD</h2>');
+        expect(postArticleHtml(pink)).toContain('<li>Twelve pieces');
+
+        for (const entry of posts) {
+            expect(postArticleBlocks(entry.content).length, `${entry.slug} has no body text`).toBeGreaterThan(0);
         }
     });
 });
