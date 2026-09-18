@@ -92,6 +92,10 @@ jobs:
   # they never declared, and only a bare checkout exposed it. This job runs the
   # same suite with NO VITE_ env at all, so that class of dependence fails here
   # rather than on somebody's clean checkout.
+  #
+  # The release path enforces the same rule: `prebuild` runs it as
+  # `gate:release`, so a red guard fails the Vercel build and production keeps
+  # serving its previous deployment instead of taking the change.
   bare-checkout:
     name: Vitest with no VITE_ env
     runs-on: ubuntu-latest
@@ -119,29 +123,12 @@ jobs:
       # (clsRegression, viewContractButton) are excluded in vitest.config.ts, so
       # the default suite needs no browser binary.
 
-      # ANTI-VACUITY. This job only proves something if the checkout really is
-      # bare. An env file, or a VITE_ var reaching the job from a workflow-level
-      # `env:`, would supply the very values the suite is supposed to do
-      # without — the job would pass while checking nothing. Fail loudly instead.
-      - name: Assert the premise (no env file, no VITE_ var)
-        run: |
-          # Exactly the names Vitest would load (mode `test`), so a .env.example,
-          # a .envrc, or a renamed backup does not trip this by accident.
-          for f in .env .env.local .env.test .env.test.local; do
-            if [ -e "$f" ]; then
-              echo "::error::bare-checkout guard: $f exists and would supply the vars this job exists to prove unnecessary."
-              exit 1
-            fi
-          done
-          leaked=$(env | grep -oE '^VITE_[A-Za-z0-9_]*' | sort -u | tr '\n' ' ')
-          if [ -n "$leaked" ]; then
-            echo "::error::bare-checkout guard: VITE_ vars reached this job ($leaked) — drop them so the suite runs bare."
-            exit 1
-          fi
-          echo "premise holds: none of .env/.env.local/.env.test/.env.test.local exists, and no VITE_ var is set"
-
-      # The guard itself — deliberately no `env:` block. If a test needs a var it
-      # does not declare, it must fail here; the fix belongs in the test (as
-      # vi.stubEnv in a vi.hoisted block), not in this workflow.
-      - name: Run full vitest suite (no VITE_ env)
-        run: npm test
+      # The rule this job exists for — assert the checkout really is bare,
+      # then run the suite with nothing to fall back on — lives in exactly one
+      # place: scripts/bareCheckoutGuard.mjs. Restating the shell here would be
+      # a second copy of the rule, free to drift from the one the release path
+      # enforces. Deliberately no `env:` block on this job: if a test needs a var
+      # it does not declare, it must fail here, and the fix belongs in the test
+      # (vi.stubEnv in a vi.hoisted block), not in this workflow.
+      - name: Assert the premise, then run the suite bare
+        run: npm run gate:bare
