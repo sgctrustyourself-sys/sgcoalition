@@ -239,6 +239,17 @@ export const readNumberField = (block, field) => {
   return match ? Number(match[1]) : 0;
 };
 
+// The drop registry authors a post's body as a backtick template literal, which
+// readStringField deliberately cannot see (its character class omits the backtick
+// so the pattern fits inside one String.raw template). Only the escapes a body
+// can carry are undone here — everything else in it is markup that the article
+// builder parses itself, so \n must survive rather than becoming a space the way
+// unescapeStringLiteral would leave it.
+export const readTemplateField = (block, field) => {
+  const match = block.match(new RegExp('\\b' + field + '\\b\\s*:\\s*`([\\s\\S]*?)`'));
+  return match ? match[1].replace(/\\`/g, '`').replace(/\\\\/g, '\\') : '';
+};
+
 const parseImageCatalog = () => {
   const source = readFile('utils/localImageAssets.ts');
   const catalog = new Map();
@@ -735,10 +746,27 @@ export const injectSeo = (html, seo, jsonLd) => {
   return injectJsonLd(output, jsonLd);
 };
 
-const writeStaticPage = (baseHtml, pagePath, seo, jsonLd) => {
+// Puts the page's own text inside #root, where the app renders it, so the served
+// HTML reads without JavaScript. index.tsx removes this copy on boot and the app
+// renders the same post from the live table, so nothing is shown twice. Throws
+// when the marker is gone: a silent miss would ship every post as a head over an
+// empty body, which is the bug this exists to fix.
+export const injectPrerenderedArticle = (html, articleHtml) => {
+  if (!articleHtml) return html;
+
+  const match = html.match(/<div\s+id="root"[^>]*>/i);
+  if (!match) {
+    throw new Error('The shell has no <div id="root"> to put the prerendered article in.');
+  }
+
+  const insertAt = match.index + match[0].length;
+  return `${html.slice(0, insertAt)}\n${articleHtml}\n${html.slice(insertAt)}`;
+};
+
+const writeStaticPage = (baseHtml, pagePath, seo, jsonLd, articleHtml = '') => {
   const outputDir = path.join(DIST_DIR, pagePath.replace(/^\//, ''), 'index.html');
   ensureDir(path.dirname(outputDir));
-  fs.writeFileSync(outputDir, injectSeo(baseHtml, seo, jsonLd));
+  fs.writeFileSync(outputDir, injectPrerenderedArticle(injectSeo(baseHtml, seo, jsonLd), articleHtml));
 };
 
 // Exported so tests/generateSeoArtifacts.test.ts can pin the priority +
@@ -887,7 +915,10 @@ export const STATIC_ROUTES = [
 // left /membership, /about and /wallets claiming to be the homepage.
 //
 // Both paths return the same shape, so everything downstream has one owner:
-//   { slug, title, excerpt, coverImage, publishedAt, tags, category }
+//   { slug, title, excerpt, content, author, coverImage, publishedAt, tags,
+//     category }
+// `content` is what the prerendered article is built from; the registry holds it
+// as a template literal, the table as the `content` column.
 export const blogPostPath = (slug) => `/blog/${encodeURIComponent(slug)}`;
 
 // Mirrors components/Seo.tsx's prefix rule. Duplicated rather than imported
@@ -956,6 +987,8 @@ export const parseRegistryPosts = () => {
       slug,
       title,
       excerpt: readStringField(block, 'postExcerpt'),
+      content: readTemplateField(block, 'postBody'),
+      author: 'Coalition',
       coverImage: front ? `/${front.replace(/^\.\.\/\.\.\/public\//, '')}` : '',
       // Matches the published_at scripts/generateDropPost.ts writes for a drop.
       publishedAt: dropDate ? `${dropDate}T16:00:00.000Z` : '',
@@ -1006,7 +1039,7 @@ export const fetchPublishedPosts = async () => {
   try {
     const response = await fetch(
       `${url.replace(/\/+$/, '')}/rest/v1/posts`
-        + '?select=slug,title,excerpt,cover_image,tags,published_at,category,is_published'
+        + '?select=slug,title,excerpt,cover_image,tags,published_at,category,author,content,is_published'
         + '&is_published=eq.true&order=published_at.desc',
       { headers: { apikey: key, authorization: `Bearer ${key}` }, signal: controller.signal }
     );
@@ -1021,6 +1054,10 @@ export const fetchPublishedPosts = async () => {
         slug: row.slug,
         title: row.title,
         excerpt: row.excerpt || '',
+        // The body as authored. This is the only reason the prerendered page can
+        // carry the article at all, so it is fetched with the rest of the row.
+        content: row.content || '',
+        author: row.author || 'Coalition',
         coverImage: row.cover_image || '',
         publishedAt: row.published_at || '',
         tags: Array.isArray(row.tags) ? row.tags : [],
@@ -1079,6 +1116,207 @@ export const postJsonLd = (post) => {
     ...(keywords ? { keywords } : {}),
     inLanguage: 'en-US',
   };
+};
+
+// ── The prerendered article ──────────────────────────────────────────────────
+// A crawler or an AI reader has to be able to read a post without running
+// JavaScript, and this app renders posts from a network read — so the served HTML
+// would otherwise be a correct head over an empty body. The text below is built
+// from the same row the page renders (the live table, with the drop registry as
+// the offline fallback) and lands inside the page's own #root.
+//
+// Nothing from the post body is copied through. This walks the authored markup
+// and re-emits only tags it writes itself — headings, paragraphs, list items, hr
+// and site-relative images — with every run of text entity-decoded and escaped
+// once at write time. That is what keeps one allow-list, not two: the runtime
+// allow-list in utils/blogSanitize.ts governs the rendered page, this governs the
+// static copy, and neither can emit what the other refuses. Inline markup and
+// links reduce to their words, and an attribute this builder does not write
+// cannot survive.
+//
+// An image is kept only when its src is already site-relative: a remote src would
+// need the runtime's remote→local asset mapping (utils/localImageAssets.ts),
+// which this plain-Node script cannot run, and a stale remote URL inside a
+// canonical page is worse than no image.
+const EMBEDDED_CONTENT_PATTERN = /<(script|style|noscript|iframe|svg|template)\b[\s\S]*?<\/\1\s*>/gi;
+
+const isSiteRelative = (src) => String(src || '').startsWith('/');
+
+// Block-level source tags this builder re-expresses as one of its own elements.
+const BLOCK_TAGS = { p: 'p', div: 'p', blockquote: 'blockquote', pre: 'pre' };
+
+// Decodes the references this content actually carries; everything else is left
+// to escapeHtml at write time. &amp; goes last so a literal "&amp;lt;" decodes to
+// "&lt;" rather than to "<", and so a stray "&" is not double-decoded.
+const decodeHtmlEntities = (value = '') =>
+  String(value)
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&mdash;/gi, '\u2014')
+    .replace(/&ndash;/gi, '\u2013')
+    .replace(/&hellip;/gi, '\u2026')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&amp;/gi, '&');
+
+const readAttribute = (attributes, name) => {
+  const match = attributes.match(
+    new RegExp('\\b' + name + '\\s*=\\s*("([^"]*)"|\'([^\']*)\'|([^\\s"\'>]+))', 'i')
+  );
+  if (!match) return '';
+  return decodeHtmlEntities(match[2] ?? match[3] ?? match[4] ?? '');
+};
+
+// The article's blocks in order: { tag, text } for text blocks, { tag: 'hr' }, or
+// { tag: 'img', src, alt }. Exported so tests can assert on the walking rules
+// without going through the whole page.
+export const postArticleBlocks = (html) => {
+  const source = String(html || '').replace(EMBEDDED_CONTENT_PATTERN, '');
+  const blocks = [];
+  const tagPattern = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/g;
+  let buffer = '';
+  let currentTag = 'p';
+  let cursor = 0;
+  let match;
+
+  // A blank line is a paragraph break in this copy, exactly as it renders: an
+  // authored body may separate blocks with markup OR with blank lines, and the
+  // runtime turns the plain-text form's newlines into <br />. Single newlines
+  // collapse to a space, so a wrapped paragraph stays one paragraph.
+  const flush = () => {
+    const pending = buffer;
+    buffer = '';
+
+    for (const chunk of decodeHtmlEntities(pending).split(/\n\s*\n/)) {
+      const text = chunk.replace(/\s+/g, ' ').trim();
+      if (text) blocks.push({ tag: currentTag, text });
+    }
+  };
+
+  while ((match = tagPattern.exec(source))) {
+    buffer += source.slice(cursor, match.index);
+    cursor = tagPattern.lastIndex;
+
+    const closing = match[1] === '/';
+    const name = match[2].toLowerCase();
+    const attributes = match[3] || '';
+
+    if (name === 'img') {
+      flush();
+      const src = readAttribute(attributes, 'src');
+      if (isSiteRelative(src)) blocks.push({ tag: 'img', src, alt: readAttribute(attributes, 'alt') });
+      continue;
+    }
+
+    if (name === 'hr') {
+      flush();
+      blocks.push({ tag: 'hr' });
+      continue;
+    }
+
+    if (name === 'br') {
+      flush();
+      continue;
+    }
+
+    if (/^h[1-6]$/.test(name)) {
+      flush();
+      // The page's own h1 is the post title, so an authored h1 lands as an h2:
+      // one h1 per page, and the outline still nests under the title.
+      currentTag = closing ? 'p' : `h${Math.max(2, Number(name[1]))}`;
+      continue;
+    }
+
+    if (name === 'li') {
+      flush();
+      currentTag = closing ? 'p' : 'li';
+      continue;
+    }
+
+    if (name === 'ul' || name === 'ol') {
+      flush();
+      continue;
+    }
+
+    if (BLOCK_TAGS[name]) {
+      flush();
+      currentTag = closing ? 'p' : BLOCK_TAGS[name];
+      continue;
+    }
+
+    // Every other tag (strong, em, a, span, code, td, …) contributes its text only.
+  }
+
+  buffer += source.slice(cursor);
+  flush();
+
+  return blocks;
+};
+
+// The byline the rendered page shows above the title: category, date, author —
+// only the parts the row actually asserts.
+const articleByline = (post) => {
+  const parts = [];
+  if (post.category) parts.push(escapeHtml(post.category));
+
+  const parsed = new Date(post.publishedAt || post.createdAt || '');
+  if (!Number.isNaN(parsed.getTime())) {
+    const label = new Intl.DateTimeFormat('en-US', {
+      month: 'long',
+      day: '2-digit',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(parsed);
+    parts.push(`<time datetime="${escapeHtml(parsed.toISOString())}">${escapeHtml(label)}</time>`);
+  }
+
+  if (post.author) parts.push(escapeHtml(post.author));
+  return parts.join(' \u00b7 ');
+};
+
+// The served copy of a post. Falls back to the excerpt so a row with an empty body
+// still ships its own words rather than a body-less page.
+export const postArticleHtml = (post) => {
+  const lines = ['<article id="prerendered-post">'];
+
+  const byline = articleByline(post);
+  if (byline) lines.push(`  <p>${byline}</p>`);
+  if (post.title) lines.push(`  <h1>${escapeHtml(post.title)}</h1>`);
+  if (isSiteRelative(post.coverImage)) {
+    lines.push(`  <img src="${escapeHtml(post.coverImage)}" alt="${escapeHtml(post.title || '')}" />`);
+  }
+
+  let listOpen = false;
+  const closeList = () => {
+    if (!listOpen) return;
+    lines.push('  </ul>');
+    listOpen = false;
+  };
+
+  for (const block of postArticleBlocks(post.content || post.excerpt || '')) {
+    if (block.tag === 'li') {
+      if (!listOpen) {
+        lines.push('  <ul>');
+        listOpen = true;
+      }
+      lines.push(`    <li>${escapeHtml(block.text)}</li>`);
+      continue;
+    }
+
+    closeList();
+    if (block.tag === 'hr') lines.push('  <hr />');
+    else if (block.tag === 'img') {
+      lines.push(`  <img src="${escapeHtml(block.src)}" alt="${escapeHtml(block.alt)}" />`);
+    } else {
+      lines.push(`  <${block.tag}>${escapeHtml(block.text)}</${block.tag}>`);
+    }
+  }
+
+  closeList();
+  lines.push('</article>');
+  return lines.join('\n');
 };
 
 export const buildSitemap = (products, posts = []) => {
@@ -1207,7 +1445,13 @@ const main = async () => {
   }
 
   for (const post of posts) {
-    writeStaticPage(baseHtml, blogPostPath(post.slug), getPostSeo(post), postJsonLd(post));
+    writeStaticPage(
+      baseHtml,
+      blogPostPath(post.slug),
+      getPostSeo(post),
+      postJsonLd(post),
+      postArticleHtml(post)
+    );
   }
 
   console.log(

@@ -10,6 +10,18 @@ if (!rootElement) {
 }
 
 // ---------------------------------------------------------------------------
+// The prerendered copy of this page's text.
+//
+// scripts/generateSeoArtifacts.mjs writes a post's article inside #root so a
+// crawler or an AI reader gets the words without executing JavaScript (see
+// postArticleHtml). This app renders that same post from the live table, so the
+// static copy is dropped before mounting rather than left in the DOM as a second
+// copy behind the app. It is removed here, not left to the root render: React
+// owns only what it renders.
+// ---------------------------------------------------------------------------
+document.getElementById('prerendered-post')?.remove();
+
+// ---------------------------------------------------------------------------
 // Error reporting (Sentry). OPTIONAL and lazy by design:
 // `import.meta.env.VITE_SENTRY_DSN` is inlined by Vite at build time, so with no
 // DSN configured Rollup drops this entire branch and @sentry/react never enters
