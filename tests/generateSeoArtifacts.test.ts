@@ -17,6 +17,8 @@ import {
     readStringField,
     readNumberField,
     buildSitemap,
+    getPostSeo,
+    parseRegistryPosts,
     STATIC_ROUTES,
 } from '../scripts/generateSeoArtifacts.mjs';
 
@@ -248,6 +250,7 @@ describe('SEO sitemap and prerendered routes agree', () => {
             [
                 '/about',
                 '/archive',
+                '/blog',
                 '/community',
                 '/help',
                 '/live-orders',
@@ -273,6 +276,96 @@ describe('SEO sitemap and prerendered routes agree', () => {
             expect(route.description, `${route.path} description`).toBeTruthy();
             expect(route.priority, `${route.path} priority`).toBeTruthy();
             expect(route.changefreq, `${route.path} changefreq`).toBeTruthy();
+        }
+    });
+});
+
+// A blog post is the third kind of page the generator writes (after static
+// routes and products). It is not a STATIC_ROUTES entry on purpose: a static
+// route must own a generated share card, while a post's share image is its own
+// cover photo. What must hold is the same rule as everywhere else — anything in
+// sitemap.xml has a prerendered page behind it, so a post URL can never serve
+// the shell whose canonical is "/".
+describe('SEO sitemap — blog posts', () => {
+    const post = (overrides: Record<string, unknown> = {}) => ({
+        slug: 'coalition-pink-silver-crop-top',
+        title: "Women's Leopard Print Crop T-Shirt",
+        excerpt: 'Pink leopard print, 3D silver puff lettering, cut fitted.',
+        coverImage: '/images/pink-silver-crop-top-front.png',
+        publishedAt: '2026-09-17T16:00:00.000Z',
+        tags: ['drop', 'limited'],
+        category: 'drop',
+        ...overrides,
+    });
+
+    const locsOf = (xml: string) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
+
+    it('advertises every post it can build a page for', () => {
+        const xml = buildSitemap([], [post()]);
+        expect(locsOf(xml)).toContain('https://sgcoalition.xyz/blog/coalition-pink-silver-crop-top');
+        expect(getPostSeo(post()).path).toBe('/blog/coalition-pink-silver-crop-top');
+    });
+
+    // The build date every other entry carries says nothing about a post; the
+    // publication date is the signal a crawler actually uses to decide what is new.
+    it('dates a post row by its publication date, not the build date', () => {
+        const xml = buildSitemap([], [post()]);
+        expect(xml).toMatch(
+            /<loc>https:\/\/sgcoalition\.xyz\/blog\/coalition-pink-silver-crop-top<\/loc>\s*<lastmod>2026-09-17<\/lastmod>/,
+        );
+    });
+
+    it('falls back to the build date when a post has no usable date', () => {
+        const today = new Date().toISOString().slice(0, 10);
+        const xml = buildSitemap([], [post({ publishedAt: 'not a date' })]);
+        expect(xml).toContain(`<lastmod>${today}</lastmod>`);
+    });
+
+    it('keeps posts out of the sitemap when there are none (no stray /blog/ entries)', () => {
+        const xml = buildSitemap([]);
+        expect(locsOf(xml).filter((loc) => loc.includes('/blog/'))).toEqual([]);
+    });
+
+    it('ships a non-empty description and a working image rule', () => {
+        const withCover = getPostSeo(post());
+        // A cover photo is announced as itself, with NO declared size: a 1200x630
+        // declaration on a photo of another shape makes scrapers crop it.
+        expect(withCover.image).toBe('https://sgcoalition.xyz/images/pink-silver-crop-top-front.png');
+        expect([withCover.imageWidth, withCover.imageHeight]).toEqual([undefined, undefined]);
+        expect(withCover.type).toBe('article');
+        expect(withCover.description.length).toBeGreaterThan(20);
+
+        const withoutCover = getPostSeo(post({ coverImage: '' }));
+        expect(withoutCover.image).toBe('https://sgcoalition.xyz/og/card.jpg');
+        expect([withoutCover.imageWidth, withoutCover.imageHeight]).toEqual([1200, 630]);
+    });
+
+    // The offline path: `posts` lives in Supabase, and a build must not depend on
+    // a network read, so the registry is parsed instead. This pins that the
+    // fallback yields real pages rather than an empty list that silently ships
+    // every post as the generic shell.
+    it('parses the drop registry into post rows when the table is unreachable', () => {
+        const posts = parseRegistryPosts();
+        expect(posts.length).toBeGreaterThan(0);
+
+        const pink = posts.find((row) => row.slug === 'coalition-pink-silver-crop-top');
+        expect(pink, 'the published drop is missing from the registry fallback').toBeTruthy();
+        expect(pink.title).toContain('Leopard Print Crop T-Shirt');
+        expect(pink.excerpt).toBeTruthy();
+        // The spec's render path is ../../public/images/<name>.png; a post row
+        // needs the served path, or the cover resolves to a broken URL.
+        expect(pink.coverImage).toBe('/images/pink-silver-crop-top-front.png');
+        expect(pink.publishedAt).toBe('2026-09-17T16:00:00.000Z');
+        expect(pink.tags).toContain('pink-silver');
+
+        // Every fallback post must also be sitemap-advertisable and page-buildable.
+        for (const row of posts) {
+            expect(getPostSeo(row).description, `${row.slug} description`).toBeTruthy();
+            expect(getPostSeo(row).title).toContain(row.title);
+        }
+        const xml = buildSitemap([], posts);
+        for (const row of posts) {
+            expect(locsOf(xml)).toContain(`https://sgcoalition.xyz${getPostSeo(row).path}`);
         }
     });
 });

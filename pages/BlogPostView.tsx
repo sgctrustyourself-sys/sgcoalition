@@ -7,7 +7,9 @@ import { sanitizeBlogHtml } from '../utils/blogSanitize';
 import { format, isValid } from 'date-fns';
 import VotingSystem from '../components/VotingSystem';
 import CommentsSection from '../components/CommentsSection';
+import Seo from '../components/Seo';
 import { getBlogPostBySlug, mapBlogRowToPost } from '../data/blogPosts';
+import { buildBlogPostJsonLd, getBlogPostSeo } from '../utils/seo';
 
 const safeDate = (dateStr: any) => {
     if (!dateStr) return new Date();
@@ -80,8 +82,23 @@ const BlogPostView = () => {
         );
     }
 
+    // The post's own head, resolved through the same pairs the prerenderer mirrors
+    // (getPostSeo/postJsonLd in scripts/generateSeoArtifacts.mjs). A post with a
+    // cover photo supplies it and no size; without one <Seo> falls back to the
+    // route's generic card, which is what the served head advertises too.
+    const postSeo = getBlogPostSeo(post);
+
     return (
         <div className="min-h-screen pt-32 pb-20 bg-black text-white px-4">
+            <Seo
+                title={post.title}
+                description={postSeo.description}
+                image={post.coverImage ? postSeo.image : undefined}
+                imageAlt={post.coverImage ? postSeo.imageAlt : undefined}
+                type="article"
+                canonicalPath={postSeo.path}
+                jsonLd={buildBlogPostJsonLd(post)}
+            />
             <div className="max-w-4xl mx-auto">
                 {/* Back Button */}
                 <Link to="/blog" className="inline-flex items-center gap-2 text-gray-500 hover:text-white transition-colors uppercase tracking-widest text-[10px] font-bold mb-12">
