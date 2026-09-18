@@ -1,12 +1,36 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '..');
 const SITE_ORIGIN = 'https://sgcoalition.xyz';
-const DEFAULT_IMAGE = '/hero-cinematic.png';
+// Share cards, mirroring SHARE_CARD_DIRECTORY / DEFAULT_SEO_IMAGE / shareCardImage
+// in utils/seo.ts. 1200x630 is the size every scraper needs before it renders a
+// full-width link preview; scripts/generateOgCard.mjs writes one card per route.
+//
+// The rule is an ALLOWLIST, not a path template: only routes that declared a
+// `cardTitle` have a file, and anything else resolves to the generic brand card.
+// A blind `/og<path>.jpg` would hand every route without a card a URL that 404s,
+// which unfurls as no image at all — worse than a generic one.
+// STATIC_ROUTES is read lazily because it is declared below this function.
+const GENERIC_CARD_PATH = '/og/card.jpg';
+
+export const shareCardPath = (routePath) => {
+  const raw = routePath || '/';
+  const trimmed = raw.split('?')[0].split('#')[0];
+  const normalized = trimmed.length > 1 ? trimmed.replace(/\/+$/, '') : '/';
+  const route = STATIC_ROUTES.find((candidate) => candidate.path === normalized);
+
+  return route && route.cardTitle ? `/og${normalized}.jpg` : GENERIC_CARD_PATH;
+};
+const DEFAULT_IMAGE = GENERIC_CARD_PATH;
+const DEFAULT_IMAGE_WIDTH = 1200;
+const DEFAULT_IMAGE_HEIGHT = 630;
+const DEFAULT_IMAGE_ALT = 'Coalition wordmark beside the Coalition hero artwork — crafted in Baltimore';
+const SEO_LOCALE = 'en_US';
 const DEFAULT_DESCRIPTION =
   'Coalition — handcrafted streetwear from Baltimore. Shop limited-edition wallets, custom tees, 1/1 denim, and archive drops. Live order map & SGCoin rewards.';
 
@@ -32,6 +56,9 @@ const cleanText = (value = '') =>
     .replace(/\\u2014/g, '-')
     .replace(/\s+/g, ' ')
     .replace(/<[^>]+>/g, '')
+    // Mirrors utils/seo.ts: JS-escape remnants ("3D puff \ $50") otherwise ship
+    // verbatim in the SERP snippet.
+    .replace(/\\(?=\s|$)/g, '')
     .trim();
 
 const truncateSeoText = (value, maxLength = 155) => {
@@ -261,6 +288,18 @@ const readImageList = (block, imageCatalog) => {
   return images.length > 0 ? images : [DEFAULT_IMAGE];
 };
 
+// Sum of sizeInventory — the prerenderer's getProductStock (utils/seo.ts). The
+// key is quoted in constants/products.ts, so an unquoted match silently finds
+// nothing and every product looks in stock. null means "no inventory data",
+// which is treated as available rather than sold.
+export const readStock = (block) => {
+  const match = block.match(/['"]?sizeInventory['"]?\s*:\s*\{([\s\S]*?)\}/);
+  if (!match) return null;
+
+  return [...match[1].matchAll(/(['"]?)([^'"]+?)\1\s*:\s*(\d+)/g)]
+    .reduce((sum, entry) => sum + Number(entry[3]), 0);
+};
+
 export const parseProducts = () => {
   const constantsSource = readFile('constants/products.ts');
   const imageCatalog = parseImageCatalog();
@@ -287,26 +326,52 @@ export const parseProducts = () => {
       images: readImageList(block, imageCatalog),
       archived: /['"]?\barchived\b['"]?\s*:\s*true/.test(block),
       soldAt: readStringField(block, 'soldAt'),
+      archivedAt: readStringField(block, 'archivedAt'),
+      stock: readStock(block),
       isLimitedEdition: /['"]?\bisLimitedEdition\b['"]?\s*:\s*true/.test(block),
     }))
     .filter((product) => product.id && product.name);
 };
 
-const getProductSeo = (product) => {
-  const isSold = product.archived || Boolean(product.soldAt);
+// Mirrors buildProductTitle / buildProductBlurb / getProductStock in utils/seo.ts
+// (pinned by tests/structuredData.test.ts). Kept as source-of-truth pairs rather
+// than one shared module because this script is plain Node and cannot import TS.
+const PRODUCT_TITLE_SUFFIX_MAX_NAME = 45;
+const PRODUCT_DESCRIPTION_MIN_LENGTH = 45;
+
+const buildProductTitle = (name) =>
+  name.length > PRODUCT_TITLE_SUFFIX_MAX_NAME ? name : `${name} | Coalition`;
+
+const buildProductBlurb = (product) => {
+  const copy = cleanText(product.description || '');
+  if (copy.length >= PRODUCT_DESCRIPTION_MIN_LENGTH) return copy;
+
+  const kind = product.isLimitedEdition ? 'limited-edition ' : '';
+  return `${product.name} — a ${kind}Coalition ${product.category || 'piece'}, handcrafted in Baltimore.`;
+};
+
+const isProductSold = (product) =>
+  product.archived || Boolean(product.soldAt) || (typeof product.stock === 'number' && product.stock <= 0);
+
+export const getProductSeo = (product) => {
+  const isSold = isProductSold(product);
   const status = isSold ? 'Sold archive piece' : product.isLimitedEdition ? 'Limited drop available' : 'Available now';
 
   return {
-    title: `${product.name} | Coalition`,
-    description: truncateSeoText(`${status}. ${product.description} ${product.price ? `$${product.price}.` : ''}`),
+    title: buildProductTitle(product.name),
+    description: truncateSeoText(`${status}. ${buildProductBlurb(product)} ${product.price ? `$${product.price}.` : ''}`),
     image: absoluteUrl(product.images[0]),
+    imageAlt: `${product.name}${isSold ? ' — sold' : ''} by Coalition`,
     url: absoluteUrl(productPath(product.id)),
     path: productPath(product.id),
     type: 'product',
   };
 };
 
-const productJsonLd = (product) => {
+// Exported alongside injectSeo so tests/seoMeta.test.ts can compare the
+// prerendered output against the runtime builders (utils/seo.ts,
+// components/Seo.tsx) instead of re-implementing either side.
+export const productJsonLd = (product) => {
   const seo = getProductSeo(product);
 
   return {
@@ -326,7 +391,7 @@ const productJsonLd = (product) => {
       '@type': 'Offer',
       priceCurrency: 'USD',
       price: Number(product.price || 0).toFixed(2),
-      availability: product.archived || product.soldAt ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
+      availability: isProductSold(product) ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
       url: seo.url,
       itemCondition: 'https://schema.org/NewCondition',
     },
@@ -335,6 +400,7 @@ const productJsonLd = (product) => {
 
 const collectionJsonLd = (products, name, pagePath) => ({
   '@context': 'https://schema.org',
+  '@id': `${absoluteUrl(pagePath)}#collection`,
   '@type': 'CollectionPage',
   name,
   url: absoluteUrl(pagePath),
@@ -349,13 +415,246 @@ const collectionJsonLd = (products, name, pagePath) => ({
   },
 });
 
-const replaceOrInsertMeta = (html, attribute, key, content) => {
-  const escapedContent = escapeHtml(content);
-  const replacement = `<meta ${attribute}="${key}" content="${escapedContent}" />`;
-  const pattern = new RegExp(`<meta\\s+${attribute}="${key}"[^>]*>`, 'i');
+// ----------------------------------------------------------------------------
+// Structured data (JSON-LD) — the prerendered half of utils/structuredData.ts.
+//
+// Every builder below has a twin in that module, which the React routes use via
+// <Seo jsonLd={...}>. The two are deliberately identical in shape and are
+// deep-compared by tests/structuredData.test.ts, so a change here without the
+// matching change there (or vice versa) fails a test instead of shipping two
+// descriptions of the same entity to crawlers and to people with JS.
+// ----------------------------------------------------------------------------
+const ORGANIZATION_ID = `${SITE_ORIGIN}/#organization`;
+const WEBSITE_ID = `${SITE_ORIGIN}/#website`;
+const SUPPORT_EMAIL = 'sgctrustyourself@gmail.com';
+const ORGANIZATION_DESCRIPTION = 'Premium streetwear brand born in Baltimore. Quality, community, and the hustle.';
+const ORGANIZATION_LOGO = absoluteUrl('/images/logo.png');
 
-  if (pattern.test(html)) {
-    return html.replace(pattern, replacement);
+// BRAND_SAME_AS_LINKS is the one owner of the brand's social profiles
+// (constants.ts); /about and /community render it, and the Organization node
+// lists it. Parsed rather than imported because this script is plain Node —
+// constants.ts is TypeScript.
+// Mirror of utils/archiveSort.ts > sortArchivedProducts. The /archive page
+// renders the archive in this order, so the prerendered ItemList must use it
+// too — otherwise the ItemList a crawler reads and the grid a browser hydrates
+// disagree about the order of the same products.
+// tests/structuredData.test.ts compares this against the utility over a
+// multi-product fixture (including a soldAt/archivedAt fallback and a name tie).
+export const sortArchivedProducts = (products) =>
+  [...products].sort((a, b) => {
+    const dateA = new Date(a.soldAt || a.archivedAt || 0).getTime();
+    const dateB = new Date(b.soldAt || b.archivedAt || 0).getTime();
+    if (dateB !== dateA) return dateB - dateA;
+    return a.name.localeCompare(b.name);
+  });
+
+// Body of an exported array literal, anchored on its `=` like parseProducts.
+// Anchoring matters: `readonly string[]` / `HelpFaq[]` put a pair of brackets in
+// the type annotation, and scanning forward from the identifier balances THOSE
+// instead of the literal — which parses to zero entries and ships an empty
+// sameAs list / FAQPage with no error.
+export const readExportedArrayBody = (relativePath, declaration) => {
+  const source = readFile(relativePath);
+  const declarationStart = source.indexOf(`export const ${declaration}`);
+  const initializerStart = declarationStart >= 0 ? source.indexOf('=', declarationStart) : -1;
+  const arrayStart = initializerStart >= 0 ? source.indexOf('[', initializerStart) : -1;
+  const arrayEnd = arrayStart >= 0 ? scanToMatching(source, arrayStart, '[', ']') : -1;
+
+  if (declarationStart < 0 || initializerStart < 0 || arrayStart < 0 || arrayEnd < 0) {
+    throw new Error(
+      `Unable to locate export const ${declaration} in ${relativePath}. `
+      + `declarationStart=${declarationStart}, initializerStart=${initializerStart}, `
+      + `arrayStart=${arrayStart}, arrayEnd=${arrayEnd}.`
+    );
+  }
+
+  return source.slice(arrayStart + 1, arrayEnd);
+};
+
+export const parseBrandSameAs = () => {
+  const links = [...readExportedArrayBody('constants.ts', 'BRAND_SAME_AS_LINKS').matchAll(/(['"])(.*?)\1/g)]
+    .map((match) => unescapeStringLiteral(match[2]))
+    .filter(Boolean);
+
+  if (links.length === 0) {
+    throw new Error('BRAND_SAME_AS_LINKS parsed to zero entries — the Organization sameAs list would ship empty.');
+  }
+
+  return links;
+};
+
+// HELP_FAQS (data/helpFaqs.ts) is the single owner of the /help copy: the page
+// renders it and the FAQPage JSON-LD is built from it. Same parse-don't-import
+// reason as above.
+export const parseHelpFaqs = () => {
+  const faqs = splitTopLevelObjects(readExportedArrayBody('data/helpFaqs.ts', 'HELP_FAQS'))
+    .map((block) => ({
+      id: readStringField(block, 'id'),
+      question: readStringField(block, 'question'),
+      answer: readStringField(block, 'answer'),
+    }))
+    .filter((faq) => faq.question && faq.answer);
+
+  if (faqs.length === 0) {
+    throw new Error('HELP_FAQS parsed to zero questions — the prerendered FAQPage would ship an empty mainEntity.');
+  }
+
+  return faqs;
+};
+
+export const organizationJsonLd = (sameAs) => ({
+  '@id': ORGANIZATION_ID,
+  '@type': 'Organization',
+  name: 'Coalition',
+  description: ORGANIZATION_DESCRIPTION,
+  url: SITE_ORIGIN,
+  logo: ORGANIZATION_LOGO,
+  email: SUPPORT_EMAIL,
+  address: {
+    '@type': 'PostalAddress',
+    addressLocality: 'Baltimore',
+    addressRegion: 'MD',
+    addressCountry: 'US',
+  },
+  sameAs,
+});
+
+export const webSiteJsonLd = () => ({
+  '@id': WEBSITE_ID,
+  '@type': 'WebSite',
+  name: 'Coalition',
+  url: SITE_ORIGIN,
+  description: DEFAULT_DESCRIPTION,
+  inLanguage: 'en-US',
+  publisher: { '@id': ORGANIZATION_ID },
+});
+
+export const webPageJsonLd = (pagePath, name, description) => ({
+  '@id': `${absoluteUrl(pagePath)}#webpage`,
+  '@type': 'WebPage',
+  name,
+  description,
+  url: absoluteUrl(pagePath),
+  isPartOf: { '@id': WEBSITE_ID },
+});
+
+export const faqPageJsonLd = (pagePath, faqs) => ({
+  '@id': `${absoluteUrl(pagePath)}#faq`,
+  '@type': 'FAQPage',
+  url: absoluteUrl(pagePath),
+  name: 'Coalition Help Center — frequently asked questions',
+  mainEntity: faqs.map((faq) => ({
+    '@type': 'Question',
+    name: faq.question,
+    acceptedAnswer: {
+      '@type': 'Answer',
+      text: faq.answer,
+    },
+  })),
+});
+
+export const aboutPageJsonLd = () => ({
+  '@id': absoluteUrl('/about'),
+  '@type': 'AboutPage',
+  name: 'About Coalition',
+  description:
+    "Coalition was born from loss. Gmoneyworld — more than a brand, it's a movement. Quality, community, and the hustle, built by hand in Baltimore.",
+  url: absoluteUrl('/about'),
+  // Reference, not a redefinition: organizationJsonLd() ships in the same graph.
+  mainEntity: { '@id': ORGANIZATION_ID },
+});
+
+// One `@graph` per page with a single `@context`; any per-node `@context` is
+// dropped so a node shared by two graphs stays byte-identical between them.
+export const buildStructuredDataGraph = (nodes) => ({
+  '@context': 'https://schema.org',
+  '@graph': nodes.filter(Boolean).map((node) => {
+    const copy = { ...node };
+    delete copy['@context'];
+    return copy;
+  }),
+});
+
+// `route.structuredData` names the node kinds for that page. Anything unknown
+// throws rather than silently shipping a page with no structured data.
+const routeNodes = (route, context) =>
+  (route.structuredData || []).map((kind) => {
+    switch (kind) {
+      case 'organization':
+        return organizationJsonLd(context.sameAs);
+      case 'webSite':
+        return webSiteJsonLd();
+      case 'webPage':
+        return webPageJsonLd(route.path, route.title, route.description);
+      case 'faqPage':
+        return faqPageJsonLd(route.path, context.faqs);
+      case 'aboutPage':
+        return aboutPageJsonLd();
+      default:
+        throw new Error(`Unknown structuredData kind "${kind}" on route ${route.path}.`);
+    }
+  });
+
+// Everything a route's <head> needs for search and social. One owner, so the
+// share card, the title and the description can only change together.
+// Mirrors what components/Seo.tsx computes at runtime: the card comes from the
+// SAME path rule (shareCardPath here, shareCardImage in utils/seo.ts) and the
+// same 1200x630 declaration, which tests/seoMeta.test.ts compares directly.
+export const buildRouteSeo = (route) => ({
+  title: route.title,
+  description: route.description,
+  image: absoluteUrl(shareCardPath(route.path)),
+  // Mirrors components/Seo.tsx: the route's own card is announced with the page
+  // title, and the generic card keeps the brand description. Same strings, or the
+  // served head and the hydrated head disagree about the same image.
+  imageAlt: route.cardTitle ? `${route.title} share card` : DEFAULT_IMAGE_ALT,
+  imageWidth: DEFAULT_IMAGE_WIDTH,
+  imageHeight: DEFAULT_IMAGE_HEIGHT,
+  url: absoluteUrl(route.path),
+  type: 'website',
+});
+
+export const buildRouteStructuredData = (route, products, context) => {
+  const nodes = routeNodes(route, context);
+
+  if (route.collection) {
+    const matching = products.filter(route.collection.where);
+    nodes.push(
+      collectionJsonLd(
+        route.collection.sort ? route.collection.sort(matching) : matching,
+        route.collection.name,
+        route.path
+      )
+    );
+  }
+
+  return nodes.length > 0 ? buildStructuredDataGraph(nodes) : undefined;
+};
+
+export const buildHomeStructuredData = (sameAs) =>
+  buildStructuredDataGraph([organizationJsonLd(sameAs), webSiteJsonLd()]);
+
+// Writes one meta tag, replacing any tag inherited from index.html (every
+// prerendered page starts as a copy of the homepage shell). An undefined
+// content REMOVES the tag instead of blanking it: a product page must not keep
+// the share card's 1200x630 declaration while pointing at a product photo.
+const replaceOrInsertMeta = (html, attribute, key, content) => {
+  // Capture the leading whitespace so a replacement keeps the tag's original
+  // position in the head (a plain `\s*` match would swallow the line break and
+  // fold the tag onto the previous line).
+  const pattern = new RegExp(`(\\s*)<meta\\s+${attribute}="${key}"[^>]*>`, 'i');
+  const match = html.match(pattern);
+
+  if (content === undefined || content === null || content === '') {
+    return match ? html.replace(match[0], '') : html;
+  }
+
+  const replacement = `<meta ${attribute}="${key}" content="${escapeHtml(content)}" />`;
+
+  if (match) {
+    // Function replacement, not a string: a description containing "$&" or
+    // "$50" would otherwise be read as a substitution pattern and mangled.
+    return html.replace(match[0], () => `${match[1] || '\n  '}${replacement}`);
   }
 
   return html.replace('</head>', `  ${replacement}\n</head>`);
@@ -363,19 +662,40 @@ const replaceOrInsertMeta = (html, attribute, key, content) => {
 
 const replaceOrInsertCanonical = (html, href) => {
   const replacement = `<link rel="canonical" href="${escapeHtml(href)}" />`;
-  const pattern = /<link\s+rel="canonical"[^>]*>/i;
+  const pattern = /(\s*)<link\s+rel="canonical"[^>]*>/i;
+  const match = html.match(pattern);
 
-  if (pattern.test(html)) {
-    return html.replace(pattern, replacement);
+  if (match) {
+    return html.replace(match[0], () => `${match[1] || '\n  '}${replacement}`);
   }
 
   return html.replace('</head>', `  ${replacement}\n</head>`);
 };
 
-const injectSeo = (html, seo, jsonLd) => {
-  let output = html
-    .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(seo.title)}</title>`)
-    .replace(/\s*<script\s+type="application\/ld\+json"\s+data-seo-static-jsonld="true">[\s\S]*?<\/script>/gi, '');
+// Replaces any previously injected static JSON-LD. Idempotent, so a page
+// rebuilt from an already-injected base never ends up with two graphs.
+const injectJsonLd = (html, jsonLd) => {
+  const output = html.replace(
+    /\s*<script\s+type="application\/ld\+json"\s+data-seo-static-jsonld="true">[\s\S]*?<\/script>/gi,
+    ''
+  );
+
+  if (!jsonLd) return output;
+
+  return output.replace(
+    '</head>',
+    `  <script type="application/ld+json" data-seo-static-jsonld="true">${JSON.stringify(jsonLd)}</script>\n</head>`
+  );
+};
+
+export const injectSeo = (html, seo, jsonLd) => {
+  // Function replacements throughout: titles and descriptions routinely contain
+  // "$" (prices), and `$&`/`$5` in a replacement string is a substitution
+  // pattern, not text.
+  let output = injectJsonLd(
+    html.replace(/<title>[\s\S]*?<\/title>/i, () => `<title>${escapeHtml(seo.title)}</title>`),
+    null
+  );
 
   output = replaceOrInsertMeta(output, 'name', 'description', seo.description);
   output = replaceOrInsertMeta(output, 'name', 'robots', 'index,follow');
@@ -384,12 +704,27 @@ const injectSeo = (html, seo, jsonLd) => {
   output = replaceOrInsertMeta(output, 'property', 'og:type', seo.type || 'website');
   output = replaceOrInsertMeta(output, 'property', 'og:url', seo.url);
   output = replaceOrInsertMeta(output, 'property', 'og:image', seo.image);
+  output = replaceOrInsertMeta(output, 'property', 'og:image:alt', seo.imageAlt);
+  output = replaceOrInsertMeta(
+    output,
+    'property',
+    'og:image:width',
+    seo.imageWidth ? String(seo.imageWidth) : undefined
+  );
+  output = replaceOrInsertMeta(
+    output,
+    'property',
+    'og:image:height',
+    seo.imageHeight ? String(seo.imageHeight) : undefined
+  );
   output = replaceOrInsertMeta(output, 'property', 'og:site_name', 'Coalition');
+  output = replaceOrInsertMeta(output, 'property', 'og:locale', SEO_LOCALE);
   output = replaceOrInsertMeta(output, 'name', 'twitter:card', 'summary_large_image');
   output = replaceOrInsertMeta(output, 'name', 'twitter:site', '@sgcoalition');
   output = replaceOrInsertMeta(output, 'name', 'twitter:title', seo.title);
   output = replaceOrInsertMeta(output, 'name', 'twitter:description', seo.description);
   output = replaceOrInsertMeta(output, 'name', 'twitter:image', seo.image);
+  output = replaceOrInsertMeta(output, 'name', 'twitter:image:alt', seo.imageAlt);
   output = replaceOrInsertCanonical(output, seo.url);
 
   if (seo.type === 'product' && typeof seo.price === 'number') {
@@ -397,14 +732,7 @@ const injectSeo = (html, seo, jsonLd) => {
     output = replaceOrInsertMeta(output, 'property', 'product:price:currency', 'USD');
   }
 
-  if (jsonLd) {
-    output = output.replace(
-      '</head>',
-      `  <script type="application/ld+json" data-seo-static-jsonld="true">${JSON.stringify(jsonLd)}</script>\n</head>`
-    );
-  }
-
-  return output;
+  return injectJsonLd(output, jsonLd);
 };
 
 const writeStaticPage = (baseHtml, pagePath, seo, jsonLd) => {
@@ -432,10 +760,17 @@ const writeStaticPage = (baseHtml, pagePath, seo, jsonLd) => {
 //
 // Each `title`/`description` mirrors the copy the page sets at runtime via
 // <Seo>, so the prerendered meta and the client-set meta agree; pages without
-// a <Seo> (membership, sgcoin, help, live-orders) get copy written here, and
-// titles already containing the brand name are left unprefixed exactly as
-// components/Seo.tsx would.
+// a <Seo> (membership, sgcoin) get copy written here, and titles already
+// containing the brand name are left unprefixed exactly as components/Seo.tsx
+// would.
 // `collection` emits an ItemList JSON-LD over the matching products.
+// `structuredData` names the JSON-LD node kinds for the page (see routeNodes).
+// Every route declares at least Organization + WebPage; pages that mount a
+// <Seo> rebuild the identical graph at runtime, and pages that do not keep the
+// prerendered one, so no route ships with an empty head.
+// `cardTitle` is the headline of the route's social share card — a short label,
+// not the SEO title. scripts/generateOgCard.mjs requires it. The runtime resolves
+// the same card through shareCardImage() (utils/seo.ts), pinned by tests/seoMeta.
 export const STATIC_ROUTES = [
   {
     path: '/shop',
@@ -443,6 +778,8 @@ export const STATIC_ROUTES = [
     changefreq: 'daily',
     title: 'Coalition | Shop Streetwear Drops',
     description: 'Shop Coalition streetwear drops, limited wallets, tees, hats, and archive-ready pieces from Baltimore.',
+    cardTitle: 'Shop Drops',
+    structuredData: ['organization', 'webPage'],
     collection: { name: 'Coalition Shop', where: (product) => !product.archived },
   },
   {
@@ -451,6 +788,8 @@ export const STATIC_ROUTES = [
     changefreq: 'monthly',
     title: 'Coalition | Premium Wallets',
     description: 'Hand-built, one-of-one, full-grain leather wallets. Made in-house, drop by drop — no factory, no shortcuts, just the process.',
+    cardTitle: 'Premium Wallets',
+    structuredData: ['organization', 'webPage'],
   },
   {
     path: '/archive',
@@ -458,7 +797,13 @@ export const STATIC_ROUTES = [
     changefreq: 'weekly',
     title: 'Coalition | Archive',
     description: 'Explore the Coalition archive of sold-out drops, 1/1 customs, limited wallets, and past releases.',
-    collection: { name: 'Coalition Archive', where: (product) => product.archived },
+    cardTitle: 'The Archive',
+    structuredData: ['organization', 'webPage'],
+    collection: {
+      name: 'Coalition Archive',
+      where: (product) => product.archived,
+      sort: sortArchivedProducts,
+    },
   },
   {
     path: '/about',
@@ -467,6 +812,8 @@ export const STATIC_ROUTES = [
     title: 'About | Coalition | Crafted in Baltimore',
     description:
       "Coalition was born from loss. Gmoneyworld — more than a brand, it's a movement. Quality, community, and the hustle, built by hand in Baltimore.",
+    cardTitle: 'Our Story',
+    structuredData: ['organization', 'aboutPage'],
   },
   {
     path: '/membership',
@@ -474,6 +821,8 @@ export const STATIC_ROUTES = [
     changefreq: 'monthly',
     title: 'Membership | Coalition VIP',
     description: 'Coalition VIP membership — $15/month. Get $15 monthly store credit, 15 giveaway tickets, early access to drops, and free shipping.',
+    cardTitle: 'VIP Membership',
+    structuredData: ['organization', 'webPage'],
   },
   {
     path: '/sgcoin',
@@ -481,6 +830,8 @@ export const STATIC_ROUTES = [
     changefreq: 'monthly',
     title: 'Coalition | SGCOIN',
     description: 'Buy Coalition SGCOIN directly and receive 10% more coins than swapping — delivered to your wallet within 24 hours.',
+    cardTitle: 'SGCOIN',
+    structuredData: ['organization', 'webPage'],
   },
   {
     path: '/help',
@@ -488,6 +839,8 @@ export const STATIC_ROUTES = [
     changefreq: 'monthly',
     title: 'Coalition | Help Center',
     description: 'Answers on orders, shipping, returns, membership and SGCOIN, plus AI-powered support from the Coalition team.',
+    cardTitle: 'Help Center',
+    structuredData: ['organization', 'webPage', 'faqPage'],
   },
   {
     path: '/live-orders',
@@ -495,6 +848,8 @@ export const STATIC_ROUTES = [
     changefreq: 'hourly',
     title: 'Coalition | Recently Ordered',
     description: 'A live feed of real Coalition orders moving across the country — recently ordered pieces, updated as they ship.',
+    cardTitle: 'Live Orders',
+    structuredData: ['organization', 'webPage'],
   },
   {
     path: '/community',
@@ -502,10 +857,231 @@ export const STATIC_ROUTES = [
     changefreq: 'weekly',
     title: 'Community | Coalition | Built in Baltimore, by hand',
     description: 'Join the Coalition community — Discord, Instagram, X, YouTube, and the buyer log. Real conversations, real orders, real builds.',
+    cardTitle: 'Community',
+    structuredData: ['organization', 'webPage'],
+  },
+  {
+    path: '/blog',
+    priority: '0.6',
+    changefreq: 'weekly',
+    title: 'Coalition | Community Updates',
+    description: 'Drop announcements, build notes and community updates from Coalition — written as each release ships.',
+    cardTitle: 'Community Updates',
+    structuredData: ['organization', 'webPage'],
   },
 ];
 
-export const buildSitemap = (products) => {
+// ── Blog posts ───────────────────────────────────────────────────────────────
+//
+// A post is prerendered exactly like a product: one page per slug, with its own
+// head and its own JSON-LD. Post URLs are NOT in STATIC_ROUTES, because a static
+// route must own a generated share card (scripts/generateOgCard.mjs throws
+// without a cardTitle) while a post's share image is its own cover photo.
+//
+// The list comes from the live `posts` table — the same rows pages/Blog.tsx
+// renders — because that table is the live source: scripts/generateDropPost.ts
+// writes it from the drop registry's copy.* and pages/admin/BlogManager.tsx
+// edits it. The registry is the offline fallback, so the build never depends on
+// a network read and a post that exists in copy.* but not yet in the table still
+// ships its own head instead of the shell whose canonical is "/" — the bug that
+// left /membership, /about and /wallets claiming to be the homepage.
+//
+// Both paths return the same shape, so everything downstream has one owner:
+//   { slug, title, excerpt, coverImage, publishedAt, tags, category }
+export const blogPostPath = (slug) => `/blog/${encodeURIComponent(slug)}`;
+
+// Mirrors components/Seo.tsx's prefix rule. Duplicated rather than imported
+// because this script is plain Node; tests/seoMeta.test.ts compares the two.
+const brandTitle = (title) => (title.includes('Coalition') ? title : `Coalition | ${title}`);
+
+const POST_SUPABASE_TIMEOUT_MS = 5000;
+
+// Same fallback chain as utils/seo.ts's buildBlogPostDescription: the authored
+// excerpt, else the body as plain text, else a sentence built only from what the
+// post actually asserts.
+const postDescription = (post) =>
+  truncateSeoText(
+    post.excerpt
+      || cleanText(post.content || '')
+      || `${post.title} — a Coalition drop, written when it shipped.`
+  );
+
+const postDate = (post) => {
+  const parsed = new Date(post.publishedAt || post.createdAt || '');
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString();
+};
+
+// drops.ts is TypeScript and this script is plain Node, so it is parsed the same
+// way constants/products.ts is. Only the copy block is needed: the post's
+// headline and snippet, plus the spec's front image as its cover.
+//
+// The registry cannot say whether a drop has been published yet, so this path
+// emits every drop it knows. Only an offline build (or a table outage) can reach
+// it, and the live table stays authoritative — but that is the trade: a build
+// with no database gives a not-yet-published drop a page and a sitemap row.
+export const parseRegistryPosts = () => {
+  const source = readFile('scripts/story-reveal-specs/drops.ts');
+  const declarationStart = source.indexOf('export const DROPS');
+  const initializerStart = declarationStart >= 0 ? source.indexOf('=', declarationStart) : -1;
+  const mapStart = initializerStart >= 0 ? source.indexOf('{', initializerStart) : -1;
+  const mapEnd = mapStart >= 0 ? scanToMatching(source, mapStart, '{', '}') : -1;
+
+  if (declarationStart < 0 || mapStart < 0 || mapEnd < 0) {
+    throw new Error(
+      'Unable to locate the DROPS registry in scripts/story-reveal-specs/drops.ts. '
+      + `declarationStart=${declarationStart}, mapStart=${mapStart}, mapEnd=${mapEnd}.`
+    );
+  }
+
+  const body = source.slice(mapStart + 1, mapEnd);
+  const posts = [];
+  const entryPattern = /(['"])([a-z0-9-]+)\1\s*:\s*\{/g;
+  let entry;
+
+  while ((entry = entryPattern.exec(body))) {
+    const entryStart = body.indexOf('{', entry.index + entry[0].length - 1);
+    const entryEnd = entryStart >= 0 ? scanToMatching(body, entryStart, '{', '}') : -1;
+    if (entryEnd < 0) continue;
+
+    const block = body.slice(entryStart, entryEnd + 1);
+    const slug = readStringField(block, 'postSlug');
+    const title = readStringField(block, 'postTitle');
+    if (!slug || !title) continue;
+
+    const tagList = block.match(/postTags\s*:\s*\[([^\]]*)\]/);
+    const front = readStringField(block, 'front');
+    const dropDate = readStringField(block, 'dropDate');
+
+    posts.push({
+      slug,
+      title,
+      excerpt: readStringField(block, 'postExcerpt'),
+      coverImage: front ? `/${front.replace(/^\.\.\/\.\.\/public\//, '')}` : '',
+      // Matches the published_at scripts/generateDropPost.ts writes for a drop.
+      publishedAt: dropDate ? `${dropDate}T16:00:00.000Z` : '',
+      tags: tagList ? [...tagList[1].matchAll(/(['"])(.*?)\1/g)].map((match) => match[2]) : ['drop'],
+      category: 'drop',
+    });
+  }
+
+  if (posts.length === 0) {
+    throw new Error('The drop registry parsed to zero posts — every fallback blog page would vanish.');
+  }
+
+  return posts;
+};
+
+// Published rows only, mirroring the query in pages/Blog.tsx. Returns null (not
+// an empty array) when the table cannot be read, so the caller can tell
+// "unreachable" from "nothing published yet" and fall back deliberately.
+// This script runs as its own Node process (prebuild/postbuild), so Vite's .env
+// loading does not reach it — without this a local build would always take the
+// registry fallback while a deploy read the table, and the two would disagree
+// about which pages exist. Vercel injects real environment variables, so on a
+// deploy this is a no-op. Lazily and optionally: no dotenv or no .env is a
+// normal state (tests and a bare checkout), not an error.
+const loadLocalEnv = () => {
+  if (process.env.VITE_SUPABASE_URL) return;
+
+  try {
+    createRequire(import.meta.url)('dotenv').config({
+      path: path.join(ROOT, '.env'),
+      quiet: true,
+    });
+  } catch {
+    // Falls through to the registry fallback.
+  }
+};
+
+export const fetchPublishedPosts = async () => {
+  loadLocalEnv();
+
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key || /placeholder/i.test(url)) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), POST_SUPABASE_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(
+      `${url.replace(/\/+$/, '')}/rest/v1/posts`
+        + '?select=slug,title,excerpt,cover_image,tags,published_at,category,is_published'
+        + '&is_published=eq.true&order=published_at.desc',
+      { headers: { apikey: key, authorization: `Bearer ${key}` }, signal: controller.signal }
+    );
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const rows = await response.json();
+    if (!Array.isArray(rows) || rows.length === 0) throw new Error('no published rows');
+
+    return rows
+      .filter((row) => row && row.slug && row.title)
+      .map((row) => ({
+        slug: row.slug,
+        title: row.title,
+        excerpt: row.excerpt || '',
+        coverImage: row.cover_image || '',
+        publishedAt: row.published_at || '',
+        tags: Array.isArray(row.tags) ? row.tags : [],
+        category: row.category || 'drop',
+      }));
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.log(`[seo] posts table unavailable (${reason}) — reading the drop registry instead.`);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+// Mirrors getBlogPostSeo in utils/seo.ts (compared by tests/seoMeta.test.ts). A
+// post with a cover photo announces that photo and no declared size — the rule a
+// product page follows, because a 1200x630 declaration on a photo of another
+// shape makes scrapers crop it. A post with no cover keeps the generic card.
+export const getPostSeo = (post) => ({
+  title: brandTitle(post.title),
+  description: postDescription(post),
+  image: post.coverImage ? absoluteUrl(post.coverImage) : absoluteUrl(DEFAULT_IMAGE),
+  imageAlt: post.coverImage ? `${brandTitle(post.title)} — drop photograph` : DEFAULT_IMAGE_ALT,
+  imageWidth: post.coverImage ? undefined : DEFAULT_IMAGE_WIDTH,
+  imageHeight: post.coverImage ? undefined : DEFAULT_IMAGE_HEIGHT,
+  url: absoluteUrl(blogPostPath(post.slug)),
+  path: blogPostPath(post.slug),
+  type: 'article',
+});
+
+// Mirrors buildBlogPostJsonLd in utils/seo.ts, which no test compares yet because
+// the runtime side ships the same node the same way pages/ProductDetails.tsx
+// ships a Product. Keep the two in step by hand, like productJsonLd above.
+export const postJsonLd = (post) => {
+  const seo = getPostSeo(post);
+  const keywords = (post.tags || []).join(', ');
+  const datePublished = postDate(post);
+
+  return {
+    '@context': 'https://schema.org',
+    '@id': `${seo.url}#article`,
+    '@type': 'BlogPosting',
+    headline: post.title,
+    description: seo.description,
+    image: [seo.image],
+    ...(datePublished ? { datePublished } : {}),
+    author: { '@type': 'Organization', name: 'Coalition' },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Coalition',
+      logo: { '@type': 'ImageObject', url: ORGANIZATION_LOGO },
+    },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': seo.url },
+    url: seo.url,
+    articleSection: post.category || 'drop',
+    ...(keywords ? { keywords } : {}),
+    inLanguage: 'en-US',
+  };
+};
+
+export const buildSitemap = (products, posts = []) => {
   const today = new Date().toISOString().slice(0, 10);
   // Derived from STATIC_ROUTES so the sitemap and the prerendered pages can
   // never disagree about which static routes exist. '/' leads (it is the
@@ -530,11 +1106,22 @@ export const buildSitemap = (products) => {
       changefreq: isDemoted ? 'monthly' : 'weekly',
     };
   });
-  const urls = [...staticPages, ...productPages];
+  // Blog posts are advertised from the same list the prerenderer writes pages
+  // for: a URL in sitemap.xml with no page behind it serves the shell whose
+  // canonical is "/", and a page with no sitemap entry is invisible. lastmod is
+  // the post's own publication date, which is a real signal, instead of the
+  // build date every other entry carries.
+  const postPages = posts.map((post) => ({
+    loc: blogPostPath(post.slug),
+    priority: '0.6',
+    changefreq: 'monthly',
+    lastmod: postDate(post).slice(0, 10) || today,
+  }));
+  const urls = [...staticPages, ...productPages, ...postPages];
 
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
     .map(
-      (entry) => `  <url>\n    <loc>${absoluteUrl(entry.loc)}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${entry.changefreq}</changefreq>\n    <priority>${entry.priority}</priority>\n  </url>`
+      (entry) => `  <url>\n    <loc>${absoluteUrl(entry.loc)}</loc>\n    <lastmod>${entry.lastmod || today}</lastmod>\n    <changefreq>${entry.changefreq}</changefreq>\n    <priority>${entry.priority}</priority>\n  </url>`
     )
     .join('\n')}\n</urlset>\n`;
 };
@@ -544,9 +1131,21 @@ const writeTextFile = (targetDir, fileName, content) => {
   fs.writeFileSync(path.join(targetDir, fileName), content);
 };
 
-const main = () => {
+const main = async () => {
   const products = parseProducts();
-  const sitemap = buildSitemap(products);
+  // Live table first — the same rows the blog renders — then the drop registry.
+  // Fetching before the dist/index.html check below is deliberate: the prebuild
+  // pass writes public/sitemap.xml from this list, so the sitemap and the
+  // prerendered pages always describe the same set of posts.
+  const livePosts = await fetchPublishedPosts();
+  const posts = livePosts || parseRegistryPosts();
+  console.log(
+    livePosts
+      ? `[seo] Posts: ${posts.length} from the live posts table.`
+      : `[seo] Posts: ${posts.length} from the drop registry (fallback).`
+  );
+
+  const sitemap = buildSitemap(products, posts);
   const robots = `User-agent: *\nAllow: /\nSitemap: ${SITE_ORIGIN}/sitemap.xml\n`;
 
   writeTextFile(PUBLIC_DIR, 'sitemap.xml', sitemap);
@@ -574,6 +1173,8 @@ const main = () => {
   }
 
   const baseHtml = fs.readFileSync(DIST_INDEX, 'utf8');
+  const sameAs = parseBrandSameAs();
+  const faqs = parseHelpFaqs();
   writeTextFile(DIST_DIR, 'sitemap.xml', sitemap);
   writeTextFile(DIST_DIR, 'robots.txt', robots);
 
@@ -581,18 +1182,16 @@ const main = () => {
     writeStaticPage(
       baseHtml,
       route.path,
-      {
-        title: route.title,
-        description: route.description,
-        image: absoluteUrl(DEFAULT_IMAGE),
-        url: absoluteUrl(route.path),
-        type: 'website',
-      },
-      route.collection
-        ? collectionJsonLd(products.filter(route.collection.where), route.collection.name, route.path)
-        : undefined
+      buildRouteSeo(route),
+      buildRouteStructuredData(route, products, { sameAs, faqs })
     );
   }
+
+  // '/' has no prerendered copy: dist/index.html IS the homepage. Inject only
+  // the JSON-LD graph — the title, description, canonical and og copy in
+  // index.html are hand-authored and already correct, and injectSeo would
+  // overwrite the separate og:description with the meta description.
+  fs.writeFileSync(DIST_INDEX, injectJsonLd(baseHtml, buildHomeStructuredData(sameAs)));
 
   for (const product of products) {
     const seo = getProductSeo(product);
@@ -607,7 +1206,13 @@ const main = () => {
     );
   }
 
-  console.log(`[seo] Generated sitemap, robots, and ${products.length + STATIC_ROUTES.length} static preview pages.`);
+  for (const post of posts) {
+    writeStaticPage(baseHtml, blogPostPath(post.slug), getPostSeo(post), postJsonLd(post));
+  }
+
+  console.log(
+    `[seo] Generated sitemap, robots, ${STATIC_ROUTES.length} prerendered static pages with JSON-LD, ${products.length} product pages, ${posts.length} blog posts, and the homepage graph.`
+  );
 };
 
 // Only run `main()` when this module is executed directly (e.g. `node scripts/generateSeoArtifacts.mjs`),
@@ -616,5 +1221,8 @@ const main = () => {
 // on Windows, `process.argv[1]` uses backslashes (`C:\Users\...`), so a naive `file://${process.argv[1]}`
 // string would not match the `file:///C:/Users/...` form of `import.meta.url`.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main();
+  main().catch((error) => {
+    console.error('[seo] generation failed:', error);
+    process.exit(1);
+  });
 }
