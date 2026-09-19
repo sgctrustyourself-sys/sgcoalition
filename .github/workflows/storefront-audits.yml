@@ -52,6 +52,10 @@ jobs:
       # instead of chasing them one PR-revision at a time. The combined
       # result is checked in the report step below.
       - name: Run image-path audit
+        # FLAG — a green step here does not mean the audit passed: `| tee` makes
+        # this step's exit status tee's, and the script's real code is only
+        # echoed (PIPESTATUS[0]) — a second swallow on top of the one the Report
+        # step's flag describes.
         id: audit
         continue-on-error: true
         env:
@@ -71,6 +75,10 @@ jobs:
         run: npx vitest run tests/featuredExclusivity.test.ts
 
       - name: Run wallet-shape audit
+        # FLAG — a green step here does not mean the audit passed: `| tee` makes
+        # this step's exit status tee's, and the script's real code is only
+        # echoed (PIPESTATUS[0]) — a second swallow on top of the one the Report
+        # step's flag describes.
         id: wallet-shape
         continue-on-error: true
         env:
@@ -84,6 +92,13 @@ jobs:
           echo "wallet-shape exit code: ${PIPESTATUS[0]}"
 
       - name: Report combined gate result
+        # FLAG — the name overstates: this condition cannot fire for the three
+        # gates above. GitHub computes steps.<id>.conclusion *after*
+        # continue-on-error ("when a continue-on-error step fails, the outcome is
+        # failure, but the final conclusion is success"), and all three set it —
+        # so a drifting audit or a failing featured-exclusivity test still
+        # reaches "All gates passed." A green job means the gates ran, not that
+        # they passed. The same caveat applies to this job's display name.
         if: always()
         # Fail the job with a clear ::error:: annotation if any gate failed.
         # The audit artifacts are uploaded separately below, regardless

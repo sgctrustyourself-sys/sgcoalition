@@ -42,6 +42,11 @@ jobs:
         run: npm ci
 
       - name: Install Playwright Chromium (for rendererSmoke tests)
+        # FLAG — the parenthetical overstates: the consumer it names is not run
+        # here. rendererSmoke calls `npm run reveal` (a PNG pipeline, no browser)
+        # and is excluded from `npm test`, as are the only two tests that import
+        # playwright (clsRegression, viewContractButton). vitest.config.ts owns
+        # which files the suite runs, so a green install supports no check here.
         run: npx playwright install --with-deps chromium
 
       # jsdom environment — no browser or Supabase secrets needed.
@@ -58,6 +63,10 @@ jobs:
       #                               gate test never finds a Pay button. This is
       #                               a public test-mode key by design.
       - name: Run full vitest suite
+        # FLAG — "full" overstates: `npm test` is `vitest run`, which excludes
+        # three existing test files (clsRegression, rendererSmoke,
+        # viewContractButton) per vitest.config.ts, and no step in this workflow
+        # or any other runs them. Read a green here as the configured suite.
         run: npm test
         env:
           VITE_SALES_FINAL: 'true'
