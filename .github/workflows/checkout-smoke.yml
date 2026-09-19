@@ -26,6 +26,16 @@ on:
 
 jobs:
   smoke:
+    # This name overstates what a green run proves, and is deliberately left as
+    # it is (flagged, not renamed). The job takes two paths:
+    #   - a reachable preview deployment (preview smoke step below), where the
+    #     server-pricing agreement IS checked against the real /api;
+    #   - the local-preview fallback, where `vite preview` serves static files
+    #     only, so that step sets SMOKE_SKIP_API=1 and the script reports the
+    #     pricing check as SKIPPED (see the ::notice it emits).
+    # So a green "Shop-to-checkout smoke" can mean "the storefront flow was
+    # exercised — product, quantity, cart — and the money path was NOT".
+    # Read it as the storefront flow, not as proof the checkout API agreed.
     name: Shop-to-checkout smoke
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -94,7 +104,7 @@ jobs:
       - name: Build a local preview and smoke the client flow
         # Runs whenever the preview smoke did NOT run: a plain PR with no preview
         # URL (no Vercel app installed), or a preview URL we cannot reach without
-        # a bypass secret. Mirrors loader-fade.yml — the server must live in the
+        # a bypass secret. Mirrors boot-checks.yml — the server must live in the
         # same step as the test, because Actions kills background processes when
         # a step ends.
         #

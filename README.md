@@ -856,7 +856,7 @@ npm run test:fade
 
 The `test:fade` script (`scripts/verify-loader-fade.mjs`) throttles to Slow 3G via CDP, samples `#initial-loader`'s opacity at 10 wall-clock intervals over ~10 seconds, takes screenshots, and asserts that opacity decreased AND React mounted. Pass criteria: `opacityDecreased && finalState.reactChildCount > 0`. Exit code 1 on failure, which CI consumes to fail the workflow. Output goes to `.loader-fade-screenshots/result.json` and ten `loader-fade-NNNNNms.png` files.
 
-CI: `.github/workflows/loader-fade.yml` runs the same test automatically on every PR and push to `main`. The workflow:
+CI: `.github/workflows/boot-checks.yml` runs both boot checks — this test and the injected-article check — automatically on every PR and push to `main`. The workflow:
 
 - Uses `permissions: contents: read` (least-privilege) and `concurrency: cancel-in-progress` (kills superseded runs on rapid pushes).
 - Installs deps, then `npx playwright install --with-deps chromium`, then runs `npm run build`.
@@ -873,7 +873,7 @@ Both `#initial-loader` and `#noscript-fallback` are hidden via `@media print { d
 - `index.tsx` — fade-out hook (listener-before-style pattern, `mounted` flag, 600ms safety net)
 - `public/nojs.html` — static no-JS fallback page (self-contained, no external requests)
 - `scripts/verify-loader-fade.mjs` — Playwright verification script (Slow 3G via CDP, opacity sampling, screenshots)
-- `.github/workflows/loader-fade.yml` — GitHub Actions CI workflow (single-step preview+test, concurrency, artifact upload)
+- `.github/workflows/boot-checks.yml` — GitHub Actions CI workflow (single-step preview, both boot checks, concurrency, artifact upload)
 - `package.json > "scripts" > "test:fade"` — local test command
 
 ## Cross-cut category filters on /shop

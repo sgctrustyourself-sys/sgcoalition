@@ -28,7 +28,7 @@
 // EXIT:    0 all active wallet-named rows match the invariant.
 //          1 any drift detected OR any Supabase fetch error.
 //
-// Non-mutating. Wire into the same .github/workflows/image-path-audit.yml
+// Non-mutating. Wire into the same .github/workflows/storefront-audits.yml
 // gate that already runs the image-path audit + the featured-exclusivity
 // tests so a single CI run surfaces all three classes of drift.
 
