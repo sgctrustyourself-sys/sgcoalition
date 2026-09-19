@@ -1,4 +1,4 @@
-name: Image-Path Audit + Featured-Exclusivity Tests
+name: Storefront Audits — Image-Path + Wallet-Shape + Featured-Exclusivity
 
 on:
   pull_request:
@@ -25,7 +25,7 @@ on:
 
 jobs:
   audit:
-    name: Run image-path audit + featured-exclusivity tests
+    name: Run image-path, wallet-shape and featured-exclusivity gates
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

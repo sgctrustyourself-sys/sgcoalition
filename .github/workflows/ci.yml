@@ -1,4 +1,4 @@
-name: CI — Vitest + Build + Depcheck
+name: CI — Vitest (fixtured + bare) + Build + Depcheck
 
 on:
   pull_request:

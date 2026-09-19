@@ -1,4 +1,4 @@
-name: Loader Fade Regression
+name: Boot Checks — Loader Fade + Injected Article
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   loader-fade:
-    name: Verify #initial-loader fade transition
+    name: Verify loader fade and injected-article removal
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
