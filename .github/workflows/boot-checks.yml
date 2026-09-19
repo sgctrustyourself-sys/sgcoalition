@@ -6,14 +6,14 @@ on:
     branches: [main]
 
 jobs:
-  loader-fade:
+  boot-checks:
     name: Verify loader fade and injected-article removal
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
     concurrency:
-      group: loader-fade-${{ github.workflow }}-${{ github.ref }}
+      group: boot-checks-${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
 
     steps:
@@ -77,6 +77,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: loader-fade-screenshots
+          name: boot-checks-screenshots
           path: .loader-fade-screenshots/
           if-no-files-found: ignore
