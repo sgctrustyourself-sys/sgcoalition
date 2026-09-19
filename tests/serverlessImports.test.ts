@@ -26,7 +26,14 @@ describe('serverless native-ESM relative imports', () => {
         ]);
     });
 
+    // A filesystem sweep of api/services/utils/constants (108 files, ~740KB)
+    // plus the TypeScript compiler load that parses them — not a unit test.
+    // Measured at ~1-2s warm, but 5-13s when the compiler load lands cold or
+    // beside the suite's parallel workers, so vitest's 5s default made this
+    // time out mid-suite and the assertion never ran. That budget is now
+    // explicit: the release gate runs this suite on every Vercel build, where a
+    // spurious timeout would refuse a good production deploy.
     it('passes for every TypeScript source file in serverless-reachable directories', () => {
         expect(findExtensionlessRelativeImports(projectRoot)).toEqual([]);
-    });
+    }, 30_000);
 });
