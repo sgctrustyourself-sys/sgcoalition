@@ -119,8 +119,9 @@ describe('release gate wiring', () => {
         expect(existsSync(path.join(projectRoot, GUARD)), `${GUARD} must exist`).toBe(true);
 
         // Release mode, not the bare default: a Vercel build injects the
-        // project's VITE_ vars, so a run that keeps them can pass while
-        // checking nothing.
+        // project's own env vars, so a run that keeps them can pass while
+        // checking nothing. Which vars those are is owned once, by
+        // utils/deploymentEnv.mjs.
         expect(GUARD_MODE, 'the build must call the guard in release mode').toBe('--release');
     });
 

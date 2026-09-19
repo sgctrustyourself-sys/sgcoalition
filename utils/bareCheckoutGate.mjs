@@ -47,8 +47,10 @@ export const GUARD_SCRIPT = 'scripts/bareCheckoutGuard.mjs';
 
 /**
  * Release mode, and it must stay release mode: a Vercel build has the project's
- * own VITE_ vars injected into it, so without stripping them the suite would
- * fall back to them and pass while checking nothing.
+ * own environment injected into it — the client's VITE_ vars and the
+ * integrations' credentials alike — so without stripping it the suite would fall
+ * back to it and pass while checking nothing. Which vars that covers has one
+ * owner: utils/deploymentEnv.mjs.
  */
 export const GUARD_MODE = '--release';
 
