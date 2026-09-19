@@ -5,12 +5,19 @@
 // realm identity (`new TextEncoder().encode('') instanceof Uint8Array`) and
 // fails inside jsdom's realm. The pin is worth more against the config Vite
 // actually loads than against a re-description of it.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import viteConfig from '../vite.config';
-import { GUARD_MODE, GUARD_SCRIPT, PLUGIN_NAME } from '../utils/bareCheckoutGate.mjs';
+import {
+    GUARD_MODE,
+    GUARD_SCRIPT,
+    PLUGIN_NAME,
+    VERDICT_FILE,
+    publishGateVerdict,
+    verdictHandoffPath,
+} from '../utils/bareCheckoutGate.mjs';
 
 /**
  * The bare-checkout rule's callers, pinned by what they actually invoke.
@@ -32,6 +39,14 @@ import { GUARD_MODE, GUARD_SCRIPT, PLUGIN_NAME } from '../utils/bareCheckoutGate
  * against the one CI runs, resolved through package.json. Renaming an alias or
  * reformatting the workflow stays green; deleting the caller, making it a dev
  * server plugin, or pointing it somewhere else goes red.
+ *
+ * The last pin covers what a *deployment* can be asked: a build log needs
+ * dashboard access and a Vercel token, so the rule's verdict ships with the app
+ * at /gate-verdict.json instead, and a build that has no such record must not
+ * finish. What is exercised here is that handoff — read the rule's record, or
+ * refuse; publish the rule's own bytes, and consume them so nothing can be
+ * replayed. The writing half belongs to the guard, which runs the suite, so it
+ * is proven by a real build rather than from inside the suite it runs.
  */
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -122,5 +137,37 @@ describe('release gate wiring', () => {
             guardCalls.filter((command) => command.includes('--release')),
             'ci.yml must call the guard in its enforcing mode, not its release mode',
         ).toHaveLength(0);
+    });
+
+    it("ships the rule's own verdict with the build, and refuses to finish without one", () => {
+        const handoff = verdictHandoffPath();
+        const emitted: Array<{ fileName: string; source: string }> = [];
+        const context = {
+            emitFile: (file: { fileName: string; source: string }) => emitted.push(file),
+        };
+
+        // No record: this build has nothing to show, so it must not finish.
+        rmSync(handoff, { force: true });
+        expect(() => publishGateVerdict.call(context)).toThrow(/did not record a verdict/);
+        expect(emitted, 'a build without a record must publish nothing').toHaveLength(0);
+
+        // The rule's own bytes are what ship — not a summary this module invented.
+        const record = {
+            rule: 'bare-checkout',
+            verdict: 'passed',
+            suite: { files: { passed: 68, failed: 0 }, tests: { passed: 940, failed: 0 } },
+        };
+        mkdirSync(path.dirname(handoff), { recursive: true });
+        writeFileSync(handoff, `${JSON.stringify(record, null, 2)}\n`);
+        try {
+            publishGateVerdict.call(context);
+        } finally {
+            rmSync(handoff, { force: true });
+        }
+
+        expect(emitted).toHaveLength(1);
+        expect(emitted[0].fileName).toBe(VERDICT_FILE);
+        expect(JSON.parse(emitted[0].source)).toEqual(record);
+        expect(existsSync(handoff), 'the record is consumed, so it cannot be replayed').toBe(false);
     });
 });
