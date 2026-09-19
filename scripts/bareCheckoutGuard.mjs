@@ -30,11 +30,18 @@
  * matters. Off Vercel, `--release` skips: a developer's checkout legitimately
  * has a .env, and their local build is not a release.
  *
+ * `--verdict <path>` writes the rule's own record of what it decided, whenever
+ * it is asked to. Its only caller is the release path, which publishes that
+ * record with the app, so a deployment can be checked without reading a build
+ * log. The record carries the suite's counts because "the suite ran and passed"
+ * is worth nothing if it collected nothing — and the build may not finish
+ * without it.
+ *
  * The rule is not duplicated in YAML or anywhere else. Both callers run this.
  */
-import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 /**
  * Exactly the names Vitest loads (mode `test`), so a .env.example, a .envrc or
@@ -47,11 +54,70 @@ const VITE_PREFIX = 'VITE_';
 const release = process.argv.includes('--release');
 const onVercel = Boolean(process.env.VERCEL);
 
+const verdictFlag = process.argv.indexOf('--verdict');
+const verdictPath = verdictFlag > -1 ? process.argv[verdictFlag + 1] : undefined;
+
+const commitSha = () => {
+  if (process.env.VERCEL_GIT_COMMIT_SHA) return process.env.VERCEL_GIT_COMMIT_SHA;
+  const rev = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' });
+  return rev.status === 0 ? rev.stdout.trim() : null;
+};
+
+/**
+ * What the rule decided, in the rule's own words. Written only when a caller
+ * asked for it (`--verdict <path>`), so the CI caller stays a plain exit code.
+ */
+const writeVerdict = (verdict, extra = {}) => {
+  if (!verdictPath) return;
+  mkdirSync(dirname(verdictPath), { recursive: true });
+  writeFileSync(
+    verdictPath,
+    `${JSON.stringify(
+      {
+        rule: 'bare-checkout',
+        ruleScript: 'scripts/bareCheckoutGuard.mjs',
+        mode: release ? 'release' : 'bare',
+        verdict,
+        ranAt: new Date().toISOString(),
+        environment: process.env.VERCEL_ENV ?? (onVercel ? 'vercel' : 'local'),
+        commit: commitSha(),
+        ...extra,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+};
+
+/** Vitest's own summary, so the record shows how much was actually checked. */
+const suiteCounts = (output) => {
+  // Vitest colors that summary even when its output is a pipe, so the escapes
+  // come off first — otherwise every count silently records as null, and a
+  // record that cannot say what the suite contained is barely a record.
+  const plain = output.replace(/\x1b\[[0-9;]*m/g, '');
+  // A null line means the suite never got far enough to summarise at all; a
+  // line that is present but does not mention failures means none.
+  const summaryLine = (label) =>
+    plain.match(new RegExp(`^\\s*${label}\\s+(.+)$`, 'm'))?.[1] ?? null;
+  const count = (source, word) => {
+    if (source === null) return null;
+    const match = source.match(new RegExp(`(\\d+)\\s+${word}`));
+    return match ? Number(match[1]) : 0;
+  };
+  const files = summaryLine('Test Files');
+  const tests = summaryLine('Tests');
+  return {
+    files: { passed: count(files, 'passed'), failed: count(files, 'failed') },
+    tests: { passed: count(tests, 'passed'), failed: count(tests, 'failed') },
+  };
+};
+
 if (release && !onVercel) {
   console.log(
     'bare-checkout guard (release): not a Vercel build — skipped. ' +
       'The release path is the Vercel build; run `npm run gate:bare` to enforce this rule here.',
   );
+  writeVerdict('skipped');
   process.exit(0);
 }
 
@@ -98,8 +164,8 @@ console.log(
   `premise holds: none of ${ENV_FILES.join('/')} exists, and no VITE_ var is set — running the suite bare`,
 );
 
-// The suite itself, exactly as `npm test` runs it — no env supplied, and the
-// child inherits stdio so its failure output lands in the build/CI log.
+// The suite itself, exactly as `npm test` runs it — no env supplied, and its
+// output streamed straight through so failures land in the build/CI log.
 //
 // NODE_ENV is the one thing normalized rather than inherited. From a shell, or
 // from CI, `npm test` runs with no NODE_ENV and Vitest uses its test mode.
@@ -110,14 +176,26 @@ console.log(
 // function`, with nothing actually wrong with the tests.
 childEnv.NODE_ENV = 'test';
 
-const suite = spawnSync('npm', ['test'], {
-  env: childEnv,
-  stdio: 'inherit',
-  shell: process.platform === 'win32',
+const suite = spawn('npm', ['test'], { env: childEnv, shell: process.platform === 'win32' });
+
+const captured = [];
+suite.stdout.on('data', (chunk) => {
+  captured.push(chunk);
+  process.stdout.write(chunk);
+});
+suite.stderr.pipe(process.stderr);
+
+const outcome = await new Promise((resolve) => {
+  suite.on('error', (error) => resolve({ status: 1, error }));
+  suite.on('close', (code, signal) => resolve({ status: signal ? 1 : code ?? 1 }));
 });
 
-if (suite.error) {
-  die(`could not run the suite: ${suite.error.message}`);
+if (outcome.error) {
+  die(`could not run the suite: ${outcome.error.message}`);
 }
 
-process.exit(suite.status ?? 1);
+writeVerdict(outcome.status === 0 ? 'passed' : 'failed', {
+  suite: suiteCounts(Buffer.concat(captured).toString('utf8')),
+});
+
+process.exit(outcome.status);
