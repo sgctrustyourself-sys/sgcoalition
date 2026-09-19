@@ -3,6 +3,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { visualizer } from 'rollup-plugin-visualizer';
+import { bareCheckoutGate } from './utils/bareCheckoutGate.mjs';
 
 export default defineConfig(() => {
   return {
@@ -18,6 +19,11 @@ export default defineConfig(() => {
       }
     },
     plugins: [
+      // First, so a red bare-checkout rule stops the build before anything is
+      // emitted. This is deliberately a build plugin and not an npm hook: a
+      // Vercel build command of `npx vite build` skips every lifecycle hook, so
+      // `prebuild` could be routed around. See utils/bareCheckoutGate.mjs.
+      bareCheckoutGate(),
       react(),
       tailwindcss(),
       visualizer({
