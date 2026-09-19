@@ -74,6 +74,13 @@ jobs:
           exit $(( TEST_EXIT + ARTICLE_EXIT ))
 
       - name: Upload screenshots + result.json
+        # FLAG — the name overstates: this step reports success on every run
+        # while uploading nothing. Checked 2026-09-19: the repo carried 655
+        # artifacts and none of them a screenshots artifact — not from this
+        # workflow, ever — because `if-no-files-found: ignore` swallows an empty
+        # directory. The only writer is scripts/verify-loader-fade.mjs (its
+        # OUT_DIR), and README's "Loader Fade" section promises the artifact
+        # exists on failures too. Left as it is: making it real is a behavior change.
         if: always()
         uses: actions/upload-artifact@v4
         with:
