@@ -76,7 +76,7 @@ const ChatWidget = () => {
                     conversation.id,
                     'admin',
                     'Coalition Support',
-                    "Thanks for your message! We're currently offline (Mon-Fri 9am-5pm EST). We'll respond within 24 hours. For urgent matters, email support@sgcoalition.xyz",
+                    "Thanks for your message! We're currently offline (Mon-Fri 9am-5pm EST). We'll respond within 24 hours. For urgent matters, email sgctrustyourself@gmail.com",
                     'system'
                 );
 

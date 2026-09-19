@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { ArrowUpRight, Zap, Flame, Sparkles, Wand2, Globe, Database, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { fetchSGCoinData } from '../utils/sgcoinApi';
 import { useApp } from '../context/AppContext';
-import { ethers } from 'ethers';
 import { getBurnedSGCoinV1, getRobustProvider } from '../services/web3Service';
 import { POLYGON_RPC_URL } from '../constants';
 import { useLiquidity } from '../hooks/useLiquidity';
@@ -79,9 +78,8 @@ const WizardsPortal = () => {
                                 Dashboard
                             </Link>
                         ) : (
-                            <Link to="/sgcoin" className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-2.5 rounded-full hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 active:scale-95 shadow-lg font-black tracking-widest relative">
-                                <span className="absolute -top-2 -right-2 bg-green-400 text-black text-[7px] px-1.5 py-0.5 rounded-full font-black">+10%</span>
-                                Buy Direct
+                            <Link to="/sgcoin" className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-2.5 rounded-full hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 active:scale-95 shadow-lg font-black tracking-widest">
+                                Buy direct
                             </Link>
                         )}
                     </div>
@@ -130,10 +128,9 @@ const WizardsPortal = () => {
                                                 <motion.button
                                                     whileHover={{ scale: 1.02 }}
                                                     whileTap={{ scale: 0.98 }}
-                                                    className="px-12 py-5 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black uppercase tracking-widest text-xs flex items-center gap-3 rounded-full shadow-2xl hover:from-purple-700 hover:to-blue-700 transition-all relative overflow-hidden group"
+                                                    className="px-12 py-5 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black uppercase tracking-widest text-xs flex items-center gap-3 rounded-full shadow-2xl hover:from-purple-700 hover:to-blue-700 transition-all"
                                                 >
-                                                    <span className="absolute top-1 right-1 bg-green-400 text-black text-[8px] px-2 py-0.5 rounded-full font-black">+10% BONUS</span>
-                                                    Buy Direct <Zap className="w-4 h-4" />
+                                                    Buy direct <Zap className="w-4 h-4" />
                                                 </motion.button>
                                             </Link>
                                             <a href="https://dapp.quickswap.exchange/swap/best/ETH/0xd53e417107D0e01bBE74a704BB90fe7A6916eE1e" target="_blank" rel="noopener noreferrer">

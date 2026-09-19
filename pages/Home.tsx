@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { GripVertical, Eye, EyeOff, ChevronUp, ChevronDown, Plus } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Section } from '../types';
+import { selectFeaturedProduct } from '../utils/storefront';
 import ProductCard from '../components/ProductCard';
 import SmsSignup from '../components/SmsSignup';
 import Newsletter from '../components/Newsletter';
+import LiveOrdersTicker from '../components/LiveOrdersTicker';
 
 const Home = () => {
-    const { sections, products, isAdminMode, updateSections, updateSection, isLoading } = useApp();
+    const { sections, products, isAdminMode, updateSections, updateSection, isLoading, productionState } = useApp();
+
 
     const moveSection = (index: number, direction: 'up' | 'down') => {
         const newSections = [...sections];
@@ -42,6 +45,22 @@ const Home = () => {
                             <p className="text-lg md:text-2xl text-gray-300 font-light mb-10 tracking-wide max-w-2xl mx-auto">
                                 {section.content}
                             </p>
+                            {productionState && (
+                                <div className="mb-6">
+                                    <p
+                                        className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-1 font-medium"
+                                        aria-live="polite"
+                                    >
+                                        Currently being built · {productionState.currently_being_built_label} · last drop {productionState.last_drop_sku_label} · {productionState.last_drop_at}
+                                    </p>
+                                    <p
+                                        className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-medium"
+                                        aria-live="polite"
+                                    >
+                                        On deck · {productionState.on_deck_label} — cylinder {productionState.on_deck_cylinder_current} of {productionState.on_deck_cylinder_total}
+                                    </p>
+                                </div>
+                            )}
                             <Link to="/shop" className="inline-block bg-white text-black px-10 py-4 text-sm font-bold uppercase tracking-[0.2em] hover:bg-gray-200 hover:scale-105 transition-all duration-300 box-glow text-center">
                                 SHOP COLLECTION
                             </Link>
@@ -143,9 +162,9 @@ const Home = () => {
                     break;
                 }
 
-                const featured = products && products.length > 0
-                    ? (products.find(p => p.isFeatured) || products[0])
-                    : null;
+                // Featured product selection is unit-tested in
+                // tests/storefront.test.ts (see selectFeaturedProduct).
+                const featured = selectFeaturedProduct(products);
 
                 if (!featured) {
                     content = (
@@ -162,7 +181,12 @@ const Home = () => {
                     <section className="py-24 px-4 max-w-7xl mx-auto">
                         <div className="grid md:grid-cols-2 gap-16 items-center">
                             <div className="order-2 md:order-1">
-                                <span className="text-brand-accent font-bold tracking-[0.2em] text-xs uppercase mb-4 block animate-pulse">{section.title}</span>
+                                {/* animate-pulse removed as part of the Peaceful Space
+                                    wedge — the pulsing eyebrow was the same anxiety register
+                                    as the old urgency badges. The eyebrow still reads as
+                                    deliberate (brand-accent color, tracking-wide uppercase)
+                                    without the pulse. */}
+                                <span className="text-brand-accent font-bold tracking-[0.2em] text-xs uppercase mb-4 block">{section.title}</span>
                                 <h2 className="font-display text-5xl font-bold mb-6 text-white uppercase tracking-wide">{featured.name}</h2>
                                 <p className="text-gray-400 mb-8 leading-relaxed text-lg font-light">
                                     {featured.description}
@@ -367,6 +391,7 @@ const Home = () => {
 
     return (
         <div className="min-h-screen pb-20">
+            <LiveOrdersTicker />
             {sections.map((s, i) => (
                 <React.Fragment key={s.id}>
                     {renderSection(s, i)}

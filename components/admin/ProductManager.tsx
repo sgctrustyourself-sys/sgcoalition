@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
-import { Plus, Edit2, Trash2, Save, X, Copy, Search, AlertCircle, CheckCircle, RefreshCw, Loader2, Upload, ChevronLeft, ChevronRight, GripVertical, Star } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Copy, Search, AlertCircle, CheckCircle, RefreshCw, Loader2, Upload, ChevronLeft, ChevronRight, GripVertical, Star, Tag } from 'lucide-react';
 import { syncProductsToCode } from '../../services/imgurService';
+import { fetchProductDrift, type ProductDriftReport } from '../../services/productDrift';
 import { uploadProductImage } from '../../services/productUpload';
 import ImageCropperModal from '../ui/ImageCropperModal';
 import { moveArrayItem } from '../../utils/arrayMove';
@@ -19,10 +20,38 @@ const ProductManager: React.FC = () => {
     const [editForm, setEditForm] = useState<Partial<Product>>({});
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [togglingSoldId, setTogglingSoldId] = useState<string | null>(null);
     const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
     const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
     const [dragOverImageIndex, setDragOverImageIndex] = useState<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Whether the deployed seed and the live products table still agree. A null
+    // report means "not checked yet", so the line does not flash as "in sync"
+    // before the answer arrives; a failure is held separately because silence and
+    // "no drift" must never look the same to an operator.
+    const [driftReport, setDriftReport] = useState<ProductDriftReport | null>(null);
+    const [driftError, setDriftError] = useState<string | null>(null);
+    const [showDriftDetail, setShowDriftDetail] = useState(false);
+
+    const checkDrift = useCallback(async () => {
+        try {
+            setDriftError(null);
+            setDriftReport(await fetchProductDrift());
+        } catch (err: any) {
+            setDriftReport(null);
+            setDriftError(err?.message || 'unknown error');
+        }
+    }, []);
+
+    useEffect(() => { void checkDrift(); }, [checkDrift]);
+
+    // Pricing & edition controls (first-class admin surface).
+    const [pricingTierDraft, setPricingTierDraft] = useState<Array<{ untilCount: string; price: string }>>([]);
+    // Total units in a numbered edition (e.g. 44). Operator-set: it is what the
+    // storefront renders as "X / editionSize" and isNumberedEdition() requires
+    // it, so it can never be inferred from the tier count.
+    const [editionSizeDraft, setEditionSizeDraft] = useState<string>('');
 
     // Initialize new product form
     const initNewProduct = () => {
@@ -40,6 +69,8 @@ const ProductManager: React.FC = () => {
             sizes: ['S', 'M', 'L', 'XL'],
             sizeInventory: { 'S': 0, 'M': 0, 'L': 0, 'XL': 0 },
         });
+        setPricingTierDraft([]);
+        setEditionSizeDraft('');
     };
 
     // Start editing existing product
@@ -52,6 +83,14 @@ const ProductManager: React.FC = () => {
         setPendingCropFile(null);
         setDraggedImageIndex(null);
         setDragOverImageIndex(null);
+        // Mirror existing pricing tiers into the editor, if any.
+        setPricingTierDraft(
+            (product.pricingTiers || product.editionSize ? (product.pricingTiers || []).map(t => ({
+                untilCount: t.untilCount == null ? '' : String(t.untilCount),
+                price: String(t.price),
+            })) : [])
+        );
+        setEditionSizeDraft(product.editionSize == null ? '' : String(product.editionSize));
     };
 
     // Cancel editing
@@ -59,6 +98,8 @@ const ProductManager: React.FC = () => {
         setEditingId(null);
         setIsAdding(false);
         setEditForm({});
+        setPricingTierDraft([]);
+        setEditionSizeDraft('');
         setError(null);
         setPendingCropFile(null);
         setDraggedImageIndex(null);
@@ -70,18 +111,56 @@ const ProductManager: React.FC = () => {
         setError(null);
         setSuccess(null);
 
-        if (!editForm.name || !editForm.price || !editForm.images?.[0]) {
-            setError('Please fill in all required fields (Name, Price, Image)');
+        if (!editForm.name || !editForm.images?.[0]) {
+            setError('Please fill in at least Name and one Image. Price can be set later.');
             return;
+        }
+
+        // Build pricing tiers payload from the editor.
+        const parsedTiers: Array<{ untilCount: number | null; price: number }> = [];
+        for (let i = 0; i < pricingTierDraft.length; i++) {
+            const row = pricingTierDraft[i];
+            const price = parseFloat(row.price);
+            if (isNaN(price) || price < 0) {
+                setError(`Tier row ${i + 1}: price must be a non-negative number.`);
+                return;
+            }
+            const untilCount = row.untilCount.trim() === '' ? null : parseInt(row.untilCount, 10);
+            if (untilCount !== null && (isNaN(untilCount) || untilCount < 0)) {
+                setError(`Tier row ${i + 1}: "Until sold count" must be empty (open-ended) or a non-negative whole number.`);
+                return;
+            }
+            parsedTiers.push({ untilCount, price });
+        }
+
+        // Last tier should be open-ended so there is always a catch-all price.
+        if (parsedTiers.length > 0 && parsedTiers[parsedTiers.length - 1].untilCount !== null) {
+            setError('The last pricing tier must be open-ended (leave "Until sold count" blank) so every unit after the previous tiers still has a price.');
+            return;
+        }
+
+        // A numbered edition needs a unit count for the "X / N" mint marker;
+        // how many pricing tiers there are says nothing about that, so require
+        // an explicit edition size rather than inventing one.
+        let editionSize: number | undefined;
+        if (parsedTiers.length > 0) {
+            const parsedEditionSize = parseInt(editionSizeDraft, 10);
+            if (isNaN(parsedEditionSize) || parsedEditionSize < 1) {
+                setError('Edition size must be a whole number of at least 1 when a numbered edition is configured.');
+                return;
+            }
+            editionSize = parsedEditionSize;
         }
 
         setIsSaving(true);
         try {
             const normalizedSizes = normalizeProductSizeData(editForm.sizes, editForm.sizeInventory);
+            // Preserve sold/archive timestamps when editing so a normal save doesn't clear them.
+            const existingProduct = !isAdding ? products.find(p => p.id === editForm.id) : undefined;
             const productData: Product = {
                 id: editForm.id || `prod_${Date.now()}`,
                 name: editForm.name,
-                price: Number(editForm.price),
+                price: Number(editForm.price || 0),
                 images: editForm.images || [],
                 description: editForm.description || '',
                 category: editForm.category || 'apparel',
@@ -91,6 +170,11 @@ const ProductManager: React.FC = () => {
                 nft: editForm.nft,
                 archived: editForm.archived || false,
                 founderNote: editForm.founderNote,
+                soldAt: existingProduct?.soldAt ?? null,
+                archivedAt: existingProduct?.archivedAt ?? null,
+                pricingTiers: parsedTiers.length > 0 ? parsedTiers : undefined,
+                editionSize,
+                isLimitedEdition: parsedTiers.length > 0 ? true : (editForm.isLimitedEdition ?? undefined),
             };
 
             if (isAdding) {
@@ -113,20 +197,47 @@ const ProductManager: React.FC = () => {
         }
     };
 
-    // Sync to Codebase
+    // Sync to Codebase.
+    //
+    // This refreshes constants/products.ts from the products table and commits it, so
+    // it corrects every product the database holds. It does NOT rebuild the catalog:
+    // entries the table has never held (the seed-only wallets) are kept and reported,
+    // which is the shared rule the drop publish also obeys. The confirm text below
+    // states that, because "sync" used to mean "replace" here.
     const handleSync = async () => {
-        if (!window.confirm('This will update constants.ts with all current database products and create a Git commit. Proceed?')) return;
+        if (!window.confirm(
+            'Sync Code rewrites every product that has a Supabase row into constants/products.ts and commits to main.\n\nProducts the database has never held are kept, not deleted. Proceed?'
+        )) return;
 
         setIsSyncing(true);
         setError(null);
         setSuccess(null);
         try {
-            const hash = await syncProductsToCode();
-            setSuccess(`Sync Complete! Constants updated and committed (${hash})`);
+            const result = await syncProductsToCode();
+            const report = result?.report;
+            const kept = report?.seedOnly?.length ?? 0;
+            const keptNote = kept ? ` ${kept} product${kept === 1 ? '' : 's'} with no DB row kept.` : '';
+
+            if (result && result.noChanges) {
+                const commitRef = result.hash ? ` (HEAD ${result.hash})` : '';
+                setSuccess(`Already up to date — constants/products.ts matches Supabase${commitRef}.${keptNote}`);
+            } else {
+                const fromDb = (report?.targeted?.length ?? 0) + (report?.added?.length ?? 0);
+                const written = fromDb
+                    ? `${fromDb} from the database (${report?.rewritten?.length ?? 0} rewritten)${report?.added?.length ? `, ${report?.added?.length} appended` : ''}.`
+                    : 'Constants updated.';
+                setSuccess(`Sync complete — ${written}${keptNote} Committed (${result?.hash ?? 'ok'})`);
+            }
+            // The sync just rewrote the seed, so re-read the drift instead of
+            // leaving a stale count on screen next to a fresh commit.
+            void checkDrift();
             setTimeout(() => setSuccess(null), 5000);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Core sync failed:', err);
-            setError('Failed to sync products to codebase. Make sure the local server is running.');
+            // Surface the actual error from the server (was previously hidden
+            // by a misleading "make sure the local server is running" message).
+            const detail = err?.message || 'Unknown error';
+            setError(`Sync failed: ${detail}. Open the browser console for the full response.`);
         } finally {
             setIsSyncing(false);
         }
@@ -207,6 +318,44 @@ const ProductManager: React.FC = () => {
         } catch (err) {
             console.error("Failed to duplicate product", err);
             setError("Failed to duplicate product");
+        }
+    };
+
+    // Toggle sold/archived status from the product list
+    const toggleSoldStatus = async (product: Product) => {
+        const markAsSold = !product.archived;
+        const actionLabel = markAsSold ? 'mark as sold' : 'unarchive';
+
+        if (!window.confirm(`Are you sure you want to ${actionLabel} "${product.name}"? ${markAsSold ? 'All inventory will be set to 0 and the product will be hidden from the storefront.' : 'Inventory will remain at 0 — edit the product to restock.'}`)) {
+            return;
+        }
+
+        setTogglingSoldId(product.id);
+        setError(null);
+        setSuccess(null);
+
+        try {
+            const now = new Date().toISOString();
+            const zeroedInventory = product.sizeInventory
+                ? Object.keys(product.sizeInventory).reduce((acc, size) => ({ ...acc, [size]: 0 }), {})
+                : {};
+
+            const updatedProduct: Product = {
+                ...product,
+                archived: markAsSold,
+                soldAt: markAsSold ? now : null,
+                archivedAt: markAsSold ? now : null,
+                sizeInventory: markAsSold ? zeroedInventory : (product.sizeInventory || {}),
+            };
+
+            await updateProduct(updatedProduct);
+            setSuccess(markAsSold ? `"${product.name}" marked as sold` : `"${product.name}" unarchived`);
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err) {
+            console.error('Failed to toggle sold status:', err);
+            setError(`Failed to ${actionLabel} product`);
+        } finally {
+            setTogglingSoldId(null);
         }
     };
 
@@ -303,7 +452,7 @@ const ProductManager: React.FC = () => {
                         onClick={handleSync}
                         disabled={isSyncing}
                         className="flex items-center gap-2 bg-purple-500/20 border border-purple-500/30 text-purple-300 px-4 py-2 rounded-lg font-bold uppercase text-sm hover:bg-purple-500/30 transition disabled:opacity-50"
-                        title="Sync Supabase products to constants.ts"
+                        title="Sync Supabase products into constants.ts (products with no DB row are kept)"
                     >
                         {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                         Sync Code
@@ -317,6 +466,67 @@ const ProductManager: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            {/* Catalog vs database.
+                This is the same report `npx tsx scripts/syncProducts.ts` prints, so the
+                question "do my fallback catalog and my live catalog still agree?" is
+                answerable without knowing a command exists. WHAT counts as drift is
+                decided by scripts/productSeed.ts server-side; this only renders it. */}
+            {driftError && (
+                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 p-4 rounded-lg flex items-start gap-3 text-sm">
+                    <AlertCircle className="w-5 h-5 shrink-0" />
+                    <span>Couldn't check the catalog against the products table ({driftError}). Nothing below reflects the database until this succeeds.</span>
+                </div>
+            )}
+
+            {driftReport && (
+                <div
+                    className={`p-4 rounded-lg border text-sm ${driftReport.drift.length
+                        ? 'bg-amber-500/10 border-amber-500/20 text-amber-200'
+                        : 'bg-white/5 border-white/10 text-gray-400'}`}
+                >
+                    <div className="flex items-start gap-3">
+                        {driftReport.drift.length
+                            ? <AlertCircle className="w-5 h-5 shrink-0" />
+                            : <CheckCircle className="w-5 h-5 shrink-0" />}
+                        <div className="flex-1">
+                            <div className="font-bold uppercase">
+                                {driftReport.drift.length
+                                    ? `${driftReport.drift.length} difference${driftReport.drift.length === 1 ? '' : 's'} between constants/products.ts and the products table`
+                                    : 'Catalog is in sync with the products table'}
+                            </div>
+                            <div className="mt-1 text-xs">
+                                {driftReport.seedEntries} seed entries · {driftReport.dbRows} table rows
+                                {driftReport.seedOnly.length ? ` · ${driftReport.seedOnly.length} kept with no row` : ''}
+                                {driftReport.missingFromSeed.length ? ` · ${driftReport.missingFromSeed.length} in the table only` : ''}
+                            </div>
+                            {driftReport.drift.length > 0 && (
+                                <div className="mt-2">
+                                    <button
+                                        onClick={() => setShowDriftDetail((shown) => !shown)}
+                                        className="underline text-xs uppercase font-bold"
+                                        aria-expanded={showDriftDetail}
+                                    >
+                                        {showDriftDetail ? 'Hide' : 'Show'} the differences
+                                    </button>
+                                    {showDriftDetail && (
+                                        <ul className="mt-2 space-y-1 font-mono text-xs break-all">
+                                            {driftReport.drift.map((difference) => (
+                                                <li key={`${difference.id}.${difference.field}`}>
+                                                    {difference.id}.{difference.field}: seed {difference.seed} vs database {difference.db}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    <div className="mt-2 text-xs">
+                                        Sync Code rewrites every product the table holds, so the next sync corrects these. Products kept with no row are never dropped.
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Feedback Messages */}
             {error && (
@@ -383,11 +593,10 @@ const ProductManager: React.FC = () => {
                                         <option value="apparel">Apparel</option>
                                         <option value="accessory">Accessory</option>
                                         <option value="shirt">Shirt</option>
-                                        <option value="shorts">Shorts</option>
-                                        <option value="sweatshirt">Sweatshirt</option>
                                         <option value="hoodie">Hoodie</option>
                                         <option value="hat">Hat</option>
                                         <option value="jeans">Jeans</option>
+                                        <option value="wallet">Wallet</option>
                                     </select>
                                 </div>
                             </div>
@@ -608,6 +817,145 @@ const ProductManager: React.FC = () => {
                                 </p>
                             </div>
 
+                            {/* Pricing & Edition Control */}
+                            <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="font-bold text-white uppercase text-sm">Pricing & Edition</h4>
+                                        <p className="text-xs text-gray-400">Flat price, or a numbered edition with step-up tiers.</p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Base Price ($)</label>
+                                    <input
+                                        type="number"
+                                        value={editForm.price ?? 0}
+                                        onChange={(e) => updateField('price', parseFloat(e.target.value))}
+                                        className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:border-white/30 outline-none"
+                                        step="0.01"
+                                        min="0"
+                                        title="Base price used when no numbered edition is configured"
+                                        aria-label="Base product price"
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="checkbox"
+                                        id="numbered-edition"
+                                        checked={pricingTierDraft.length > 0}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                if (pricingTierDraft.length === 0) {
+                                                    setPricingTierDraft([
+                                                        { untilCount: '', price: String(editForm.price ?? 0) },
+                                                    ]);
+                                                }
+                                            } else {
+                                                setPricingTierDraft([]);
+                                            }
+                                        }}
+                                        className="w-5 h-5 rounded border-white/10 bg-black/30 text-white focus:ring-0"
+                                        title="Enable numbered edition with tiered pricing"
+                                        aria-label="Enable numbered edition"
+                                    />
+                                    <label htmlFor="numbered-edition" className="text-sm font-bold uppercase text-gray-300 cursor-pointer">
+                                        Numbered Edition
+                                    </label>
+                                </div>
+
+                                {pricingTierDraft.length > 0 && (
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">Edition size (total units)</label>
+                                            <input
+                                                type="number"
+                                                value={editionSizeDraft}
+                                                onChange={(e) => setEditionSizeDraft(e.target.value)}
+                                                className="w-32 bg-black/20 border border-white/10 rounded p-2 text-white text-sm focus:border-white/30 outline-none"
+                                                min="1"
+                                                placeholder="e.g. 44"
+                                                title="Total units in this numbered edition"
+                                                aria-label="Edition size in units"
+                                            />
+                                            <p className="text-[10px] text-gray-500 mt-1 italic">
+                                                Rendered on the product page as "X / edition size".
+                                            </p>
+                                        </div>
+
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold uppercase text-gray-400">Pricing Tiers</span>
+                                            <span className="text-[10px] text-gray-500 italic">Each tier = "until X sold, charge $Y". Leave the last tier open-ended.</span>
+                                        </div>
+
+                                        {pricingTierDraft.map((row, index) => (
+                                            <div key={index} className="flex gap-2 items-center">
+                                                <div className="flex-1">
+                                                    <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">
+                                                        Until sold count (blank = open-ended)
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        value={row.untilCount}
+                                                        onChange={(e) => {
+                                                            const next = [...pricingTierDraft];
+                                                            next[index] = { ...next[index], untilCount: e.target.value };
+                                                            setPricingTierDraft(next);
+                                                        }}
+                                                        className="w-full bg-black/20 border border-white/10 rounded p-2 text-white text-sm focus:border-white/30 outline-none"
+                                                        min="0"
+                                                        placeholder="e.g. 10"
+                                                        aria-label={`Tier ${index + 1} until sold count`}
+                                                    />
+                                                </div>
+                                                <div className="w-28">
+                                                    <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">Price ($)</label>
+                                                    <input
+                                                        type="number"
+                                                        value={row.price}
+                                                        onChange={(e) => {
+                                                            const next = [...pricingTierDraft];
+                                                            next[index] = { ...next[index], price: e.target.value };
+                                                        }}
+                                                        className="w-full bg-black/20 border border-white/10 rounded p-2 text-white text-sm focus:border-white/30 outline-none"
+                                                        step="0.01"
+                                                        min="0"
+                                                        placeholder="0.00"
+                                                        aria-label={`Tier ${index + 1} price`}
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const next = pricingTierDraft.filter((_, i) => i !== index);
+                                                        setPricingTierDraft(next);
+                                                    }}
+                                                    disabled={pricingTierDraft.length === 1}
+                                                    className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                                    title={pricingTierDraft.length === 1 ? 'Need at least one tier' : 'Remove tier'}
+                                                    aria-label={`Remove tier ${index + 1}`}
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setPricingTierDraft(prev => [
+                                                ...prev,
+                                                { untilCount: '', price: String(editForm.price ?? 0) },
+                                            ])}
+                                            className="flex items-center gap-2 text-xs font-bold uppercase text-brand-accent hover:text-white transition"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                            Add Tier
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Archive Toggle */}
                             <div className="bg-white/5 border border-white/10 rounded-lg p-4">
                                 <div className="flex items-center justify-between">
@@ -669,19 +1017,20 @@ const ProductManager: React.FC = () => {
                                 <th className="p-4">Price</th>
                                 <th className="p-4">Inventory</th>
                                 <th className="p-4">Category</th>
+                                <th className="p-4 text-center">Sold</th>
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {filteredProducts.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-12 text-center text-gray-500 italic">
+                                    <td colSpan={6} className="p-12 text-center text-gray-500 italic">
                                         No products found matching your search.
                                     </td>
                                 </tr>
                             ) : (
                                 filteredProducts.map(product => (
-                                    <tr key={product.id} className="hover:bg-white/5 transition group">
+                                    <tr key={product.id} className="hover:bg-white/5 transition group hover:ring-1 hover:ring-white/10">
                                         <td className="p-4">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-12 h-12 rounded bg-black/40 overflow-hidden flex-shrink-0 border border-white/10 group-hover:border-white/30 transition">
@@ -699,7 +1048,14 @@ const ProductManager: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="p-4 font-bold text-white">
-                                            ${product.price ? product.price.toFixed(2) : '0.00'}
+                                            <span className="inline-flex items-baseline gap-1">
+                                                ${product.price ? product.price.toFixed(2) : '0.00'}
+                                                {product.pricingTiers && product.pricingTiers.length > 0 && (
+                                                    <span title="Numbered edition with tiered pricing">
+                                                        <Tag className="w-3 h-3 text-gray-500" aria-hidden="true" />
+                                                    </span>
+                                                )}
+                                            </span>
                                         </td>
                                         <td className="p-4">
                                             <div className="flex flex-wrap gap-2">
@@ -721,8 +1077,23 @@ const ProductManager: React.FC = () => {
                                                 {product.category}
                                             </span>
                                         </td>
+                                        <td className="p-4 text-center">
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    className="sr-only peer"
+                                                    checked={!!product.archived}
+                                                    onChange={() => toggleSoldStatus(product)}
+                                                    disabled={togglingSoldId === product.id}
+                                                    title={product.archived ? 'Unarchive product' : 'Mark product as sold'}
+                                                    aria-label={product.archived ? `Unarchive ${product.name}` : `Mark ${product.name} as sold`}
+                                                />
+                                                <div className="w-10 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-500 shadow-inner"></div>
+                                            </label>
+                                            {togglingSoldId === product.id && <Loader2 className="w-3 h-3 animate-spin text-gray-400 inline ml-2" />}
+                                        </td>
                                         <td className="p-4 text-right">
-                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition">
+                                            <div className="flex items-center justify-end gap-2 opacity-60 hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={() => duplicateProduct(product)}
                                                     className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition"

@@ -1,4 +1,4 @@
-import { ChatMessage, ChatConversation, QuickReply } from '../types/chatTypes';
+import { ChatMessage, ChatConversation, QuickReply } from '../types/chatTypes.js';
 
 /**
  * Generate unique conversation ID

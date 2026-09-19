@@ -1,0 +1,70 @@
+name: Post-deploy gate verdict
+
+# The build refuses to finish without the bare-checkout rule's verdict
+# (utils/bareCheckoutGate.mjs), and the deployment publishes that record at
+# /gate-verdict.json. Until this workflow, nothing checked the *deployment* — and
+# a live deployment can be wrong in ways its own build could not see:
+#
+#   - production can serve a deployment built from a different commit than the
+#     one pushed (a deploy that never landed, a rollback, a wrong origin);
+#   - a build that did not go through the gated path carries no record at all;
+#   - or the record is there but describes a run that checked nothing.
+#
+# This runs after the deploy, so it cannot prevent a bad one: it reports one.
+# Prevention is the in-build gate; this is the line that says the deployment
+# which is actually live carries the proof. A red run here means exactly that.
+#
+# Trigger caveat, the same one checkout-smoke.yml documents: the
+# `deployment_status` path fires only when the Vercel GitHub app reports a
+# deployment, so `workflow_dispatch` is here for a deliberate run against any
+# origin (and because a check whose only trigger can silently stop firing is a
+# check that can silently stop happening).
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Origin to check (blank = https://sgcoalition.xyz)'
+        required: false
+      commit:
+        description: 'Commit the deployment was built from (blank = this checkout HEAD)'
+        required: false
+
+jobs:
+  verdict:
+    name: Live gate verdict
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    concurrency:
+      group: post-deploy-gate-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    # Successful production deployments only. A preview answers behind Vercel
+    # Deployment Protection (checkout-smoke.yml covers previews), and a preview's
+    # record is not a release claim. The environment is the deployment's own
+    # report of what it is, so nothing here guesses.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # Deliberately no `npm ci`: the checker imports nothing but node builtins
+      # (utils/bareCheckoutGate.mjs is the record's file name, not a dependency),
+      # so it stays fast enough to run on every production deploy.
+      - name: Verify the live deployment's own verdict
+        env:
+          TEST_URL: ${{ github.event.inputs.base_url || 'https://sgcoalition.xyz' }}
+          # The deployment's own commit, straight from the event: that is what
+          # "the commit it was built from" means here, and it is not the same as
+          # whatever the default branch happens to point at now.
+          EXPECTED_COMMIT: ${{ github.event.inputs.commit || github.event.deployment.sha }}
+          EXPECTED_ENVIRONMENT: ${{ github.event_name == 'deployment_status' && 'production' || '' }}
+        run: npm run test:gate-verdict

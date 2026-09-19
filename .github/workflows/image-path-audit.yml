@@ -1,0 +1,114 @@
+name: Image-Path Audit + Featured-Exclusivity Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Daily at 06:00 UTC — catches drift introduced by direct DB writes
+    # (admin dashboard edits, manual SQL) that bypass PR-time audits.
+    # This is the failure mode the SKYYBLUEWALLET1_2 incident
+    # (2026-07-14) demonstrated: PR-time audit could not catch drift
+    # introduced by direct Supabase writes, so the daily schedule
+    # exists to close that loop.
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+# Required GitHub Actions secrets (Settings → Secrets and variables → Actions):
+#   VITE_SUPABASE_URL          — e.g. https://tvacscfbzcmjlcekjcsn.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY  — Supabase service_role JWT (RLS-bypass; read-only use)
+# Without these, Section 1 still runs but Sections 2 + 3 print SKIPPED.
+# The gate still catches local-only drift, but loses the cross-check
+# + remote-drift coverage that today incident demonstrated.
+#
+# Set at: https://github.com/${{ github.repository }}/settings/secrets/actions
+
+jobs:
+  audit:
+    name: Run image-path audit + featured-exclusivity tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    concurrency:
+      # Unique group per workflow + ref so a fast-following push to the
+      # same branch cancels the in-flight run instead of queuing.
+      group: image-path-audit-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # continue-on-error: true lets BOTH gates fire in a single CI run
+      # even if one trips, so the operator sees all failures at once
+      # instead of chasing them one PR-revision at a time. The combined
+      # result is checked in the report step below.
+      - name: Run image-path audit
+        id: audit
+        continue-on-error: true
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        # tee captures the full 3-section output to a file for the
+        # artifact while preserving the live console output for the
+        # workflow log. PIPESTATUS[0] is the audit script own exit
+        # code, NOT tee, so we surface the real failure mode in the log.
+        run: |
+          npx tsx scripts/auditImagePaths.ts 2>&1 | tee audit-output.txt
+          echo "audit exit code: ${PIPESTATUS[0]}"
+
+      - name: Run featured-exclusivity tests
+        id: vitest
+        continue-on-error: true
+        run: npx vitest run tests/featuredExclusivity.test.ts
+
+      - name: Run wallet-shape audit
+        id: wallet-shape
+        continue-on-error: true
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        # Same tee + PIPESTATUS[0] pattern as the image-path audit:
+        # capture full 3-section output to a file for the artifact while
+        # preserving live console output, and surface the real exit code.
+        run: |
+          npx tsx scripts/auditWalletShape.ts 2>&1 | tee wallet-shape-output.txt
+          echo "wallet-shape exit code: ${PIPESTATUS[0]}"
+
+      - name: Report combined gate result
+        if: always()
+        # Fail the job with a clear ::error:: annotation if any gate failed.
+        # The audit artifacts are uploaded separately below, regardless
+        # of this step result.
+        run: |
+          if [[ "${{ steps.audit.conclusion }}" == "failure" ||
+                "${{ steps.vitest.conclusion }}" == "failure" ||
+                "${{ steps.wallet-shape.conclusion }}" == "failure" ]]; then
+            echo "::error::One or more gates failed. See the audit artifacts and the vitest log above."
+            exit 1
+          fi
+          echo "All gates passed."
+
+      - name: Upload audit output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-path-audit-output
+          path: audit-output.txt
+          if-no-files-found: warn
+
+      - name: Upload wallet-shape audit output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wallet-shape-audit-output
+          path: wallet-shape-output.txt
+          if-no-files-found: warn
