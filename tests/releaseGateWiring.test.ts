@@ -1,22 +1,37 @@
+// @vitest-environment node
+//
+// Deliberately node, not the suite's default jsdom: this file imports the real
+// vite.config.ts, and loading a Vite config pulls esbuild in, which asserts on
+// realm identity (`new TextEncoder().encode('') instanceof Uint8Array`) and
+// fails inside jsdom's realm. The pin is worth more against the config Vite
+// actually loads than against a re-description of it.
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import viteConfig from '../vite.config';
+import { GUARD_MODE, GUARD_SCRIPT, PLUGIN_NAME } from '../utils/bareCheckoutGate.mjs';
 
 /**
- * The bare guard's two callers, pinned by the calls they make.
+ * The bare-checkout rule's callers, pinned by what they actually invoke.
  *
- * `prebuild` reaching scripts/bareCheckoutGuard.mjs is the entire enforcement of
- * "the release path refuses while the bare guard is red": delete that clause, or
- * point Vercel's build at something that does not fire the npm hook, and the
- * release path stops refusing while every other check stays green. Nothing else
- * in the suite looks at the wiring, so it is pinned here — and cheaply: no suite
- * runs inside these tests, only the two files that describe the calls.
+ * The rule itself — assert the checkout is bare, then run the suite with nothing
+ * to fall back on — has one owner: scripts/bareCheckoutGuard.mjs. What is pinned
+ * here is that the release path *reaches* it, because that is what a future edit
+ * can quietly delete while every other check stays green.
  *
- * Each pin asserts an invocation, not a name in prose, and resolves
- * `npm run <alias>` through package.json before matching. So renaming an alias
- * or reformatting the workflow stays green, while deleting the call, moving it
- * somewhere that never runs, or redirecting it goes red.
+ * The release path is the build, not an npm hook. It used to be `prebuild`, and
+ * that was routable around: `prebuild` only fires when the build runs through
+ * `npm run build`, so a Vercel build command of `npx vite build` — a dashboard
+ * setting, which overrides vercel.json and which no test can see — skipped the
+ * guard entirely and finished green. Vite loads its config for any `vite build`,
+ * so the caller now rides in the config, and that is what these pins defend.
+ *
+ * Each pin asserts an invocation rather than a name in prose: the plugin is
+ * found by its identity in the built config, and the script it runs is compared
+ * against the one CI runs, resolved through package.json. Renaming an alias or
+ * reformatting the workflow stays green; deleting the caller, making it a dev
+ * server plugin, or pointing it somewhere else goes red.
  */
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -46,19 +61,49 @@ const runCommandsOf = (workflow: string): string[] =>
         match[1].replace(/^['"]|['"]$/g, ''),
     );
 
+/** The config is a function (defineConfig(() => …)); call it the way Vite would. */
+const builtPlugins = (): Array<Record<string, unknown>> => {
+    const config = (viteConfig as unknown as (env: { command: string; mode: string }) => {
+        plugins?: unknown[];
+    })({ command: 'build', mode: 'production' });
+    return ((config.plugins ?? []) as unknown[]).flat(Infinity) as Array<Record<string, unknown>>;
+};
+
 describe('release gate wiring', () => {
-    it('reaches the guard from the build Vercel is configured to run', () => {
+    it('carries the guard in the build itself, not in a hook a build command can skip', () => {
+        const gate = builtPlugins().filter((plugin) => plugin?.name === PLUGIN_NAME);
+        expect(
+            gate,
+            `vite.config.ts must install the ${PLUGIN_NAME} plugin — that is what makes the release path refuse`,
+        ).toHaveLength(1);
+
+        // A dev-only or inert plugin would leave every build ungated while this
+        // plugin was still "installed", so the shape of the caller is pinned too.
+        const plugin = gate[0];
+        expect(plugin.apply, `${PLUGIN_NAME} must apply to builds`).not.toBe('serve');
+        expect(typeof plugin.buildStart, `${PLUGIN_NAME} must run the guard when the build starts`).toBe(
+            'function',
+        );
+    });
+
+    it('runs the same rule CI runs, in the mode that cannot pass vacuously', () => {
         const scripts = readJson('package.json').scripts as Record<string, string>;
 
-        // `prebuild` is an npm lifecycle hook: it fires for `npm run build` and for
-        // no other command, so a build command that is not this never reaches the
-        // guard at all — the quietest way this guarantee can stop existing.
-        expect(readJson('vercel.json').buildCommand.trim()).toBe('npm run build');
+        // One rule, two callers: the script this plugin runs must be the very
+        // script `npm run gate:bare` runs.
+        const ciTarget = commandsOf(scripts['gate:bare'] ?? '', scripts).find((command) =>
+            GUARD_INVOCATION.test(command),
+        );
+        expect(ciTarget, `gate:bare must invoke ${GUARD}`).toBeTruthy();
+        expect(GUARD_SCRIPT, 'the build and CI must run the same guard script').toBe(
+            (ciTarget as string).replace(/^node\s+/, ''),
+        );
+        expect(existsSync(path.join(projectRoot, GUARD)), `${GUARD} must exist`).toBe(true);
 
-        const prebuild = scripts.prebuild ?? '';
-        const invocation = commandsOf(prebuild, scripts).find((command) => GUARD_INVOCATION.test(command));
-        expect(invocation, `prebuild must invoke ${GUARD}; it currently is: ${prebuild}`).toBeTruthy();
-        expect(existsSync(path.join(projectRoot, GUARD)), `${GUARD} must exist (a clean build is what catches this)`).toBe(true);
+        // Release mode, not the bare default: a Vercel build injects the
+        // project's VITE_ vars, so a run that keeps them can pass while
+        // checking nothing.
+        expect(GUARD_MODE, 'the build must call the guard in release mode').toBe('--release');
     });
 
     it("keeps CI's caller enforcing, where it cannot silently skip", () => {
@@ -68,7 +113,9 @@ describe('release gate wiring', () => {
         );
 
         const guardCalls = resolved.filter((command) => GUARD_INVOCATION.test(command));
-        expect(guardCalls, 'ci.yml must invoke the guard, as its bare-checkout job does').not.toHaveLength(0);
+        expect(guardCalls, 'ci.yml must invoke the guard, as its bare-checkout job does').not.toHaveLength(
+            0,
+        );
         // The guard's release mode stops when it is not on a Vercel build, so wiring CI
         // that way would leave the job green while checking nothing at all.
         expect(

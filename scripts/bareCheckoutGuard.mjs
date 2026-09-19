@@ -13,9 +13,13 @@
  *
  *   npm run gate:bare      CI (.github/workflows/ci.yml, job `bare-checkout`),
  *                          on every pull request and every push to main.
- *   npm run gate:release   the release path: `prebuild`, so every Vercel build,
- *                          production and preview alike, refuses to continue
- *                          while this rule is red.
+ *   --release              the release path: the build itself, reached through
+ *                          utils/bareCheckoutGate.mjs, which vite.config.ts
+ *                          installs as a build plugin. Deliberately NOT the
+ *                          `prebuild` npm hook: a Vercel build command other
+ *                          than `npm run build` (a dashboard override, which
+ *                          vercel.json cannot see) skips every npm hook, and the
+ *                          release path must not be routable around.
  *
  * `--release` is the only difference between them, for one reason: a Vercel
  * build has the project's own environment injected into it (VITE_SUPABASE_URL
@@ -96,6 +100,16 @@ console.log(
 
 // The suite itself, exactly as `npm test` runs it — no env supplied, and the
 // child inherits stdio so its failure output lands in the build/CI log.
+//
+// NODE_ENV is the one thing normalized rather than inherited. From a shell, or
+// from CI, `npm test` runs with no NODE_ENV and Vitest uses its test mode.
+// Reached from the build it does not: Vite sets NODE_ENV=production for
+// `vite build`, the suite would inherit it, React's dev-only APIs would be
+// bundled away, and the run would fail wholesale for a reason that has nothing
+// to do with the rule — measured: 44 files and 102 tests red, `act is not a
+// function`, with nothing actually wrong with the tests.
+childEnv.NODE_ENV = 'test';
+
 const suite = spawnSync('npm', ['test'], {
   env: childEnv,
   stdio: 'inherit',
