@@ -58,6 +58,9 @@ const GUARD = 'scripts/bareCheckoutGuard.mjs';
 /** The guard, invoked as its own command — not something that mentions it. */
 const GUARD_INVOCATION = /^(?:node\s+)?\.?\/?scripts\/bareCheckoutGuard\.mjs(?:\s+--release)?$/;
 
+/** The post-deploy check of the live deployment's verdict. */
+const VERDICT_CHECK_INVOCATION = /^(?:node\s+)?\.?\/?scripts\/verify-gate-verdict\.mjs$/;
+
 /** One command of a `&&` chain, with `npm run <alias>` resolved to the script it names. */
 function resolveAliases(command: string, scripts: Record<string, string>, depth = 0): string {
     const alias = command.trim().match(/^npm run ([^\s&|]+)$/);
@@ -169,5 +172,22 @@ describe('release gate wiring', () => {
         expect(emitted[0].fileName).toBe(VERDICT_FILE);
         expect(JSON.parse(emitted[0].source)).toEqual(record);
         expect(existsSync(handoff), 'the record is consumed, so it cannot be replayed').toBe(false);
+    });
+
+    it('asks the live deployment for that verdict once it ships', () => {
+        const scripts = readJson('package.json').scripts as Record<string, string>;
+        const workflow = readText('.github/workflows/post-deploy-gate.yml');
+
+        // The trigger is as load-bearing as the call: no deployment_status, no
+        // check, and a deployment nobody asks about is a deployment nobody checked.
+        expect(workflow, 'the check must run when a deployment succeeds').toMatch(
+            /^\s*deployment_status:/m,
+        );
+
+        const calls = runCommandsOf(workflow).flatMap((command) => commandsOf(command, scripts));
+        expect(
+            calls.filter((command) => VERDICT_CHECK_INVOCATION.test(command)),
+            'post-deploy-gate.yml must run scripts/verify-gate-verdict.mjs (as `npm run test:gate-verdict`)',
+        ).not.toHaveLength(0);
     });
 });
