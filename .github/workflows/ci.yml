@@ -90,8 +90,9 @@ jobs:
   # neither those fixtures nor an untracked .env, is red instead. That is not
   # hypothetical: noRefundsPolicy and stripePaymentElementGate each read a var
   # they never declared, and only a bare checkout exposed it. This job runs the
-  # same suite with NO VITE_ env at all, so that class of dependence fails here
-  # rather than on somebody's clean checkout.
+  # same suite with NO deployment env at all — the client's VITE_ vars and the
+  # integrations' credentials alike, since a Vercel build injects both — so that
+  # class of dependence fails here rather than on somebody's clean checkout.
   #
   # The release path enforces the same rule, from inside the build rather than
   # from an npm hook: vite.config.ts installs utils/bareCheckoutGate.mjs, which
@@ -101,7 +102,7 @@ jobs:
   # because a Vercel build command other than `npm run build` skips every npm
   # hook — the release path must not be routable around by a dashboard setting.
   bare-checkout:
-    name: Vitest with no VITE_ env
+    name: Vitest with no deployment env
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
