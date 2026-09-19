@@ -22,13 +22,21 @@
  *                          release path must not be routable around.
  *
  * `--release` is the only difference between them, for one reason: a Vercel
- * build has the project's own environment injected into it (VITE_SUPABASE_URL
- * and friends), so the bare condition cannot be observed from the outside —
- * the suite would simply fall back to Vercel's variables. In release mode this
- * removes every VITE_ var from the child process instead, and prints what it
+ * build has the project's own environment injected into it — SUPABASE_URL,
+ * STRIPE_SECRET_KEY, ADMIN_API_TOKEN and the client's VITE_* among them — so
+ * the bare condition cannot be observed from the outside: the suite would
+ * simply fall back to Vercel's variables. In release mode this removes every
+ * deployment-supplied var from the child process instead, and prints what it
  * removed, so the suite still runs with nothing to fall back on somewhere it
  * matters. Off Vercel, `--release` skips: a developer's checkout legitimately
  * has a .env, and their local build is not a release.
+ *
+ * Which vars those are has one owner: utils/deploymentEnv.mjs. It is a class,
+ * not a prefix — the client's VITE_ vars, the integrations' credentials, and
+ * anything shaped like configuration a deployment hands an app. Covering only
+ * VITE_ left the identical dependence one name over: a test reading the
+ * injected STRIPE_SECRET_KEY passed in a release and would have failed on a
+ * clean checkout.
  *
  * `--verdict <path>` writes the rule's own record of what it decided, whenever
  * it is asked to. Its only caller is the release path, which publishes that
@@ -42,14 +50,13 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { deploymentEnvNames, projectEnvNames, stripDeploymentEnv } from '../utils/deploymentEnv.mjs';
 
 /**
  * Exactly the names Vitest loads (mode `test`), so a .env.example, a .envrc or
  * a renamed backup does not trip this by accident.
  */
 const ENV_FILES = ['.env', '.env.local', '.env.test', '.env.test.local'];
-
-const VITE_PREFIX = 'VITE_';
 
 const release = process.argv.includes('--release');
 const onVercel = Boolean(process.env.VERCEL);
@@ -127,9 +134,9 @@ const die = (message) => {
 };
 
 // ANTI-VACUITY. This guard only proves something if the checkout really is
-// bare. An env file, or a VITE_ var reaching this run, would supply the very
-// values the suite is supposed to do without — the run would pass while
-// checking nothing. Fail loudly instead of passing quietly.
+// bare. An env file, or a deployment-supplied var reaching this run, would
+// supply the very values the suite is supposed to do without — the run would
+// pass while checking nothing. Fail loudly instead of passing quietly.
 const envFiles = ENV_FILES.filter((name) => existsSync(join(process.cwd(), name)));
 if (envFiles.length > 0) {
   die(
@@ -138,30 +145,40 @@ if (envFiles.length > 0) {
   );
 }
 
-const childEnv = { ...process.env };
+let childEnv = { ...process.env };
+let strippedEnv = [];
 
 if (release) {
-  const injected = Object.keys(childEnv).filter((name) => name.startsWith(VITE_PREFIX)).sort();
-  for (const name of injected) delete childEnv[name];
-  if (injected.length > 0) {
+  ({ env: childEnv, stripped: strippedEnv } = stripDeploymentEnv(childEnv));
+  if (strippedEnv.length > 0) {
     console.log(
-      `bare-checkout guard (release): removed Vercel-injected ${injected.join(', ')} so the suite runs bare`,
+      `bare-checkout guard (release): removed Vercel-injected ${strippedEnv.join(', ')} so the suite runs bare`,
     );
   }
 }
 
-const leaked = Object.keys(childEnv)
-  .filter((name) => name.startsWith(VITE_PREFIX))
-  .sort();
+// ANTI-VACUITY. An environment-supplied var still present here means the suite
+// could be leaning on it, and the run would prove nothing — so this fails loudly
+// rather than passing quietly. What is asserted differs by mode, deliberately:
+//
+//   release  the whole class, after stripping — belt and braces on the strip
+//            itself, so a release can never run on a partial removal.
+//   bare     this project's own namespaces. A developer's shell or a runner image
+//            legitimately holds credentials of unrelated tools, and refusing on
+//            those would be a false alarm about something the bare condition has
+//            nothing to do with. A project var is a finding.
+const leaked = release ? deploymentEnvNames(childEnv) : projectEnvNames(childEnv);
 if (leaked.length > 0) {
   die(
-    `VITE_ vars reached this run (${leaked.join(' ')}) — drop them so the suite runs bare. ` +
-      'A var a test needs belongs in the test (vi.stubEnv in a vi.hoisted block), not in the environment.',
+    `${release ? 'deployment' : "this project's"} env vars reached this run ` +
+      `(${leaked.join(' ')}) — drop them so the suite runs bare. A var a test needs belongs in the test ` +
+      '(vi.stubEnv in a vi.hoisted block), not in the environment.',
   );
 }
 
 console.log(
-  `premise holds: none of ${ENV_FILES.join('/')} exists, and no VITE_ var is set — running the suite bare`,
+  `premise holds: none of ${ENV_FILES.join('/')} exists, and no ` +
+    `${release ? 'deployment' : 'project'} env var is set — running the suite bare`,
 );
 
 // The suite itself, exactly as `npm test` runs it — no env supplied, and its
@@ -196,6 +213,9 @@ if (outcome.error) {
 
 writeVerdict(outcome.status === 0 ? 'passed' : 'failed', {
   suite: suiteCounts(Buffer.concat(captured).toString('utf8')),
+  // What the release environment was carrying, which is what a bare run cannot
+  // be assumed to have covered without it.
+  strippedEnv,
 });
 
 process.exit(outcome.status);
