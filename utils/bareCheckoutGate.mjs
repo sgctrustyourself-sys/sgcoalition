@@ -26,7 +26,8 @@
  * "did this deployment run the rule, and what did it check?" is answerable with
  * a curl. The file is the rule's own record, not this module's summary of it,
  * and a build may not finish without it: a deployment that cannot show the rule
- * ran is the thing this whole thread exists to prevent.
+ * ran is the thing this whole thread exists to prevent. What a *deployment*
+ * serves is checked after it ships, by scripts/verify-gate-verdict.mjs.
  *
  * Off Vercel the guard skips itself: a developer's checkout legitimately has a
  * .env and is not a release. So a local build pays one process spawn and

@@ -13,6 +13,7 @@
     "gate:bare": "node scripts/bareCheckoutGuard.mjs",
     "test:fade": "node scripts/verify-loader-fade.mjs",
     "test:prerendered-article": "node scripts/verify-prerendered-article.mjs",
+    "test:gate-verdict": "node scripts/verify-gate-verdict.mjs",
     "test:referral": "node scripts/verify-referral-self-heal.mjs",
     "smoke:checkout": "node scripts/smoke-checkout.mjs",
     "dev": "vite",
