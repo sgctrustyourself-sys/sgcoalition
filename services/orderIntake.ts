@@ -506,12 +506,21 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
     // through the same alert channel as a webhook reconcile failure.
     if (saved.created && serverCreditCents > 0 && attempt.userId && uuid(attempt.userId)) {
         try {
-            const { data: curProfile } = await sb()
+            const { data: curProfile, error: curErr } = await sb()
                 .from('profiles')
                 .select('store_credit')
                 .eq('id', attempt.userId)
                 .maybeSingle();
-            const currentCents = Math.round(Number(curProfile?.store_credit || 0) * 100);
+            // A balance that cannot be READ is a failed debit, never a $0 one.
+            // Coercing a failed read to zero used to write `store_credit: 0` —
+            // the CAS `.gte('store_credit', 0)` matches any row — destroying
+            // the buyer's whole balance while the order kept its discount and
+            // the alert claimed the buyer still held the credit. Fail instead;
+            // the catch below reports it.
+            if (curErr || !curProfile) {
+                throw new Error(curErr?.message || 'Store-credit balance could not be read.');
+            }
+            const currentCents = Math.round(Number(curProfile.store_credit || 0) * 100);
             const debitCents = Math.min(serverCreditCents, currentCents);
             const { data: debited, error: debitErr } = await sb()
                 .from('profiles')
@@ -541,7 +550,15 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
                 await notifyAdminCreditDebitFailure(saved.record.id, attempt.userId, serverCreditCents, debitedCents, reason);
             }
         } catch (e) {
-            console.warn('[OrderIntake] Store credit debit failed:', (e as Error)?.message || e);
+            // Whatever stopped the debit — a failed write, an unreadable
+            // balance — the order is already recorded at the discounted total
+            // and NOTHING was taken off the buyer's balance, so this is the
+            // same money event as a lost race and goes out on the same channel.
+            // The alert never throws, so the checkout response cannot fail here.
+            const reason = 'The debit did not run: ' + ((e as Error)?.message || e);
+            console.error('[OrderIntake] Store credit debit failed: order=' + saved.record.id
+                + ' applied=' + c2d(serverCreditCents) + ' — ' + reason);
+            await notifyAdminCreditDebitFailure(saved.record.id, attempt.userId, serverCreditCents, 0, reason);
         }
     }
 
