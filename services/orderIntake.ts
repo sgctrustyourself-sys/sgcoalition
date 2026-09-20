@@ -315,6 +315,13 @@ async function sendAdm(rec: OrderRow): Promise<void> {
     if ((result as any)?.error) throw new Error((result as any).error.message);
 }
 
+// One-click triage: the admin orders view accepts ?tab=orders&q=<id> (search
+// matches the raw order id), so this link lands pre-filtered on the exact row.
+// Owned here so every ops alert reaches the same place.
+function adminOrderUrl(orderId: string): string {
+    return 'https://sgcoalition.xyz/#/admin?tab=orders&q=' + encodeURIComponent(orderId);
+}
+
 // Ops alert: money moved (payment_intent.succeeded) but the order could not
 // be reconciled. Fire-and-forget — an email failure must never affect the
 // webhook's HTTP response, which controls Stripe retry behavior.
@@ -324,10 +331,7 @@ export async function notifyAdminReconcileFailure(orderId: string, paymentIntent
         const rcpts = adminRcpt();
         if (!key || !rcpts.length) return;
         const r = resendClient();
-        // One-click triage: the admin orders view accepts ?tab=orders&q=<id>
-        // (search matches the raw order id), so this link lands pre-filtered
-        // on the exact order row.
-        const adminUrl = 'https://sgcoalition.xyz/#/admin?tab=orders&q=' + encodeURIComponent(orderId);
+        const adminUrl = adminOrderUrl(orderId);
         const stripeUrl = 'https://dashboard.stripe.com/payments/' + encodeURIComponent(paymentIntentId);
         const html = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#fff;color:#111827;">'
             + '<h2 style="letter-spacing:1px;text-transform:uppercase;">Webhook reconcile failed</h2>'
@@ -347,6 +351,40 @@ export async function notifyAdminReconcileFailure(orderId: string, paymentIntent
         await r.emails.send({ from: fromAddr(), to: rcpts, subject: 'ACTION REQUIRED: webhook reconcile failed for ' + orderId, html } as any);
     } catch (e) {
         console.warn('[OrderIntake] Reconcile-failure alert email failed:', e);
+    }
+}
+
+// Ops alert: the order was recorded with store credit applied but the buyer's
+// balance was NOT debited in full. That is the one outcome this path must
+// never reach quietly — the buyer keeps the credit AND the discount — and it
+// happens when the balance moves between the re-verify above and the debit
+// write, so the operator has to reconcile it by hand. Same delivery and
+// one-click triage as the webhook reconcile alert; it never throws, so it
+// cannot change the checkout response.
+export async function notifyAdminCreditDebitFailure(orderId: string, userId: string, appliedCents: number, debitedCents: number, reason: string): Promise<void> {
+    try {
+        const key = process.env.RESEND_API_KEY;
+        const rcpts = adminRcpt();
+        if (!key || !rcpts.length) return;
+        const r = resendClient();
+        const shortfallCents = Math.max(0, appliedCents - debitedCents);
+        const html = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#fff;color:#111827;">'
+            + '<h2 style="letter-spacing:1px;text-transform:uppercase;">Store credit debit did not land</h2>'
+            + '<p>Order <code>' + esc(orderId) + '</code> was recorded with <strong>$' + c2d(appliedCents) + '</strong> of store credit applied but only <strong>$' + c2d(debitedCents) + '</strong> was debited from the buyer\'s balance. The buyer currently keeps $' + c2d(shortfallCents) + ' they did not spend, while the order is discounted as if they had.</p>'
+            + '<p><a href="' + esc(adminOrderUrl(orderId)) + '" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Triage order in Admin</a></p>'
+            + '<table cellpadding="8" style="border:1px solid #e5e7eb;border-radius:8px;margin:16px 0;">'
+            + '<tr><td style="background:#f9fafb;"><strong>Order ID</strong></td><td><code>' + esc(orderId) + '</code></td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>User ID</strong></td><td><code>' + esc(userId) + '</code></td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Credit applied</strong></td><td>$' + c2d(appliedCents) + '</td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Actually debited</strong></td><td>$' + c2d(debitedCents) + '</td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Reason</strong></td><td>' + esc(reason) + '</td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Time (UTC)</strong></td><td>' + esc(new Date().toISOString()) + '</td></tr>'
+            + '</table>'
+            + '<p style="color:#6b7280;">Debit the remaining $' + c2d(shortfallCents) + ' in Admin &rarr; Customers (store credit) or collect it from the buyer before fulfilling. Do not fulfil on the discounted total alone.</p>'
+            + '</div>';
+        await r.emails.send({ from: fromAddr(), to: rcpts, subject: 'ACTION REQUIRED: store credit not debited for ' + orderId, html } as any);
+    } catch (e) {
+        console.warn('[OrderIntake] Store-credit debit alert email failed:', e);
     }
 }
 
@@ -457,9 +495,15 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
     // once per order. The balance re-verification above ran BEFORE
     // persistOrder, so a profile that spent its credit mid-checkout fails
     // closed before any money lands. The write itself is guarded by a CAS on
-    // store_credit >= applied — a concurrent spend between the check and the
-    // write no-ops (credit was already consumed; the order is still valid
-    // because the payment verification uses the post-credit total) and logs.
+    // store_credit >= the amount taken — a concurrent spend between the check
+    // and the write no-ops.
+    //
+    // A no-op must never be silent: the order is already recorded at the
+    // discounted total, so a lost race leaves the buyer holding credit they
+    // did not spend AND the discount. `.select('id')` is what makes that
+    // observable — without it PostgREST reports `error: null` for an update
+    // that matched nothing — and the shortfall is escalated to the operator
+    // through the same alert channel as a webhook reconcile failure.
     if (saved.created && serverCreditCents > 0 && attempt.userId && uuid(attempt.userId)) {
         try {
             const { data: curProfile } = await sb()
@@ -469,12 +513,33 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
                 .maybeSingle();
             const currentCents = Math.round(Number(curProfile?.store_credit || 0) * 100);
             const debitCents = Math.min(serverCreditCents, currentCents);
-            const { error: debitErr } = await sb()
+            const { data: debited, error: debitErr } = await sb()
                 .from('profiles')
                 .update({ store_credit: (currentCents - debitCents) / 100 })
                 .eq('id', attempt.userId)
-                .gte('store_credit', debitCents / 100);
+                .gte('store_credit', debitCents / 100)
+                .select('id');
             if (debitErr) throw new Error(debitErr.message);
+            // PostgREST answers a .select() with the matched rows, so an empty
+            // array is a CAS miss: the balance shrank below the amount taken
+            // between the re-read and the write. A non-array shape is not
+            // judged (a real .select() always answers with rows).
+            const matchedNothing = Array.isArray(debited) && debited.length === 0;
+            // Second, narrower branch of the same race: the re-read itself
+            // already saw less than the order was priced with, so the CAS
+            // matches and takes what is left — a short debit either way.
+            const shortOfWhatTheOrderUsed = debitCents < serverCreditCents;
+            if (matchedNothing || shortOfWhatTheOrderUsed) {
+                // A no-op update took nothing off the balance, so the amount
+                // actually debited is zero — not the amount we tried to take.
+                const debitedCents = matchedNothing ? 0 : debitCents;
+                const reason = matchedNothing
+                    ? 'The conditional update matched no row — the balance changed between the re-verification and the debit.'
+                    : 'The balance was lower than the credit the order was priced with when the debit ran.';
+                console.error('[OrderIntake] Store credit not debited in full: order=' + saved.record.id
+                    + ' applied=' + c2d(serverCreditCents) + ' debited=' + c2d(debitedCents) + ' — ' + reason);
+                await notifyAdminCreditDebitFailure(saved.record.id, attempt.userId, serverCreditCents, debitedCents, reason);
+            }
         } catch (e) {
             console.warn('[OrderIntake] Store credit debit failed:', (e as Error)?.message || e);
         }
