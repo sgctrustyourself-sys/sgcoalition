@@ -917,9 +917,8 @@ const Checkout: React.FC = () => {
             // the order actually owes. Debit here as well and a credit-covered
             // order pays twice; debit the client's creditToApply estimate here
             // instead and a coupon-comped $0 order debits credit it never used.
-            sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
-
-            const orderNumber = await createOrder('store_credit');
+            sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));            const orderNumber = await createOrder('store_credit')
+;
             sessionStorage.setItem('orderNumber', orderNumber);
             console.log('✅ Store credit order created, redirecting...');
 
@@ -928,7 +927,10 @@ const Checkout: React.FC = () => {
         } catch (e: any) {
             console.error(e);
             addToast(e.message || 'Order failed', 'error');
-        } finally {
+            // Cleared on failure only, like the manual confirms below: this
+            // write is a reference-less store_credit order, so a click landing
+            // between the server's response and the page leaving would place a
+            // second order and debit the buyer's credit twice.
             setIsLoading(false);
         }
     };
