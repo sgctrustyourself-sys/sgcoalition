@@ -118,6 +118,24 @@ const SHIPPING = {
     country: 'United States',
 };
 
+/** What the real addOrder resolves to for a coupon-comped order: the mapped
+ *  row the server recorded — server-priced at $0 while the client estimate is
+ *  $45, and (like every orders row) carrying no product image of its own. */
+const RECORDED_ORDER = {
+    id: 'order_test_1',
+    orderNumber: 'ORD-TEST-0001',
+    total: 0,
+    subtotal: 45,
+    discount: 45,
+    tax: 0,
+    paymentMethod: 'store_credit',
+    paymentStatus: 'paid',
+    customerName: 'Test Buyer',
+    customerEmail: 'buyer@example.com',
+    createdAt: '2026-09-20T00:00:00.000Z',
+    items: [{ productId: 'prod_coalition_pink_silver_crop_top', productName: 'Pink Silver Crop Top', productImage: '', selectedSize: 'M', quantity: 1, price: 45, total: 45 }],
+} as any;
+
 function baselineUseApp() {
     return {
         cart: [CART_ITEM] as any[],
@@ -326,6 +344,11 @@ describe('Checkout coupon <-> PaymentIntent agreement', () => {
             .find(b => /Complete Order/.test(b.textContent || ''));
         expect(complete).toBeTruthy();
 
+        // Stand in for the real addOrder (context/useOrders.ts), which resolves
+        // to the row the server recorded: this cart's client estimate is $45
+        // (coupon-blind) while the server priced it $0.
+        vi.mocked(useApp).mock.results[0].value.addOrder.mockResolvedValue(RECORDED_ORDER);
+
         await act(async () => {
             complete!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
             await Promise.resolve();
@@ -343,6 +366,15 @@ describe('Checkout coupon <-> PaymentIntent agreement', () => {
         const written = addOrder.mock.calls[0][0];
         expect(written.paymentMethod).toBe('store_credit');
         expect(written.couponCode).toBe(COUPON);
+
+        // What the customer will read comes from the RECORDED order, not the
+        // estimate: the cart is cleared on redirect, so this stored object is
+        // exactly what /order/success renders. Storing the local object instead
+        // prints "Order Total $45.00" beside a row and an email that say $0.00.
+        const pending = JSON.parse(sessionStorage.getItem('pendingOrder') || 'null');
+        expect(pending).toBeTruthy();
+        expect(pending.total).toBe(0);
+        expect(pending.total).not.toBe(written.total);
     });
 
     it('MANUAL_AMOUNTS_CRYPTO: the crypto panel asks for the server price, crypto discount included', async () => {

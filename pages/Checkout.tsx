@@ -793,9 +793,10 @@ const Checkout: React.FC = () => {
 
             // Pricing authority lives in services/orderIntake.ts → resolvePricing().
             // subtotal / discount are server-computed from DB; the client passes
-            // only raw items + shipping choice. total is kept for OrderSuccess
-            // display and updateLifetimeStats — the server warns on mismatch but
-            // always uses its own authoritative computation.
+            // only raw items + shipping choice. The total below is a raw,
+            // pre-coupon estimate used to build the request; the order the server
+            // RECORDS comes back from addOrder and replaces it for display and for
+            // every derived number (a comped order's estimate is money nobody paid).
             const order = {
                 id: orderSeed?.orderId || `order_${Date.now()}`,
                 orderNumber,
@@ -843,14 +844,19 @@ const Checkout: React.FC = () => {
                 }
             };
 
-            await addOrder(order);
+            // Resolves to the row the server recorded, which is authoritative for
+            // the total: the client's object is coupon-blind. Falls back to the
+            // local object only if the provider handed nothing back.
+            const recorded = (await addOrder(order)) || order;
 
             // Decrement client-side size_inventory so the storefront reflects the
             // latest availability without waiting for Supabase realtime to sync.
             void deductInventory(order.items);
 
-            // Save order to sessionStorage so OrderSuccess can display it even if cart is cleared
-            sessionStorage.setItem('pendingOrder', JSON.stringify(order));
+            // Save the RECORDED order to sessionStorage so OrderSuccess displays
+            // the totals the server wrote, not the client estimate. The cart is
+            // cleared on redirect, so this object is what the page renders.
+            sessionStorage.setItem('pendingOrder', JSON.stringify(recorded));
 
             // Track referral purchase if user came from a referral link.
             // This fires both the analytics event AND the commission pipeline:
@@ -865,8 +871,8 @@ const Checkout: React.FC = () => {
                 void processReferralOnPurchase(
                     referralCode,
                     user?.uid,
-                    order.id,
-                    order.total,
+                    recorded.id,
+                    recorded.total,
                 ).then((result) => {
                     if (result.success && result.commissionEarned) {
                         console.log(`[Referral] Commission earned: $${result.commissionEarned.toFixed(2)}`);
@@ -881,7 +887,7 @@ const Checkout: React.FC = () => {
             clearCart();
             // Checkout state (form + seed) is consumed on success.
             clearCheckoutState();
-            return orderNumber;
+            return recorded.orderNumber || orderNumber;
         } catch (error) {
             console.error('Error creating order:', error);
             reportErrorToAdmin(error instanceof Error ? error.message : String(error), 'Local Order Creation', {
