@@ -278,9 +278,15 @@ interface BuyerIdentity { user_id?: string | null; customer_email?: string | nul
 // order only when it is this buyer's. Without that check the id would be a
 // handle for reading back — the checkout response returns this row — or
 // overwriting another customer's order, and it is unauthenticated input.
+//
+// A row with a user_id belongs to an ACCOUNT, so only that account may read it
+// back: an anonymous attempt stating the account holder's email used to fall
+// through to the email comparison below and return their order (measured). The
+// email comparison is therefore only for guest rows, which have no account to
+// check against — a guest is whoever states that email.
 function sameBuyer(a: BuyerIdentity, b: BuyerIdentity): boolean {
     const au = uuid(a.user_id), bu = uuid(b.user_id);
-    if (au && bu) return au === bu;
+    if (au) return au === bu;
     const ae = String(a.customer_email || '').trim().toLowerCase();
     const be = String(b.customer_email || '').trim().toLowerCase();
     return Boolean(ae) && ae === be;

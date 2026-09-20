@@ -14,13 +14,18 @@
 //   • a purchase that CHANGED (items, size, quantity, add-on, coupon, shipping,
 //     applied store credit, buyer) mints a new id instead of being deduped
 //     into an order the shopper did not place;
-//   • an id is never reused after its attempt is settled or its TTL has passed;
+//   • an id is never reused after its attempt is settled, and the PURCHASE path
+//     stops reusing a record once its TTL has passed;
+//   • the RECOVERY path does not, because a record only survives while its
+//     attempt is unconfirmed — past the window a reload of the recovery page
+//     used to mint a new id, which is a second order and a second debit;
 //   • garbage in storage cannot break a checkout, and nothing here throws.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
     clearCheckoutAttempt,
     getOrCreateOrderId,
+    getOrCreateRecoveryOrderId,
     mintOrderId,
     CHECKOUT_ATTEMPT_TTL_MS,
     type CheckoutAttemptIdentity,
@@ -72,6 +77,12 @@ describe('checkout attempt identity', () => {
         ['a changed shipping cost', { shippingCost: 12 }],
         ['applied store credit', { storeCreditApplied: 5 }],
         ['a different buyer', { userId: '9b2f8a5c-1d4e-4f6a-9c3b-7e8d2a1b4c5d' }],
+        // Money-shaped, and measured as ignored: the method decides the
+        // discount, a reprice changes what is charged, and the email is how a
+        // guest is identified (a change used to 409 on the recorded row).
+        ['a changed payment method', { paymentMethod: 'crypto' }],
+        ['a repriced item', { items: [{ ...ITEMS[0], price: 30 }] }],
+        ['a different guest email', { customerEmail: 'other@test.com' }],
     ] as Array<[string, Partial<CheckoutAttemptIdentity>]>)(
         'mints a new id for %s',
         (_label, change) => {
@@ -80,13 +91,44 @@ describe('checkout attempt identity', () => {
         },
     );
 
-    it('never reuses an attempt older than its TTL', () => {
+    it('never reuses an attempt older than its TTL when the shopper is buying', () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date('2026-09-20T12:00:00.000Z'));
         const before = getOrCreateOrderId(purchase());
 
         vi.setSystemTime(new Date(Date.now() + CHECKOUT_ATTEMPT_TTL_MS + 1000));
         expect(getOrCreateOrderId(purchase())).not.toBe(before);
+    });
+
+    it('reuses an attempt past its TTL when the shopper is recovering it', () => {
+        // The measured money hole: the write landed but never answered (the 30s
+        // abort), so the record stayed and nothing confirmed it. Reloading the
+        // recovery page the copy recommends, more than the window later, minted
+        // a NEW id — a second order and a second store-credit debit for one
+        // purchase. A record that is still here is by definition unconfirmed,
+        // so a recovery reuses it whatever its age.
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-09-20T12:00:00.000Z'));
+        const sent = getOrCreateOrderId(purchase({
+            couponCode: 'SAVE10', storeCreditApplied: 5, paymentMethod: 'store_credit',
+        }));
+
+        vi.setSystemTime(new Date(Date.now() + CHECKOUT_ATTEMPT_TTL_MS * 4));
+        // A recovery in a fresh tab cannot restate the coupon or the applied
+        // credit — they live in that tab's sessionStorage — so it asks about the
+        // purchase itself: this buyer, this basket.
+        expect(getOrCreateRecoveryOrderId(purchase())).toBe(sent);
+    });
+
+    it('still mints a new id when the recovery is about a different purchase', () => {
+        const sent = getOrCreateOrderId(purchase());
+        expect(getOrCreateRecoveryOrderId(purchase({ items: [{ ...ITEMS[0], quantity: 3 }] }))).not.toBe(sent);
+        expect(getOrCreateRecoveryOrderId(purchase({ items: [{ ...ITEMS[0], selectedSize: 'L' }] }))).not.toBe(sent);
+        expect(getOrCreateRecoveryOrderId(purchase({ userId: '9b2f8a5c-1d4e-4f6a-9c3b-7e8d2a1b4c5d' }))).not.toBe(sent);
+    });
+
+    it('mints a new id when there is no attempt to recover', () => {
+        expect(getOrCreateRecoveryOrderId(purchase())).toMatch(/^order_\d+_[a-z0-9]+$/);
     });
 
     it('mints a fresh id once the attempt is settled', () => {

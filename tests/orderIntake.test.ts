@@ -1551,6 +1551,23 @@ describe('acceptCheckout attempt id', () => {
             .rejects.toThrow('already recorded for a different customer');
     });
 
+    it('refuses an anonymous attempt that states an account holder\'s email', async () => {
+        // Measured: the row's user_id was only compared when the attempt also
+        // presented one, so `{ userId: null, customerEmail: <account email> }`
+        // fell through to the email check and READ BACK a signed-in customer's
+        // order — total and items included — off a client-supplied attempt id.
+        // The same email is stated on purpose: only the account check can refuse
+        // this one.
+        const accountOrder = stubOrderRow({
+            id: ATTEMPT_ID, user_id: BUYER_ID, customer_email: 'attempt@test.com', total: 999,
+        });
+        mockSupabaseFrom.mockImplementation((table: string) =>
+            (table === 'orders' ? ordersStub(accountOrder) : chain('maybeSingle', { data: null, error: null })));
+
+        await expect(acceptCheckout(attempt({ userId: null, customerEmail: 'attempt@test.com' })))
+            .rejects.toThrow('already recorded for a different customer');
+    });
+
     it('refuses an attempt id that is another guest\'s order', async () => {
         const otherGuestsOrder = stubOrderRow({
             id: ATTEMPT_ID, user_id: null, customer_email: 'someone-else@test.com', total: 20,

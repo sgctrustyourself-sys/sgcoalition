@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext';
 import { getCartItemUnitPrice, getCartItemLineTotal, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { getReferralStats, generateReferralLink, type ReferralStats } from '../utils/referralSystem';
 import { trackReferralShare } from '../utils/referralAnalytics';
-import { clearCheckoutAttempt, getOrCreateOrderId } from '../utils/checkoutAttempt';
+import { clearCheckoutAttempt, getOrCreateRecoveryOrderId } from '../utils/checkoutAttempt';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 
 // ---- Stripe redirect-return recovery ----------------------------------
@@ -171,7 +171,7 @@ const OrderSuccess = () => {
                 const seed = returnedState?.orderSeed || null;
                 try {
                     const orderPayload = {
-                        id: seed?.orderId || getOrCreateOrderId({
+                        id: seed?.orderId || getOrCreateRecoveryOrderId({
                             userId: user?.uid,
                             items: cart,
                             couponCode: returnedState?.couponCode,
@@ -345,8 +345,11 @@ const OrderSuccess = () => {
                 const recorded = await addOrder({
                     // The same attempt id Checkout used (utils/checkoutAttempt.ts):
                     // if this purchase was already written, the server returns
-                    // that order instead of recording a second one.
-                    id: getOrCreateOrderId({
+                    // that order instead of recording a second one. The recovery
+                    // rule is used on purpose — this page is chasing an attempt
+                    // already sent, so the id must survive even past the window
+                    // in which the checkout would still be reusing it.
+                    id: getOrCreateRecoveryOrderId({
                         userId: user?.uid,
                         items: cart,
                         couponCode: returnedState?.couponCode,
