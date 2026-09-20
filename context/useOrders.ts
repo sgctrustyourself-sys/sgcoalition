@@ -9,6 +9,7 @@ import { supabase } from '../services/supabase';
 import { getAdminAuthHeaders } from '../services/adminSession';
 import { WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
 import { updateLifetimeStats } from '../utils/customerProfile';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 
 // The orders table stores no product image (acceptCheckout writes
 // productImage: ''), so a recorded order is merged with the order the client
@@ -131,7 +132,12 @@ export function useOrders(
     const addOrder = useCallback(async (order: Order): Promise<Order> => {
         if (isSupabaseConfigured) {
             try {
-                const response = await fetch('/api/complete-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order }) });
+                // Bounded on purpose: the caller's pay button stays disabled
+                // until this settles, so a request that never answers used to
+                // hold the shopper on a dead control. The timeout turns that
+                // into the Error below, and the order's attempt id makes the
+                // retry resolve to the recorded order rather than a second one.
+                const response = await fetchWithTimeout('/api/complete-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order }) });
                 if (!response.ok) {
                     const payload = await response.json().catch(() => ({}));
                     throw new Error(payload.error || 'Order completion failed');
