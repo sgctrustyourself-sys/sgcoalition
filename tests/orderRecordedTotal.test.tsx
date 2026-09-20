@@ -61,6 +61,7 @@ import { useApp } from '../context/AppContext';
 import { useSearchParams } from 'react-router-dom';
 import { updateLifetimeStats } from '../utils/customerProfile';
 import { useOrders } from '../context/useOrders';
+import { ORDER_WRITE_TIMEOUT_MS } from '../utils/fetchWithTimeout';
 import OrderSuccess from '../pages/OrderSuccess';
 
 // useOrders subscribes to a realtime channel; the shared mock client has no
@@ -207,6 +208,55 @@ describe('the order the app shows is the order the server recorded', () => {
         expect(container.querySelector('img')?.getAttribute('src')).toBe('/tee.jpg');
 
         act(() => pageRoot.unmount());
+    });
+
+    it('HUNG_WRITE_FAILS_INSTEAD_OF_HANGING: a request that never answers becomes a real error', async () => {
+        // A connection the platform never closes. Unbounded, addOrder stays
+        // pending forever, so the caller's pay button stays disabled (Checkout)
+        // or the page stays on "Processing..." with no message — the shopper's
+        // only way out is a manual reload. The bound turns that wait into the
+        // error every caller already handles.
+        //
+        // The stub models a real fetch: it rejects when the request is
+        // aborted, which is exactly the signal a bound request sends. A stub
+        // that ignored the signal could not tell a bounded call from a hang.
+        const hungFetch = vi.fn((_url: unknown, init?: RequestInit) => new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+        }));
+        vi.stubGlobal('fetch', hungFetch);
+
+        function Probe() { api = useOrders(true, false, () => undefined); return null; }
+        await act(async () => { root.render(createElement(Probe)); });
+
+        vi.useFakeTimers();
+        try {
+            let outcome: any = null;
+            act(() => {
+                void api.addOrder(CLIENT_ORDER).then(
+                    () => { outcome = 'resolved'; },
+                    (err: unknown) => { outcome = err; },
+                );
+            });
+            // The request carries the bound, and nothing has settled it yet.
+            expect(hungFetch.mock.calls[0][1]?.signal).toBeTruthy();
+            expect(outcome).toBeNull();
+
+            await act(async () => {
+                vi.advanceTimersByTime(ORDER_WRITE_TIMEOUT_MS + 1);
+                for (let i = 0; i < 4; i++) await Promise.resolve();
+            });
+
+            expect(outcome).toBeInstanceOf(Error);
+            expect(String(outcome.message)).toMatch(/no answer from the order service/i);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('a real network failure is surfaced unchanged, not relabelled as a timeout', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+
+        await expect(driveAddOrder()).rejects.toThrow('Failed to fetch');
     });
 
     it('MISSING_RECORDED_ROW_FAILS_CLOSED: a success with no recorded row is an error, not the estimate', async () => {

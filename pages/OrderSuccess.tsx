@@ -6,6 +6,7 @@ import { getCartItemUnitPrice, getCartItemLineTotal, WALLET_KEYCHAIN_CLIP_LABEL 
 import { getReferralStats, generateReferralLink, type ReferralStats } from '../utils/referralSystem';
 import { trackReferralShare } from '../utils/referralAnalytics';
 import { clearCheckoutAttempt, getOrCreateOrderId } from '../utils/checkoutAttempt';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 
 // ---- Stripe redirect-return recovery ----------------------------------
 // Stripe redirect methods (3D Secure card auth, Klarna, Afterpay) bounce the
@@ -28,6 +29,11 @@ interface ReturnedCheckoutState {
     couponCode?: string | null;
 }
 
+/** A failed write's reason, fit to show a shopper — and what to do next. */
+const messageOf = (error: unknown): string => (error instanceof Error && error.message
+    ? error.message
+    : 'We could not reach the order service. Reload this page to check your order — a repeat of the order is not placed or charged twice.');
+
 const loadReturnedCheckoutState = (): ReturnedCheckoutState | null => {
     try {
         const raw = sessionStorage.getItem(CHECKOUT_STATE_KEY);
@@ -42,6 +48,9 @@ const OrderSuccess = () => {
     const [searchParams] = useSearchParams();
     const { cart, cartTotal, calculateReward, clearCart, user, updateUser, addOrder } = useApp();
     const [orderDetails, setOrderDetails] = useState<any>(null);
+    // Why no order is on screen, when the reason is a write that failed rather
+    // than one that was never found: the empty state below says which.
+    const [writeError, setWriteError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [shippingInfo, setShippingInfo] = useState<any>(null);
     const [isMembershipSuccess, setIsMembershipSuccess] = useState(false);
@@ -222,7 +231,10 @@ const OrderSuccess = () => {
                     // non-succeeded PI, so retry briefly before falling back.
                     let response: Response | null = null;
                     for (let attempt = 0; attempt < 5; attempt++) {
-                        const r = await fetch('/api/complete-order', {
+                        // Bounded: this page shows a spinner until the write
+                        // settles, so a request that never answers is a shopper
+                        // staring at "Processing..." with no way forward.
+                        const r = await fetchWithTimeout('/api/complete-order', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ order: orderPayload }),
@@ -291,6 +303,10 @@ const OrderSuccess = () => {
                     // display build below.
                 } catch (err) {
                     console.error('Stripe redirect-return order completion failed:', err);
+                    // Surface it: without an order the page would otherwise
+                    // claim it merely "couldn't find" one, which reads as a
+                    // lookup problem rather than a write that never landed.
+                    setWriteError(messageOf(err));
                     // Fall through to the local display build below.
                 }
             }
@@ -398,6 +414,10 @@ const OrderSuccess = () => {
                 clearCheckoutAttempt();
             } catch (error) {
                 console.error('Order processing error:', error);
+                // A failed write is not the same as a missing order: say so,
+                // and say that reloading is safe (the attempt id means the
+                // server resolves a repeat to the order it already wrote).
+                setWriteError(messageOf(error));
             } finally {
                 setIsLoading(false);
             }
@@ -442,8 +462,8 @@ const OrderSuccess = () => {
         return (
             <div className="min-h-screen pt-24 pb-16 px-4">
                 <div className="max-w-2xl mx-auto text-center py-20">
-                    <h1 className="font-display text-3xl font-bold mb-4">No Order Found</h1>
-                    <p className="text-gray-600 mb-8">We couldn't find your order details.</p>
+                    <h1 className="font-display text-3xl font-bold mb-4">{writeError ? 'Order Not Confirmed' : 'No Order Found'}</h1>
+                    <p className="text-gray-600 mb-8">{writeError || "We couldn't find your order details."}</p>
                     <Link to="/" className="inline-flex items-center gap-2 bg-black text-white px-8 py-3 rounded-sm font-bold uppercase tracking-widest hover:bg-gray-800 transition">
                         <Home className="w-5 h-5" />
                         Back to Home

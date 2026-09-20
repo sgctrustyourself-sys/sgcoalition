@@ -59,7 +59,10 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
     vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: (n: number) => Math.floor(n / 10), clearCart, user: null, updateUser: vi.fn(), addOrder: vi.fn() } as any);
     await act(async () => { root.render(createElement(StrictMode, null, createElement(OrderSuccess))); for (let i = 0; i < 8; i++) await Promise.resolve(); });
     expect(fetchFn).toHaveBeenCalledTimes(1);
-    expect(fetchFn).toHaveBeenCalledWith('/api/complete-order', expect.objectContaining({ method: 'POST', headers: { 'Content-Type': 'application/json' } }));
+    // The recovery write is bounded too: this page is a spinner until the
+    // request settles, so an unbounded one would be a shopper waiting on
+    // "Processing..." with no way forward. Drop the bound and the signal goes.
+    expect(fetchFn).toHaveBeenCalledWith('/api/complete-order', expect.objectContaining({ method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: expect.anything() }));
     const request = JSON.parse(String(fetchFn.mock.calls[0][1]?.body));
     expect(request.order).toEqual(expect.objectContaining({
       id: 'order-3ds-1', orderNumber: 'ORD-3DS-0001', paymentMethod: 'stripe', paymentStatus: 'paid',
@@ -153,6 +156,36 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
     const [first, second] = addOrder.mock.calls.map((c: any[]) => c[0]);
     expect(first.id).toMatch(/^order_\d+_[a-z0-9]+$/);
     expect(second.id).toBe(first.id);
+  });
+
+  it('says the order was not confirmed when the write fails, instead of claiming none was found', async () => {
+    // A write that fails (the bounded request timing out, the server 500ing, a
+    // dropped connection) leaves the page with no order. Reporting that as
+    // "we couldn't find your order details" hides a failure the shopper has to
+    // act on — and says nothing about whether reloading is safe. It is: the
+    // order's attempt id makes a repeat resolve to the order already recorded.
+    const timedOut = 'No answer from the order service after 30s. Reload this page to check your order — a repeat of the order is not placed or charged twice.';
+    sessionStorage.setItem(STATE_KEY, JSON.stringify({
+      shippingInfo: { name: 'Guest Buyer', email: 'guest@example.com', address1: '1 Coalition Way', city: 'Baltimore', state: 'MD', zip: '21201', country: 'US' },
+      shippingMethod: 'standard', shippingCost: 0, storeCreditApplied: 5,
+    }));
+    const clearCart = vi.fn();
+    const addOrder = vi.fn().mockRejectedValue(new Error(timedOut));
+    vi.stubGlobal('fetch', vi.fn());
+    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=crypto'), vi.fn()] as any);
+    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: () => 4, clearCart, addOrder, user: null, updateUser: vi.fn() } as any);
+
+    await act(async () => {
+      root.render(createElement(OrderSuccess));
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+    });
+
+    const text = (container.textContent || '').replace(/\s+/g, ' ');
+    expect(text).toContain('Order Not Confirmed');
+    expect(text).toContain('No answer from the order service after 30s');
+    expect(text).toContain('a repeat of the order is not placed or charged twice');
+    expect(text).not.toContain("We couldn't find your order details");
+    expect(clearCart).not.toHaveBeenCalled();
   });
 
   it('cleans corrupt recovery storage without aborting the empty-cart path', async () => {
