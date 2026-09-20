@@ -743,42 +743,42 @@ Use Stripe test cards:
 - **Decline**: `4000 0000 0000 0002`
 - Any future expiry date and CVC
 
-### Checkout Smoke Test
-
-Payments are server-verified before an order is saved. `/api/create-payment-intent` creates the Stripe PaymentIntent; `/api/complete-order` verifies the capture against Stripe and server-computed product pricing before writing `orders`.
-
-Klarna and Afterpay are offered through Stripe's Payment Element on checkout (`pages/Checkout.tsx` → `/api/create-payment-intent` with `automatic_payment_methods`). They appear automatically once (1) both methods are toggled on in the Stripe dashboard (Settings → Payment methods) and (2) the buyer/order qualifies — Afterpay is domestic-only and needs the checkout shipping form, Klarna spans US/EU. No extra env var; the checkout form's email + shipping address are forwarded to the PaymentIntent for underwriting. Stripe.js is loaded lazily from `js.stripe.com` only when the Card/Klarna/Afterpay option is selected (CSP allowlisted in `vercel.json`).
-
-Cash App and crypto (USDC on Polygon) are manual methods: the buyer sends payment off-platform, confirms on the checkout page, and the order is written PENDING until the owner verifies it.
-
-Required environment variables:
-
-```env
-VITE_APP_URL=http://localhost:3000
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-```
-
-Optional order email variables:
-
-```env
-RESEND_API_KEY=re_your_key
-RESEND_FROM_EMAIL="SG Coalition <orders@your-domain.com>"
-ORDER_NOTIFICATION_EMAIL=orders@your-domain.com
-```
-
-Smoke-test flow:
-
-1. Run `npm run build`.
-2. Run the app through Vercel dev or a Vercel preview so `/api/create-payment-intent` and `/api/complete-order` execute as serverless functions.
-3. Add a physical product to cart, fill all shipping fields, leave partial store credit off, and pay by card with the Stripe test key.
-4. Confirm the app lands on `/order/success?payment_method=stripe`.
-5. In Supabase, confirm one `orders` row exists with `payment_method = stripe`, `payment_status = paid`, `payment_reference` populated with the PaymentIntent ID, and `total` equal to the Stripe captured amount.
-6. Repeat once with Cash App or crypto to confirm the PENDING order flow.
-
-
+### Checkout Smoke Test
+
+Payments are server-verified before an order is saved. `/api/create-payment-intent` creates the Stripe PaymentIntent; `/api/complete-order` verifies the capture against Stripe and server-computed product pricing before writing `orders`.
+
+Klarna and Afterpay are offered through Stripe's Payment Element on checkout (`pages/Checkout.tsx` → `/api/create-payment-intent` with `automatic_payment_methods`). They appear automatically once (1) both methods are toggled on in the Stripe dashboard (Settings → Payment methods) and (2) the buyer/order qualifies — Afterpay is domestic-only and needs the checkout shipping form, Klarna spans US/EU. No extra env var; the checkout form's email + shipping address are forwarded to the PaymentIntent for underwriting. Stripe.js is loaded lazily from `js.stripe.com` only when the Card/Klarna/Afterpay option is selected (CSP allowlisted in `vercel.json`).
+
+Cash App and crypto (USDC on Polygon) are manual methods: the buyer sends payment off-platform, confirms on the checkout page, and the order is written PENDING until the owner verifies it.
+
+Required environment variables:
+
+```env
+VITE_APP_URL=http://localhost:3000
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+```
+
+Optional order email variables:
+
+```env
+RESEND_API_KEY=re_your_key
+RESEND_FROM_EMAIL="SG Coalition <orders@your-domain.com>"
+ORDER_NOTIFICATION_EMAIL=orders@your-domain.com
+```
+
+Smoke-test flow:
+
+1. Run `npm run build`.
+2. Run the app through Vercel dev or a Vercel preview so `/api/create-payment-intent` and `/api/complete-order` execute as serverless functions.
+3. Add a physical product to cart, fill all shipping fields, leave partial store credit off, and pay by card with the Stripe test key.
+4. Confirm the app lands on `/order/success?payment_method=stripe`.
+5. In Supabase, confirm one `orders` row exists with `payment_method = stripe`, `payment_status = paid`, `payment_reference` populated with the PaymentIntent ID, and `total` equal to the Stripe captured amount.
+6. Repeat once with Cash App or crypto to confirm the PENDING order flow.
+
+
 ### Coalition Brain Bootstrap
 
 Populate the Brain table and seed entries with one idempotent admin bootstrap command:
