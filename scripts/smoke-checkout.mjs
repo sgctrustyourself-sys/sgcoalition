@@ -503,6 +503,9 @@ try {
 
     // ---- 6. checkout agrees with the server ------------------------------
     step = 'checkout';
+    const SETTLED_CHECK = 'a recorded attempt resolves instead of writing a second order';
+    const SETTLED_ORDER = 'ORD-SMOKE-SETTLED';
+    const NOTICE_KEY = 'coalition_smoke_settled_notice';
     assert(
         apiAvailable || allowApiSkip,
         `no API at ${target}, so the money path cannot be verified. Point SMOKE_BASE_URL at a deployment,` +
@@ -552,9 +555,6 @@ try {
         // So this check cannot create an order, send an email or touch the
         // voucher — and it proves that about itself before clicking anything.
         step = 'settled-attempt';
-        const SETTLED_CHECK = 'a recorded attempt resolves instead of writing a second order';
-        const SETTLED_ORDER = 'ORD-SMOKE-SETTLED';
-        const NOTICE_KEY = 'coalition_smoke_settled_notice';
         await page.route(/\/api\/complete-order(\?|$)/, async (route) => {
             blockedWrites.push(route.request().postData() || '');
             await route.abort();
@@ -732,6 +732,12 @@ try {
         // reported as skipped rather than passed.
         results.push({ name: 'checkout total matches the server', ok: true, skipped: true });
         console.log('  skip  checkout total matches the server — no API on this host (client flow only)');
+        // Step 7 sits behind the same API — without /api there are no payment
+        // settings and no manual-method surface to drive — so it is reported as
+        // skipped too. Left out of the report, a green run would read as if the
+        // settled branch had been checked when it never ran.
+        results.push({ name: SETTLED_CHECK, ok: true, skipped: true });
+        console.log(`  skip  ${SETTLED_CHECK} — no API on this host (client flow only)`);
     }
 } catch (e) {
     failure = { step, error: e.message };
@@ -755,7 +761,7 @@ if (skippedNames.includes('checkout total matches the server')) {
     skipNote = ` — checkout pricing NOT verified (no API at ${host})`;
 }
 if (skippedNames.length > 1 && skippedNames.includes('checkout total matches the server')) {
-    skipNote += `; the other skips are expected when this catalogue or deployment does not offer that case`;
+    skipNote += `; the other skips name their own reason above`;
 }
 if (failure) {
     console.error(`\nSMOKE FAILED at "${failure.step}": ${failure.error}`);
