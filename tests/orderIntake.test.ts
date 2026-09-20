@@ -1245,18 +1245,35 @@ describe('acceptCheckout store credit (every payment method)', () => {
      * resolves `data: null` — which is exactly why the debit guard needs
      * `.select('id')` to see that its conditional update matched nothing. A
      * chain that answered with rows either way would make the guard untestable.
+     *
+     * `faults` makes one specific call fail the way the database does when it
+     * is unhappy: `read` fails the debit's own re-read (the re-verify before it
+     * has already succeeded) either with an error or with no row at all, and
+     * `write` fails the debit update itself.
      */
-    function profilesChain(storedBalance: number | number[], matchedRows: unknown[]) {
+    function profilesChain(
+        storedBalance: number | number[],
+        matchedRows: unknown[],
+        faults: { read?: 'error' | 'missing'; write?: boolean } = {},
+    ) {
         const balances = Array.isArray(storedBalance) ? storedBalance : [storedBalance];
         const q = freshMockQuery({ data: { store_credit: balances[0] }, error: null });
         let reads = 0;
-        q.maybeSingle = vi.fn(async () => ({
-            data: { store_credit: balances[Math.min(reads++, balances.length - 1)] },
-            error: null,
-        }));
+        q.maybeSingle = vi.fn(async () => {
+            const failed = faults.read && reads > 0;
+            const balance = balances[Math.min(reads++, balances.length - 1)];
+            if (failed) {
+                return faults.read === 'missing'
+                    ? { data: null, error: null }
+                    : { data: null, error: { message: 'connection reset' } };
+            }
+            return { data: { store_credit: balance }, error: null };
+        });
         // Reads select columns and keep chaining; the debit selects 'id'.
         q.select = vi.fn((columns?: string) => columns === 'id'
-            ? Promise.resolve({ data: matchedRows, error: null })
+            ? Promise.resolve(faults.write
+                ? { data: null, error: { message: 'connection reset' } }
+                : { data: matchedRows, error: null })
             : q);
         // Awaited with no .select(): PostgREST returns no representation.
         q.then = vi.fn((onFulfilled: (v: unknown) => unknown) =>
@@ -1321,6 +1338,57 @@ describe('acceptCheckout store credit (every payment method)', () => {
         expect(html).toContain('Credit applied</strong></td><td>$5.00');
         expect(html).toContain('Actually debited</strong></td><td>$3.00');
         expect(html).toContain('lower than the credit the order was priced with');
+    });
+
+    it('does not wipe the balance when the debit re-read fails, and alerts instead', async () => {
+        // The re-verify sees $8; the debit's own re-read fails. Treating that
+        // as a $0 balance wrote `store_credit: 0` — the CAS `.gte(0)` matches
+        // any row — so the buyer lost their whole balance while the order kept
+        // a discount the alert then described as credit the buyer "keeps".
+        const profiles = profilesChain(8, [{ id: USER_ID }], { read: 'error' });
+        stubCreditOrder(profiles, stubOrderRow({ id: 'saved-order', total: 20 }));
+
+        const result = await acceptCheckout(creditAttempt);
+
+        expect(result.created).toBe(true);
+        // `calls` rather than `toHaveBeenCalled()` so a regression prints the
+        // destructive payload it wrote — `[{ store_credit: 0 }]`.
+        expect(profiles.update.mock.calls).toEqual([]);
+        expect(creditAlerts()).toHaveLength(1);
+        const html = (creditAlerts()[0][0] as any).html;
+        expect(html).toContain('Actually debited</strong></td><td>$0.00');
+        expect(html).toContain('The debit did not run: connection reset');
+    });
+
+    it('does not wipe the balance when the profile row is gone, and alerts instead', async () => {
+        // Same guard, the other branch: the read succeeds but returns no row.
+        // `Number(undefined || 0)` is still not a balance to write back.
+        const profiles = profilesChain(8, [{ id: USER_ID }], { read: 'missing' });
+        stubCreditOrder(profiles, stubOrderRow({ id: 'saved-order', total: 20 }));
+
+        const result = await acceptCheckout(creditAttempt);
+
+        expect(result.created).toBe(true);
+        expect(profiles.update.mock.calls).toEqual([]);
+        expect(creditAlerts()).toHaveLength(1);
+        expect((creditAlerts()[0][0] as any).html).toContain('Store-credit balance could not be read');
+    });
+
+    it('alerts when the debit write itself fails', async () => {
+        // The write errors instead of no-opping: nothing was taken off the
+        // balance, so the order must not stay discounted in silence.
+        const profiles = profilesChain(8, [{ id: USER_ID }], { write: true });
+        stubCreditOrder(profiles, stubOrderRow({ id: 'saved-order', total: 20 }));
+
+        const result = await acceptCheckout(creditAttempt);
+
+        expect(result.created).toBe(true);
+        expect(creditAlerts()).toHaveLength(1);
+        const html = (creditAlerts()[0][0] as any).html;
+        expect(html).toContain('Credit applied</strong></td><td>$5.00');
+        expect(html).toContain('Actually debited</strong></td><td>$0.00');
+        expect(html).toContain('The debit did not run');
+        expect(html).toContain('connection reset');
     });
 
     it('stays quiet when the debit lands in full', async () => {
