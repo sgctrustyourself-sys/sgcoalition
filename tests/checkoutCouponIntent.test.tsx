@@ -377,6 +377,35 @@ describe('Checkout coupon <-> PaymentIntent agreement', () => {
         expect(pending.total).not.toBe(written.total);
     });
 
+    it('METHOD_SWITCH_TOTAL: the trust copy follows the selected method price', async () => {
+        const fetchFn = mockApiFetch();
+        await act(async () => { root.render(createElement(Checkout)); });
+        await flushIntentDebounce();
+
+        const more = [...container.querySelectorAll('button')]
+            .find(b => /More payment options/i.test(b.textContent || ''));
+        expect(more).toBeTruthy();
+        await act(async () => {
+            more!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            await Promise.resolve();
+        });
+        const crypto = [...container.querySelectorAll('label')]
+            .find(label => /Pay with Crypto/i.test(label.textContent || ''));
+        expect(crypto).toBeTruthy();
+        await act(async () => {
+            crypto!.click();
+            await Promise.resolve();
+            vi.advanceTimersByTime(500);
+            await Promise.resolve();
+        });
+
+        const trust = [...container.querySelectorAll('p')]
+            .find(p => /total is \$/.test(p.textContent || ''));
+        expect(trust?.textContent).toContain('total is $40.50');
+        expect(trust?.textContent).not.toContain('$45.00');
+        expect(callsTo(fetchFn, '/api/pricing-preview').length).toBeGreaterThan(1);
+    });
+
     it('MANUAL_AMOUNTS_CRYPTO: the crypto panel asks for the server price, crypto discount included', async () => {
         // The crypto discount is applied server-side only, so an amount built
         // from the client's raw estimate asks the shopper to send MORE than the
