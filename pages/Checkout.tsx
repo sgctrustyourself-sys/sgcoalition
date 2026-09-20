@@ -424,7 +424,20 @@ const Checkout: React.FC = () => {
         : pricingPreview
             ? pricingPreview.totalCents / 100
             : finalTotal;
-    const requiresNoExternalPayment = isZeroAmount || finalTotal <= 0;
+    // The amount a customer is asked to pay must be the server's price for the
+    // method they selected. pricingPreview is fetched with that method AND the
+    // applied coupon, so it is the authority for the manual paths; the stored
+    // PaymentIntent price is a CARD intent (it has no crypto discount) and the
+    // raw finalTotal estimate drops the coupon as well. Both were printed in
+    // the Cash App and crypto panels, so a shopper with the crypto discount was
+    // told to send the undiscounted amount and a voucher-comped order still
+    // asked for full price.
+    const serverTotalForMethod = paymentMethod !== 'card' && pricingPreview
+        ? pricingPreview.totalCents / 100
+        : reviewTotal;
+    // "Nothing to pay" follows the same server price, so a $0 order shows the
+    // completion panel for manual methods too instead of asking for money.
+    const requiresNoExternalPayment = isZeroAmount || serverTotalForMethod <= 0;
     const paymentLabel = paymentMethod === 'crypto'
         ? 'USDC on Polygon'
         : paymentMethod === 'cashapp'
@@ -1422,7 +1435,7 @@ const Checkout: React.FC = () => {
                                             </div>
                                             <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                                                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Total</p>
-                                                <p className="mt-1 text-sm font-bold text-white">${reviewTotal.toFixed(2)}</p>
+                                                <p className="mt-1 text-sm font-bold text-white">${serverTotalForMethod.toFixed(2)}</p>
                                             </div>
                                             <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                                                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Fulfillment</p>
@@ -1506,14 +1519,14 @@ const Checkout: React.FC = () => {
                                                     <div>
                                                         <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wide mb-1">Pay with Cash App</h4>
                                                         <p className="text-sm text-gray-300">
-                                                            Send ${finalTotal.toFixed(2)} to <span className="text-green-400 font-bold">$sgcoalition</span> on Cash App.
+                                                            Send ${serverTotalForMethod.toFixed(2)} to <span className="text-green-400 font-bold">$sgcoalition</span> on Cash App.
                                                         </p>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <div className="bg-black/50 p-4 rounded-lg border border-green-500/30">
-                                                <p className="text-sm text-gray-400 mb-2">Send <span className="text-white font-bold">${finalTotal.toFixed(2)}</span> to:</p>
+                                                <p className="text-sm text-gray-400 mb-2">Send <span className="text-white font-bold">${serverTotalForMethod.toFixed(2)}</span> to:</p>
                                                 <div className="flex items-center justify-between bg-white/5 p-3 rounded border border-white/10">
                                                     <code className="text-xs sm:text-sm font-mono text-green-300 truncate mr-2">$sgcoalition</code>
                                                     <button onClick={copyAddress} className="text-gray-400 hover:text-white transition">
@@ -1582,7 +1595,7 @@ const Checkout: React.FC = () => {
                                             </div>
 
                                             <div className="bg-black/50 p-4 rounded-lg border border-white/10">
-                                                <p className="text-sm text-gray-400 mb-2">Send <span className="text-white font-bold">{finalTotal.toFixed(2)} USDC</span> to:</p>
+                                                <p className="text-sm text-gray-400 mb-2">Send <span className="text-white font-bold">{serverTotalForMethod.toFixed(2)} USDC</span> to:</p>
                                                 <div className="flex items-center justify-between bg-white/5 p-3 rounded border border-white/10">
                                                     <code className="text-xs sm:text-sm font-mono text-gray-300 truncate mr-2">{WALLET_ADDRESS}</code>
                                                     <button onClick={copyAddress} className="text-gray-400 hover:text-white transition">
