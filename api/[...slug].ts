@@ -24,6 +24,7 @@ const handlers: Record<string, Loader> = {
     'health': () => import('./_handlers/health.js'),
     'marketing-subscribe': () => import('./_handlers/marketing-subscribe.js'),
     'marketing-stats': () => import('./_handlers/marketing-stats.js'),
+    'order-attempt': () => import('./_handlers/order-attempt.js'),
     'payment-settings': () => import('./_handlers/payment-settings.js'),
     'pricing-preview': () => import('./_handlers/pricing-preview.js'),
     'product-drift': () => import('./_handlers/product-drift.js'),

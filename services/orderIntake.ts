@@ -271,7 +271,7 @@ async function findDup(s: SupabaseClient, r: OrderRow): Promise<OrderRow | null>
     return null;
 }
 
-interface BuyerIdentity { user_id?: string | null; customer_email?: string | null; }
+export interface BuyerIdentity { user_id?: string | null; customer_email?: string | null; }
 
 // The order id is a checkout attempt id minted by the CLIENT
 // (utils/checkoutAttempt.ts), so a row recorded under it is this checkout's
@@ -300,6 +300,30 @@ async function findRecordedOrder(orderId: string, buyer: BuyerIdentity): Promise
     const row = data as OrderRow;
     if (!sameBuyer(row, buyer)) throw err(409, 'Order id already recorded for a different customer.');
     return row;
+}
+
+// The buyer-scoped read the CHECKOUT asks before it writes: the order number
+// recorded under this attempt id, or null when this attempt has no order for
+// THIS buyer. It replaces the clock the client used to answer that question
+// (utils/checkoutAttempt.ts): past a 30-minute window a record was treated as
+// "not this purchase", so a retry after the 30s write abort — the case where
+// the write LANDED but never answered — minted a new id and became a second
+// order and a second store-credit debit for one purchase (measured).
+//
+// Null rather than 409 when the row is another buyer's, deliberately: an
+// unauthenticated attempt id must not be a handle for reading — or even
+// confirming — someone else's order, and the only caller that acts on a
+// conflict is the write path (acceptCheckout's early read, which refuses).
+// A recorded row that carries no order number also reads as null; the write
+// path's own dedupe is still the last word there, so the client falls back to
+// reusing the id rather than minting one.
+export async function findRecordedOrderNumber(orderId: string, buyer: BuyerIdentity): Promise<string | null> {
+    const id = String(orderId || '').trim();
+    if (!id) return null;
+    const { data, error } = await sb().from('orders').select('order_number, user_id, customer_email').eq('id', id).maybeSingle();
+    if (error) { if (isColErr(error)) throw err(503, 'Schema missing payment columns.'); throw err(500, error.message); }
+    if (!data || !sameBuyer(data as BuyerIdentity, buyer)) return null;
+    return String((data as { order_number?: unknown }).order_number || '') || null;
 }
 
 export async function persistOrder(record: OrderRow): Promise<OrderSaveResult> {

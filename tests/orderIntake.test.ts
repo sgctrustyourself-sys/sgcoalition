@@ -102,6 +102,7 @@ import {
     persistOrder,
     reconcilePayment,
     acceptCheckout,
+    findRecordedOrderNumber,
     HttpError,
 } from '../services/orderIntake';
 import type { CheckoutAttempt, ProductRow, OrderRow } from '../api/_types';
@@ -1577,5 +1578,107 @@ describe('acceptCheckout attempt id', () => {
 
         await expect(acceptCheckout(attempt({ userId: null, customerEmail: 'attempt@test.com' })))
             .rejects.toThrow('already recorded for a different customer');
+    });
+});
+
+// =========================================================================
+// findRecordedOrderNumber — the read the checkout asks before it writes
+// =========================================================================
+
+// pages/Checkout.tsx asks this about an attempt it has already sent, so a
+// record whose order is written is resolved to that order instead of being
+// written a second time — the question a 30-minute clock used to guess at, and
+// got wrong once the window had passed (a second order, a second debit).
+//
+// Two properties are pinned here. The answer is scoped to the BUYER, because
+// the attempt id is unauthenticated client input: for anyone else it must read
+// as "nothing recorded" rather than confirming — let alone returning — another
+// customer's order. And it is a READ: no pricing, no claim, no debit, no email.
+describe('findRecordedOrderNumber', () => {
+    const BUYER_ID = '9b2f8a5c-1d4e-4f6a-9c3b-7e8d2a1b4c5d';
+    const OTHER_BUYER_ID = '11111111-2222-4333-8444-555555555555';
+    const ATTEMPT_ID = 'order_1758300000000_ab12cd34';
+
+    beforeEach(() => {
+        withSupabaseEnv();
+        process.env.RESEND_API_KEY = 're_test_key';
+        process.env.RESEND_FROM_EMAIL = 'test@coalition.com';
+        process.env.ORDER_NOTIFICATION_EMAIL = 'admin@coalition.com';
+        mockSupabaseFrom.mockReset();
+        mockResendSend.mockReset();
+        mockResendSend.mockResolvedValue({ data: { id: 'email-1' }, error: null });
+    });
+    afterEach(() => {
+        clearSupabaseEnv();
+        delete process.env.RESEND_API_KEY;
+        delete process.env.RESEND_FROM_EMAIL;
+        delete process.env.ORDER_NOTIFICATION_EMAIL;
+    });
+
+    const ordersOnly = (recorded: unknown) => mockSupabaseFrom.mockImplementation((table: string) =>
+        (table === 'orders' ? ordersStub(recorded) : chain('maybeSingle', { data: null, error: null })));
+
+    const orderClaims = () => mockSupabaseFrom.mock.results
+        .map((r: { value: any }) => r.value)
+        .filter((q: any) => q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0);
+
+    it('names the order recorded under the attempt, for the buyer who owns it', async () => {
+        ordersOnly(stubOrderRow({
+            id: ATTEMPT_ID, order_number: 'ORD-ATTEMPT-1', user_id: BUYER_ID, customer_email: 'attempt@test.com',
+        }));
+
+        await expect(findRecordedOrderNumber(ATTEMPT_ID, { user_id: BUYER_ID, customer_email: 'attempt@test.com' }))
+            .resolves.toBe('ORD-ATTEMPT-1');
+    });
+
+    it('is a read: no pricing, no claim, no debit, no email', async () => {
+        ordersOnly(stubOrderRow({
+            id: ATTEMPT_ID, order_number: 'ORD-ATTEMPT-1', user_id: null, customer_email: 'guest@test.com',
+        }));
+
+        await findRecordedOrderNumber(ATTEMPT_ID, { user_id: null, customer_email: 'guest@test.com' });
+
+        expect(mockSupabaseFrom).toHaveBeenCalledTimes(1);
+        expect(mockSupabaseFrom).not.toHaveBeenCalledWith('profiles');
+        expect(mockSupabaseFrom).not.toHaveBeenCalledWith('products');
+        expect(orderClaims()).toHaveLength(0);
+        expect(mockResendSend).not.toHaveBeenCalled();
+    });
+
+    it('answers "not recorded" for another buyer instead of confirming that an order exists', async () => {
+        ordersOnly(stubOrderRow({
+            id: ATTEMPT_ID, order_number: 'ORD-SOMEONE-ELSE', user_id: OTHER_BUYER_ID, customer_email: 'someone-else@test.com',
+        }));
+
+        await expect(findRecordedOrderNumber(ATTEMPT_ID, { user_id: BUYER_ID, customer_email: 'attempt@test.com' }))
+            .resolves.toBeNull();
+        // The measured read-back: an anonymous attempt stating the account
+        // holder's own email. Same answer — nothing.
+        await expect(findRecordedOrderNumber(ATTEMPT_ID, { user_id: null, customer_email: 'someone-else@test.com' }))
+            .resolves.toBeNull();
+    });
+
+    it('answers "not recorded" for an attempt with no order, and queries nothing without an id', async () => {
+        ordersOnly(null);
+
+        await expect(findRecordedOrderNumber(ATTEMPT_ID, { user_id: BUYER_ID })).resolves.toBeNull();
+        // No id at all: no query, no answer other than null.
+        await expect(findRecordedOrderNumber('   ', { user_id: BUYER_ID })).resolves.toBeNull();
+        expect(mockSupabaseFrom).toHaveBeenCalledTimes(1);
+    });
+
+    it('surfaces a database failure instead of answering "not recorded"', async () => {
+        // The distinction matters one layer up: the handler answers 5xx, which
+        // the client reads as "not settled" and reuses the id for. Swallowing
+        // the error here would make an outage look like a clean "nothing was
+        // recorded" and hide it from the logs.
+        mockSupabaseFrom.mockImplementation(() => {
+            const q = freshMockQuery();
+            q.maybeSingle.mockResolvedValue({ data: null, error: { message: 'connection reset', code: '08006' } });
+            return q;
+        });
+
+        await expect(findRecordedOrderNumber(ATTEMPT_ID, { user_id: BUYER_ID }))
+            .rejects.toThrow('connection reset');
     });
 });
