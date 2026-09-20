@@ -74,6 +74,47 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
     expect(clearCart).toHaveBeenCalledTimes(1); expect(sessionStorage.getItem(STATE_KEY)).toBeNull(); expect(container.textContent).toContain('Order Confirmed!');
   });
 
+  it('a second entry into the cart fallback cannot place a second reference-less order', async () => {
+    // The cart fallback is the one reference-less manual write the server
+    // cannot dedupe: it mints its own id (`order_${Date.now()}`) and sends no
+    // paymentReference, so findDup has nothing to match. It runs when
+    // /order/success carries a payment confirmation AND the cart is still
+    // populated — the state the redirect normally clears — and its effect deps
+    // include `user` and `cart`, so a hydration landing mid-write re-enters it.
+    sessionStorage.setItem(STATE_KEY, JSON.stringify({
+      shippingInfo: { name: 'Guest Buyer', email: 'guest@example.com', address1: '1 Coalition Way', city: 'Baltimore', state: 'MD', zip: '21201', country: 'US' },
+      shippingMethod: 'standard', shippingCost: 0, storeCreditApplied: 5,
+    }));
+    const clearCart = vi.fn();
+    const addOrder = vi.fn().mockResolvedValue(recordedFallbackOrder());
+    vi.stubGlobal('fetch', vi.fn());
+    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=crypto'), vi.fn()] as any);
+    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: () => 4, clearCart, addOrder, user: null, updateUser: vi.fn() } as any);
+
+    await act(async () => {
+      root.render(createElement(OrderSuccess));
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+    });
+    expect(addOrder).toHaveBeenCalledTimes(1);
+
+    // Second entry: the auth context hydrates while the first write is in
+    // flight, which re-runs the effect with the cart still populated (the real
+    // clearCart only lands once addOrder resolves).
+    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: () => 4, clearCart, addOrder, user: { uid: 'user-1' }, updateUser: vi.fn() } as any);
+    await act(async () => {
+      root.render(createElement(OrderSuccess));
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+    });
+
+    // One purchase → one order → one server-side debit.
+    expect(addOrder).toHaveBeenCalledTimes(1);
+    const written = addOrder.mock.calls[0][0];
+    expect(written.paymentMethod).toBe('crypto');
+    expect(written.paymentReference).toBeUndefined();
+    expect(written.storeCreditApplied).toBe(5);
+    expect(clearCart).toHaveBeenCalledTimes(1);
+  });
+
   it('cleans corrupt recovery storage without aborting the empty-cart path', async () => {
     sessionStorage.setItem(STATE_KEY, '{checkout-state-not-json');
     sessionStorage.setItem('shippingInfo', '{not-json');
