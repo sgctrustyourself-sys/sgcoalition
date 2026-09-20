@@ -38,6 +38,13 @@ function getSupabaseAdmin(): SupabaseClient {
 // Thin createOrder adapter — delegates to Order intake module
 // ---------------------------------------------------------------------------
 
+const ORDER_ID_MAX = 100;
+
+function normalizeOrderId(value: unknown): string | undefined {
+    const id = String(value ?? '').trim();
+    return id && id.length <= ORDER_ID_MAX ? id : undefined;
+}
+
 function buildPaymentEvidence(order: Record<string, unknown>): PaymentEvidence {
     const method = String(order.paymentMethod || order.payment_method || '').toLowerCase();
     if (method === 'stripe') {
@@ -70,7 +77,11 @@ async function createOrder(req: ApiRequest): Promise<OrderRow | null> {
         shippingDollars: (shippingAddr as any)?.shippingCost || orderInput.shippingCost || 0,
         shippingMethod: (shippingAddr as any)?.shippingMethod || orderInput.shippingMethod || 'standard',
         paymentEvidence: buildPaymentEvidence(orderInput as Record<string, unknown>),
-        orderId: (orderInput.id || orderInput.order_id) as string | undefined,
+        // The order id IS the checkout attempt id the server dedupes on, so it
+        // arrives as unauthenticated client input: keep it a bounded trimmed
+        // string and drop anything else (the server then mints its own id)
+        // rather than letting a non-string become a row key and a query value.
+        orderId: normalizeOrderId(orderInput.id ?? orderInput.order_id),
         orderNumber: (orderInput.orderNumber || orderInput.order_number) as string | undefined,
         userId: orderInput.userId || orderInput.user_id || null,
         customerName: String(orderInput.customerName || orderInput.customer_name || 'Customer'),
