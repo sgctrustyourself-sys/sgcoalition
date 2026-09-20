@@ -1229,4 +1229,110 @@ describe('acceptCheckout store credit (every payment method)', () => {
             .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.store_credit !== undefined));
         expect(profileUpdate).toBeFalsy();
     });
+
+    // ---- A debit that does not land must never be silent -------------------
+    //
+    // By the time the debit runs the order row is already written at the
+    // discounted total, so a conditional update that matches nothing (the
+    // balance moved between the re-verify and the write) used to leave the
+    // buyer holding BOTH the credit and the discount, invisibly: PostgREST
+    // reports `error: null` for a no-op update, so the returned rows are the
+    // only signal that the debit did not land.
+
+    /**
+     * Profiles chain that models PostgREST where it matters: only a `.select()`
+     * on a write asks for a representation, so an update awaited WITHOUT one
+     * resolves `data: null` — which is exactly why the debit guard needs
+     * `.select('id')` to see that its conditional update matched nothing. A
+     * chain that answered with rows either way would make the guard untestable.
+     */
+    function profilesChain(storedBalance: number | number[], matchedRows: unknown[]) {
+        const balances = Array.isArray(storedBalance) ? storedBalance : [storedBalance];
+        const q = freshMockQuery({ data: { store_credit: balances[0] }, error: null });
+        let reads = 0;
+        q.maybeSingle = vi.fn(async () => ({
+            data: { store_credit: balances[Math.min(reads++, balances.length - 1)] },
+            error: null,
+        }));
+        // Reads select columns and keep chaining; the debit selects 'id'.
+        q.select = vi.fn((columns?: string) => columns === 'id'
+            ? Promise.resolve({ data: matchedRows, error: null })
+            : q);
+        // Awaited with no .select(): PostgREST returns no representation.
+        q.then = vi.fn((onFulfilled: (v: unknown) => unknown) =>
+            Promise.resolve({ data: null, error: null }).then(onFulfilled));
+        return q;
+    }
+
+    function stubCreditOrder(profiles: unknown, savedRow: unknown) {
+        mockSupabaseFrom.mockImplementation((table: string) => {
+            if (table === 'profiles') return profiles;
+            if (table === 'orders') return chain('single', { data: savedRow, error: null });
+            return chain('maybeSingle', {
+                data: [stubProduct({ id: 'prod-1', price: 25, size_inventory: { M: 9 } })], error: null,
+            });
+        });
+    }
+
+    // crypto sends no order emails, so every Resend call in these tests is an alert.
+    const creditAttempt: CheckoutAttempt = {
+        items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+        clientSubtotal: 25, clientDiscount: 0, clientTotal: 20,
+        shippingDollars: 0,
+        paymentEvidence: { method: 'crypto' },
+        orderId: 'order_credit_race', orderNumber: 'ORD-CREDIT-RACE',
+        userId: USER_ID,
+        customerName: 'Race Buyer', customerEmail: 'race@test.local',
+        serverCreditCents: 500, // the order is priced with $5
+    };
+
+    const creditAlerts = () => mockResendSend.mock.calls.filter((c: any[]) =>
+        String(c[0]?.subject || '').includes('store credit not debited'));
+
+    it('alerts the operator instead of silently keeping credit when the debit matched no row', async () => {
+        stubCreditOrder(profilesChain(8, []), stubOrderRow({ id: 'saved-order', total: 20 }));
+
+        const result = await acceptCheckout(creditAttempt);
+
+        // The order still exists — the charge and payment invariants are
+        // untouched — but the lost race is no longer invisible.
+        expect(result.created).toBe(true);
+        expect(creditAlerts()).toHaveLength(1);
+        const alert = creditAlerts()[0][0] as any;
+        expect(alert.to).toEqual(expect.arrayContaining([expect.stringContaining('@')]));
+        expect(alert.html).toContain('Credit applied</strong></td><td>$5.00');
+        expect(alert.html).toContain('Actually debited</strong></td><td>$0.00');
+        // One-click triage, keyed to the row that was actually persisted.
+        expect(alert.html).toContain('/#/admin?tab=orders&amp;q=saved-order');
+        expect(alert.html).toContain('matched no row');
+        expect(String(alert.subject)).toContain('saved-order');
+    });
+
+    it('alerts when the balance shrank between the re-verify and the debit', async () => {
+        // The re-verify sees $8 (so the order is priced with $5); the debit
+        // re-read sees $3, the CAS matches, $3 is taken — and the order keeps a
+        // $2 discount nobody paid for.
+        stubCreditOrder(profilesChain([8, 3], [{ id: USER_ID }]), stubOrderRow({ id: 'saved-order', total: 20 }));
+
+        await acceptCheckout(creditAttempt);
+
+        expect(creditAlerts()).toHaveLength(1);
+        const html = (creditAlerts()[0][0] as any).html;
+        expect(html).toContain('Credit applied</strong></td><td>$5.00');
+        expect(html).toContain('Actually debited</strong></td><td>$3.00');
+        expect(html).toContain('lower than the credit the order was priced with');
+    });
+
+    it('stays quiet when the debit lands in full', async () => {
+        stubCreditOrder(profilesChain(8, [{ id: USER_ID }]), stubOrderRow({ id: 'saved-order', total: 20 }));
+
+        const result = await acceptCheckout(creditAttempt);
+
+        expect(result.created).toBe(true);
+        expect(creditAlerts()).toHaveLength(0);
+        const profileUpdate = mockSupabaseFrom.mock.results
+            .map((r: { value: any }) => r.value)
+            .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.store_credit !== undefined));
+        expect(profileUpdate.update.mock.calls[0][0]).toEqual({ store_credit: 3 });
+    });
 });
