@@ -36,7 +36,7 @@ const loadReturnedCheckoutState = (): ReturnedCheckoutState | null => {
 
 const OrderSuccess = () => {
     const [searchParams] = useSearchParams();
-    const { cart, cartTotal, calculateReward, clearCart, user, updateUser } = useApp();
+    const { cart, cartTotal, calculateReward, clearCart, user, updateUser, addOrder } = useApp();
     const [orderDetails, setOrderDetails] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [shippingInfo, setShippingInfo] = useState<any>(null);
@@ -288,71 +288,64 @@ const OrderSuccess = () => {
             }
 
             try {
-                const order = {
-                    id: `ORD-${Date.now()}`,
+                // This is a recovery path, not a second local order writer. The
+                // server owns pricing, persistence, inventory and emails; the
+                // old fallback built a cart-priced object, saved it to
+                // localStorage and emailed that estimate directly.
+                const recorded = await addOrder({
+                    id: `order_${Date.now()}`,
                     userId: user?.uid,
-                    items: cart.map(item => ({
-                        id: item.id,
-                        name: item.name,
-                        price: getCartItemUnitPrice(item),
-                        quantity: item.quantity,
-                        size: item.selectedSize,
-                        addOnLabel: item.keychainClipOn ? WALLET_KEYCHAIN_CLIP_LABEL : undefined,
-                        image: item.images[0],
-                    })),
-                    total,
-                    sgCoinReward: reward,
-                    status: paymentMethod === 'crypto' ? 'pending_verification' : 'paid',
-                    paymentMethod: paymentMethod || 'card',
-                    paymentIntentId,
-                    txHash,
-                    // STRICT EMAIL POLICY: Use ONLY the email collected during checkout
-                    customerEmail: currentShippingInfo?.email || '',
+                    isGuest: !user,
+                    guestEmail: !user ? currentShippingInfo?.email : undefined,
                     customerName: currentShippingInfo?.name || '',
-                    shippingStatus: 'processing',
-                    trackingNumber: null as string | null,
+                    customerEmail: currentShippingInfo?.email || '',
+                    customerPhone: '',
+                    items: cart.map(item => ({
+                        productId: item.id,
+                        productName: item.name,
+                        productImage: item.images[0],
+                        selectedSize: item.selectedSize || 'One Size',
+                        quantity: item.quantity,
+                        price: getCartItemUnitPrice(item),
+                        total: getCartItemLineTotal(item),
+                        keychainClipOn: Boolean(item.keychainClipOn),
+                        addOnLabel: item.keychainClipOn ? WALLET_KEYCHAIN_CLIP_LABEL : undefined,
+                    })),
+                    subtotal: 0,
+                    tax: 0,
+                    discount: 0,
+                    total,
+                    paymentMethod: paymentIntentId ? 'stripe' : (paymentMethod || 'store_credit'),
+                    paymentStatus: paymentMethod === 'crypto' || paymentMethod === 'cashapp' ? 'pending' : 'paid',
+                    paymentReference: paymentIntentId || undefined,
+                    couponCode: returnedState?.couponCode || undefined,
+                    storeCreditApplied: returnedState?.storeCreditApplied || 0,
+                    orderType: 'online',
                     createdAt: new Date().toISOString(),
-                    paidAt: new Date().toISOString(),
-                    shippingInfo: currentShippingInfo || {},
-                    shippingMethod,
-                    shippingCost,
-                };
+                    paidAt: paymentMethod === 'crypto' || paymentMethod === 'cashapp' ? undefined : new Date().toISOString(),
+                    sgCoinReward: reward,
+                    shippingAddress: {
+                        address1: currentShippingInfo?.address1 || '',
+                        city: currentShippingInfo?.city || '',
+                        state: currentShippingInfo?.state || '',
+                        zip: currentShippingInfo?.zip || '',
+                        country: currentShippingInfo?.country || '',
+                        shippingMethod,
+                        shippingCost,
+                    },
+                    notes: txHash ? `Transaction hash: ${txHash}` : '',
+                } as any);
 
-                // Save order to localStorage
-                const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-                orders.push(order);
-                localStorage.setItem('orders', JSON.stringify(orders));
-
-                // Award SGCoin reward
-                if (user) {
-                    await updateUser({ sgCoinBalance: (user.sgCoinBalance || 0) + reward });
-                    console.log(`✅ Awarded ${reward} SGCoin to user ${user.uid}`);
-                }
-
-                // Send order confirmation email
-                const emailToSend = order.customerEmail;
-                if (emailToSend) {
-                    try {
-                        await fetch('/api/send-order-confirmation', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ order }),
-                        });
-                    } catch (err) {
-                        console.error('Email send error:', err);
-                    }
-                } else {
-                    console.warn('No customer email found, skipping confirmation email.');
-                }
-
-                // Load referral stats for the post-purchase CTA (fire-and-forget)
-                if (user) {
-                    getReferralStats(user.uid).then(stats => {
-                        if (stats) setReferralStats(stats);
-                    });
-                }
-
-                setOrderDetails(order);
+                // The server response is authoritative for the confirmation UI.
+                // Keep only display-shape aliases here; never recreate its money.
+                setOrderDetails({
+                    ...recorded,
+                    id: recorded.orderNumber || recorded.id,
+                    items: recorded.items || [],
+                    shippingInfo: recorded.shippingAddress || currentShippingInfo,
+                    shippingMethod: recorded.shippingAddress?.shippingMethod || shippingMethod,
+                    shippingCost: recorded.shippingAddress?.shippingCost ?? shippingCost,
+                });
                 clearCart();
                 // Consume persisted checkout state on the fallback path too
                 // (the Stripe redirect-return branch may have fallen through).
