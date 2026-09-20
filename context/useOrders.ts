@@ -137,9 +137,15 @@ export function useOrders(
                     throw new Error(payload.error || 'Order completion failed');
                 }
                 const saved = await response.json().catch(() => null);
-                const recorded = saved && (saved.id || saved.order_number)
-                    ? withLocalItemImages(mapOrderRows([saved])[0], order)
-                    : order;
+                // The server is the only writer of an order. A success with no
+                // recorded row means none was written (or the answer was
+                // unreadable), and the object we were handed is the client's
+                // coupon-blind estimate: resolving it would show a price nobody
+                // paid and count that estimate as customer spend.
+                if (!saved || (!saved.id && !saved.order_number)) {
+                    throw new Error('Order completion returned no recorded order');
+                }
+                const recorded = withLocalItemImages(mapOrderRows([saved])[0], order);
                 setOrders(prev => [recorded, ...prev.filter(existing => existing.id !== order.id && existing.id !== recorded.id)]);
                 fetchOrders();
                 if (recorded.userId && !recorded.userId.startsWith('user_eth_')) {

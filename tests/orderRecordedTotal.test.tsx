@@ -11,7 +11,7 @@
 // sessionStorage.pendingOrder while the stored row and the confirmation email
 // said $0.00, and updateLifetimeStats counted the estimate as customer spend.
 //
-// Two pins, both load-bearing:
+// Three pins, all load-bearing:
 //
 //   1. RECORDED_ORDER_IS_RETURNED — drives the REAL useOrders().addOrder against
 //      a stubbed /api/complete-order that answers with the recorded row (total 0)
@@ -24,6 +24,12 @@
 //      redirect) to the REAL OrderSuccess, using the same render harness as
 //      tests/orderSuccessStripeRedirect.test.tsx, and asserts the rendered
 //      "Order Total" is the recorded $0.00 rather than the client's $45.00.
+//
+//   3. MISSING_RECORDED_ROW_FAILS_CLOSED — a 200 that carries no row (or an
+//      unreadable body) makes addOrder REJECT. Put the old `: order` fallback
+//      back and it goes green on the client's $45.00 estimate, which is the
+//      defect: the server is the only writer, so "it answered 200" is not
+//      "an order exists".
 //
 // The Checkout end of the chain — that pendingOrder is written from addOrder's
 // return value — is pinned in tests/checkoutCouponIntent.test.tsx, which drives
@@ -201,5 +207,23 @@ describe('the order the app shows is the order the server recorded', () => {
         expect(container.querySelector('img')?.getAttribute('src')).toBe('/tee.jpg');
 
         act(() => pageRoot.unmount());
+    });
+
+    it('MISSING_RECORDED_ROW_FAILS_CLOSED: a success with no recorded row is an error, not the estimate', async () => {
+        // The server answered 200 but carried no row. Resolving the object we
+        // handed over would put the client's coupon-blind $45 estimate back in
+        // front of the customer and in lifetime spend — the exact defect this
+        // file exists to catch — so the provider must reject instead.
+        const fetchFn = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true }) });
+        vi.stubGlobal('fetch', fetchFn);
+
+        await expect(driveAddOrder()).rejects.toThrow(/no recorded order/i);
+        // The handed-over object is not kept either — it is the estimate.
+        expect(api.orders.some((o: any) => o.id === CLIENT_ORDER.id)).toBe(false);
+        expect(updateLifetimeStats).not.toHaveBeenCalled();
+
+        // An unreadable body is the same failure, not a silent fallback.
+        fetchFn.mockResolvedValue({ ok: true, status: 200, json: async () => { throw new Error('Unexpected end of JSON input'); } });
+        await expect(driveAddOrder()).rejects.toThrow(/no recorded order/i);
     });
 });
