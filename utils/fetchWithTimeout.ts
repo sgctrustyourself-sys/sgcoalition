@@ -15,6 +15,8 @@
 // did land despite the abort, the retry resolves to the order already recorded
 // instead of placing a second one or debiting store credit twice.
 
+import { CHECKOUT_ATTEMPT_TTL_MS } from './checkoutAttempt.js';
+
 /**
  * Deliberately longer than any platform function limit: the serverless write is
  * expected to die on its own first, so this only fires for a request that never
@@ -22,10 +24,19 @@
  */
 export const ORDER_WRITE_TIMEOUT_MS = 30_000;
 
-/** Shown to the shopper, so it says what to do next, not what went wrong. */
+/**
+ * Shown to the shopper, so it says what to do next, not what went wrong — and
+ * names the window that actually applies. This message is shown on the checkout
+ * as well as on the recovery page, and the checkout's submit path reuses an
+ * attempt only inside CHECKOUT_ATTEMPT_TTL_MS (utils/checkoutAttempt.ts):
+ * re-submitting later is a new attempt, not a repeat. The recovery page, which
+ * is where "reload this page" belongs, is safe at any age.
+ */
 export function orderWriteTimeoutMessage(timeoutMs: number = ORDER_WRITE_TIMEOUT_MS): string {
     return 'No answer from the order service after ' + Math.round(timeoutMs / 1000)
-        + 's. Reload this page to check your order — a repeat of the order is not placed or charged twice.';
+        + 's. Reload this page to check your order — re-submitting the checkout within '
+        + Math.round(CHECKOUT_ATTEMPT_TTL_MS / 60000)
+        + ' minutes reuses this attempt instead of placing or charging the order twice.';
 }
 
 /**

@@ -817,6 +817,11 @@ const Checkout: React.FC = () => {
                     shippingMethod,
                     shippingCost,
                     storeCreditApplied: serverAppliedCredit,
+                    // The method decides the discount, and a guest is identified
+                    // by their email — both move what the order is and what it
+                    // costs, so a change to either is a new attempt.
+                    paymentMethod: paymentMethodUsed,
+                    customerEmail: shippingInfo.email,
                 }),
                 orderNumber,
                 userId: user?.uid,
