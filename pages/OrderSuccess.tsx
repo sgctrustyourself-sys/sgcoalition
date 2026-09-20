@@ -50,6 +50,8 @@ const OrderSuccess = () => {
     // Guard: complete the Stripe redirect-return order at most once per mount
     // even if the effect re-runs (e.g. `user` hydrates mid-flight).
     const stripeCompletionRef = useRef(false);
+    // The cart fallback below writes an order too, so it claims the same guard.
+    const fallbackCompletionRef = useRef(false);
 
     const sessionId = searchParams.get('session_id');
     const type = searchParams.get('type');
@@ -299,6 +301,15 @@ const OrderSuccess = () => {
                 setIsLoading(false);
                 return;
             }
+
+            // Same claim-once guard as the redirect-return above, for the other
+            // path that writes an order. This effect re-runs when a dep such as
+            // `user` or `cart` changes while the write is still in flight, and
+            // the id minted below (`order_${Date.now()}`) plus an undefined
+            // paymentReference leaves the server nothing to dedupe on — one
+            // purchase would become two pending orders and two credit debits.
+            if (fallbackCompletionRef.current) return;
+            fallbackCompletionRef.current = true;
 
             try {
                 // This is a recovery path, not a second local order writer. The
