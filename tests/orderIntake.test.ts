@@ -1115,3 +1115,118 @@ describe('acceptCheckout', () => {
         expect(productUpdate).toBeFalsy();
     });
 });
+
+// =========================================================================
+// acceptCheckout — store credit parity across payment methods
+// =========================================================================
+
+// The defect this pins: only the Stripe path ever applied store credit, so a
+// crypto or Cash App order placed with the credit box ticked was priced and
+// recorded at the FULL amount and the buyer's balance was never debited —
+// while the checkout page showed them the discount. Every method the live
+// settings offer a shopper must apply an available balance exactly once.
+describe('acceptCheckout store credit (every payment method)', () => {
+    const USER_ID = '9b2f8a5c-1d4e-4f6a-9c3b-7e8d2a1b4c5d';
+    const METHODS = ['stripe', 'crypto', 'cashapp', 'store_credit'] as const;
+
+    beforeEach(() => {
+        withSupabaseEnv();
+        // Pin the SGCoin incentive OFF so the crypto fixture asserts the
+        // credit alone (env leakage must not move real money math).
+        delete process.env.VITE_SGCOIN_DISCOUNT_ENABLED;
+        process.env.STRIPE_SECRET_KEY = 'sk_test_stripe';
+        process.env.RESEND_API_KEY = 're_test_key';
+        mockSupabaseFrom.mockReset();
+        mockStripeRetrieve.mockReset();
+        mockStripeRetrieve.mockResolvedValue({ status: 'succeeded', amount_received: 2000 });
+        mockResendSend.mockReset();
+        mockResendSend.mockResolvedValue({ data: { id: 'email-1' }, error: null });
+    });
+    afterEach(() => {
+        clearSupabaseEnv();
+        delete process.env.STRIPE_SECRET_KEY;
+        delete process.env.RESEND_API_KEY;
+    });
+
+    for (const method of METHODS) {
+        it('applies and debits the stated credit for ' + method, async () => {
+            const savedRow = stubOrderRow({ id: 'saved-order', total: 20 });
+            let ordersCalls = 0;
+            mockSupabaseFrom.mockImplementation((table: string) => {
+                if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 8 }, error: null });
+                if (table === 'orders') {
+                    // Stripe carries a payment_reference, so findDup consumes the
+                    // first orders read; the manual methods have none and go
+                    // straight to the upsert.
+                    ordersCalls += 1;
+                    return method === 'stripe' && ordersCalls === 1
+                        ? chain('maybeSingle', { data: null, error: null })
+                        : chain('single', { data: savedRow, error: null });
+                }
+                return chain('maybeSingle', {
+                    data: [stubProduct({ id: 'prod-1', price: 25, size_inventory: { M: 9 } })], error: null,
+                });
+            });
+
+            const attempt: CheckoutAttempt = {
+                items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+                clientSubtotal: 25, clientDiscount: 0, clientTotal: 20,
+                shippingDollars: 0,
+                paymentEvidence: method === 'stripe'
+                    ? { method: 'stripe', paymentIntentId: 'pi_test_parity' }
+                    : { method: method as 'crypto' | 'cashapp' | 'store_credit' },
+                orderId: 'order_credit_' + method, orderNumber: 'ORD-CREDIT-' + method,
+                userId: USER_ID,
+                customerName: 'Credit Buyer', customerEmail: 'credit-' + method + '@test.com',
+                serverCreditCents: 500, // the price the shopper was quoted
+            };
+
+            const result = await acceptCheckout(attempt);
+            expect(result.created).toBe(true);
+
+            // The RECORDED order is priced with the credit ...
+            const orderQuery = mockSupabaseFrom.mock.results
+                .map((r: { value: any }) => r.value)
+                .find((q: any) => q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0);
+            expect(orderQuery).toBeTruthy();
+            const record = orderQuery.upsert.mock.calls[0][0] as Record<string, any>;
+            expect(record.total).toBe(20); // $25 - $5, not the undiscounted $25
+            expect(record.notes).toContain('Store credit applied: -$5.00');
+
+            // ... and the balance was debited exactly once ($8 - $5).
+            const profileUpdate = mockSupabaseFrom.mock.results
+                .map((r: { value: any }) => r.value)
+                .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.store_credit !== undefined));
+            expect(profileUpdate).toBeTruthy();
+            expect(profileUpdate.update.mock.calls[0][0]).toEqual({ store_credit: 3 });
+        });
+    }
+
+    it('leaves the balance alone when the shopper applies no credit', async () => {
+        mockSupabaseFrom.mockImplementation((table: string) => {
+            if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 8 }, error: null });
+            if (table === 'orders') return chain('single', { data: stubOrderRow({ id: 'saved-order', total: 25 }), error: null });
+            return chain('maybeSingle', { data: [stubProduct({ id: 'prod-1', price: 25, size_inventory: { M: 9 } })], error: null });
+        });
+
+        const attempt: CheckoutAttempt = {
+            items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+            clientSubtotal: 25, clientDiscount: 0, clientTotal: 25,
+            shippingDollars: 0,
+            paymentEvidence: { method: 'cashapp' },
+            userId: USER_ID,
+            customerName: 'No Credit Buyer', customerEmail: 'nocredit@test.com',
+        };
+
+        const result = await acceptCheckout(attempt);
+        expect(result.created).toBe(true);
+        const orderQuery = mockSupabaseFrom.mock.results
+            .map((r: { value: any }) => r.value)
+            .find((q: any) => q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0);
+        expect((orderQuery.upsert.mock.calls[0][0] as Record<string, any>).total).toBe(25);
+        const profileUpdate = mockSupabaseFrom.mock.results
+            .map((r: { value: any }) => r.value)
+            .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.store_credit !== undefined));
+        expect(profileUpdate).toBeFalsy();
+    });
+});
