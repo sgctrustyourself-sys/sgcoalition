@@ -21,10 +21,12 @@
 //   SMOKE_SKIP_API=1          accept a client-flow-only run; honoured ONLY for a
 //                             loopback target, because a local `vite preview`
 //                             serves no serverless functions. The money-path
-//                             check is then reported as skipped, never passed.
+//                             checks are then reported as skipped, never passed.
 //
-// It never types card details and never submits a payment — the run stops one
-// step before a shopper would start paying. What it proves, in order:
+// It never types card details, and it never submits a payment: the run stops
+// one step before a shopper would start paying, and where check 7 does click a
+// manual confirm it has already blocked every order write, so nothing it clicks
+// can reach the server. What it proves, in order:
 //   1. /shop renders product links
 //   2. a purchasable product page offers Add to bag (and a size, when the
 //      product has sizes). It is chosen from the sellable listings, so a
@@ -39,6 +41,14 @@
 //   5. stepping down returns it to 1 without deleting the line
 //   6. /checkout renders payment UI and its displayed Total equals the server's
 //      /api/pricing-preview totalCents — the client/server money agreement
+//   7. a checkout attempt the server already recorded resolves to that order
+//      instead of writing a second one. Driven with NO stored order: the order
+//      write is blocked at the network layer (which is also what keeps the
+//      attempt alive — the same state a write that never answered leaves
+//      behind), the server's "already recorded" answer is supplied locally, and
+//      the branch's destination page is never loaded. That is what keeps this
+//      check incapable of creating an order, sending an email or consuming the
+//      voucher. Needs the API (a target with no /api reports it as skipped).
 //
 // Exit codes: 0 all checks passed, 1 a check failed, 2 the target is missing or
 // refused. A failure screenshot lands in .checkout-smoke-artifacts/ (gitignored).
@@ -135,6 +145,27 @@ function assert(condition, message) {
     if (!condition) throw new Error(message);
 }
 
+/** Poll `read` until it answers something truthy, or fail with `message`. */
+async function waitFor(read, timeoutMs, message) {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+        const value = await read();
+        if (value) return value;
+        if (Date.now() > deadline) throw new Error(message);
+        await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+}
+
+/** The checkout's own attempt record — what a retry resolves to reuse. */
+const readAttemptRecord = (page) => page.evaluate(() => {
+    try {
+        const raw = localStorage.getItem('coalition_checkout_attempt');
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+});
+
 const textOf = async (page) => (await page.locator('body').innerText()).replace(/\s+/g, ' ').trim();
 
 /** "$240.00" -> 24000 */
@@ -153,6 +184,13 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 page.setDefaultTimeout(25000);
+
+// Evidence for the settled-attempt check (step 7): the attempt lookups it
+// answered, and the order writes, error reports and destination navigations it
+// stopped. Nothing here leaves the browser.
+const attemptProbes = [];
+const blockedWrites = [];
+const settledDestinations = [];
 
 const pricing = [];
 page.on('response', async (response) => {
@@ -493,6 +531,201 @@ try {
             `checkout shows ${shownCents}c but the server priced ${serverPricing.body.totalCents}c`,
         );
         await check('checkout total matches the server', () => `${shownCents / 100} both sides`);
+
+        // ---- 7. a settled attempt resolves instead of writing again --------
+        // The "already recorded" branch (pages/Checkout.tsx) only fires when the
+        // server says the attempt this browser already sent produced an order —
+        // which on a real deployment means a real order exists. This drives the
+        // branch with NO stored order at all:
+        //
+        //   • every order write is BLOCKED at the network layer. That is also
+        //     what keeps the attempt alive: the first confirm fails before the
+        //     server records anything, so the record it minted survives — the
+        //     same state a write that landed but never answered leaves behind.
+        //   • the server's answer to "is this attempt recorded?" is then supplied
+        //     locally, so the branch is reached without a stored order existing.
+        //   • /api/report-error is blocked too (the deliberate failure would
+        //     otherwise email the owner), and the branch's destination is held
+        //     and then answered with a stub, so that page's own recovery write
+        //     never runs either and the notice stays on screen to be asserted.
+        //
+        // So this check cannot create an order, send an email or touch the
+        // voucher — and it proves that about itself before clicking anything.
+        step = 'settled-attempt';
+        const SETTLED_CHECK = 'a recorded attempt resolves instead of writing a second order';
+        const SETTLED_ORDER = 'ORD-SMOKE-SETTLED';
+        const NOTICE_KEY = 'coalition_smoke_settled_notice';
+        await page.route(/\/api\/complete-order(\?|$)/, async (route) => {
+            blockedWrites.push(route.request().postData() || '');
+            await route.abort();
+        });
+        // Nothing is asserted about this one: its block is proven live by the
+        // pre-click probe below, which is what has to hold before any click.
+        await page.route(/\/api\/report-error(\?|$)/, (route) => route.abort());
+        await page.route(/\/api\/order-attempt(\?|$)/, async (route) => {
+            let probe = {};
+            try {
+                probe = JSON.parse(route.request().postData() || '{}');
+            } catch {
+                // recorded unreadable so the check reports what it actually sent
+            }
+            attemptProbes.push(probe);
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ recorded: true, orderNumber: SETTLED_ORDER }),
+            });
+        });
+        // The branch's destination is recorded, held briefly and then answered
+        // with a stub. Held, because it is the OUTGOING page that shows the
+        // "already recorded" notice and the checkout leaves for it in the same
+        // tick; answered with a stub, because loading the real confirmation page
+        // would start that page's own recovery write — a different path with a
+        // different reason to exist. (Aborting it instead replaces the document
+        // with an error page, and takes any chance of capturing the notice with
+        // it.)
+        const DESTINATION_HOLD_MS = 3000;
+        await page.route(/\/order\/success(\?|$)/, async (route) => {
+            settledDestinations.push(route.request().url());
+            await new Promise((resolve) => setTimeout(resolve, DESTINATION_HOLD_MS));
+            await route.fulfill({
+                status: 200,
+                contentType: 'text/html',
+                body: '<!doctype html><title>settled destination</title>held for the check',
+            });
+        });
+
+        // Prove the blocks are live BEFORE any confirm is clicked: a route that
+        // stopped matching (a renamed path) must refuse the run, not click a
+        // button that could write a real order or email the owner.
+        const isBlocked = (path) => page.evaluate(async (url) => {
+            try {
+                await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+                return false;
+            } catch {
+                return true;
+            }
+        }, path);
+        assert(await isBlocked('/api/complete-order'),
+            'refusing to run: the order-write block is not active, so a confirm could place a real order');
+        assert(await isBlocked('/api/report-error'),
+            'refusing to run: the error-report block is not active, so the deliberate failure could email the owner');
+
+        // The manual method is selected BEFORE the form is filled: with card
+        // selected, the first shipping field typed creates a real Stripe
+        // PaymentIntent (a debounced effect), and a smoke run must create none.
+        const moreOptions = page.getByRole('button', { name: /more payment options/i }).first();
+        if ((await moreOptions.count()) && (await moreOptions.getAttribute('aria-expanded')) !== 'true') {
+            await moreOptions.click({ timeout: 10000 });
+        }
+        let manualMethod = null;
+        for (const candidate of [
+            { method: 'crypto', radio: /pay with crypto/i },
+            { method: 'cashapp', radio: /cash app/i },
+        ]) {
+            const radio = page.getByRole('radio', { name: candidate.radio }).first();
+            if ((await radio.count()) > 0) {
+                await radio.check({ timeout: 10000 });
+                manualMethod = candidate.method;
+                break;
+            }
+        }
+
+        if (!manualMethod) {
+            // Nothing to drive: the owner turned both manual methods off. Reported
+            // as a skip, never as a pass.
+            results.push({ name: SETTLED_CHECK, ok: true, skipped: true });
+            console.log(`  skip  ${SETTLED_CHECK} — this deployment offers no manual payment method to confirm`);
+        } else {
+            await check(SETTLED_CHECK, async () => {
+                const confirm = page.getByRole('button', { name: /i have sent the payment/i }).first();
+                await confirm.waitFor({ state: 'visible', timeout: 20000 });
+                // Filled so validateShipping() lets the confirm through. Its
+                // preview and zip reads are debounced and the attempt
+                // fingerprint includes shipping cost, so they are given a moment
+                // to settle: a fingerprint still moving between the two confirms
+                // below would mint a different attempt instead of reusing one.
+                for (const [placeholder, value] of Object.entries({
+                    'Email Address': 'smoke+settled-attempt@example.com',
+                    'Full Name': 'Settled Attempt Smoke',
+                    'Address': '1 Smoke Test Way',
+                    'City': 'New York',
+                    'State / Province': 'NY',
+                    'ZIP / Postal Code': '10001',
+                    'Country': 'United States',
+                })) {
+                    await page.getByPlaceholder(placeholder, { exact: true }).first().fill(value);
+                }
+                await page.waitForTimeout(1500);
+
+                // First confirm: a fresh attempt, whose write is blocked — so the
+                // attempt it minted is still in place for the retry to reuse.
+                assert(!(await readAttemptRecord(page)), 'an attempt record already existed before the first confirm');
+                const writesBeforeFirst = blockedWrites.length;
+                await confirm.click();
+                await waitFor(() => blockedWrites.length > writesBeforeFirst, 20000,
+                    'the first confirm never attempted the order write — is this target configured with a database?');
+                const attempt = await waitFor(() => readAttemptRecord(page), 10000,
+                    'the failed confirm left no attempt record behind for a retry to reuse');
+                assert(attempt.id, `the attempt record carries no usable id: ${JSON.stringify(attempt)}`);
+                assert(attemptProbes.length === 0, 'a brand-new attempt was probed before it had been sent anywhere');
+                const writesAfterFirst = blockedWrites.length;
+
+                // The notice the branch shows lives in the document the
+                // navigation is leaving, so it is captured IN that page — into
+                // sessionStorage, which survives the navigation — instead of
+                // being queried from outside after the page has gone.
+                await page.evaluate((key) => {
+                    sessionStorage.removeItem(key);
+                    new MutationObserver(() => {
+                        const line = (document.body ? document.body.innerText : '')
+                            .match(/[^\n]*already recorded[^\n]*/i);
+                        if (line) sessionStorage.setItem(key, line[0].trim().slice(0, 160));
+                    }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+                }, NOTICE_KEY);
+
+                // Second confirm: the retry the timeout copy tells the shopper to
+                // make. Playwright waits for the button to come back from
+                // 'Processing...' — the state the first failure leaves it in.
+                await confirm.click();
+                const probe = await waitFor(() => attemptProbes[attemptProbes.length - 1], 20000,
+                    'the retry never asked the server whether its attempt was already recorded');
+                assert(probe.id === attempt.id,
+                    `the retry asked about ${probe.id} instead of the recorded attempt ${attempt.id}`);
+                assert(probe.customerEmail === 'smoke+settled-attempt@example.com',
+                    `the lookup did not carry the buyer it belongs to: ${JSON.stringify(probe)}`);
+                // Which way the branch went is decided by the first thing it does
+                // once the server has answered: leave for the order it recorded,
+                // or write one. Racing the two is what makes the failure name the
+                // defect — a second order for one purchase — rather than whatever
+                // the page happened to do next.
+                const outcome = await waitFor(() => {
+                    if (settledDestinations.length) return 'resolved';
+                    if (blockedWrites.length > writesAfterFirst) return 'wrote';
+                    return null;
+                }, 20000, 'the retry neither resolved to the recorded order nor wrote one');
+                assert(outcome === 'resolved',
+                    'the settled retry wrote a second order instead of resolving to the one already recorded'
+                    + ` (${blockedWrites.length - writesAfterFirst} write(s) for one purchase)`);
+                const destination = settledDestinations[0];
+                assert(/\/order\/success/.test(destination),
+                    `the settled branch sent the shopper to ${destination} instead of their order`);
+                // The captured notice and the order number the branch resolved
+                // are read once the branch has actually left the checkout, which
+                // is what makes both of them durable evidence rather than a race.
+                await page.waitForURL(/\/order\/success(\?|$)/, { timeout: 20000 });
+                const captured = await page.evaluate((key) => ({
+                    notice: sessionStorage.getItem(key),
+                    orderNumber: sessionStorage.getItem('orderNumber'),
+                }), NOTICE_KEY);
+                assert(captured.notice && /already recorded/i.test(captured.notice),
+                    `the checkout never told the shopper the purchase was already recorded (captured: ${captured.notice})`);
+                assert(captured.orderNumber === SETTLED_ORDER,
+                    `the checkout did not carry the recorded order forward (orderNumber = ${captured.orderNumber})`);
+                return `${manualMethod}: reused ${attempt.id} → ${SETTLED_ORDER}`
+                    + ` (${blockedWrites.length} write(s) stopped, none from the retry)`;
+            });
+        }
     } else {
         // Only reachable for a loopback target with SMOKE_SKIP_API=1: the static
         // preview has no serverless functions, so the pricing agreement is
@@ -522,7 +755,7 @@ if (skippedNames.includes('checkout total matches the server')) {
     skipNote = ` — checkout pricing NOT verified (no API at ${host})`;
 }
 if (skippedNames.length > 1 && skippedNames.includes('checkout total matches the server')) {
-    skipNote += `; the other skips are expected when the catalogue does not contain that kind of product`;
+    skipNote += `; the other skips are expected when this catalogue or deployment does not offer that case`;
 }
 if (failure) {
     console.error(`\nSMOKE FAILED at "${failure.step}": ${failure.error}`);
