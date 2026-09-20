@@ -73,4 +73,25 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
     expect(request.order.items).toEqual([expect.objectContaining({ productId: 'prod-tee', selectedSize: 'M', quantity: 1, price: 45 })]);
     expect(clearCart).toHaveBeenCalledTimes(1); expect(sessionStorage.getItem(STATE_KEY)).toBeNull(); expect(container.textContent).toContain('Order Confirmed!');
   });
+
+  it('cleans corrupt recovery storage without aborting the empty-cart path', async () => {
+    sessionStorage.setItem(STATE_KEY, '{checkout-state-not-json');
+    sessionStorage.setItem('shippingInfo', '{not-json');
+    sessionStorage.setItem('pendingOrder', '{also-not-json');
+    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=store_credit'), vi.fn()] as any);
+    vi.mocked(useApp).mockReturnValue({
+      cart: [], cartTotal: () => 0, calculateReward: () => 0,
+      clearCart: vi.fn(), user: null, updateUser: vi.fn(), addOrder: vi.fn(),
+    } as any);
+
+    await act(async () => {
+      root.render(createElement(OrderSuccess));
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+    });
+
+    expect(sessionStorage.getItem(STATE_KEY)).toBeNull();
+    expect(sessionStorage.getItem('shippingInfo')).toBeNull();
+    expect(sessionStorage.getItem('pendingOrder')).toBeNull();
+    expect(container.textContent).toContain('No Order Found');
+  });
 });
