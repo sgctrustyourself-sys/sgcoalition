@@ -31,7 +31,10 @@ const loadReturnedCheckoutState = (): ReturnedCheckoutState | null => {
     try {
         const raw = sessionStorage.getItem(CHECKOUT_STATE_KEY);
         return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
+    } catch (error) {
+        sessionStorage.removeItem(CHECKOUT_STATE_KEY);
+        return null;
+    }
 };
 
 const OrderSuccess = () => {
@@ -130,9 +133,14 @@ const OrderSuccess = () => {
             const returnedState = loadReturnedCheckoutState();
             let currentShippingInfo = shippingInfo;
             if (storedShipping) {
-                currentShippingInfo = JSON.parse(storedShipping);
-                setShippingInfo(currentShippingInfo);
-                sessionStorage.removeItem('shippingInfo');
+                try {
+                    currentShippingInfo = JSON.parse(storedShipping);
+                    setShippingInfo(currentShippingInfo);
+                    sessionStorage.removeItem('shippingInfo');
+                } catch (error) {
+                    console.error('Stored shipping info is invalid:', error);
+                    sessionStorage.removeItem('shippingInfo');
+                }
             } else if (returnedState?.shippingInfo) {
                 currentShippingInfo = { ...shippingInfo, ...returnedState.shippingInfo };
                 setShippingInfo(currentShippingInfo);
@@ -279,9 +287,14 @@ const OrderSuccess = () => {
             if (cart.length === 0) {
                 const pendingOrder = sessionStorage.getItem('pendingOrder');
                 if (pendingOrder) {
-                    const order = JSON.parse(pendingOrder);
-                    setOrderDetails(order);
-                    sessionStorage.removeItem('pendingOrder');
+                    try {
+                        const order = JSON.parse(pendingOrder);
+                        setOrderDetails(order);
+                    } catch (error) {
+                        console.error('Stored pending order is invalid:', error);
+                    } finally {
+                        sessionStorage.removeItem('pendingOrder');
+                    }
                 }
                 setIsLoading(false);
                 return;
