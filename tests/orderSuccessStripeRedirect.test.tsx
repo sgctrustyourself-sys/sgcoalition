@@ -115,6 +115,46 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
     expect(clearCart).toHaveBeenCalledTimes(1);
   });
 
+  it('retries a failed fallback write under the same attempt id, so a reload cannot place a second order', async () => {
+    // The attempt id IS the server's dedupe key: acceptCheckout resolves an id
+    // that is already recorded to the order it wrote and skips the debit. This
+    // path writes a reference-less manual order, so if a failed write were
+    // retried under a NEW id (mint-per-call) the reload would place a second
+    // pending order and debit the shopper's store credit again.
+    sessionStorage.setItem(STATE_KEY, JSON.stringify({
+      shippingInfo: { name: 'Guest Buyer', email: 'guest@example.com', address1: '1 Coalition Way', city: 'Baltimore', state: 'MD', zip: '21201', country: 'US' },
+      shippingMethod: 'standard', shippingCost: 0, storeCreditApplied: 5,
+    }));
+    const clearCart = vi.fn();
+    const addOrder = vi.fn()
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValue(recordedFallbackOrder());
+    vi.stubGlobal('fetch', vi.fn());
+    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=crypto'), vi.fn()] as any);
+    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: () => 4, clearCart, addOrder, user: null, updateUser: vi.fn() } as any);
+
+    await act(async () => {
+      root.render(createElement(OrderSuccess));
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+    });
+    expect(addOrder).toHaveBeenCalledTimes(1);
+
+    // The shopper reloads: a fresh mount, so a fresh claim-once ref. The write
+    // that failed is retried — and it has to be the SAME attempt, not a new
+    // order id.
+    act(() => root.unmount());
+    root = createRoot(container);
+    await act(async () => {
+      root.render(createElement(OrderSuccess));
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+    });
+
+    expect(addOrder).toHaveBeenCalledTimes(2);
+    const [first, second] = addOrder.mock.calls.map((c: any[]) => c[0]);
+    expect(first.id).toMatch(/^order_\d+_[a-z0-9]+$/);
+    expect(second.id).toBe(first.id);
+  });
+
   it('cleans corrupt recovery storage without aborting the empty-cart path', async () => {
     sessionStorage.setItem(STATE_KEY, '{checkout-state-not-json');
     sessionStorage.setItem('shippingInfo', '{not-json');

@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import { getCartItemUnitPrice, getCartItemLineTotal, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { getReferralStats, generateReferralLink, type ReferralStats } from '../utils/referralSystem';
 import { trackReferralShare } from '../utils/referralAnalytics';
+import { clearCheckoutAttempt, getOrCreateOrderId } from '../utils/checkoutAttempt';
 
 // ---- Stripe redirect-return recovery ----------------------------------
 // Stripe redirect methods (3D Secure card auth, Klarna, Afterpay) bounce the
@@ -161,7 +162,14 @@ const OrderSuccess = () => {
                 const seed = returnedState?.orderSeed || null;
                 try {
                     const orderPayload = {
-                        id: seed?.orderId || `order_${Date.now()}`,
+                        id: seed?.orderId || getOrCreateOrderId({
+                            userId: user?.uid,
+                            items: cart,
+                            couponCode: returnedState?.couponCode,
+                            shippingMethod: effectiveShippingMethod,
+                            shippingCost: effectiveShippingCost,
+                            storeCreditApplied: Number(returnedState?.storeCreditApplied) || 0,
+                        }),
                         orderNumber: seed?.orderNumber || undefined,
                         userId: user?.uid,
                         isGuest: !user,
@@ -260,8 +268,10 @@ const OrderSuccess = () => {
                         clearCart();
                         // Consume the persisted checkout state (Checkout's
                         // createOrder usually clears it, but the redirect-return
-                        // never reaches that path).
+                        // never reaches that path). The attempt is settled, so
+                        // the next purchase mints a new id.
                         try { sessionStorage.removeItem(CHECKOUT_STATE_KEY); } catch (e) { /* ignore */ }
+                        clearCheckoutAttempt();
                         // Award SGCoin reward (parity with the in-page flow).
                         if (user) {
                             await updateUser({
@@ -317,7 +327,17 @@ const OrderSuccess = () => {
                 // old fallback built a cart-priced object, saved it to
                 // localStorage and emailed that estimate directly.
                 const recorded = await addOrder({
-                    id: `order_${Date.now()}`,
+                    // The same attempt id Checkout used (utils/checkoutAttempt.ts):
+                    // if this purchase was already written, the server returns
+                    // that order instead of recording a second one.
+                    id: getOrCreateOrderId({
+                        userId: user?.uid,
+                        items: cart,
+                        couponCode: returnedState?.couponCode,
+                        shippingMethod: effectiveShippingMethod,
+                        shippingCost: effectiveShippingCost,
+                        storeCreditApplied: Number(returnedState?.storeCreditApplied) || 0,
+                    }),
                     userId: user?.uid,
                     isGuest: !user,
                     guestEmail: !user ? currentShippingInfo?.email : undefined,
@@ -374,6 +394,8 @@ const OrderSuccess = () => {
                 // Consume persisted checkout state on the fallback path too
                 // (the Stripe redirect-return branch may have fallen through).
                 try { sessionStorage.removeItem(CHECKOUT_STATE_KEY); } catch (e) { /* ignore */ }
+                // This attempt is settled: the next purchase mints a new id.
+                clearCheckoutAttempt();
             } catch (error) {
                 console.error('Order processing error:', error);
             } finally {

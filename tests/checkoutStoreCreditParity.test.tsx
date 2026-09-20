@@ -360,6 +360,48 @@ describe('Checkout store credit applies on every payment method', () => {
         expect(callsTo(fetchFn, '/api/place-order-credits')).toHaveLength(0);
     });
 
+    it('ATTEMPT_ID_ON_RETRY: a failed free write is retried under the same attempt id', async () => {
+        // The free path clears its button on failure so the shopper can retry,
+        // and its write is reference-less (findDup has nothing to match), so the
+        // attempt id is the ONLY thing the server can dedupe on. A retry that
+        // minted a fresh id would place a second order and debit the credit
+        // twice.
+        mockApiFetch(ITEM_CENTS); // credit covers the order → the free panel
+        seedCheckout('cashapp');
+        const app = baselineUseApp();
+        const addOrder = vi.fn()
+            .mockRejectedValueOnce(new Error('network'))
+            .mockResolvedValue(RECORDED_ORDER);
+        vi.mocked(useApp).mockReturnValue({ ...app, addOrder } as any);
+        await act(async () => { root.render(createElement(Checkout)); });
+        await flushServerCalls();
+        await applyStoreCredit(container);
+
+        const completeButton = () => [...container.querySelectorAll('button')]
+            .find(b => /Complete Order|Processing/.test(b.textContent || '')) as HTMLButtonElement | undefined;
+        expect(completeButton(), 'the free-order button is not rendered').toBeTruthy();
+
+        await act(async () => {
+            completeButton()!.click();
+            await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+        });
+        expect(addOrder).toHaveBeenCalledTimes(1);
+
+        // The button came back (the failure path restores it), so the shopper
+        // tries again — after a real gap, so an id minted from the clock alone
+        // would be a different one.
+        await act(async () => {
+            vi.advanceTimersByTime(5);
+            completeButton()!.click();
+            await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+        });
+
+        expect(addOrder).toHaveBeenCalledTimes(2);
+        const [first, second] = addOrder.mock.calls.map((c: any[]) => c[0]);
+        expect(first.id).toMatch(/^order_\d+_[a-z0-9]+$/);
+        expect(second.id).toBe(first.id);
+    });
+
     it('FREE_VOUCHER: a voucher-comped order debits no credit it does not owe', async () => {
         // The same routing change that stopped the client debiting also fixes a
         // real over-charge: with the coupon comping the order the client used to

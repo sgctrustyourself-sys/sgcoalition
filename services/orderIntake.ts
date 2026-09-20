@@ -271,6 +271,31 @@ async function findDup(s: SupabaseClient, r: OrderRow): Promise<OrderRow | null>
     return null;
 }
 
+interface BuyerIdentity { user_id?: string | null; customer_email?: string | null; }
+
+// The order id is a checkout attempt id minted by the CLIENT
+// (utils/checkoutAttempt.ts), so a row recorded under it is this checkout's
+// order only when it is this buyer's. Without that check the id would be a
+// handle for reading back — the checkout response returns this row — or
+// overwriting another customer's order, and it is unauthenticated input.
+function sameBuyer(a: BuyerIdentity, b: BuyerIdentity): boolean {
+    const au = uuid(a.user_id), bu = uuid(b.user_id);
+    if (au && bu) return au === bu;
+    const ae = String(a.customer_email || '').trim().toLowerCase();
+    const be = String(b.customer_email || '').trim().toLowerCase();
+    return Boolean(ae) && ae === be;
+}
+
+// The order recorded under an attempt id, if this attempt already produced one.
+async function findRecordedOrder(orderId: string, buyer: BuyerIdentity): Promise<OrderRow | null> {
+    const { data, error } = await sb().from('orders').select('*').eq('id', orderId).maybeSingle();
+    if (error) { if (isColErr(error)) throw err(503, 'Schema missing payment columns.'); throw err(500, error.message); }
+    if (!data) return null;
+    const row = data as OrderRow;
+    if (!sameBuyer(row, buyer)) throw err(409, 'Order id already recorded for a different customer.');
+    return row;
+}
+
 export async function persistOrder(record: OrderRow): Promise<OrderSaveResult> {
     const s = sb();
     const existing = await findDup(s, record);
@@ -278,14 +303,28 @@ export async function persistOrder(record: OrderRow): Promise<OrderSaveResult> {
         if (money(existing.total) !== money(record.total)) throw err(409, 'Duplicate order total mismatch.');
         return { record: existing, created: false };
     }
-    const r = await s.from('orders').upsert(record, { onConflict: 'id' }).select().single();
-    if (!r.error) return { record: (r.data as OrderRow) || record, created: true };
-    if (isColErr(r.error)) {
-        const l = await s.from('orders').upsert(legacyRow(record), { onConflict: 'id' }).select().single();
-        if (!l.error) return { record: (l.data as OrderRow) || legacyRow(record), created: true };
-        throw err(500, l.error.message || 'Legacy save failed.');
-    }
-    throw err(500, r.error.message || 'Save failed.');
+    // Claim the id atomically — INSERT … ON CONFLICT (id) DO NOTHING RETURNING.
+    // A recorded id is never overwritten, and the request that loses the race
+    // is told so by an EMPTY returned set: without that, two concurrent
+    // submissions of one attempt (a retry racing a second tab) would both be
+    // "created" and would both debit the buyer's store credit. Same lesson as
+    // the credit CAS below — a write awaited without reading what it changed
+    // cannot tell a no-op from a success.
+    const r = await s.from('orders').upsert(record, { onConflict: 'id', ignoreDuplicates: true }).select();
+    let claimed: OrderRow[];
+    if (!r.error) claimed = (r.data as OrderRow[] | null) || [];
+    else if (isColErr(r.error)) {
+        const l = await s.from('orders').upsert(legacyRow(record), { onConflict: 'id', ignoreDuplicates: true }).select();
+        if (l.error) throw err(500, l.error.message || 'Legacy save failed.');
+        claimed = (l.data as OrderRow[] | null) || [];
+    } else throw err(500, r.error.message || 'Save failed.');
+    if (claimed.length > 0) return { record: claimed[0], created: true };
+    // A twin already recorded this attempt: report THE row that was recorded,
+    // never our own — created:false is what stops the caller debiting again.
+    const twin = await findRecordedOrder(record.id, record);
+    if (!twin) throw err(500, 'Order id was already recorded but the row could not be read back.');
+    if (money(twin.total) !== money(record.total)) throw err(409, 'Duplicate order total mismatch.');
+    return { record: twin, created: false };
 }
 
 // =========================================================================
@@ -416,6 +455,18 @@ export interface CheckoutAttempt {
 export interface AcceptCheckoutResult { order: OrderRow; created: boolean; }
 
 export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCheckoutResult> {
+    // A repeat of an attempt that already produced an order is a READ, never a
+    // second sale. This runs before pricing, payment verification and the
+    // store-credit debit on purpose: the re-verify below compares the credit
+    // the attempt states against the LIVE balance, which this attempt's own
+    // first write already spent — so a replay that reached it would be declined
+    // (409) on a balance it spent itself instead of being shown the order it
+    // already owns. Retry, refresh, replay and second tab all land here.
+    if (attempt.orderId) {
+        const prior = await findRecordedOrder(attempt.orderId, { user_id: attempt.userId, customer_email: attempt.customerEmail });
+        if (prior) return { order: prior, created: false };
+    }
+
     // Store credit: create-payment-intent applies + debits the intent amount
     // from the live profile and forwards the applied amount here. Re-verify
     // against the CURRENT profile balance before re-pricing — the intent may
@@ -448,7 +499,7 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
     }
     const payment = await verifyPayment(attempt.paymentEvidence, pricing.totalCents);
     const now = new Date().toISOString();
-    const oid = attempt.orderId || ('order_' + Date.now());
+    const oid = attempt.orderId || ('order_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10));
     const onum = attempt.orderNumber || ('ORD-' + Date.now());
     const row: OrderRow = {
         id: oid, order_number: onum, user_id: uuid(attempt.userId), is_guest: Boolean(attempt.isGuest ?? !attempt.userId),

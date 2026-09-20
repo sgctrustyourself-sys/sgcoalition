@@ -41,6 +41,29 @@ function chain(_leaf: string, resolution: unknown) {
     return q;
 }
 
+/**
+ * The orders table, modelling the two shapes persistOrder actually reads:
+ *
+ *   • reads — `.select('*').eq('id', …).maybeSingle()`, used by
+ *     findRecordedOrder / findDup: `recorded` (null when nothing is recorded
+ *     under that id);
+ *   • the atomic claim — `.upsert(record, { ignoreDuplicates: true }).select()`
+ *     — which PostgREST answers with an ARRAY: the rows it inserted, empty when
+ *     the id was already recorded (`claim`, defaulting to the row itself).
+ *
+ * A chain that answered the claim with an object either way would make the
+ * "this attempt is already recorded" branch untestable.
+ */
+function ordersStub(recorded: unknown = null, claim?: unknown, claimError?: unknown) {
+    const claimed = claim === undefined
+        ? (recorded ? [recorded] : [])
+        : (Array.isArray(claim) ? claim : [claim]);
+    const q = freshMockQuery(claimError ? { data: null, error: claimError } : { data: claimed, error: null });
+    q.maybeSingle.mockResolvedValue({ data: recorded, error: null });
+    q.single.mockResolvedValue({ data: recorded, error: null });
+    return q;
+}
+
 // ---------------------------------------------------------------------------
 // Mock external modules
 // ---------------------------------------------------------------------------
@@ -521,11 +544,30 @@ describe('persistOrder', () => {
     });
     afterEach(clearSupabaseEnv);
 
+    it('reports an id that was already taken as created: false, never a second create', async () => {
+        const winner = stubOrderRow({ id: 'order_taken_1', total: 30 });
+        // The claim is ignored — the id is already recorded — so the row it
+        // must report is the one that won it.
+        mockSupabaseFrom.mockReturnValue(ordersStub(winner, []));
+
+        const result = await persistOrder(stubOrderRow({ id: 'order_taken_1', total: 30 }));
+        expect(result.created).toBe(false);
+        expect(result.record.id).toBe('order_taken_1');
+    });
+
+    it('fails loudly when a taken id cannot be read back', async () => {
+        // created:false is what stops the caller debiting; answering it without
+        // the row would be guessing, so this must not become a silent success.
+        mockSupabaseFrom.mockReturnValue(ordersStub(null, []));
+        await expect(persistOrder(stubOrderRow({ id: 'order_taken_2' })))
+            .rejects.toThrow('could not be read back');
+    });
+
     it('inserts new order → created: true', async () => {
         const record = stubOrderRow();
-        // findDup checks: payment_reference (null → skip)
-        // then upsert
-        mockSupabaseFrom.mockReturnValue(chain('single', { data: record, error: null }));
+        // findDup checks payment_reference (null → skip), then the atomic claim
+        // of the id reports the row it inserted.
+        mockSupabaseFrom.mockReturnValue(ordersStub(null, record));
 
         const result = await persistOrder(record);
         expect(result.created).toBe(true);
@@ -555,12 +597,10 @@ describe('persistOrder', () => {
         const record = stubOrderRow({ payment_reference: 'pi_test', paypal_order_id: 'PP-001' });
         mockSupabaseFrom
             .mockReturnValueOnce(chain('maybeSingle', { data: null, error: null }))
-            .mockReturnValueOnce(chain('maybeSingle', { data: null, error: null }))
-            .mockReturnValueOnce(chain('single', {
-                data: null,
-                error: { code: '42703', message: 'column "payment_reference" does not exist', details: '' },
+            .mockReturnValueOnce(ordersStub(null, undefined, {
+                code: '42703', message: 'column "payment_reference" does not exist', details: '',
             }))
-            .mockReturnValueOnce(chain('single', { data: record, error: null }));
+            .mockReturnValueOnce(ordersStub(null, record));
 
         const result = await persistOrder(record);
         expect(result.created).toBe(true);
@@ -709,7 +749,7 @@ describe('acceptCheckout', () => {
         const savedRow = stubOrderRow({ id: 'saved-order', total: 30 });
         mockSupabaseFrom.mockImplementation((table: string) => {
             if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 100 }, error: null });
-            if (table === 'orders') return chain('single', { data: savedRow, error: null });
+            if (table === 'orders') return ordersStub(null, savedRow);
             return chain('maybeSingle', { data: productData, error: null });
         });
     }
@@ -869,7 +909,7 @@ describe('acceptCheckout', () => {
         const savedRow = stubOrderRow({ id: 'saved-order', total: 18.75 });
         mockSupabaseFrom.mockImplementation((table: string) => {
             if (table === 'coupons') return chain('maybeSingle', { data: couponRow, error: null });
-            if (table === 'orders') return chain('single', { data: savedRow, error: null });
+            if (table === 'orders') return ordersStub(null, savedRow);
             return chain('maybeSingle', { data: [stubProduct({ id: 'prod-1', price: 25 })], error: null });
         });
 
@@ -903,7 +943,7 @@ describe('acceptCheckout', () => {
         const savedRow = stubOrderRow({ id: 'saved-order', total: 18.75 });
         mockSupabaseFrom.mockImplementation((table: string) => {
             if (table === 'coupons') return chain('maybeSingle', { data: couponRow, error: null });
-            if (table === 'orders') return chain('single', { data: savedRow, error: null });
+            if (table === 'orders') return ordersStub(null, savedRow);
             if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 0 }, error: null });
             return chain('maybeSingle', { data: [stubProduct({ id: 'prod-1', price: 25 })], error: null });
         });
@@ -947,17 +987,9 @@ describe('acceptCheckout', () => {
         process.env.STRIPE_SECRET_KEY = 'sk_test_stripe';
         mockStripeRetrieve.mockResolvedValue({ status: 'succeeded', amount_received: 2000 });
         const savedRow = stubOrderRow({ id: 'saved-order', total: 20 });
-        // orders call counter: 1st from('orders') is findDup's dup check
-        // (payment_reference is truthy on the stripe path), 2nd is the upsert.
-        let ordersCalls = 0;
         mockSupabaseFrom.mockImplementation((table: string) => {
             if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 8 }, error: null });
-            if (table === 'orders') {
-                ordersCalls += 1;
-                return ordersCalls === 1
-                    ? chain('maybeSingle', { data: null, error: null })
-                    : chain('single', { data: savedRow, error: null });
-            }
+            if (table === 'orders') return ordersStub(null, savedRow);
             return chain('maybeSingle', { data: [stubProduct({ id: 'prod-1', price: 25 })], error: null });
         });
 
@@ -1006,16 +1038,10 @@ describe('acceptCheckout', () => {
 
     it('decrements size_inventory server-side for a paid method', async () => {
         const savedRow = stubOrderRow({ id: 'saved-order', total: 30 });
-        let ordersCalls = 0;
         let productReads = 0;
         mockSupabaseFrom.mockImplementation((table: string) => {
             if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 0 }, error: null });
-            if (table === 'orders') {
-                ordersCalls += 1;
-                return ordersCalls === 1
-                    ? chain('maybeSingle', { data: null, error: null })
-                    : chain('single', { data: savedRow, error: null });
-            }
+            if (table === 'orders') return ordersStub(null, savedRow);
             if (table === 'products') {
                 // Read 1 = loadProducts (.in, expects rows array); read 2 =
                 // the post-persist inventory loop (.maybeSingle, expects a
@@ -1053,19 +1079,11 @@ describe('acceptCheckout', () => {
         const savedRow = stubOrderRow({ id: 'saved-order', total: 30 });
         // products read counter: 1st read is resolvePricing's loadProducts
         // (stock M:1 → validation passes), the 2nd is the post-persist
-        // inventory loop (stock hit 0 mid-checkout → guard fires). orders
-        // calls: 1st is findDup (payment_reference truthy on paid methods),
-        // 2nd is the upsert.
+        // inventory loop (stock hit 0 mid-checkout → guard fires).
         let productReads = 0;
-        let ordersCalls = 0;
         mockSupabaseFrom.mockImplementation((table: string) => {
             if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 0 }, error: null });
-            if (table === 'orders') {
-                ordersCalls += 1;
-                return ordersCalls === 1
-                    ? chain('maybeSingle', { data: null, error: null })
-                    : chain('single', { data: savedRow, error: null });
-            }
+            if (table === 'orders') return ordersStub(null, savedRow);
             if (table === 'products') {
                 // Read 1 = loadProducts (.in, rows array, stock M:1 so
                 // validation passes); read 2 = the inventory loop
@@ -1095,7 +1113,7 @@ describe('acceptCheckout', () => {
     it('does not decrement inventory for pending manual methods', async () => {
         mockSupabaseFrom.mockImplementation((table: string) => {
             if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 0 }, error: null });
-            if (table === 'orders') return chain('single', { data: stubOrderRow({ id: 'saved-order', total: 30 }), error: null });
+            if (table === 'orders') return ordersStub(null, stubOrderRow({ id: 'saved-order', total: 30 }));
             return chain('maybeSingle', { data: [stubProduct({ id: 'prod-1', price: 25, size_inventory: { M: 3 } })], error: null });
         });
 
@@ -1151,18 +1169,9 @@ describe('acceptCheckout store credit (every payment method)', () => {
     for (const method of METHODS) {
         it('applies and debits the stated credit for ' + method, async () => {
             const savedRow = stubOrderRow({ id: 'saved-order', total: 20 });
-            let ordersCalls = 0;
             mockSupabaseFrom.mockImplementation((table: string) => {
                 if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 8 }, error: null });
-                if (table === 'orders') {
-                    // Stripe carries a payment_reference, so findDup consumes the
-                    // first orders read; the manual methods have none and go
-                    // straight to the upsert.
-                    ordersCalls += 1;
-                    return method === 'stripe' && ordersCalls === 1
-                        ? chain('maybeSingle', { data: null, error: null })
-                        : chain('single', { data: savedRow, error: null });
-                }
+                if (table === 'orders') return ordersStub(null, savedRow);
                 return chain('maybeSingle', {
                     data: [stubProduct({ id: 'prod-1', price: 25, size_inventory: { M: 9 } })], error: null,
                 });
@@ -1205,7 +1214,7 @@ describe('acceptCheckout store credit (every payment method)', () => {
     it('leaves the balance alone when the shopper applies no credit', async () => {
         mockSupabaseFrom.mockImplementation((table: string) => {
             if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 8 }, error: null });
-            if (table === 'orders') return chain('single', { data: stubOrderRow({ id: 'saved-order', total: 25 }), error: null });
+            if (table === 'orders') return ordersStub(null, stubOrderRow({ id: 'saved-order', total: 25 }));
             return chain('maybeSingle', { data: [stubProduct({ id: 'prod-1', price: 25, size_inventory: { M: 9 } })], error: null });
         });
 
@@ -1284,7 +1293,7 @@ describe('acceptCheckout store credit (every payment method)', () => {
     function stubCreditOrder(profiles: unknown, savedRow: unknown) {
         mockSupabaseFrom.mockImplementation((table: string) => {
             if (table === 'profiles') return profiles;
-            if (table === 'orders') return chain('single', { data: savedRow, error: null });
+            if (table === 'orders') return ordersStub(null, savedRow);
             return chain('maybeSingle', {
                 data: [stubProduct({ id: 'prod-1', price: 25, size_inventory: { M: 9 } })], error: null,
             });
@@ -1402,5 +1411,154 @@ describe('acceptCheckout store credit (every payment method)', () => {
             .map((r: { value: any }) => r.value)
             .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.store_credit !== undefined));
         expect(profileUpdate.update.mock.calls[0][0]).toEqual({ store_credit: 3 });
+    });
+});
+
+// =========================================================================
+// acceptCheckout — one order (and one debit) per checkout attempt
+// =========================================================================
+
+// The order id the client sends IS the checkout attempt id
+// (utils/checkoutAttempt.ts mints one per purchase and reuses it for a retry,
+// a reload or a second tab). What has to hold server-side:
+//
+//   • a repeat of a recorded attempt is a READ — no re-pricing, no re-charge,
+//     no second store-credit debit, and no 409 on the balance its own first
+//     write already spent (the re-verify below compares against the LIVE
+//     balance, so a replay reaching it would be declined instead of shown the
+//     order it already owns);
+//   • a twin that loses the atomic id claim is not a creator either, so it
+//     cannot debit;
+//   • the id is unauthenticated client input, so a row recorded under it only
+//     counts as this checkout's order when it is the same buyer's.
+describe('acceptCheckout attempt id', () => {
+    const BUYER_ID = '9b2f8a5c-1d4e-4f6a-9c3b-7e8d2a1b4c5d';
+    const OTHER_BUYER_ID = '11111111-2222-4333-8444-555555555555';
+    const ATTEMPT_ID = 'order_1758300000000_ab12cd34';
+
+    beforeEach(() => {
+        withSupabaseEnv();
+        delete process.env.VITE_SGCOIN_DISCOUNT_ENABLED;
+        process.env.RESEND_API_KEY = 're_test_key';
+        process.env.RESEND_FROM_EMAIL = 'test@coalition.com';
+        process.env.ORDER_NOTIFICATION_EMAIL = 'admin@coalition.com';
+        mockSupabaseFrom.mockReset();
+        mockResendSend.mockReset();
+        mockResendSend.mockResolvedValue({ data: { id: 'email-1' }, error: null });
+    });
+    afterEach(() => {
+        clearSupabaseEnv();
+        delete process.env.RESEND_API_KEY;
+        delete process.env.RESEND_FROM_EMAIL;
+        delete process.env.ORDER_NOTIFICATION_EMAIL;
+    });
+
+    const attempt = (overrides: Partial<CheckoutAttempt> = {}): CheckoutAttempt => ({
+        items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+        clientSubtotal: 25, clientDiscount: 0, clientTotal: 20,
+        shippingDollars: 0,
+        paymentEvidence: { method: 'store_credit' },
+        orderId: ATTEMPT_ID, orderNumber: 'ORD-ATTEMPT-1',
+        userId: BUYER_ID,
+        customerName: 'Attempt Buyer', customerEmail: 'attempt@test.com',
+        serverCreditCents: 500, // the order is priced with $5 of credit
+        ...overrides,
+    });
+
+    const creditWrite = () => mockSupabaseFrom.mock.results
+        .map((r: { value: any }) => r.value)
+        .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.store_credit !== undefined));
+
+    const orderClaims = () => mockSupabaseFrom.mock.results
+        .map((r: { value: any }) => r.value)
+        .filter((q: any) => q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0);
+
+    it('resolves a replay to the recorded order without pricing, charging or debiting again', async () => {
+        const recorded = stubOrderRow({
+            id: ATTEMPT_ID, user_id: BUYER_ID, customer_email: 'attempt@test.com', total: 20,
+        });
+        // The balance the first write already spent: $0 left against the $5 the
+        // attempt states. Reaching the re-verify would decline the replay 409.
+        mockSupabaseFrom.mockImplementation((table: string) => {
+            if (table === 'orders') return ordersStub(recorded);
+            if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 0 }, error: null });
+            return chain('maybeSingle', { data: null, error: null });
+        });
+
+        const result = await acceptCheckout(attempt());
+
+        expect(result.created).toBe(false);
+        expect(result.order.id).toBe(ATTEMPT_ID);
+        expect(result.order.total).toBe(20);
+        // Nothing was priced, claimed, charged or notified a second time.
+        expect(mockSupabaseFrom).not.toHaveBeenCalledWith('profiles');
+        expect(mockSupabaseFrom).not.toHaveBeenCalledWith('products');
+        expect(orderClaims()).toHaveLength(0);
+        expect(creditWrite()).toBeFalsy();
+        expect(mockResendSend).not.toHaveBeenCalled();
+    });
+
+    it('does not let a twin that loses the id claim become a second creator', async () => {
+        const winner = stubOrderRow({
+            id: ATTEMPT_ID, user_id: BUYER_ID, customer_email: 'attempt@test.com', total: 20,
+        });
+        // Orders chain faithful to the two claim semantics: ON CONFLICT (id) DO
+        // NOTHING answers with the rows INSERTED — none, because the twin got
+        // there first — while a plain upsert (DO UPDATE) answers with the row it
+        // took over. That difference is the whole point: only the first form
+        // lets the loser know it is not the creator.
+        const orders = freshMockQuery(undefined as any);
+        let overwrote = false;
+        orders.upsert = vi.fn((_row: unknown, opts?: { ignoreDuplicates?: boolean }) => {
+            overwrote = !opts?.ignoreDuplicates;
+            return orders;
+        });
+        orders.then = vi.fn((onFulfilled: (v: unknown) => unknown) => Promise
+            .resolve(overwrote ? { data: [winner], error: null } : { data: [], error: null })
+            .then(onFulfilled));
+        // Read 1 is the attempt lookup (nothing recorded yet — the twin is
+        // still in flight), read 2 is the read-back after the claim was ignored.
+        let reads = 0;
+        orders.maybeSingle = vi.fn(async () =>
+            (++reads === 1 ? { data: null, error: null } : { data: winner, error: null }));
+        mockSupabaseFrom.mockImplementation((table: string) => {
+            if (table === 'orders') return orders;
+            if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 8 }, error: null });
+            return chain('maybeSingle', {
+                data: [stubProduct({ id: 'prod-1', price: 25, size_inventory: { M: 9 } })], error: null,
+            });
+        });
+
+        const result = await acceptCheckout(attempt());
+
+        // The loser is not a creator, so it neither debits nor emails; it
+        // reports the row the winner recorded for this attempt.
+        expect(result.created).toBe(false);
+        expect(result.order.id).toBe(ATTEMPT_ID);
+        expect(orders.upsert.mock.calls[0][1]).toEqual({ onConflict: 'id', ignoreDuplicates: true });
+        expect(creditWrite()).toBeFalsy();
+        expect(mockResendSend).not.toHaveBeenCalled();
+    });
+
+    it('refuses an attempt id that is recorded for a different buyer', async () => {
+        const otherBuyersOrder = stubOrderRow({
+            id: ATTEMPT_ID, user_id: OTHER_BUYER_ID, customer_email: 'someone-else@test.com', total: 20,
+        });
+        mockSupabaseFrom.mockImplementation((table: string) =>
+            (table === 'orders' ? ordersStub(otherBuyersOrder) : chain('maybeSingle', { data: null, error: null })));
+
+        await expect(acceptCheckout(attempt()))
+            .rejects.toThrow('already recorded for a different customer');
+    });
+
+    it('refuses an attempt id that is another guest\'s order', async () => {
+        const otherGuestsOrder = stubOrderRow({
+            id: ATTEMPT_ID, user_id: null, customer_email: 'someone-else@test.com', total: 20,
+        });
+        mockSupabaseFrom.mockImplementation((table: string) =>
+            (table === 'orders' ? ordersStub(otherGuestsOrder) : chain('maybeSingle', { data: null, error: null })));
+
+        await expect(acceptCheckout(attempt({ userId: null, customerEmail: 'attempt@test.com' })))
+            .rejects.toThrow('already recorded for a different customer');
     });
 });

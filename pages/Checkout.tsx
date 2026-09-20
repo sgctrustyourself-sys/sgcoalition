@@ -13,6 +13,7 @@ import { trackReferralEvent } from '../utils/referralAnalytics';
 import { processReferralOnPurchase, clearReferralCode } from '../utils/referralSystem';
 import { validateCouponCode, validateDiscountCoupon, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
 import { getCartItemAddOnPrice, getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
+import { clearCheckoutAttempt, getOrCreateOrderId, mintOrderId } from '../utils/checkoutAttempt';
 
 const reportErrorToAdmin = async (error: string, context: string, metadata: any = {}) => {
     try {
@@ -774,7 +775,7 @@ const Checkout: React.FC = () => {
 
     const createOrderSeed = (): OrderSeed => {
         const seed: OrderSeed = {
-            orderId: `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            orderId: mintOrderId(),
             orderNumber: generateOrderNumber(),
         };
         // Persist so a Stripe 3DS/Klarna redirect-return reuses the same seed.
@@ -804,7 +805,19 @@ const Checkout: React.FC = () => {
             // RECORDS comes back from addOrder and replaces it for display and for
             // every derived number (a comped order's estimate is money nobody paid).
             const order = {
-                id: orderSeed?.orderId || `order_${Date.now()}`,
+                // The server records this id and dedupes on it, so a retry, a
+                // replay, a refresh or a second tab of THIS purchase resolves
+                // to the order already written instead of a second order (and a
+                // second store-credit debit). Any change to what is being
+                // bought mints a new attempt id.
+                id: orderSeed?.orderId || getOrCreateOrderId({
+                    userId: user?.uid,
+                    items: cart,
+                    couponCode: discountCouponCode,
+                    shippingMethod,
+                    shippingCost,
+                    storeCreditApplied: serverAppliedCredit,
+                }),
                 orderNumber,
                 userId: user?.uid,
                 isGuest,
@@ -895,6 +908,9 @@ const Checkout: React.FC = () => {
             clearCart();
             // Checkout state (form + seed) is consumed on success.
             clearCheckoutState();
+            // The attempt is settled: the server recorded it, so the next
+            // purchase must mint a new id instead of resolving to this order.
+            clearCheckoutAttempt();
             return recorded.orderNumber || orderNumber;
         } catch (error) {
             console.error('Error creating order:', error);
