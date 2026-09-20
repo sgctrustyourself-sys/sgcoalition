@@ -404,6 +404,15 @@ const Checkout: React.FC = () => {
     // raw estimate must stay discount-free — for card the intent re-prices
     // from DB.
     const finalTotal = Math.max(0, total + shippingCost - creditToApply);
+    // The discount coupon the server prices with, derived once because three
+    // requests must agree on it (pricing preview, PaymentIntent, order) and the
+    // intent effect must re-run when it changes. A coupon moves the order total,
+    // so leaving it out of that effect left Stripe holding the pre-coupon
+    // intent: the page showed the discounted total while the Pay button still
+    // charged the old amount, and complete-order's amount check then refused a
+    // payment the shopper had already made. Referral codes stay out — they are
+    // attribution only, never a price.
+    const discountCouponCode = isDiscountCoupon && appliedCoupon ? appliedCoupon : undefined;
     // Server-authoritative total for display in the review card + trust copy.
     // Prefer the actual PaymentIntent pricing (includes coupon + store
     // credit), then the pricing preview, then the raw client estimate. This
@@ -489,7 +498,7 @@ const Checkout: React.FC = () => {
         // shows the method the buyer chose.
         const timer = setTimeout(() => { void createPaymentIntent(); }, 600);
         return () => clearTimeout(timer);
-    }, [cart, paymentMethod, stripeMethod, useStoreCredit, shippingMethod, shippingFingerprint]);
+    }, [cart, paymentMethod, stripeMethod, useStoreCredit, shippingMethod, shippingFingerprint, discountCouponCode]);
 
     // Fetch server-authoritative pricing preview for the order summary.
     // Debounced — fires when cart, shipping, or payment method change.
@@ -510,7 +519,7 @@ const Checkout: React.FC = () => {
                     })),
                     shippingCost,
                     paymentMethod,
-                    couponCode: isDiscountCoupon && appliedCoupon ? appliedCoupon : undefined,
+                    couponCode: discountCouponCode,
                 }),
             })
             .then(r => r.json())
@@ -628,7 +637,7 @@ const Checkout: React.FC = () => {
                     useStoreCredit,
                     paymentMethodTypes: [stripeMethod],
                     orderId: seed.orderId,
-                    couponCode: isDiscountCoupon && appliedCoupon ? appliedCoupon : undefined,
+                    couponCode: discountCouponCode,
                     email: shippingInfo.email,
                     // Country is normalized to ISO-3166 for Stripe; if it
                     // can't be mapped, shipping is omitted so card payments
@@ -800,7 +809,7 @@ const Checkout: React.FC = () => {
                 total: finalTotal,
                 paymentMethod: paymentMethodUsed as any,
                 paymentStatus: paymentMethodUsed === 'crypto' || paymentMethodUsed === 'cashapp' ? OrderStatus.PENDING : OrderStatus.PAID,
-                couponCode: isDiscountCoupon && appliedCoupon ? appliedCoupon : undefined,
+                couponCode: discountCouponCode,
                 // Store credit already applied + charged upstream (Stripe
                 // intent). The server re-verifies against the live balance
                 // and debits the profile exactly once per order.
@@ -875,31 +884,39 @@ const Checkout: React.FC = () => {
         if (!validateShipping()) return;
         setIsLoading(true);
         try {
-            // Prove the caller owns the userId before any credit is debited.
-            // The Supabase client already holds the session from login; getSession()
-            // is the same pattern AIPortal / ResetPassword use to send a token to an API route.
-            let authToken: string | null = null;
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                authToken = session?.access_token || null;
-            } catch { /* leave authToken null — the server will 401 */ }
+            // Store credit is debited only when the order actually spends it.
+            // A $0 order also comes from a 100%-off coupon, where creditToApply
+            // is 0 and there is often no signed-in user at all: asking the credit
+            // handler in that case answered 400 "Missing required fields" and
+            // left every voucher order uncompletable. The order itself is written
+            // by createOrder below, which routes through the server's pricing.
+            if (creditToApply > 0) {
+                // Prove the caller owns the userId before any credit is debited.
+                // The Supabase client already holds the session from login; getSession()
+                // is the same pattern AIPortal / ResetPassword use to send a token to an API route.
+                let authToken: string | null = null;
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    authToken = session?.access_token || null;
+                } catch { /* leave authToken null — the server will 401 */ }
 
-            const response = await fetch('/api/place-order-credits', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
-                },
-                body: JSON.stringify({
-                    userId: user?.uid,
-                    total: creditToApply,
-                    items: cart
-                })
-            });
+                const response = await fetch('/api/place-order-credits', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+                    },
+                    body: JSON.stringify({
+                        userId: user?.uid,
+                        total: creditToApply,
+                        items: cart
+                    })
+                });
 
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || 'Failed to process store credit');
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Failed to process store credit');
+                }
             }
 
             sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
@@ -1241,8 +1258,8 @@ const Checkout: React.FC = () => {
                                     <div className="inline-flex items-center justify-center w-16 h-16 bg-white/5 rounded-full mb-4">
                                         <Check className="w-8 h-8 text-gray-300" />
                                     </div>
-                                    <h4 className="text-white font-bold text-lg mb-2">Paid with Store Credit</h4>
-                                    <p className="text-gray-400 text-sm mb-6">No additional payment required.</p>
+                                    <h4 className="text-white font-bold text-lg mb-2">{creditToApply > 0 ? 'Paid with Store Credit' : 'No payment required'}</h4>
+                                    <p className="text-gray-400 text-sm mb-6">{creditToApply > 0 ? 'No additional payment required.' : 'Your discount covers this order — nothing to pay.'}</p>
                                     <button
                                         onClick={handleCompleteFreeOrder}
                                         disabled={isLoading}
