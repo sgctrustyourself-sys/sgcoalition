@@ -387,4 +387,40 @@ describe('Checkout store credit applies on every payment method', () => {
             expect(callsTo(fetchFn, '/api/place-order-credits')).toHaveLength(0);
         });
     }
+
+    // The manual confirms write a PENDING order and let the server debit the
+    // store credit, so a second click is a second purchase AND a second debit.
+    // Both buttons carry the same loading/disabled guard the pay buttons above
+    // use. `click()` is the faithful double-click: a disabled control receives
+    // no click event at all, which is exactly what has to protect the money.
+    for (const method of ['cashapp', 'crypto'] as const) {
+        it('DOUBLE_CLICK_' + method.toUpperCase() + ': a second click on the manual confirm places no second order', async () => {
+            const fetchFn = mockApiFetch();
+            seedCheckout(method);
+            await act(async () => { root.render(createElement(Checkout)); });
+            await flushServerCalls();
+            await applyStoreCredit(container);
+
+            const confirm = [...container.querySelectorAll('button')]
+                .find(b => /I Have Sent the Payment/.test(b.textContent || '')) as HTMLButtonElement | undefined;
+            expect(confirm, 'the manual confirm button is not rendered').toBeTruthy();
+
+            // Two clicks, each in its own act() so React has re-rendered between
+            // them, exactly as it does between two real clicks on the button.
+            for (let click = 0; click < 2; click++) {
+                await act(async () => {
+                    confirm!.click();
+                    await Promise.resolve();
+                    await Promise.resolve();
+                    await Promise.resolve();
+                });
+            }
+
+            const { addOrder } = vi.mocked(useApp).mock.results[0].value;
+            // One purchase, one order row, one credit debit.
+            expect(addOrder).toHaveBeenCalledTimes(1);
+            expect(confirm!.disabled).toBe(true);
+            expect(callsTo(fetchFn, '/api/place-order-credits')).toHaveLength(0);
+        });
+    }
 });
