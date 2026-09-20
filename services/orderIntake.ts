@@ -133,6 +133,27 @@ async function loadProducts(ids: string[]): Promise<Map<string, ProductRow>> {
 // offer and the server math can never disagree). resolvePricing consumes it
 // for the `crypto` method only.
 
+// ---- Store credit: the single owner of "how much credit this buyer has" ----
+//
+// Both pricing steps that offer store credit read the balance through here —
+// create-payment-intent (the card intent) and pricing-preview (every method's
+// displayed price). Keeping the read in one place is what makes the card path
+// and the manual paths (crypto, Cash App, the free/store-credit path) apply the
+// SAME balance: before this, only the card intent applied it, so crypto and
+// Cash App showed the credit option while pricing the buyer at full price.
+// Display-only by itself — resolvePricing caps the credit and acceptCheckout
+// re-verifies it against the live balance before anything is debited.
+export async function loadStoreCreditCents(userId: string | null | undefined): Promise<number> {
+    const id = String(userId || '').trim();
+    if (!id) return 0;
+    const { data } = await sb()
+        .from('profiles')
+        .select('store_credit')
+        .eq('id', id)
+        .maybeSingle();
+    return Math.max(0, Math.round(Number((data as { store_credit?: number } | null)?.store_credit || 0) * 100));
+}
+
 export async function resolvePricing(items: PricingItem[], shippingDollars: number, clientDiscountDollars: number, paymentMethod: string, storeCreditCents: number = 0, couponCode?: string | null, storeCreditAppliedCents: number = 0): Promise<PriceSnapshot> {
     if (!items.length) throw err(400, 'At least one item required.');
     const products = await loadProducts([...new Set(items.map(i => i.productId))]);

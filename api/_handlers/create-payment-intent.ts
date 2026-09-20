@@ -1,6 +1,6 @@
 import { stripeClient } from '../../api/_services.js';
 import { createClient } from '@supabase/supabase-js';
-import { resolvePricing, type PricingItem, HttpError } from '../../services/orderIntake.js';
+import { loadStoreCreditCents, resolvePricing, type PricingItem, HttpError } from '../../services/orderIntake.js';
 import { resolveCryptoDiscountCents } from '../../utils/cryptoDiscount.js';
 import { loadPaymentSettings } from '../../services/paymentSettings.js';
 import { CHECKOUT_PAYMENT_METHOD_TYPES } from '../_helpers.js';
@@ -107,18 +107,10 @@ export default async function handler(req: any, res: any) {
 
         // Fetch store credit before pricing so resolvePricing() owns
         // every dollar on the order — the module applies the credit
-        // internally and returns the post-credit total.
-        let storeCreditCents = 0;
-        if (useStoreCredit && userId) {
-            const { data: profile } = await supabaseAdmin
-                .from('profiles')
-                .select('store_credit')
-                .eq('id', userId)
-                .single();
-            if (profile) {
-                storeCreditCents = Math.round(Number(profile.store_credit || 0) * 100);
-            }
-        }
+        // internally and returns the post-credit total. The balance read is
+        // owned by loadStoreCreditCents() so this path and /api/pricing-preview
+        // (every other method's displayed price) can never read it differently.
+        const storeCreditCents = useStoreCredit ? await loadStoreCreditCents(userId) : 0;
 
         let pricing;
         try {
