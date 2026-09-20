@@ -933,8 +933,14 @@ const Checkout: React.FC = () => {
         }
     };
 
+    // Manual confirmations write a PENDING order and debit the store credit, so
+    // a second click is a second purchase and a second debit. Same guard as the
+    // neighbouring pay buttons (a loading state + a disabled button); the state
+    // is cleared only on failure, because the guard has to hold until the page
+    // has actually left for /order/success.
     const handleCryptoConfirmation = async () => {
         if (!validateShipping()) return;
+        setIsLoading(true);
         try {
             const orderNumber = await createOrder('crypto');
             sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
@@ -943,6 +949,7 @@ const Checkout: React.FC = () => {
             window.location.href = '/order/success?payment_method=crypto';
         } catch (error) {
             addToast('Failed to create order. Please try again.', 'error');
+            setIsLoading(false);
         }
     };
 
@@ -952,6 +959,7 @@ const Checkout: React.FC = () => {
     // verifies the Cash App payment before fulfillment.
     const handleCashAppConfirmation = async () => {
         if (!validateShipping()) return;
+        setIsLoading(true);
         try {
             const orderNumber = await createOrder('cashapp');
             sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
@@ -960,6 +968,7 @@ const Checkout: React.FC = () => {
             window.location.href = '/order/success?payment_method=cashapp';
         } catch (error) {
             addToast('Failed to create order. Please try again.', 'error');
+            setIsLoading(false);
         }
     };
 
@@ -1557,9 +1566,10 @@ const Checkout: React.FC = () => {
 
                                             <button
                                                 onClick={handleCashAppConfirmation}
-                                                className="w-full bg-green-600 text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-green-500 transition shadow-[0_0_20px_rgba(34,197,94,0.3)]"
+                                                disabled={isLoading}
+                                                className="w-full bg-green-600 text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-green-500 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(34,197,94,0.3)]"
                                             >
-                                                I Have Sent the Payment
+                                                {isLoading ? 'Processing...' : 'I Have Sent the Payment'}
                                             </button>
                                         </div>
                                     )}
@@ -1609,9 +1619,10 @@ const Checkout: React.FC = () => {
 
                                             <button
                                                 onClick={handleCryptoConfirmation}
-                                                className="w-full bg-blue-600 text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-blue-500 transition shadow-[0_0_20px_rgba(37,99,235,0.3)]"
+                                                disabled={isLoading}
+                                                className="w-full bg-blue-600 text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-blue-500 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(37,99,235,0.3)]"
                                             >
-                                                I Have Sent the Payment
+                                                {isLoading ? 'Processing...' : 'I Have Sent the Payment'}
                                             </button>
                                         </div>
                                     )}
