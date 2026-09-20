@@ -150,15 +150,17 @@ type MockCall = [RequestInfo | URL, RequestInit?];
  * its pricing snapshot, and the credit handler answers 400 like production so
  * a client-side debit attempt cannot pass silently.
  */
-function mockApiFetch(): ReturnType<typeof vi.fn> {
+function mockApiFetch(creditCents: number = APPLIED_CENTS): ReturnType<typeof vi.fn> {
     const fetchFn = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
         const path = String(url);
         const body = init?.body ? JSON.parse(String(init.body)) : {};
         // Like the server: a 100%-off coupon leaves nothing for credit to
         // cover, so a capped-at-the-order credit is 0 even when asked for.
+        // `creditCents` lets a test ask for a balance that covers the whole
+        // order (the credit-paid free path).
         const couponDisc = body.couponCode ? ITEM_CENTS : 0;
         const credit = body.useStoreCredit
-            ? Math.min(APPLIED_CENTS, Math.max(0, ITEM_CENTS - couponDisc))
+            ? Math.min(creditCents, Math.max(0, ITEM_CENTS - couponDisc))
             : 0;
         if (path.includes('/api/pricing-preview')) {
             return {
@@ -317,6 +319,46 @@ describe('Checkout store credit applies on every payment method', () => {
             expect(total).not.toContain('$45.00');
         });
     }
+
+    it('FREE_ORDER_ONCE: a click across the response boundary cannot place a second free order', async () => {
+        // The free path writes a reference-less store_credit order
+        // (`order_${Date.now()}`, no paymentReference), so findDup cannot dedupe
+        // a repeat: its guard has to hold until the page has actually left for
+        // /order/success — cleared on failure only, like the manual confirms.
+        const fetchFn = mockApiFetch(ITEM_CENTS); // credit covers the order → the free panel
+        seedCheckout('cashapp');
+        await act(async () => { root.render(createElement(Checkout)); });
+        await flushServerCalls();
+        await applyStoreCredit(container);
+
+        const screen = (container.textContent || '').replace(/\s+/g, ' ');
+        expect(screen).toContain('Paid with Store Credit');
+
+        const complete = [...container.querySelectorAll('button')]
+            .find(b => /Complete Order|Processing/.test(b.textContent || '')) as HTMLButtonElement | undefined;
+        expect(complete, 'the free-order button is not rendered').toBeTruthy();
+
+        // Two clicks with the write already answered between them — the window
+        // between the server's response and the browser leaving the page.
+        for (let click = 0; click < 2; click++) {
+            await act(async () => {
+                complete!.click();
+                await Promise.resolve();
+                await Promise.resolve();
+                await Promise.resolve();
+            });
+        }
+
+        const { addOrder } = vi.mocked(useApp).mock.results[0].value;
+        // One purchase → one order → one credit debit.
+        expect(addOrder).toHaveBeenCalledTimes(1);
+        const written = addOrder.mock.calls[0][0];
+        expect(written.paymentMethod).toBe('store_credit');
+        expect(written.paymentReference).toBeUndefined();
+        expect(written.storeCreditApplied).toBe(ITEM_CENTS / 100);
+        expect(complete!.disabled).toBe(true);
+        expect(callsTo(fetchFn, '/api/place-order-credits')).toHaveLength(0);
+    });
 
     it('FREE_VOUCHER: a voucher-comped order debits no credit it does not owe', async () => {
         // The same routing change that stopped the client debiting also fixes a
