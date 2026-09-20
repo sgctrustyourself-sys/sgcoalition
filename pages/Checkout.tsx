@@ -419,7 +419,7 @@ const Checkout: React.FC = () => {
     // keeps every total on the page consistent — previously the review card
     // showed the client estimate and ignored the applied coupon, disagreeing
     // with the order summary's server-computed total.
-    const reviewTotal = serverPricing
+    const reviewTotal = paymentMethod === 'card' && serverPricing
         ? serverPricing.totalCents / 100
         : pricingPreview
             ? pricingPreview.totalCents / 100
