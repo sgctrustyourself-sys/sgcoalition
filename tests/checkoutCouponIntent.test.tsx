@@ -89,6 +89,7 @@ vi.mock('@stripe/react-stripe-js', () => ({
 
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import { getAppliedCouponCode } from '../utils/couponSystem';
 import Checkout from '../pages/Checkout';
 
 const COUPON = 'DROP-202608-C0G7';
@@ -162,6 +163,27 @@ function mockApiFetch(): ReturnType<typeof vi.fn> {
                     }),
             };
         }
+        if (path.includes('/api/pricing-preview')) {
+            // Method- and coupon-aware, like the server: the crypto path reports
+            // the SGCoin discount, every method reports the coupon.
+            const cryptoDisc = body.paymentMethod === 'crypto' ? 450 : 0;
+            const couponDisc = body.couponCode ? 4500 : 0;
+            return {
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    itemTotalCents: 4500,
+                    shippingCents: 0,
+                    setBonusCents: 0,
+                    cryptoDiscountCents: cryptoDisc,
+                    couponDiscountCents: couponDisc,
+                    couponCode: body.couponCode || null,
+                    discountCents: cryptoDisc + couponDisc,
+                    totalCents: 4500 - cryptoDisc - couponDisc,
+                    items: [],
+                }),
+            };
+        }
         if (path.includes('/api/payment-settings')) {
             return { ok: true, status: 200, json: async () => ({ card_enabled: true, klarna_enabled: false, cashapp_enabled: true, crypto_enabled: true }) };
         }
@@ -209,6 +231,17 @@ async function flushIntentDebounce() {
         await Promise.resolve();
         await Promise.resolve();
     });
+}
+
+/** A checkout restored in the middle of a manual-method payment. */
+function seedManualCheckout(paymentMethod: 'cashapp' | 'crypto') {
+    sessionStorage.setItem('coalition_checkout_state', JSON.stringify({
+        paymentMethod,
+        stripeMethod: 'card',
+        shippingInfo: SHIPPING,
+        shippingMethod: 'standard',
+        shippingCost: 0,
+    }));
 }
 
 describe('Checkout coupon <-> PaymentIntent agreement', () => {
@@ -310,5 +343,36 @@ describe('Checkout coupon <-> PaymentIntent agreement', () => {
         const written = addOrder.mock.calls[0][0];
         expect(written.paymentMethod).toBe('store_credit');
         expect(written.couponCode).toBe(COUPON);
+    });
+
+    it('MANUAL_AMOUNTS_CRYPTO: the crypto panel asks for the server price, crypto discount included', async () => {
+        // The crypto discount is applied server-side only, so an amount built
+        // from the client's raw estimate asks the shopper to send MORE than the
+        // order is priced at — which is what production did (panel 100.00 USDC
+        // while the same page's total read $90.00).
+        seedManualCheckout('crypto');
+        mockApiFetch();
+        await act(async () => { root.render(createElement(Checkout)); });
+        await flushIntentDebounce();
+
+        const text = (container.textContent || '').replace(/\s+/g, ' ');
+        expect(text).toContain('40.50 USDC');
+        expect(text).not.toContain('45.00 USDC');
+    });
+
+    it('MANUAL_AMOUNTS_FREE: a voucher-comped order is not billed to Cash App', async () => {
+        // A 100%-off coupon prices the order at $0, so the manual paths must
+        // offer the completion panel rather than the full-price send
+        // instructions (production asked for $45.00 on a $0 order).
+        vi.mocked(getAppliedCouponCode).mockReturnValue(COUPON);
+        seedManualCheckout('cashapp');
+        mockApiFetch();
+        await act(async () => { root.render(createElement(Checkout)); });
+        await flushIntentDebounce();
+        await flushIntentDebounce();
+
+        const text = (container.textContent || '').replace(/\s+/g, ' ');
+        expect(text).toContain('No payment required');
+        expect(text).not.toContain('Pay with Cash App');
     });
 });
