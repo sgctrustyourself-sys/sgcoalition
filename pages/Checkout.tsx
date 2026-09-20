@@ -13,7 +13,7 @@ import { trackReferralEvent } from '../utils/referralAnalytics';
 import { processReferralOnPurchase, clearReferralCode } from '../utils/referralSystem';
 import { validateCouponCode, validateDiscountCoupon, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
 import { getCartItemAddOnPrice, getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
-import { clearCheckoutAttempt, getOrCreateOrderId, mintOrderId } from '../utils/checkoutAttempt';
+import { clearCheckoutAttempt, resolveCheckoutAttempt, recordedOrderNumber, mintOrderId } from '../utils/checkoutAttempt';
 
 const reportErrorToAdmin = async (error: string, context: string, metadata: any = {}) => {
     try {
@@ -798,19 +798,16 @@ const Checkout: React.FC = () => {
             const orderNumber = orderSeed?.orderNumber || generateOrderNumber();
             const isGuest = !user;
 
-            // Pricing authority lives in services/orderIntake.ts → resolvePricing().
-            // subtotal / discount are server-computed from DB; the client passes
-            // only raw items + shipping choice. The total below is a raw,
-            // pre-coupon estimate used to build the request; the order the server
-            // RECORDS comes back from addOrder and replaces it for display and for
-            // every derived number (a comped order's estimate is money nobody paid).
-            const order = {
-                // The server records this id and dedupes on it, so a retry, a
-                // replay, a refresh or a second tab of THIS purchase resolves
-                // to the order already written instead of a second order (and a
-                // second store-credit debit). Any change to what is being
-                // bought mints a new attempt id.
-                id: orderSeed?.orderId || getOrCreateOrderId({
+            // The purchase this submit is: the attempt already in flight for it
+            // (in any tab of this browser, whatever its age), or a fresh one.
+            // The server records this id and dedupes on it, so a retry, a
+            // replay, a refresh or a second tab of THIS purchase resolves to the
+            // order already written instead of a second order (and a second
+            // store-credit debit). Any change to what is being bought mints a
+            // new attempt id (utils/checkoutAttempt.ts).
+            const attempt = orderSeed?.orderId
+                ? { id: orderSeed.orderId, fromRecord: false }
+                : resolveCheckoutAttempt({
                     userId: user?.uid,
                     items: cart,
                     couponCode: discountCouponCode,
@@ -822,7 +819,38 @@ const Checkout: React.FC = () => {
                     // costs, so a change to either is a new attempt.
                     paymentMethod: paymentMethodUsed,
                     customerEmail: shippingInfo.email,
-                }),
+                });
+
+            // An attempt this browser has already sent is reused only once the
+            // SERVER has answered for it, never guessed at from a clock. A
+            // record whose order is already written means the purchase is done:
+            // resolve to that order rather than write a second one — which is
+            // what the old 30-minute window did once it expired (a second order
+            // and a second store-credit debit for one purchase, measured). An
+            // unreadable answer means "not settled": the id is reused below and
+            // the server's own dedupe has the last word, so a lookup outage
+            // cannot become a lost order.
+            if (attempt.fromRecord) {
+                const settledOrderNumber = await recordedOrderNumber(attempt.id, {
+                    userId: user?.uid,
+                    customerEmail: shippingInfo.email,
+                });
+                if (settledOrderNumber) {
+                    addToast('This purchase is already recorded — opening your order.', 'info');
+                    return settledOrderNumber;
+                }
+            }
+
+            // Pricing authority lives in services/orderIntake.ts → resolvePricing().
+            // subtotal / discount are server-computed from DB; the client passes
+            // only raw items + shipping choice. The total below is a raw,
+            // pre-coupon estimate used to build the request; the order the server
+            // RECORDS comes back from addOrder and replaces it for display and for
+            // every derived number (a comped order's estimate is money nobody paid).
+            const order = {
+                // The dedupe key, resolved above — reused only after the
+                // server said this attempt has no order yet.
+                id: attempt.id,
                 orderNumber,
                 userId: user?.uid,
                 isGuest,

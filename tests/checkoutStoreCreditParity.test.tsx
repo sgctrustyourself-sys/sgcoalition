@@ -149,8 +149,16 @@ type MockCall = [RequestInfo | URL, RequestInit?];
  * no credit — the pre-fix page). The Stripe intent returns the same credit in
  * its pricing snapshot, and the credit handler answers 400 like production so
  * a client-side debit attempt cannot pass silently.
+ *
+ * `attempt` is the answer /api/order-attempt gives the checkout about an
+ * attempt it has already sent: the recorded order's number, "nothing recorded"
+ * (the default, and what a first submit never asks about), or an unreachable
+ * probe — the lookup's own outage, which must not become a lost order.
  */
-function mockApiFetch(creditCents: number = APPLIED_CENTS): ReturnType<typeof vi.fn> {
+function mockApiFetch(
+    creditCents: number = APPLIED_CENTS,
+    attempt: { recorded: string | null } | 'offline' = { recorded: null },
+): ReturnType<typeof vi.fn> {
     const fetchFn = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
         const path = String(url);
         const body = init?.body ? JSON.parse(String(init.body)) : {};
@@ -200,6 +208,11 @@ function mockApiFetch(creditCents: number = APPLIED_CENTS): ReturnType<typeof vi
                     },
                 }),
             };
+        }
+        if (path.includes('/api/order-attempt')) {
+            // A real fetch rejects when the service cannot be reached.
+            if (attempt === 'offline') throw new Error('network down');
+            return { ok: true, status: 200, json: async () => ({ recorded: attempt.recorded !== null, orderNumber: attempt.recorded }) };
         }
         if (path.includes('/api/place-order-credits')) {
             return { ok: false, status: 400, json: async () => ({ error: 'Missing required fields' }) };
@@ -507,4 +520,85 @@ describe('Checkout store credit applies on every payment method', () => {
             expect(callsTo(fetchFn, '/api/place-order-credits')).toHaveLength(0);
         });
     }
+
+    /** The free-order button the credit-covered panel renders. */
+    const completeButton = (host: HTMLElement) => [...host.querySelectorAll('button')]
+        .find(b => /Complete Order|Processing/.test(b.textContent || '')) as HTMLButtonElement | undefined;
+
+    /** A click, flushed the way the panel resolves the write. */
+    const click = async (button: HTMLButtonElement) => {
+        await act(async () => {
+            button.click();
+            await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+        });
+    };
+
+    /** The free panel, with a first write that fails and leaves the attempt behind. */
+    async function freePanelWithFailedWrite() {
+        seedCheckout('cashapp');
+        const app = baselineUseApp();
+        const addOrder = vi.fn()
+            .mockRejectedValueOnce(new Error('network'))
+            .mockResolvedValue(RECORDED_ORDER);
+        vi.mocked(useApp).mockReturnValue({ ...app, addOrder } as any);
+        await act(async () => { root.render(createElement(Checkout)); });
+        await flushServerCalls();
+        await applyStoreCredit(container);
+        const button = completeButton(container);
+        expect(button, 'the free-order button is not rendered').toBeTruthy();
+        await click(button!);
+        expect(addOrder).toHaveBeenCalledTimes(1);
+        return { addOrder, button: button! };
+    }
+
+    it('SETTLED_ATTEMPT: a retry of an attempt the server says is recorded cannot write a second order', async () => {
+        // The write landed but never answered (the 30s abort), so the attempt
+        // stayed in storage unconfirmed and the button came back. The retry asks
+        // the SERVER whether that attempt already produced an order — the
+        // question the old 30-minute window guessed at, and got wrong once it
+        // had expired: it minted a new id and placed a second order, debiting the
+        // store credit twice for one purchase.
+        const fetchFn = mockApiFetch(ITEM_CENTS, { recorded: 'ORD-ALREADY-1' });
+        const addToast = vi.fn();
+        vi.mocked(useToast).mockReturnValue({ addToast } as any);
+
+        const { addOrder, button } = await freePanelWithFailedWrite();
+        // A first submit has nothing recorded to ask about, so it must not pay
+        // for a lookup at all.
+        expect(callsTo(fetchFn, '/api/order-attempt')).toHaveLength(0);
+
+        await click(button);
+
+        // One purchase: one write, one debit — the settled attempt is resolved,
+        // never written again.
+        expect(addOrder).toHaveBeenCalledTimes(1);
+        const lookups = bodiesTo(fetchFn, '/api/order-attempt');
+        expect(lookups).toHaveLength(1);
+        // Scoped to the buyer, and to the attempt that is in flight.
+        expect(lookups[0].id).toBe(addOrder.mock.calls[0][0].id);
+        expect(lookups[0].userId).toBe(USER_ID);
+        expect(lookups[0].customerEmail).toBe(SHIPPING.email);
+        // And the shopper is told what happened, then sent to the order.
+        expect(addToast).toHaveBeenCalledWith(expect.stringContaining('already recorded'), 'info');
+        expect(sessionStorage.getItem('orderNumber')).toBe('ORD-ALREADY-1');
+    });
+
+    it('LOOKUP_DOWN: a probe that cannot answer still places the order, under the same id', async () => {
+        // The lookup is an addition to the money path, so it must not become a
+        // way to lose an order: an unreachable probe means "not settled", the
+        // attempt is reused, and the server's own dedupe on that id still
+        // decides. The refused/empty-body shapes are pinned beside the module
+        // itself (tests/checkoutAttempt.test.ts).
+        const fetchFn = mockApiFetch(ITEM_CENTS, 'offline');
+
+        const { addOrder, button } = await freePanelWithFailedWrite();
+        await click(button);
+
+        // Exactly one probe for the two clicks: only the retry had an attempt
+        // in flight to ask about.
+        expect(callsTo(fetchFn, '/api/order-attempt')).toHaveLength(1);
+        expect(addOrder).toHaveBeenCalledTimes(2);
+        const [first, second] = addOrder.mock.calls.map((c: any[]) => c[0]);
+        expect(second.id).toBe(first.id);
+    });
 });

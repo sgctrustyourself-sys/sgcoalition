@@ -12,10 +12,9 @@ vi.mock('../utils/referralAnalytics', () => ({ trackReferralShare: vi.fn() }));
 import { useApp } from '../context/AppContext';
 import { useSearchParams } from 'react-router-dom';
 import OrderSuccess from '../pages/OrderSuccess';
-import { getOrCreateOrderId, CHECKOUT_ATTEMPT_TTL_MS } from '../utils/checkoutAttempt';
+import { resolveCheckoutAttempt } from '../utils/checkoutAttempt';
 
 const STATE_KEY = 'coalition_checkout_state';
-const ATTEMPT_KEY = 'coalition_checkout_attempt';
 const item = { id: 'prod-tee', name: 'Coalition Classic Tee', price: 45, images: ['/tee.jpg'], selectedSize: 'M', quantity: 1, keychainClipOn: false };
 const savedOrder = () => ({ id: 'order-3ds-1', order_number: 'ORD-3DS-0001', user_id: null, items: [{ productId: 'prod-tee', productName: 'Coalition Classic Tee', productImage: '/tee.jpg', selectedSize: 'M', quantity: 1, price: 45 }], total: 45, sg_coin_reward: 4, payment_status: 'paid', customer_email: 'guest@example.com', customer_name: 'Guest Buyer', shipping_address: { address1: '1 Coalition Way', city: 'Baltimore', state: 'MD', zip: '21201', country: 'US', shippingMethod: 'standard', shippingCost: 0 }, created_at: '2026-08-04T19:00:00.000Z', paid_at: '2026-08-04T19:00:01.000Z' });
 const recordedFallbackOrder = () => ({
@@ -203,16 +202,15 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
     vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=store_credit'), vi.fn()] as any);
     vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: () => 4, clearCart, addOrder, user: null, updateUser: vi.fn() } as any);
 
-    // The attempt as Checkout left it, aged well past that window. The coupon
-    // and the applied credit are what the recovery cannot restate: a fresh tab
-    // has no checkout state, so the record is all this page has to go on.
-    const sent = getOrCreateOrderId({
+    // The attempt as Checkout left it. The record carries no age at all now —
+    // whether it is settled is the server's answer, not the clock's — so the
+    // coupon and the applied credit are what matter here: they are what the
+    // recovery cannot restate (a fresh tab has no checkout state), which is why
+    // this path asks about the purchase itself rather than the price knobs.
+    const sent = resolveCheckoutAttempt({
       userId: null, items: [item], couponCode: 'SAVE10', shippingMethod: 'standard',
       shippingCost: 0, storeCreditApplied: 5, paymentMethod: 'store_credit', customerEmail: 'guest@example.com',
-    });
-    const stored = JSON.parse(localStorage.getItem(ATTEMPT_KEY) as string);
-    stored.at = Date.now() - CHECKOUT_ATTEMPT_TTL_MS * 4;
-    localStorage.setItem(ATTEMPT_KEY, JSON.stringify(stored));
+    }).id;
     sessionStorage.clear();
 
     await act(async () => {

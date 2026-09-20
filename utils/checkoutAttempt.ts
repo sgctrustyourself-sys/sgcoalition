@@ -7,35 +7,42 @@
 //
 // There are two ways to ask for that id, because the question differs:
 //
-//   getOrCreateOrderId        "I am BUYING this" — the checkout's submit path.
+//   resolveCheckoutAttempt     "I am BUYING this" — the checkout's submit path.
 //   getOrCreateRecoveryOrderId "did the attempt I already sent land?" — the
 //                             /order/success recovery paths.
 //
 // The purchase path identifies an attempt by everything its price depends on
 // (buyer, items and their prices, coupon, shipping, applied credit, payment
 // method), so any real change to the purchase mints a new id instead of being
-// deduped into an order the shopper did not place — and a later identical
-// purchase is not captured by a stale record either, because that path stops
-// reusing a record once it is older than CHECKOUT_ATTEMPT_TTL_MS.
+// deduped into an order the shopper did not place.
 //
-// That age bound is what used to reopen the hole it exists to close: an
+// That path used to ALSO require the record to be younger than a 30-minute
+// window, which reopened the hole the id exists to close: an
 // unanswered-but-landed write (the 30s abort in utils/fetchWithTimeout.ts)
 // leaves the record behind, and a reload after the window re-submitted under a
-// NEW id — a second order and a second debit for one purchase. The recovery
-// path therefore ignores the age: it reuses the recorded attempt for the same
-// buyer and basket however old it is. It can safely do that because a record
-// only survives while the attempt is UNCONFIRMED — pages/OrderSuccess.tsx and
+// NEW id — a second order and a second debit for one purchase (measured). The
+// window is gone rather than widened, because a clock cannot tell a record
+// whose attempt is SETTLED from one whose attempt is still open and only the
+// server can: the checkout reuses the attempt whatever its age and asks the
+// server whether it already produced an order (recordedOrderNumber below). A
+// settled attempt is resolved to that order, never written again, so
+// re-submitting cannot place or charge the purchase twice — and the record it
+// resolved stays until the confirmation page consumes it, which is what lets a
+// genuinely NEW identical purchase mint a fresh id.
+//
+// The recovery path asks about the purchase (who + what), not about the price
+// knobs a recovery page cannot always restate, so a fresh tab (no
+// sessionStorage) still matches. It can safely reuse the recorded attempt at
+// any age for the same reason the age bound could go: a record only survives
+// while its attempt is UNCONFIRMED — pages/OrderSuccess.tsx and
 // pages/Checkout.tsx clear it the moment an order is recorded — so a record
-// that is hanging around is exactly the attempt a recovery is about. It asks
-// about the purchase (who + what), not about the price knobs a recovery page
-// cannot always restate, so a fresh tab (no sessionStorage) still matches.
+// that is hanging around is exactly the attempt a recovery is about.
 //
 // The record is shared across tabs on purpose (localStorage, not sessionStorage).
 
-const STORAGE_KEY = 'coalition_checkout_attempt';
+import { fetchWithTimeout } from './fetchWithTimeout.js';
 
-/** An attempt older than this cannot be the one being retried. */
-export const CHECKOUT_ATTEMPT_TTL_MS = 30 * 60 * 1000;
+const STORAGE_KEY = 'coalition_checkout_attempt';
 
 export interface CheckoutAttemptIdentity {
     userId?: string | null;
@@ -58,7 +65,6 @@ interface StoredAttempt {
     id: string;
     fingerprint: string;
     basket: string;
-    at: number;
 }
 
 /**
@@ -118,23 +124,22 @@ function storage(): Storage | null {
     }
 }
 
-function resolveAttemptId(identity: CheckoutAttemptIdentity, ageBound: 'purchase' | 'ignore'): string {
+function resolveAttemptId(identity: CheckoutAttemptIdentity, match: 'purchase' | 'basket'): { id: string; fromRecord: boolean } {
     const fingerprint = attemptFingerprint(identity);
     const basket = basketFingerprint(identity);
-    const now = Date.now();
     const ls = storage();
     if (ls) {
         try {
             const raw = ls.getItem(STORAGE_KEY);
             if (raw) {
                 const stored = JSON.parse(raw) as StoredAttempt;
-                const fresh = typeof stored?.at === 'number' && now - stored.at < CHECKOUT_ATTEMPT_TTL_MS;
-                const same = ageBound === 'ignore'
+                const same = match === 'basket'
                     ? stored?.basket === basket
                     : stored?.fingerprint === fingerprint;
-                // The purchase path also requires freshness: past the window a
-                // record must not capture a purchase the shopper is starting now.
-                if (stored?.id && same && (fresh || ageBound === 'ignore')) return stored.id;
+                // Any age, deliberately: this record survives only while its
+                // attempt is unconfirmed, and whether it is SETTLED is the
+                // server's answer (recordedOrderNumber), not the clock's.
+                if (stored?.id && same) return { id: stored.id, fromRecord: true };
             }
         } catch {
             // Corrupt record: fall through and mint a new attempt.
@@ -143,30 +148,41 @@ function resolveAttemptId(identity: CheckoutAttemptIdentity, ageBound: 'purchase
     const id = mintOrderId();
     if (ls) {
         try {
-            ls.setItem(STORAGE_KEY, JSON.stringify({ id, fingerprint, basket, at: now } satisfies StoredAttempt));
+            ls.setItem(STORAGE_KEY, JSON.stringify({ id, fingerprint, basket } satisfies StoredAttempt));
         } catch {
             // Storage full or blocked — the id is still valid for this attempt.
         }
     }
-    return id;
+    return { id, fromRecord: false };
 }
 
 /**
- * The id to send when the shopper is buying: the one already in flight for the
- * same purchase (in any tab), or a fresh one. Call this at the moment of writing.
+ * Which id to send when the shopper is buying: the attempt already in flight for
+ * the same purchase (in any tab), or a fresh one — and whether it came from a
+ * record, which is what tells the checkout to ask the server whether that
+ * attempt is already settled before it writes anything.
  */
-export function getOrCreateOrderId(identity: CheckoutAttemptIdentity): string {
+export interface CheckoutAttemptDecision {
+    id: string;
+    fromRecord: boolean;
+}
+
+/**
+ * The attempt to send when the shopper is buying. Call this at the moment of
+ * writing, then ask recordedOrderNumber about `id` when `fromRecord` is true.
+ */
+export function resolveCheckoutAttempt(identity: CheckoutAttemptIdentity): CheckoutAttemptDecision {
     return resolveAttemptId(identity, 'purchase');
 }
 
 /**
  * The id to send when the shopper is chasing an attempt they already submitted
  * (pages/OrderSuccess.tsx, whose copy tells them to reload and check): the
- * recorded attempt's id, whatever its age. See this module's header for why the
- * age bound cannot apply here.
+ * recorded attempt's id, whatever its age. See this module's header for why a
+ * record that is still here is by definition still unconfirmed.
  */
 export function getOrCreateRecoveryOrderId(identity: CheckoutAttemptIdentity): string {
-    return resolveAttemptId(identity, 'ignore');
+    return resolveAttemptId(identity, 'basket').id;
 }
 
 /** The attempt is settled (an order was recorded) or abandoned. */
@@ -177,5 +193,44 @@ export function clearCheckoutAttempt(): void {
         ls.removeItem(STORAGE_KEY);
     } catch {
         // Nothing to clear.
+    }
+}
+
+/** Who an attempt belongs to — the same pair the server scopes a recorded row by. */
+export interface CheckoutAttemptBuyer {
+    userId?: string | null;
+    customerEmail?: string | null;
+}
+
+/**
+ * Ask the server whether the attempt this browser already sent has produced an
+ * order. Returns its order number when it has, and null when it has not — which
+ * is also the answer when the lookup itself could not be answered, or when the
+ * attempt belongs to someone else. All three nulls mean the same thing to the
+ * caller: reuse the id and write, because the server's own dedupe on that id is
+ * the last word either way. Never throws: a lookup that fails must not be able
+ * to stop a checkout, which is why this is the one call here that swallows its
+ * error rather than surfacing it.
+ */
+export async function recordedOrderNumber(
+    attemptId: string,
+    buyer: CheckoutAttemptBuyer,
+): Promise<string | null> {
+    try {
+        const response = await fetchWithTimeout('/api/order-attempt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: attemptId,
+                userId: buyer.userId || undefined,
+                customerEmail: buyer.customerEmail || undefined,
+            }),
+        });
+        if (!response.ok) return null;
+        const payload = await response.json().catch(() => null) as { orderNumber?: unknown } | null;
+        const number = payload && typeof payload.orderNumber === 'string' ? payload.orderNumber.trim() : '';
+        return number || null;
+    } catch {
+        return null;
     }
 }

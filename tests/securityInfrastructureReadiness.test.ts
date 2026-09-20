@@ -402,6 +402,7 @@ describe('source invariants: admin authorization has one gate', () => {
         'csp-report': 'browsers report CSP violations anonymously',
         'health': 'uptime probe',
         'marketing-subscribe': 'public newsletter signup',
+        'order-attempt': 'a shopper asks whether their own checkout attempt already produced an order — buyer-scoped, answers false for another buyer, returns no row',
         'pricing-preview': 'a shopper previews pricing',
         'send-email': 'deliberate anonymous allowance; the shared-secret predicate decides the recipient',
         'send-order-confirmation': 'the checkout flow calls it after an order',
