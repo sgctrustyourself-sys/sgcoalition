@@ -845,9 +845,10 @@ const Checkout: React.FC = () => {
             };
 
             // Resolves to the row the server recorded, which is authoritative for
-            // the total: the client's object is coupon-blind. Falls back to the
-            // local object only if the provider handed nothing back.
-            const recorded = (await addOrder(order)) || order;
+            // the total: the client's object is coupon-blind, and the provider
+            // rejects rather than hand back nothing — so there is no local object
+            // to fall back to here.
+            const recorded = await addOrder(order);
 
             // Decrement client-side size_inventory so the storefront reflects the
             // latest availability without waiting for Supabase realtime to sync.
