@@ -25,8 +25,9 @@
 //
 // It never types card details, and it never submits a payment: the run stops
 // one step before a shopper would start paying, and where check 7 does click a
-// manual confirm it has already blocked every order write, so nothing it clicks
-// can reach the server. What it proves, in order:
+// manual confirm every order write is blocked first. What may leave the browser
+// at all is decided in one place — CHECK_ROUTES — and check 8 fails the run if
+// anything else is ever attempted. What it proves, in order:
 //   1. /shop renders product links
 //   2. a purchasable product page offers Add to bag (and a size, when the
 //      product has sizes). It is chosen from the sellable listings, so a
@@ -49,6 +50,11 @@
 //      the branch's destination page is never loaded. That is what keeps this
 //      check incapable of creating an order, sending an email or consuming the
 //      voucher. Needs the API (a target with no /api reports it as skipped).
+//   8. no outbound write left the browser that this file did not declare. Every
+//      non-read request is classified in CHECK_ROUTES — allowed to reach the
+//      server, blocked at the network layer, or answered locally — and anything
+//      undeclared is stopped before it can leave AND fails the run, so a step
+//      added later cannot quietly email, charge or record anything.
 //
 // Exit codes: 0 all checks passed, 1 a check failed, 2 the target is missing or
 // refused. A failure screenshot lands in .checkout-smoke-artifacts/ (gitignored).
@@ -204,6 +210,140 @@ page.on('response', async (response) => {
     }
     pricing.push({ status: response.status(), body, raw: raw.slice(0, 200) });
 });
+
+// ---------------------------------------------------------------------------
+// Outbound write gate — the one owner of what may leave this browser
+// ---------------------------------------------------------------------------
+// This run drives real pages against a real deployment, so any step that clicks,
+// types or fetches can cause a write: an order recorded, a card charged, an
+// email sent. Reads (GET/HEAD/OPTIONS) leave freely; every other request must be
+// declared in CHECK_ROUTES below, and anything undeclared is stopped at the
+// network layer before it can leave AND fails the run. That is what makes "this
+// check cannot email, charge or record anything" a property of the file rather
+// than a promise in a comment.
+//
+//   allow  — reaches the server unchanged (read-shaped requests only)
+//   block  — declared, and stopped at the network layer
+//   answer — answered locally; the server never sees it
+const SETTLED_CHECK = 'a recorded attempt resolves instead of writing a second order';
+const SETTLED_ORDER = 'ORD-SMOKE-SETTLED';
+const NOTICE_KEY = 'coalition_smoke_settled_notice';
+const WRITE_GATE_CHECK = 'every outbound write was declared by this check';
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+const ACTION_LABEL = { allow: 'allowed', block: 'blocked', answer: 'answered' };
+
+const CHECK_ROUTES = [
+    {
+        // Check 6 compares the checkout's displayed total to the server's answer,
+        // so this one has to reach the API. It prices a cart and writes nothing.
+        method: 'POST',
+        path: /\/api\/pricing-preview(\?|$)/,
+        action: 'allow',
+    },
+    {
+        // The order write: letting one through places a real order and sends its
+        // email. Blocked everywhere, which is also what keeps check 7's first
+        // confirm from recording anything — the state its retry needs to reuse.
+        method: 'POST',
+        path: /\/api\/complete-order(\?|$)/,
+        action: 'block',
+        record: (route) => blockedWrites.push(route.request().postData() || ''),
+    },
+    {
+        method: 'POST',
+        path: /\/api\/report-error(\?|$)/,
+        action: 'block',
+    },
+    {
+        // Check 7 reaches the "already recorded" branch with NO stored order by
+        // supplying the server's answer itself.
+        method: 'POST',
+        path: /\/api\/order-attempt(\?|$)/,
+        action: 'answer',
+        body: () => JSON.stringify({ recorded: true, orderNumber: SETTLED_ORDER }),
+        record: (route) => {
+            try {
+                attemptProbes.push(JSON.parse(route.request().postData() || '{}'));
+            } catch {
+                attemptProbes.push({}); // unreadable, recorded so the report shows what was sent
+            }
+        },
+    },
+    {
+        // A navigation rather than a write. Held briefly, because it is the
+        // OUTGOING checkout page that shows the "already recorded" notice and it
+        // leaves in the same tick; stubbed, because loading the real confirmation
+        // page would start that page's own recovery path. (Aborting it instead
+        // replaces the document with an error page and takes the notice with it.)
+        method: 'GET',
+        path: /\/order\/success(\?|$)/,
+        action: 'answer',
+        contentType: 'text/html',
+        delayMs: 3000,
+        body: () => '<!doctype html><title>settled destination</title>held for the check',
+        record: (route) => settledDestinations.push(route.request().url()),
+    },
+    {
+        // Stripe.js beacons its own telemetry (a browser fingerprint and its
+        // event/error reports) as the Payment Element mounts. It is not a price
+        // and carries nothing this check needs, so it is stopped rather than
+        // declared allowed — which is how this run proves no Stripe object came
+        // from it. api.stripe.com is deliberately NOT here: a POST there is a
+        // real PaymentIntent, and a smoke run must fail rather than create one.
+        method: 'POST',
+        path: /^https:\/\/(?:m|r|q)\.stripe\.com\//,
+        action: 'block',
+    },
+];
+
+const declaredWrites = [];
+const undeclaredWrites = [];
+
+/** What the gate saw and allowed, e.g. "3 declared (2 blocked, 1 allowed)". */
+function describeDeclaredWrites() {
+    if (!declaredWrites.length) return 'no write attempted at all';
+    const byAction = declaredWrites.reduce((tally, write) => {
+        tally[write.action] = (tally[write.action] || 0) + 1;
+        return tally;
+    }, {});
+    const parts = Object.entries(byAction).map(([action, count]) => `${count} ${ACTION_LABEL[action]}`);
+    return `${declaredWrites.length} declared (${parts.join(', ')})`;
+}
+
+await page.route('**/*', async (route) => {
+    const request = route.request();
+    const method = request.method().toUpperCase();
+    const declared = CHECK_ROUTES.find((rule) => rule.method === method && rule.path.test(request.url()));
+    if (!declared) {
+        if (SAFE_METHODS.has(method)) return route.continue(); // a read: it may leave
+        undeclaredWrites.push({ method, url: request.url() });
+        return route.abort(); // ...this one may not
+    }
+    declaredWrites.push({ method, url: request.url(), action: declared.action });
+    // Recorded BEFORE the decision is acted on: a write that is stopped is still
+    // a write this check has to be able to count and report.
+    if (declared.record) declared.record(route);
+    if (declared.action === 'allow') return route.continue();
+    if (declared.action === 'block') return route.abort();
+    if (declared.delayMs) await new Promise((resolve) => setTimeout(resolve, declared.delayMs));
+    return route.fulfill({
+        status: 200,
+        contentType: declared.contentType || 'application/json',
+        body: declared.body(),
+    });
+});
+
+// Registration is closed here. The gate is the only interception this script
+// registers, and a step that added its own would break the guarantee either way:
+// a later page.route() is matched FIRST (Playwright runs the most recently
+// registered handler) and could let a write through, while a context.route() is
+// skipped for anything the gate continues — a silent dead end. Both fail loudly
+// instead, pointed at CHECK_ROUTES, the one place a route may be declared.
+const refuseAdHocRouting = () => {
+    throw new Error('declare traffic interception in CHECK_ROUTES — the write gate owns it');
+};
+page.route = refuseAdHocRouting;
+context.route = refuseAdHocRouting;
 
 // The money-path check needs the serverless API. A local `vite preview` serves
 // static files only (no /api), so a loopback run can cover the client flow but
@@ -503,9 +643,6 @@ try {
 
     // ---- 6. checkout agrees with the server ------------------------------
     step = 'checkout';
-    const SETTLED_CHECK = 'a recorded attempt resolves instead of writing a second order';
-    const SETTLED_ORDER = 'ORD-SMOKE-SETTLED';
-    const NOTICE_KEY = 'coalition_smoke_settled_notice';
     assert(
         apiAvailable || allowApiSkip,
         `no API at ${target}, so the money path cannot be verified. Point SMOKE_BASE_URL at a deployment,` +
@@ -555,49 +692,15 @@ try {
         // So this check cannot create an order, send an email or touch the
         // voucher — and it proves that about itself before clicking anything.
         step = 'settled-attempt';
-        await page.route(/\/api\/complete-order(\?|$)/, async (route) => {
-            blockedWrites.push(route.request().postData() || '');
-            await route.abort();
-        });
-        // Nothing is asserted about this one: its block is proven live by the
-        // pre-click probe below, which is what has to hold before any click.
-        await page.route(/\/api\/report-error(\?|$)/, (route) => route.abort());
-        await page.route(/\/api\/order-attempt(\?|$)/, async (route) => {
-            let probe = {};
-            try {
-                probe = JSON.parse(route.request().postData() || '{}');
-            } catch {
-                // recorded unreadable so the check reports what it actually sent
-            }
-            attemptProbes.push(probe);
-            await route.fulfill({
-                status: 200,
-                contentType: 'application/json',
-                body: JSON.stringify({ recorded: true, orderNumber: SETTLED_ORDER }),
-            });
-        });
-        // The branch's destination is recorded, held briefly and then answered
-        // with a stub. Held, because it is the OUTGOING page that shows the
-        // "already recorded" notice and the checkout leaves for it in the same
-        // tick; answered with a stub, because loading the real confirmation page
-        // would start that page's own recovery write — a different path with a
-        // different reason to exist. (Aborting it instead replaces the document
-        // with an error page, and takes any chance of capturing the notice with
-        // it.)
-        const DESTINATION_HOLD_MS = 3000;
-        await page.route(/\/order\/success(\?|$)/, async (route) => {
-            settledDestinations.push(route.request().url());
-            await new Promise((resolve) => setTimeout(resolve, DESTINATION_HOLD_MS));
-            await route.fulfill({
-                status: 200,
-                contentType: 'text/html',
-                body: '<!doctype html><title>settled destination</title>held for the check',
-            });
-        });
+        // Every interception this step needs is declared once, in CHECK_ROUTES
+        // at the top of this file: the order write and the error report are
+        // blocked, the attempt lookup is answered locally, and the destination
+        // is stubbed. Nothing is registered here — the write gate owns the only
+        // registration this script has, so a step cannot route around it.
 
-        // Prove the blocks are live BEFORE any confirm is clicked: a route that
-        // stopped matching (a renamed path) must refuse the run, not click a
-        // button that could write a real order or email the owner.
+        // Prove the blocks are live BEFORE any confirm is clicked: a
+        // CHECK_ROUTES entry that stopped matching (a renamed path) must refuse
+        // the run, not click a button that could write a real order or email.
         const isBlocked = (path) => page.evaluate(async (url) => {
             try {
                 await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
@@ -742,6 +845,20 @@ try {
 } catch (e) {
     failure = { step, error: e.message };
 } finally {
+    // The write gate's verdict is asserted on the way out of the run rather than
+    // left to the steps: an undeclared write means some step tried to send
+    // something this file never declared, and that fails the run even when every
+    // check above passed. Asserted before the screenshot so it reports like any
+    // other failure.
+    if (undeclaredWrites.length) {
+        const detail = undeclaredWrites.map((write) => `${write.method} ${write.url}`).join(', ');
+        results.push({ name: WRITE_GATE_CHECK, ok: false, error: detail });
+        console.log(`  FAIL  ${WRITE_GATE_CHECK} — ${detail}`);
+        failure = failure || { step: 'write-gate', error: `undeclared outbound write(s): ${detail}` };
+    } else {
+        results.push({ name: WRITE_GATE_CHECK, ok: true });
+        console.log(`  ok    ${WRITE_GATE_CHECK} — ${describeDeclaredWrites()}, 0 undeclared`);
+    }
     if (failure) {
         mkdirSync(ARTIFACT_DIR, { recursive: true });
         const shot = join(ARTIFACT_DIR, `checkout-smoke-failure-${failure.step}.png`);
