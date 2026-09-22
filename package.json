@@ -23,6 +23,7 @@
     "preview": "vite preview",
     "generate:seo": "node scripts/generateSeoArtifacts.mjs",
     "audit:chrome": "tsx scripts/audit-urgency-chrome.ts",
+    "stripe:whoami": "tsx scripts/stripeWhoami.ts",
     "bootstrap:brain": "node scripts/seedBrain.cjs",
     "seed:live-orders": "tsx scripts/backfillLiveOrderSeeds.ts",
     "story:reveal": "npx tsx scripts/render-story.ts --format story",
