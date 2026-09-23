@@ -15,13 +15,33 @@ import { CHECKOUT_PAYMENT_METHOD_TYPES } from '../_helpers.js';
 //   - keyValid    — does Stripe accept it? (balance.retrieve() is the cheapest
 //                   auth round-trip; it 401s with code api_key_expired for a
 //                   dead key)
-//   - methodFlags — payment-method on/off from paymentMethodConfigurations
-//                   (populated when the key can read them)
-//   - paymentMethods — the ACTUAL method list Stripe would offer checkout.
-//                   Resolved from the configurations when flags are readable;
-//                   otherwise (restricted keys hide the flag fields) via a
-//                   cancelled $5 draft PaymentIntent with automatic_payment_methods,
-//                   which is exactly what create-payment-intent does.
+//   - methodFlags — payment-method on/off read from the account's
+//                   paymentMethodConfigurations (populated when the key can
+//                   read them; a restricted key strips these fields, so they
+//                   stay empty rather than being guessed at)
+//   - paymentMethods — which of those the account enables for checkout: the
+//                   configuration Stripe resolves automatic_payment_methods
+//                   through, so checkoutMethodsMissing can still answer "is a
+//                   method this code sends actually enabled on the account?"
+//
+// READ-ONLY BY CONSTRUCTION: nothing in this handler may create, confirm or
+// cancel a Stripe object. An earlier version resolved the method list by
+// creating and cancelling a $5 draft PaymentIntent and reading back
+// payment_method_types — a real object written to the LIVE account on every
+// call, from an uptime monitor's polling and every admin card load. It also
+// never did what it claimed: the section shape it tested for
+// (`card: { enabled: true }`) is not the shape Stripe returns, so for a full
+// production key the flags came back empty, the "restricted key" fallback
+// fired, and the write happened on every single request. What is given up by
+// removing it is one signal: a key that authenticates but is not permitted to
+// create PaymentIntents can no longer be detected, because no read-only Stripe
+// call exposes that permission.
+//
+// The configured list is a superset — Stripe filters it per intent by currency
+// and region, so a method can be 'on' here and still not appear for a given
+// order. That cannot produce a false warning: checkoutMethodsMissing only ever
+// under-reports a mismatch, which is the safe direction for a check that gates
+// a method on the checkout allow-list.
 //
 // Always 200 when healthy, 503 when degraded. Never echoes the key; Stripe
 // errors are reduced to code + message with any key-shaped token redacted.
@@ -30,6 +50,29 @@ import { CHECKOUT_PAYMENT_METHOD_TYPES } from '../_helpers.js';
 // can report "not configured" instead of throwing like the payment handlers do.
 
 const KEY_LIKE_PATTERN = /[sr]k_live_[A-Za-z0-9*]+/g;
+
+/**
+ * Whether a configuration enables one payment method, across the two shapes
+ * Stripe has returned for these sections:
+ *   legacy  { enabled: boolean }
+ *   current { available: boolean, display_preference: { value: 'on' | 'off' } }
+ *
+ * `available` is part of the rule because it is the field that says the account
+ * can actually use the method: on the production account `affirm` is
+ * display_preference 'on' with available:false, and checkout does not offer it.
+ * Undefined means the section is absent or stripped, so nothing is recorded —
+ * an unreadable configuration must not look like an all-disabled one.
+ */
+function sectionEnabled(section: unknown): boolean | undefined {
+    const s = section as
+        | { enabled?: unknown; available?: unknown; display_preference?: { value?: unknown } }
+        | null
+        | undefined;
+    if (!s || typeof s !== 'object') return undefined;
+    if (typeof s.enabled === 'boolean') return s.enabled;
+    if (typeof s.available !== 'boolean') return undefined;
+    return s.available === true && s.display_preference?.value === 'on';
+}
 
 function sanitizeStripeError(e: unknown): string {
     const err = (e ?? {}) as { code?: string; type?: string; message?: string };
@@ -95,7 +138,7 @@ export default async function handler(req: any, res: any) {
     const { default: Stripe } = await import('stripe');
     const client = new Stripe(stripeKey, { apiVersion: undefined });
 
-    // 1) Key validity — cheapest authenticated round-trip.
+    // 1) Key validity — cheapest authenticated round-trip, and a pure read.
     try {
         await client.balance.retrieve();
         stripe.keyValid = true;
@@ -121,70 +164,26 @@ export default async function handler(req: any, res: any) {
         const configs = await client.paymentMethodConfigurations.list({ limit: 100 });
         for (const config of configs.data) {
             for (const method of KNOWN_METHODS) {
-                const section = (config as Record<string, any>)[method];
-                if (section && typeof section.enabled === 'boolean') {
-                    stripe.methodFlags[method] = stripe.methodFlags[method] || section.enabled;
+                const enabled = sectionEnabled((config as Record<string, any>)[method]);
+                if (typeof enabled === 'boolean') {
+                    stripe.methodFlags[method] = stripe.methodFlags[method] || enabled;
                 }
             }
         }
     } catch {
-        // Restricted key without the read — the draft-intent probe below is
-        // the fallback that answers the same question.
+        // Restricted key without the read. The flags stay empty and the
+        // response says so — the previous version wrote a PaymentIntent to
+        // find out, which this endpoint must never do.
     }
 
-    // 3) If the flags didn't materialize (restricted key) or the caller asked
-    //    for a forced probe, create a cancelled draft PaymentIntent and read
-    //    back payment_method_types — the same answer automatic_payment_methods
-    //    gives the real checkout. Forced with ?probe=1 for operator use.
-    const probeRequested = String(req.query?.probe || '') === '1';
-    // A probe is REQUIRED when the configurations gave no flags (restricted
-    // key) — then the draft intent is the ONLY way to confirm checkout works.
-    const probeRequired = Object.keys(stripe.methodFlags).length === 0;
-    if (probeRequested || probeRequired) {
-        try {
-            const pi = await client.paymentIntents.create({
-                amount: 500, // $5.00 draft — never charged, cancelled below
-                currency: 'usd',
-                automatic_payment_methods: { enabled: true },
-                shipping: {
-                    name: 'Health Check',
-                    address: {
-                        line1: '1 Health St',
-                        city: 'Baltimore',
-                        state: 'MD',
-                        postal_code: '21201',
-                        country: 'US',
-                    },
-                },
-                metadata: { health_check: 'true' },
-            });
-            stripe.paymentMethods = (pi.payment_method_types as string[]) || [];
-            try {
-                await client.paymentIntents.cancel(pi.id);
-            } catch {
-                // Cancel is best-effort; a stuck draft expires in 7 days.
-            }
-        } catch (e: unknown) {
-            stripe.error = sanitizeStripeError(e);
-            // A failed REQUIRED probe means the real create-payment-intent
-            // would fail for customers too — that IS the silent checkout
-            // outage this endpoint exists to catch.
-            if (probeRequired) {
-                res.status(503).json({
-                    status: 'degraded',
-                    checkoutWorking: false,
-                    stripe,
-                    timestamp: new Date().toISOString(),
-                });
-                return;
-            }
-        }
-    } else {
-        // Flags are readable — the enabled methods ARE the offered methods.
-        stripe.paymentMethods = Object.entries(stripe.methodFlags)
-            .filter(([, enabled]) => enabled)
-            .map(([method]) => method);
-    }
+    // 3) The enabled flags ARE the methods this account offers checkout. No
+    //    PaymentIntent is created to confirm it: the draft-intent probe that
+    //    used to live here wrote a real object on every call, and Stripe has
+    //    no read-only equivalent because the currency/region filtering happens
+    //    at intent creation.
+    stripe.paymentMethods = Object.entries(stripe.methodFlags)
+        .filter(([, enabled]) => enabled)
+        .map(([method]) => method);
 
     // A configured-but-disabled checkout method is a live outage risk (the
     // footgun documented on CHECKOUT_PAYMENT_METHOD_TYPES): flag it so the
