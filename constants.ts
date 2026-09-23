@@ -248,13 +248,12 @@ export const MINI_WIZARDS_CONTRACT_ADDRESS = "0x653b07c58669bc335fc9cfe2f9afa68f
 // =====================================
 // ADMIN CONFIGURATION
 // =====================================
-// =====================================
-// ADMIN CONFIGURATION
-// =====================================
-export const ADMIN_WALLETS = [
-  "0x0f4a0466c2a1d3fa6ed55a20994617f0533fbf74", // Founder
-  "0x39451d0ee9Fc5dd861C985d2a3e227F6Ac7387f4", // Founder Secondary / Treasury
-];
+// The admin wallet allowlist has ONE owner: utils/adminWallets.ts. It is
+// shared by this client bundle (UI admin state) and the server's wallet-login
+// verification (api/_handlers/admin-verify.ts), so a rotation is a one-line
+// change there instead of a drift between two copies. Re-exported here so the
+// existing `from '../constants'` imports keep working.
+export { ADMIN_WALLETS } from './utils/adminWallets.js';
 
 export const INITIAL_ORDERS: Order[] = [
   {

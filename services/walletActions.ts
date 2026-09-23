@@ -63,6 +63,27 @@ export const connectWallet = async (): Promise<WalletData | null> => {
     }
 };
 
+export const signMessage = async (message: string, address?: string): Promise<string | null> => {
+    if (!window.ethereum) {
+        alert('MetaMask is not installed. Please install it to use Web3 features.');
+        return null;
+    }
+
+    try {
+        const { BrowserProvider } = await getEthers();
+        const provider = new BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner(address);
+        return await signer.signMessage(message);
+    } catch (error: any) {
+        if (error.code === 4001) {
+            console.log('User rejected the signature request.');
+        } else {
+            console.error('Error signing message:', error);
+        }
+        return null;
+    }
+};
+
 export const switchToPolygon = async (): Promise<boolean> => {
     if (!window.ethereum) return false;
 
