@@ -6,6 +6,7 @@ import { ADMIN_WALLETS } from '../constants';
 import { supabase } from '../services/supabase';
 import { signOut } from '../services/auth';
 import { getStoredReferralCode, trackSignupReferral } from '../utils/referralSystem';
+import { buildAdminWalletLoginMessage } from '../utils/adminWallets';
 
 import { safeJsonParse } from '../utils/storage';
 import { ADMIN_MODE_KEY, ADMIN_TOKEN_KEY } from '../services/adminSession';
@@ -225,6 +226,25 @@ export function useAuth(isSupabaseConfigured: boolean, addToast: any) {
         }
         return false;
     }, [updateAdminMode]);
+    // Wallet login: the founder key signs the login message owned by
+    // utils/adminWallets.ts; the server recovers the signer, checks the shared
+    // allowlist and freshness, and issues the same bearer the password path
+    // stores. The allowlist check lives SERVER-side (admin-verify) — the
+    // client match on ADMIN_WALLETS only ever gated UI state.
+    const loginAdminWallet = useCallback(async () => {
+        try {
+            const { connectWallet, signMessage } = await loadWalletActions();
+            const wallet = await connectWallet();
+            if (!wallet) return false;
+            const message = buildAdminWalletLoginMessage(wallet.address, Date.now());
+            const signature = await signMessage(message, wallet.address);
+            if (!signature) return false;
+            const response = await fetch('/api/admin-verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, signature }) });
+            const data = await response.json();
+            if (response.ok && data.token) { sessionStorage.setItem(ADMIN_TOKEN_KEY, data.token); updateAdminMode(true); return true; }
+        } catch (err) { console.error('Wallet admin login error:', err); }
+        return false;
+    }, [updateAdminMode]);
     const logoutAdmin = useCallback(() => { updateAdminMode(false); }, [updateAdminMode]);
     const toggleFavorite = useCallback((pid: string) => {
         if (!user) return;
@@ -274,7 +294,7 @@ export function useAuth(isSupabaseConfigured: boolean, addToast: any) {
     return {
         user, setUser, isAdminMode, updateAdminMode,
         chainId, switchToPolygon: handleSwitchToPolygon,
-        login, loginUser, logout, updateUser, loginAdmin, logoutAdmin,
+        login, loginUser, logout, updateUser, loginAdmin, loginAdminWallet, logoutAdmin,
         toggleFavorite,
         connectMetaMaskWallet, connectManualWallet, disconnectWallet,
         syncCryptoBalances, refreshBalances,

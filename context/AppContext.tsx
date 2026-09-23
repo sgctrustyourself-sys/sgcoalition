@@ -39,6 +39,7 @@ interface AppState {
     updateUser: (data: Partial<UserProfile>) => void;
     setCartOpen: (open: boolean) => void;
     loginAdmin: (emailOrPassword: string, password?: string) => Promise<boolean>;
+    loginAdminWallet: () => Promise<boolean>;
     logoutAdmin: () => void;
     updateSections: (sections: Section[]) => void;
     updateSection: (id: string, data: Partial<Section>) => void;
@@ -231,7 +232,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             products: catalogHook.products, cart: cartHook.cart, user: authHook.user, sections, orders: ordersHook.orders, isCartOpen: cartHook.isCartOpen, isAdminMode: authHook.isAdminMode, isSupabaseConfigured,
             isConfigError, isLoading, addProduct: catalogHook.addProduct, updateProduct: catalogHook.updateProduct, deleteProduct: catalogHook.deleteProduct, addToCart: cartHook.addToCart,
             setQuantity: cartHook.setQuantity, removeFromCart: cartHook.removeFromCart, clearCart: cartHook.clearCart, toggleFavorite: authHook.toggleFavorite, login: authHook.login, loginUser: authHook.loginUser, logout: authHook.logout, updateUser: authHook.updateUser,
-            setCartOpen: cartHook.setCartOpen, loginAdmin: authHook.loginAdmin, logoutAdmin: authHook.logoutAdmin, updateSections, updateSection, cartTotal: cartHook.cartTotal,
+            setCartOpen: cartHook.setCartOpen, loginAdmin: authHook.loginAdmin, loginAdminWallet: authHook.loginAdminWallet, logoutAdmin: authHook.logoutAdmin, updateSections, updateSection, cartTotal: cartHook.cartTotal,
             calculateReward, addOrder: ordersHook.addOrder, updateOrderStatus: ordersHook.updateOrderStatus, deleteOrder: ordersHook.deleteOrder, getOrderById: ordersHook.getOrderById, deductInventory: catalogHook.deductInventory,
             generateOrderNumber: ordersHook.generateOrderNumber, giveaways: giveawaysHook.giveaways, addGiveaway: giveawaysHook.addGiveaway, updateGiveaway: giveawaysHook.updateGiveaway, deleteGiveaway: giveawaysHook.deleteGiveaway,
             addGiveawayEntry: giveawaysHook.addGiveawayEntry, pickGiveawayWinner: giveawaysHook.pickGiveawayWinner, connectMetaMaskWallet: authHook.connectMetaMaskWallet, connectManualWallet: authHook.connectManualWallet,
