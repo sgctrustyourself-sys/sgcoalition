@@ -7,7 +7,7 @@
 #   - API key:  UPTIMEROBOT_API_KEY env var, or UPTIMEROBOT_API_KEY=... in .env
 #   - Only creates the monitor if it doesn't already exist (no duplicates)
 #   - /api/health returns 200 "ok" when Stripe checkout is healthy and 503
-#     "degraded" when the key is missing/expired or a required probe fails —
+#     "degraded" when the key is missing or Stripe rejects it —
 #     UptimeRobot marks 5xx DOWN, so an alert fires exactly when checkout breaks.
 #
 # Usage:
