@@ -5,7 +5,9 @@
 //   - the password path (the shared-secret passphrase, regression-pinned)
 //   - the wallet path (a MetaMask signature over the message owned by
 //     utils/adminWallets.ts) — each of its guards pinned load-bearing:
-//     signature recovery, address binding, freshness, allowlist membership.
+//     signature recovery, address binding, freshness, allowlist membership,
+//     and the single-use nonce spend (a captured signature is redeemable
+//     exactly once).
 //
 // Producing a signature from a FOUNDER private key is the one thing a test
 // cannot do, so the cases that must end at an allowlisted address substitute
@@ -26,6 +28,26 @@ vi.mock('ethers', async (importOriginal) => {
     const mod = await importOriginal<typeof import('ethers')>();
     return { ...mod, verifyMessage: vi.fn(mod.verifyMessage) };
 });
+
+// The nonce spend hits admin_login_nonces through the service-role client.
+// This fake behaves like the ONE property of the real table under test: a
+// nonce can be inserted once, and a second insert fails with the duplicate-key
+// error the handler classifies as a replay (23505).
+const spentNonces = new Set<string>();
+let nonceStoreDown = false;
+const mockSupabaseFrom = vi.fn(() => ({
+    insert: async (row: { nonce: string }) => {
+        if (nonceStoreDown) return { data: null, error: { code: 'XX000', message: 'connection refused' } };
+        if (spentNonces.has(row.nonce)) {
+            return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } };
+        }
+        spentNonces.add(row.nonce);
+        return { data: [row], error: null };
+    },
+}));
+vi.mock('@supabase/supabase-js', () => ({
+    createClient: vi.fn(() => ({ from: mockSupabaseFrom })),
+}));
 
 import { Wallet, verifyMessage } from 'ethers';
 import { ADMIN_WALLETS, buildAdminWalletLoginMessage } from '../utils/adminWallets';
@@ -60,10 +82,16 @@ function makeReq(body: any) {
     return { method: 'POST', body };
 }
 
+let nonceCounter = 0;
+/** A distinct 32-char hex nonce per call — what generateLoginNonce does live. */
+function nextTestNonce(): string {
+    return (nonceCounter++).toString(16).padStart(32, '0');
+}
+
 /** A throwaway wallet signs the login message for `claimedAddress`. */
-async function walletSigns(claimedAddress: string, issuedAt: number) {
+async function walletSigns(claimedAddress: string, issuedAt: number, nonce = nextTestNonce()) {
     const signer = THROWAWAY_A;
-    const message = buildAdminWalletLoginMessage(claimedAddress, issuedAt);
+    const message = buildAdminWalletLoginMessage(claimedAddress, issuedAt, nonce);
     return { message, signature: await signer.signMessage(message) };
 }
 
@@ -83,6 +111,8 @@ describe('POST /api/admin-verify', () => {
 
     beforeEach(async () => {
         vi.mocked(verifyMessage).mockClear();
+        spentNonces.clear();
+        nonceStoreDown = false;
         handler = await loadHandler();
     });
 
@@ -145,7 +175,7 @@ describe('POST /api/admin-verify', () => {
         // Fully real: the throwaway key signs its OWN address, real recovery
         // returns it, the real allowlist refuses it. Goes red if the allowlist
         // guard is removed.
-        const message = buildAdminWalletLoginMessage(THROWAWAY_B.address, Date.now());
+        const message = buildAdminWalletLoginMessage(THROWAWAY_B.address, Date.now(), nextTestNonce());
         const signature = await THROWAWAY_B.signMessage(message);
 
         const res = makeRes();
@@ -205,5 +235,52 @@ describe('POST /api/admin-verify', () => {
 
         expect(res._status).toBe(400);
         expect(res._body.error).toContain('Malformed wallet login message');
+    });
+
+    // ---- single-use nonce (the replay close) -----------------------------
+
+    it('a captured signature is redeemable exactly once — a replay is rejected', async () => {
+        const { message, signature } = await walletSigns(FOUNDER, Date.now(), 'b7'.repeat(16));
+        vi.mocked(verifyMessage).mockReturnValueOnce(FOUNDER).mockReturnValueOnce(FOUNDER);
+
+        const first = makeRes();
+        await handler(makeReq({ message, signature }), first);
+
+        const replay = makeRes();
+        await handler(makeReq({ message, signature }), replay);
+
+        expect(first._status).toBe(200);
+        expect(replay._status, 'a captured signature must never be redeemable twice').toBe(401);
+        expect(replay._body.error).toContain('already used');
+    });
+
+    it('a second login with a fresh nonce still succeeds', async () => {
+        // The spend is per-MESSAGE, not per-address: over-blocking would lock
+        // the founder out of their own dashboard after one login.
+        const one = await walletSigns(FOUNDER, Date.now(), 'c1'.repeat(16));
+        const two = await walletSigns(FOUNDER, Date.now(), 'c2'.repeat(16));
+        vi.mocked(verifyMessage).mockReturnValueOnce(FOUNDER).mockReturnValueOnce(FOUNDER);
+
+        const a = makeRes();
+        await handler(makeReq(one), a);
+        const b = makeRes();
+        await handler(makeReq(two), b);
+
+        expect(a._status).toBe(200);
+        expect(b._status, 'a fresh nonce must always be redeemable').toBe(200);
+    });
+
+    it('refuses to issue a bearer when the spend cannot be recorded', async () => {
+        // Fail CLOSED: a token must never issue for a message the table has
+        // not recorded as spent — that reopens the replay window.
+        nonceStoreDown = true;
+        const { message, signature } = await walletSigns(FOUNDER, Date.now(), 'd3'.repeat(16));
+        vi.mocked(verifyMessage).mockReturnValueOnce(FOUNDER);
+
+        const res = makeRes();
+        await handler(makeReq({ message, signature }), res);
+
+        expect(res._status, 'an unrecordable spend must not mint a token').toBe(503);
+        expect(res._body.token).toBeUndefined();
     });
 });

@@ -6,7 +6,7 @@ import { ADMIN_WALLETS } from '../constants';
 import { supabase } from '../services/supabase';
 import { signOut } from '../services/auth';
 import { getStoredReferralCode, trackSignupReferral } from '../utils/referralSystem';
-import { buildAdminWalletLoginMessage } from '../utils/adminWallets';
+import { buildAdminWalletLoginMessage, generateLoginNonce } from '../utils/adminWallets';
 
 import { safeJsonParse } from '../utils/storage';
 import { ADMIN_MODE_KEY, ADMIN_TOKEN_KEY } from '../services/adminSession';
@@ -228,7 +228,8 @@ export function useAuth(isSupabaseConfigured: boolean, addToast: any) {
     }, [updateAdminMode]);
     // Wallet login: the founder key signs the login message owned by
     // utils/adminWallets.ts; the server recovers the signer, checks the shared
-    // allowlist and freshness, and issues the same bearer the password path
+    // allowlist and freshness, spends the message's single-use nonce, and
+    // issues the same bearer the password path
     // stores. The allowlist check lives SERVER-side (admin-verify) — the
     // client match on ADMIN_WALLETS only ever gated UI state.
     const loginAdminWallet = useCallback(async () => {
@@ -236,7 +237,7 @@ export function useAuth(isSupabaseConfigured: boolean, addToast: any) {
             const { connectWallet, signMessage } = await loadWalletActions();
             const wallet = await connectWallet();
             if (!wallet) return false;
-            const message = buildAdminWalletLoginMessage(wallet.address, Date.now());
+            const message = buildAdminWalletLoginMessage(wallet.address, Date.now(), generateLoginNonce());
             const signature = await signMessage(message, wallet.address);
             if (!signature) return false;
             const response = await fetch('/api/admin-verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, signature }) });
