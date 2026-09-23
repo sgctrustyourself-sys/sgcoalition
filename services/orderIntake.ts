@@ -710,16 +710,22 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
 // 6. PROVIDER-NEUTRAL RECONCILIATION
 // =========================================================================
 
-// permanent=true: retrying can never fix it (order genuinely absent) —
-// callers (the Stripe webhook) must NOT ask Stripe to redeliver.
-// Absence of permanent: transient (DB/network) — retrying is correct.
+// permanent=true: retrying can never fix it (the RPC rejected the state
+// transition under FOR UPDATE) — callers (the Stripe webhook) must NOT ask
+// Stripe to redeliver. Absence of permanent: transient — retrying is correct.
+// An absent order is TRANSIENT, never permanent: the client records the order
+// only after its payment resolves, so this lookup routinely races the write —
+// it lost that race by 200ms for order_1790143801835_89acaacc, whose row has
+// sat paid since while Stripe was told not to redeliver. Garbage metadata never
+// reaches here (isValidOrderId rejects it), so "not found" can only mean
+// "not yet".
 export interface ReconcileResult { success: boolean; error?: string; permanent?: boolean; notFound?: boolean; balancePaid?: number; newTotalPaid?: number; }
 
 export async function reconcilePayment(orderId: string): Promise<ReconcileResult> {
     const s = sb();
     const { data: o, error: fe } = await s.from('orders').select('id,balance_due,total,payment_status,paid_amount').eq('id', orderId).maybeSingle();
     if (fe) return { success: false, error: fe.message || 'Order lookup failed.' };
-    if (!o) return { success: false, error: 'Order not found: ' + orderId, permanent: true, notFound: true };
+    if (!o) return { success: false, error: 'Order not found: ' + orderId, notFound: true };
     const bd = Number(o.balance_due ?? 0), pa = Number(o.paid_amount ?? 0), tot = Number(o.total ?? 0);
     if (String(o.payment_status ?? '') !== 'pending') return { success: true };
     if (bd <= 0) return { success: true };

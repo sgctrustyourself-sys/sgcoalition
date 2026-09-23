@@ -647,6 +647,14 @@ describe('reconcilePayment', () => {
         const result = await reconcilePayment('missing-id');
         expect(result.success).toBe(false);
         expect(result.error).toContain('Order not found');
+        // A missing row is "not yet", not "never": the client records the order
+        // only after its payment resolves, so this lookup races the write — and
+        // lost it by 200ms for order_1790143801835_89acaacc, whose row has sat
+        // paid ever since while Stripe was told not to redeliver. Marking the
+        // miss permanent silences the redelivery that is the only reconciliation
+        // the race ever gets.
+        expect(result.permanent, 'a missing order must stay retryable — the order write may still be in flight').toBeFalsy();
+        expect(result.notFound).toBe(true);
     });
 
     it('returns success when already paid', async () => {

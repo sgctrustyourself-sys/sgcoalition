@@ -91,8 +91,10 @@ async function tryAutoReconcile(orderId: string, paymentIntentId: string, eventI
         console.log('[stripe-webhook] Reconciled order ' + orderId + ' (PI ' + paymentIntentId + ')');
         return { reconciled: true, retryable: false };
     }
-    // permanent=true: retrying can never fix it (order absent, or the RPC
-    // rejected the state transition under FOR UPDATE). Transient: DB/network.
+    // permanent=true: retrying can never fix it (the RPC rejected the state
+    // transition under FOR UPDATE). Transient: DB/network — or an order whose
+    // write has not landed yet, the write being what this webhook races (see
+    // reconcilePayment, which keeps a missing row retryable for that reason).
     const retryable = !result.permanent;
     console.warn('[stripe-webhook] Reconcile failed for ' + orderId + ' (PI ' + paymentIntentId + '): ' + result.error + (retryable ? ' (transient — Stripe will retry)' : ' (permanent — no retry)'));
     // Awaited, not fire-and-forget: Vercel can freeze the lambda the moment
@@ -182,12 +184,13 @@ export default async function handler(
             } else {
                 const { reconciled, retryable } = await tryAutoReconcile(orderId, paymentIntent.id, event.id);
                 if (!reconciled) {
-                    // 500 only for transient failures (DB/network) — Stripe
-                    // retries those. Permanent failures (missing order, RPC
-                    // business reject) return 200: the admin alert email
-                    // carries the signal, and redelivery could never change
-                    // the outcome — it would just burn Stripe retries and
-                    // spam the alert inbox.
+                    // 500 only for transient failures (DB/network, or an
+                    // order whose write has not landed yet — that write is
+                    // what this webhook races) — Stripe retries those.
+                    // Permanent failures (RPC business reject) return 200: the
+                    // admin alert email carries the signal, and redelivery
+                    // could never change the outcome — it would just burn
+                    // Stripe retries and spam the alert inbox.
                     if (retryable) {
                         res.status(500).json({ error: 'Auto-reconciliation failed — will retry' });
                         return;
