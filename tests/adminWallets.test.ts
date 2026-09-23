@@ -15,6 +15,7 @@ import {
     buildAdminWalletLoginMessage,
     parseAdminWalletLoginMessage,
     isFreshLoginMessage,
+    generateLoginNonce,
 } from '../utils/adminWallets';
 
 const FOUNDER = ADMIN_WALLETS[0];
@@ -33,11 +34,20 @@ describe('utils/adminWallets', () => {
     });
 
     it('the login message round-trips through build and parse', () => {
-        const message = buildAdminWalletLoginMessage(FOUNDER, 1_790_000_000_000);
+        const message = buildAdminWalletLoginMessage(FOUNDER, 1_790_000_000_000, 'a1b2c3d4'.repeat(4));
         expect(parseAdminWalletLoginMessage(message)).toEqual({
             address: FOUNDER.toLowerCase(),
             issuedAt: 1_790_000_000_000,
+            nonce: 'a1b2c3d4'.repeat(4),
         });
+    });
+
+    it('every nonce is 32-char lowercase hex and no two are alike', () => {
+        const a = generateLoginNonce();
+        const b = generateLoginNonce();
+        expect(a).toMatch(/^[0-9a-f]{32}$/);
+        expect(b).toMatch(/^[0-9a-f]{32}$/);
+        expect(a, 'a reused nonce would make the second login a replay of the first').not.toBe(b);
     });
 
     it('the parser rejects anything that is not the exact contract shape', () => {
@@ -49,6 +59,13 @@ describe('utils/adminWallets', () => {
         ).toBeNull();
         // non-numeric timestamp
         expect(parseAdminWalletLoginMessage(`SGCoalition admin login\nAddress: ${FOUNDER}\nIssued: soon`)).toBeNull();
+        // the old three-line contract (no Nonce) must NOT parse — accepting it
+        // would let a replay skip the single-use nonce table entirely
+        expect(parseAdminWalletLoginMessage(`SGCoalition admin login\nAddress: ${FOUNDER}\nIssued: 1790000000000`)).toBeNull();
+        // non-hex nonce
+        expect(
+            parseAdminWalletLoginMessage(`SGCoalition admin login\nAddress: ${FOUNDER}\nIssued: 1790000000000\nNonce: not-hex`),
+        ).toBeNull();
     });
 
     it('freshness accepts only the window around the issue stamp', () => {
