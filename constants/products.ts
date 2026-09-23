@@ -2,6 +2,29 @@ import { Product } from "../types.js";
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
+    "id": "prod_checkout_test_dollar",
+    "name": "Checkout Test Item — $1",
+    "price": 1,
+    "images": [
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/checkout-test-item.png"
+    ],
+    "description": "Live checkout test listing. A real $1 charge (plus shipping) placed on purpose to exercise the production payment path end to end. Not merchandise — archive this listing once testing is done.",
+    "category": "accessory",
+    "isFeatured": false,
+    "isLimitedEdition": false,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 1
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
+  },
+  {
     "id": "prod_coalition_pink_silver_crop_top",
     "name": "Women's Leopard Print Crop T-Shirt",
     "price": 45,
