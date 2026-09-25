@@ -27,7 +27,7 @@ async function addGreyWaveWallet() {
     const product = {
         id: 'Coalition_Grey_Wave_Wallet_1_2',
         name: "Coalition 'Grey Wave' Wallet 1/2",
-        price: 35,
+        price: 85,
         stock: Object.values(sizeInventory).reduce((sum, count) => sum + count, 0),
         images: [
             PRODUCT_IMAGE_URLS.greyWaveWallet.front,

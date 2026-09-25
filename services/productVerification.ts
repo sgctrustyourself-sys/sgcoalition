@@ -1,5 +1,5 @@
-import { supabase } from './supabase';
-import { Product } from '../types';
+import { supabase } from './supabase.js';
+import { Product } from '../types.js';
 
 /**
  * Verifies that a product exists in the Supabase database

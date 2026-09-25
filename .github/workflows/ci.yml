@@ -1,0 +1,148 @@
+name: CI — Vitest (fixtured + bare) + Build + Depcheck
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Required secrets (Settings → Secrets and variables → Actions):
+#   This workflow does NOT require any secrets. All tests in the suite
+#   (including rendererSmoke.test.ts with Playwright) are fully self-
+#   contained — Supabase-dependent tests mock the database client — and the
+#   two VITE_ values below are public placeholders, not credentials.
+#
+# If a future test needs env vars (e.g. VITE_SUPABASE_URL), add them
+# either as repository secrets or as env on the relevant step.
+#
+# Do not write an `env:` key whose only content is comments: YAML parses that
+# as null, GitHub rejects the whole workflow file, and every run then reports
+# failure with ZERO jobs — nothing is tested, but the run still shows up. Notes
+# about a step belong above it as ordinary comments, as they are here.
+
+jobs:
+  test:
+    name: Vitest + Build + Depcheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    concurrency:
+      group: ci-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium (for rendererSmoke tests)
+        # FLAG — the parenthetical overstates: the consumer it names is not run
+        # here. rendererSmoke calls `npm run reveal` (a PNG pipeline, no browser)
+        # and is excluded from `npm test`, as are the only two tests that import
+        # playwright (clsRegression, viewContractButton). vitest.config.ts owns
+        # which files the suite runs, so a green install supports no check here.
+        run: npx playwright install --with-deps chromium
+
+      # jsdom environment — no browser or Supabase secrets needed.
+      # Playwright headless Chromium is resolved from the install above.
+      #
+      # The two values below are test fixtures, not configuration. Without them
+      # the suite is red on a clean checkout (two failures), which is how CI
+      # first exposed them once this file became valid:
+      #   VITE_SALES_FINAL            constants.ts derives SALES_FINAL_ENABLED
+      #                               from it, and the consent-gate test asserts
+      #                               that policy is ON.
+      #   VITE_STRIPE_PUBLISHABLE_KEY pages/Checkout.tsx renders no Stripe
+      #                               section without it, so the PaymentElement
+      #                               gate test never finds a Pay button. This is
+      #                               a public test-mode key by design.
+      - name: Run full vitest suite
+        # FLAG — "full" overstates: `npm test` is `vitest run`, which excludes
+        # three existing test files (clsRegression, rendererSmoke,
+        # viewContractButton) per vitest.config.ts, and no step in this workflow
+        # or any other runs them. Read a green here as the configured suite.
+        run: npm test
+        env:
+          VITE_SALES_FINAL: 'true'
+          VITE_STRIPE_PUBLISHABLE_KEY: 'pk_test_ci_placeholder'
+
+      # Both hooks run the SEO generator (generateSeoArtifacts.mjs),
+      # which parses INITIAL_PRODUCTS from source — no Supabase or Imgur
+      # secrets required. prebuild writes sitemap.xml + robots.txt into
+      # public/ (so Vite's copy ships them); postbuild emits the
+      # prerendered pages under dist/<path>/index.html, which needs
+      # dist/index.html to exist first.
+      - name: Validate production build (Vite + Rollup)
+        run: npm run build
+
+      # Curated ignore list for known false positives:
+      #   prettier          — config-driven (.prettierrc), not imported
+      #   playwright-core   — bundled by playwright (direct dep)
+      #   depcheck          — self-reference
+      #   @types/*, eslint*, vitest, @vitejs/*, typescript, tsx, tslib
+      #                     — dev tooling, not production deps
+      #   tailwindcss       — consumed through @tailwindcss/vite and the CSS
+      #                       `@import "tailwindcss"` in index.css; depcheck
+      #                       reads neither, so it reports it as unused
+      - name: Audit dependencies (depcheck)
+        run: npx depcheck --ignores="@types/*,eslint*,vitest,@vitejs/*,typescript,tsx,tslib,prettier,playwright-core,depcheck,tailwindcss"
+
+  # A test that silently depends on an undeclared env var is invisible in the
+  # `test` job above: it supplies the two VITE_ fixtures, so the suite is green
+  # whether or not each test is self-sufficient — while a fresh clone, which has
+  # neither those fixtures nor an untracked .env, is red instead. That is not
+  # hypothetical: noRefundsPolicy and stripePaymentElementGate each read a var
+  # they never declared, and only a bare checkout exposed it. This job runs the
+  # same suite with NO deployment env at all — the client's VITE_ vars and the
+  # integrations' credentials alike, since a Vercel build injects both — so that
+  # class of dependence fails here rather than on somebody's clean checkout.
+  #
+  # The release path enforces the same rule, from inside the build rather than
+  # from an npm hook: vite.config.ts installs utils/bareCheckoutGate.mjs, which
+  # runs this same script in its `--release` mode as the build's first act, so a
+  # red guard fails the Vercel build and production keeps serving its previous
+  # deployment instead of taking the change. It lives there and not in `prebuild`
+  # because a Vercel build command other than `npm run build` skips every npm
+  # hook — the release path must not be routable around by a dashboard setting.
+  bare-checkout:
+    name: Vitest with no deployment env
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    # Deliberately a different concurrency group from `test`: sharing one would
+    # make the two jobs cancel each other.
+    concurrency:
+      group: ci-bare-checkout-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # No `npx playwright install` here: the only tests that launch a browser
+      # (clsRegression, viewContractButton) are excluded in vitest.config.ts, so
+      # the default suite needs no browser binary.
+
+      # The rule this job exists for — assert the checkout really is bare,
+      # then run the suite with nothing to fall back on — lives in exactly one
+      # place: scripts/bareCheckoutGuard.mjs. Restating the shell here would be
+      # a second copy of the rule, free to drift from the one the release path
+      # enforces. Deliberately no `env:` block on this job: if a test needs a var
+      # it does not declare, it must fail here, and the fix belongs in the test
+      # (vi.stubEnv in a vi.hoisted block), not in this workflow.
+      - name: Assert the premise, then run the suite bare
+        run: npm run gate:bare

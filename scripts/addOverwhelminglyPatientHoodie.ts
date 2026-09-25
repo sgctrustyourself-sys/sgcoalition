@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { PRODUCT_IMAGE_URLS } from '../utils/localImageAssets';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,10 +36,8 @@ async function addOverwhelminglyPatientHoodie() {
         price: 100,
         stock: totalStock,
         images: [
-            PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatFront,
-            PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.flatBack,
-            PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.modelFront,
-            PRODUCT_IMAGE_URLS.overwhelminglyPatientHoodie.modelBack
+            '/images/coalition-overwhelmingly-patient-hoodie-front.png',
+            '/images/coalition-overwhelmingly-patient-hoodie-back.png'
         ],
         description: 'Pre-order release of the Coalition Overwhelmingly Patient Hoodie at $100. Inspired by the Sacral Chakra (Svadhisthana) - creativity, pleasure, flow. Hand-cut heavyweight fleece, burnt-orange mark centered over the lower abdomen. Free shipping when paired with any other item. Reservations capped at one per size; ships in 4-6 weeks from the close of the pre-order window.',
         category: 'apparel',
@@ -69,7 +66,7 @@ async function addOverwhelminglyPatientHoodie() {
         created_at: '2026-06-28T00:00:00-04:00'
     };
 
-    let result;
+    let result: { data: unknown; error: { code?: string; message?: string } | null };
 
     while (true) {
         const optionalColumnNames = Object.keys(optionalColumns);
@@ -82,7 +79,7 @@ async function addOverwhelminglyPatientHoodie() {
 
         if (result.error?.code !== 'PGRST204' && result.error?.code !== '42703') break;
 
-        const missingColumn = optionalColumnNames.find(column => result.error?.message.includes(column));
+        const missingColumn = optionalColumnNames.find(column => result.error?.message?.includes(column));
         if (!missingColumn) break;
 
         console.warn(`products.${missingColumn} is not in the live schema yet; retrying without that optional column.`);

@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { clearOtherFeaturedProducts } from '../utils/featuredExclusivity';
 
 // Load environment variables
 const __filename = fileURLToPath(import.meta.url);
@@ -48,6 +49,13 @@ async function updateWalletProduct() {
         if (error) {
             console.error('❌ Error updating product:', error.message);
             throw error;
+        }
+
+        // Mirror api/_handlers/admin-products.ts updateProduct hook:
+        // flipping is_featured to true on prod_002 must clear the flag on
+        // every other row so the storefront's featured slot stays unique.
+        if (updates.is_featured) {
+            await clearOtherFeaturedProducts(supabase, PRODUCT_ID, updates.is_featured);
         }
 
         console.log('✅ Product updated successfully!');

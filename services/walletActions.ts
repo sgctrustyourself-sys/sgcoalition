@@ -1,5 +1,13 @@
-import { ethers, BrowserProvider } from 'ethers';
-import { fetchWalletBalanceSnapshot } from './walletBalances';
+import { fetchWalletBalanceSnapshot } from './walletBalances.js';
+
+// Lazy-loaded ethers — ~100 KB chunk only downloaded when a crypto function
+// is first called (connect wallet, check balance, pay with crypto, etc.).
+// Cached at module level so subsequent calls resolve instantly.
+let ethersModule: Promise<typeof import('ethers')> | null = null;
+const getEthers = () => {
+    if (!ethersModule) ethersModule = import('ethers');
+    return ethersModule;
+};
 
 export interface WalletData {
     address: string;
@@ -22,6 +30,7 @@ export const connectWallet = async (): Promise<WalletData | null> => {
     }
 
     try {
+        const { ethers, BrowserProvider } = await getEthers();
         const provider = new BrowserProvider(window.ethereum);
         const accounts = await provider.send('eth_requestAccounts', []);
 
@@ -49,6 +58,27 @@ export const connectWallet = async (): Promise<WalletData | null> => {
             console.log('User rejected the connection request.');
         } else {
             console.error('Error connecting wallet:', error);
+        }
+        return null;
+    }
+};
+
+export const signMessage = async (message: string, address?: string): Promise<string | null> => {
+    if (!window.ethereum) {
+        alert('MetaMask is not installed. Please install it to use Web3 features.');
+        return null;
+    }
+
+    try {
+        const { BrowserProvider } = await getEthers();
+        const provider = new BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner(address);
+        return await signer.signMessage(message);
+    } catch (error: any) {
+        if (error.code === 4001) {
+            console.log('User rejected the signature request.');
+        } else {
+            console.error('Error signing message:', error);
         }
         return null;
     }

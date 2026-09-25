@@ -209,7 +209,7 @@ const InvoiceContent: React.FC<{ order: Order; formatDate: (date: string) => str
             {/* Footer */}
             <div className="border-t border-gray-300 pt-6 text-center text-sm text-gray-600">
                 <p className="mb-2">Thank you for your business!</p>
-                <p>For questions about this invoice, please contact us at support@coalition.com</p>
+                <p>For questions about this invoice, please contact us at sgctrustyourself@gmail.com</p>
                 <p className="mt-4 text-xs">Coalition • Premium Streetwear & Apparel</p>
             </div>
         </div>

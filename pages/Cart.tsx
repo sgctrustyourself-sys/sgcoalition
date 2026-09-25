@@ -2,18 +2,19 @@ import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
-import { Trash2, ArrowRight, Sparkles } from 'lucide-react';
+import { Trash2, ArrowRight } from 'lucide-react';
 import { COIN_REWARD_RATE } from '../constants';
 import { getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
-import CompleteTheFitCart from '../components/CompleteTheFitCart';
+import QuantityStepper from '../components/QuantityStepper';
+import { getLineMaxQuantity } from '../context/useCart';
 
 // Named export keeps symbol-search by `Cart` working; default export lets
 // App.tsx register the /cart route via React.lazy(() => import('./pages/Cart')).
 // Both references resolve to the same component instance.
 export const Cart: React.FC = () => {
     const navigate = useNavigate();
-    const { cart, removeFromCart, clearCart, user } = useApp();
+    const { cart, setQuantity, removeFromCart, clearCart, user } = useApp();
 
     const total = cart.reduce((sum, item) => sum + getCartItemLineTotal(item), 0);
     const potentialCoins = Math.floor(total * COIN_REWARD_RATE);
@@ -50,8 +51,19 @@ export const Cart: React.FC = () => {
                                 {item.keychainClipOn && (
                                     <p className="text-gray-500">{WALLET_KEYCHAIN_CLIP_LABEL} (+$10)</p>
                                 )}
-                                <p className="text-gray-500">Qty: {item.quantity}</p>
-                                <p className="text-gray-500 text-sm">Unit Price: ${getCartItemUnitPrice(item).toFixed(2)}</p>
+                                <div className="mt-2 flex items-center gap-3">
+                                    <QuantityStepper
+                                        value={item.quantity}
+                                        onChange={(next) => setQuantity(item.cartId, next)}
+                                        max={getLineMaxQuantity(item)}
+                                        label={`Quantity for ${item.name}`}
+                                        tone="light"
+                                        size="sm"
+                                    />
+                                    <span className="text-gray-500 text-sm">
+                                        Unit Price: ${getCartItemUnitPrice(item).toFixed(2)}
+                                    </span>
+                                </div>
                                 <button
                                     onClick={() => removeFromCart(item.cartId)}
                                     className="text-sm text-red-500 mt-4 flex items-center hover:underline"
@@ -64,11 +76,6 @@ export const Cart: React.FC = () => {
                 </div>
 
                 <div className="lg:col-span-4">
-                    {/* Complete-the-outfit upsell above the order summary so it
-                        sits high in the visual hierarchy on the /cart page.
-                        Renders only when exactly one of (tee, shorts) is in cart. */}
-                    <CompleteTheFitCart variant="page" />
-
                     <div className="bg-gray-50 p-8 rounded-sm sticky top-24">
                         <h2 className="text-lg font-bold mb-6">Order Summary</h2>
 
@@ -76,18 +83,23 @@ export const Cart: React.FC = () => {
                             <span>Subtotal</span>
                             <span>${total.toFixed(2)}</span>
                         </div>
+                        {/* Set bonus surfaced as a quiet archival fact, not a
+                            green-celebration. Mirrors the CartDrawer treatment
+                            so the standalone /cart page matches the rest of
+                            the storefront. The -$30 is already in displayTotal. */}
                         {setBonusCents > 0 && (
-                            <div className="flex items-start gap-2 p-3 mb-4 rounded-md bg-green-50 border border-green-200 text-green-800 text-sm">
-                                <Sparkles className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                            <div className="flex items-start gap-3 p-3 mb-4 rounded-md border border-white/10 bg-white/[0.03] text-sm">
                                 <div className="flex-1">
-                                    <p className="font-bold">
-                                        Above as Below set bonus
+                                    <p className="font-bold text-gray-300 uppercase tracking-wide text-[10px]">
+                                        Set bonus applied
                                     </p>
-                                    <p>
-                                        Tee + shorts matched — saving you $30 at checkout.
+                                    <p className="mt-1 text-gray-400">
+                                        ${setBonusDollars.toFixed(2)} off the pair — the tee and shorts were built as a set.
                                     </p>
                                 </div>
-                                <span className="font-bold whitespace-nowrap">-${setBonusDollars.toFixed(2)}</span>
+                                <span className="font-bold whitespace-nowrap text-gray-300">
+                                    -${setBonusDollars.toFixed(2)}
+                                </span>
                             </div>
                         )}
                         <div className="flex justify-between mb-4 text-gray-600">
@@ -100,9 +112,14 @@ export const Cart: React.FC = () => {
                             <span>${displayTotal.toFixed(2)}</span>
                         </div>
 
+                        {/* SGCoin reward surfaced as a quiet factual line, not a
+                            yellow celebration. The reward is already real value
+                            (redeemable for store credit); framing it as "you
+                            will earn!" is the gamified register the wedge
+                            retired. Sentence-case, no color callout. */}
                         {user && (
-                            <div className="bg-yellow-100 text-yellow-800 p-3 text-sm rounded mb-6 text-center font-medium">
-                                You will earn {potentialCoins.toLocaleString()} SGCoin with this order!
+                            <div className="border border-white/10 bg-white/[0.03] p-3 text-sm rounded mb-6 text-center text-gray-300 font-medium">
+                                {potentialCoins.toLocaleString()} SGCoin on this order
                             </div>
                         )}
 

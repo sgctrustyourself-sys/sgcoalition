@@ -1,15 +1,53 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 import { Order } from '../../types';
-import { Search, Filter, Eye, Download, Trash2, X, Plus, ChevronLeft, ChevronRight, FileText, Gift, User, Mail, Phone, Calendar, Hash, DollarSign, CreditCard, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Search, Filter, Eye, Download, Trash2, X, Plus, ChevronLeft, ChevronRight, FileText, Gift, User, Mail, Phone, Calendar, Hash, DollarSign, CreditCard, CheckCircle, Clock, AlertCircle, WalletCards } from 'lucide-react';
+import { reconcileBalancePayment } from '../../services/reconcilePayment';
 import ManualOrderForm from '../ManualOrderForm';
+import PaymentRecordModal from './PaymentRecordModal';
 import Invoice from '../Invoice';
+import CustomerLinkModal from './CustomerLinkModal';
+
+// Wholesale placeholder strings are the same privacy-anonymized values
+// locked in tests/liveOrdersFeed.test.ts + scripts/upsertFriiqyDenimPatchwork.ts:
+// the wholesale buyer (friiqy) is identified by his Instagram handle, not by
+// his real name. The admin UI surfaces a "WHOLESALE" chip + the
+// @instagramUsername attribution (when set) so a single glance tells the
+// operator that the row is an offline-bundle placeholder, NOT a real
+// customer order -- without breaking the locked test contracts that pin
+// the literal placeholder strings.
+const WHOLESALE_CUSTOMER_NAME = 'Wholesale Customer';
+const WHOLESALE_BADGE_LABEL = 'WHOLESALE';
+
+const renderCustomerAttribution = (order: Order): React.ReactNode => {
+    // STRICT gate: surface the chip ONLY when the privacy-anonymized customerName
+    // placeholder is set. instagramUsername-by-itself (e.g. a future legitimate
+    // order where the admin manually types an IG handle on ManualOrderForm) is NOT
+    // wholesale. This prevents legit IG-linked orders from being misflagged as
+    // wholesale bundles -- the @handle sub-element still renders if customerName is
+    // the placeholder AND instagramUsername is set (e.g. friiqy on the May 2026
+    // wholesale bundle), but only as a social-attribution signal, not a wholesale
+    // detector. tests/orderManagerRender.test.tsx > INSTAGRAM_ONLY_GATE locks this.
+    const isWholesale = order.customerName === WHOLESALE_CUSTOMER_NAME;
+    if (!isWholesale) return null;
+    return (
+        <div className="mt-1 flex items-center gap-1.5" data-testid="wholesale-attribution">
+            <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded font-bold uppercase tracking-widest inline-block">
+                {WHOLESALE_BADGE_LABEL}
+            </span>
+            {order.instagramUsername && (
+                <span className="text-[10px] text-amber-400/70 font-mono">
+                    @{order.instagramUsername}
+                </span>
+            )}
+        </div>
+    );
+};
 
 const OrderManager: React.FC = () => {
     const { orders, updateOrderStatus, deleteOrder } = useApp();
     const { addToast } = useToast();
-    const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [filterType, setFilterType] = useState<string>('all');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -18,14 +56,40 @@ const OrderManager: React.FC = () => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
     const [showManualOrderForm, setShowManualOrderForm] = useState(false);
     const [showInvoice, setShowInvoice] = useState<Order | null>(null);
+    const [selectedCustomerOrder, setSelectedCustomerOrder] = useState<Order | null>(null);
+    const [reconcilingOrderId, setReconcilingOrderId] = useState<string | null>(null);
+    const [showPaymentModal, setShowPaymentModal] = useState<Order | null>(null);
+
+    const [searchTerm, setSearchTerm] = useState(() => {
+        // One-shot handoff from pages/Admin.tsx: a webhook alert email links
+        // to /#/admin?tab=orders&q=<order id>, Admin stores the q param in
+        // sessionStorage and this seeds the search box on first mount so the
+        // operator lands pre-filtered on the exact order row.
+        try {
+            return sessionStorage.getItem('admin_order_search') || '';
+        } catch {
+            return '';
+        }
+    });
+
+    // The seed is one-shot: consume it after the first render so a later
+    // navigation to the orders tab doesn't resurrect a stale search.
+    useEffect(() => {
+        try { sessionStorage.removeItem('admin_order_search'); } catch { /* private mode */ }
+    }, []);
 
     // Filter and search orders
     const filteredOrders = useMemo(() => {
         return orders.filter(order => {
+            const term = searchTerm.toLowerCase();
             const matchesSearch =
-                order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                order.customerEmail.toLowerCase().includes(searchTerm.toLowerCase());
+                order.orderNumber.toLowerCase().includes(term) ||
+                order.customerName.toLowerCase().includes(term) ||
+                order.customerEmail.toLowerCase().includes(term) ||
+                // Alert-email deep links search by the raw order id
+                // (order_<ts>), which is not the same as orderNumber
+                // (ORD-<ts>) — match both so the id always finds the row.
+                (order as any).id?.toLowerCase?.().includes(term);
 
             const matchesStatus = filterStatus === 'all' || order.paymentStatus === filterStatus;
             const matchesType = filterType === 'all' || order.orderType === filterType;
@@ -72,6 +136,20 @@ const OrderManager: React.FC = () => {
         }
     };
 
+    // Cash App + crypto are manual off-platform payments: the order lands
+    // PENDING and the owner must verify the transfer before fulfillment.
+    // This flags exactly those rows so they're visible at a glance.
+    const needsManualVerification = (order: Order): boolean => {
+        if (order.paymentStatus !== 'pending') return false;
+        const method = (order.paymentMethod || '').toLowerCase();
+        return method === 'cashapp' || method === 'crypto';
+    };
+
+    const manualVerificationMethodLabel = (order: Order): string => {
+        const method = (order.paymentMethod || '').toLowerCase();
+        return method === 'cashapp' ? 'Cash App' : method === 'crypto' ? 'Crypto' : 'Payment';
+    };
+
     const getStatusColor = (status: string) => {
         switch (status.toLowerCase()) {
             case 'paid': return 'text-green-400 bg-green-500/10 border-green-500/20';
@@ -83,6 +161,27 @@ const OrderManager: React.FC = () => {
             case 'cancelled':
             case 'failed': return 'text-gray-400 bg-gray-500/10 border-gray-500/20';
             default: return 'text-gray-400 bg-gray-500/10 border-gray-500/20';
+        }
+    };
+
+    const handleReconcileBalance = async (orderId: string) => {
+        setReconcilingOrderId(orderId);
+        try {
+            const result = await reconcileBalancePayment(orderId);
+            if (result.success) {
+                addToast(`Balance of $${(result.balance_paid || 0).toFixed(2)} reconciled. Order is now fully paid.`, 'success');
+                // Optimistic UI update: flip the local order state immediately
+                // so the table row badge turns green without waiting for a re-fetch.
+                updateOrderStatus(orderId, 'paid');
+                setSelectedOrder(null);
+            } else {
+                addToast(result.error || 'Failed to reconcile balance.', 'error');
+            }
+        } catch (err: any) {
+            console.error('Reconcile balance failed:', err);
+            addToast(err.message || 'Failed to reconcile balance payment.', 'error');
+        } finally {
+            setReconcilingOrderId(null);
         }
     };
 
@@ -142,6 +241,14 @@ const OrderManager: React.FC = () => {
                     <p className="text-2xl font-bold text-yellow-400 mt-1">
                         {orders.filter(o => o.paymentStatus === 'pending').length}
                     </p>
+                    {(() => {
+                        const manualCount = orders.filter(needsManualVerification).length;
+                        return manualCount > 0 ? (
+                            <p className="mt-1 text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                                {manualCount} need manual verification
+                            </p>
+                        ) : null;
+                    })()}
                 </div>
                 <div className="bg-white/5 border border-white/10 p-5 rounded-xl backdrop-blur-sm">
                     <p className="text-xs font-bold text-gray-400 uppercase">Manual</p>
@@ -215,14 +322,36 @@ const OrderManager: React.FC = () => {
                                             {new Date(order.createdAt).toLocaleDateString()}
                                         </td>
                                         <td className="p-4">
-                                            <div className="text-sm font-bold text-white">{order.customerName}</div>
-                                            <div className="text-xs text-gray-500">{order.customerEmail}</div>
+                                            <div className="space-y-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedCustomerOrder(order)}
+                                                    className="text-left hover:opacity-80 transition block"
+                                                    title="View customer"
+                                                    data-testid="customer-link-trigger"
+                                                >
+                                                    <div className="text-sm font-bold text-white underline decoration-dotted underline-offset-2">{order.customerName}</div>
+                                                    <div className="text-xs text-gray-500">{order.customerEmail}</div>
+                                                </button>
+                                                {renderCustomerAttribution(order)}
+                                            </div>
                                         </td>
                                         <td className="p-4 font-bold text-white">${order.total.toFixed(2)}</td>
                                         <td className="p-4">
-                                            <span className={`text-xs px-2 py-1 rounded border font-bold uppercase ${getStatusColor(order.paymentStatus)}`}>
-                                                {order.paymentStatus}
-                                            </span>
+                                            {needsManualVerification(order) ? (
+                                                <span
+                                                    className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border font-bold uppercase animate-pulse bg-amber-500/20 border-amber-500/50 text-amber-300"
+                                                    title={`${manualVerificationMethodLabel(order)} payment sent off-platform — verify the transfer, then mark as paid`}
+                                                    data-testid="manual-verification-badge"
+                                                >
+                                                    <AlertCircle size={13} />
+                                                    Verify {manualVerificationMethodLabel(order)}
+                                                </span>
+                                            ) : (
+                                                <span className={`text-xs px-2 py-1 rounded border font-bold uppercase ${getStatusColor(order.paymentStatus)}`}>
+                                                    {order.paymentStatus}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="p-4">
                                             <div className="flex items-center justify-end gap-2">
@@ -243,6 +372,20 @@ const OrderManager: React.FC = () => {
                                                 >
                                                     <FileText size={16} />
                                                 </button>
+                                                {order.balanceDue != null && order.balanceDue > 0 && order.paymentStatus === 'pending' && (
+                                                    <button
+                                                        onClick={() => handleReconcileBalance(order.id)}
+                                                        disabled={reconcilingOrderId === order.id}
+                                                        className="p-2 text-amber-400 hover:bg-amber-500/10 rounded transition"
+                                                        title={`Mark $${order.balanceDue.toFixed(2)} balance as paid`}
+                                                    >
+                                                        {reconcilingOrderId === order.id ? (
+                                                            <div className="w-4 h-4 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+                                                        ) : (
+                                                            <WalletCards size={16} />
+                                                        )}
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={() => setShowDeleteConfirm(order.id)}
                                                     className="p-2 text-red-400 hover:bg-red-500/10 rounded transition"
@@ -286,8 +429,19 @@ const OrderManager: React.FC = () => {
                                 </div>
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-bold mb-1">Customer</p>
-                                    <p className="text-white font-bold">{selectedOrder.customerName}</p>
-                                    <p className="text-gray-400 text-sm">{selectedOrder.customerEmail}</p>
+                                    <div className="space-y-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedCustomerOrder(selectedOrder)}
+                                            className="text-left hover:opacity-80 transition block"
+                                            title="View customer"
+                                            data-testid="customer-link-trigger-detail"
+                                        >
+                                            <p className="text-white font-bold underline decoration-dotted underline-offset-2">{selectedOrder.customerName}</p>
+                                            <p className="text-gray-400 text-sm">{selectedOrder.customerEmail}</p>
+                                        </button>
+                                        {renderCustomerAttribution(selectedOrder)}
+                                    </div>
                                 </div>
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-bold mb-1">Status Management</p>
@@ -318,11 +472,48 @@ const OrderManager: React.FC = () => {
                                             {isUpdatingStatus ? '...' : 'Save'}
                                         </button>
                                     </div>
-                                    <div className="mt-2">
+                                    <div className="mt-2 flex items-center gap-2 flex-wrap">
                                         <span className={`inline-block text-[10px] px-2 py-0.5 rounded border ${getStatusColor(selectedOrder.paymentStatus)}`}>
                                             Current: {selectedOrder.paymentStatus}
                                         </span>
+                                        {needsManualVerification(selectedOrder) && (
+                                            <span
+                                                className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border font-bold uppercase bg-amber-500/20 border-amber-500/50 text-amber-300 animate-pulse"
+                                                data-testid="manual-verification-badge-modal"
+                                            >
+                                                <AlertCircle size={11} />
+                                                Verify {manualVerificationMethodLabel(selectedOrder)} payment
+                                            </span>
+                                        )}
                                     </div>
+                                    {selectedOrder.balanceDue != null && selectedOrder.balanceDue > 0 && selectedOrder.paymentStatus === 'pending' && (
+                                        <div className="mt-3 pt-3 border-t border-amber-500/20">
+                                            <p className="text-xs text-amber-400 font-bold mb-2">
+                                                Partial deposit: ${selectedOrder.paidAmount?.toFixed(2) || '0.00'} paid / ${selectedOrder.balanceDue.toFixed(2)} owed
+                                            </p>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => setShowPaymentModal(selectedOrder)}
+                                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-amber-500/20 border border-amber-500/30 text-amber-300 rounded-lg hover:bg-amber-500/30 transition text-sm font-bold uppercase tracking-wider"
+                                                >
+                                                    <WalletCards size={16} />
+                                                    Record Payment
+                                                </button>
+                                                <button
+                                                    onClick={() => handleReconcileBalance(selectedOrder.id)}
+                                                    disabled={reconcilingOrderId === selectedOrder.id}
+                                                    className="px-3 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/20 transition text-xs"
+                                                    title="Quick full-pay: marks entire balance as paid"
+                                                >
+                                                    {reconcilingOrderId === selectedOrder.id ? (
+                                                        <div className="w-3.5 h-3.5 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+                                                    ) : (
+                                                        'Full Pay'
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -382,11 +573,43 @@ const OrderManager: React.FC = () => {
                 </div>
             )}
 
+            {/* Payment Record Modal */}
+            {showPaymentModal && (
+                <PaymentRecordModal
+                    orderId={showPaymentModal.id}
+                    orderNumber={showPaymentModal.orderNumber}
+                    customerName={showPaymentModal.customerName}
+                    balanceDue={showPaymentModal.balanceDue || 0}
+                    paidAmount={showPaymentModal.paidAmount || 0}
+                    total={showPaymentModal.total}
+                    onClose={() => setShowPaymentModal(null)}
+                    onRecorded={(result) => {
+                        if (result.fullyReconciled) {
+                            updateOrderStatus(showPaymentModal.id, 'paid');
+                        }
+                        setShowPaymentModal(null);
+                        setSelectedOrder(null);
+                    }}
+                />
+            )}
+
             {/* Manual Order Form */}
             {showManualOrderForm && (
                 <ManualOrderForm
                     onClose={() => setShowManualOrderForm(false)}
                     onSuccess={() => setShowManualOrderForm(false)}
+                />
+            )}
+
+            {/* Customer link overlay (stacked above detail modal at z-[60] so
+                closing it preserves the order-detail context). */}
+            {selectedCustomerOrder && (
+                <CustomerLinkModal
+                    userId={selectedCustomerOrder.userId}
+                    customerEmail={selectedCustomerOrder.customerEmail}
+                    customerName={selectedCustomerOrder.customerName}
+                    orderId={selectedCustomerOrder.id}
+                    onClose={() => setSelectedCustomerOrder(null)}
                 />
             )}
 
