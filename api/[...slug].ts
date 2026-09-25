@@ -28,6 +28,7 @@ const handlers: Record<string, Loader> = {
     'payment-settings': () => import('./_handlers/payment-settings.js'),
     'pricing-preview': () => import('./_handlers/pricing-preview.js'),
     'product-drift': () => import('./_handlers/product-drift.js'),
+    'report-error': () => import('./_handlers/report-error.js'),
     'place-order-credits': () => import('./_handlers/place-order-credits.js'),
     'send-email': () => import('./_handlers/send-email.js'),
     'send-order-confirmation': () => import('./_handlers/send-order-confirmation.js'),

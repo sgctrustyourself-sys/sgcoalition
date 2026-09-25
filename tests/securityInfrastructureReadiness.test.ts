@@ -401,6 +401,7 @@ describe('source invariants: admin authorization has one gate', () => {
         'create-subscription-session': 'a shopper starts a membership signup',
         'csp-report': 'browsers report CSP violations anonymously',
         'health': 'uptime probe',
+        'report-error': 'anonymous client error reports; handler validates, clips, rate-limits, and never echoes content',
         'marketing-subscribe': 'public newsletter signup',
         'order-attempt': 'a shopper asks whether their own checkout attempt already produced an order — buyer-scoped, answers false for another buyer, returns no row',
         'pricing-preview': 'a shopper previews pricing',
