@@ -457,6 +457,53 @@ export async function notifyAdminCreditDebitFailure(orderId: string, userId: str
     }
 }
 
+// Ops alert: the checkout client's own error channel. pages/Checkout.tsx
+// reportErrorToAdmin POSTs failures to /api/report-error; this is the owner of
+// what happens to them. The handler validates/clips, this formats and sends —
+// one owner (Resend via api/_services.ts), same recipients as every other
+// operator alert. Fire-and-forget by contract: never throws, never delays the
+// caller's response, and an email failure is only logged.
+export async function notifyAdminClientError(input: {
+    error: string;
+    context: string;
+    metadata: Record<string, unknown>;
+    userAgent?: string;
+    path?: string;
+}): Promise<void> {
+    try {
+        const key = process.env.RESEND_API_KEY;
+        const rcpts = adminRcpt();
+        if (!key || !rcpts.length) return;
+        const r = resendClient();
+        // metadata is rendered as a flat key/value table (clipped per key) —
+        // enough to triage, never enough to matter if a hostile client fills it.
+        const metaRows = Object.entries(input.metadata)
+            .slice(0, 10)
+            .map(([k, v]) => '<tr><td style="background:#f9fafb;"><strong>' + esc(String(k).slice(0, 100)) + '</strong></td><td><code>' + esc(String(v).slice(0, 200)) + '</code></td></tr>')
+            .join('');
+        const html = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#fff;color:#111827;">'
+            + '<h2 style="letter-spacing:1px;text-transform:uppercase;">Checkout error report</h2>'
+            + '<p>The storefront checkout reported an error while a shopper was mid-flow. No money moved automatically — check whether the shopper completed the purchase before responding.</p>'
+            + '<table cellpadding="8" style="border:1px solid #e5e7eb;border-radius:8px;margin:16px 0;">'
+            + '<tr><td style="background:#f9fafb;"><strong>Error</strong></td><td><code>' + esc(input.error) + '</code></td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Context</strong></td><td>' + esc(input.context) + '</td></tr>'
+            + (input.path ? '<tr><td style="background:#f9fafb;"><strong>Page</strong></td><td>' + esc(input.path) + '</td></tr>' : '')
+            + (input.userAgent ? '<tr><td style="background:#f9fafb;"><strong>User agent</strong></td><td>' + esc(input.userAgent) + '</td></tr>' : '')
+            + (metaRows ? '<tr><td style="background:#f9fafb;"><strong>Metadata</strong></td><td><table cellpadding="4">' + metaRows + '</table></td></tr>' : '')
+            + '<tr><td style="background:#f9fafb;"><strong>Time (UTC)</strong></td><td>' + esc(new Date().toISOString()) + '</td></tr>'
+            + '</table>'
+            + '</div>';
+        await r.emails.send({
+            from: fromAddr(),
+            to: rcpts,
+            subject: 'Checkout error report: ' + input.context,
+            html,
+        } as any);
+    } catch (e) {
+        console.warn('[OrderIntake] Client-error alert email failed:', e);
+    }
+}
+
 export async function sendOrderEmails(record: OrderRow): Promise<void> {
     try { await sendCust(record); } catch (e) { console.warn('[OrderIntake] Cust email failed:', e); }
     try { await sendAdm(record); } catch (e) { console.warn('[OrderIntake] Admin email failed:', e); }

@@ -215,6 +215,11 @@ const SLUG_LIMITS_PER_MINUTE: Record<string, number> = {
     // browsers (a single page-load triggers at most a handful of
     // reports in unusual circumstances).
     'csp-report': 30,
+    // Browser-driven checkout error reports. The client fires these
+    // fire-and-forget on checkout failures; each accepted report sends a
+    // real operator email, so a low cap bounds the mail cost without
+    // blocking a shopper who hits a run of failures.
+    'report-error': 30,
 };
 
 function getLimitForSlug(slug: string): number {
