@@ -1813,6 +1813,8 @@ Two never-paid QA rows sat `pending` on the Above as Below set (`prod_set_above_
 
 Disposition: `payment_status` pending → cancelled via `scripts/reviewStalePendingOrders.ts --apply`, guarded by immutable row id plus a still-pending re-check. Cancelled is the designed terminal state — `utils/liveOrdersFeed.ts > EXCLUDED_STATUSES` drops it from the public orders feed, and `reconcilePayment` (`services/orderIntake.ts`) no-ops on anything non-pending. Verified after the write: the live audit reports `paid=7 cancelled=2 pending=0`, warnings down to the intentional `prod_checkout_test_dollar` line, 0 flags.
 
+> **Since removed (2026-10-03):** the `prod_checkout_test_dollar` SKU in the sentence above is history — the seed entry, the live row and the storage object `products/images/checkout-test-item.png` were all deleted at the operator's request, so today's audit prints no such warning. The paid test order `ORD-D6KSNKG4C` survives it: its order line now appears under the audit's **ORPHAN ORDER LINES** with an `intentionally gone` entry in `ORPHAN_DECISIONS` ([`tests/soldYetBuyableAudit.test.ts`](tests/soldYetBuyableAudit.test.ts)). To recreate the listing, mine git history for `scripts/addCheckoutTestProduct.ts` (image source `public/hero-cinematic.png`).
+
 The third pending row found in the same review — `TRAVIS-SHIRT-DEPOSIT-2026-07-25` — is a real cash deposit ledger, not a QA artifact: its $10 balance was confirmed received and reconciled to `paid` the same day (`scripts/resolveTravisDeposit.ts`).
 
 ### Next implementations
