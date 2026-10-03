@@ -32,8 +32,15 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
   // Wholesale bundle sold to @friiqy in May 2026 (see INITIAL_ORDERS
   // public-md-wholesale-wallets-2026_05_22 — the id is mirrored
   // byte-for-byte in utils/liveOrdersFeed.ts > PUBLIC_RECENT_ORDER_SEEDS
-  // per the live-map dedup contract). The Chrome Hearts 1/1 and Denim
-  // Patchwork 1/1 were separate offline sales; exact dates unknown for some.
+  // per the live-map dedup contract). Chrome Hearts 1/1 was a separate
+  // offline sale; exact date not on record.
+  //
+  // Tombstones: overrides were removed for ids with no `products` row and no
+  // INITIAL_PRODUCTS entry — useCatalog only applies overrides to products
+  // that exist, so these could never render. Their sale history lives in
+  // INITIAL_ORDERS and the live orders feed, untouched:
+  //   prod_wallet_004 (Skyy Blue 2/2, wholesale), Coalition_Kustom_Co_Wallet_1_1,
+  //   Coalition_Denim_Patchwork_S1, Coalition_Denim_Patchwork_X_Meks
   Coalition_Racing_Team_Wallet_1_4: {
     archiveNote: "Part of the 7-wallet wholesale bundle sold to @friiqy in May 2026.",
   },
@@ -46,26 +53,26 @@ export const PRODUCT_LOCAL_OVERRIDES: Record<string, Partial<Product>> = {
   Coalition_Racing_Team_Wallet_4_4: {
     archiveNote: "Part of the 7-wallet wholesale bundle sold to @friiqy in May 2026.",
   },
-  prod_wallet_004: {
-    archiveNote: "Part of the 7-wallet wholesale bundle sold to @friiqy in May 2026.",
-  },
   prod_wallet_chrome_hearts: {
     archiveNote: "1/1 Coalition x Chrome Hearts collaboration wallet. Premium leather with signature Chrome Hearts sterling silver detailing. A rare collector's piece.",
-  },
-  Coalition_Kustom_Co_Wallet_1_1: {
-    archiveNote: "1/1 Coalition x Kustom Co Japan Auto Club collaboration. Hand-finished with the Kustom Co script logo and Japan Auto Club wordmark. Sold to a private collector; exact sale date is not on record.",
-  },
-  Coalition_Denim_Patchwork_S1: {
-    archiveNote: "1/1 denim patchwork jeans. Sold via the @friiqy relationship in November 2024.",
-  },
-  Coalition_Denim_Patchwork_X_Meks: {
-    archiveNote: "1/1 denim patchwork jeans X Meks. Sold via the @friiqy relationship in May 2026.",
   },
   // Unity No. 4 Polo: founder note surfaces on the PDP below the buy button.
   // Keep this buyer-facing — sourcing + markup math is operator-only and
   // lives in a code comment, not in the public copy.
   prod_unity_polo: {
     founderNote: "Built on an authentic Ralph Lauren polo and hand-finished with the Unity No. 4 mark. Heritage prep meets Coalition attitude — one of one, in the Unity series, gone the moment it sells.",
+  },
+  prod_1784012446238: {
+    archiveNote: "Piece 2 of 4 of the Above as Below wallet run has sold. Message us if you want this direction rebuilt as a custom.",
+  },
+  prod_1784012355221: {
+    archiveNote: "Piece 3 of 4 of the Above as Below wallet run has sold. Message us if you want this direction rebuilt as a custom.",
+  },
+  Coalition_Parts_Wallet_1_4: {
+    archiveNote: "The first piece of the Coalition 'Parts' wallet run has sold. Message us if you want a similar patchwork build.",
+  },
+  Coalition_Parts_Wallet_2_4: {
+    archiveNote: "The second piece of the Coalition 'Parts' wallet run has sold. Message us if you want a similar patchwork build.",
   },
 };
 

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>GHOST RIDERS — poster vs real photos</title>
+<style>
+  html,body{margin:0;background:#141416;color:#e8dcc8;font:13px/1.4 Arial,sans-serif}
+  .row{display:flex;gap:14px;padding:14px;align-items:flex-start}
+  .cell{flex:1;min-width:0}
+  .lab{font-weight:700;letter-spacing:.08em;padding:7px 9px;background:#2c2c30;margin-bottom:8px;text-transform:uppercase;font-size:12px}
+  .art{background:#0b0b0d}.photo{background:#fff}
+  img{width:100%;display:block;border-radius:6px}
+  .cap{padding:7px 9px;background:#1e1e22;color:#9a948a;font-size:12px}
+</style></head><body>
+<div class="row">
+  <div class="cell">
+    <div class="lab">Fixed artwork poster (1080×1350)</div>
+    <div class="art"><img id="poster" alt="Ghost Riders: After Dark poster"></div>
+    <div class="cap">Vector remake + real photos + logo tile + corrected corners</div>
+  </div>
+  <div class="cell">
+    <div class="lab">Real photo — front (banner face)</div>
+    <div class="photo"><img src="/public/images/ghost-riders-wallet-front.png" alt="Wallet front"></div>
+    <div class="cap">ghost-riders-wallet-front.png · 1205×1600</div>
+  </div>
+  <div class="cell">
+    <div class="lab">Real photo — back (skull gang)</div>
+    <div class="photo"><img src="/public/images/ghost-riders-wallet-back.png" alt="Wallet back"></div>
+    <div class="cap">ghost-riders-wallet-back.png · 1205×1600</div>
+  </div>
+</div>
+<script>document.getElementById('poster').src='ghost-riders-after-dark.svg?v='+Date.now();</script>
+</body></html>

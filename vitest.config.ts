@@ -23,6 +23,13 @@ export default defineConfig({
         //       or points to the wrong URL. Run directly:
         //       npx vitest run tests/viewContractButton.test.ts
         //
+        //       soldYetBuyableAudit.test.ts is NOT excluded — exclusion also
+        //       blocks an explicit `vitest run <file>` (CLI --exclude appends
+        //       to this list). It self-gates instead: skipped unless
+        //       RUN_LIVE_AUDIT=1, because it reads the live Supabase
+        //       products + orders tables. Run with:
+        //       RUN_LIVE_AUDIT=1 npx vitest run tests/soldYetBuyableAudit.test.ts
+        //
         exclude: [
             'tests/clsRegression.test.ts',
             'tests/rendererSmoke.test.ts',

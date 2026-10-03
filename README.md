@@ -427,7 +427,6 @@ If a live Supabase row exists, the Supabase price is the current storefront pric
 | `prod_set_above_as_below` | COALITION ABOVE AS BELOW SET | $120 | apparel | Live set offer | stock 20; S:4 M:4 L:4 XL:4 2XL:4 | Supabase + local overrides |
 | `prod_shorts_above_as_below` | COALITION ABOVE AS BELOW SHORTS | $75 | shorts | Live | stock 44; S:9 M:9 L:9 XL:9 2XL:8 | Supabase + local |
 | `prod_tee_above_as_below` | COALITION ABOVE AS BELOW TEE | $75 | shirt | Live | stock 44; S:9 M:9 L:9 XL:9 2XL:8 | Supabase + local overrides |
-| `prod_tee_distortion` | COALITION DISTORTION TEE | $60 | shirt | Live local fallback only | no live stock row | Local fallback only |
 | `prod_womens_above_as_below_contrast_shorts` | WOMEN'S COALITION ABOVE AS BELOW CONTRAST SHORTS | $40 | shorts | Live | stock 4; S:1 M:1 L:1 XL:1 | Supabase + local overrides |
 | `prod_womens_above_as_below_crop_tank` | WOMEN'S COALITION ABOVE AS BELOW CREWNECK CROP TANK | $40 | shirt | Live | stock 4; S:1 M:1 L:1 XL:1 | Supabase + local overrides |
 | `prod_womens_above_as_below_set` | WOMEN'S COALITION ABOVE AS BELOW SET | $75 | apparel | Live set offer | stock 4; S:1 M:1 L:1 XL:1 | Supabase + local overrides |
@@ -447,9 +446,10 @@ If a live Supabase row exists, the Supabase price is the current storefront pric
 | `GreenCamoWallet` | Coalition Green Camo Wallet | $75 | accessory | Archived/sold | stock 0; One Size: 0 | Supabase + local |
 | `SKYYBLUEWALLET1_2` | COALITION SKYY BLUE WALLET 1/2 | $75 | wallet | Archived/sold | stock 0; One Size: 0 | Supabase + local overrides |
 | `prod_trust_yourself_hat_01` | Trust Yourself Custom Trucker (1/1) | $50 | headwear | Archived/sold | stock 0; One Size: 0 | Supabase + local |
-| `prod_wallet_004` | COALITION SKYY BLUE WALLET 2/2 | $85 | wallet | Archived/sold | One Size: 0 | Local fallback only |
+| `prod_wallet_004` | COALITION SKYY BLUE WALLET 2/2 | $85 | wallet | Archived/sold (May 2026 wholesale bundle) | — (no product row) | Order record only (orphan) |
 | `prod_wallet_chrome_hearts` | CUSTOM COALITION X CHROME HEARTS WALLET | $450 | wallet | Archived/sold | One Size: 0 | Local fallback only |
-| `Coalition_Denim_Patchwork_S1` | Coalition Denim Patchwork 1/1 Jeans S1 | $140 | jeans | Archived/sold | stock 0; 30: 0 | Supabase + local overrides |
+| `Coalition_Denim_Patchwork_S1` | Coalition Denim Patchwork 1/1 Jeans S1 | $140 | jeans | Archived/sold (Nov 2024, @friiqy) | — (no product row) | Order record only (orphan) |
+| `prod_tee_distortion` | COALITION DISTORTION TEE | $60 | shirt | Archived/sold — orphan order line; seed entry dropped by the 2026-07-10 admin sync | — | Order ORD-PP-8SN773, paid 2026-02-20 |
 
 ## Featured-Exclusivity Helper
 
