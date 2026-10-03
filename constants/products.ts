@@ -52,14 +52,14 @@ export const INITIAL_PRODUCTS: Product[] = [
     "sizeInventory": {
       "L": 0,
       "M": 0,
-      "S": 1,
+      "S": 0,
       "XL": 0
     },
     "nft": null,
-    "archived": false,
-    "archivedAt": null,
+    "archived": true,
+    "archivedAt": "2026-10-03T01:21:11.81+00:00",
     "releasedAt": null,
-    "soldAt": null
+    "soldAt": "2026-10-03T01:21:11.81+00:00"
   },
   {
     "id": "prod_1784012355221",
@@ -77,13 +77,13 @@ export const INITIAL_PRODUCTS: Product[] = [
       "One Size"
     ],
     "sizeInventory": {
-      "One Size": 1
+      "One Size": 0
     },
     "nft": null,
-    "archived": false,
-    "archivedAt": null,
+    "archived": true,
+    "archivedAt": "2026-10-03T01:21:11.81+00:00",
     "releasedAt": null,
-    "soldAt": null
+    "soldAt": "2026-10-03T01:21:11.81+00:00"
   },
   {
     "id": "prod_unity_polo",
@@ -801,13 +801,13 @@ export const INITIAL_PRODUCTS: Product[] = [
       "One Size"
     ],
     "sizeInventory": {
-      "One Size": 1
+      "One Size": 0
     },
     "nft": null,
-    "archived": false,
-    "archivedAt": null,
+    "archived": true,
+    "archivedAt": "2026-10-03T01:21:11.810Z",
     "releasedAt": null,
-    "soldAt": null
+    "soldAt": "2026-10-03T01:21:11.810Z"
   },
   {
     "id": "Coalition_Parts_Wallet_2_4",
@@ -899,6 +899,29 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     "sizeInventory": {
       "One Size": 1
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
+  },
+  {
+    "id": "prod_checkout_test_dollar",
+    "name": "Checkout Test Item — $1",
+    "price": 1,
+    "images": [
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/checkout-test-item.png"
+    ],
+    "description": "Live checkout test listing. A real $1 charge (plus shipping) placed on purpose to exercise the production payment path end to end. Not merchandise — archive this listing once testing is done.",
+    "category": "accessory",
+    "isFeatured": false,
+    "isLimitedEdition": false,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 0
     },
     "nft": null,
     "archived": false,
