@@ -752,42 +752,42 @@ Use Stripe test cards:
 - **Decline**: `4000 0000 0000 0002`
 - Any future expiry date and CVC
 
-### Checkout Smoke Test
-
-Payments are server-verified before an order is saved. `/api/create-payment-intent` creates the Stripe PaymentIntent; `/api/complete-order` verifies the capture against Stripe and server-computed product pricing before writing `orders`.
-
-Klarna and Afterpay are offered through Stripe's Payment Element on checkout (`pages/Checkout.tsx` → `/api/create-payment-intent` with `automatic_payment_methods`). They appear automatically once (1) both methods are toggled on in the Stripe dashboard (Settings → Payment methods) and (2) the buyer/order qualifies — Afterpay is domestic-only and needs the checkout shipping form, Klarna spans US/EU. No extra env var; the checkout form's email + shipping address are forwarded to the PaymentIntent for underwriting. Stripe.js is loaded lazily from `js.stripe.com` only when the Card/Klarna/Afterpay option is selected (CSP allowlisted in `vercel.json`).
-
-Cash App and crypto (USDC on Polygon) are manual methods: the buyer sends payment off-platform, confirms on the checkout page, and the order is written PENDING until the owner verifies it.
-
-Required environment variables:
-
-```env
-VITE_APP_URL=http://localhost:3000
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-```
-
-Optional order email variables:
-
-```env
-RESEND_API_KEY=re_your_key
-RESEND_FROM_EMAIL="SG Coalition <orders@your-domain.com>"
-ORDER_NOTIFICATION_EMAIL=orders@your-domain.com
-```
-
-Smoke-test flow:
-
-1. Run `npm run build`.
-2. Run the app through Vercel dev or a Vercel preview so `/api/create-payment-intent` and `/api/complete-order` execute as serverless functions.
-3. Add a physical product to cart, fill all shipping fields, leave partial store credit off, and pay by card with the Stripe test key.
-4. Confirm the app lands on `/order/success?payment_method=stripe`.
-5. In Supabase, confirm one `orders` row exists with `payment_method = stripe`, `payment_status = paid`, `payment_reference` populated with the PaymentIntent ID, and `total` equal to the Stripe captured amount.
-6. Repeat once with Cash App or crypto to confirm the PENDING order flow.
-
-
+### Checkout Smoke Test
+
+Payments are server-verified before an order is saved. `/api/create-payment-intent` creates the Stripe PaymentIntent; `/api/complete-order` verifies the capture against Stripe and server-computed product pricing before writing `orders`.
+
+Klarna and Afterpay are offered through Stripe's Payment Element on checkout (`pages/Checkout.tsx` → `/api/create-payment-intent` with `automatic_payment_methods`). They appear automatically once (1) both methods are toggled on in the Stripe dashboard (Settings → Payment methods) and (2) the buyer/order qualifies — Afterpay is domestic-only and needs the checkout shipping form, Klarna spans US/EU. No extra env var; the checkout form's email + shipping address are forwarded to the PaymentIntent for underwriting. Stripe.js is loaded lazily from `js.stripe.com` only when the Card/Klarna/Afterpay option is selected (CSP allowlisted in `vercel.json`).
+
+Cash App and crypto (USDC on Polygon) are manual methods: the buyer sends payment off-platform, confirms on the checkout page, and the order is written PENDING until the owner verifies it.
+
+Required environment variables:
+
+```env
+VITE_APP_URL=http://localhost:3000
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+```
+
+Optional order email variables:
+
+```env
+RESEND_API_KEY=re_your_key
+RESEND_FROM_EMAIL="SG Coalition <orders@your-domain.com>"
+ORDER_NOTIFICATION_EMAIL=orders@your-domain.com
+```
+
+Smoke-test flow:
+
+1. Run `npm run build`.
+2. Run the app through Vercel dev or a Vercel preview so `/api/create-payment-intent` and `/api/complete-order` execute as serverless functions.
+3. Add a physical product to cart, fill all shipping fields, leave partial store credit off, and pay by card with the Stripe test key.
+4. Confirm the app lands on `/order/success?payment_method=stripe`.
+5. In Supabase, confirm one `orders` row exists with `payment_method = stripe`, `payment_status = paid`, `payment_reference` populated with the PaymentIntent ID, and `total` equal to the Stripe captured amount.
+6. Repeat once with Cash App or crypto to confirm the PENDING order flow.
+
+
 ### Coalition Brain Bootstrap
 
 Populate the Brain table and seed entries with one idempotent admin bootstrap command:
@@ -978,6 +978,14 @@ The Coalition platform is built around four end-to-end data flows ("loops"). Eac
 - **Side-effects:** none — dry-run only. Exits `0` when all three sections are clean (or when Section 2+3 SKIPPED with no Supabase env vars); exits `1` on any drift, broken URL, or fetch error. The first live detection caught a wallet row with stale `/images/...` paths in Supabase overriding fresh local URLs (`SKYYBLUEWALLET1_2`, 2026-07-14).
 - **Contract test:** Process exit contract (`STATUS: PASS` → `0`, `STATUS: FAIL` → `1`); sibling one-shot [`scripts/syncImageFieldsToSupabase.ts`](scripts/syncImageFieldsToSupabase.ts) is the write-side companion that uses the same `urlsEqual` helper. `SKYYBLUEWALLET1_2` repair is documented in [`docs/SIGNOFF_2026-07-14.md`](docs/SIGNOFF_2026-07-14.md).
 - **Deep dive:** [## Image-Path Audit](#image-path-audit) — drift taxonomy (`LOCAL_RELATIVE_PATH` / `INSECURE_HTTP` / `NON_CANONICAL_HOST` / `OTHER` for single-side; `BOTH_HAVE_ISSUES` / `MISMATCH` / `REMOTE_ONLY_BROKEN` for cross-check) + 3 worked examples + the canonical wallet-shape repair tool chain.
+
+### Sold-but-Buyable audit loop
+
+- **Entry:** [`tests/soldYetBuyableAudit.test.ts`](tests/soldYetBuyableAudit.test.ts) — three-tier report over the live `products` + `orders` tables: **FLAGS** (a product with sale evidence that can still be ordered — fails the run), **WARNINGS** (pending cashapp/crypto orders vs stock, each aged by `STALE_PENDING_DAYS` and marked STALE past 30d, plus the deliberate `prod_checkout_test_dollar` SKU — printed, never failed), **ORPHAN ORDER LINES** (product id absent from both table and seed — surfaced for review, and an orphan with no entry in `ORPHAN_DECISIONS` fails the audit).
+- **Trigger:** `npm run audit:live` locally ([`scripts/runLiveAudit.mjs`](scripts/runLiveAudit.mjs) arms `RUN_LIVE_AUDIT=1` — cmd.exe cannot run inline `VAR=1 cmd`, hence the wrapper and no `cross-env` dependency). CI: [`.github/workflows/live-catalog-audit.yml`](.github/workflows/live-catalog-audit.yml) runs the same command on every push to `main`, every PR, daily at 06:40 UTC, and on manual dispatch — the schedule exists for drift introduced by direct Supabase writes (admin dashboard, manual SQL) that no PR-time check can observe, the same failure mode [`storefront-audits.yml`](.github/workflows/storefront-audits.yml) documents for the SKYYBLUEWALLET1_2 incident. Each run uploads `live-audit-output.txt` as an artifact so consecutive days can be compared without re-querying.
+- **Side-effects:** none — read-only against Supabase. Self-gating: without `RUN_LIVE_AUDIT=1` the file skips itself, so the default `npm test` suite never touches the network (a config-level `exclude` would also block an explicit `vitest run <file>`, which is why the gate lives in the test).
+- **Threshold ownership:** [`utils/orderAge.ts`](utils/orderAge.ts) owns `STALE_PENDING_DAYS` (30) and `ageDays()`; the admin [`OrderManager.tsx`](components/admin/OrderManager.tsx) age chips and this audit's STALE warnings both read that one cutoff, so what the UI marks stale is exactly what the audit warns about.
+- **Contract test:** the audit itself — its guard asserts credentials before querying (`run this from the repo root with .env loaded`), and the CI workflow fails with a named `::error::` first if either Actions secret is missing.
 
 ### Cross-loop invariants
 
@@ -2107,17 +2115,27 @@ Each group has a section header in the sidebar. The active tab is indicated by a
 
 ### Product sync workflow (Supabase → constants.ts → GitHub)
 
-The **Sync Code** button on the Products admin tab reconciles `constants.ts` with the current Supabase `products` table and commits the result to `origin/main`. It works in local dev AND in production through the same admin UI.
+The **Sync Code** button on the Products admin tab refreshes `constants/products.ts` from the current Supabase `products` table and commits the result to `origin/main`. It works in local dev AND in production through the same admin UI.
+
+It is **not a mirror**, because the seed is not a copy of the table: `constants/products.ts` also carries entries the table has never held (the five seed-only wallets) and the comments that explain them. The rule — correct every row the table holds, append rows it has that the seed lacks, keep everything, never delete — is owned by `scripts/productSeed.ts` and shared with the drop publish, so a sync can only add and correct. Rebuilding the array from the rows alone is what silently deleted those five products and failed 21 tests.
 
 #### Step-by-step (one button click)
 
 1. Frontend `components/admin/ProductManager.tsx > handleSync` POSTs to `/api/git-operations?action=sync-constants`.
 2. The serverless handler (`api/_handlers/git-operations.ts` on Vercel, `server.cjs` locally) fetches every row from `products` via the Supabase **service-role** client — bypasses RLS.
-3. Each row is mapped to the `Product[]` shape in `types.ts` — camelCased keys, trimmed strings, normalized categories (legacy `"accessories"` → `"accessory"`). Same shape `scripts/syncProducts.ts` produces.
-4. The handler regex-replaces the `export const INITIAL_PRODUCTS: Product[] = [...]` block in `constants.ts` (everything OUTSIDE the block stays untouched).
-5. If the file is unchanged → return `{ noChanges: true, hash: <blob-sha> }`, no commit.
+3. Each row is mapped by `scripts/productSeed.ts > mapDbRowToSeedEntry` — the *same function* `scripts/syncProducts.ts` uses, so the two can no longer drift apart (they previously had subtly different defaults while a comment claimed they were identical).
+4. `scripts/productSeed.ts > refreshSeed` folds the rows into the existing entries: a row the seed also has is **rewritten in place**, a row the seed lacks is **appended**, and everything else — including entries with no row — keeps its exact source text. Only entries whose data changed are re-serialised, so the hand-written comments inside the array and older entries' escape style survive a sync byte-for-byte.
+5. If the file is unchanged → return `{ noChanges: true, hash: <blob-sha>, report }`, no commit.
 6. Otherwise PUT the new content via the **GitHub Contents API** — a real commit on `origin/main` with message `Sync products from Supabase`.
-7. Return `{ success: true, hash: <commit-sha> }`. The admin toast shows the hash so the operator can verify on GitHub.
+7. Return `{ success: true, hash: <commit-sha>, report }`, where `report` is `{ targeted, rewritten, seedOnly, added, drift }`. The admin toast shows the counts (`N from the database (R rewritten)`, `M products with no DB row kept`) and the hash so the operator can verify on GitHub. `drift` is always empty here because the button targets every row the table holds; it is the standalone CLI that reports untargeted differences instead of applying them.
+
+#### Seeing drift without the CLI
+
+The same report used to exist only in `npx tsx scripts/syncProducts.ts` stdout, which meant an operator had to know the command existed to discover that the fallback catalog and the live catalog had parted ways.
+
+`GET /api/product-drift` (admin only, read-only) returns it: which entries differ, how, which products exist only in the seed, and which exist only in the table. It calls `mergeSeedProducts` in **preserve mode** — the mode that reports instead of rewrites — so the panel and the CLI cannot disagree about what counts as drift (`scripts/productSeed.ts` stays the owner of the rule).
+
+The Products tab renders it above the catalog: one line, amber when there are differences (`N differences between constants/products.ts and the products table`), quiet when the two agree, with the individual lines behind a toggle and a count of the products kept with no database row. A failed check renders as an explicit failure rather than nothing, because silence and agreement must not look alike. Files: `api/_handlers/product-drift.ts`, `services/productDrift.ts`, `components/admin/ProductManager.tsx`.
 
 #### Architecture
 
@@ -2132,8 +2150,8 @@ The **Sync Code** button on the Products admin tab reconciles `constants.ts` wit
     +--> services/githubSync.cjs (syncFileOnGitHub) <----------+
               |
               +--> fetch products via SUPABASE_SERVICE_ROLE_KEY   (Supabase PostgREST)
-              +--> GET /repos/{owner}/{repo}/contents/constants.ts (GitHub Contents API)
-              +--> apply INITIAL_PRODUCTS regex replace (in-process)
+              +--> GET /repos/{owner}/{repo}/contents/constants/products.ts (GitHub Contents API)
+              +--> refreshSeed(): fold rows in via scripts/productSeed.ts (in-process)
               +--> PUT constants.ts with prior sha                  (GitHub Contents API -> real commit)
 ```
 
@@ -2214,8 +2232,10 @@ The `commit`, `log`, `branches`, `checkout`, `reset`, `diff`, `status` actions o
 
 - Shared helper: `services/githubSync.cjs`
 - Vercel handler: `api/_handlers/git-operations.ts` (`syncConstantsHandler` + the Vercel short-circuit)
-- Local handler: `server.cjs` (`case 'sync-constants'` — local priority when `GITHUB_TOKEN` is not set)
-- Mapper standalone: `scripts/syncProducts.ts` (same mapping logic, runnable as a CLI for one-off dumps; not the runtime path)
+- The rule + the row mapping: `scripts/productSeed.ts`
+- Drift report endpoint: `api/_handlers/product-drift.ts` (+ `services/productDrift.ts` client)
+- Local handler: `server.cjs` (`case 'sync-constants'` — local priority when `GITHUB_TOKEN` is not set). ⚠️ This copy still rebuilds the array wholesale and points at the old root `constants.ts`, where the `INITIAL_PRODUCTS` declaration does not exist — so a local sync matches nothing and reports `noChanges: true`. It has not been re-pointed yet: fixing the path alone would make it destructive, and it cannot import the TypeScript rule as a CommonJS process. Treat the Vercel handler as the real path.
+- Mapper standalone: `scripts/syncProducts.ts` (same rule, runnable as a CLI for one-off dumps; not the runtime path)
 - Product type: `types.ts > Product`
 - Client entrypoint: `components/admin/ProductManager.tsx > handleSync`
 - Sync API client: `services/imgurService.ts > syncProductsToCode`
