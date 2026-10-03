@@ -825,23 +825,23 @@ export const INITIAL_PRODUCTS: Product[] = [
       "One Size"
     ],
     "sizeInventory": {
-      "One Size": 1
+      "One Size": 0
     },
     "nft": null,
-    "archived": false,
-    "archivedAt": null,
+    "archived": true,
+    "archivedAt": "2026-10-03T01:21:11.810Z",
     "releasedAt": null,
-    "soldAt": null
+    "soldAt": "2026-10-03T01:21:11.810Z"
   },
   {
     "id": "Coalition_Parts_Wallet_3_4",
     "name": "Coalition 'Parts' Wallet 3/4",
-    "price": 85,
+    "price": 45,
     "images": [
       "https://i.imgur.com/83jXZKg.jpg",
       "https://i.imgur.com/0OMUUgV.jpg"
     ],
-    "description": "Third piece of the Coalition 'Parts' limited wallet run. Hand-finished with industrial detailing, raw-edge construction, and the Coalition mark on a numbered carry. Each piece is a distinct part of the whole — built different, numbered once, gone forever.",
+    "description": "Third piece of the Coalition 'Parts' limited wallet run. Hand-finished with industrial detailing, raw-edge construction, and the Coalition mark on a numbered carry. Each piece is a distinct part of the whole — built different, numbered once, gone forever. Priced at $45 with standard shipping included.",
     "category": "wallet",
     "isFeatured": false,
     "isLimitedEdition": true,

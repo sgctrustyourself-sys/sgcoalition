@@ -21,6 +21,7 @@
 import type Stripe from 'stripe';
 import { stripeClient } from './_services.js';
 import { reconcilePayment, notifyAdminReconcileFailure } from '../services/orderIntake.js';
+import { purchaseLabelForOrder } from '../services/shipping.js';
 
 // Disable Vercel's automatic JSON body parsing — Stripe signature
 // verification requires the raw body bytes.
@@ -89,7 +90,7 @@ async function tryAutoReconcile(orderId: string, paymentIntentId: string, eventI
     const result = await reconcilePayment(orderId);
     if (result.success) {
         console.log('[stripe-webhook] Reconciled order ' + orderId + ' (PI ' + paymentIntentId + ')');
-        return { reconciled: true, retryable: false };
+        return await finishWithLabelPurchase(orderId, { reconciled: true, retryable: false });
     }
     // permanent=true: retrying can never fix it (order absent, or the RPC
     // rejected the state transition under FOR UPDATE). Transient: DB/network.
@@ -101,6 +102,64 @@ async function tryAutoReconcile(orderId: string, paymentIntentId: string, eventI
     // (at most ~1s) delay is worth the delivery guarantee.
     await notifyAdminReconcileFailure(orderId, paymentIntentId, result.error || 'Unknown reconcile failure', retryable, eventId);
     return { reconciled: false, retryable };
+}
+
+/**
+ * After a successful reconcile, buy the shipping label. Maps the label
+ * outcome onto the same retryable/permanent/skip contract the caller
+ * already understands — a label failure inherits the reconcile verdict's
+ * HTTP treatment, so Stripe's redelivery policy stays correct end to end.
+ */
+async function finishWithLabelPurchase(orderId: string, verdict: { reconciled: boolean; retryable: boolean }): Promise<{ reconciled: boolean; retryable: boolean }> {
+    try {
+        const label = await purchaseLabelForOrder(orderId);
+        if (label.outcome === 'purchased') {
+            console.log('[stripe-webhook] Shipping label purchased for ' + orderId);
+        } else if (label.outcome === 'retryable') {
+            console.warn('[stripe-webhook] Label purchase failed (transient) for ' + orderId + ': ' + label.reason);
+            return { reconciled: true, retryable: true };
+        } else if (label.outcome === 'failed') {
+            // Permanent — email the admin; a redelivery could never fix a
+            // bad address or a rate cap, so don't burn Stripe retries.
+            console.warn('[stripe-webhook] Label purchase failed (permanent) for ' + orderId + ': ' + label.reason);
+            await notifyAdminLabelFailure(orderId, label.reason);
+        }
+        // 'skipped' is neutral: not configured, already claimed by a
+        // concurrent delivery, or the order wasn't in a label-eligible state.
+    } catch (e) {
+        // Defensive: the service resolves every path internally, but a throw
+        // here must degrade to the webhook's transient behavior, not 500-crash
+        // a successfully-reconciled payment.
+        console.warn('[stripe-webhook] Label purchase threw for ' + orderId, e);
+        return { reconciled: true, retryable: true };
+    }
+    return verdict;
+}
+
+/** Permanent label-failure alert (reuses the reconcile-failure email shape). */
+async function notifyAdminLabelFailure(orderId: string, reason: string): Promise<void> {
+    try {
+        const key = process.env.RESEND_API_KEY;
+        const rcpts = (process.env.ORDER_NOTIFICATION_EMAIL || process.env.ADMIN_ORDER_EMAIL || 'sgctrustyourself@gmail.com')
+            .split(',').map((e) => e.trim()).filter(Boolean);
+        if (!key || !rcpts.length) return;
+        const { resendClient } = await import('./_services.js');
+        const html = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#fff;color:#111827;">'
+            + '<h2 style="letter-spacing:1px;text-transform:uppercase;">Shipping label could not be purchased</h2>'
+            + '<p>The order was paid but no label was bought. Reason: <strong>' + esc(reason) + '</strong></p>'
+            + '<p>Buy the label manually in Shippo (or fix the cause and let the next webhook redelivery retry), then fulfill the order.</p>'
+            + '<p><a href="https://sgcoalition.xyz/#/admin?tab=orders&q=' + encodeURIComponent(orderId) + '" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Open order in Admin</a></p>'
+            + '<p style="color:#6b7280;">Order ID: <code>' + esc(orderId) + '</code></p>'
+            + '</div>';
+        await resendClient().emails.send({ from: process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>', to: rcpts, subject: 'ACTION REQUIRED: label failed for ' + orderId, html } as never);
+    } catch (e) {
+        console.warn('[stripe-webhook] Label-failure alert email failed:', e);
+    }
+}
+
+/** Tiny local esc for the alert email (single use, keeps imports minimal). */
+function esc(v: unknown): string {
+    return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // ---------------------------------------------------------------------------
@@ -193,6 +252,14 @@ export default async function handler(
                         return;
                     }
                     res.status(200).json({ received: true, reconciled: false, reason: 'permanently unreconcilable — admin notified' });
+                    return;
+                }
+                if (retryable) {
+                    // Reconcile succeeded but the label purchase failed
+                    // transiently — 500 asks Stripe to redeliver. The next
+                    // attempt no-ops reconcile (already settled) and the
+                    // shipments claim row gates the label retry.
+                    res.status(500).json({ error: 'Label purchase failed — will retry' });
                     return;
                 }
             }

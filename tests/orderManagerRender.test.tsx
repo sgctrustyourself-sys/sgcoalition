@@ -30,15 +30,27 @@ import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { mockSupabase } from './_helpers/supabaseClientMock';
 
+// Hoisted mock fns — the buy-label service and the toast are controlled per-test
+// through these (vi.mock factories may only reference hoisted bindings).
+const buyLabelMocks = vi.hoisted(() => ({ buyLabelForOrder: vi.fn() }));
+const toastMocks = vi.hoisted(() => ({ addToast: vi.fn() }));
+const shipmentFeedMocks = vi.hoisted(() => ({ fetchShipmentStatuses: vi.fn() }));
+
 // vitest auto-hoists vi.mock above the imports below.
 vi.mock('../services/supabase', () => ({
     supabase: mockSupabase.client,
+}));
+vi.mock('../services/buyLabel', () => ({
+    buyLabelForOrder: (...args: unknown[]) => buyLabelMocks.buyLabelForOrder(...args),
+}));
+vi.mock('../services/adminShipments', () => ({
+    fetchShipmentStatuses: (...args: unknown[]) => shipmentFeedMocks.fetchShipmentStatuses(...args),
 }));
 vi.mock('../context/AppContext', () => ({
     useApp: vi.fn(),
 }));
 vi.mock('../context/ToastContext', () => ({
-    useToast: () => ({ addToast: vi.fn() }),
+    useToast: () => toastMocks,
 }));
 vi.mock('../components/ManualOrderForm', () => ({
     default: () => <div data-testid="manual-order-form-stub" />,
@@ -140,6 +152,9 @@ describe('OrderManager render flow', () => {
         container = document.createElement('div');
         document.body.appendChild(container);
         root = createRoot(container);
+        // Default shipment feed: empty (no labels bought). Shipment-column
+        // tests override per-test.
+        shipmentFeedMocks.fetchShipmentStatuses.mockResolvedValue([]);
 
         // Baseline useApp - LOADED orders. EMPTY test overrides per-test.
         // Effect handlers (deleteOrder, updateOrderStatus) are kept neutral
@@ -673,5 +688,205 @@ describe('OrderManager wholesale badge render', () => {
         // 'Wholesale Customer' placeholder, so the gate is false regardless of
         // instagramUsername being set.
         expect(container.querySelector('[data-testid="wholesale-attribution"]')).toBeNull();
+    });
+
+    // BUY LABEL BUTTON — one-click Shippo purchase for orders the Stripe
+    // webhook does not cover. Visibility gate: paid + non-stripe methods only
+    // (those get labels automatically). purchase click path is covered by
+    // tests/adminBuyLabel.test.ts against the endpoint; here the button's
+    // presence/absence and the spinner state are pinned via DOM.
+    it('BUY_LABEL_GATE: paid non-stripe order shows the button; stripe and unpaid orders do not', async () => {
+        vi.mocked(useApp).mockReturnValue({
+            orders: [
+                {
+                    id: 'manual-paid-1', orderNumber: 'SG-MANUAL-1',
+                    customerName: 'Manny', customerEmail: 'manny@x.com',
+                    paymentMethod: 'cashapp', paymentStatus: 'paid',
+                    orderType: 'online', total: 45, subtotal: 45,
+                    items: [{ productName: 'Wallet', productImage: '/w.png', selectedSize: 'One Size', quantity: 1, total: 45 }],
+                    createdAt: '2026-09-30T10:00:00Z',
+                },
+                {
+                    id: 'stripe-paid-1', orderNumber: 'SG-STRIPE-1',
+                    customerName: 'Stripey', customerEmail: 'stripey@x.com',
+                    paymentMethod: 'stripe', paymentStatus: 'paid',
+                    orderType: 'online', total: 45, subtotal: 45,
+                    items: [{ productName: 'Wallet', productImage: '/w.png', selectedSize: 'One Size', quantity: 1, total: 45 }],
+                    createdAt: '2026-09-30T09:00:00Z',
+                },
+                {
+                    id: 'cashapp-pending-1', orderNumber: 'SG-PENDING-1',
+                    customerName: 'Penny', customerEmail: 'penny@x.com',
+                    paymentMethod: 'cashapp', paymentStatus: 'pending',
+                    orderType: 'online', total: 45, subtotal: 45,
+                    items: [{ productName: 'Wallet', productImage: '/w.png', selectedSize: 'One Size', quantity: 1, total: 45 }],
+                    createdAt: '2026-09-30T08:00:00Z',
+                },
+            ],
+            updateOrderStatus: vi.fn().mockResolvedValue(undefined),
+            deleteOrder: vi.fn().mockResolvedValue(undefined),
+        });
+
+        await act(async () => {
+            root.render(createElement(OrderManager));
+        });
+
+        const buttons = container.querySelectorAll('[data-testid="buy-label-button"]');
+        expect(buttons).toHaveLength(1);
+        // Newest-first: SG-MANUAL-1 is the first row — the single button belongs
+        // to the paid manual-method order and nothing else.
+        const row = buttons[0].closest('tr');
+        expect(row?.textContent || '').toContain('SG-MANUAL-1');
+    });
+
+    it('BUY_LABEL_CLICK: clicking calls the service and toasts the tracking number', async () => {
+        buyLabelMocks.buyLabelForOrder.mockResolvedValue({
+            outcome: 'purchased',
+            shipment: {
+                trackingNumber: '9400111899560000000000',
+                trackingUrl: 'https://tools.usps.com/track',
+                labelUrl: 'https://shippo-delivery.s3.amazonaws.com/label.pdf',
+                rateCents: 568,
+                carrier: 'USPS',
+                service: 'USPS Ground Advantage',
+            },
+        });
+        toastMocks.addToast.mockClear();
+
+        vi.mocked(useApp).mockReturnValue({
+            orders: [{
+                id: 'manual-paid-1', orderNumber: 'SG-MANUAL-1',
+                customerName: 'Manny', customerEmail: 'manny@x.com',
+                paymentMethod: 'crypto', paymentStatus: 'paid',
+                orderType: 'online', total: 45, subtotal: 45,
+                items: [{ productName: 'Wallet', productImage: '/w.png', selectedSize: 'One Size', quantity: 1, total: 45 }],
+                createdAt: '2026-09-30T10:00:00Z',
+            }],
+            updateOrderStatus: vi.fn().mockResolvedValue(undefined),
+            deleteOrder: vi.fn().mockResolvedValue(undefined),
+        });
+
+        const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+        await act(async () => {
+            root.render(createElement(OrderManager));
+        });
+
+        const button = container.querySelector('[data-testid="buy-label-button"]') as HTMLButtonElement;
+        expect(button).toBeTruthy();
+        await act(async () => {
+            button.click();
+        });
+
+        expect(buyLabelMocks.buyLabelForOrder).toHaveBeenCalledWith('manual-paid-1');
+        expect(toastMocks.addToast).toHaveBeenCalledWith(expect.stringContaining('9400111899560000000000'), 'success');
+        expect(openSpy).toHaveBeenCalledWith('https://shippo-delivery.s3.amazonaws.com/label.pdf', '_blank', 'noopener');
+        openSpy.mockRestore();
+    });
+
+    // SHIPMENT COLUMN — label/tracking/milestone state per order, from the
+    // read-only /api/admin-shipments feed. The badge is the at-a-glance
+    // fulfillment read: tracking number (clickable) + delivery stage, or a
+    // failure reason, or an em-dash when no label exists.
+    it('SHIPMENT_COLUMN: purchased label renders the clickable tracking badge with the delivery stage', async () => {
+        shipmentFeedMocks.fetchShipmentStatuses.mockResolvedValue([
+            {
+                order_id: 'manual-paid-1',
+                status: 'purchased',
+                carrier: 'USPS',
+                service: 'USPS Ground Advantage',
+                tracking_number: '9400111899560000000000',
+                tracking_url: 'https://tools.usps.com/track?t=9400111899560000000000',
+                rate_cents: 568,
+                error_reason: null,
+                shipped_email_sent_at: null,
+                delivered_email_sent_at: null,
+                updated_at: '2026-09-30T10:05:00Z',
+            },
+        ]);
+        vi.mocked(useApp).mockReturnValue({
+            orders: [{
+                id: 'manual-paid-1', orderNumber: 'SG-MANUAL-1',
+                customerName: 'Manny', customerEmail: 'manny@x.com',
+                paymentMethod: 'crypto', paymentStatus: 'paid',
+                orderType: 'online', total: 45, subtotal: 45,
+                items: [{ productName: 'Wallet', productImage: '/w.png', selectedSize: 'One Size', quantity: 1, total: 45 }],
+                createdAt: '2026-09-30T10:00:00Z',
+            }],
+            updateOrderStatus: vi.fn().mockResolvedValue(undefined),
+            deleteOrder: vi.fn().mockResolvedValue(undefined),
+        });
+
+        await act(async () => {
+            root.render(createElement(OrderManager));
+        });
+
+        const cell = container.querySelector('[data-testid="shipment-cell-manual-paid-1"]');
+        expect(cell).toBeTruthy();
+        const link = cell!.querySelector('[data-testid="shipment-tracking-link"]') as HTMLAnchorElement;
+        expect(link).toBeTruthy();
+        expect(link.textContent || '').toContain('9400111899560000000000');
+        expect(link.getAttribute('href')).toBe('https://tools.usps.com/track?t=9400111899560000000000');
+        expect(cell!.textContent || '').toContain('label ready');
+        // Hover metadata names the service and the price.
+        expect(cell!.innerHTML).toContain('Ground Advantage');
+    });
+
+    it('SHIPMENT_COLUMN: milestone flags flip the stage to in transit, then delivered', async () => {
+        shipmentFeedMocks.fetchShipmentStatuses.mockResolvedValue([
+            {
+                order_id: 'o-a', status: 'purchased', carrier: 'USPS', service: 'USPS Ground Advantage',
+                tracking_number: '940011189956000000000A', tracking_url: 'https://tools.usps.com/track?a',
+                rate_cents: 500, error_reason: null,
+                shipped_email_sent_at: '2026-10-02T14:00:00Z', delivered_email_sent_at: null, updated_at: null,
+            },
+            {
+                order_id: 'o-b', status: 'purchased', carrier: 'USPS', service: 'USPS Ground Advantage',
+                tracking_number: '940011189956000000000B', tracking_url: 'https://tools.usps.com/track?b',
+                rate_cents: 500, error_reason: null,
+                shipped_email_sent_at: '2026-10-02T14:00:00Z', delivered_email_sent_at: '2026-10-06T15:00:00Z', updated_at: null,
+            },
+        ]);
+        vi.mocked(useApp).mockReturnValue({
+            orders: [
+                { id: 'o-a', orderNumber: 'SG-A', customerName: 'A', customerEmail: 'a@x.com', paymentMethod: 'crypto', paymentStatus: 'paid', orderType: 'online', total: 45, subtotal: 45, items: [], createdAt: '2026-10-01T10:00:00Z' },
+                { id: 'o-b', orderNumber: 'SG-B', customerName: 'B', customerEmail: 'b@x.com', paymentMethod: 'stripe', paymentStatus: 'paid', orderType: 'online', total: 45, subtotal: 45, items: [], createdAt: '2026-10-01T09:00:00Z' },
+            ],
+            updateOrderStatus: vi.fn().mockResolvedValue(undefined),
+            deleteOrder: vi.fn().mockResolvedValue(undefined),
+        });
+
+        await act(async () => {
+            root.render(createElement(OrderManager));
+        });
+
+        expect(container.querySelector('[data-testid="shipment-cell-o-a"]')!.textContent).toContain('in transit');
+        expect(container.querySelector('[data-testid="shipment-cell-o-b"]')!.textContent).toContain('delivered');
+    });
+
+    it('SHIPMENT_COLUMN: a failed label shows the reason; an order with no shipment shows an em-dash', async () => {
+        shipmentFeedMocks.fetchShipmentStatuses.mockResolvedValue([
+            {
+                order_id: 'o-fail', status: 'failed', carrier: null, service: null,
+                tracking_number: null, tracking_url: null, rate_cents: null,
+                error_reason: 'incomplete_shipping_address',
+                shipped_email_sent_at: null, delivered_email_sent_at: null, updated_at: null,
+            },
+        ]);
+        vi.mocked(useApp).mockReturnValue({
+            orders: [
+                { id: 'o-fail', orderNumber: 'SG-FAIL', customerName: 'F', customerEmail: 'f@x.com', paymentMethod: 'crypto', paymentStatus: 'paid', orderType: 'online', total: 45, subtotal: 45, items: [], createdAt: '2026-10-01T10:00:00Z' },
+                { id: 'o-none', orderNumber: 'SG-NONE', customerName: 'N', customerEmail: 'n@x.com', paymentMethod: 'stripe', paymentStatus: 'paid', orderType: 'online', total: 45, subtotal: 45, items: [], createdAt: '2026-10-01T09:00:00Z' },
+            ],
+            updateOrderStatus: vi.fn().mockResolvedValue(undefined),
+            deleteOrder: vi.fn().mockResolvedValue(undefined),
+        });
+
+        await act(async () => {
+            root.render(createElement(OrderManager));
+        });
+
+        expect(container.querySelector('[data-testid="shipment-cell-o-fail"]')!.textContent).toContain('incomplete_shipping_address');
+        const emptyCell = container.querySelector('[data-testid="shipment-cell-o-none"]');
+        expect(emptyCell!.textContent!.trim()).toBe('—');
     });
 });

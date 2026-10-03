@@ -52,6 +52,12 @@ const OWNER_PREFIXES = [
   'ADMIN_',
   'SGCOIN',
   'ORDER_',
+  // Shippo label automation. SHIPPO_API_TOKEN is already covered by the
+  // _TOKEN shape, but the prefixes make the integration explicit and cover
+  // SHIPPO_* and SHIP_FROM_* names (NAME/CITY/STATE/ZIP/PHONE) whose shapes
+  // no suffix rule should have to guess.
+  'SHIPPO',
+  'SHIP_FROM',
 ];
 
 /** The shapes deployment configuration takes, whatever it is called. */

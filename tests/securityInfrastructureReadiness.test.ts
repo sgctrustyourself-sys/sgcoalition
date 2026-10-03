@@ -375,6 +375,8 @@ describe('source invariants: admin authorization has one gate', () => {
      */
     const GATED: Record<string, { policy: AdminPolicy; why: string }> = {
         'git-operations': { policy: 'shared', why: 'repo writes' },
+        'admin-buy-label': { policy: 'shared', why: 'one-click Shippo label purchase from Admin -> Orders — spends real postage money' },
+        'admin-shipments': { policy: 'shared', why: 'read-only shipment/tracking feed for the admin orders view (shipments is RLS-locked)' },
         'marketing-stats': { policy: 'shared', why: 'marketing figures' },
         'marketing-send': { policy: 'shared', why: 'dispatches a campaign to real contacts' },
         'admin-products': { policy: 'shared', why: 'product CRUD' },

@@ -91,6 +91,19 @@ describe('deployment env policy', () => {
             'WEBHOOK_SECRET',
             'VERCEL_OIDC_TOKEN',
             'VERCEL_AUTOMATION_BYPASS_SECRET',
+            // Shippo label automation. SHIPPO_API_TOKEN is covered by the
+            // _TOKEN shape; the SHIP_FROM_* address vars are the incident that
+            // proved the prefixes were needed: the first live release 400'd
+            // because NAME/CITY/STATE/ZIP/PHONE matched no shape suffix, five
+            // vars survived the strip, and the post-strip assertion refused
+            // the build (correctly). Prefixes, not a new suffix.
+            'SHIPPO_API_TOKEN',
+            'SHIP_FROM_NAME',
+            'SHIP_FROM_STREET1',
+            'SHIP_FROM_CITY',
+            'SHIP_FROM_STATE',
+            'SHIP_FROM_ZIP',
+            'SHIP_FROM_PHONE',
         ];
 
         expect(

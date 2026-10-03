@@ -2210,3 +2210,47 @@ The `commit`, `log`, `branches`, `checkout`, `reset`, `diff`, `status` actions o
 ### Settings (placeholder)
 
 - **Settings** — placeholder tab in `AdminLayout.tsx > navItems`, currently commented out in the production nav. Reserved for future toggle surfaces (env-var preview, feature flags, rates tables). Surface via `AdminLayout.tsx > navItems` when first wired.
+
+### Shipping automation — auto-purchase labels on paid orders
+
+**Added 2026-09-30.** When a Stripe payment confirms (`payment_intent.succeeded` webhook), the system
+buys the cheapest **USPS Ground Advantage** label through [Shippo](https://goshippo.com) and emails the
+owner the printable 4x6 PDF link. Double-buy protection is structural: a deterministic `shipments` row
+(`shipment_<order_id>`) is claimed insert-ignore + CAS before any Shippo call, so Stripe webhook
+redeliveries and concurrent deliveries can never purchase postage twice.
+
+| Piece | Path |
+| --- | --- |
+| Purchase service (claim machine, gates, rate cap, admin email) | `services/shipping.ts` |
+| Webhook hook (retryable -> 500 -> Stripe redelivers; permanent -> 200 + alert) | `api/stripe-webhook.ts > finishWithLabelPurchase` |
+| Table migration (RLS on, service-role writes only) | `supabase/migrations/20260930_create_shipments.sql` |
+| One-shot smoke tool (`--dry` = gates + rates only, no purchase) | `scripts/test-buy-label.ts` |
+| Gate suites (service + webhook hook) | `tests/shippingLabel.test.ts`, `tests/shippingWebhookHook.test.ts` |
+
+#### Operator setup (one time)
+
+1. Create a Shippo account, generate an API token (`shippo_test_...` first, live later).
+2. Add Vercel env vars (Project → Settings → Environment Variables; same values in `.env` locally):
+   - `SHIPPO_API_TOKEN` — Shippo token (`ShippoToken` auth header)
+   - `SHIP_FROM_NAME`, `SHIP_FROM_STREET1`, `SHIP_FROM_CITY`, `SHIP_FROM_STATE`, `SHIP_FROM_ZIP`, `SHIP_FROM_PHONE` — the York PA origin address (street address lives in env vars only, never committed — same privacy contract as `shipping_internal.json`)
+   - `SHIPPO_MAX_RATE_USD` (default `15`) — refusal cap: a mis-priced label fails with an admin alert instead of buying $30 postage
+   - `SHIPPO_PARCEL_WEIGHT_OZ` (default `8`) — padded mailer + wallet; calibrate after the first real weigh-in
+3. Apply the migration: `npx tsx scripts/applyMigrations.ts` (needs `SUPABASE_DB_PASSWORD` in `.env`; check state first with `--check`).
+4. Smoke test with the TEST key: `npx tsx scripts/test-buy-label.ts <order_id> --dry` (gates + rates), then without `--dry` for a real (unbilled, test-mode) label. Inspect the PDF, then flip `SHIPPO_API_TOKEN` to the live key.
+5. Non-US destinations and orders without a complete street address fail permanently with an admin alert email — labels for those are a manual flow (customs forms / address repair). Crypto and Cash App manual orders stay operator-verified as today; their labels can be bought by running `test-buy-label.ts` manually once verified.
+
+#### Cash App Pay through Stripe (instant, auto-verified)
+
+**Added 2026-09-30.** Checkout's Cash App option is now two-mode: when Stripe is enabled for the owner
+(`card_enabled`), buyers get **Cash App Pay** inside the Stripe PaymentElement — instant, charged like a
+card, auto-marked paid by the existing `payment_intent.succeeded` webhook (which also buys the shipping
+label via `services/shipping.ts`). Without Stripe, the radio falls back to the manual `$sgcoalition`
+cashtag flow (order lands pending, operator verifies).
+
+- Method added to `CHECKOUT_PAYMENT_METHOD_TYPES` (`api/_helpers.ts`) as `'cashapp'`; gated server-side
+  by the `cashapp_enabled` owner toggle (`payment_settings`) — the same toggle as the manual flow.
+- Blast radius is contained: checkout creates single-method intents, so a missing Stripe dashboard
+  toggle fails only Cash App Pay for that buyer — never the card path. `/api/health` reports
+  `checkoutMethodsMissing: ['cashapp']` until the toggle is turned on.
+- Operator: enable **Cash App** in Stripe Dashboard → Settings → Payment methods (US only), then test
+  with `pm_card_visa` style test cards or Cash App's test payment method in test mode.

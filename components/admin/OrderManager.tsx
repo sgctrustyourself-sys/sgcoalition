@@ -2,8 +2,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 import { Order } from '../../types';
-import { Search, Filter, Eye, Download, Trash2, X, Plus, ChevronLeft, ChevronRight, FileText, Gift, User, Mail, Phone, Calendar, Hash, DollarSign, CreditCard, CheckCircle, Clock, AlertCircle, WalletCards } from 'lucide-react';
+import { Search, Filter, Eye, Download, Trash2, X, Plus, ChevronLeft, ChevronRight, FileText, Gift, User, Mail, Phone, Calendar, Hash, DollarSign, CreditCard, CheckCircle, Clock, AlertCircle, WalletCards, Package } from 'lucide-react';
 import { reconcileBalancePayment } from '../../services/reconcilePayment';
+import { buyLabelForOrder } from '../../services/buyLabel';
+import { fetchShipmentStatuses, type ShipmentStatusRow } from '../../services/adminShipments';
 import ManualOrderForm from '../ManualOrderForm';
 import PaymentRecordModal from './PaymentRecordModal';
 import Invoice from '../Invoice';
@@ -19,6 +21,52 @@ import CustomerLinkModal from './CustomerLinkModal';
 // the literal placeholder strings.
 const WHOLESALE_CUSTOMER_NAME = 'Wholesale Customer';
 const WHOLESALE_BADGE_LABEL = 'WHOLESALE';
+
+const SHIPMENT_BADGE_STYLES: Record<string, string> = {
+    purchased: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30',
+    pending: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+    buying: 'bg-blue-500/10 text-blue-300 border-blue-500/30',
+    failed: 'bg-red-500/10 text-red-300 border-red-500/30',
+};
+
+const ShipmentBadge: React.FC<{ shipment: ShipmentStatusRow }> = ({ shipment }) => {
+    const cls = SHIPMENT_BADGE_STYLES[shipment.status] || SHIPMENT_BADGE_STYLES.pending;
+    if (shipment.status === 'purchased' && shipment.tracking_number) {
+        const delivered = Boolean(shipment.delivered_email_sent_at);
+        const shipped = Boolean(shipment.shipped_email_sent_at);
+        const stage = delivered ? 'delivered' : shipped ? 'in transit' : 'label ready';
+        return (
+            <span
+                className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border font-bold uppercase ${cls}`}
+                title={`${shipment.carrier || 'Carrier'} ${shipment.service || ''} — $${((shipment.rate_cents || 0) / 100).toFixed(2)}${shipment.error_reason ? ' — ' + shipment.error_reason : ''}`}
+            >
+                {shipment.tracking_url ? (
+                    <a
+                        href={shipment.tracking_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline decoration-dotted underline-offset-2 hover:text-white"
+                        onClick={(e) => e.stopPropagation()}
+                        data-testid="shipment-tracking-link"
+                    >
+                        {shipment.tracking_number}
+                    </a>
+                ) : (
+                    <span data-testid="shipment-tracking-number">{shipment.tracking_number}</span>
+                )}
+                <span className="text-[9px] opacity-70">· {stage}</span>
+            </span>
+        );
+    }
+    const label = shipment.status === 'failed'
+        ? `Label failed${shipment.error_reason ? ': ' + shipment.error_reason : ''}`
+        : shipment.status === 'buying' ? 'Label buying…' : 'Label pending';
+    return (
+        <span className={`inline-flex items-center text-xs px-2.5 py-1 rounded-lg border font-bold uppercase ${cls}`} title={shipment.error_reason || ''}>
+            {label}
+        </span>
+    );
+};
 
 const renderCustomerAttribution = (order: Order): React.ReactNode => {
     // STRICT gate: surface the chip ONLY when the privacy-anonymized customerName
@@ -59,6 +107,12 @@ const OrderManager: React.FC = () => {
     const [selectedCustomerOrder, setSelectedCustomerOrder] = useState<Order | null>(null);
     const [reconcilingOrderId, setReconcilingOrderId] = useState<string | null>(null);
     const [showPaymentModal, setShowPaymentModal] = useState<Order | null>(null);
+    const [buyingLabelFor, setBuyingLabelFor] = useState<string | null>(null);
+    // Shipment state per order (label purchased? tracking? milestone emails
+    // sent?), from the read-only /api/admin-shipments feed. Refetched when the
+    // Orders tab mounts and after every Buy Label action.
+    const [shipments, setShipments] = useState<Record<string, ShipmentStatusRow>>({});
+    const [shipmentsLoadFailed, setShipmentsLoadFailed] = useState(false);
 
     const [searchTerm, setSearchTerm] = useState(() => {
         // One-shot handoff from pages/Admin.tsx: a webhook alert email links
@@ -185,6 +239,72 @@ const OrderManager: React.FC = () => {
         }
     };
 
+    useEffect(() => {
+        let mounted = true;
+        fetchShipmentStatuses()
+            .then((rows) => {
+                if (!mounted) return;
+                const map: Record<string, ShipmentStatusRow> = {};
+                for (const r of rows) map[r.order_id] = r;
+                setShipments(map);
+            })
+            .catch((e) => {
+                console.warn('Shipment feed unavailable:', e);
+                if (mounted) setShipmentsLoadFailed(true);
+            });
+        return () => { mounted = false; };
+    }, []);
+
+    // One-click label purchase for orders the Stripe webhook does not cover
+    // (crypto, Cash App cashtag, cash, Venmo, store credit — anything the
+    // operator verifies manually). Reuses the exact production service, so the
+    // claim-row idempotency and the rate cap are identical to the automatic
+    // path; a second click can never buy a second label.
+    const canBuyLabel = (order: Order): boolean =>
+        order.paymentStatus === 'paid' && (order.paymentMethod || '').toLowerCase() !== 'stripe';
+
+    const handleBuyLabel = async (orderId: string) => {
+        setBuyingLabelFor(orderId);
+        try {
+            const result = await buyLabelForOrder(orderId);
+            if (result.outcome === 'purchased' && result.shipment) {
+                // Optimistic row update + refetch: the new shipment row lands
+                // in the feed within moments; the optimistic write covers the gap.
+                setShipments(prev => ({
+                    ...prev,
+                    [orderId]: {
+                        order_id: orderId,
+                        status: 'purchased',
+                        carrier: result.shipment!.carrier,
+                        service: result.shipment!.service,
+                        tracking_number: result.shipment!.trackingNumber,
+                        tracking_url: result.shipment!.trackingUrl,
+                        rate_cents: result.shipment!.rateCents,
+                        error_reason: null,
+                        shipped_email_sent_at: null,
+                        delivered_email_sent_at: null,
+                        updated_at: new Date().toISOString(),
+                    },
+                }));
+                addToast(`Label bought: ${result.shipment.carrier} ${result.shipment.service} — $${(result.shipment.rateCents / 100).toFixed(2)} · tracking ${result.shipment.trackingNumber}`, 'success');
+                if (result.shipment.labelUrl) window.open(result.shipment.labelUrl, '_blank', 'noopener');
+            } else if (result.outcome === 'skipped') {
+                addToast(result.reason === 'already_claimed'
+                    ? 'A label was already bought (or is being bought) for this order.'
+                    : `Label skipped: ${result.reason}.`, 'info');
+            } else if (result.outcome === 'failed') {
+                addToast(`Label failed: ${result.reason}. Fix the cause and click again, or buy manually in Shippo.`, 'error');
+            } else {
+                addToast(`Label purchase hit a transient error (${result.reason}). Click again in a moment.`, 'error');
+            }
+        } catch (err: any) {
+            console.error('Buy label failed:', err);
+            addToast(err.message || 'Failed to buy label.', 'error');
+        } finally {
+            setBuyingLabelFor(null);
+        }
+    };
+
     const handleUpdateStatus = async (orderId: string) => {
         if (!pendingStatus) return;
         setIsUpdatingStatus(true);
@@ -304,13 +424,14 @@ const OrderManager: React.FC = () => {
                                 <th className="p-4">Customer</th>
                                 <th className="p-4">Total</th>
                                 <th className="p-4">Status</th>
+                                <th className="p-4">Shipment</th>
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {filteredOrders.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="p-12 text-center text-gray-500">
+                                    <td colSpan={7} className="p-12 text-center text-gray-500">
                                         No orders found
                                     </td>
                                 </tr>
@@ -353,6 +474,11 @@ const OrderManager: React.FC = () => {
                                                 </span>
                                             )}
                                         </td>
+                                        <td className="p-4" data-testid={`shipment-cell-${order.id}`}>
+                                            {shipments[order.id]
+                                                ? <ShipmentBadge shipment={shipments[order.id]} />
+                                                : <span className="text-xs text-gray-600" title={shipmentsLoadFailed ? 'Shipment feed unavailable' : 'No label yet'}>—</span>}
+                                        </td>
                                         <td className="p-4">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
@@ -383,6 +509,21 @@ const OrderManager: React.FC = () => {
                                                             <div className="w-4 h-4 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
                                                         ) : (
                                                             <WalletCards size={16} />
+                                                        )}
+                                                    </button>
+                                                )}
+                                                {canBuyLabel(order) && (
+                                                    <button
+                                                        onClick={() => handleBuyLabel(order.id)}
+                                                        disabled={buyingLabelFor === order.id}
+                                                        className="p-2 text-cyan-400 hover:bg-cyan-500/10 rounded transition"
+                                                        title="Buy shipping label via Shippo (opens the PDF)"
+                                                        data-testid="buy-label-button"
+                                                    >
+                                                        {buyingLabelFor === order.id ? (
+                                                            <div className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+                                                        ) : (
+                                                            <Package size={16} />
                                                         )}
                                                     </button>
                                                 )}

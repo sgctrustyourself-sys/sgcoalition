@@ -35,14 +35,14 @@ async function addPartsWallet3_4() {
     const product = {
         id: 'Coalition_Parts_Wallet_3_4',
         name: "Coalition 'Parts' Wallet 3/4",
-        price: 85,
+        price: 45,
         stock: Object.values(sizeInventory).reduce((sum, count) => sum + count, 0),
         images: [
             PRODUCT_IMAGE_URLS.partsWallet3_4.front,
             PRODUCT_IMAGE_URLS.partsWallet3_4.back,
         ],
         description:
-            "Third piece of the Coalition 'Parts' limited wallet run. Hand-finished with industrial detailing, raw-edge construction, and the Coalition mark on a numbered carry. Each piece is a distinct part of the whole — built different, numbered once, gone forever.",
+            "Third piece of the Coalition 'Parts' limited wallet run. Hand-finished with industrial detailing, raw-edge construction, and the Coalition mark on a numbered carry. Each piece is a distinct part of the whole — built different, numbered once, gone forever. Priced at $45 with standard shipping included.",
         category: 'wallet',
         is_featured: false,
         is_limited_edition: true,

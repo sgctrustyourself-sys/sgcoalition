@@ -104,7 +104,13 @@ const clientFiles = () => {
         const full = path.join(projectRoot, file);
         if (fs.existsSync(full)) files.push(full);
     }
-    return files.filter((f) => !SKIP_EXTENSIONS.some((ext) => f.endsWith(ext)));
+    return files
+        .filter((f) => !SKIP_EXTENSIONS.some((ext) => f.endsWith(ext)))
+        .filter((f) => {
+            // Windows paths use backslashes; the exclusion keys are posix-style.
+            const rel = path.relative(projectRoot, f).replace(/\\/g, '/');
+            return !Object.keys(SERVER_ONLY_SERVICES).some((key) => rel === key);
+        });
 };
 
 /**
@@ -144,6 +150,20 @@ const buildSymbolUrls = (text: string) => {
  * be deleted (asserted below), so this list cannot quietly rot.
  */
 const KNOWN_BROKEN: Record<string, string> = {};
+
+/**
+ * Server-only service modules. `services/` is mostly client code, but some
+ * modules run exclusively inside serverless lambdas (imported from api/ or a
+ * top-level webhook route) — their fetches are Node-to-node, never subject to
+ * the browser policy, and their credentials (e.g. SHIPPO_API_TOKEN) must never
+ * reach a bundle the browser loads. Two honesty assertions below keep every
+ * entry true: the file must still exist and still fetch, and no client-side
+ * file may import it — the moment either changes, the module is browser code
+ * again and this exclusion has to go.
+ */
+const SERVER_ONLY_SERVICES: Record<string, string> = {
+    'services/shipping.ts': 'runs only inside the Stripe webhook lambda (api/stripe-webhook.ts -> services/shipping.ts); Shippo calls are Node-to-node',
+};
 
 // Shared constants (POLYGON_RPC_URLS and friends) are declared in constants.ts
 // and imported everywhere, so resolve against them as well as the local file.
@@ -213,5 +233,42 @@ describe('client fetch hosts are permitted by the CSP connect-src', () => {
                 `${host} is no longer fetched — delete it from KNOWN_BROKEN (${reason})`,
             ).toBe(true);
         }
+    });
+
+    it('still needs every server-only services exception', () => {
+        for (const [rel, reason] of Object.entries(SERVER_ONLY_SERVICES)) {
+            const full = path.join(projectRoot, rel);
+            expect(
+                fs.existsSync(full),
+                `${rel} is gone — delete the SERVER_ONLY_SERVICES entry (${reason})`,
+            ).toBe(true);
+            const text = fs.readFileSync(full, 'utf8');
+            const hitsSink = SINKS.some((sink) => {
+                sink.lastIndex = 0; // /g regexes carry state across .test calls
+                const hit = sink.test(text);
+                sink.lastIndex = 0;
+                return hit;
+            });
+            expect(
+                hitsSink,
+                `${rel} no longer hands a URL to a network sink — delete the SERVER_ONLY_SERVICES entry (${reason})`,
+            ).toBe(true);
+        }
+    });
+
+    it('excluded server-only services are never imported by client code', () => {
+        // If a browser component ever imports one of these modules, it IS
+        // client code again (and the bundle would carry server credentials).
+        const importerPattern = /from\s+['"][^'"]*services\/shipping(\.js)?['"]/;
+        const offenders: string[] = [];
+        for (const file of clientFiles()) {
+            if (importerPattern.test(fs.readFileSync(file, 'utf8'))) {
+                offenders.push(path.relative(projectRoot, file));
+            }
+        }
+        expect(
+            offenders,
+            `browser code imports a server-only service: ${offenders.join(', ')} — move the call server-side`,
+        ).toEqual([]);
     });
 });
