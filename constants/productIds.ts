@@ -22,6 +22,7 @@ export const PRODUCT_IDS = {
     RACING_TEAM_WALLET_3_4: 'Coalition_Racing_Team_Wallet_3_4',
     RACING_TEAM_WALLET_4_4: 'Coalition_Racing_Team_Wallet_4_4',
     CHROME_HEARTS_WALLET: 'prod_wallet_chrome_hearts',
+    GHOST_RIDERS_WALLET_1_1: 'Coalition_Ghost_Riders_After_Dark_Wallet_1_1',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -45,4 +46,5 @@ export const WHITE_BG_PRODUCT_IDS: Set<string> = new Set([
     PRODUCT_IDS.RACING_TEAM_WALLET_3_4,
     PRODUCT_IDS.RACING_TEAM_WALLET_4_4,
     PRODUCT_IDS.CHROME_HEARTS_WALLET,
+    PRODUCT_IDS.GHOST_RIDERS_WALLET_1_1,
 ]);

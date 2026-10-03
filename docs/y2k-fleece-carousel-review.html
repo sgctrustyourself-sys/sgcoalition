@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>COALITION FLEECE — Y2K carousel review</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Orbitron:wght@500;700;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0a0c; color: #fff; font-family: 'Space Grotesk', Arial, sans-serif; padding: 44px 40px 80px; }
+  h1 { font: 900 40px 'Orbitron', sans-serif; letter-spacing: -.03em; }
+  h1 span { color: #ff6a1a; }
+  .sub { margin-top: 10px; color: #b9becb; font-size: 17px; max-width: 860px; line-height: 1.55; }
+  .meta { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip { padding: 8px 16px; background: #141418; border: 2px solid #2a2a32; border-radius: 999px; font: 700 14px 'Orbitron', sans-serif; letter-spacing: .08em; }
+  .chip.hot { color: #0a0a0c; background: #ff6a1a; border-color: #ff6a1a; }
+  .grid { margin-top: 44px; display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 30px; }
+  figure { background: #141418; border: 3px solid #2a2a32; border-radius: 18px; padding: 16px; }
+  figure img { display: block; width: 100%; border-radius: 10px; }
+  figcaption { margin-top: 14px; font: 700 13px 'Orbitron', sans-serif; letter-spacing: .1em; color: #ffa14d; text-transform: uppercase; }
+  figcaption small { display: block; margin-top: 7px; font: 500 14px 'Space Grotesk', sans-serif; letter-spacing: 0; color: #b9becb; text-transform: none; }
+  .note { margin-top: 52px; padding: 26px 30px; background: #141418; border: 3px solid #ff6a1a; border-radius: 18px; }
+  .note h2 { font: 900 22px 'Orbitron', sans-serif; letter-spacing: -.02em; margin-bottom: 14px; }
+  .note p { color: #d7d7de; font-size: 16px; line-height: 1.6; max-width: 900px; }
+  .note code { background: #0a0a0c; padding: 2px 7px; border-radius: 5px; font-size: 14px; color: #ffa14d; }
+</style>
+</head>
+<body>
+  <h1>COALITION <span>FLEECE</span> — carousel review</h1>
+  <p class="sub">
+    Chrome-Y2K Instagram carousel for the Coalition Fleece Hoodie. One real product photograph
+    exists for this drop, so every slide is a crop or a reframe of that photo — nothing here
+    implies a back view or an on-body fit.
+  </p>
+  <div class="meta">
+    <span class="chip hot">$100</span>
+    <span class="chip hot">1 OF 15</span>
+    <span class="chip">S–2XL</span>
+    <span class="chip">1080 × 1350</span>
+    <span class="chip">Target post: SEP 28</span>
+  </div>
+
+  <div class="grid">
+    <figure>
+      <img src="grid-reveal/y2k-fleece-slide-1.png" alt="Slide 1 — cover">
+      <figcaption>01 — Cover<small>Chrome COALITION / FLEECE, $100, 1 of 15.</small></figcaption>
+    </figure>
+    <figure>
+      <img src="grid-reveal/y2k-fleece-slide-2.png" alt="Slide 2 — detail study">
+      <figcaption>02 — Detail study<small>“Orange on black.” Tight crop on the chest graphic.</small></figcaption>
+    </figure>
+    <figure>
+      <img src="grid-reveal/y2k-fleece-slide-3.png" alt="Slide 3 — one run only">
+      <figcaption>03 — One run only<small>1 OF 15, no reprints, $100, S–2XL.</small></figcaption>
+    </figure>
+    <figure>
+      <img src="grid-reveal/y2k-fleece-slide-4.png" alt="Slide 4 — the belief">
+      <figcaption>04 — The belief<small>Hood-and-fleece crop. TRUST YOURSELF.</small></figcaption>
+    </figure>
+    <figure>
+      <img src="grid-reveal/y2k-fleece-slide-5.png" alt="Slide 5 — shop the drop">
+      <figcaption>05 — Shop the drop<small>Price, sizes, sgcoalition.xyz/shop.</small></figcaption>
+    </figure>
+  </div>
+
+  <div class="note">
+    <h2>Before it posts</h2>
+    <p>
+      Confirm the $100 price, the S–2XL run, the live PDP, and the bio link. Add link, mention
+      and countdown stickers in-app — they are never baked into the PNGs. Copy claims for
+      "brushed interior", "cut that holds its shape", and "nothing on the back" were removed
+      because the single photo cannot support them; see
+      <code>docs/instagram-coalition-fleece-concept.md</code> for the full list and the
+      reasoning. Re-render with <code>npx tsx scripts/render-coalition-fleece-y2k.ts</code>.
+    </p>
+  </div>
+</body>
+</html>

@@ -880,5 +880,30 @@ export const INITIAL_PRODUCTS: Product[] = [
     "archivedAt": null,
     "releasedAt": null,
     "soldAt": null
+  },
+  {
+    "id": "Coalition_Ghost_Riders_After_Dark_Wallet_1_1",
+    "name": "Coalition 'Ghost Riders: After Dark' Wallet 1/1",
+    "price": 80,
+    "images": [
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/ghost-riders-wallet-front.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/ghost-riders-wallet-back.png",
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/ghost-riders-wallet-art.png?v=3"
+    ],
+    "description": "GHOST RIDERS: AFTER DARK. Hand-stitched patchwork wallet — camo and rust corduroy under green blanket stitching, the Coalition banner across one face and the skull gang riding out on the other. 1 of 1: once it's sold, it's gone forever.",
+    "category": "wallet",
+    "isFeatured": false,
+    "isLimitedEdition": true,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 1
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
   }
 ];

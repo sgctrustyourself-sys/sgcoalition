@@ -163,6 +163,13 @@ export interface DropRelease {
   dropId: string;
   /** ISO date (YYYY-MM-DD). */
   dropDate: string;
+  /**
+   * True while the release is a mid-shoot draft with no source photos yet.
+   * tests/dropRegistry.test.ts exempts these from the "source images on disk"
+   * rule (the same courtesy the newest drop group gets) until real photos land
+   * in public/images/<name>-{front,back}.png — then delete the flag.
+   */
+  awaitingPhotos?: boolean;
   spec: DropSpec;
   listing: ReleaseListing;
   copy: ReleaseCopy;
@@ -477,6 +484,8 @@ Twelve pieces, one run. When they are gone, they do not come back.
   'coalition-fleece-hoodie': {
     dropId: 'drop-2026-09-17',
     dropDate: '2026-09-17',
+    // Mid-shoot draft — no source photos exist yet (repo or storage).
+    awaitingPhotos: true,
     spec: {
       slug: 'coalition-fleece-hoodie',
 
@@ -507,8 +516,8 @@ Twelve pieces, one run. When they are gone, they do not come back.
         },
         {
           layout: 'detail',
-          headline: 'Brushed fleece, built to be worn out.',
-          body: ['Midweight fleece with a brushed interior and a cut that holds its shape.'],
+          headline: 'Washed black. Orange metal.',
+          body: ['Washed black with orange metal lettering across the chest, built to look better worn in.'],
           stickers: [{ type: 'poll', anchor: 'center-right', label: '"Hood up or down?" Up / Down' }],
         },
         {
@@ -551,19 +560,19 @@ Twelve pieces, one run. When they are gone, they do not come back.
       isLimitedEdition: true,
       isFeatured: true,
       description:
-        'Coalition Fleece Hoodie. Midweight fleece with a brushed interior and a cut that holds its shape. 15 pieces in the run, sized S–2XL.',
+        'Coalition Fleece Hoodie. Washed black with orange metal lettering across the chest, built to look better worn in. 15 pieces in the run, sized S–2XL.',
       storeImages: [],
     },
     copy: {
       igCaptionLong:
-        'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100.\n\nMidweight fleece, brushed inside, cut to hold its shape. Finished in-house. 1 of 15 in this run, sized S–2XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → sgcoalition.xyz/shop\n\n#Coalition #CoalitionFleece #BaltimoreStreetwear #TrustYourself #LimitedEdition',
+        'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100.\n\nWashed black. Orange metal across the chest. Built to look better worn in. Finished in-house. 1 of 15 in this run, sized S–2XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → sgcoalition.xyz/shop\n\n#Coalition #CoalitionFleece #BaltimoreStreetwear #TrustYourself #LimitedEdition',
       igCaptionShort:
-        'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100. 1 of 15. Sized S–2XL.\n\nWhen it\'s gone, it\'s gone.\n\n🔗 Link in bio.\n\n#Coalition #CoalitionFleece #TrustYourself #LimitedEdition #BaltimoreStreetwear',
+        'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100. 1 of 15. Washed black, orange metal. Sized S–2XL.\n\nWhen it\'s gone, it\'s gone.\n\n🔗 Link in bio.\n\n#Coalition #CoalitionFleece #TrustYourself #LimitedEdition #BaltimoreStreetwear',
       xSingle:
-        'COALITION FLEECE. Coalition Fleece Hoodie — $100. Midweight fleece, brushed inside, cut to hold its shape. 15-piece run, S–2XL. Once it\'s gone, it\'s gone. sgcoalition.xyz/shop',
+        'COALITION FLEECE. Coalition Fleece Hoodie — $100. Washed black, orange metal lettering across the chest. 15-piece run, S–2XL. Once it\'s gone, it\'s gone. sgcoalition.xyz/shop',
       xThread: [
-        'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100. Midweight fleece, brushed inside. Sized S–2XL. Once it\'s gone, it\'s gone.\n\nsgcoalition.xyz/shop',
-        '1 of 15. No reprints.\n\nWinter weight without the bulk. Our mark on the chest, nothing on the back that needs explaining.',
+        'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100. Washed black with orange metal across the chest. Sized S–2XL. Once it\'s gone, it\'s gone.\n\nsgcoalition.xyz/shop',
+        '1 of 15. No reprints.\n\nWashed black, orange lettering, and a build that looks better the more you wear it. Finished in-house.',
         'Coalition is action. Trust Yourself. 🖤',
       ],
       hashtagsCanonical: ['#Coalition', '#CoalitionFleece', '#BaltimoreStreetwear', '#TrustYourself', '#LimitedEdition'],
@@ -573,18 +582,18 @@ Twelve pieces, one run. When they are gone, they do not come back.
       postTitle: 'Coalition Fleece Hoodie',
       postSlug: 'coalition-fleece-hoodie',
       postExcerpt:
-        'Midweight fleece, brushed inside, cut to hold its shape. A 15-piece run finished in-house, sized S–2XL.',
+        'Washed black with orange metal lettering across the chest — a 15-piece run finished in-house, sized S–2XL.',
       postTags: ['drop', 'apparel', 'limited', 'fleece'],
       postBody: `
 <img src="/images/coalition-fleece-hoodie-front.png" alt="Coalition Fleece Hoodie — front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
-The hoodie we wanted to wear through a Baltimore winter: real weight, brushed inside, and a cut that keeps its shape after the wash.
+The hoodie we wanted to wear through a Baltimore winter: washed black, heavy through the body, and better looking the more it gets lived in.
 
 <h2>THE BUILD</h2>
 
 <ul>
-<li><strong>Midweight fleece</strong> with a brushed interior.</li>
-<li><strong>Our mark</strong> across the chest — nothing on the back that needs explaining.</li>
+<li><strong>Washed black</strong> — the wash is the point, not a defect.</li>
+<li><strong>Orange metal lettering</strong> across the chest.</li>
 <li><strong>Fifteen pieces</strong> in the run, sized S–2XL.</li>
 </ul>
 
@@ -606,6 +615,8 @@ Fifteen pieces, one run. When they are gone, they do not come back.
   'above-as-below-thermal': {
     dropId: 'drop-2026-09-17',
     dropDate: '2026-09-17',
+    // Mid-shoot draft — no source photos exist yet (repo or storage).
+    awaitingPhotos: true,
     spec: {
       slug: 'above-as-below-thermal',
 
@@ -724,6 +735,159 @@ Above as Below started as a tee and a pair of shorts. This is the layer for the 
 Fifteen pieces, one run. When they are gone, they do not come back.
 
 <em>Trust the process. Trust yourself.</em>
+`.trim(),
+    },
+  },
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // GHOST RIDERS: AFTER DARK — 1/1 hand-stitched patchwork wallet, $80.
+  // Drop date 2026-10-02. One piece only: sizeInventory holds one One Size
+  // unit. Store images are the two real product photos plus the drop artwork.
+  // ───────────────────────────────────────────────────────────────────────────
+  'ghost-riders-after-dark': {
+    dropId: 'drop-2026-10-02',
+    dropDate: '2026-10-02',
+    spec: {
+      slug: 'ghost-riders-after-dark',
+
+      releaseName: 'GHOST RIDERS: AFTER DARK',
+      productName: "Coalition 'Ghost Riders: After Dark' Wallet 1/1",
+
+      x: 1,
+      y: 1,
+
+      price: '$80',
+      shopUrl: 'sgcoalition.xyz/shop',
+
+      images: {
+        front: '../../public/images/ghost-riders-wallet-front.png',
+        back: '../../public/images/ghost-riders-wallet-back.png',
+      },
+
+      slides: [
+        {
+          layout: 'hero',
+          wordmark: 'COALITION',
+          headline: 'GHOST RIDERS',
+          body: ["Coalition 'Ghost Riders: After Dark' Wallet 1/1"],
+          stickers: [
+            { type: 'countdown', anchor: 'top-right', label: '⏱ Countdown → drop time' },
+            { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
+          ],
+        },
+        {
+          layout: 'detail',
+          headline: 'Stitched after dark.',
+          body: [
+            'Camo and rust corduroy patchwork under green blanket stitching — the Coalition banner on one face, the skull gang riding out on the other.',
+          ],
+          stickers: [
+            { type: 'poll', anchor: 'center-right', label: '"Banner face or skull face?" Banner / Skulls' },
+          ],
+        },
+        {
+          layout: 'scarcity',
+          eyebrow: 'ONE OF ONE',
+          headline: '1 OF 1',
+          price: '$80',
+          stickers: [
+            { type: 'countdown', anchor: 'top-right', label: '⏱ Drop time (primary urgency driver)' },
+            { type: 'poll', anchor: 'bottom-left', label: '"Run it again?" Yes / Never' },
+          ],
+        },
+        {
+          layout: 'manifesto',
+          headline: 'TRUST YOURSELF.',
+          body: ['Coalition is action. Show up.'],
+          stickers: [
+            { type: 'mention', anchor: 'bottom-right', label: '@sgcoalition mention' },
+            { type: 'emoji', anchor: 'center-left', label: '👻 Trust Yourself (emoji slider, optional)' },
+          ],
+        },
+        {
+          layout: 'cta',
+          eyebrow: 'GHOST RIDERS / WALLET 1/1',
+          headline: 'SHOP NOW',
+          url: 'sgcoalition.xyz/shop',
+          stickers: [
+            { type: 'link', anchor: 'center-right', label: 'Story → PDP conversion path' },
+            { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
+          ],
+        },
+      ],
+    },
+    listing: {
+      id: 'Coalition_Ghost_Riders_After_Dark_Wallet_1_1',
+      price: 80,
+      category: 'wallet',
+      sizes: ['One Size'],
+      sizeInventory: { 'One Size': 1 },
+      isLimitedEdition: true,
+      isFeatured: false,
+      description:
+        "GHOST RIDERS: AFTER DARK. Hand-stitched patchwork wallet — camo and rust corduroy under green blanket stitching, the Coalition banner across one face and the skull gang riding out on the other. 1 of 1: once it's sold, it's gone forever.",
+      storeImages: [
+        'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/ghost-riders-wallet-front.png',
+        'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/ghost-riders-wallet-back.png',
+        // ?v=N — the art was revised (real Coalition logo, corner fix, and the
+        // banner lettering un-mirrored to read left-to-right like the wallet);
+        // the storage URL is the same object path, so the query busts CDN/browser
+        // caches holding earlier rasters under the old cacheControl.
+        'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/ghost-riders-wallet-art.png?v=3',
+      ],
+    },
+    copy: {
+      igCaptionLong:
+        '👻 GHOST RIDERS: AFTER DARK.\n\nCoalition \'Ghost Riders: After Dark\' Wallet 1/1 — $80.\n\nHand-stitched patchwork: camo and rust corduroy under green blanket stitching. The Coalition banner across one face, the skull gang riding out on the other.\n\nOne of one. When it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → sgcoalition.xyz/shop\n\n#Coalition #GhostRiders #BaltimoreStreetwear #TrustYourself #OneOfOne',
+      igCaptionShort:
+        '👻 GHOST RIDERS: AFTER DARK.\n\nCoalition \'Ghost Riders: After Dark\' Wallet 1/1 — $80. Hand-stitched patchwork, one of one.\n\nWhen it\'s gone, it\'s gone.\n\n🔗 Link in bio.\n\n#Coalition #GhostRiders #TrustYourself #OneOfOne #BaltimoreStreetwear',
+      xSingle:
+        "👻 GHOST RIDERS: AFTER DARK. Coalition 'Ghost Riders: After Dark' Wallet 1/1 — $80. Hand-stitched patchwork: banner on one face, skull gang on the other. One of one. Once it's gone, it's gone. sgcoalition.xyz/shop",
+      xThread: [
+        "👻 GHOST RIDERS: AFTER DARK.\n\nCoalition 'Ghost Riders: After Dark' Wallet 1/1 — $80. Hand-stitched patchwork: the Coalition banner on one face, the skull gang riding out on the other.\n\nsgcoalition.xyz/shop",
+        '1 of 1. No reprints.\n\nCamo and rust corduroy under green blanket stitching, finished by hand. The only one like it — literally.',
+        'Coalition is action. Trust Yourself. 🖤',
+      ],
+      hashtagsCanonical: ['#Coalition', '#GhostRiders', '#BaltimoreStreetwear', '#TrustYourself', '#OneOfOne'],
+      hashtagsTier2: ['#Streetwear', '#Baltimore', '#1of1', '#HandStitched', '#Patchwork', '#Drops'],
+      slackOneLiner:
+        '👻 GHOST RIDERS: AFTER DARK. Coalition wallet 1/1 — $80. Hand-stitched patchwork, one of one. sgcoalition.xyz/shop',
+      postTitle: "Coalition 'Ghost Riders: After Dark' Wallet 1/1",
+      postSlug: 'coalition-ghost-riders-after-dark-wallet-1-1',
+      postExcerpt:
+        'One wallet, made once: hand-stitched camo and rust corduroy patchwork, the Coalition banner on one face and the skull gang on the other.',
+      postTags: ['drop', 'wallet', 'limited', 'ghost-riders'],
+      postBody: `
+<img src="/images/ghost-riders-wallet-front.png" alt="Coalition Ghost Riders: After Dark Wallet 1/1 — front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+
+Ghost Riders: After Dark is one wallet, made once. The front face carries the Coalition banner over rust hills; turn it over and the skull gang rides out after dark.
+
+<h2>THE BUILD</h2>
+
+<ul>
+<li><strong>Hand-stitched patchwork</strong> — camo and rust corduroy strips under green blanket stitching.</li>
+<li><strong>Two faces</strong> — the Coalition banner on one, the skull gang riding out on the other.</li>
+<li><strong>One of one</strong> — one piece, made once, no reprint.</li>
+</ul>
+
+<img src="/images/ghost-riders-wallet-back.png" alt="Coalition Ghost Riders: After Dark Wallet 1/1 — back" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+
+<h2>THE ART</h2>
+
+The Ghost Riders: After Dark artwork — the same scene, drawn in the wallet's own colors.
+
+<img src="/images/ghost-riders-wallet-art.png" alt="Ghost Riders: After Dark artwork" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+
+<h2>THE RUN</h2>
+
+One piece. When it is gone, it does not come back.
+
+<em>Trust the process. Trust yourself.</em>
+
+<div style="text-align:center; margin:40px 0 8px;">
+<img src="/images/ghost-riders-buy-qr.png" alt="Scan to shop the Ghost Riders: After Dark wallet" style="width:244px; height:244px; background:#ffffff; padding:12px; border-radius:16px; display:inline-block;" />
+<p style="margin-top:14px; font-weight:700; letter-spacing:.08em;">SCAN TO SHOP — ONE OF ONE, $80</p>
+</div>
 `.trim(),
     },
   },

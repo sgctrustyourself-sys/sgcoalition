@@ -1,0 +1,10 @@
+{
+  "name": "reel-pink",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "npx --yes hyperframes@0.8.85 check",
+    "snapshot": "npx --yes hyperframes@0.8.85 snapshot",
+    "render": "npx --yes hyperframes@0.8.85 render"
+  }
+}

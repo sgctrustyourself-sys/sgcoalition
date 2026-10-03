@@ -49,7 +49,44 @@ npm run story:reveal -- --slug grey-wave && npm run grid:reveal -- --slug grey-w
 
 > **Always edit `drop-kit*` and `drop-copy*` together.** Both files share identical `{{ }}` placeholders, the same drop date, and the same hashtag bank. The storyboard updates independently when the visual flow changes.
 
-### Template placeholders (carry across future drops)
+### The registry replaced the token pass (2026-09-17)
+
+`scripts/story-reveal-specs/drops.ts` is now the single owner of every drop. It holds one entry
+per release with the render spec, the storefront listing and the copy deck, and every consumer
+reads that entry:
+
+| Consumer | Reads | Produces |
+|---|---|---|
+| `scripts/render-story.ts` | `spec` | social PNGs at 1080×1920 / 1080×1350 / 1200×628 |
+| `scripts/generateDropDocs.ts` | `spec` + `copy` | this trio, plus the registry row |
+| `scripts/upsertDropProduct.ts` | `listing` | the Supabase products row, then reseeds `constants/products.ts` |
+| `scripts/generateDropPost.ts` | `copy.post*` | the `drop`-category blog post |
+| Marketing tab (`/admin?tab=marketing`) | `dropId` grouping | one campaign per drop day |
+
+**How to start a new drop now**
+
+1. **Add one entry** to `scripts/story-reveal-specs/drops.ts` (slug, 5 slides, listing, copy deck).
+   There are no `{{ }}` tokens to replace any more.
+2. **Add the photos** at `public/images/<slug>-{front,back}.png`. The renderer refuses to render
+   without them — previously it emitted slides with an empty image well and no error.
+3. **Generate the trio + ledger row:** `npm run drop:docs -- --slug <slug> --confirm`.
+4. **Render:** `npm run drop:render -- --slug <slug>` (Stories + Grid + X in one command).
+5. **Publish the storefront row:** `npm run drop:assets -- --slug <slug> --confirm`, then
+   `npm run drop:list -- --slug <slug> --confirm`. The row is written only when every image URL
+   actually resolves.
+6. **Publish the editorial post:** `npm run drop:post -- --slug <slug> --confirm`.
+7. **Send the email** from the Marketing tab (`/admin?tab=marketing`) — one campaign per drop day,
+   covering every release that shares its `dropId`.
+8. **Walk the reviewer checklist** in the generated storyboard HTML before pressing publish.
+
+Every number is computed, never typed twice: the poster price, the `X OF Y` scarcity line and the
+run size all come from the same entry the PDP is written from. `tests/dropRegistry.test.ts` fails
+the suite if they ever disagree, if a release is missing slides, or if a shipped drop's source
+images are not in the repo.
+
+---
+
+### LEGACY — template placeholders (the retired hand-`sed` workflow)
 
 | Token | What it controls |
 |---|---|
@@ -63,7 +100,9 @@ npm run story:reveal -- --slug grey-wave && npm run grid:reveal -- --slug grey-w
 | `{{manifesto_headline}}` / `{{manifesto_subtext}}` | Story 4 copy |
 | `{{shop_url}}` | Link sticker URL on Story 5 |
 
-### How to start a new drop from this trio
+### LEGACY: how the trio was cloned before the registry
+
+Kept for the hand-authored Grey Wave documents only. New drops use the registry flow above.
 
 1. **Clone the trio** into `docs/drop-{kit,copy,storyboard}-{slug}-{x}-{y}.*` (e.g., `docs/drop-kit-ironclad-1-2.md`).
 2. **Find + replace** every `{{ }}` token in BOTH the kit and the copy doc with the new drop's specifics. **Never edit one without the other.**

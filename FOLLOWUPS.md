@@ -160,6 +160,13 @@ Not blocking; do when bundle slices accumulate.
 | 13 | Clear `d3-color` (needs a d3 v3 `overrides` decision) | Maintainer | n/a (code) | 30 min |
 | 14 | Real-payment QA: card + store credit + coupon (audit item #4) | Operator | Stripe + Supabase + inbox | 15 min |
 | 15 | Create the Deployment Protection bypass secret so CI can smoke a preview (see §15) | Operator | Vercel + GitHub secrets | 5 min |
+| 16 | Re-export product photos at ≥1200x630 so product shares stop rendering as small previews (see §16) | Operator | Supabase Storage / image export | 1 h |
+| 18 | Give the remaining non-sitemap routes (`/custom-wallets`, `/blog`, `/profile`) their own share cards, or accept the generic card (see §16) | Maintainer | n/a (code) | 30 min |
+| 17 | Decide whether the build should read Supabase inventory, so a prerendered product page can't advertise `InStock` for a sold-out piece (see §16) | Maintainer | n/a (code) | 1 h |
+| 19 | Add the three new designs' photos + upload them, then run the drop pipeline (see §19) | Operator | Tapstitch → `public/images` → Supabase | 30 min |
+| 20 | Send the three-drop campaign from `/admin?tab=marketing` once the listings are live (see §19) | Operator | Resend + admin UI | 10 min |
+| 21 | Install `twilio` + `TWILIO_*` env if SMS campaigns are wanted (email works without it; the SMS leg records a per-recipient failure today) | Operator | Vercel env + package.json | 20 min |
+| 22 | Add a service-role endpoint if per-contact unsubscribe from the Marketing tab is wanted (it was removed rather than shipped broken — see §19) | Maintainer | n/a (code) | 45 min |
 
 ---
 
@@ -296,3 +303,59 @@ Owns `ADMIN_TOKEN_KEY` / `ADMIN_MODE_KEY`, `getAdminToken()`, `getAdminAuthHeade
 ### The invariants that keep it that way
 
 `tests/securityInfrastructureReadiness.test.ts` asserts: no handler defines `getBearerToken` / `isAuthorized` / `isAdminRequest`; no handler reads `process.env.ADMIN_*`; `git-operations` exports through `withAdminAuth`; `send-email` keeps its deliberate 403 allowance. `tests/serverlessImports.test.ts` (pre-existing) enforces the `.js` extension convention in serverless-reachable dirs — it caught a real miss during this pass.
+
+---
+
+## §16. Search + social presentation (2026-09-16)
+
+Every sitemap route now serves its own title, description, canonical and JSON-LD. This pass audited what crawlers and link scrapers actually receive, and fixed the share block.
+
+**The share cards.** The site shared `/hero-cinematic.png` from every route: a 1024x1024 **JPEG named `.png`**, served as `image/png`. X, Facebook, LinkedIn and Slack therefore all rendered a small square thumbnail instead of a full-width card, the declared size (which is what switches them to the large layout) was absent, and all ten routes unfurled identically.
+
+`scripts/generateOgCard.mjs` now renders `public/og/card.jpg` (the generic brand card) plus one card per prerendered route, `public/og/<route>.jpg` — real 1200x630 JPEGs: brand-black plate, accent bar, the route's `cardTitle` set as the headline, the brand tagline and the domain, with the hero artwork panel on the right. Each card is referenced with `og:image:width`/`height`/`alt`, `twitter:image:alt` and `og:locale`.
+
+Ownership: the route list (`STATIC_ROUTES` in `scripts/generateSeoArtifacts.mjs`) owns `cardTitle`, and the generator fails if a route has none. The browser cannot import that script (it pulls in `node:fs`), so the runtime equivalent is `SHARE_CARD_ROUTES` + `shareCardImage()` in `utils/seo.ts` — an allowlist, not a `/og<path>.jpg` template, because a blind path hands every route without a card a URL that 404s and unfurls as no image at all. `components/Seo.tsx` resolves the card from the route itself, so pages cannot forget one; `tests/seoMeta.test.ts` pins the two lists equal, compares the runtime and prerenderer path rules over the same inputs, and fails if a static route ships without a committed 1200x630 JPEG under 400 kB.
+
+The script is run by hand and its output committed on purpose: sharp is a devDependency and a production install must never need it to build. Re-run it when `hero-cinematic.png` or a `cardTitle` changes — it measures each headline's real ink box (scanning pixels rather than using `trim()`, which anchors on the top-left pixel and therefore "fits" every candidate) and throws rather than shipping a headline that would collide with the artwork panel.
+
+**Search copy rules** (in `utils/seo.ts`, mirrored in the generator, pinned by `tests/seoMeta.test.ts`):
+
+- A product title longer than 45 characters drops the ` | Coalition` suffix instead of overflowing the ~60-character result limit and being cut mid-name.
+- A description under 45 characters is replaced with a sentence built only from asserted fields (name, category, limited-edition flag) — one catalog row was shipping "Available now. $85." as its whole snippet. It never calls a numbered piece a one-of-one.
+- Backslash escape remnants from catalog copy ("3D puff \ lettering") are stripped instead of appearing in a snippet.
+- Prerendered availability now honours stock, not just `archived`/`soldAt`, matching `getProductAvailability`.
+- `replaceOrInsertMeta` uses function replacements; a description containing `$&` or `$50` was previously subject to `$`-substitution semantics.
+
+**Not fixed, deliberately:**
+
+- **Product share images are too small.** 30/30 product pages share the storage photo directly (no local copies), and sampling them gives 1024x1024, 640x640 and 500x500 — below the 1200x630 Facebook/LinkedIn want for a full-width preview (X still renders its large card). Declaring dimensions we cannot verify per product would be worse than declaring none, so product pages emit `og:image:alt` only. The real fix is re-exporting the photos at ≥1200x630 (item 16); Supabase's `/render/image/...?width=1200&height=630&resize=cover` endpoint does answer (verified, 1024x630 for a 1024 source) and is the other option if a smaller crop is acceptable.
+- **Prerendered availability can still be stale.** The build reads `constants/products.ts`; production reads Supabase. A product that sells out in the DB while the local catalog still has stock keeps a prerendered `InStock` until the next sync-constants commit (item 17).
+- **Nine of the thirty product share images are WebP.** It works on X/Facebook/LinkedIn today; WhatsApp and some older unfurlers are the risk. Migrating those storage objects to JPEG is a media task.
+- The homepage has no `robots` meta, unlike every prerendered route (which the generator writes as `index,follow`). Default behaviour is identical, so it was left alone rather than adding a tag that changes nothing.
+
+---
+
+## §19. Drop content pipeline + the restored Marketing tab (2026-09-17)
+
+The repo already had a working drop-content renderer (`scripts/render-story.ts` → 1080×1920 Story / 1080×1350 grid / 1200×628 X PNGs), but a new drop meant cloning a docs trio, `sed`-ing nine `{{tokens}}` across three documents by hand, and cloning a per-product Supabase script. This pass made that data-driven and used it for three new designs.
+
+**One owner for drop data.** `scripts/story-reveal-specs/drops.ts` holds one entry per release — render spec (5 slides), storefront listing, copy deck — and every consumer reads it: the renderer, `generateDropDocs.ts` (trio + ledger row), `upsertDropProduct.ts` (products row, then reseeds `constants/products.ts` via the existing `syncProducts.ts`), `generateDropPost.ts` (the `drop` blog post), and `dropId` grouping for the email. `scripts/story-reveal-specs/grey-wave.ts` is deleted; `loadSpec` resolves from the registry and errors with the known-slug list.
+
+**Verified behavior:**
+
+- `npm run drop:render -- --slug grey-wave` rendered 14 PNGs across all three formats from the registry (previously 3 separate commands per drop). The output was measured, not assumed: the Story slide's centre band reads mean 164 / stdev 64 and the X card mean 51 / stdev 95 — real composited artwork, not a black frame.
+- The renderer now refuses to start when a release's source PNGs are missing (it used to emit slides with an empty image well and no error). Verified against the three new designs, which have no photos yet.
+- `npm run drop:list` (dry run) HEAD-checks every image URL and refuses a write it cannot back with images — the three new releases correctly report `drop:assets` as the next step.
+- `tests/dropRegistry.test.ts` (15 tests) pins the cross-surface agreements: exactly 5 slides in hero→cta order, poster price == listing price, the claimed `X OF Y` == inventory actually held, sizes == sizeInventory keys, platform char limits, no unresolved `{{tokens}}` in generated docs, and source images present for every SHIPPED drop (the newest group is exempt — photos arrive while a drop is in flight).
+
+**The Marketing tab is restored.** `api/_handlers/marketing-send.ts`, `api/_handlers/marketing-optout.ts`, `utils/marketingAudience.ts`, `tests/marketingAudience.test.ts` and `components/admin/MarketingManager.tsx` were deleted in `8b1a6f7` (232 commits back) while README still documented them. All recovered from that commit and ported: `withAdminAuth` from `api/_adminAuth.ts`, the Resend client from the canonical `api/_services.ts` owner, `.js` extensions on cross-directory imports, and both routes registered in `api/[...slug].ts` (plus their classification in `tests/securityInfrastructureReadiness.test.ts`).
+
+Three real defects surfaced while porting, each fixed rather than inherited:
+
+1. **The audience screen was a privileged-empty read.** It queried `subscribe_emails` / `marketing_contacts` / `orders` straight from the browser, but those tables are RLS-gated to Supabase-authenticated `admin_users` while the admin session is a bare shared secret — so the list came back empty next to a send that reached everyone. `api/_marketingAudience.ts` now owns the reachable-audience union once, and BOTH `/api/marketing-send` and `/api/marketing-stats` read it, so the count on screen is the count that receives the campaign. Both UI views read that endpoint instead of the tables.
+2. **The unsubscribe link in every marketing email 404'd.** `/api/marketing-optout` was deleted in the same sweep, but the live `marketing-subscribe` confirmation email still links to it. Restored (GET by token, POST validated by Twilio signature) and routed.
+3. **`twilio` is not a dependency.** A static import would have broken the handler's load for EMAIL campaigns too, and the dynamic import would have thrown at send time. It now degrades loudly: per-recipient `failed` rows with the real reason, and the campaign reports `partial`/`failed` rather than success.
+
+**Removed rather than shipped broken:** the per-row unsubscribe button. Suppressing one contact writes to the same RLS-protected tables, so it would have failed silently in production. Each email carries a working one-click link, and the audience table exports to CSV for dashboard-side suppression (item 22 if the button is wanted back).
+
+**Not done / still open:** the three designs' photos (Tapstitch → `public/images/<slug>-{front,back}.png`) do not exist, so no slides, listings or posts have been published for them; prices, sizes and run sizes in the registry are drafts to be corrected in that ONE file; SMS needs `twilio` installed; and nothing here is committed.
