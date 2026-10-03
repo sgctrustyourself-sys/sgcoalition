@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Clock, MapPin, Activity, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -6,7 +6,16 @@ import { useApp } from '../context/AppContext';
 import LiveMap from '../components/LiveMap';
 import StateLeaderboard from '../components/StateLeaderboard';
 import DropCountdown from '../components/DropCountdown';
+import Seo from '../components/Seo';
+import { buildOrganizationJsonLd, buildWebPageJsonLd, structuredDataGraph } from '../utils/structuredData';
 import { buildLiveOrdersFeed, type LiveOrdersTimeRange } from '../utils/liveOrdersFeed';
+
+// Mirrors the /live-orders entry in STATIC_ROUTES
+// (scripts/generateSeoArtifacts.mjs) — the prerendered head and this route
+// must describe the page the same way.
+const LIVE_ORDERS_TITLE = 'Coalition | Recently Ordered';
+const LIVE_ORDERS_DESCRIPTION =
+    'A live feed of real Coalition orders moving across the country — recently ordered pieces, updated as they ship.';
 
 interface SummaryCardProps {
     label: string;
@@ -95,8 +104,29 @@ const LiveOrdersMap = () => {
         },
     ];
 
+    // Brand entity + this page. The map is fed by public order data (state-level
+    // only), so the graph describes the page and its publisher, nothing per-customer.
+    const jsonLd = useMemo(
+        () =>
+            structuredDataGraph([
+                buildOrganizationJsonLd(),
+                buildWebPageJsonLd({
+                    path: '/live-orders',
+                    name: LIVE_ORDERS_TITLE,
+                    description: LIVE_ORDERS_DESCRIPTION,
+                }),
+            ]),
+        []
+    );
+
     return (
         <div className="min-h-screen bg-black px-4 py-12 text-white selection:bg-purple-500/30">
+            <Seo
+                title={LIVE_ORDERS_TITLE}
+                description={LIVE_ORDERS_DESCRIPTION}
+                canonicalPath="/live-orders"
+                jsonLd={jsonLd}
+            />
             <div className="mx-auto max-w-7xl">
                 {/* Header */}
                 <div className="mb-8 flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">

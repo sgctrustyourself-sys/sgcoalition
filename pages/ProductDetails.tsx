@@ -453,6 +453,10 @@ const ProductDetails = () => {
                 title={productSeo.title}
                 description={productSeo.description}
                 image={productSeo.image}
+                // The share image is the product photo, so the alt has to come from
+                // the same rule the prerenderer uses (getProductSeo) — without it
+                // hydration would replace the served alt with the generic fallback.
+                imageAlt={productSeo.imageAlt}
                 type="product"
                 canonicalPath={productSeo.path}
                 jsonLd={productJsonLd}

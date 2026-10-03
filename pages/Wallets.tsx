@@ -5,6 +5,7 @@ import { Sparkles, ArrowRight, Wallet as WalletIcon, Scissors, Stamp, Package, C
 import { useApp } from '../context/AppContext';
 import Seo from '../components/Seo';
 import { PRODUCT_IDS, WHITE_BG_PRODUCT_IDS } from '../constants/productIds';
+import { buildOrganizationJsonLd, buildWebPageJsonLd, structuredDataGraph } from '../utils/structuredData';
 
 const FEATURES = [
     {
@@ -41,6 +42,20 @@ const FEATURES = [
 
 const FEATURED_WALLET_ID = PRODUCT_IDS.FEATURED_WALLET;
 
+// Mirrors the /wallets entry in STATIC_ROUTES (scripts/generateSeoArtifacts.mjs)
+// and the graph that script writes into dist/wallets/index.html.
+const WALLETS_PAGE_TITLE = 'Coalition | Premium Wallets';
+const WALLETS_PAGE_DESCRIPTION =
+    'Hand-built, one-of-one, full-grain leather wallets. Made in-house, drop by drop \u2014 no factory, no shortcuts, just the process.';
+const WALLETS_PAGE_LD = structuredDataGraph([
+    buildOrganizationJsonLd(),
+    buildWebPageJsonLd({
+        path: '/wallets',
+        name: WALLETS_PAGE_TITLE,
+        description: WALLETS_PAGE_DESCRIPTION,
+    }),
+]);
+
 const Wallets = () => {
     const { products, productionState } = useApp();
 
@@ -62,9 +77,10 @@ const Wallets = () => {
     return (
         <div className="min-h-screen bg-black text-white py-12 px-4 selection:bg-brand-accent/30">
             <Seo
-                title="Premium Wallets"
-                description="Hand-built, one-of-one, full-grain leather wallets. Made in-house, drop by drop \u2014 no factory, no shortcuts, just the process."
+                title={WALLETS_PAGE_TITLE}
+                description={WALLETS_PAGE_DESCRIPTION}
                 canonicalPath="/wallets"
+                jsonLd={WALLETS_PAGE_LD}
             />
             <div className="max-w-6xl mx-auto">
                 {/* Back */}

@@ -7,8 +7,17 @@ import ProductCardSkeleton from '../components/ProductCardSkeleton';
 import Seo from '../components/Seo';
 import Newsletter from '../components/Newsletter';
 import { buildItemListJsonLd } from '../utils/seo';
+import { buildOrganizationJsonLd, buildWebPageJsonLd, structuredDataGraph } from '../utils/structuredData';
 import { Product } from '../types';
 import { sortByNewest } from '../utils/storefront';
+
+// Mirrors the /shop entry in STATIC_ROUTES (scripts/generateSeoArtifacts.mjs).
+// The page must supply the whole graph, not just the ItemList: <Seo> deletes the
+// prerendered JSON-LD before injecting its own, so whatever this file omits is
+// gone from the hydrated DOM.
+const SHOP_PAGE_TITLE = 'Coalition | Shop Streetwear Drops';
+const SHOP_PAGE_DESCRIPTION =
+    'Shop Coalition streetwear drops, limited wallets, tees, hats, and archive-ready pieces from Baltimore.';
 
 // Detect women's products via the `gender` field, with an ID/name fallback
 // for products missing the field (e.g., Supabase rows that pre-date the
@@ -68,11 +77,19 @@ const Shop = () => {
     const categories = ['all', 'women', 'men', 'apparel', 'shirts', 'jeans', 'shorts', 'sweatshirt', 'dresses', 'wallets', 'hats'];
     const allSizes = Array.from(new Set(products.flatMap(p => p.sizes || []))) as string[];
     const shopJsonLd = React.useMemo(
-        () => buildItemListJsonLd(
-            products.filter(product => !product.archived),
-            'Coalition Shop',
-            '/shop'
-        ),
+        () => structuredDataGraph([
+            buildOrganizationJsonLd(),
+            buildWebPageJsonLd({
+                path: '/shop',
+                name: SHOP_PAGE_TITLE,
+                description: SHOP_PAGE_DESCRIPTION,
+            }),
+            buildItemListJsonLd(
+                products.filter(product => !product.archived),
+                'Coalition Shop',
+                '/shop'
+            ),
+        ]),
         [products]
     );
 
@@ -153,8 +170,8 @@ const Shop = () => {
     return (
         <>
             <Seo
-                title="Shop Streetwear Drops"
-                description="Shop Coalition streetwear drops, limited wallets, tees, hats, and archive-ready pieces from Baltimore."
+                title={SHOP_PAGE_TITLE}
+                description={SHOP_PAGE_DESCRIPTION}
                 canonicalPath="/shop"
                 jsonLd={shopJsonLd}
             />

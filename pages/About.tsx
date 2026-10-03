@@ -11,8 +11,12 @@ import { BlogPost } from '../types';
 import { blogFallbackPosts, normalizeBlogRows, filterBlogPostsByCategory } from '../data/blogPosts';
 import Newsletter from '../components/Newsletter';
 import Seo from '../components/Seo';
-import { ABOUT_PAGE_TITLE, ABOUT_PAGE_DESCRIPTION, BRAND_SAME_AS_LINKS } from '../constants';
-import { SITE_NAME } from '../utils/seo';
+import { ABOUT_PAGE_TITLE, ABOUT_PAGE_DESCRIPTION } from '../constants';
+import {
+    buildAboutPageJsonLd,
+    buildOrganizationJsonLd,
+    structuredDataGraph,
+} from '../utils/structuredData';
 
 // safeDate is duplicated from pages/Blog.tsx so the About page is self-
 // contained (no cross-page util import — the about page renders the same
@@ -122,42 +126,22 @@ const AboutRecentPosts: React.FC = () => {
     );
 };
 
-// JSON-LD AboutPage structured data so the React route matches the
-// structured-data graph of the static about.html mirror (both include
-// the expanded sameAs array). Dumped as dangerouslySetInnerHTML so React
-// doesn't escape the JSON. Crawlers running JS on /about now see the
-// same Organization sameAs signal as the no-JS /about.html mirror.
-// `@id` is the canonical ENTITY identifier (vs `url` which is the page URL).
-// Crawlers identity-match via @id, so a future BlogPosting or BreadcrumbList node
-// that references this AboutPage will dedupe to the same entity graph node
-// (corresponding @id on the static /about.html mirror keeps both surfaces locked).
-// description + sameAs are sourced from constants.ts so this structured-data
-// graph stays in lock-step with public/about.html (which mirrors the same
-// values — see ABOUT_PAGE_TITLE / ABOUT_PAGE_DESCRIPTION / BRAND_SAME_AS_LINKS).
-const ABOUT_PAGE_LD = {
-    '@context': 'https://schema.org',
-    '@id': 'https://sgcoalition.xyz/about',
-    '@type': 'AboutPage',
-    name: `About ${SITE_NAME}`, // derives from SITE_NAME (utils/seo.ts) so the brand name stays in lock-step with ABOUT_PAGE_TITLE
-    description: ABOUT_PAGE_DESCRIPTION,
-    url: 'https://sgcoalition.xyz/about',
-    mainEntity: {
-        '@type': 'Organization',
-        name: 'Coalition',
-        description: 'Premium streetwear brand born in Baltimore. Quality, community, and the hustle.',
-        url: 'https://sgcoalition.xyz',
-        logo: 'https://sgcoalition.xyz/images/logo.png',
-        sameAs: [...BRAND_SAME_AS_LINKS],
-    },
-};
+// /about structured data: the shared brand Organization node (@id) plus the
+// AboutPage that references it, so a crawler dedupes both surfaces to one
+// entity instead of reading a per-page copy of the brand. Both nodes come from
+// utils/structuredData.ts — the single owner of the JSON-LD graph — and
+// scripts/generateSeoArtifacts.mjs mirrors the same builders into
+// dist/about/index.html, so the raw HTML carries the graph before React runs.
+// Built once at module scope so <Seo>'s head effect keeps a stable identity.
+const ABOUT_PAGE_LD = structuredDataGraph([buildOrganizationJsonLd(), buildAboutPageJsonLd()]);
 
 const Story = () => {
     return (
         <div className="bg-white w-full overflow-hidden">
-            {/* Title + description + canonical + JSON-LD must mirror public/about.html. */}
-            {/* All three SEO strings are sourced from constants.ts (ABOUT_PAGE_TITLE / */}
-            {/* ABOUT_PAGE_DESCRIPTION / BRAND_SAME_AS_LINKS) so a single edit propagates. */}
-            {/* Seo injects + cleans up the JSON-LD via `data-seo-jsonld="true"`. */}
+            {/* Title + description come from constants.ts (ABOUT_PAGE_TITLE /
+                ABOUT_PAGE_DESCRIPTION) so one edit propagates; the JSON-LD graph
+                comes from utils/structuredData.ts. Seo injects + cleans up the
+                JSON-LD via `data-seo-jsonld="true"`. */}
             <Seo
                 title={ABOUT_PAGE_TITLE}
                 description={ABOUT_PAGE_DESCRIPTION}

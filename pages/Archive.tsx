@@ -4,7 +4,15 @@ import { useApp } from '../context/AppContext';
 import { Calendar, Package, Clock, ArrowUpRight } from 'lucide-react';
 import Seo from '../components/Seo';
 import { buildItemListJsonLd } from '../utils/seo';
+import { buildOrganizationJsonLd, buildWebPageJsonLd, structuredDataGraph } from '../utils/structuredData';
 import { sortArchivedProducts } from '../utils/archiveSort';
+
+// Mirrors the /archive entry in STATIC_ROUTES (scripts/generateSeoArtifacts.mjs).
+// The whole graph is supplied here because <Seo> removes the prerendered
+// JSON-LD before injecting its own — anything omitted is lost after hydration.
+const ARCHIVE_PAGE_TITLE = 'Coalition | Archive';
+const ARCHIVE_PAGE_DESCRIPTION =
+    'Explore the Coalition archive of sold-out drops, 1/1 customs, limited wallets, and past releases.';
 
 const Archive: React.FC = () => {
     const { products } = useApp();
@@ -18,7 +26,15 @@ const Archive: React.FC = () => {
         [products]
     );
     const archiveJsonLd = React.useMemo(
-        () => buildItemListJsonLd(archivedProducts, 'Coalition Archive', '/archive'),
+        () => structuredDataGraph([
+            buildOrganizationJsonLd(),
+            buildWebPageJsonLd({
+                path: '/archive',
+                name: ARCHIVE_PAGE_TITLE,
+                description: ARCHIVE_PAGE_DESCRIPTION,
+            }),
+            buildItemListJsonLd(archivedProducts, 'Coalition Archive', '/archive'),
+        ]),
         [archivedProducts]
     );
 
@@ -34,8 +50,8 @@ const Archive: React.FC = () => {
     return (
         <>
             <Seo
-                title="Archive"
-                description="Explore the Coalition archive of sold-out drops, 1/1 customs, limited wallets, and past releases."
+                title={ARCHIVE_PAGE_TITLE}
+                description={ARCHIVE_PAGE_DESCRIPTION}
                 canonicalPath="/archive"
                 jsonLd={archiveJsonLd}
             />

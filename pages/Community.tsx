@@ -6,6 +6,7 @@ import LiveOrdersTicker from '../components/LiveOrdersTicker';
 import Seo from '../components/Seo';
 import { BRAND_SAME_AS_LINKS } from '../constants';
 import { SITE_NAME } from '../utils/seo';
+import { buildOrganizationJsonLd, buildWebPageJsonLd, structuredDataGraph } from '../utils/structuredData';
 
 // Conditional Discord widget iframe. Operator flips COMMUNITY_DISCORD_WIDGET_ID
 // to a real server snowflake to enable live embed without code changes.
@@ -13,6 +14,20 @@ const COMMUNITY_DISCORD_WIDGET_ID = '';
 
 const COMMUNITY_PAGE_TITLE = `Community | ${SITE_NAME} | Built in Baltimore, by hand`;
 const COMMUNITY_PAGE_DESCRIPTION = 'Join the Coalition community — Discord, Instagram, X, YouTube, and the buyer log. Real conversations, real orders, real builds.';
+
+// /community structured data: the brand Organization — this page is the hub for
+// the exact sameAs profiles the node lists — plus this page. Built from
+// utils/structuredData.ts, which scripts/generateSeoArtifacts.mjs mirrors into
+// dist/community/index.html. Module scope keeps the node identity stable so
+// <Seo>'s head effect runs once.
+const COMMUNITY_PAGE_LD = structuredDataGraph([
+  buildOrganizationJsonLd(),
+  buildWebPageJsonLd({
+    path: '/community',
+    name: COMMUNITY_PAGE_TITLE,
+    description: COMMUNITY_PAGE_DESCRIPTION,
+  }),
+]);
 
 const DiscordWidgetEmbed = () => {
   if (!COMMUNITY_DISCORD_WIDGET_ID) {
@@ -56,7 +71,12 @@ const CHANNELS = [
 
 const Community = () => (
   <div className="bg-[#050505] text-white min-h-screen font-sans selection:bg-orange-500/30 overflow-x-hidden">
-    <Seo title={COMMUNITY_PAGE_TITLE} description={COMMUNITY_PAGE_DESCRIPTION} canonicalPath="/community" />
+    <Seo
+      title={COMMUNITY_PAGE_TITLE}
+      description={COMMUNITY_PAGE_DESCRIPTION}
+      canonicalPath="/community"
+      jsonLd={COMMUNITY_PAGE_LD}
+    />
     <div className="fixed inset-0 pointer-events-none z-0">
       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-600/5 via-transparent to-orange-600/5 blur-[120px]" />
     </div>
