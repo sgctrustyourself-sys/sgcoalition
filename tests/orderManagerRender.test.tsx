@@ -890,3 +890,106 @@ describe('OrderManager wholesale badge render', () => {
         expect(emptyCell!.textContent!.trim()).toBe('—');
     });
 });
+
+describe('OrderManager order age (stale pendings visible without the audit)', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    // Relative dates so the assertions hold on any run day: 90d paid (history,
+    // never stale), 45d pending (past STALE_PENDING_DAYS), 2d pending (still
+    // a checkout in flight). Cutoff semantics live in utils/orderAge.ts and
+    // are shared with tests/soldYetBuyableAudit.test.ts.
+    const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
+    const AGE_ITEMS = [{ productName: 'Wallet', productImage: '/w.png', selectedSize: 'One Size', quantity: 1, total: 45 }];
+    const AGE_ORDERS: TestOrder[] = [
+        {
+            id: 'age-oldpaid', orderNumber: 'SG-AGE-OLDPAID',
+            customerName: 'Oldie', customerEmail: 'oldie@x.com',
+            paymentMethod: 'stripe', paymentStatus: 'paid',
+            orderType: 'online', total: 45, subtotal: 45,
+            items: AGE_ITEMS, createdAt: daysAgo(90),
+        },
+        {
+            id: 'age-stale', orderNumber: 'SG-AGE-STALE',
+            customerName: 'Stella', customerEmail: 'stella@x.com',
+            paymentMethod: 'cashapp', paymentStatus: 'pending',
+            orderType: 'online', total: 45, subtotal: 45,
+            items: AGE_ITEMS, createdAt: daysAgo(45),
+        },
+        {
+            id: 'age-fresh', orderNumber: 'SG-AGE-FRESH',
+            customerName: 'Fritz', customerEmail: 'fritz@x.com',
+            paymentMethod: 'cashapp', paymentStatus: 'pending',
+            orderType: 'online', total: 45, subtotal: 45,
+            items: AGE_ITEMS, createdAt: daysAgo(2),
+        },
+    ];
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockSupabase.setOutcomes([]);
+        localStorage.clear();
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        shipmentFeedMocks.fetchShipmentStatuses.mockResolvedValue([]);
+        vi.mocked(useApp).mockReturnValue({
+            orders: AGE_ORDERS,
+            updateOrderStatus: vi.fn().mockResolvedValue(undefined),
+            deleteOrder: vi.fn().mockResolvedValue(undefined),
+        });
+        container = document.createElement('div');
+        document.body.appendChild(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => { root.unmount(); });
+        if (container.parentNode === document.body) document.body.removeChild(container);
+        vi.restoreAllMocks();
+    });
+
+    const ageIn = (orderNumber: string) => {
+        const row = Array.from(container.querySelectorAll('tbody tr')).find((tr) =>
+            (tr.textContent || '').includes(orderNumber),
+        );
+        return row?.querySelector('[data-testid="order-age"]') ?? null;
+    };
+
+    it('AGE_PER_ROW: every row carries its age next to the date', async () => {
+        await act(async () => { root.render(createElement(OrderManager)); });
+
+        expect(ageIn('SG-AGE-OLDPAID')?.textContent).toBe('90d');
+        expect(ageIn('SG-AGE-STALE')?.textContent).toBe('45d STALE');
+        expect(ageIn('SG-AGE-FRESH')?.textContent).toBe('2d');
+    });
+
+    it('STALE_PENDING: only pending rows past the cutoff turn red with the abandonment title', async () => {
+        await act(async () => { root.render(createElement(OrderManager)); });
+
+        const stale = ageIn('SG-AGE-STALE')!;
+        expect(stale.className).toContain('bg-red-500/20');
+        expect(stale.getAttribute('title')).toContain('abandoned checkout');
+
+        const fresh = ageIn('SG-AGE-FRESH')!;
+        expect(fresh.className).toContain('text-gray-500');
+        expect(fresh.getAttribute('title')).toContain('Opened');
+
+        // A 90-day-old PAID order is history, not rot: age without STALE.
+        const paid = ageIn('SG-AGE-OLDPAID')!;
+        expect(paid.textContent).not.toContain('STALE');
+        expect(paid.className).not.toContain('bg-red-500/20');
+    });
+
+    it('MODAL_AGE: the detail modal repeats the age badge next to the full date', async () => {
+        await act(async () => { root.render(createElement(OrderManager)); });
+
+        // Newest-first sort: Eye[0] = fresh (2d), Eye[1] = stale pending (45d).
+        const eyes = document.body.querySelectorAll('button[title="View Details"]');
+        expect(eyes.length).toBe(3);
+        await act(async () => { (eyes[1] as HTMLButtonElement).click(); });
+
+        expect(container.innerHTML).toContain('Order Details');
+        const modalAge = container.querySelector('.fixed [data-testid="order-age"]');
+        expect(modalAge).toBeTruthy();
+        expect(modalAge!.textContent).toBe('45d STALE');
+    });
+});

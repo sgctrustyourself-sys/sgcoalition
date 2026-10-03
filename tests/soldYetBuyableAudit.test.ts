@@ -37,7 +37,10 @@
 // this queries the live Supabase project and needs credentials in .env, and a
 // config-level exclude would also block an explicit `vitest run <file>` (CLI
 // --exclude appends to the config list). Run with:
+//   npm run audit:live                       (arms RUN_LIVE_AUDIT for you —
+//                                             scripts/runLiveAudit.mjs)
 //   RUN_LIVE_AUDIT=1 npx vitest run tests/soldYetBuyableAudit.test.ts
+//                                             (the raw form it wraps)
 //
 // Read-only: never writes to products or orders.
 
@@ -47,6 +50,10 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { INITIAL_PRODUCTS } from '../constants/products';
 import { PRODUCT_LOCAL_OVERRIDES, INITIAL_ORDERS } from '../constants';
+// One threshold, two surfaces: the admin OrderManager list ages orders with
+// this same helper and cutoff, so what the UI marks STALE is exactly what
+// this audit warns about (and vice versa).
+import { STALE_PENDING_DAYS, ageDays } from '../utils/orderAge';
 
 const LIVE = Boolean(process.env.RUN_LIVE_AUDIT);
 
@@ -95,19 +102,9 @@ const itemProductId = (i: any) => String(i?.productId ?? i?.product_id ?? i?.id 
 const itemQty = (i: any) => Number(i?.quantity ?? i?.qty ?? 1);
 
 /**
- * A pending order older than this is an abandoned checkout, not an in-flight
- * one: cashapp/crypto verification completes in hours, at most a couple of
- * days. 30d is deliberately generous — the QA rows that sat on the Above as
- * Below set for seven weeks (cancelled 2026-10-03, README "QA checkout
- * orders") would have been marked STALE from their first week.
+ * STALE cutoff and age math live in utils/orderAge.ts — shared with the admin
+ * OrderManager so the list and this warning can never disagree.
  */
-const STALE_PENDING_DAYS = 30;
-
-/** Whole days an order has been open; null when created_at is missing/unparsable. */
-const ageDays = (iso: string | null) => {
-    const t = Date.parse(iso || '');
-    return Number.isFinite(t) ? Math.max(0, Math.floor((Date.now() - t) / 86_400_000)) : null;
-};
 
 /**
  * Curated disposition for known orphan order lines, decided 2026-10-03 after

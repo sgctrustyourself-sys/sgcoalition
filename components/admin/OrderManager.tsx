@@ -6,6 +6,7 @@ import { Search, Filter, Eye, Download, Trash2, X, Plus, ChevronLeft, ChevronRig
 import { reconcileBalancePayment } from '../../services/reconcilePayment';
 import { buyLabelForOrder } from '../../services/buyLabel';
 import { fetchShipmentStatuses, type ShipmentStatusRow } from '../../services/adminShipments';
+import { STALE_PENDING_DAYS, ageDays } from '../../utils/orderAge';
 import ManualOrderForm from '../ManualOrderForm';
 import PaymentRecordModal from './PaymentRecordModal';
 import Invoice from '../Invoice';
@@ -202,6 +203,32 @@ const OrderManager: React.FC = () => {
     const manualVerificationMethodLabel = (order: Order): string => {
         const method = (order.paymentMethod || '').toLowerCase();
         return method === 'cashapp' ? 'Cash App' : method === 'crypto' ? 'Crypto' : 'Payment';
+    };
+
+    // Every row shows how long the order has been open; a PENDING row past
+    // STALE_PENDING_DAYS gets a red STALE marker — the same cutoff the live
+    // catalog audit warns on (utils/orderAge.ts owns it), so this list and
+    // RUN_LIVE_AUDIT=1 soldYetBuyableAudit can never disagree about what
+    // counts as an abandoned checkout.
+    const renderOrderAge = (order: Order) => {
+        const days = ageDays(order.createdAt);
+        if (days == null) return null;
+        const stale = order.paymentStatus === 'pending' && days >= STALE_PENDING_DAYS;
+        return (
+            <span
+                data-testid="order-age"
+                title={stale
+                    ? `Open ${days} days with no payment — an abandoned checkout, not a transfer in flight; the live audit warns about this row too`
+                    : `Opened ${new Date(order.createdAt).toLocaleString()}`}
+                className={
+                    stale
+                        ? 'ml-2 inline-flex items-center text-xs font-black px-1.5 py-0.5 rounded border bg-red-500/20 border-red-500/50 text-red-300'
+                        : 'ml-2 inline-flex items-center text-xs font-bold px-1.5 py-0.5 rounded border bg-white/5 border-white/10 text-gray-500'
+                }
+            >
+                {stale ? `${days}d STALE` : `${days}d`}
+            </span>
+        );
     };
 
     const getStatusColor = (status: string) => {
@@ -441,6 +468,7 @@ const OrderManager: React.FC = () => {
                                         <td className="p-4 font-mono text-sm text-brand-accent">{order.orderNumber}</td>
                                         <td className="p-4 text-sm text-gray-400">
                                             {new Date(order.createdAt).toLocaleDateString()}
+                                            {renderOrderAge(order)}
                                         </td>
                                         <td className="p-4">
                                             <div className="space-y-1">
@@ -567,6 +595,7 @@ const OrderManager: React.FC = () => {
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-bold mb-1">Date</p>
                                     <p className="text-white">{new Date(selectedOrder.createdAt).toLocaleString()}</p>
+                                    {renderOrderAge(selectedOrder)}
                                 </div>
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-bold mb-1">Customer</p>

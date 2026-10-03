@@ -28,7 +28,9 @@ export default defineConfig({
         //       to this list). It self-gates instead: skipped unless
         //       RUN_LIVE_AUDIT=1, because it reads the live Supabase
         //       products + orders tables. Run with:
-        //       RUN_LIVE_AUDIT=1 npx vitest run tests/soldYetBuyableAudit.test.ts
+        //       npm run audit:live   (scripts/runLiveAudit.mjs arms the var —
+        //       cmd.exe cannot run inline `VAR=1 cmd`, hence the wrapper)
+        //       raw form: RUN_LIVE_AUDIT=1 npx vitest run tests/soldYetBuyableAudit.test.ts
         //
         exclude: [
             'tests/clsRegression.test.ts',

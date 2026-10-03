@@ -22,6 +22,7 @@
     "postbuild": "node scripts/generateSeoArtifacts.mjs",
     "preview": "vite preview",
     "generate:seo": "node scripts/generateSeoArtifacts.mjs",
+    "audit:live": "node scripts/runLiveAudit.mjs",
     "audit:chrome": "tsx scripts/audit-urgency-chrome.ts",
     "bootstrap:brain": "node scripts/seedBrain.cjs",
     "seed:live-orders": "tsx scripts/backfillLiveOrderSeeds.ts",
