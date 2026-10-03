@@ -1,0 +1,105 @@
+name: Live Catalog Audit — sold-but-buyable drift
+
+# What this catches: a product with real sale evidence (a paid order, a seed
+# sale, or an archive note saying it sold) whose live row can STILL be
+# purchased right now — archived=false with stock > 0 — plus any orphan order
+# line (product id absent from both the table and the seed) that has not been
+# given a decision in ORPHAN_DECISIONS.
+#
+# Why a schedule and not just push/PR: that drift arrives by direct Supabase
+# writes (admin dashboard edits, manual SQL) which no PR-time check can see.
+# This is the exact failure mode storefront-audits.yml's cron exists for —
+# the SKYYBLUEWALLET1_2 incident (2026-07-14), where PR-time auditing could
+# not observe drift introduced behind it. The same gate, run three ways:
+#   local   — npm run audit:live   (scripts/runLiveAudit.mjs arms
+#                                   RUN_LIVE_AUDIT=1; cmd.exe cannot run
+#                                   inline `VAR=1 cmd`, hence the wrapper)
+#   CI      — every push to main, every PR, daily schedule, manual dispatch
+#   contract— tests/soldYetBuyableAudit.test.ts self-gates, so the default
+#                                   `npm test` suite never touches the network
+#
+# Read-only by contract: the audit never writes to products or orders.
+# Three-tier output: FLAGS fail the job; WARNINGS (pending cashapp orders,
+# the deliberate $1 checkout test SKU) print without failing; ORPHAN lines
+# are annotated with their reviewed decision.
+#
+# Required GitHub Actions secrets — the same pair storefront-audits.yml has
+# used since 2026-07-14, so no new setup is needed
+# (Settings → Secrets and variables → Actions):
+#   VITE_SUPABASE_URL          — e.g. https://tvacscfbzcmjlcekjcsn.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY  — Supabase service_role JWT (RLS-bypass; read-only use)
+#
+# Env precedence inside the test: import.meta.env.VITE_SUPABASE_URL ||
+# process.env.VITE_SUPABASE_URL || SUPABASE_URL, then
+# process.env.SUPABASE_SERVICE_ROLE_KEY. A clean checkout has no .env
+# (dotenv 17 returns ENOENT rather than throwing), so the step env below is
+# the entire configuration — and the guard at the top of the run block fails
+# with a NAMED error if either secret is missing, instead of letting an
+# assertion buried in the test be the first symptom. A pull_request from a
+# fork sees empty secrets and hits that same named failure.
+
+on:
+  schedule:
+    # Daily 06:40 UTC — deliberately off the hour: GitHub executes
+    # scheduled workflows sharing a cron minute sequentially, so 06:40
+    # never queues behind storefront-audits.yml's 06:00 run.
+    - cron: '40 6 * * *'
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    name: Audit live products vs live orders
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    concurrency:
+      # Unique group per workflow + ref so a fast-following push to the
+      # same branch cancels the in-flight run instead of queuing.
+      group: live-catalog-audit-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # No `npx playwright install` here: the live audit runs in the node
+      # test environment (@vitest-environment node) and launches no browser.
+      #
+      # pipefail is load-bearing, not ceremony: the default shell is
+      # `bash -e` WITHOUT pipefail, so a bare `npm run audit:live | tee`
+      # would exit with tee's 0 and a red audit would pass silently — the
+      # same trap the PIPESTATUS idiom in storefront-audits.yml works around.
+      # With pipefail the audit's non-zero status reaches -e and fails the
+      # job. tee preserves the full three-tier report as an artifact so
+      # today's run can be compared against yesterday's without
+      # re-querying the database.
+      - name: Guard the credentials, then run the live audit
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::VITE_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY secrets are not set (Settings -> Secrets and variables -> Actions). The live audit cannot read products or orders without them."
+            exit 1
+          fi
+          set -o pipefail
+          npm run audit:live 2>&1 | tee live-audit-output.txt
+
+      - name: Upload audit output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-audit-output
+          path: live-audit-output.txt
+          if-no-files-found: warn
