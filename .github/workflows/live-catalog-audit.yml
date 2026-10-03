@@ -20,8 +20,8 @@ name: Live Catalog Audit — sold-but-buyable drift
 #
 # Read-only by contract: the audit never writes to products or orders.
 # Three-tier output: FLAGS fail the job; WARNINGS (pending cashapp orders,
-# the deliberate $1 checkout test SKU) print without failing; ORPHAN lines
-# are annotated with their reviewed decision.
+# any deliberate test SKU whose id or name contains "test") print without
+# failing; ORPHAN lines are annotated with their reviewed decision.
 #
 # Required GitHub Actions secrets — the same pair storefront-audits.yml has
 # used since 2026-07-14, so no new setup is needed

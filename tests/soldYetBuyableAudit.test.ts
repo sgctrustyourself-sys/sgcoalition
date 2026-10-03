@@ -23,10 +23,10 @@
 //              each open order printed with its age; pending rows older than
 //              STALE_PENDING_DAYS are marked STALE — an abandoned checkout,
 //              not an in-flight one — with the close command that clears the
-//              warning. Also deliberate test SKUs (prod_checkout_test_dollar
-//              and kin are meant to stay buyable — mirrors the marketing
-//              campaign guard where a name containing "test" drops real
-//              customers).
+//              warning. Also deliberate test SKUs — an id or name
+//              containing "test" is meant to stay buyable — mirrors the
+//              marketing campaign guard where a name containing "test"
+//              drops real customers.
 //   ORPHANS  — order lines whose product id exists in neither the products
 //              table nor the seed. Not buyable (no row to purchase), but
 //              surfaced so deleted SKUs and offline sales stay visible.
@@ -122,6 +122,8 @@ const ORPHAN_DECISIONS: Record<string, string> = {
         'intentionally gone — paid PayPal order Feb 2026 (ORD-PP-8SN773); seed entry had no stock fields and was dropped by the 2026-07-10 admin sync; images survive in PRODUCT_IMAGE_URLS.distortionTee; README row moved to Archived. Re-list via admin ProductManager if physical units remain.',
     prod_travis_shirt_custom_deposit:
         'intentionally order-only — $40 custom commission recorded by order TRAVIS-SHIRT-DEPOSIT-2026-07-25 (row verified by scripts/applyMigrationsSql.ts); never a catalog product. Resolved 2026-10-03: $10 balance confirmed received by the owner and reconciled to paid via scripts/resolveTravisDeposit.ts (notes marker struck, payments ledger row written), so this line now prints as a paid order-only record.',
+    prod_checkout_test_dollar:
+        'intentionally gone — $1 checkout-test listing removed 2026-10-03 at the operator\'s request: row deleted from products and storage object products/images/checkout-test-item.png removed. The 1 paid live test order is the record of the exercise; recreate via git history (scripts/addCheckoutTestProduct.ts, image source public/hero-cinematic.png) if the smoke-test pocket is needed again.',
 };
 
 describe.runIf(LIVE)('catalog audit: sold products must not be buyable', () => {
