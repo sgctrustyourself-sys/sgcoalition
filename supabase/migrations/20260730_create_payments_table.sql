@@ -134,10 +134,16 @@ BEGIN
             paid_at        = now()
         WHERE id = p_order_id;
 
-        -- Increment profile lifetime spend (only the newly-paid portion)
+        -- Increment profile lifetime spend (only the newly-paid portion).
+        -- Columns mirror reconcile_balance_payment exactly: the live
+        -- profiles table is keyed by id alone and has NO user_id column —
+        -- this INSERT originally carried (id, user_id, lifetime_spend_usd)
+        -- and failed at runtime with `column "user_id" of relation
+        -- "profiles" does not exist`, which silently broke every admin
+        -- partial-payment record until it was caught on 2026-10-03.
         IF v_user_id IS NOT NULL THEN
-            INSERT INTO profiles (id, user_id, lifetime_spend_usd)
-            VALUES (v_user_id, v_user_id, p_amount)
+            INSERT INTO profiles (id, lifetime_spend_usd)
+            VALUES (v_user_id, p_amount)
             ON CONFLICT (id)
             DO UPDATE SET lifetime_spend_usd = profiles.lifetime_spend_usd + p_amount;
         END IF;

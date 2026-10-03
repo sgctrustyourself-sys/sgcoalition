@@ -35,11 +35,16 @@
 // --apply-paid ran: notes marker struck, balance_due restored to 10, then
 // reconcile_balance_payment flipped the row to paid (paid_amount 40, paid_at
 // set, profile lifetime_spend +10). record_partial_payment — the RPC that
-// would have written the payments ledger row itself — is BROKEN against the
-// live schema: its INSERT INTO profiles (id, user_id, ...) fails with
+// would have written the payments ledger row itself — was BROKEN against the
+// live schema: its INSERT INTO profiles (id, user_id, ...) failed with
 // `column "user_id" of relation "profiles" does not exist` (drift in
-// supabase/migrations/20260730_create_payments_table.sql). --apply-ledger
-// writes that audit row directly instead, noting the fallback.
+// supabase/migrations/20260730_create_payments_table.sql), so --apply-ledger
+// wrote that audit row directly instead, noting the fallback.
+// FIXED 2026-10-03: docs/apply-record-partial-payment-2026-10-03.sql was run
+// in the Supabase SQL editor (Part A = CREATE OR REPLACE with the corrected
+// `INSERT INTO profiles (id, lifetime_spend_usd)`; Part B proved the full
+// flip — order, profile credit, ledger row — inside BEGIN…ROLLBACK).
+// Live probes since confirm both guard paths; the RPC is usable again.
 
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
