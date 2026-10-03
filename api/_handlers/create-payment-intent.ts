@@ -89,6 +89,9 @@ export default async function handler(req: any, res: any) {
         const enabledStripe = new Set<string>();
         if (paymentSettings.card) enabledStripe.add('card');
         if (paymentSettings.klarna) enabledStripe.add('klarna');
+        // Cash App Pay (Stripe). The same owner toggle that gates the manual
+        // $sgcoalition flow gates this — one switch, both Cash App paths.
+        if (paymentSettings.cashapp) enabledStripe.add('cashapp');
 
         const filtered = methodTypes.filter(m => enabledStripe.has(m));
         // An explicitly-requested method that the owner disabled means the
@@ -165,8 +168,8 @@ export default async function handler(req: any, res: any) {
         // narrowed per-intent by the validated paymentMethodTypes body param)
         // — the PaymentElement renders exactly these methods, and nothing else.
         // automatic_payment_methods would surface EVERY method enabled in the
-        // Stripe dashboard (currently also Link, Cash App, and Amazon Pay),
-        // which the owner chose to hide. Klarna is a redirect method that
+        // Stripe dashboard (currently also Link and Amazon Pay), which the
+        // owner chose to hide. Klarna is a redirect method that
         // needs the customer's email and shipping before it can be offered,
         // so we forward the checkout form's shipping block + email to the
         // intent. See the FOOTGUN WARNING on the constant before adding a

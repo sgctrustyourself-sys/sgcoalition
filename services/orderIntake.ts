@@ -4,6 +4,7 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { resendClient, stripeClient } from '../api/_services.js';
+import { sendCashAppInstructions } from './paymentInstructions.js';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet.js';
 import { resolveCryptoDiscountCents } from '../utils/cryptoDiscount.js';
 import { resolvePaymentState } from '../utils/orderDepositNotes.js';
@@ -519,6 +520,12 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
     }
 
     if (saved.created && payment.method !== 'crypto') void sendOrderEmails(saved.record);
+    // Manual Cash App: the buyer still has to send the money off-platform,
+    // so the instruction email (exact total, cashtag, and the order number
+    // to put in the Cash App note) IS the payment flow. Fire-and-forget and
+    // fail-open inside — a failed email must never fail a recorded order,
+    // and created-only keeps it exactly-once across checkout retries.
+    if (saved.created && payment.method === 'cashapp') void sendCashAppInstructions(saved.record);
     return { order: saved.record, created: saved.created };
 }
 

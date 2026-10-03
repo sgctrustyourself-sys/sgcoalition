@@ -50,7 +50,7 @@ interface SavedCheckoutState {
     // Which Stripe method the 'card' path shows: card-only (primary) or
     // Klarna (secondary 'More payment options'). Persisted so a Klarna
     // redirect-return can restore the exact checkout in progress.
-    stripeMethod?: 'card' | 'klarna';
+    stripeMethod?: 'card' | 'klarna' | 'cashapp';
     // Payment-agnostic order seed (orderId/orderNumber). Used by the
     // Stripe 3DS/Klarna/Afterpay redirect-return so the created order keeps
     // a stable identity.
@@ -251,7 +251,7 @@ const Checkout: React.FC = () => {
     const [paymentMethod, setPaymentMethod] = useState<'crypto' | 'cashapp' | 'card'>(() =>
         // Card is the default; falls back to the first enabled option below.
         loadCheckoutState()?.paymentMethod || 'card');
-    const [stripeMethod, setStripeMethod] = useState<'card' | 'klarna'>(() =>
+    const [stripeMethod, setStripeMethod] = useState<'card' | 'klarna' | 'cashapp'>(() =>
         loadCheckoutState()?.stripeMethod || 'card');
     // Secondary 'More payment options' disclosure (Cash App, Crypto).
     const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
@@ -286,17 +286,17 @@ const Checkout: React.FC = () => {
     }, []);
 
     // If the owner just turned off the currently selected option, fall back
-    // to the first still-enabled one (card -> cashapp -> crypto — the
-    // working primary paths; klarna only when re-enabled).
+    // to the first still-enabled one (cashapp -> card -> crypto — cashapp is
+    // the shop's preferred path; klarna only when re-enabled).
     useEffect(() => {
         if (!paymentSettingsLoaded) return;
         const selectedEnabled = paymentMethod === 'card'
-            ? (stripeMethod === 'klarna' ? paymentSettings.klarna : paymentSettings.card)
+            ? (stripeMethod === 'klarna' ? paymentSettings.klarna : stripeMethod === 'cashapp' ? paymentSettings.cashapp : paymentSettings.card)
             : paymentMethod === 'cashapp' ? paymentSettings.cashapp
             : paymentSettings.crypto;
         if (selectedEnabled) return;
-        if (paymentSettings.card) { setPaymentMethod('card'); setStripeMethod('card'); }
-        else if (paymentSettings.cashapp) setPaymentMethod('cashapp');
+        if (paymentSettings.cashapp) setPaymentMethod('cashapp');
+        else if (paymentSettings.card) { setPaymentMethod('card'); setStripeMethod('card'); }
         else if (paymentSettings.crypto) setPaymentMethod('crypto');
         else if (paymentSettings.klarna) { setPaymentMethod('card'); setStripeMethod('klarna'); }
     }, [paymentSettingsLoaded, paymentSettings, paymentMethod, stripeMethod]);
@@ -416,13 +416,20 @@ const Checkout: React.FC = () => {
             ? pricingPreview.totalCents / 100
             : finalTotal;
     const requiresNoExternalPayment = isZeroAmount || finalTotal <= 0;
+    // Cash App Pay (through Stripe) is offered only when card — i.e. the
+    // Stripe PaymentElement path — is enabled for the owner. The PaymentElement
+    // renders Cash App Pay from the intent's payment_method_types; without
+    // Stripe the manual $sgcoalition cashtag flow takes over.
+    const cashAppPayAvailable = paymentSettingsLoaded && paymentSettings.card;
     const paymentLabel = paymentMethod === 'crypto'
         ? 'USDC on Polygon'
         : paymentMethod === 'cashapp'
             ? 'Cash App'
             : stripeMethod === 'klarna'
                 ? 'Klarna — Pay in 4'
-                : 'Card';
+                : stripeMethod === 'cashapp'
+                    ? 'Cash App Pay'
+                    : 'Card';
     const shippingCostLabel = shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`;
     const shippingMethodLabel = shippingMethod === 'express' ? 'Express' : 'Standard';
     const fulfillmentExpectation = shippingMethod === 'express'
@@ -432,14 +439,14 @@ const Checkout: React.FC = () => {
     const paymentAvailability = [
         ...(paymentSettings.card ? ['Secure card checkout — Visa, Mastercard, Amex'] : []),
         ...(paymentSettings.klarna ? ['Klarna — 4 interest-free payments'] : []),
-        ...(paymentSettings.cashapp ? ['Cash App — send to $sgcoalition'] : []),
+        ...(paymentSettings.cashapp ? ['Cash App — pay direct to $sgcoalition' + (cashAppPayAvailable ? ' (or instant Cash App Pay)' : '')] : []),
         ...(paymentSettings.crypto ? [(discountEnabled && cryptoDiscountAdvertised) ? `USDC on Polygon saves ${getDiscountPercentageText()}` : 'USDC on Polygon available'] : []),
     ];
     const checkoutTrustItems = [
         {
             icon: ShieldCheck,
             title: 'Secure checkout',
-            detail: 'Card is processed by Stripe; Cash App and crypto are verified before fulfillment.'
+            detail: 'Card and Cash App Pay are processed by Stripe; manual Cash App and crypto are verified before fulfillment.'
         },
         {
             icon: Mail,
@@ -460,7 +467,7 @@ const Checkout: React.FC = () => {
 
     const WALLET_ADDRESS = '0x0F4A0466C2a1d3FA6Ed55a20994617F0533fbf74';
 
-    // Stripe Payment Element (card / Klarna / Afterpay) intent lifecycle.
+    // Stripe Payment Element (card / Klarna / Cash App Pay) intent lifecycle.
     // The intent is created lazily once the Stripe method is selected and
     // re-created (debounced) whenever the shipping form changes, because
     // Afterpay underwrites against the shipping address attached to the
@@ -1251,7 +1258,7 @@ const Checkout: React.FC = () => {
                                         {isLoading ? 'Processing...' : 'Complete Order'}
                                     </button>
                                 </div>
-                            ) : paymentSettingsLoaded && !paymentSettings.card && !paymentSettings.klarna && !paymentSettings.crypto ? (
+                            ) : paymentSettingsLoaded && !paymentSettings.card && !paymentSettings.klarna && !paymentSettings.crypto && !paymentSettings.cashapp ? (
                                 <div className="text-center py-6">
                                     <p className="text-sm text-gray-400">
                                         Payment options are currently unavailable. Please contact support.
@@ -1260,6 +1267,33 @@ const Checkout: React.FC = () => {
                             ) : (
                                 <>
                                     <div className="space-y-3 mb-6">
+                                        {/* Cash App — PRIMARY. The direct $sgcoalition cashtag flow:
+                                            money lands in the owner's Cash App (business-account fee
+                                            only, no Stripe cut) and is verified manually in Admin →
+                                            Orders. Placed above card deliberately — the cheapest path
+                                            for the shop and the most native for the audience. */}
+                                        {paymentSettings.cashapp && (
+                                        <label className={`flex items-center justify-between p-5 rounded-xl border-2 cursor-pointer transition group relative overflow-hidden ${paymentMethod === 'cashapp' ? 'bg-gradient-to-r from-green-600/15 to-emerald-600/15 border-green-500/70 shadow-lg shadow-green-500/10' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30'}`}>
+                                            <div className="flex items-center gap-4">
+                                                <input
+                                                    type="radio"
+                                                    name="paymentMethod"
+                                                    checked={paymentMethod === 'cashapp'}
+                                                    onChange={() => { setPaymentMethod('cashapp'); }}
+                                                    className="w-5 h-5 border-gray-500 text-green-600 focus:ring-green-500"
+                                                />
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-black text-base text-white">Cash App</span>
+                                                        <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded font-bold tracking-wider">$sgcoalition</span>
+                                                    </div>
+                                                    <span className="text-xs text-gray-400">Send the total straight to $sgcoalition — direct, no card needed</span>
+                                                </div>
+                                            </div>
+                                            <Wallet className={`w-6 h-6 ${paymentMethod === 'cashapp' ? 'text-green-400' : 'text-gray-500'}`} />
+                                        </label>
+                                        )}
+
                                         {/* Card - PRIMARY. A card-only intent is requested
                                             (paymentMethodTypes: ['card']) so customers who just
                                             want to pay by card never see Klarna tabs or any other
@@ -1289,11 +1323,12 @@ const Checkout: React.FC = () => {
                                         )}
 
                                         {/* Everything else - SECONDARY, behind a disclosure.
-                                            Cash App is a manual payment to $sgcoalition; Crypto is
-                                            the USDC path; Klarna/Pay in 4 appear only if the owner
-                                            re-enables them. Rendered only when at least one
-                                            secondary option is enabled. */}
-                                        {(paymentSettings.klarna || paymentSettings.cashapp || paymentSettings.crypto) && (
+                                            Cash App PAY (through Stripe — instant, auto-confirmed) is
+                                            the alternative for buyers who want speed over the direct
+                                            cashtag path; Crypto is the USDC path; Klarna appears only
+                                            if the owner re-enables it. Rendered only when at least one
+                                            secondary option is available. */}
+                                        {(paymentSettings.klarna || paymentSettings.crypto || (paymentSettings.cashapp && cashAppPayAvailable)) && (
                                         <div className="rounded-xl border border-white/10 bg-black/20">
                                             <button
                                                 type="button"
@@ -1303,9 +1338,9 @@ const Checkout: React.FC = () => {
                                             >
                                                 <span className="flex items-center gap-2">
                                                     More payment options
-                                                    {(paymentMethod === 'crypto' || paymentMethod === 'cashapp' || stripeMethod === 'klarna') && (
+                                                    {(paymentMethod === 'crypto' || stripeMethod === 'klarna' || stripeMethod === 'cashapp') && (
                                                         <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border border-white/15 rounded px-1.5 py-0.5">
-                                                            {paymentMethod === 'crypto' ? 'Crypto' : paymentMethod === 'cashapp' ? 'Cash App' : 'Klarna'} selected
+                                                            {paymentMethod === 'crypto' ? 'Crypto' : stripeMethod === 'cashapp' ? 'Cash App Pay' : 'Klarna'} selected
                                                         </span>
                                                     )}
                                                 </span>
@@ -1333,27 +1368,27 @@ const Checkout: React.FC = () => {
                                                     </label>
                                                     )}
 
-                                                    {paymentSettings.cashapp && (
-                                                    <label className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition group ${paymentMethod === 'cashapp' ? 'bg-green-600/10 border-green-500 text-white' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30 text-gray-400'}`}>
+                                                    {paymentSettings.cashapp && cashAppPayAvailable && (
+                                                    <label className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition group ${paymentMethod === 'card' && stripeMethod === 'cashapp' ? 'bg-green-600/10 border-green-500 text-white' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30 text-gray-400'}`}>
                                                         <div className="flex items-center gap-4">
                                                             <input
                                                                 type="radio"
                                                                 name="paymentMethod"
-                                                                checked={paymentMethod === 'cashapp'}
-                                                                onChange={() => { setPaymentMethod('cashapp'); setMoreOptionsOpen(true); }}
+                                                                checked={paymentMethod === 'card' && stripeMethod === 'cashapp'}
+                                                                onChange={() => { setPaymentMethod('card'); setStripeMethod('cashapp'); setMoreOptionsOpen(true); }}
                                                                 className="w-4 h-4 border-gray-500 text-green-500 focus:ring-green-500"
                                                             />
                                                             <div className="flex flex-col">
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className="font-bold text-sm text-white">Cash App</span>
-                                                                    <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded font-bold tracking-wider">$sgcoalition</span>
+                                                                    <span className="font-bold text-sm text-white">Cash App Pay</span>
+                                                                    <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded font-bold tracking-wider">Instant</span>
                                                                 </div>
                                                                 <span className="text-xs text-gray-400 flex items-center gap-1">
-                                                                    Send the total to $sgcoalition and note the items you bought
+                                                                    Pay in Cash App instantly — confirmed automatically, ships faster
                                                                 </span>
                                                             </div>
                                                         </div>
-                                                        <Wallet className={`w-5 h-5 ${paymentMethod === 'cashapp' ? 'text-green-400' : 'text-gray-500'}`} />
+                                                        <Wallet className={`w-5 h-5 ${paymentMethod === 'card' && stripeMethod === 'cashapp' ? 'text-green-400' : 'text-gray-500'}`} />
                                                     </label>
                                                     )}
 
@@ -1420,11 +1455,13 @@ const Checkout: React.FC = () => {
                                             <div className="bg-white/[0.03] border border-white/10 p-4 rounded-lg">
                                         <div className="flex items-start gap-3">
                                             <div>
-                                                <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wide mb-1">{stripeMethod === 'klarna' ? 'Klarna — Pay in 4' : 'Pay by Card'}</h4>
+                                                <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wide mb-1">{stripeMethod === 'klarna' ? 'Klarna — Pay in 4' : stripeMethod === 'cashapp' ? 'Cash App Pay' : 'Pay by Card'}</h4>
                                                 <p className="text-sm text-gray-300">
                                                     {stripeMethod === 'klarna'
                                                         ? 'Split your order into four interest-free payments. Klarna is offered when your order and region qualify.'
-                                                        : 'Pay by credit or debit card. Visa, Mastercard, Amex, and more — no account or extra steps needed.'}
+                                                        : stripeMethod === 'cashapp'
+                                                            ? 'Pay instantly with your Cash App balance or linked card. Confirmed automatically — no manual transfer, no waiting on verification.'
+                                                            : 'Pay by credit or debit card. Visa, Mastercard, Amex, and more — no account or extra steps needed.'}
                                                 </p>
                                             </div>
                                         </div>

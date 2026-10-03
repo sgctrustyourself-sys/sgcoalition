@@ -70,7 +70,7 @@ function stubProduct(id: string, name: string, price: number, category = 'shirt'
 // The payment_settings singleton row. The handler reads it first (owner
 // toggles), so every test that reaches pricing must stub it before the
 // product/profile chains.
-const DEFAULT_SETTINGS_ROW = { id: 1, card_enabled: true, klarna_enabled: true, crypto_enabled: true };
+const DEFAULT_SETTINGS_ROW = { id: 1, card_enabled: true, klarna_enabled: true, cashapp_enabled: true, crypto_enabled: true };
 
 function stubSettings(overrides: Partial<typeof DEFAULT_SETTINGS_ROW> = {}) {
     mockSupabaseFrom.mockReturnValueOnce(
@@ -199,7 +199,7 @@ describe('POST /api/create-payment-intent', () => {
         expect(mockStripeCreate).toHaveBeenCalledTimes(1);
         const intentPayload = mockStripeCreate.mock.calls[0][0];
         // Explicit allow-list — the PaymentElement renders exactly these.
-        expect(intentPayload.payment_method_types).toEqual(['card', 'klarna']);
+        expect(intentPayload.payment_method_types).toEqual(['card', 'klarna', 'cashapp']);
         // automatic_payment_methods must NOT be present (mutually exclusive
         // with payment_method_types; without this guard the dashboard-enabled
         // Link/Cash App/Amazon Pay would leak back into checkout).
@@ -480,7 +480,7 @@ describe('POST /api/create-payment-intent', () => {
 
         expect(res._status).toBe(200);
         // Klarna was filtered out before the intent was created.
-        expect(mockStripeCreate.mock.calls[0][0].payment_method_types).toEqual(['card']);
+        expect(mockStripeCreate.mock.calls[0][0].payment_method_types).toEqual(['card', 'cashapp']);
     });
 
     it('rejects a client-requested method the owner disabled (klarna off)', async () => {
@@ -499,8 +499,43 @@ describe('POST /api/create-payment-intent', () => {
         expect(mockStripeCreate).not.toHaveBeenCalled();
     });
 
+    it('offers Cash App Pay when the owner toggle is on (single-method intent)', async () => {
+        stubSettings({ cashapp_enabled: true });
+        mockSupabaseFrom.mockReturnValueOnce(
+            chain({ data: [stubProduct('prod-1', 'Test Tee', 25)], error: null }),
+        );
+
+        const req = makeReq('POST', {
+            items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+            shippingCost: 5,
+            paymentMethodTypes: ['cashapp'],
+        });
+        const res = makeRes();
+        await handler(req, res);
+
+        expect(res._status).toBe(200);
+        expect(mockStripeCreate).toHaveBeenCalledTimes(1);
+        expect(mockStripeCreate.mock.calls[0][0].payment_method_types).toEqual(['cashapp']);
+    });
+
+    it('rejects a client-requested Cash App Pay the owner disabled', async () => {
+        stubSettings({ cashapp_enabled: false });
+
+        const req = makeReq('POST', {
+            items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
+            shippingCost: 5,
+            paymentMethodTypes: ['cashapp'],
+        });
+        const res = makeRes();
+        await handler(req, res);
+
+        expect(res._status).toBe(409);
+        expect(res._body.error).toContain('currently unavailable');
+        expect(mockStripeCreate).not.toHaveBeenCalled();
+    });
+
     it('returns 409 when the owner disabled every Stripe method', async () => {
-        stubSettings({ card_enabled: false, klarna_enabled: false });
+        stubSettings({ card_enabled: false, klarna_enabled: false, cashapp_enabled: false });
 
         const req = makeReq('POST', {
             items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],

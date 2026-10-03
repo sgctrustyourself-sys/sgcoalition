@@ -147,7 +147,7 @@ function mockApiFetch(): ReturnType<typeof vi.fn> {
             };
         }
         if (path.includes('/api/payment-settings')) {
-            return { ok: true, json: async () => ({ card_enabled: true, klarna_enabled: true, crypto_enabled: true }) };
+            return { ok: true, json: async () => ({ card_enabled: true, klarna_enabled: true, cashapp_enabled: true, crypto_enabled: true }) };
         }
         // pricing-preview + anything else: benign.
         return { ok: true, json: async () => ({}) };
@@ -237,5 +237,29 @@ describe('Stripe PaymentElement readiness gate', () => {
         const { addOrder } = vi.mocked(useApp).mock.results[0].value;
         expect(addOrder).toHaveBeenCalledTimes(1);
         expect(addOrder.mock.calls[0][0].paymentMethod).toBe('stripe');
+    });
+
+    // CASHAPP_PRIMARY — the direct $sgcoalition cashtag flow is the shop's
+    // preferred payment path (no Stripe fee on direct payments), so it renders
+    // as a primary option ABOVE 'Pay by Card' when the owner toggle is on.
+    it('CASHAPP_PRIMARY: Cash App renders as a primary option above Pay by Card', async () => {
+        mockApiFetch();
+        await act(async () => { root.render(createElement(Checkout)); });
+        // Let the payment-settings fetch resolve and render settle.
+        await act(async () => {
+            vi.advanceTimersByTime(700);
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        const html = container.innerHTML;
+        // The primary Cash App row exists with its direct-cashtag copy.
+        expect(html).toContain('Send the total straight to $sgcoalition');
+        // And it sits BEFORE the Pay by Card row in document order.
+        const cashappIdx = html.indexOf('Send the total straight to $sgcoalition');
+        const cardIdx = html.indexOf('Pay by Card');
+        expect(cashappIdx).toBeGreaterThan(-1);
+        expect(cardIdx).toBeGreaterThan(-1);
+        expect(cashappIdx).toBeLessThan(cardIdx);
     });
 });

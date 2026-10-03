@@ -9,8 +9,8 @@ import type { ApiRequest, ApiResponse } from './_types.js';
 // The ONLY payment methods checkout is allowed to offer. Every Stripe
 // PaymentIntent must be created with exactly this allow-list — the
 // PaymentElement renders nothing else. Do NOT switch back to
-// automatic_payment_methods (it silently surfaces every method enabled in the
-// Stripe dashboard, including Link / Cash App / Amazon Pay, which the owner
+// automatic_payment_methods (it silently surfaces every method enabled in
+// the Stripe dashboard, including Link / Amazon Pay, which the owner
 // chose to hide).
 //
 // FOOTGUN WARNING: passing a method type that is NOT enabled on the Stripe
@@ -19,10 +19,21 @@ import type { ApiRequest, ApiResponse } from './_types.js';
 // toggled on in the Stripe dashboard (Settings → Payment methods). Code
 // before dashboard = total Stripe checkout outage.
 //
-// The /api/health handler compares this list against what the account
-// actually has enabled and reports the mismatch, so the admin card surfaces
-// the outage instead of silently failing.
-export const CHECKOUT_PAYMENT_METHOD_TYPES = ['card', 'klarna'] as const;
+// Blast-radius containment for 'cashapp': checkout always creates SINGLE-
+// method intents (paymentMethodTypes: [stripeMethod] from the client) and
+// create-payment-intent additionally filters against the owner's
+// payment_settings toggles, so a buyer can only ever reach a cashapp intent
+// by selecting Cash App Pay while the owner toggle is on. A missing
+// dashboard toggle therefore fails only that method for that buyer (they
+// see an error and can switch to card) — never the card path. The /api/health
+// handler compares this list against what the account actually has enabled
+// and reports the mismatch so the admin card surfaces it.
+//
+// 'cashapp' here is Cash App PAY through Stripe (instant, auto-confirmed by
+// the payment_intent.succeeded webhook — which also buys the shipping label
+// via services/shipping.ts). The manual $sgcoalition cashtag flow is a
+// separate, non-Stripe checkout path and does not use this list.
+export const CHECKOUT_PAYMENT_METHOD_TYPES = ['card', 'klarna', 'cashapp'] as const;
 
 export interface HttpError extends Error {
     status?: number;

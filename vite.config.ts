@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { bareCheckoutGate } from './utils/bareCheckoutGate.mjs';
+import { stripeEnvPolicy } from './utils/stripeEnvPolicy.mjs';
 
 export default defineConfig(() => {
   return {
@@ -24,6 +25,12 @@ export default defineConfig(() => {
       // Vercel build command of `npx vite build` skips every lifecycle hook, so
       // `prebuild` could be routed around. See utils/bareCheckoutGate.mjs.
       bareCheckoutGate(),
+      // And a build that is not Production may not carry a live Stripe credential:
+      // a preview holding one can create real objects on the business account while
+      // still being unable to mount a Stripe Element. Same reasoning as the gate
+      // above — it rides in the build, where no build command can skip it. See
+      // utils/stripeEnvPolicy.mjs.
+      stripeEnvPolicy(),
       react(),
       tailwindcss(),
       visualizer({
