@@ -17,7 +17,9 @@
 //                      order_1786504575820 (orderIntake's timestamp id) — a
 //                      real checkout-path run under a test identity, never paid
 //   TRAVIS-SHIRT-…     REAL: cash deposit ledger (DEP $30 / BAL $10), order-only
-//                      product documented in ORPHAN_DECISIONS — left pending
+//                      product documented in ORPHAN_DECISIONS — RESOLVED
+//                      2026-10-03: balance confirmed received, reconciled to
+//                      paid via scripts/resolveTravisDeposit.ts; no longer pending
 //
 // Disposition for the two QA rows: payment_status 'cancelled'
 // (OrderStatus.CANCELLED) — terminal, excluded from the public orders feed

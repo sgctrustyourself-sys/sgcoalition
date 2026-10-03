@@ -8,11 +8,12 @@
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import pg from 'pg';
 
 dotenv.config({ path: '.env' });
 
-const ROOT = path.resolve(__dirname, '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MIGRATIONS = [
   'supabase/migrations/20260725_add_paid_amount_balance_due_to_orders.sql',
   'supabase/migrations/20260730_create_reconcile_balance_payment.sql',
@@ -126,11 +127,16 @@ async function main() {
     } else {
       const r = travis.rows[0];
       console.log(`  payment_status: ${r.payment_status}`);
-      console.log(`  paid_amount:    ${r.paid_amount} (expected 30)`);
-      console.log(`  balance_due:    ${r.balance_due} (expected 10)`);
+      // Resolved 2026-10-03 (scripts/resolveTravisDeposit.ts): the $10
+      // balance was received and reconcile_balance_payment flipped the row
+      // to paid (40/0). The backfill UPDATE below only fires on
+      // payment_status='pending', and the notes marker no longer reads
+      // "BAL ... owes", so re-running migrations leaves it alone.
+      console.log(`  paid_amount:    ${r.paid_amount} (expected 40 — reconciled 2026-10-03)`);
+      console.log(`  balance_due:    ${r.balance_due} (expected 0 — reconciled 2026-10-03)`);
       console.log(`  total:          ${r.total}`);
-      const ok = Number(r.paid_amount) === 30 && Number(r.balance_due) === 10;
-      console.log(`  ${ok ? 'OK - columns populated correctly' : 'MISMATCH - check regex'}`);
+      const ok = Number(r.paid_amount) === 40 && Number(r.balance_due) === 0 && r.payment_status === 'paid';
+      console.log(`  ${ok ? 'OK - reconciled to paid, columns consistent' : 'MISMATCH - check reconcile state'}`);
     }
 
     // Verify RPC function exists

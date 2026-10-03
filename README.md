@@ -1794,6 +1794,19 @@ Added `PRODUCT_LOCAL_OVERRIDES` archiveNote for `Coalition_Denim_Patchwork_X_Mek
 
 All 273 tests pass across 27 files. Commits: `aa1e5b4`, `ddc4825`, `a9f034c`.
 
+### QA checkout orders — cancelled (2026-10-03)
+
+Two never-paid QA rows sat `pending` on the Above as Below set (`prod_set_above_as_below`, $120, Cash App) from 2026-08-12, keeping the catalog audit's `PENDING ORDER` warning permanently lit ("2 pending set orders vs stock 20" — a warning rather than a flag, because 2 units never covered the 20 in stock). Both were reviewed against the live `orders` table and cancelled; neither belongs to a real customer:
+
+| Order | Row id | Created (UTC) | Why it is not a real order |
+| --- | --- | --- | --- |
+| `ORD-QA-VERIFY-2` | `order_test_cashapp_verify2` | 2026-08-12 03:15:36 | Hand-written fixture — `order_test_*` row id, customer "QA TEST CASHAPP" `<qa.cashapp.verify@test.local>` (non-routable test domain) |
+| `ORD-2Z7APRBFW` | `order_1786504575820` | 2026-08-12 03:16:16 | Same QA identity 40 seconds later; the row id is orderIntake's timestamp id, so it exercised the real checkout path under a test identity |
+
+Disposition: `payment_status` pending → cancelled via `scripts/reviewStalePendingOrders.ts --apply`, guarded by immutable row id plus a still-pending re-check. Cancelled is the designed terminal state — `utils/liveOrdersFeed.ts > EXCLUDED_STATUSES` drops it from the public orders feed, and `reconcilePayment` (`services/orderIntake.ts`) no-ops on anything non-pending. Verified after the write: the live audit reports `paid=7 cancelled=2 pending=0`, warnings down to the intentional `prod_checkout_test_dollar` line, 0 flags.
+
+The third pending row found in the same review — `TRAVIS-SHIRT-DEPOSIT-2026-07-25` — is a real cash deposit ledger, not a QA artifact: its $10 balance was confirmed received and reconciled to `paid` the same day (`scripts/resolveTravisDeposit.ts`).
+
 ### Next implementations
 
 - [ ] **Backfill INITIAL_ORDERS to Supabase:** run `npx tsx scripts/backfillLiveOrderSeeds.ts --dry-run` then `--confirm` to upsert the updated customer-attributed orders into the live `orders` table

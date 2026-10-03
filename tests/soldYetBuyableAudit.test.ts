@@ -20,9 +20,13 @@
 //              against a row that can still be ordered. Fails the test.
 //              Escalated from warnings: pending units >= remaining stock.
 //   WARNINGS — unpaid pending cashapp/crypto orders on a well-stocked item,
-//              and deliberate test SKUs (prod_checkout_test_dollar and kin
-//              are meant to stay buyable — mirrors the marketing campaign
-//              guard where a name containing "test" drops real customers).
+//              each open order printed with its age; pending rows older than
+//              STALE_PENDING_DAYS are marked STALE — an abandoned checkout,
+//              not an in-flight one — with the close command that clears the
+//              warning. Also deliberate test SKUs (prod_checkout_test_dollar
+//              and kin are meant to stay buyable — mirrors the marketing
+//              campaign guard where a name containing "test" drops real
+//              customers).
 //   ORPHANS  — order lines whose product id exists in neither the products
 //              table nor the seed. Not buyable (no row to purchase), but
 //              surfaced so deleted SKUs and offline sales stay visible.
@@ -91,6 +95,21 @@ const itemProductId = (i: any) => String(i?.productId ?? i?.product_id ?? i?.id 
 const itemQty = (i: any) => Number(i?.quantity ?? i?.qty ?? 1);
 
 /**
+ * A pending order older than this is an abandoned checkout, not an in-flight
+ * one: cashapp/crypto verification completes in hours, at most a couple of
+ * days. 30d is deliberately generous — the QA rows that sat on the Above as
+ * Below set for seven weeks (cancelled 2026-10-03, README "QA checkout
+ * orders") would have been marked STALE from their first week.
+ */
+const STALE_PENDING_DAYS = 30;
+
+/** Whole days an order has been open; null when created_at is missing/unparsable. */
+const ageDays = (iso: string | null) => {
+    const t = Date.parse(iso || '');
+    return Number.isFinite(t) ? Math.max(0, Math.floor((Date.now() - t) / 86_400_000)) : null;
+};
+
+/**
  * Curated disposition for known orphan order lines, decided 2026-10-03 after
  * digging through orders, git history, scripts and README. "Intentionally
  * gone" means the order record IS the product's history — nothing to re-list.
@@ -105,7 +124,7 @@ const ORPHAN_DECISIONS: Record<string, string> = {
     prod_tee_distortion:
         'intentionally gone — paid PayPal order Feb 2026 (ORD-PP-8SN773); seed entry had no stock fields and was dropped by the 2026-07-10 admin sync; images survive in PRODUCT_IMAGE_URLS.distortionTee; README row moved to Archived. Re-list via admin ProductManager if physical units remain.',
     prod_travis_shirt_custom_deposit:
-        'intentionally order-only — $40 custom commission deposit recorded by order TRAVIS-SHIRT-DEPOSIT-2026-07-25 (row verified by scripts/applyMigrationsSql.ts); never a catalog product',
+        'intentionally order-only — $40 custom commission recorded by order TRAVIS-SHIRT-DEPOSIT-2026-07-25 (row verified by scripts/applyMigrationsSql.ts); never a catalog product. Resolved 2026-10-03: $10 balance confirmed received by the owner and reconciled to paid via scripts/resolveTravisDeposit.ts (notes marker struck, payments ledger row written), so this line now prints as a paid order-only record.',
 };
 
 describe.runIf(LIVE)('catalog audit: sold products must not be buyable', () => {
@@ -127,6 +146,10 @@ describe.runIf(LIVE)('catalog audit: sold products must not be buyable', () => {
         // --- live order evidence -------------------------------------------
         const paidUnits = new Map<string, number>();
         const pendingUnits = new Map<string, number>();
+        // Which orders make up each product's pending count, and how long
+        // each has been open — the age is what separates a checkout in
+        // progress from an abandoned one.
+        const pendingOpen = new Map<string, Array<{ order: string; days: number | null }>>();
         const statusCounts = new Map<string, number>();
         for (const o of (orders || []) as OrderRow[]) {
             const st = String(o.payment_status ?? 'null');
@@ -137,7 +160,12 @@ describe.runIf(LIVE)('catalog audit: sold products must not be buyable', () => {
                 if (!pid) continue;
                 const qty = itemQty(it);
                 if (st === 'paid') paidUnits.set(pid, (paidUnits.get(pid) || 0) + qty);
-                else if (st === 'pending') pendingUnits.set(pid, (pendingUnits.get(pid) || 0) + qty);
+                else if (st === 'pending') {
+                    pendingUnits.set(pid, (pendingUnits.get(pid) || 0) + qty);
+                    const open = pendingOpen.get(pid) || [];
+                    open.push({ order: String(o.order_number || o.id), days: ageDays(o.created_at) });
+                    pendingOpen.set(pid, open);
+                }
             }
         }
 
@@ -238,11 +266,16 @@ describe.runIf(LIVE)('catalog audit: sold products must not be buyable', () => {
                 flags.push(`SEED/LIVE DRIFT   ${id} (${live?.name}) — seed says archived, live row says buyable`);
             }
             if (pend > 0 && liveBuyable) {
-                const msg = `PENDING ORDER     ${id} (${live?.name}) — ${pend} unit(s) in pending cashapp/crypto order(s) while still buyable (stock ${liveStock})`;
+                const open = pendingOpen.get(id) || [];
+                const ages = open.map(p => `${p.order} ${p.days == null ? 'age unknown' : `${p.days}d old`}`).join(', ');
+                const stale = open.filter(p => p.days != null && p.days >= STALE_PENDING_DAYS);
+                const msg = `PENDING ORDER     ${id} (${live?.name}) — ${pend} unit(s) in pending cashapp/crypto order(s) while still buyable (stock ${liveStock}) — open: ${ages}`;
                 // Unpaid orders are not sales — unless they already cover every
                 // remaining unit, at which point paying them double-sells.
                 if (pend >= (liveStock ?? 0)) flags.push(`${msg} — pending units cover ALL remaining stock`);
-                else warnings.push(msg);
+                else if (stale.length) {
+                    warnings.push(`${msg} — STALE ≥${STALE_PENDING_DAYS}d: ${stale.map(s => s.order).join(', ')} look abandoned, not in flight — cancel them (scripts/reviewStalePendingOrders.ts --apply) to clear this warning`);
+                } else warnings.push(msg);
             }
         }
 
