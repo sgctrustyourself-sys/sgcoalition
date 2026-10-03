@@ -4,7 +4,8 @@
 //
 // Response shape:
 // {
-//   audience: { total, email, sms, sources },
+//   audience: { total, email, sms, by_source },
+//   contacts: [ { id, email, phone, source } ],   // the same union marketing-send uses
 //   campaigns: [
 //     {
 //       id, name, channel, status, sent_at, created_at,
@@ -32,6 +33,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 // code (or log line) could run. `import type` is erased at compile time
 // so '../_types.js' doesn't need the extension.
 import { withAdminAuth } from '../_adminAuth.js';
+import { fetchAudience, summariseAudience } from '../_marketingAudience.js';
 import type { ApiRequest, ApiResponse } from '../_types.js';
 
 let cachedAdminClient: SupabaseClient | null = null;
@@ -54,18 +56,25 @@ export default withAdminAuth(async (req: ApiRequest, res: ApiResponse) => {
     }
 
     try {
-        const [{ data: contacts }, { data: campaigns }, { data: sends }] = await Promise.all([
-            admin.from('marketing_contacts').select('id, email, phone_e164, channel, source, status').eq('status', 'active'),
+        // The audience comes from the SAME union /api/marketing-send dispatches to
+        // (see api/_marketingAudience.ts). This endpoint used to count only
+        // marketing_contacts, so the admin UI could show a smaller number than the
+        // campaign actually reached.
+        const [{ rows: reachable }, { data: campaigns }, { data: sends }] = await Promise.all([
+            fetchAudience(admin, 'both'),
             admin.from('marketing_campaigns').select('*').order('created_at', { ascending: false }).limit(50),
             admin.from('marketing_sends').select('id, campaign_id, channel, status'),
         ]);
 
-        const audience = {
-            total: (contacts || []).length,
-            email: (contacts || []).filter((c: any) => c.email).length,
-            sms: (contacts || []).filter((c: any) => c.phone_e164).length,
-            sources: new Set((contacts || []).map((c: any) => c.source)).size,
-        };
+        const audience = summariseAudience(reachable);
+        // Unsubscribe tokens never leave the server: the row actions that need one
+        // go through /api/marketing-optout instead.
+        const contacts = reachable.map((row) => ({
+            id: row.id ?? null,
+            email: row.email,
+            phone: row.phone,
+            source: row.source,
+        }));
 
         const sendsByCampaign = new Map<string, any[]>();
         for (const s of sends || []) {
@@ -101,7 +110,7 @@ export default withAdminAuth(async (req: ApiRequest, res: ApiResponse) => {
             };
         });
 
-        res.status(200).json({ audience, campaigns: campaignsWithStats });
+        res.status(200).json({ audience, contacts, campaigns: campaignsWithStats });
     } catch (err: any) {
         console.error('[marketing-stats] error:', err);
         res.status(500).json({ error: err?.message || 'Failed to load marketing stats' });

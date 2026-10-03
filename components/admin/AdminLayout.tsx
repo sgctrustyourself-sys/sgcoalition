@@ -1,11 +1,11 @@
 import React from 'react';
-import { Activity, Package, ShoppingCart, GitBranch, Gift, LogOut, Menu, X, MessageSquare, Coins, Star, BarChart3, TrendingUp, Instagram, Megaphone, Users, Brain, Image as ImageIcon, UserCircle2, Banknote, Award, Tag } from 'lucide-react';
+import { Activity, Package, ShoppingCart, GitBranch, Gift, LogOut, Menu, X, MessageSquare, Mail, Coins, Star, BarChart3, TrendingUp, Instagram, Megaphone, Users, Brain, Image as ImageIcon, UserCircle2, Banknote, Award, Tag } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 interface AdminLayoutProps {
     children: React.ReactNode;
-    activeTab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'sgcoin-payouts' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'images' | 'users' | 'brain' | 'settings' | 'customer-profile' | 'trust-circle' | 'coupons';
-    onTabChange: (tab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'sgcoin-payouts' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'images' | 'users' | 'brain' | 'settings' | 'customer-profile' | 'trust-circle' | 'coupons') => void;
+    activeTab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'sgcoin-payouts' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'marketing' | 'images' | 'users' | 'brain' | 'settings' | 'customer-profile' | 'trust-circle' | 'coupons';
+    onTabChange: (tab: 'command-center' | 'products' | 'orders' | 'blog' | 'reviews' | 'analytics' | 'referrals' | 'sgcoin-distribution' | 'sgcoin-requests' | 'sgcoin-payouts' | 'instagram' | 'git' | 'giveaways' | 'inquiries' | 'signals' | 'marketing' | 'images' | 'users' | 'brain' | 'settings' | 'customer-profile' | 'trust-circle' | 'coupons') => void;
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabChange }) => {
@@ -36,6 +36,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, onTabCha
                 { id: 'inquiries', label: 'Custom Inquiries', icon: MessageSquare },
                 { id: 'instagram', label: 'Instagram Links', icon: Instagram },
                 { id: 'signals', label: 'Signal Broadcast', icon: Megaphone },
+                { id: 'marketing', label: 'Marketing', icon: Mail },
                 { id: 'users', label: 'User Directory', icon: Users },
                 { id: 'customer-profile', label: 'Customer Profile', icon: UserCircle2 },
                 { id: 'trust-circle', label: 'Trust Circle', icon: Award },

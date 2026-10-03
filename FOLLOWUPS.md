@@ -153,7 +153,7 @@ Not blocking; do when bundle slices accumulate.
 | 6 | Trim eager `motion` (~20 files, not 3; modulepreloaded on first paint) | Maintainer | n/a (code) | 30 min |
 | 7 | Wire Sentry session replay (when wanted) — **deferral now pinned by test** | Maintainer | n/a (code) | 10 min |
 | 8 | Anchor live-orders seed timestamps | Maintainer | n/a (code) | 30 min |
-| 9 | Decide `/api/marketing-stats` (authorized but has no caller) | Maintainer | n/a (code) | 20 min |
+| 9 | ~~Decide `/api/marketing-stats`~~ — **resolved 2026-09-17:** it is the restored Marketing tab's only data source, and now serves the same reachable-audience union the sender uses | — | — | — |
 | 10 | Decide the dead `upload-imgur` path in `imgurService.ts` | Maintainer | n/a (code) | 15 min |
 | 11 | ~~Add a React error boundary~~ — **done 2026-09-15** (`components/ErrorBoundary.tsx`; `onCaughtError` now fires for boundary-caught errors) | — | — | — |
 | 12 | Delete or token-wire the dead `components/GitManager.tsx` | Maintainer | n/a (code) | 10 min |

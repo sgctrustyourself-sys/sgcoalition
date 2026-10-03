@@ -277,9 +277,18 @@ Every test campaign that drops verified customers writes `excluded_verified_cust
 #### Where to read it
 
 - Helper (predicate + filter): `utils/marketingAudience.ts` exporting `VERIFIED_CUSTOMER_SOURCES`, `isVerifiedCustomerSource`, `isTestCampaignName`, `filterVerifiedCustomers`.
-- Server enforcement: `api/_handlers/marketing-send.ts` (`fetchAudience` derives `excludeVerified` from the campaign name via `isTestCampaignName`, then drops matching rows).
-- UI advisory: `components/admin/MarketingManager.tsx` `ComposerView` Campaign Name field.
+- Audience (single owner of "who is reachable"): `api/_marketingAudience.ts`. `fetchAudience` derives `excludeVerified` from the campaign name via `isTestCampaignName`, then drops matching rows. **Both** `POST /api/marketing-send` and `GET /api/marketing-stats` read this module, so the audience count on the admin screen is the count a campaign actually reaches.
+- Server enforcement: `api/_handlers/marketing-send.ts`.
+- UI advisory: `components/admin/MarketingManager.tsx` `ComposerView` Campaign Name field. The tab is addressable as `/admin?tab=marketing`.
 - Helper tests: `tests/marketingAudience.test.ts` (covers the constants, the predicate, the substring match with documented edge-cases, and the filter in both on/off modes).
+
+#### Admin UI: what it can and cannot do
+
+The Marketing tab reads the audience and campaign history through `GET /api/marketing-stats` (admin-gated) rather than querying Supabase from the browser. Those tables are RLS-gated to Supabase-authenticated `admin_users`, while the admin session is a bare shared secret - direct browser reads returned an empty list next to a send that reached everyone.
+
+There is deliberately **no per-row unsubscribe button**: suppressing a contact writes to the same RLS-protected tables and would fail silently. Each campaign email carries a working one-click link (`/api/marketing-optout`), and an operator can suppress an address from the Supabase dashboard. The audience table exports to CSV for that purpose.
+
+SMS campaigns need the optional `twilio` package plus `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER`. Without them an SMS leg records a per-recipient failure with the real reason and the campaign reports `partial` or `failed` - it never reports success it did not have.
 
 ## Backend Bug-Fix Checklist
 

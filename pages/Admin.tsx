@@ -25,6 +25,7 @@ const ImageManager = lazy(() => import('../components/admin/ImageManager'));
 const CustomerProfileAdmin = lazy(() => import('../components/admin/CustomerProfileAdmin'));
 const TrustCircleManager = lazy(() => import('../components/admin/TrustCircleManager'));
 const CouponManager = lazy(() => import('../components/admin/CouponManager'));
+const MarketingManager = lazy(() => import('../components/admin/MarketingManager'));
 
 // Loading component for Suspense fallback
 const LoadingSpinner = () => (
@@ -40,7 +41,7 @@ const LoadingSpinner = () => (
 
 // Tabs addressable via ?tab=<id> (deep links from ops emails). Unknown or
 // missing values fall back to the default tab.
-const VALID_TABS = ['command-center', 'products', 'orders', 'blog', 'reviews', 'analytics', 'referrals', 'sgcoin-distribution', 'sgcoin-requests', 'sgcoin-payouts', 'instagram', 'git', 'giveaways', 'inquiries', 'signals', 'users', 'brain', 'settings', 'images', 'customer-profile', 'trust-circle', 'coupons'] as const;
+const VALID_TABS = ['command-center', 'products', 'orders', 'blog', 'reviews', 'analytics', 'referrals', 'sgcoin-distribution', 'sgcoin-requests', 'sgcoin-payouts', 'instagram', 'git', 'giveaways', 'inquiries', 'signals', 'marketing', 'users', 'brain', 'settings', 'images', 'customer-profile', 'trust-circle', 'coupons'] as const;
 type Tab = typeof VALID_TABS[number];
 
 const Admin: React.FC = () => {
@@ -99,6 +100,8 @@ const Admin: React.FC = () => {
                 return <SGCoinPayoutManager adminUserId={user?.uid || ''} />;
             case 'signals':
                 return <SignalManager />;
+            case 'marketing':
+                return <MarketingManager />;
             case 'brain':
                 return <BrainManager />;
             case 'images':
