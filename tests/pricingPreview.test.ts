@@ -162,3 +162,74 @@ describe('/api/pricing-preview line-splitting contract', () => {
         expect(res._body.error).toMatch(/At least one item required/);
     });
 });
+
+// =========================================================================
+// Store credit parity — the preview prices the credit for EVERY method
+// =========================================================================
+
+// The defect this pins: create-payment-intent was the only step that applied
+// store credit, so the crypto and Cash App panels — which take their amount
+// from THIS endpoint — were priced without it. The shopper ticked "Apply Store
+// Credit", saw the credit line, and was then asked to send the undiscounted
+// amount (and the order recorded full price with no debit).
+describe('/api/pricing-preview store credit', () => {
+    const USER_ID = '9b2f8a5c-1d4e-4f6a-9c3b-7e8d2a1b4c5d';
+
+    function stubTables(balance: number) {
+        mockSupabaseFrom.mockImplementation((table: string) =>
+            table === 'profiles'
+                ? chain({ data: { store_credit: balance }, error: null })
+                : chain({ data: [TEE], error: null }),
+        );
+    }
+
+    for (const method of ['card', 'klarna', 'crypto', 'cashapp', 'store_credit'] as const) {
+        it('applies the buyer\'s balance for ' + method, async () => {
+            stubTables(8);
+            const req = makeReq('POST', {
+                items: [{ productId: 'prod_tee_above_as_below', selectedSize: 'M', quantity: 1 }],
+                shippingCost: 0,
+                paymentMethod: method,
+                useStoreCredit: true,
+                userId: USER_ID,
+            });
+            const res = makeRes();
+            await handler(req, res);
+            expect(res._status).toBe(200);
+            expect(res._body.storeCreditCents).toBe(800);
+            expect(res._body.totalCents).toBe(6700); // $75 - $8
+        });
+    }
+
+    it('takes the amount from the profile, never from the request body', async () => {
+        stubTables(8);
+        const req = makeReq('POST', {
+            items: [{ productId: 'prod_tee_above_as_below', selectedSize: 'M', quantity: 1 }],
+            shippingCost: 0,
+            paymentMethod: 'crypto',
+            useStoreCredit: true,
+            userId: USER_ID,
+            storeCreditCents: 999999, // a client claiming a balance it does not have
+        });
+        const res = makeRes();
+        await handler(req, res);
+        expect(res._body.storeCreditCents).toBe(800);
+        expect(res._body.totalCents).toBe(6700);
+    });
+
+    it('applies no credit when the shopper did not ask for it', async () => {
+        stubTables(8);
+        const req = makeReq('POST', {
+            items: [{ productId: 'prod_tee_above_as_below', selectedSize: 'M', quantity: 1 }],
+            shippingCost: 0,
+            paymentMethod: 'crypto',
+            userId: USER_ID,
+        });
+        const res = makeRes();
+        await handler(req, res);
+        expect(res._body.storeCreditCents).toBe(0);
+        expect(res._body.totalCents).toBe(7500);
+        // No balance read at all — the credit path is only entered when asked.
+        expect(mockSupabaseFrom).not.toHaveBeenCalledWith('profiles');
+    });
+});

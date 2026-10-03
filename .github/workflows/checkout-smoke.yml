@@ -26,6 +26,10 @@ on:
 
 jobs:
   smoke:
+    # This name overstates what a green run proves, and is deliberately left as
+    # it is (flagged, not renamed): the SKIPPED server-pricing check is explained
+    # by the local-preview step's comment and ::notice, and decided by
+    # scripts/smoke-checkout.mjs. Green here means the storefront flow, not the money path.
     name: Shop-to-checkout smoke
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -94,7 +98,7 @@ jobs:
       - name: Build a local preview and smoke the client flow
         # Runs whenever the preview smoke did NOT run: a plain PR with no preview
         # URL (no Vercel app installed), or a preview URL we cannot reach without
-        # a bypass secret. Mirrors loader-fade.yml — the server must live in the
+        # a bypass secret. Mirrors boot-checks.yml — the server must live in the
         # same step as the test, because Actions kills background processes when
         # a step ends.
         #

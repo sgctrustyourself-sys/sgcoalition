@@ -5,6 +5,8 @@ import { useApp } from '../context/AppContext';
 import { getCartItemUnitPrice, getCartItemLineTotal, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { getReferralStats, generateReferralLink, type ReferralStats } from '../utils/referralSystem';
 import { trackReferralShare } from '../utils/referralAnalytics';
+import { clearCheckoutAttempt, getOrCreateRecoveryOrderId } from '../utils/checkoutAttempt';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 
 // ---- Stripe redirect-return recovery ----------------------------------
 // Stripe redirect methods (3D Secure card auth, Klarna, Afterpay) bounce the
@@ -27,17 +29,28 @@ interface ReturnedCheckoutState {
     couponCode?: string | null;
 }
 
+/** A failed write's reason, fit to show a shopper — and what to do next. */
+const messageOf = (error: unknown): string => (error instanceof Error && error.message
+    ? error.message
+    : 'We could not reach the order service. Reload this page to check your order — a repeat of the order is not placed or charged twice.');
+
 const loadReturnedCheckoutState = (): ReturnedCheckoutState | null => {
     try {
         const raw = sessionStorage.getItem(CHECKOUT_STATE_KEY);
         return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
+    } catch (error) {
+        sessionStorage.removeItem(CHECKOUT_STATE_KEY);
+        return null;
+    }
 };
 
 const OrderSuccess = () => {
     const [searchParams] = useSearchParams();
-    const { cart, cartTotal, calculateReward, clearCart, user, updateUser } = useApp();
+    const { cart, cartTotal, calculateReward, clearCart, user, updateUser, addOrder } = useApp();
     const [orderDetails, setOrderDetails] = useState<any>(null);
+    // Why no order is on screen, when the reason is a write that failed rather
+    // than one that was never found: the empty state below says which.
+    const [writeError, setWriteError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [shippingInfo, setShippingInfo] = useState<any>(null);
     const [isMembershipSuccess, setIsMembershipSuccess] = useState(false);
@@ -47,6 +60,8 @@ const OrderSuccess = () => {
     // Guard: complete the Stripe redirect-return order at most once per mount
     // even if the effect re-runs (e.g. `user` hydrates mid-flight).
     const stripeCompletionRef = useRef(false);
+    // The cart fallback below writes an order too, so it claims the same guard.
+    const fallbackCompletionRef = useRef(false);
 
     const sessionId = searchParams.get('session_id');
     const type = searchParams.get('type');
@@ -130,9 +145,14 @@ const OrderSuccess = () => {
             const returnedState = loadReturnedCheckoutState();
             let currentShippingInfo = shippingInfo;
             if (storedShipping) {
-                currentShippingInfo = JSON.parse(storedShipping);
-                setShippingInfo(currentShippingInfo);
-                sessionStorage.removeItem('shippingInfo');
+                try {
+                    currentShippingInfo = JSON.parse(storedShipping);
+                    setShippingInfo(currentShippingInfo);
+                    sessionStorage.removeItem('shippingInfo');
+                } catch (error) {
+                    console.error('Stored shipping info is invalid:', error);
+                    sessionStorage.removeItem('shippingInfo');
+                }
             } else if (returnedState?.shippingInfo) {
                 currentShippingInfo = { ...shippingInfo, ...returnedState.shippingInfo };
                 setShippingInfo(currentShippingInfo);
@@ -151,7 +171,14 @@ const OrderSuccess = () => {
                 const seed = returnedState?.orderSeed || null;
                 try {
                     const orderPayload = {
-                        id: seed?.orderId || `order_${Date.now()}`,
+                        id: seed?.orderId || getOrCreateRecoveryOrderId({
+                            userId: user?.uid,
+                            items: cart,
+                            couponCode: returnedState?.couponCode,
+                            shippingMethod: effectiveShippingMethod,
+                            shippingCost: effectiveShippingCost,
+                            storeCreditApplied: Number(returnedState?.storeCreditApplied) || 0,
+                        }),
                         orderNumber: seed?.orderNumber || undefined,
                         userId: user?.uid,
                         isGuest: !user,
@@ -204,7 +231,10 @@ const OrderSuccess = () => {
                     // non-succeeded PI, so retry briefly before falling back.
                     let response: Response | null = null;
                     for (let attempt = 0; attempt < 5; attempt++) {
-                        const r = await fetch('/api/complete-order', {
+                        // Bounded: this page shows a spinner until the write
+                        // settles, so a request that never answers is a shopper
+                        // staring at "Processing..." with no way forward.
+                        const r = await fetchWithTimeout('/api/complete-order', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ order: orderPayload }),
@@ -250,8 +280,10 @@ const OrderSuccess = () => {
                         clearCart();
                         // Consume the persisted checkout state (Checkout's
                         // createOrder usually clears it, but the redirect-return
-                        // never reaches that path).
+                        // never reaches that path). The attempt is settled, so
+                        // the next purchase mints a new id.
                         try { sessionStorage.removeItem(CHECKOUT_STATE_KEY); } catch (e) { /* ignore */ }
+                        clearCheckoutAttempt();
                         // Award SGCoin reward (parity with the in-page flow).
                         if (user) {
                             await updateUser({
@@ -271,6 +303,10 @@ const OrderSuccess = () => {
                     // display build below.
                 } catch (err) {
                     console.error('Stripe redirect-return order completion failed:', err);
+                    // Surface it: without an order the page would otherwise
+                    // claim it merely "couldn't find" one, which reads as a
+                    // lookup problem rather than a write that never landed.
+                    setWriteError(messageOf(err));
                     // Fall through to the local display build below.
                 }
             }
@@ -279,86 +315,112 @@ const OrderSuccess = () => {
             if (cart.length === 0) {
                 const pendingOrder = sessionStorage.getItem('pendingOrder');
                 if (pendingOrder) {
-                    const order = JSON.parse(pendingOrder);
-                    setOrderDetails(order);
-                    sessionStorage.removeItem('pendingOrder');
+                    try {
+                        const order = JSON.parse(pendingOrder);
+                        setOrderDetails(order);
+                    } catch (error) {
+                        console.error('Stored pending order is invalid:', error);
+                    } finally {
+                        sessionStorage.removeItem('pendingOrder');
+                    }
                 }
                 setIsLoading(false);
                 return;
             }
 
+            // Same claim-once guard as the redirect-return above, for the other
+            // path that writes an order. This effect re-runs when a dep such as
+            // `user` or `cart` changes while the write is still in flight, and
+            // the id minted below (`order_${Date.now()}`) plus an undefined
+            // paymentReference leaves the server nothing to dedupe on — one
+            // purchase would become two pending orders and two credit debits.
+            if (fallbackCompletionRef.current) return;
+            fallbackCompletionRef.current = true;
+
             try {
-                const order = {
-                    id: `ORD-${Date.now()}`,
+                // This is a recovery path, not a second local order writer. The
+                // server owns pricing, persistence, inventory and emails; the
+                // old fallback built a cart-priced object, saved it to
+                // localStorage and emailed that estimate directly.
+                const recorded = await addOrder({
+                    // The same attempt id Checkout used (utils/checkoutAttempt.ts):
+                    // if this purchase was already written, the server returns
+                    // that order instead of recording a second one. The recovery
+                    // rule is used on purpose — this page is chasing an attempt
+                    // already sent, so the id must survive even past the window
+                    // in which the checkout would still be reusing it.
+                    id: getOrCreateRecoveryOrderId({
+                        userId: user?.uid,
+                        items: cart,
+                        couponCode: returnedState?.couponCode,
+                        shippingMethod: effectiveShippingMethod,
+                        shippingCost: effectiveShippingCost,
+                        storeCreditApplied: Number(returnedState?.storeCreditApplied) || 0,
+                    }),
                     userId: user?.uid,
-                    items: cart.map(item => ({
-                        id: item.id,
-                        name: item.name,
-                        price: getCartItemUnitPrice(item),
-                        quantity: item.quantity,
-                        size: item.selectedSize,
-                        addOnLabel: item.keychainClipOn ? WALLET_KEYCHAIN_CLIP_LABEL : undefined,
-                        image: item.images[0],
-                    })),
-                    total,
-                    sgCoinReward: reward,
-                    status: paymentMethod === 'crypto' ? 'pending_verification' : 'paid',
-                    paymentMethod: paymentMethod || 'card',
-                    paymentIntentId,
-                    txHash,
-                    // STRICT EMAIL POLICY: Use ONLY the email collected during checkout
-                    customerEmail: currentShippingInfo?.email || '',
+                    isGuest: !user,
+                    guestEmail: !user ? currentShippingInfo?.email : undefined,
                     customerName: currentShippingInfo?.name || '',
-                    shippingStatus: 'processing',
-                    trackingNumber: null as string | null,
+                    customerEmail: currentShippingInfo?.email || '',
+                    customerPhone: '',
+                    items: cart.map(item => ({
+                        productId: item.id,
+                        productName: item.name,
+                        productImage: item.images[0],
+                        selectedSize: item.selectedSize || 'One Size',
+                        quantity: item.quantity,
+                        price: getCartItemUnitPrice(item),
+                        total: getCartItemLineTotal(item),
+                        keychainClipOn: Boolean(item.keychainClipOn),
+                        addOnLabel: item.keychainClipOn ? WALLET_KEYCHAIN_CLIP_LABEL : undefined,
+                    })),
+                    subtotal: 0,
+                    tax: 0,
+                    discount: 0,
+                    total,
+                    paymentMethod: paymentIntentId ? 'stripe' : (paymentMethod || 'store_credit'),
+                    paymentStatus: paymentMethod === 'crypto' || paymentMethod === 'cashapp' ? 'pending' : 'paid',
+                    paymentReference: paymentIntentId || undefined,
+                    couponCode: returnedState?.couponCode || undefined,
+                    storeCreditApplied: returnedState?.storeCreditApplied || 0,
+                    orderType: 'online',
                     createdAt: new Date().toISOString(),
-                    paidAt: new Date().toISOString(),
-                    shippingInfo: currentShippingInfo || {},
-                    shippingMethod,
-                    shippingCost,
-                };
+                    paidAt: paymentMethod === 'crypto' || paymentMethod === 'cashapp' ? undefined : new Date().toISOString(),
+                    sgCoinReward: reward,
+                    shippingAddress: {
+                        address1: currentShippingInfo?.address1 || '',
+                        city: currentShippingInfo?.city || '',
+                        state: currentShippingInfo?.state || '',
+                        zip: currentShippingInfo?.zip || '',
+                        country: currentShippingInfo?.country || '',
+                        shippingMethod,
+                        shippingCost,
+                    },
+                    notes: txHash ? `Transaction hash: ${txHash}` : '',
+                } as any);
 
-                // Save order to localStorage
-                const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-                orders.push(order);
-                localStorage.setItem('orders', JSON.stringify(orders));
-
-                // Award SGCoin reward
-                if (user) {
-                    await updateUser({ sgCoinBalance: (user.sgCoinBalance || 0) + reward });
-                    console.log(`✅ Awarded ${reward} SGCoin to user ${user.uid}`);
-                }
-
-                // Send order confirmation email
-                const emailToSend = order.customerEmail;
-                if (emailToSend) {
-                    try {
-                        await fetch('/api/send-order-confirmation', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ order }),
-                        });
-                    } catch (err) {
-                        console.error('Email send error:', err);
-                    }
-                } else {
-                    console.warn('No customer email found, skipping confirmation email.');
-                }
-
-                // Load referral stats for the post-purchase CTA (fire-and-forget)
-                if (user) {
-                    getReferralStats(user.uid).then(stats => {
-                        if (stats) setReferralStats(stats);
-                    });
-                }
-
-                setOrderDetails(order);
+                // The server response is authoritative for the confirmation UI.
+                // Keep only display-shape aliases here; never recreate its money.
+                setOrderDetails({
+                    ...recorded,
+                    id: recorded.orderNumber || recorded.id,
+                    items: recorded.items || [],
+                    shippingInfo: recorded.shippingAddress || currentShippingInfo,
+                    shippingMethod: recorded.shippingAddress?.shippingMethod || shippingMethod,
+                    shippingCost: recorded.shippingAddress?.shippingCost ?? shippingCost,
+                });
                 clearCart();
                 // Consume persisted checkout state on the fallback path too
                 // (the Stripe redirect-return branch may have fallen through).
                 try { sessionStorage.removeItem(CHECKOUT_STATE_KEY); } catch (e) { /* ignore */ }
+                // This attempt is settled: the next purchase mints a new id.
+                clearCheckoutAttempt();
             } catch (error) {
                 console.error('Order processing error:', error);
+                // A failed write is not the same as a missing order: say so,
+                // and say that reloading is safe (the attempt id means the
+                // server resolves a repeat to the order it already wrote).
+                setWriteError(messageOf(error));
             } finally {
                 setIsLoading(false);
             }
@@ -403,8 +465,8 @@ const OrderSuccess = () => {
         return (
             <div className="min-h-screen pt-24 pb-16 px-4">
                 <div className="max-w-2xl mx-auto text-center py-20">
-                    <h1 className="font-display text-3xl font-bold mb-4">No Order Found</h1>
-                    <p className="text-gray-600 mb-8">We couldn't find your order details.</p>
+                    <h1 className="font-display text-3xl font-bold mb-4">{writeError ? 'Order Not Confirmed' : 'No Order Found'}</h1>
+                    <p className="text-gray-600 mb-8">{writeError || "We couldn't find your order details."}</p>
                     <Link to="/" className="inline-flex items-center gap-2 bg-black text-white px-8 py-3 rounded-sm font-bold uppercase tracking-widest hover:bg-gray-800 transition">
                         <Home className="w-5 h-5" />
                         Back to Home

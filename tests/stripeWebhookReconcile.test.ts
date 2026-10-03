@@ -179,16 +179,23 @@ describe('stripe-webhook reconcile hardening', () => {
         expect(mockResendSend).not.toHaveBeenCalled();
     });
 
-    it('missing order -> 200 (no Stripe retry), admin alerted as permanent', async () => {
+    it('missing order -> 500 (Stripe retries), admin alerted as transient', async () => {
         stubOrderLookup({ data: null, error: null });
 
         const res = await post(piSucceeded());
-        expect(res.statusCode).toBe(200);
-        expect(res.body).toEqual(expect.objectContaining({ reconciled: false }));
+        // The order write races this webhook: the client records the order only
+        // after its payment resolves, so a missing row means "not yet" (measured
+        // — the row for order_1790143801835_89acaacc landed 200ms after the
+        // miss that declared it permanently unreconcilable). 500 lets Stripe's
+        // redelivery reconcile the race; 200 here silences the only mechanism
+        // that ever can. A write that truly never comes exhausts Stripe's
+        // retries and keeps alerting — the escalation money-without-order wants.
+        expect(res.statusCode).toBe(500);
+        expect(res.body).toEqual({ error: 'Auto-reconciliation failed — will retry' });
         expect(mockResendSend).toHaveBeenCalledTimes(1);
         const call = mockResendSend.mock.calls[0][0];
         expect(call.subject).toContain('webhook reconcile failed');
-        expect(call.html).toContain('Permanently unreconcilable');
+        expect(call.html).toContain('Stripe will redeliver');
     });
 
     it('alert email carries Stripe event ID and one-click triage links', async () => {

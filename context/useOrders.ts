@@ -9,6 +9,21 @@ import { supabase } from '../services/supabase';
 import { getAdminAuthHeaders } from '../services/adminSession';
 import { WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
 import { updateLifetimeStats } from '../utils/customerProfile';
+import { fetchWithTimeout } from '../utils/fetchWithTimeout';
+
+// The orders table stores no product image (acceptCheckout writes
+// productImage: ''), so a recorded order is merged with the order the client
+// built for display only: every money field stays the record's.
+function withLocalItemImages(recorded: Order, local: Order): Order {
+    return {
+        ...recorded,
+        items: recorded.items.map((item: any, index: number) => {
+            const mine: any = local.items[index];
+            if (!mine) return item;
+            return { ...item, image: item.image || mine.image || '', productImage: item.productImage || mine.productImage || '' };
+        }),
+    };
+}
 
 export function useOrders(
     isSupabaseConfigured: boolean,
@@ -17,9 +32,12 @@ export function useOrders(
 ) {
     const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
 
-    const mapAndSetOrders = useCallback((data: any[]) => {
-        if (!data || !Array.isArray(data)) return orders;
-        const mapped = data.map((o: any) => {
+    // Row -> Order mapping — the single owner, shared by the fetch path and the
+    // create path. addOrder needs it because the order the app shows (and the
+    // lifetime stats it derives) must be the RECORDED order: the client's own
+    // object still carries the pre-coupon estimate, so a comped order would read
+    // full price on the confirmation page.
+    const mapOrderRows = useCallback((data: any[]): Order[] => (Array.isArray(data) ? data : []).map((o: any) => {
             const items = Array.isArray(o.items) ? o.items : Array.isArray(o.line_items) ? o.line_items : [];
             const normalizedItems = items.map((item: any, index: number) => {
                 const quantity = Math.max(1, Number(item.quantity || item.qty || 1));
@@ -62,10 +80,14 @@ export function useOrders(
                 paidAmount: o.paid_amount != null ? Number(o.paid_amount) : (o.paidAmount != null ? Number(o.paidAmount) : undefined),
                 balanceDue: o.balance_due != null ? Number(o.balance_due) : (o.balanceDue != null ? Number(o.balanceDue) : undefined)
             };
-        });
+    }), []);
+
+    const mapAndSetOrders = useCallback((data: any[]) => {
+        if (!data || !Array.isArray(data)) return orders;
+        const mapped = mapOrderRows(data);
         setOrders(mapped);
         return mapped;
-    }, []);
+    }, [mapOrderRows, orders]);
 
     const fetchOrdersViaApi = useCallback(async () => {
         try {
@@ -102,24 +124,45 @@ export function useOrders(
         return () => { channel.unsubscribe(); };
     }, [isSupabaseConfigured, fetchOrders]);
 
-    const addOrder = useCallback(async (order: Order) => {
+    // Resolves to the order the SERVER recorded, not the object it was handed.
+    // The server re-prices every order from the catalog (coupon, set bonus,
+    // crypto discount, store credit) and answers with the stored row, so the
+    // caller must display and derive from that row: a coupon-comped order's
+    // client object is the pre-coupon estimate, i.e. money nobody paid.
+    const addOrder = useCallback(async (order: Order): Promise<Order> => {
         if (isSupabaseConfigured) {
             try {
-                const response = await fetch('/api/complete-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order }) });
+                // Bounded on purpose: the caller's pay button stays disabled
+                // until this settles, so a request that never answers used to
+                // hold the shopper on a dead control. The timeout turns that
+                // into the Error below, and the order's attempt id makes the
+                // retry resolve to the recorded order rather than a second one.
+                const response = await fetchWithTimeout('/api/complete-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order }) });
                 if (!response.ok) {
                     const payload = await response.json().catch(() => ({}));
                     throw new Error(payload.error || 'Order completion failed');
                 }
-                setOrders(prev => [order, ...prev.filter(existing => existing.id !== order.id)]);
-                fetchOrders();
-                if (order.userId && !order.userId.startsWith('user_eth_')) {
-                    void updateLifetimeStats(order.userId, order.total);
+                const saved = await response.json().catch(() => null);
+                // The server is the only writer of an order. A success with no
+                // recorded row means none was written (or the answer was
+                // unreadable), and the object we were handed is the client's
+                // coupon-blind estimate: resolving it would show a price nobody
+                // paid and count that estimate as customer spend.
+                if (!saved || (!saved.id && !saved.order_number)) {
+                    throw new Error('Order completion returned no recorded order');
                 }
+                const recorded = withLocalItemImages(mapOrderRows([saved])[0], order);
+                setOrders(prev => [recorded, ...prev.filter(existing => existing.id !== order.id && existing.id !== recorded.id)]);
+                fetchOrders();
+                if (recorded.userId && !recorded.userId.startsWith('user_eth_')) {
+                    void updateLifetimeStats(recorded.userId, recorded.total);
+                }
+                return recorded;
             } catch (err) { console.error('Order failed:', err); throw err; }
-            return;
         }
         setOrders(prev => [order, ...prev]);
-    }, [isSupabaseConfigured, fetchOrders]);
+        return order;
+    }, [isSupabaseConfigured, fetchOrders, mapOrderRows]);
 
     const updateOrderStatus = useCallback(async (orderId: string, newStatus: string) => {
         const originalStatus = orders.find(o => o.id === orderId)?.paymentStatus;

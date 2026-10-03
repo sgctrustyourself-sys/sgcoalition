@@ -226,7 +226,15 @@ describe('stripe-webhook label hook', () => {
 
         const res = await post(piSucceeded());
 
-        expect(res.statusCode).toBe(200);
+        // The lookup returns null (no order row), and an absent order is
+        // TRANSIENT by contract — the write this webhook races may not have
+        // landed yet — so Stripe must redeliver (500), not accept a failure
+        // that a second delivery could fix. The admin alert still fires and
+        // the label hook never runs on a failed reconcile. The permanent
+        // path (RPC business reject -> 200) is covered by
+        // tests/stripeWebhookReconcile.test.ts.
+        expect(res.statusCode).toBe(500);
+        expect(res.body).toEqual(expect.objectContaining({ error: 'Auto-reconciliation failed — will retry' }));
         expect(mockPurchaseLabel).not.toHaveBeenCalled();
         const call = mockResendSend.mock.calls[0][0];
         expect(call.subject).toContain('webhook reconcile failed');

@@ -1,4 +1,4 @@
-import { resolvePricing, type PricingItem, HttpError } from '../../services/orderIntake.js';
+import { loadStoreCreditCents, resolvePricing, type PricingItem, HttpError } from '../../services/orderIntake.js';
 import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet.js';
 
 export default async function handler(req: any, res: any) {
@@ -22,7 +22,7 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const { items, shippingCost, paymentMethod, couponCode } = req.body;
+        const { items, shippingCost, paymentMethod, couponCode, useStoreCredit, userId } = req.body;
 
         const pricingItems: PricingItem[] = Array.isArray(items) ? items.map((i: any) => ({
             productId: String(i.productId || ''),
@@ -38,12 +38,20 @@ export default async function handler(req: any, res: any) {
 
         const pm = String(paymentMethod || 'card');
 
+        // Store credit is priced in for EVERY method, exactly as the order path
+        // prices it. The balance is read server-side (never taken from the
+        // client) so the amount a shopper is shown — and, for crypto/Cash App,
+        // the amount they are asked to send — is the amount the order will be
+        // recorded and debited at. resolvePricing caps it against the order and
+        // acceptCheckout re-verifies it against the live balance before debiting.
+        const storeCreditCents = useStoreCredit ? await loadStoreCreditCents(userId) : 0;
+
         const pricing = await resolvePricing(
             pricingItems,
             Number(shippingCost || 0),
-            0, // client discount — preview only, no store credit
+            0, // client discount — the method discount is computed below
             pm,
-            0, // no store credit in preview
+            storeCreditCents,
             couponCode ? String(couponCode) : undefined,
         );
 
@@ -71,6 +79,10 @@ export default async function handler(req: any, res: any) {
             couponDiscountCents: pricing.couponDiscountCents,
             couponCode: pricing.couponCode,
             discountCents: pricing.discountCents,
+            // The credit actually applied (capped to the pre-credit total), so
+            // the summary renders the server's number instead of the client's
+            // estimate and the order request can forward the same amount.
+            storeCreditCents: pricing.storeCreditCents,
             totalCents: pricing.totalCents,
             items: pricing.items,
         });

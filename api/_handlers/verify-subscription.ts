@@ -55,20 +55,34 @@ export default async function handler(req: any, res: any) {
         console.log(`Verifying subscription for User: ${userId}, Type: ${type}`);
 
         if (userId && userId !== 'guest' && type === 'coalition_vip') {
-            // 2. Update User Profile in Supabase
-            const { error } = await supabaseAdmin
+            // 2. Grant the VIP welcome credit exactly once per join.
+            //
+            // The claim is a compare-and-set on the membership transition
+            // (is_vip false/null -> true), observed with .select(). This
+            // endpoint is re-entered with the same paid session on every reload
+            // of the membership return URL (pages/OrderSuccess posts here on
+            // mount whenever the URL carries session_id + type=membership), and
+            // before this guard every visit added another $15 of store credit.
+            // Only the call that wins the transition writes the credit; the
+            // losers match 0 rows and fall through to the same 200, so a
+            // reload, second tab or replayed POST stays harmless.
+            //
+            // Known limits (deliberate, smallest-change): the marker is shared
+            // with the admin VIP toggle, so demoting then re-promoting a member
+            // re-arms the grant, and a second paid session for an already-VIP
+            // profile is not credited. The exact fix would be a session-keyed
+            // grants table claimed with this same CAS shape.
+            const { error: ensureError } = await supabaseAdmin
                 .from('profiles')
-                .upsert({
-                    id: userId,
-                    is_vip: true,
-                    // Increment logic is hard with basic upsert, so we fetch first or use a stored procedure.
-                    // For MVP simplicity, we just set the credit to 15 if it's 0, or add 15.
-                    // Ideally: store_credit = profiles.store_credit + 15
-                })
+                .upsert({ id: userId }, { ignoreDuplicates: true })
                 .select();
 
-            // Using RPC for atomic increment is better, but let's try a simple read-modify-write for now
-            // Or just assume first month:
+            if (ensureError) {
+                // Without a row the claim below would match 0 rows and read as
+                // "already granted" — fail loudly instead of dropping the credit.
+                console.error('Failed to ensure profile:', ensureError);
+                throw ensureError;
+            }
 
             // First, get current credit
             const { data: currentProfile } = await supabaseAdmin
@@ -80,18 +94,24 @@ export default async function handler(req: any, res: any) {
             const currentCredit = currentProfile?.store_credit || 0;
             const newCredit = Number(currentCredit) + 15.00;
 
-            const { error: updateError } = await supabaseAdmin
+            const { data: granted, error: updateError } = await supabaseAdmin
                 .from('profiles')
                 .update({
                     is_vip: true,
                     store_credit: newCredit,
                     updated_at: new Date().toISOString()
                 })
-                .eq('id', userId);
+                .eq('id', userId)
+                .or('is_vip.eq.false,is_vip.is.null')
+                .select();
 
             if (updateError) {
                 console.error('Failed to update profile:', updateError);
                 throw updateError;
+            }
+
+            if (!granted || granted.length === 0) {
+                console.log(`Membership welcome credit already granted for User: ${userId}`);
             }
         }
 

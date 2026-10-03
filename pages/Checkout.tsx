@@ -4,7 +4,6 @@ import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CreditCard, Loader, Wallet, Copy, Check, Sparkles, Heart, Info, ShieldCheck, Truck, RefreshCw, Mail, Headphones, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { supabase } from '../services/supabase';
 import { OrderStatus } from '../types';
 import { useToast } from '../context/ToastContext';
 import FloatingHelpButton from '../components/FloatingHelpButton';
@@ -14,6 +13,7 @@ import { trackReferralEvent } from '../utils/referralAnalytics';
 import { processReferralOnPurchase, clearReferralCode } from '../utils/referralSystem';
 import { validateCouponCode, validateDiscountCoupon, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
 import { getCartItemAddOnPrice, getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
+import { clearCheckoutAttempt, resolveCheckoutAttempt, recordedOrderNumber, mintOrderId } from '../utils/checkoutAttempt';
 
 const reportErrorToAdmin = async (error: string, context: string, metadata: any = {}) => {
     try {
@@ -304,7 +304,7 @@ const Checkout: React.FC = () => {
     const [copied, setCopied] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
     const [clientSecret, setClientSecret] = useState<string>('');
-    const [serverPricing, setServerPricing] = useState<{ totalCents: number; itemTotalCents: number; shippingCents: number; discountCents: number } | null>(null);
+    const [serverPricing, setServerPricing] = useState<{ totalCents: number; itemTotalCents: number; shippingCents: number; discountCents: number; storeCreditCents?: number } | null>(null);
 
     // Server-authoritative pricing preview for the order summary.
     // Fetched from /api/pricing-preview whenever the cart, shipping, or
@@ -315,6 +315,7 @@ const Checkout: React.FC = () => {
         setBonusCents: number; cryptoDiscountCents: number;
         couponDiscountCents: number; couponCode: string | null;
         discountCents: number; totalCents: number;
+        storeCreditCents?: number;
     } | null>(null);
 
     const stripePromise = useMemo(() => getStripePromise(), []);
@@ -404,18 +405,50 @@ const Checkout: React.FC = () => {
     // raw estimate must stay discount-free — for card the intent re-prices
     // from DB.
     const finalTotal = Math.max(0, total + shippingCost - creditToApply);
+    // The discount coupon the server prices with, derived once because three
+    // requests must agree on it (pricing preview, PaymentIntent, order) and the
+    // intent effect must re-run when it changes. A coupon moves the order total,
+    // so leaving it out of that effect left Stripe holding the pre-coupon
+    // intent: the page showed the discounted total while the Pay button still
+    // charged the old amount, and complete-order's amount check then refused a
+    // payment the shopper had already made. Referral codes stay out — they are
+    // attribution only, never a price.
+    const discountCouponCode = isDiscountCoupon && appliedCoupon ? appliedCoupon : undefined;
     // Server-authoritative total for display in the review card + trust copy.
     // Prefer the actual PaymentIntent pricing (includes coupon + store
     // credit), then the pricing preview, then the raw client estimate. This
     // keeps every total on the page consistent — previously the review card
     // showed the client estimate and ignored the applied coupon, disagreeing
     // with the order summary's server-computed total.
-    const reviewTotal = serverPricing
+    const reviewTotal = paymentMethod === 'card' && serverPricing
         ? serverPricing.totalCents / 100
         : pricingPreview
             ? pricingPreview.totalCents / 100
             : finalTotal;
-    const requiresNoExternalPayment = isZeroAmount || finalTotal <= 0;
+    // The amount a customer is asked to pay must be the server's price for the
+    // method they selected. pricingPreview is fetched with that method AND the
+    // applied coupon, so it is the authority for the manual paths; the stored
+    // PaymentIntent price is a CARD intent (it has no crypto discount) and the
+    // raw finalTotal estimate drops the coupon as well. Both were printed in
+    // the Cash App and crypto panels, so a shopper with the crypto discount was
+    // told to send the undiscounted amount and a voucher-comped order still
+    // asked for full price.
+    const serverTotalForMethod = paymentMethod !== 'card' && pricingPreview
+        ? pricingPreview.totalCents / 100
+        : reviewTotal;
+    // The store credit the SERVER applied to that same price. One number, one
+    // owner per method: the Stripe intent's credit for card (create-payment-
+    // intent priced it into the intent), the pricing-preview credit for the
+    // manual methods and the free/store-credit path. The client never estimates
+    // credit into an amount — before this, only the card intent applied it, so
+    // crypto and Cash App displayed the credit line while pricing full price.
+    const serverAppliedCredit = (paymentMethod === 'card' && serverPricing
+        ? (serverPricing.storeCreditCents ?? 0)
+        : (pricingPreview?.storeCreditCents ?? 0)) / 100;
+    // "Nothing to pay" follows the same server price, so a $0 order shows the
+    // completion panel for manual methods too instead of asking for money.
+    const requiresNoExternalPayment = isZeroAmount || serverTotalForMethod <= 0;
+
     // Cash App Pay (through Stripe) is offered only when card — i.e. the
     // Stripe PaymentElement path — is enabled for the owner. The PaymentElement
     // renders Cash App Pay from the intent's payment_method_types; without
@@ -496,7 +529,7 @@ const Checkout: React.FC = () => {
         // shows the method the buyer chose.
         const timer = setTimeout(() => { void createPaymentIntent(); }, 600);
         return () => clearTimeout(timer);
-    }, [cart, paymentMethod, stripeMethod, useStoreCredit, shippingMethod, shippingFingerprint]);
+    }, [cart, paymentMethod, stripeMethod, useStoreCredit, shippingMethod, shippingFingerprint, discountCouponCode]);
 
     // Fetch server-authoritative pricing preview for the order summary.
     // Debounced — fires when cart, shipping, or payment method change.
@@ -517,7 +550,12 @@ const Checkout: React.FC = () => {
                     })),
                     shippingCost,
                     paymentMethod,
-                    couponCode: isDiscountCoupon && appliedCoupon ? appliedCoupon : undefined,
+                    couponCode: discountCouponCode,
+                    // Store credit is part of the price, so it belongs in the
+                    // same request that prices the order: the server reads the
+                    // live balance and returns the applied amount.
+                    useStoreCredit,
+                    userId: user?.uid,
                 }),
             })
             .then(r => r.json())
@@ -528,7 +566,7 @@ const Checkout: React.FC = () => {
             .catch(() => setPricingPreview(null));
         }, 400);
         return () => clearTimeout(timer);
-    }, [cart, shippingCost, paymentMethod, appliedCoupon, isDiscountCoupon]);
+    }, [cart, shippingCost, paymentMethod, appliedCoupon, isDiscountCoupon, useStoreCredit, user?.uid]);
 
     // Check for existing coupon on mount — classify it as a discount coupon
     // or a referral so the pricing preview can include the discount.
@@ -635,7 +673,7 @@ const Checkout: React.FC = () => {
                     useStoreCredit,
                     paymentMethodTypes: [stripeMethod],
                     orderId: seed.orderId,
-                    couponCode: isDiscountCoupon && appliedCoupon ? appliedCoupon : undefined,
+                    couponCode: discountCouponCode,
                     email: shippingInfo.email,
                     // Country is normalized to ISO-3166 for Stripe; if it
                     // can't be mapped, shipping is omitted so card payments
@@ -671,20 +709,17 @@ const Checkout: React.FC = () => {
             if (data.zeroAmount) {
                 setIsZeroAmount(true);
                 setClientSecret('');
-                serverCreditAppliedRef.current = 0;
             } else {
                 setIsZeroAmount(false);
                 setClientSecret(data.clientSecret);
-                serverCreditAppliedRef.current = typeof data.creditApplied === 'number' ? data.creditApplied : 0;
             }
 
-            // Persist the applied credit for the 3DS/Klarna/Afterpay
-            // redirect-return: the server re-prices the order through
-            // acceptCheckout, which needs the same credit the intent applied
-            // or verification fails with "Stripe amount mismatch".
-            const saved = loadCheckoutState() || {};
-            saveCheckoutState({ ...saved, storeCreditApplied: serverCreditAppliedRef.current });
-
+            // No separate credit write here: setServerPricing() above feeds
+            // serverAppliedCredit, and the form-state effect below persists
+            // storeCreditApplied for the 3DS/Klarna/Afterpay redirect-return
+            // (acceptCheckout re-prices the order with the same credit the
+            // intent applied, or verification fails with "Stripe amount
+            // mismatch").
         } catch (err: any) {
             console.error('Payment intent error:', err);
             setError(err.message || 'Failed to initialize payment. Please check your connection.');
@@ -748,7 +783,7 @@ const Checkout: React.FC = () => {
 
     const createOrderSeed = (): OrderSeed => {
         const seed: OrderSeed = {
-            orderId: `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            orderId: mintOrderId(),
             orderNumber: generateOrderNumber(),
         };
         // Persist so a Stripe 3DS/Klarna redirect-return reuses the same seed.
@@ -758,31 +793,72 @@ const Checkout: React.FC = () => {
     };
 
     // Persist form state whenever it changes so the Stripe 3DS/Klarna/Afterpay
-    // redirect-return page can restore the exact checkout in progress.
+    // redirect-return page can restore the exact checkout in progress — and so
+    // the credit the server applied is carried across the redirect, whichever
+    // method priced it.
     useEffect(() => {
         const saved = loadCheckoutState() || {};
-        saveCheckoutState({ ...saved, shippingInfo, shippingMethod, shippingCost, paymentMethod, stripeMethod });
-    }, [shippingInfo, shippingMethod, shippingCost, paymentMethod, stripeMethod]);
-
-    // Server-stated amount of store credit applied to the current Stripe
-    // PaymentIntent (create-payment-intent response). Persisted to checkout
-    // state and forwarded to complete-order so the order re-pricing matches
-    // the charged amount exactly (otherwise verification fails with "Stripe
-    // amount mismatch" and the buyer is charged with no order).
-    const serverCreditAppliedRef = useRef(0);
+        saveCheckoutState({ ...saved, shippingInfo, shippingMethod, shippingCost, paymentMethod, stripeMethod, storeCreditApplied: serverAppliedCredit });
+    }, [shippingInfo, shippingMethod, shippingCost, paymentMethod, stripeMethod, serverAppliedCredit]);
 
     const createOrder = async (paymentMethodUsed: string, paymentReference?: string, orderSeed?: OrderSeed) => {
         try {
             const orderNumber = orderSeed?.orderNumber || generateOrderNumber();
             const isGuest = !user;
 
+            // The purchase this submit is: the attempt already in flight for it
+            // (in any tab of this browser, whatever its age), or a fresh one.
+            // The server records this id and dedupes on it, so a retry, a
+            // replay, a refresh or a second tab of THIS purchase resolves to the
+            // order already written instead of a second order (and a second
+            // store-credit debit). Any change to what is being bought mints a
+            // new attempt id (utils/checkoutAttempt.ts).
+            const attempt = orderSeed?.orderId
+                ? { id: orderSeed.orderId, fromRecord: false }
+                : resolveCheckoutAttempt({
+                    userId: user?.uid,
+                    items: cart,
+                    couponCode: discountCouponCode,
+                    shippingMethod,
+                    shippingCost,
+                    storeCreditApplied: serverAppliedCredit,
+                    // The method decides the discount, and a guest is identified
+                    // by their email — both move what the order is and what it
+                    // costs, so a change to either is a new attempt.
+                    paymentMethod: paymentMethodUsed,
+                    customerEmail: shippingInfo.email,
+                });
+
+            // An attempt this browser has already sent is reused only once the
+            // SERVER has answered for it, never guessed at from a clock. A
+            // record whose order is already written means the purchase is done:
+            // resolve to that order rather than write a second one — which is
+            // what the old 30-minute window did once it expired (a second order
+            // and a second store-credit debit for one purchase, measured). An
+            // unreadable answer means "not settled": the id is reused below and
+            // the server's own dedupe has the last word, so a lookup outage
+            // cannot become a lost order.
+            if (attempt.fromRecord) {
+                const settledOrderNumber = await recordedOrderNumber(attempt.id, {
+                    userId: user?.uid,
+                    customerEmail: shippingInfo.email,
+                });
+                if (settledOrderNumber) {
+                    addToast('This purchase is already recorded — opening your order.', 'info');
+                    return settledOrderNumber;
+                }
+            }
+
             // Pricing authority lives in services/orderIntake.ts → resolvePricing().
             // subtotal / discount are server-computed from DB; the client passes
-            // only raw items + shipping choice. total is kept for OrderSuccess
-            // display and updateLifetimeStats — the server warns on mismatch but
-            // always uses its own authoritative computation.
+            // only raw items + shipping choice. The total below is a raw,
+            // pre-coupon estimate used to build the request; the order the server
+            // RECORDS comes back from addOrder and replaces it for display and for
+            // every derived number (a comped order's estimate is money nobody paid).
             const order = {
-                id: orderSeed?.orderId || `order_${Date.now()}`,
+                // The dedupe key, resolved above — reused only after the
+                // server said this attempt has no order yet.
+                id: attempt.id,
                 orderNumber,
                 userId: user?.uid,
                 isGuest,
@@ -807,11 +883,12 @@ const Checkout: React.FC = () => {
                 total: finalTotal,
                 paymentMethod: paymentMethodUsed as any,
                 paymentStatus: paymentMethodUsed === 'crypto' || paymentMethodUsed === 'cashapp' ? OrderStatus.PENDING : OrderStatus.PAID,
-                couponCode: isDiscountCoupon && appliedCoupon ? appliedCoupon : undefined,
-                // Store credit already applied + charged upstream (Stripe
-                // intent). The server re-verifies against the live balance
-                // and debits the profile exactly once per order.
-                storeCreditApplied: serverCreditAppliedRef.current,
+                couponCode: discountCouponCode,
+                // Store credit the server applied to this checkout's price
+                // (intent for card, pricing preview for the manual methods).
+                // The server re-verifies it against the live balance and
+                // debits the profile exactly once per order.
+                storeCreditApplied: serverAppliedCredit,
                 paymentReference,
                 orderType: 'online' as const,
                 createdAt: new Date().toISOString(),
@@ -828,14 +905,20 @@ const Checkout: React.FC = () => {
                 }
             };
 
-            await addOrder(order);
+            // Resolves to the row the server recorded, which is authoritative for
+            // the total: the client's object is coupon-blind, and the provider
+            // rejects rather than hand back nothing — so there is no local object
+            // to fall back to here.
+            const recorded = await addOrder(order);
 
             // Decrement client-side size_inventory so the storefront reflects the
             // latest availability without waiting for Supabase realtime to sync.
             void deductInventory(order.items);
 
-            // Save order to sessionStorage so OrderSuccess can display it even if cart is cleared
-            sessionStorage.setItem('pendingOrder', JSON.stringify(order));
+            // Save the RECORDED order to sessionStorage so OrderSuccess displays
+            // the totals the server wrote, not the client estimate. The cart is
+            // cleared on redirect, so this object is what the page renders.
+            sessionStorage.setItem('pendingOrder', JSON.stringify(recorded));
 
             // Track referral purchase if user came from a referral link.
             // This fires both the analytics event AND the commission pipeline:
@@ -850,8 +933,8 @@ const Checkout: React.FC = () => {
                 void processReferralOnPurchase(
                     referralCode,
                     user?.uid,
-                    order.id,
-                    order.total,
+                    recorded.id,
+                    recorded.total,
                 ).then((result) => {
                     if (result.success && result.commissionEarned) {
                         console.log(`[Referral] Commission earned: $${result.commissionEarned.toFixed(2)}`);
@@ -866,7 +949,10 @@ const Checkout: React.FC = () => {
             clearCart();
             // Checkout state (form + seed) is consumed on success.
             clearCheckoutState();
-            return orderNumber;
+            // The attempt is settled: the server recorded it, so the next
+            // purchase must mint a new id instead of resolving to this order.
+            clearCheckoutAttempt();
+            return recorded.orderNumber || orderNumber;
         } catch (error) {
             console.error('Error creating order:', error);
             reportErrorToAdmin(error instanceof Error ? error.message : String(error), 'Local Order Creation', {
@@ -882,36 +968,14 @@ const Checkout: React.FC = () => {
         if (!validateShipping()) return;
         setIsLoading(true);
         try {
-            // Prove the caller owns the userId before any credit is debited.
-            // The Supabase client already holds the session from login; getSession()
-            // is the same pattern AIPortal / ResetPassword use to send a token to an API route.
-            let authToken: string | null = null;
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                authToken = session?.access_token || null;
-            } catch { /* leave authToken null — the server will 401 */ }
-
-            const response = await fetch('/api/place-order-credits', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
-                },
-                body: JSON.stringify({
-                    userId: user?.uid,
-                    total: creditToApply,
-                    items: cart
-                })
-            });
-
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || 'Failed to process store credit');
-            }
-
-            sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
-
-            const orderNumber = await createOrder('store_credit');
+            // The debit is NOT done here. createOrder forwards
+            // serverAppliedCredit to /api/complete-order, where acceptCheckout
+            // applies it and debits the profile exactly once — capped to what
+            // the order actually owes. Debit here as well and a credit-covered
+            // order pays twice; debit the client's creditToApply estimate here
+            // instead and a coupon-comped $0 order debits credit it never used.
+            sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));            const orderNumber = await createOrder('store_credit')
+;
             sessionStorage.setItem('orderNumber', orderNumber);
             console.log('✅ Store credit order created, redirecting...');
 
@@ -920,13 +984,22 @@ const Checkout: React.FC = () => {
         } catch (e: any) {
             console.error(e);
             addToast(e.message || 'Order failed', 'error');
-        } finally {
+            // Cleared on failure only, like the manual confirms below: this
+            // write is a reference-less store_credit order, so a click landing
+            // between the server's response and the page leaving would place a
+            // second order and debit the buyer's credit twice.
             setIsLoading(false);
         }
     };
 
+    // Manual confirmations write a PENDING order and debit the store credit, so
+    // a second click is a second purchase and a second debit. Same guard as the
+    // neighbouring pay buttons (a loading state + a disabled button); the state
+    // is cleared only on failure, because the guard has to hold until the page
+    // has actually left for /order/success.
     const handleCryptoConfirmation = async () => {
         if (!validateShipping()) return;
+        setIsLoading(true);
         try {
             const orderNumber = await createOrder('crypto');
             sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
@@ -935,6 +1008,7 @@ const Checkout: React.FC = () => {
             window.location.href = '/order/success?payment_method=crypto';
         } catch (error) {
             addToast('Failed to create order. Please try again.', 'error');
+            setIsLoading(false);
         }
     };
 
@@ -944,6 +1018,7 @@ const Checkout: React.FC = () => {
     // verifies the Cash App payment before fulfillment.
     const handleCashAppConfirmation = async () => {
         if (!validateShipping()) return;
+        setIsLoading(true);
         try {
             const orderNumber = await createOrder('cashapp');
             sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
@@ -952,6 +1027,7 @@ const Checkout: React.FC = () => {
             window.location.href = '/order/success?payment_method=cashapp';
         } catch (error) {
             addToast('Failed to create order. Please try again.', 'error');
+            setIsLoading(false);
         }
     };
 
@@ -1248,8 +1324,8 @@ const Checkout: React.FC = () => {
                                     <div className="inline-flex items-center justify-center w-16 h-16 bg-white/5 rounded-full mb-4">
                                         <Check className="w-8 h-8 text-gray-300" />
                                     </div>
-                                    <h4 className="text-white font-bold text-lg mb-2">Paid with Store Credit</h4>
-                                    <p className="text-gray-400 text-sm mb-6">No additional payment required.</p>
+                                    <h4 className="text-white font-bold text-lg mb-2">{serverAppliedCredit > 0 ? 'Paid with Store Credit' : 'No payment required'}</h4>
+                                    <p className="text-gray-400 text-sm mb-6">{serverAppliedCredit > 0 ? 'No additional payment required.' : 'Your discount covers this order — nothing to pay.'}</p>
                                     <button
                                         onClick={handleCompleteFreeOrder}
                                         disabled={isLoading}
@@ -1440,7 +1516,7 @@ const Checkout: React.FC = () => {
                                             </div>
                                             <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                                                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Total</p>
-                                                <p className="mt-1 text-sm font-bold text-white">${reviewTotal.toFixed(2)}</p>
+                                                <p className="mt-1 text-sm font-bold text-white">${serverTotalForMethod.toFixed(2)}</p>
                                             </div>
                                             <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                                                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Fulfillment</p>
@@ -1526,14 +1602,14 @@ const Checkout: React.FC = () => {
                                                     <div>
                                                         <h4 className="font-bold text-gray-300 text-sm uppercase tracking-wide mb-1">Pay with Cash App</h4>
                                                         <p className="text-sm text-gray-300">
-                                                            Send ${finalTotal.toFixed(2)} to <span className="text-green-400 font-bold">$sgcoalition</span> on Cash App.
+                                                            Send ${serverTotalForMethod.toFixed(2)} to <span className="text-green-400 font-bold">$sgcoalition</span> on Cash App.
                                                         </p>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <div className="bg-black/50 p-4 rounded-lg border border-green-500/30">
-                                                <p className="text-sm text-gray-400 mb-2">Send <span className="text-white font-bold">${finalTotal.toFixed(2)}</span> to:</p>
+                                                <p className="text-sm text-gray-400 mb-2">Send <span className="text-white font-bold">${serverTotalForMethod.toFixed(2)}</span> to:</p>
                                                 <div className="flex items-center justify-between bg-white/5 p-3 rounded border border-white/10">
                                                     <code className="text-xs sm:text-sm font-mono text-green-300 truncate mr-2">$sgcoalition</code>
                                                     <button onClick={copyAddress} className="text-gray-400 hover:text-white transition">
@@ -1579,9 +1655,10 @@ const Checkout: React.FC = () => {
 
                                             <button
                                                 onClick={handleCashAppConfirmation}
-                                                className="w-full bg-green-600 text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-green-500 transition shadow-[0_0_20px_rgba(34,197,94,0.3)]"
+                                                disabled={isLoading}
+                                                className="w-full bg-green-600 text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-green-500 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(34,197,94,0.3)]"
                                             >
-                                                I Have Sent the Payment
+                                                {isLoading ? 'Processing...' : 'I Have Sent the Payment'}
                                             </button>
                                         </div>
                                     )}
@@ -1602,7 +1679,7 @@ const Checkout: React.FC = () => {
                                             </div>
 
                                             <div className="bg-black/50 p-4 rounded-lg border border-white/10">
-                                                <p className="text-sm text-gray-400 mb-2">Send <span className="text-white font-bold">{finalTotal.toFixed(2)} USDC</span> to:</p>
+                                                <p className="text-sm text-gray-400 mb-2">Send <span className="text-white font-bold">{serverTotalForMethod.toFixed(2)} USDC</span> to:</p>
                                                 <div className="flex items-center justify-between bg-white/5 p-3 rounded border border-white/10">
                                                     <code className="text-xs sm:text-sm font-mono text-gray-300 truncate mr-2">{WALLET_ADDRESS}</code>
                                                     <button onClick={copyAddress} className="text-gray-400 hover:text-white transition">
@@ -1631,9 +1708,10 @@ const Checkout: React.FC = () => {
 
                                             <button
                                                 onClick={handleCryptoConfirmation}
-                                                className="w-full bg-blue-600 text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-blue-500 transition shadow-[0_0_20px_rgba(37,99,235,0.3)]"
+                                                disabled={isLoading}
+                                                className="w-full bg-blue-600 text-white py-3 rounded font-bold uppercase tracking-widest hover:bg-blue-500 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(37,99,235,0.3)]"
                                             >
-                                                I Have Sent the Payment
+                                                {isLoading ? 'Processing...' : 'I Have Sent the Payment'}
                                             </button>
                                         </div>
                                     )}
@@ -1704,15 +1782,15 @@ const Checkout: React.FC = () => {
                                         </p>
                                     </div>
                                 )}
-                                {useStoreCredit && creditToApply > 0 && (
+                                {serverAppliedCredit > 0 && (
                                     <div className="flex justify-between text-brand-accent">
                                         <span>Store Credit</span>
-                                        <span>-${creditToApply.toFixed(2)}</span>
+                                        <span>-${serverAppliedCredit.toFixed(2)}</span>
                                     </div>
                                 )}
                                 <div className="flex justify-between text-white font-bold text-lg pt-3 border-t border-white/10">
                                     <span>Total</span>
-                                    <span>${pricingPreview ? (pricingPreview.totalCents / 100).toFixed(2) : finalTotal.toFixed(2)}</span>
+                                    <span>${serverTotalForMethod.toFixed(2)}</span>
                                 </div>
 
                                 {/* Estimated Rewards - Priority 5 */}

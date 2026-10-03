@@ -134,6 +134,27 @@ async function loadProducts(ids: string[]): Promise<Map<string, ProductRow>> {
 // offer and the server math can never disagree). resolvePricing consumes it
 // for the `crypto` method only.
 
+// ---- Store credit: the single owner of "how much credit this buyer has" ----
+//
+// Both pricing steps that offer store credit read the balance through here —
+// create-payment-intent (the card intent) and pricing-preview (every method's
+// displayed price). Keeping the read in one place is what makes the card path
+// and the manual paths (crypto, Cash App, the free/store-credit path) apply the
+// SAME balance: before this, only the card intent applied it, so crypto and
+// Cash App showed the credit option while pricing the buyer at full price.
+// Display-only by itself — resolvePricing caps the credit and acceptCheckout
+// re-verifies it against the live balance before anything is debited.
+export async function loadStoreCreditCents(userId: string | null | undefined): Promise<number> {
+    const id = String(userId || '').trim();
+    if (!id) return 0;
+    const { data } = await sb()
+        .from('profiles')
+        .select('store_credit')
+        .eq('id', id)
+        .maybeSingle();
+    return Math.max(0, Math.round(Number((data as { store_credit?: number } | null)?.store_credit || 0) * 100));
+}
+
 export async function resolvePricing(items: PricingItem[], shippingDollars: number, clientDiscountDollars: number, paymentMethod: string, storeCreditCents: number = 0, couponCode?: string | null, storeCreditAppliedCents: number = 0): Promise<PriceSnapshot> {
     if (!items.length) throw err(400, 'At least one item required.');
     const products = await loadProducts([...new Set(items.map(i => i.productId))]);
@@ -251,6 +272,61 @@ async function findDup(s: SupabaseClient, r: OrderRow): Promise<OrderRow | null>
     return null;
 }
 
+export interface BuyerIdentity { user_id?: string | null; customer_email?: string | null; }
+
+// The order id is a checkout attempt id minted by the CLIENT
+// (utils/checkoutAttempt.ts), so a row recorded under it is this checkout's
+// order only when it is this buyer's. Without that check the id would be a
+// handle for reading back — the checkout response returns this row — or
+// overwriting another customer's order, and it is unauthenticated input.
+//
+// A row with a user_id belongs to an ACCOUNT, so only that account may read it
+// back: an anonymous attempt stating the account holder's email used to fall
+// through to the email comparison below and return their order (measured). The
+// email comparison is therefore only for guest rows, which have no account to
+// check against — a guest is whoever states that email.
+function sameBuyer(a: BuyerIdentity, b: BuyerIdentity): boolean {
+    const au = uuid(a.user_id), bu = uuid(b.user_id);
+    if (au) return au === bu;
+    const ae = String(a.customer_email || '').trim().toLowerCase();
+    const be = String(b.customer_email || '').trim().toLowerCase();
+    return Boolean(ae) && ae === be;
+}
+
+// The order recorded under an attempt id, if this attempt already produced one.
+async function findRecordedOrder(orderId: string, buyer: BuyerIdentity): Promise<OrderRow | null> {
+    const { data, error } = await sb().from('orders').select('*').eq('id', orderId).maybeSingle();
+    if (error) { if (isColErr(error)) throw err(503, 'Schema missing payment columns.'); throw err(500, error.message); }
+    if (!data) return null;
+    const row = data as OrderRow;
+    if (!sameBuyer(row, buyer)) throw err(409, 'Order id already recorded for a different customer.');
+    return row;
+}
+
+// The buyer-scoped read the CHECKOUT asks before it writes: the order number
+// recorded under this attempt id, or null when this attempt has no order for
+// THIS buyer. It replaces the clock the client used to answer that question
+// (utils/checkoutAttempt.ts): past a 30-minute window a record was treated as
+// "not this purchase", so a retry after the 30s write abort — the case where
+// the write LANDED but never answered — minted a new id and became a second
+// order and a second store-credit debit for one purchase (measured).
+//
+// Null rather than 409 when the row is another buyer's, deliberately: an
+// unauthenticated attempt id must not be a handle for reading — or even
+// confirming — someone else's order, and the only caller that acts on a
+// conflict is the write path (acceptCheckout's early read, which refuses).
+// A recorded row that carries no order number also reads as null; the write
+// path's own dedupe is still the last word there, so the client falls back to
+// reusing the id rather than minting one.
+export async function findRecordedOrderNumber(orderId: string, buyer: BuyerIdentity): Promise<string | null> {
+    const id = String(orderId || '').trim();
+    if (!id) return null;
+    const { data, error } = await sb().from('orders').select('order_number, user_id, customer_email').eq('id', id).maybeSingle();
+    if (error) { if (isColErr(error)) throw err(503, 'Schema missing payment columns.'); throw err(500, error.message); }
+    if (!data || !sameBuyer(data as BuyerIdentity, buyer)) return null;
+    return String((data as { order_number?: unknown }).order_number || '') || null;
+}
+
 export async function persistOrder(record: OrderRow): Promise<OrderSaveResult> {
     const s = sb();
     const existing = await findDup(s, record);
@@ -258,14 +334,28 @@ export async function persistOrder(record: OrderRow): Promise<OrderSaveResult> {
         if (money(existing.total) !== money(record.total)) throw err(409, 'Duplicate order total mismatch.');
         return { record: existing, created: false };
     }
-    const r = await s.from('orders').upsert(record, { onConflict: 'id' }).select().single();
-    if (!r.error) return { record: (r.data as OrderRow) || record, created: true };
-    if (isColErr(r.error)) {
-        const l = await s.from('orders').upsert(legacyRow(record), { onConflict: 'id' }).select().single();
-        if (!l.error) return { record: (l.data as OrderRow) || legacyRow(record), created: true };
-        throw err(500, l.error.message || 'Legacy save failed.');
-    }
-    throw err(500, r.error.message || 'Save failed.');
+    // Claim the id atomically — INSERT … ON CONFLICT (id) DO NOTHING RETURNING.
+    // A recorded id is never overwritten, and the request that loses the race
+    // is told so by an EMPTY returned set: without that, two concurrent
+    // submissions of one attempt (a retry racing a second tab) would both be
+    // "created" and would both debit the buyer's store credit. Same lesson as
+    // the credit CAS below — a write awaited without reading what it changed
+    // cannot tell a no-op from a success.
+    const r = await s.from('orders').upsert(record, { onConflict: 'id', ignoreDuplicates: true }).select();
+    let claimed: OrderRow[];
+    if (!r.error) claimed = (r.data as OrderRow[] | null) || [];
+    else if (isColErr(r.error)) {
+        const l = await s.from('orders').upsert(legacyRow(record), { onConflict: 'id', ignoreDuplicates: true }).select();
+        if (l.error) throw err(500, l.error.message || 'Legacy save failed.');
+        claimed = (l.data as OrderRow[] | null) || [];
+    } else throw err(500, r.error.message || 'Save failed.');
+    if (claimed.length > 0) return { record: claimed[0], created: true };
+    // A twin already recorded this attempt: report THE row that was recorded,
+    // never our own — created:false is what stops the caller debiting again.
+    const twin = await findRecordedOrder(record.id, record);
+    if (!twin) throw err(500, 'Order id was already recorded but the row could not be read back.');
+    if (money(twin.total) !== money(record.total)) throw err(409, 'Duplicate order total mismatch.');
+    return { record: twin, created: false };
 }
 
 // =========================================================================
@@ -295,6 +385,13 @@ async function sendAdm(rec: OrderRow): Promise<void> {
     if ((result as any)?.error) throw new Error((result as any).error.message);
 }
 
+// One-click triage: the admin orders view accepts ?tab=orders&q=<id> (search
+// matches the raw order id), so this link lands pre-filtered on the exact row.
+// Owned here so every ops alert reaches the same place.
+function adminOrderUrl(orderId: string): string {
+    return 'https://sgcoalition.xyz/#/admin?tab=orders&q=' + encodeURIComponent(orderId);
+}
+
 // Ops alert: money moved (payment_intent.succeeded) but the order could not
 // be reconciled. Fire-and-forget — an email failure must never affect the
 // webhook's HTTP response, which controls Stripe retry behavior.
@@ -304,10 +401,7 @@ export async function notifyAdminReconcileFailure(orderId: string, paymentIntent
         const rcpts = adminRcpt();
         if (!key || !rcpts.length) return;
         const r = resendClient();
-        // One-click triage: the admin orders view accepts ?tab=orders&q=<id>
-        // (search matches the raw order id), so this link lands pre-filtered
-        // on the exact order row.
-        const adminUrl = 'https://sgcoalition.xyz/#/admin?tab=orders&q=' + encodeURIComponent(orderId);
+        const adminUrl = adminOrderUrl(orderId);
         const stripeUrl = 'https://dashboard.stripe.com/payments/' + encodeURIComponent(paymentIntentId);
         const html = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#fff;color:#111827;">'
             + '<h2 style="letter-spacing:1px;text-transform:uppercase;">Webhook reconcile failed</h2>'
@@ -327,6 +421,87 @@ export async function notifyAdminReconcileFailure(orderId: string, paymentIntent
         await r.emails.send({ from: fromAddr(), to: rcpts, subject: 'ACTION REQUIRED: webhook reconcile failed for ' + orderId, html } as any);
     } catch (e) {
         console.warn('[OrderIntake] Reconcile-failure alert email failed:', e);
+    }
+}
+
+// Ops alert: the order was recorded with store credit applied but the buyer's
+// balance was NOT debited in full. That is the one outcome this path must
+// never reach quietly — the buyer keeps the credit AND the discount — and it
+// happens when the balance moves between the re-verify above and the debit
+// write, so the operator has to reconcile it by hand. Same delivery and
+// one-click triage as the webhook reconcile alert; it never throws, so it
+// cannot change the checkout response.
+export async function notifyAdminCreditDebitFailure(orderId: string, userId: string, appliedCents: number, debitedCents: number, reason: string): Promise<void> {
+    try {
+        const key = process.env.RESEND_API_KEY;
+        const rcpts = adminRcpt();
+        if (!key || !rcpts.length) return;
+        const r = resendClient();
+        const shortfallCents = Math.max(0, appliedCents - debitedCents);
+        const html = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#fff;color:#111827;">'
+            + '<h2 style="letter-spacing:1px;text-transform:uppercase;">Store credit debit did not land</h2>'
+            + '<p>Order <code>' + esc(orderId) + '</code> was recorded with <strong>$' + c2d(appliedCents) + '</strong> of store credit applied but only <strong>$' + c2d(debitedCents) + '</strong> was debited from the buyer\'s balance. The buyer currently keeps $' + c2d(shortfallCents) + ' they did not spend, while the order is discounted as if they had.</p>'
+            + '<p><a href="' + esc(adminOrderUrl(orderId)) + '" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Triage order in Admin</a></p>'
+            + '<table cellpadding="8" style="border:1px solid #e5e7eb;border-radius:8px;margin:16px 0;">'
+            + '<tr><td style="background:#f9fafb;"><strong>Order ID</strong></td><td><code>' + esc(orderId) + '</code></td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>User ID</strong></td><td><code>' + esc(userId) + '</code></td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Credit applied</strong></td><td>$' + c2d(appliedCents) + '</td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Actually debited</strong></td><td>$' + c2d(debitedCents) + '</td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Reason</strong></td><td>' + esc(reason) + '</td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Time (UTC)</strong></td><td>' + esc(new Date().toISOString()) + '</td></tr>'
+            + '</table>'
+            + '<p style="color:#6b7280;">Debit the remaining $' + c2d(shortfallCents) + ' in Admin &rarr; Customers (store credit) or collect it from the buyer before fulfilling. Do not fulfil on the discounted total alone.</p>'
+            + '</div>';
+        await r.emails.send({ from: fromAddr(), to: rcpts, subject: 'ACTION REQUIRED: store credit not debited for ' + orderId, html } as any);
+    } catch (e) {
+        console.warn('[OrderIntake] Store-credit debit alert email failed:', e);
+    }
+}
+
+// Ops alert: the checkout client's own error channel. pages/Checkout.tsx
+// reportErrorToAdmin POSTs failures to /api/report-error; this is the owner of
+// what happens to them. The handler validates/clips, this formats and sends —
+// one owner (Resend via api/_services.ts), same recipients as every other
+// operator alert. Fire-and-forget by contract: never throws, never delays the
+// caller's response, and an email failure is only logged.
+export async function notifyAdminClientError(input: {
+    error: string;
+    context: string;
+    metadata: Record<string, unknown>;
+    userAgent?: string;
+    path?: string;
+}): Promise<void> {
+    try {
+        const key = process.env.RESEND_API_KEY;
+        const rcpts = adminRcpt();
+        if (!key || !rcpts.length) return;
+        const r = resendClient();
+        // metadata is rendered as a flat key/value table (clipped per key) —
+        // enough to triage, never enough to matter if a hostile client fills it.
+        const metaRows = Object.entries(input.metadata)
+            .slice(0, 10)
+            .map(([k, v]) => '<tr><td style="background:#f9fafb;"><strong>' + esc(String(k).slice(0, 100)) + '</strong></td><td><code>' + esc(String(v).slice(0, 200)) + '</code></td></tr>')
+            .join('');
+        const html = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#fff;color:#111827;">'
+            + '<h2 style="letter-spacing:1px;text-transform:uppercase;">Checkout error report</h2>'
+            + '<p>The storefront checkout reported an error while a shopper was mid-flow. No money moved automatically — check whether the shopper completed the purchase before responding.</p>'
+            + '<table cellpadding="8" style="border:1px solid #e5e7eb;border-radius:8px;margin:16px 0;">'
+            + '<tr><td style="background:#f9fafb;"><strong>Error</strong></td><td><code>' + esc(input.error) + '</code></td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Context</strong></td><td>' + esc(input.context) + '</td></tr>'
+            + (input.path ? '<tr><td style="background:#f9fafb;"><strong>Page</strong></td><td>' + esc(input.path) + '</td></tr>' : '')
+            + (input.userAgent ? '<tr><td style="background:#f9fafb;"><strong>User agent</strong></td><td>' + esc(input.userAgent) + '</td></tr>' : '')
+            + (metaRows ? '<tr><td style="background:#f9fafb;"><strong>Metadata</strong></td><td><table cellpadding="4">' + metaRows + '</table></td></tr>' : '')
+            + '<tr><td style="background:#f9fafb;"><strong>Time (UTC)</strong></td><td>' + esc(new Date().toISOString()) + '</td></tr>'
+            + '</table>'
+            + '</div>';
+        await r.emails.send({
+            from: fromAddr(),
+            to: rcpts,
+            subject: 'Checkout error report: ' + input.context,
+            html,
+        } as any);
+    } catch (e) {
+        console.warn('[OrderIntake] Client-error alert email failed:', e);
     }
 }
 
@@ -358,6 +533,18 @@ export interface CheckoutAttempt {
 export interface AcceptCheckoutResult { order: OrderRow; created: boolean; }
 
 export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCheckoutResult> {
+    // A repeat of an attempt that already produced an order is a READ, never a
+    // second sale. This runs before pricing, payment verification and the
+    // store-credit debit on purpose: the re-verify below compares the credit
+    // the attempt states against the LIVE balance, which this attempt's own
+    // first write already spent — so a replay that reached it would be declined
+    // (409) on a balance it spent itself instead of being shown the order it
+    // already owns. Retry, refresh, replay and second tab all land here.
+    if (attempt.orderId) {
+        const prior = await findRecordedOrder(attempt.orderId, { user_id: attempt.userId, customer_email: attempt.customerEmail });
+        if (prior) return { order: prior, created: false };
+    }
+
     // Store credit: create-payment-intent applies + debits the intent amount
     // from the live profile and forwards the applied amount here. Re-verify
     // against the CURRENT profile balance before re-pricing — the intent may
@@ -390,7 +577,7 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
     }
     const payment = await verifyPayment(attempt.paymentEvidence, pricing.totalCents);
     const now = new Date().toISOString();
-    const oid = attempt.orderId || ('order_' + Date.now());
+    const oid = attempt.orderId || ('order_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10));
     const onum = attempt.orderNumber || ('ORD-' + Date.now());
     const row: OrderRow = {
         id: oid, order_number: onum, user_id: uuid(attempt.userId), is_guest: Boolean(attempt.isGuest ?? !attempt.userId),
@@ -437,26 +624,70 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
     // once per order. The balance re-verification above ran BEFORE
     // persistOrder, so a profile that spent its credit mid-checkout fails
     // closed before any money lands. The write itself is guarded by a CAS on
-    // store_credit >= applied — a concurrent spend between the check and the
-    // write no-ops (credit was already consumed; the order is still valid
-    // because the payment verification uses the post-credit total) and logs.
+    // store_credit >= the amount taken — a concurrent spend between the check
+    // and the write no-ops.
+    //
+    // A no-op must never be silent: the order is already recorded at the
+    // discounted total, so a lost race leaves the buyer holding credit they
+    // did not spend AND the discount. `.select('id')` is what makes that
+    // observable — without it PostgREST reports `error: null` for an update
+    // that matched nothing — and the shortfall is escalated to the operator
+    // through the same alert channel as a webhook reconcile failure.
     if (saved.created && serverCreditCents > 0 && attempt.userId && uuid(attempt.userId)) {
         try {
-            const { data: curProfile } = await sb()
+            const { data: curProfile, error: curErr } = await sb()
                 .from('profiles')
                 .select('store_credit')
                 .eq('id', attempt.userId)
                 .maybeSingle();
-            const currentCents = Math.round(Number(curProfile?.store_credit || 0) * 100);
+            // A balance that cannot be READ is a failed debit, never a $0 one.
+            // Coercing a failed read to zero used to write `store_credit: 0` —
+            // the CAS `.gte('store_credit', 0)` matches any row — destroying
+            // the buyer's whole balance while the order kept its discount and
+            // the alert claimed the buyer still held the credit. Fail instead;
+            // the catch below reports it.
+            if (curErr || !curProfile) {
+                throw new Error(curErr?.message || 'Store-credit balance could not be read.');
+            }
+            const currentCents = Math.round(Number(curProfile.store_credit || 0) * 100);
             const debitCents = Math.min(serverCreditCents, currentCents);
-            const { error: debitErr } = await sb()
+            const { data: debited, error: debitErr } = await sb()
                 .from('profiles')
                 .update({ store_credit: (currentCents - debitCents) / 100 })
                 .eq('id', attempt.userId)
-                .gte('store_credit', debitCents / 100);
+                .gte('store_credit', debitCents / 100)
+                .select('id');
             if (debitErr) throw new Error(debitErr.message);
+            // PostgREST answers a .select() with the matched rows, so an empty
+            // array is a CAS miss: the balance shrank below the amount taken
+            // between the re-read and the write. A non-array shape is not
+            // judged (a real .select() always answers with rows).
+            const matchedNothing = Array.isArray(debited) && debited.length === 0;
+            // Second, narrower branch of the same race: the re-read itself
+            // already saw less than the order was priced with, so the CAS
+            // matches and takes what is left — a short debit either way.
+            const shortOfWhatTheOrderUsed = debitCents < serverCreditCents;
+            if (matchedNothing || shortOfWhatTheOrderUsed) {
+                // A no-op update took nothing off the balance, so the amount
+                // actually debited is zero — not the amount we tried to take.
+                const debitedCents = matchedNothing ? 0 : debitCents;
+                const reason = matchedNothing
+                    ? 'The conditional update matched no row — the balance changed between the re-verification and the debit.'
+                    : 'The balance was lower than the credit the order was priced with when the debit ran.';
+                console.error('[OrderIntake] Store credit not debited in full: order=' + saved.record.id
+                    + ' applied=' + c2d(serverCreditCents) + ' debited=' + c2d(debitedCents) + ' — ' + reason);
+                await notifyAdminCreditDebitFailure(saved.record.id, attempt.userId, serverCreditCents, debitedCents, reason);
+            }
         } catch (e) {
-            console.warn('[OrderIntake] Store credit debit failed:', (e as Error)?.message || e);
+            // Whatever stopped the debit — a failed write, an unreadable
+            // balance — the order is already recorded at the discounted total
+            // and NOTHING was taken off the buyer's balance, so this is the
+            // same money event as a lost race and goes out on the same channel.
+            // The alert never throws, so the checkout response cannot fail here.
+            const reason = 'The debit did not run: ' + ((e as Error)?.message || e);
+            console.error('[OrderIntake] Store credit debit failed: order=' + saved.record.id
+                + ' applied=' + c2d(serverCreditCents) + ' — ' + reason);
+            await notifyAdminCreditDebitFailure(saved.record.id, attempt.userId, serverCreditCents, 0, reason);
         }
     }
 
@@ -533,16 +764,22 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
 // 6. PROVIDER-NEUTRAL RECONCILIATION
 // =========================================================================
 
-// permanent=true: retrying can never fix it (order genuinely absent) —
-// callers (the Stripe webhook) must NOT ask Stripe to redeliver.
-// Absence of permanent: transient (DB/network) — retrying is correct.
+// permanent=true: retrying can never fix it (the RPC rejected the state
+// transition under FOR UPDATE) — callers (the Stripe webhook) must NOT ask
+// Stripe to redeliver. Absence of permanent: transient — retrying is correct.
+// An absent order is TRANSIENT, never permanent: the client records the order
+// only after its payment resolves, so this lookup routinely races the write —
+// it lost that race by 200ms for order_1790143801835_89acaacc, whose row has
+// sat paid since while Stripe was told not to redeliver. Garbage metadata never
+// reaches here (isValidOrderId rejects it), so "not found" can only mean
+// "not yet".
 export interface ReconcileResult { success: boolean; error?: string; permanent?: boolean; notFound?: boolean; balancePaid?: number; newTotalPaid?: number; }
 
 export async function reconcilePayment(orderId: string): Promise<ReconcileResult> {
     const s = sb();
     const { data: o, error: fe } = await s.from('orders').select('id,balance_due,total,payment_status,paid_amount').eq('id', orderId).maybeSingle();
     if (fe) return { success: false, error: fe.message || 'Order lookup failed.' };
-    if (!o) return { success: false, error: 'Order not found: ' + orderId, permanent: true, notFound: true };
+    if (!o) return { success: false, error: 'Order not found: ' + orderId, notFound: true };
     const bd = Number(o.balance_due ?? 0), pa = Number(o.paid_amount ?? 0), tot = Number(o.total ?? 0);
     if (String(o.payment_status ?? '') !== 'pending') return { success: true };
     if (bd <= 0) return { success: true };

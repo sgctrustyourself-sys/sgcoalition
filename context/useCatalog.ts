@@ -2,7 +2,7 @@
 // Domain hook for the Product catalog — single owner of fetch, merge,
 // dedup, enrichment, CRUD, inventory deduction, and reviews.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Product, Review, OrderItem } from '../types';
 import { INITIAL_PRODUCTS, PRODUCT_LOCAL_OVERRIDES } from '../constants';
 import { supabase } from '../services/supabase';
@@ -97,6 +97,26 @@ export function useCatalog(
             .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => fetchProducts())
             .subscribe();
         return () => { channel.unsubscribe(); };
+    }, [isSupabaseConfigured]);
+
+    // Re-fetch the catalog whenever the tab becomes visible again. The fetch
+    // above runs once at mount, so a shopper with the shop already open never
+    // sees a listing that exists only in the database until something forces
+    // a reload. The visibility change is the natural refresh point: it is
+    // exactly when the shopper comes back to look. Skips while a fetch is
+    // already in flight so rapid tab-flapping cannot stack overlapping
+    // fetches whose setProducts could land out of order.
+    const fetchInFlight = useRef(false);
+    useEffect(() => {
+        if (!isSupabaseConfigured) return;
+        const onVisibilityChange = () => {
+            if (document.visibilityState !== 'visible') return;
+            if (fetchInFlight.current) return;
+            fetchInFlight.current = true;
+            void fetchProducts().finally(() => { fetchInFlight.current = false; });
+        };
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', onVisibilityChange);
     }, [isSupabaseConfigured]);
 
     const addProduct = async (p: Product) => {

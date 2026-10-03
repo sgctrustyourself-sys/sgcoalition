@@ -37,6 +37,6 @@ After the deployment finishes:
     - [ ] Coalition Green Camo Wallet
     - [ ] Coalition Skyy Blue Wallet
 
-## 5. (Removed — PayPal checkout has been removed from the product.)
-
-
+## 5. (Removed — PayPal checkout has been removed from the product.)
+
+
