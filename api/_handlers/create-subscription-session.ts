@@ -31,9 +31,6 @@ export default async function handler(req: any, res: any) {
 
         // Determine origin for success/cancel URLs
         let origin = process.env.VITE_APP_URL;
-        if (!origin && process.env.VERCEL_URL) {
-            origin = `https://${process.env.VERCEL_URL}`;
-        }
         if (!origin) {
             const host = req.headers.host;
             if (host) {

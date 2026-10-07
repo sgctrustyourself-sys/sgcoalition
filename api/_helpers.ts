@@ -112,10 +112,6 @@ export function setCorsHeaders(req: ApiRequest, res: ApiResponse, options: CorsO
 export function resolvePublicOrigin(req: ApiRequest): string {
     let origin = process.env.VITE_APP_URL?.trim();
 
-    if (!origin && process.env.VERCEL_URL) {
-        origin = `https://${process.env.VERCEL_URL}`;
-    }
-
     if (!origin) {
         const host = req.headers?.host;
         if (host) {

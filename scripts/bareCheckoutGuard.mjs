@@ -60,11 +60,13 @@ const ENV_FILES = ['.env', '.env.local', '.env.test', '.env.test.local'];
 
 const release = process.argv.includes('--release');
 const onVercel = Boolean(process.env.VERCEL);
+const onNetlify = process.env.NETLIFY === 'true';
 
 const verdictFlag = process.argv.indexOf('--verdict');
 const verdictPath = verdictFlag > -1 ? process.argv[verdictFlag + 1] : undefined;
 
 const commitSha = () => {
+  if (process.env.COMMIT_REF) return process.env.COMMIT_REF;
   if (process.env.VERCEL_GIT_COMMIT_SHA) return process.env.VERCEL_GIT_COMMIT_SHA;
   const rev = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' });
   return rev.status === 0 ? rev.stdout.trim() : null;
@@ -86,7 +88,7 @@ const writeVerdict = (verdict, extra = {}) => {
         mode: release ? 'release' : 'bare',
         verdict,
         ranAt: new Date().toISOString(),
-        environment: process.env.VERCEL_ENV ?? (onVercel ? 'vercel' : 'local'),
+        environment: (onNetlify ? process.env.CONTEXT : undefined) ?? process.env.VERCEL_ENV ?? (onVercel ? 'vercel' : 'local'),
         commit: commitSha(),
         ...extra,
       },

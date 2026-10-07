@@ -38,12 +38,7 @@ export default async function handler(req: any, res: any) {
         // Determine the base URL with multiple fallbacks
         let origin = process.env.VITE_APP_URL;
 
-        // Fallback 1: VERCEL_URL (System env var, usually set by Vercel)
-        if (!origin && process.env.VERCEL_URL) {
-            origin = `https://${process.env.VERCEL_URL}`;
-        }
-
-        // Fallback 2: Request Headers
+        // Fallback: Request Headers
         if (!origin) {
             const host = req.headers.host;
             if (host) {
