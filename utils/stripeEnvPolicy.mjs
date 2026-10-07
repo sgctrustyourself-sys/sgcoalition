@@ -22,10 +22,11 @@
  * A preview handed a live key therefore fails to build, which is the one failure
  * nobody can route around.
  *
- * Off Vercel the rule says nothing at all. A developer's `.env` legitimately holds
- * the live key — that is the one place live reads are wanted, and
- * scripts/stripeWhoami.ts reports exactly which account they reach. `VERCEL_ENV`
- * is the difference: it is the platform stating where this build ran.
+ * Off the deployment platform the rule says nothing at all. A developer's `.env`
+ * legitimately holds the live key — that is the one place live reads are wanted,
+ * and scripts/stripeWhoami.ts reports exactly which account they reach. Netlify's
+ * `CONTEXT` (or `VERCEL_ENV` on a Vercel build) is the difference: it is the
+ * platform stating where this build ran.
  *
  * Not covered, deliberately: STRIPE_WEBHOOK_SECRET. A webhook signing secret is
  * `whsec_` whether it signs test or live events, so its value cannot say which
@@ -49,12 +50,26 @@ export const liveStripeCredentials = (env = process.env) =>
     return LIVE_PREFIXES.some((prefix) => value.startsWith(prefix));
   });
 
+/** Netlify contexts that are a developer's own machine, not a deployment. */
+const NETLIFY_LOCAL_CONTEXTS = new Set(['dev', 'dev-server']);
+
 /**
- * Refuse a non-production Vercel build that was handed a live credential.
- * Off Vercel (VERCEL_ENV unset) and in Production, this is a no-op.
+ * Where this build is deploying to, as the platform states it: Netlify's
+ * CONTEXT (production / deploy-preview / branch-deploy), or VERCEL_ENV for a
+ * Vercel build. Undefined off-platform and for local Netlify dev.
+ */
+export const deploymentEnvironment = (env = process.env) => {
+  if (env.VERCEL_ENV) return env.VERCEL_ENV;
+  if (env.NETLIFY === 'true' && env.CONTEXT && !NETLIFY_LOCAL_CONTEXTS.has(env.CONTEXT)) return env.CONTEXT;
+  return undefined;
+};
+
+/**
+ * Refuse a non-production deployment build that was handed a live credential.
+ * Off-platform, in local Netlify dev, and in Production, this is a no-op.
  */
 export function assertProductionOnlyLiveKeys(env = process.env) {
-  const environment = env.VERCEL_ENV;
+  const environment = deploymentEnvironment(env);
   if (!environment || environment === 'production') return;
 
   const offenders = liveStripeCredentials(env);
@@ -71,7 +86,7 @@ export function assertProductionOnlyLiveKeys(env = process.env) {
 /**
  * The rule, as a Vite plugin. `apply: 'build'` leaves the dev server and
  * `vite preview` untouched: only a build — the thing that becomes a deployment —
- * is gated. `vercel dev` runs the dev server, so a developer's live `.env` is
+ * is gated. `netlify dev` runs the dev server, so a developer's live `.env` is
  * unaffected by design.
  *
  * @returns {import('vite').Plugin}

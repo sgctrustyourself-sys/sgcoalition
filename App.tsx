@@ -1,7 +1,5 @@
 import React, { Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
-import { SpeedInsights } from '@vercel/speed-insights/react';
-import { Analytics } from '@vercel/analytics/react';
 import { AppProvider } from './context/AppContext';
 import { ToastProvider } from './context/ToastContext';
 import Footer from './components/Footer';
@@ -270,8 +268,6 @@ const App = () => {
               <Suspense fallback={null}>
                 <MobileBottomNav />
               </Suspense>
-              <SpeedInsights />
-              <Analytics />
             </div>
           </BrowserRouter>
         </TutorialProvider>

@@ -32,6 +32,20 @@ const LIVE_SECRET = 'sk_live_exampleSecretKey';
 const LIVE_PUBLISHABLE = 'pk_live_examplePublishableKey';
 
 describe('stripe environment policy', () => {
+    it('refuses a Netlify deploy preview or branch deploy carrying a live key', () => {
+        for (const context of ['deploy-preview', 'branch-deploy']) {
+            const env = { NETLIFY: 'true', CONTEXT: context, STRIPE_SECRET_KEY: LIVE_SECRET };
+            expect(() => assertProductionOnlyLiveKeys(env)).toThrow(new RegExp(context));
+        }
+    });
+
+    it('allows live keys in Netlify production and in local Netlify dev', () => {
+        for (const context of ['production', 'dev', 'dev-server']) {
+            const env = { NETLIFY: 'true', CONTEXT: context, STRIPE_SECRET_KEY: LIVE_SECRET };
+            expect(() => assertProductionOnlyLiveKeys(env)).not.toThrow();
+        }
+    });
+
     it('refuses a preview build carrying a live secret key, naming it and the environment', () => {
         const env = { VERCEL_ENV: 'preview', STRIPE_SECRET_KEY: LIVE_SECRET };
         expect(() => assertProductionOnlyLiveKeys(env)).toThrow(/STRIPE_SECRET_KEY/);

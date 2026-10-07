@@ -46,8 +46,6 @@
     "@stripe/react-stripe-js": "^6.8.0",
     "@stripe/stripe-js": "^9.12.1",
     "@supabase/supabase-js": "^2.84.0",
-    "@vercel/analytics": "^1.5.0",
-    "@vercel/speed-insights": "^1.2.0",
     "cors": "^2.8.6",
     "d3-scale": "^4.0.2",
     "date-fns": "^4.1.0",

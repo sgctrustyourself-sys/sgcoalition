@@ -1,14 +1,14 @@
-// Vercel handler for /api/git-operations. Mirrors server.cjs (Express) for
+// Serverless handler for /api/git-operations. Mirrors server.cjs (Express) for
 // local dev parity, with one important runtime constraint:
 //
-//   THE GIT BINARY IS NOT AVAILABLE IN THE VERCEL SERVERLESS RUNTIME.
+//   THE GIT BINARY IS NOT AVAILABLE IN THE SERVERLESS RUNTIME (NETLIFY FUNCTIONS).
 //   THE FILESYSTEM IS READ-ONLY (only /tmp is writable, and it does not
 //   persist across invocations or affect the deployed repo).
 //
-// So on Vercel every action returns 501 with a structured payload
+// So on a serverless deployment every action returns 501 with a structured payload
 // (action + devOnly:true + hint) so the client still gets a useful
 // error instead of a 404 or a confusing 500. On a long-running Node
-// deployment (self-hosted, non-Vercel), the handler falls through to
+// deployment (self-hosted, non-serverless), the handler falls through to
 // services/gitService.ts and exercises the same actions as server.cjs.
 //
 // Sync-constants is the most commonly invoked action from the admin
@@ -27,10 +27,17 @@ import { refreshSeed, type ProductRow, type SeedMergeReport } from '../../script
 // the local block used to hardcode: the configured origin falls through as the
 // fallback, plus the Vite dev hosts.
 
-// VERCEL=1 is set on both production and preview deployments by Vercel.
-// A long-running self-hosted Node deployment won't set it.
-function isVercelRuntime(): boolean {
-    return process.env.VERCEL === '1' || Boolean(process.env.VERCEL_ENV);
+// Netlify Functions expose a `Netlify` global and run on Lambda; VERCEL=1 is
+// the equivalent marker on Vercel. A long-running self-hosted Node deployment
+// sets none of these.
+function isServerlessRuntime(): boolean {
+    return (
+        typeof (globalThis as { Netlify?: unknown }).Netlify !== 'undefined'
+        || process.env.NETLIFY === 'true'
+        || Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME)
+        || process.env.VERCEL === '1'
+        || Boolean(process.env.VERCEL_ENV)
+    );
 }
 
 function parseBody(req: any): any {
@@ -56,7 +63,7 @@ function getSupabaseAdmin() {
 
 // The sync-constants action: refresh constants/products.ts from the products
 // table under the shared rule (scripts/productSeed.ts). Lazy-imports
-// fs/path/gitService so cold start on Vercel skips the git binary until needed
+// fs/path/gitService so cold start on serverless skips the git binary until needed
 // (and never is, because the devOnly path returns first).
 async function syncConstantsHandler(req: any) {
     const supabase = getSupabaseAdmin();
@@ -90,7 +97,7 @@ async function syncConstantsHandler(req: any) {
     // Route through the GitHub Contents API when (a) we're on Vercel (no git
     // binary, read-only FS) or (b) GITHUB_TOKEN is set anywhere. The shared
     // githubSync.cjs module handles auth, noChanges detection, and the PUT.
-    const useGithub = isVercelRuntime() || Boolean(process.env.GITHUB_TOKEN);
+    const useGithub = isServerlessRuntime() || Boolean(process.env.GITHUB_TOKEN);
 
     if (useGithub) {
         const { syncFileOnGitHub } = await import('../../services/githubSync.cjs');
@@ -140,7 +147,7 @@ const handler = async (req: any, res: any) => {
     // dev-only. sync-constants routes through the GitHub Contents API and
     // actually works on production — it just needs GITHUB_TOKEN / REPO_OWNER
     // / REPO_NAME env vars.
-    if (isVercelRuntime() && action !== 'sync-constants') {
+    if (isServerlessRuntime() && action !== 'sync-constants') {
         const hint = 'Run `npm run dev` locally so Vite proxies /api/* to Express on localhost:4242.';
         res.status(501).json({
             error: `Action "${action}" requires the local dev server. ${hint}`,

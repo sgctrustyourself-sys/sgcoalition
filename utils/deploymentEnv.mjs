@@ -84,6 +84,26 @@ const PLATFORM_IDENTITY = new Set([
   'VERCEL_DEPLOYMENT_ID',
   'VERCEL_PROJECT_PRODUCTION_URL',
   'VERCEL_BRANCH_URL',
+  // Netlify's build identity. Deliberately named one by one rather than a
+  // NETLIFY_ prefix, so NETLIFY_AUTH_TOKEN stays a credential that is stripped.
+  'NETLIFY',
+  'NETLIFY_LOCAL',
+  'NETLIFY_DEV',
+  'CONTEXT',
+  'URL',
+  'DEPLOY_URL',
+  'DEPLOY_PRIME_URL',
+  'DEPLOY_ID',
+  'BUILD_ID',
+  'SITE_ID',
+  'SITE_NAME',
+  'BRANCH',
+  'HEAD',
+  'COMMIT_REF',
+  'CACHED_COMMIT_REF',
+  'PULL_REQUEST',
+  'REVIEW_ID',
+  'REPOSITORY_URL',
 ]);
 
 /** Platform and toolchain namespaces. Not this app's configuration. */
