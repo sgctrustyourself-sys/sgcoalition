@@ -1,5 +1,5 @@
-import { Product, PageSection, UserProfile, CartItem, UserType } from '../types';
-import { INITIAL_PRODUCTS, INITIAL_SECTIONS, ADMIN_USER } from '../constants';
+import { Product, PageSection, UserProfile, CartItem, UserType } from '../types.js';
+import { INITIAL_PRODUCTS, INITIAL_SECTIONS, ADMIN_USER } from '../constants.js';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'coalition_products',
@@ -53,15 +53,17 @@ export const StoreService = {
 
     if (!user || (method === 'google' && user.email !== identifier) || (method === 'metamask' && user.walletAddress !== identifier)) {
         // Create new session user if mismatch or doesn't exist
-        user = {
-            uid: `user_${Math.random().toString(36).substring(7)}`,
-            displayName: null,
-            isAdmin: false,
-            sgCoinBalance: 0,
-            favorites: [],
-            email: method === 'google' ? identifier : undefined,
-            walletAddress: method === 'metamask' ? identifier : undefined
-        };
+            user = {
+                uid: `user_${Math.random().toString(36).substring(7)}`,
+                displayName: null,
+                isAdmin: false,
+                sgCoinBalance: 0,
+                favorites: [],
+                // UserProfile.email and walletAddress are typed `string | null`;
+                // use null (not undefined) for the inactive branch.
+                email: method === 'google' ? identifier : null,
+                walletAddress: method === 'metamask' ? identifier : null,
+            };
     }
     
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));

@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { OrderItem, OrderStatus } from '../types';
 import { X, Plus, Trash2, Package } from 'lucide-react';
+import { mintOrderId } from '../utils/checkoutAttempt';
 
 interface ManualOrderFormProps {
     onClose: () => void;
@@ -127,7 +128,9 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
             });
 
             const order = {
-                id: `order_${Date.now()}`,
+                // One owner for the id format (utils/checkoutAttempt.ts). An
+                // admin order is its own purchase, so it always mints fresh.
+                id: mintOrderId(),
                 orderNumber,
                 customerName,
                 customerEmail,

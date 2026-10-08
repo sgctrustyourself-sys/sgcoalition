@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { GitBranch, GitCommit, History, RotateCcw, FileText, Clock, User, AlertCircle, CheckCircle } from 'lucide-react';
 import { buildGitOperationsUrl } from '../../services/apiBase';
+import { ADMIN_SESSION_EXPIRED_ERROR, getAdminAuthHeaders, handleAdminAuthFailure } from '../../services/adminSession';
+import { useApp } from '../../context/AppContext';
 
 interface GitCommit {
     hash: string;
@@ -16,6 +18,7 @@ interface GitBranch {
 }
 
 const GitControl: React.FC = () => {
+    const { logoutAdmin } = useApp();
     const [commits, setCommits] = useState<GitCommit[]>([]);
     const [branches, setBranches] = useState<GitBranch[]>([]);
     const [currentBranch, setCurrentBranch] = useState<string>('master');
@@ -25,6 +28,19 @@ const GitControl: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
+    // A 401 means the stashed admin token no longer matches the server secret
+    // (typically after a rotation). The session module clears the storage keys;
+    // dropping admin MODE is React state, so it stays here and ProtectedRoute
+    // returns the operator to login instead of leaving them on a panel where
+    // every action fails silently.
+    const reportAuthFailure = (status: number): boolean => {
+        if (!handleAdminAuthFailure(status)) return false;
+        logoutAdmin();
+        setError(ADMIN_SESSION_EXPIRED_ERROR);
+        setTimeout(() => setError(null), 5000);
+        return true;
+    };
+
     useEffect(() => {
         fetchGitStatus();
     }, []);
@@ -33,14 +49,22 @@ const GitControl: React.FC = () => {
         setIsLoading(true);
         try {
             // Fetch commit history
-            const logResponse = await fetch(buildGitOperationsUrl('log', { limit: 50 }));
+            const logResponse = await fetch(buildGitOperationsUrl('log', { limit: 50 }), {
+                headers: getAdminAuthHeaders(),
+            });
+            // Bail before the demo-data fallback below: showing fake commits to
+            // a logged-out admin is worse than showing nothing.
+            if (reportAuthFailure(logResponse.status)) return;
             if (logResponse.ok) {
                 const logData = await logResponse.json();
                 setCommits(logData.commits || []);
             }
 
             // Fetch branches
-            const branchesResponse = await fetch(buildGitOperationsUrl('branches'));
+            const branchesResponse = await fetch(buildGitOperationsUrl('branches'), {
+                headers: getAdminAuthHeaders(),
+            });
+            if (reportAuthFailure(branchesResponse.status)) return;
             if (branchesResponse.ok) {
                 const branchesData = await branchesResponse.json();
                 setBranches(branchesData.branches || []);
@@ -71,10 +95,11 @@ const GitControl: React.FC = () => {
             try {
                 const response = await fetch(buildGitOperationsUrl('checkout'), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...getAdminAuthHeaders() },
                     body: JSON.stringify({ branch: branchName })
                 });
 
+                if (reportAuthFailure(response.status)) return;
                 if (!response.ok) throw new Error('Failed to switch branch');
 
                 setCurrentBranch(branchName);
@@ -98,12 +123,13 @@ const GitControl: React.FC = () => {
             try {
                 const response = await fetch(buildGitOperationsUrl('commit'), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...getAdminAuthHeaders() },
                     body: JSON.stringify({ message })
                 });
 
+                if (reportAuthFailure(response.status)) return;
                 if (!response.ok) {
-                    const errorData = await response.json();
+                    const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.error || 'Failed to create commit');
                 }
 

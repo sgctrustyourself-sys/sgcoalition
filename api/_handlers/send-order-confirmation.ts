@@ -1,6 +1,5 @@
-import { Resend } from 'resend';
+import { resendClient } from '../../api/_services.js';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const DEFAULT_ORDER_NOTIFICATION_EMAIL = 'sgctrustyourself@gmail.com';
 
 function getOrderNotificationRecipients() {
@@ -15,6 +14,7 @@ function getResendFromAddress() {
 }
 
 async function sendResendEmail(payload: any) {
+    const resend = resendClient();
     const result = await resend.emails.send({
         ...payload,
         from: getResendFromAddress(),

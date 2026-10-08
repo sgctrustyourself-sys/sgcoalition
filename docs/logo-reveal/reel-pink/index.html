@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <!-- baked per-frame band data for the audio-reactive pulse (make-audio-data.py) -->
+    <script src="assets/audio-data.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        margin: 0; width: 1080px; height: 1920px; overflow: hidden;
+        /* GROUND — the reveal's exact ground, for one continuous film */
+        background: #0d0d10;
+      }
+      #root {
+        width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+
+      /* ── Fields: washes lifted from the leopard print itself — hot pink,
+             rose-mauve, plum. The liquid is the silver; the fields are the
+             rose. "Silver on rose."
+             Present the whole 16s so the ground is one world; they only
+             drift once the liquid mounts (10.0s), then freeze at rupture+2s. ── */
+      .field {
+        position: absolute; border-radius: 50%;
+        filter: blur(140px); opacity: 0.55;
+        will-change: transform;
+      }
+      /* FIELD 1 — hot pink (the art's --pink, rgb(255,61,175)) */
+      #field-a { width: 1240px; height: 1240px; left: -320px; top: -260px;
+        background: radial-gradient(circle, rgba(255,61,175,0.50) 0%, rgba(255,61,175,0) 70%); }
+      /* FIELD 2 — rose-mauve (the print's mid-tone, #d99db1 on the slides) */
+      #field-b { width: 1360px; height: 1360px; right: -360px; top: 420px;
+        background: radial-gradient(circle, rgba(217,157,177,0.42) 0%, rgba(217,157,177,0) 70%); }
+      /* FIELD 3 — plum (the print's rosette dark, #732454 on the slides) */
+      #field-c { width: 1120px; height: 1120px; left: 240px; bottom: -380px;
+        background: radial-gradient(circle, rgba(115,36,84,0.55) 0%, rgba(115,36,84,0) 70%); }
+
+      /* ── Ambient glow bands: each slide blurred behind itself, full-bleed,
+             so the letterbox is lit by its own art instead of banded flat.
+             Scale floor 1.25 keeps the blur's transparent edge fade off-frame. ── */
+      .glow {
+        position: absolute; left: 0; top: 0;
+        width: 1080px; height: 1920px;
+        background-size: cover; background-position: center;
+        filter: blur(40px) saturate(1.15);
+        will-change: transform;
+      }
+      #glow-1 { background-image: url("assets/y2k-pink-silver-slide-1.png"); }
+      #glow-2 { background-image: url("assets/y2k-pink-silver-slide-2.png"); }
+      #glow-3 { background-image: url("assets/y2k-pink-silver-slide-3.png"); }
+      #glow-4 { background-image: url("assets/y2k-pink-silver-slide-4.png"); }
+      #glow-5 { background-image: url("assets/y2k-pink-silver-slide-5.png"); }
+
+      /* ── The five pink-silver carousel slides. 1.5x sources (1620x2025)
+             scaled to 1080x1350 fit-width, centered on the 1920-tall frame —
+             crisp art, lit letterbox, no crop of caption art. Full opacity at
+             entry: flat-colour stills, a fade-up would only read as flicker. ── */
+      .slide {
+        position: absolute; left: 0; top: 285px;
+        width: 1080px; height: 1350px;
+        object-fit: fill; will-change: transform;
+      }
+
+      /* ── Leopard wipes: a feathered ribbon of the shirt's print sweeps past
+             each carousel cut (0.24s), hiding the hard swap inside the motif.
+             Same stamped rosette tile as the bubbles; the ribbon is the print
+             on a rose band. Alternating sweep direction, like a flicked page. ── */
+      .wipe {
+        position: absolute; top: 0; left: 0;
+        width: 640px; height: 1920px;
+        background-image: url("assets/leopard-mottle.png"),
+          linear-gradient(180deg, rgba(255,61,175,0.55) 0%, rgba(217,157,177,0.55) 100%);
+        background-size: 512px 512px, 100% 100%;
+        background-repeat: repeat, no-repeat;
+        opacity: 0.85;
+        -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 22%, #000 78%, transparent 100%);
+        mask-image: linear-gradient(90deg, transparent 0%, #000 22%, #000 78%, transparent 100%);
+        will-change: transform;
+      }
+      #wipe-1 { background-position: 40px 120px, 0 0; }
+      #wipe-2 { background-position: 305px 260px, 0 0; }
+      #wipe-3 { background-position: 150px 430px, 0 0; }
+      #wipe-4 { background-position: 420px 60px, 0 0; }
+
+      /* ── Lights-down veil: ground fades IN over the glow for the dip
+         (9.68–10.0s) before the liquid world mounts. Fading a veil up over
+         the art — instead of fading the art out — keeps every timeline
+         element single-motion and top-level. ── */
+      #cta-veil {
+        position: absolute; inset: 0;
+        background: #0d0d10;
+      }
+
+      /* ── The liquid: native 1080x1920 retarget, mounted 10.0–13.7s.
+             Rupture lands at 12.4333s on the reel clock; the mount runs past
+             the full scatter (13.61s) so nothing pops mid-flight. The approach
+             is time-compressed for pacing; the hold stays 13 frames. ── */
+      #liquidMount {
+        position: absolute; inset: 0;
+      }
+
+      /* ── The lockup: the crispest thing in the film. Same artwork,
+             same proportions, sized for a phone-width frame. ── */
+      #lockup {
+        position: absolute; left: 50%; top: 48%;
+        width: 660px; height: 244px; margin-left: -330px; margin-top: -122px;
+        opacity: 0; object-fit: contain;
+      }
+
+      /* grain pass — the reveal's exact seeded texture, over everything */
+      #grain {
+        position: absolute; inset: 0; pointer-events: none; opacity: 0.10;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.84' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.26'/%3E%3C/svg%3E");
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="reel-pink"
+      data-start="0"
+      data-duration="14.6"
+      data-width="1080"
+      data-height="1920"
+    >
+      <div id="field-a" class="field clip" data-start="0" data-duration="14.6"></div>
+      <div id="field-b" class="field clip" data-start="0" data-duration="14.6"></div>
+      <div id="field-c" class="field clip" data-start="0" data-duration="14.6"></div>
+
+      <!-- ── Act 1 · the pink-silver carousel, 0–10.0s. Cover-forward:
+             the hero slide opens the film and gets the long beat; the
+             detail slides flick past faster (1.8s) like a flipped carousel. ── -->
+      <div id="glow-1" class="glow clip" data-start="0"   data-duration="2.4"></div>
+      <div id="glow-2" class="glow clip" data-start="2.4" data-duration="1.8"></div>
+      <div id="glow-3" class="glow clip" data-start="4.2" data-duration="1.8"></div>
+      <div id="glow-4" class="glow clip" data-start="6.0" data-duration="1.8"></div>
+      <div id="glow-5" class="glow clip" data-start="7.8" data-duration="2.2"></div>
+
+      <img id="slide-1" class="slide clip" src="assets/y2k-pink-silver-slide-1.png" alt="" data-start="0"   data-duration="2.4" />
+      <img id="slide-2" class="slide clip" src="assets/y2k-pink-silver-slide-2.png" alt="" data-start="2.4" data-duration="1.8" />
+      <img id="slide-3" class="slide clip" src="assets/y2k-pink-silver-slide-3.png" alt="" data-start="4.2" data-duration="1.8" />
+      <img id="slide-4" class="slide clip" src="assets/y2k-pink-silver-slide-4.png" alt="" data-start="6.0" data-duration="1.8" />
+      <img id="slide-5" class="slide clip" src="assets/y2k-pink-silver-slide-5.png" alt="" data-start="7.8" data-duration="2.2" />
+
+      <!-- ── Leopard wipes at each cut: the print sweeps past so the swap is
+             never a bare hard cut. ── -->
+      <div id="wipe-1" class="wipe clip" data-layout-allow-overflow data-start="2.28" data-duration="0.24"></div>
+      <div id="wipe-2" class="wipe clip" data-layout-allow-overflow data-start="4.08" data-duration="0.24"></div>
+      <div id="wipe-3" class="wipe clip" data-layout-allow-overflow data-start="5.88" data-duration="0.24"></div>
+      <div id="wipe-4" class="wipe clip" data-layout-allow-overflow data-start="7.68" data-duration="0.24"></div>
+
+      <div id="cta-veil" class="clip" data-start="9.68" data-duration="0.32"></div>
+
+      <!-- ── Act 2 · the liquid reveal, 10.0–14.8s (rupture 13.43s) ── -->
+      <div
+        id="liquidMount"
+        data-composition-id="liquid"
+        data-composition-src="./compositions/liquid.html"
+        class="clip"
+        data-start="10"
+        data-duration="3.7"
+        data-width="1080"
+        data-height="1920"
+      ></div>
+
+      <!-- lockup lands at the rupture; official artwork at official proportions -->
+      <img id="lockup" class="clip" src="assets/logo-lockup.png" alt="Coalition" data-start="12.55" data-duration="2.05" />
+
+      <div id="grain" class="clip" data-start="0" data-duration="14.6"></div>
+
+      <!-- the bed: Baltimore-club pulse on the picture's own 133.33 BPM grid
+           (every wipe swap lands on a bar downbeat), duck at the lights-down,
+           riser through the approach, dead air on the hold, and the drop
+           sample-exact on the rupture (frame 373 = 12.4333 s). Synthesized
+           by make-bed.py. -->
+      <audio id="bed" src="assets/bed-club.wav" data-start="0" data-duration="14.6" data-track-index="1"></audio>
+    </div>
+
+    <script>
+      const tl = gsap.timeline({ paused: true, defaults: { immediateRender: false } });
+
+      /* Rupture = 12.4333s on the reel clock (2.4333s into the mounted liquid).
+         Everything before is approach; everything after is consequence. */
+
+      /* ── Act 1 · Ken Burns on the carousel — the cover gets a slow push-in,
+             the detail slides glide and tilt, the CTA settles upward. Linear
+             ease: authored, deterministic, nothing bouncing. ── */
+      tl.fromTo('#slide-1', { scale: 1.02 },            { scale: 1.06, duration: 2.4, ease: 'none' }, 0);
+      tl.fromTo('#slide-2', { x: -14, scale: 1.04 },    { x: 12, scale: 1.04, duration: 1.8, ease: 'none' }, 2.4);
+      tl.fromTo('#slide-3', { y: 44, scale: 1.04 },     { y: -44, scale: 1.04, duration: 1.8, ease: 'none' }, 4.2);
+      tl.fromTo('#slide-4', { scale: 1.055 },           { scale: 1.025, duration: 1.8, ease: 'none' }, 6.0);
+      tl.fromTo('#slide-5', { y: -18, scale: 1.03 },    { y: 2, scale: 1.06, duration: 2.2, ease: 'none' }, 7.8);
+
+      /* the glow bands counter-drift behind their slides — slow parallax
+             depth between the crisp art and its own blurred echo */
+      tl.fromTo('#glow-1', { scale: 1.25 },             { scale: 1.31, duration: 2.4, ease: 'none' }, 0);
+      tl.fromTo('#glow-2', { x: 22, scale: 1.28 },      { x: -22, scale: 1.28, duration: 1.8, ease: 'none' }, 2.4);
+      tl.fromTo('#glow-3', { y: -34, scale: 1.28 },     { y: 34, scale: 1.28, duration: 1.8, ease: 'none' }, 4.2);
+      tl.fromTo('#glow-4', { scale: 1.31 },             { scale: 1.25, duration: 1.8, ease: 'none' }, 6.0);
+      tl.fromTo('#glow-5', { y: 16, scale: 1.26 },      { y: -8, scale: 1.30, duration: 2.2, ease: 'none' }, 7.8);
+
+      /* the print sweeps past each cut — one linear pass per element, the
+         slide swaps underneath at the sweep's midpoint */
+      tl.fromTo('#wipe-1', { x: -740 }, { x: 1140, duration: 0.24, ease: 'none' }, 2.28);
+      tl.fromTo('#wipe-2', { x: 1140 }, { x: -740, duration: 0.24, ease: 'none' }, 4.08);
+      tl.fromTo('#wipe-3', { x: -740 }, { x: 1140, duration: 0.24, ease: 'none' }, 5.88);
+      tl.fromTo('#wipe-4', { x: 1140 }, { x: -740, duration: 0.24, ease: 'none' }, 7.68);
+
+      /* the lights go down before the event — a ground-coloured veil fades IN
+         over the art instead of a dead cut into black. */
+      tl.fromTo('#cta-veil', { opacity: 0 }, { opacity: 1, duration: 0.32, ease: 'power2.in' }, 9.68);
+
+      /* ── Act 2 · the fields drift through the approach and the event,
+             then freeze at rupture+2s (14.43s) — after that, nothing in the
+             film moves but nothing at all ── */
+      tl.fromTo('#field-a', { x: 0, y: 0 }, { x: 70,  y: 36,  duration: 4.43, ease: 'none' }, 10);
+      tl.fromTo('#field-b', { x: 0, y: 0 }, { x: -81, y: -25, duration: 4.43, ease: 'none' }, 10);
+      tl.fromTo('#field-c', { x: 0, y: 0 }, { x: 35,  y: -47, duration: 4.43, ease: 'none' }, 10);
+
+      /* the lockup lands and recoils — from the rupture point, outward */
+      tl.fromTo('#lockup',
+        { scale: 0.86, opacity: 0 },
+        { scale: 1.0, opacity: 1, duration: 0.5, ease: 'back.out(2.2)' },
+        12.55);
+
+      /* ── Hold (13.61–14.60) — the scatter is spent, the lockup, alone,
+         still. Nothing moves. ── */
+
+      /* ── Audio-reactive breath — the bed's bass band (bands[0] of the
+             baked per-frame data in assets/audio-data.js) drives a subtle
+             pulse on the fields and the grain. The curve is a pure ease
+             function of timeline progress — a deterministic function of
+             tl.time(), identical on every seek. Doctrine windows: dead
+             through the 12.00–12.43 hold, frozen with the fields at 14.43
+             (nothing moves ≥2 s post-rupture). Subtle by design: ~4% on
+             the blurred fields, grain lifts 0.10→0.13. ── */
+      var AUDIO = window.HF_AUDIO;
+      function bassAt(t) {
+        if (!AUDIO || t < 0.6 || (t >= 12.0 && t < 12.4333) || t >= 14.43) return 0;
+        var f = Math.round(t * AUDIO.fps);
+        if (f < 0) f = 0;
+        if (f > AUDIO.totalFrames - 1) f = AUDIO.totalFrames - 1;
+        var v = AUDIO.frames[f].bands[0];
+        if (t > 11.75 && t < 12.0) v *= (12.0 - t) / 0.25;   // taper into the hold
+        if (t > 14.2 && t < 14.43) v *= (14.43 - t) / 0.23;  // taper into the freeze
+        return v;
+      }
+      function bassEase(p) { return bassAt(p * 14.6); }
+      tl.fromTo('#field-a', { scale: 1 },      { scale: 1.045, duration: 14.6, ease: bassEase }, 0);
+      tl.fromTo('#field-b', { scale: 1 },      { scale: 1.035, duration: 14.6, ease: bassEase }, 0);
+      tl.fromTo('#field-c', { scale: 1 },      { scale: 1.04,  duration: 14.6, ease: bassEase }, 0);
+      tl.fromTo('#grain',   { opacity: 0.10 }, { opacity: 0.13, duration: 14.6, ease: bassEase }, 0);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['reel-pink'] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

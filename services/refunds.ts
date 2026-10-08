@@ -1,5 +1,5 @@
-import { supabase } from './supabase';
-import { ConsentData } from './consentTracking';
+import { supabase } from './supabase.js';
+import { ConsentData } from './consentTracking.js';
 
 export interface RefundException {
     id: string;

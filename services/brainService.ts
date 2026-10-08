@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from './supabase.js';
 
 export type BrainCategory = 'product_design' | 'brand_guidelines' | 'chat_insight' | 'creative_direction' | 'general';
 export type BrainSource = 'ai_chat' | 'manual' | 'product' | 'design_session';

@@ -18,7 +18,7 @@ import {
 import { supabase } from '../../services/supabase';
 import { useToast } from '../../context/ToastContext';
 import { Signal } from '../../context/AppContext';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 const SignalManager: React.FC = () => {
     const { addToast } = useToast();

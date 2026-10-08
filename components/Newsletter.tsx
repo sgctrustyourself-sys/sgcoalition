@@ -49,7 +49,7 @@ const Newsletter: React.FC<NewsletterProps> = ({
         subheading: subheading ?? DEFAULT_HEADINGS[source].subheading,
     };
 
-    const validateEmail = (value: string) => EMAIL_REGEX.test(String(value).toLowerCase());
+    const validateEmail = (value: string): boolean => EMAIL_REGEX.test(String(value).toLowerCase());
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

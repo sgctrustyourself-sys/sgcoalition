@@ -6,7 +6,10 @@ interface ConfirmationModalProps {
     onClose: () => void;
     onConfirm: () => void;
     title: string;
-    message: string;
+    // ReactNode (not string) so callers can pass inline <strong>/<em> markup
+    // without a `dangerouslySetInnerHTML` escape hatch. Used by the SGCoin
+    // Payout Manager's approve confirmation to bold the customer's email.
+    message: React.ReactNode;
     confirmText?: string;
     cancelText?: string;
     isDestructive?: boolean;

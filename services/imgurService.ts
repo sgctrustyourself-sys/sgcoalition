@@ -2,7 +2,11 @@
  * Imgur upload service
  */
 
-import { buildGitOperationsUrl } from './apiBase';
+import { buildGitOperationsUrl } from './apiBase.js';
+import { ADMIN_SESSION_EXPIRED_ERROR, getAdminAuthHeaders, handleAdminAuthFailure } from './adminSession.js';
+// Type-only: the seed-merge report is owned by the server rule, so the client reads
+// its shape from there rather than restating it (erased at build, no runtime import).
+import type { SeedMergeReport } from '../scripts/productSeed.js';
 
 /**
  * Upload an image to Imgur via the local backend processor
@@ -27,8 +31,10 @@ export async function uploadToImgur(
 
         const response = await fetch(buildGitOperationsUrl('upload-imgur'), {
             method: 'POST',
+            // Admin-only endpoint -- see api/_handlers/git-operations.ts.
             headers: {
                 'Content-Type': 'application/json',
+                ...getAdminAuthHeaders(),
             },
             body: JSON.stringify({
                 image: base64Image,
@@ -38,7 +44,10 @@ export async function uploadToImgur(
         });
 
         if (!response.ok) {
-            const error = await response.json();
+            if (handleAdminAuthFailure(response.status)) {
+                throw new Error(ADMIN_SESSION_EXPIRED_ERROR);
+            }
+            const error = await response.json().catch(() => ({}));
             throw new Error(error.error || 'Imgur upload failed');
         }
 
@@ -51,24 +60,38 @@ export async function uploadToImgur(
 }
 
 /**
- * Trigger product synchronization from Supabase to local constants.ts
+ * Trigger product synchronization from Supabase to local constants.ts.
+ * Returns the full server response so ProductManager can read the
+ * `noChanges` flag when the file already matches the database, and the
+ * `report` — which entries were rewritten, appended, or kept because the
+ * products table has never held them — so the admin is told what was written.
  */
-export async function syncProductsToCode(): Promise<string> {
+export async function syncProductsToCode(): Promise<{
+    hash?: string;
+    noChanges?: boolean;
+    success?: boolean;
+    report?: SeedMergeReport | null;
+}> {
     try {
         const response = await fetch(buildGitOperationsUrl('sync-constants'), {
             method: 'POST',
+            // sync-constants commits to origin/main through the server's
+            // GITHUB_TOKEN, so it is admin-gated as of the repo-write fix.
             headers: {
                 'Content-Type': 'application/json',
+                ...getAdminAuthHeaders(),
             }
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Sync failed');
+            if (handleAdminAuthFailure(response.status)) {
+                throw new Error(ADMIN_SESSION_EXPIRED_ERROR);
+            }
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || `Sync failed (HTTP ${response.status})`);
         }
 
-        const data = await response.json();
-        return data.hash;
+        return await response.json();
     } catch (error: any) {
         console.error('Sync Service Error:', error);
         throw error;

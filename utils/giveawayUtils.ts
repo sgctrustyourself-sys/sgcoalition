@@ -1,4 +1,4 @@
-import { Giveaway, GiveawayEntry, GiveawayStatus, UserProfile } from '../types';
+import { Giveaway, GiveawayEntry, GiveawayStatus, UserProfile } from '../types.js';
 
 export const SUBSCRIBER_GIVEAWAY_TICKETS = 15;
 

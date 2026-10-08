@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Plus, Globe, ArrowUpRight, Layers, Shield } from 'lucide-react';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import WizardCard from '../components/dashboard/WizardCard';
 import { MOCK_WIZARDS } from '../data/mockWizards';
 import { fetchUserMiniWizards } from '../services/web3Service';
 import { useApp } from '../context/AppContext';
-import { ethers } from 'ethers';
 import WizardDetailModal from '../components/dashboard/WizardDetailModal';
 import { MiniWizard } from '../types/MiniWizard';
 
@@ -26,7 +25,8 @@ const WizardsDashboard: React.FC = () => {
             if (walletAddress) {
                 setIsLoading(true);
                 try {
-                    const provider = new ethers.BrowserProvider(window.ethereum);
+                    const { ethers: e } = await import('ethers');
+                    const provider = new e.BrowserProvider(window.ethereum);
                     const realWizards = await fetchUserMiniWizards(walletAddress, provider);
                     if (realWizards.length > 0) {
                         setWizards([...realWizards, ...MOCK_WIZARDS]);

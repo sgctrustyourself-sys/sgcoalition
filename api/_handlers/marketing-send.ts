@@ -1,8 +1,40 @@
 // /api/marketing-send
 // Admin-only POST: dispatch a campaign through Resend (email) + Twilio (SMS).
 // Writes marketing_campaigns + per-recipient marketing_sends rows.
+//
+// 2026-07-02 — verified-customer guard: campaigns whose NAME contains
+// "test" (case-insensitive) automatically drop every contact whose
+// `source` is in ['manual_seed', 'past_customer']. Form leads
+// (sms_signup, drop_list, sms_signup_email, marketing_contacts) still
+// receive test campaigns so devs can verify Resend + Twilio wiring
+// without paying the real-customer trust cost. No override. The
+// `excluded_verified_customers` count lands on the campaign's stats
+// column so the filter is auditable per send. Helpers and the policy
+// rationale live in ../../utils/marketingAudience.
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+// 2026-09-17 restore: this handler was deleted in 8b1a6f7 (232 commits back)
+// along with components/admin/MarketingManager.tsx and utils/marketingAudience.ts.
+// Restored from that commit and ported to today's conventions:
+//   - `withAdminAuth` now lives in ../_adminAuth.js (was ../_helpers)
+//   - the Resend client comes from the canonical owner in api/_services.ts —
+//     constructing a second one here fails tests/serviceClientOwner.test.ts
+//   - cross-directory imports carry the explicit .js extension Vercel's ESM
+//     bundler requires
+import type { Resend } from 'resend';
+import { resendClient } from '../../api/_services.js';
+// 2026-07-07 `withAdminAuth` migration: the inline `setCorsHeaders` +
+// `isAdminAuthorized` here previously supported a 4th env var
+// `ADMIN_BROADCAST_TOKEN` (used as a marketing-broadcast-specific token,
+// checked BEFORE `ADMIN_SESSION_TOKEN`). The canonical surface is now
+// the 3-token chain in `withAdminAuth` (`ADMIN_SESSION_TOKEN` ->
+// `FULL_AI_PASSWORD` -> `AI_SESSION_SECRET`). Any caller presenting an
+// `ADMIN_BROADCAST_TOKEN` Bearer now 401s -- rotate to
+// `ADMIN_SESSION_TOKEN` at the same time you remove
+// `ADMIN_BROADCAST_TOKEN` from Vercel env.
+import { withAdminAuth } from '../_adminAuth.js';
+import { isTestCampaignName } from '../../utils/marketingAudience.js';
+import { fetchAudience } from '../_marketingAudience.js';
+import type { ApiRequest, ApiResponse, MarketingChannel, ResendEmailPayload } from '../_types.js';
 
 let cachedAdminClient: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient | null {
@@ -18,70 +50,13 @@ function getResendFromAddress(): string {
     return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>';
 }
 
-function isAdminAuthorized(authHeader: string | undefined): boolean {
-    const expected = process.env.ADMIN_BROADCAST_TOKEN;
-    const sessionToken = process.env.ADMIN_SESSION_TOKEN;
-    if (!authHeader) return false;
-    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
-    if (!bearer) return false;
-    if (expected && bearer === expected) return true;
-    if (sessionToken && bearer === sessionToken) return true;
-    return false;
-}
+// 2026-07-07: inline `isAdminAuthorized` removed -- admin gate is now the
+// shared 3-env `withAdminAuth` wrapper below. ADMIN_BROADCAST_TOKEN is no
+// longer accepted.
 
-async function fetchAudience(
-    admin: SupabaseClient,
-    channel: 'email' | 'sms' | 'both',
-): Promise<Array<{ id?: string; email: string | null; phone: string | null; source: string; unsubscribe_token: string | null }>> {
-    const rows = new Map<string, { id?: string; email: string | null; phone: string | null; source: string; unsubscribe_token: string | null }>();
-
-    if (channel === 'email' || channel === 'both') {
-        const [dropRes, mcRes, cssRes, ordersRes] = await Promise.all([
-            admin.from('subscribe_emails').select('email, unsubscribe_at').is('unsubscribe_at', null),
-            admin.from('marketing_contacts').select('id, email, phone_e164, source, unsubscribed_at, unsubscribe_token')
-                .is('unsubscribed_at', null).not('email', 'is', null),
-            admin.from('coalition_signal_subscribers').select('contact_value, subscriber_type, status')
-                .eq('subscriber_type', 'email').eq('status', 'active'),
-            admin.from('orders').select('customer_email, customer_name, created_at')
-                .not('customer_email', 'is', null)
-                .gte('created_at', new Date(Date.now() - 365 * 86400_000).toISOString()),
-        ]);
-        if (dropRes.data) for (const r of dropRes.data) if (r.email) rows.set(`drop:${r.email.toLowerCase()}`, { email: r.email, phone: null, source: 'drop_list', unsubscribe_token: null });
-        if (mcRes.data) for (const r of mcRes.data) if (r.email) {
-            const key = `mc:${r.email.toLowerCase()}`;
-            if (!rows.has(key)) rows.set(key, { id: r.id, email: r.email, phone: null, source: r.source || 'marketing_contacts', unsubscribe_token: r.unsubscribe_token || null });
-        }
-        if (cssRes.data) for (const r of cssRes.data) if (r.contact_value) {
-            const k = `css:${r.contact_value.toLowerCase()}`;
-            if (!rows.has(k)) rows.set(k, { email: r.contact_value, phone: null, source: 'sms_signup_email', unsubscribe_token: null });
-        }
-        if (ordersRes.data) {
-            for (const o of ordersRes.data) if (o.customer_email) {
-                const k = `order:${o.customer_email.toLowerCase()}`;
-                if (!rows.has(k)) rows.set(k, { email: o.customer_email, phone: null, source: 'past_customer', unsubscribe_token: null });
-            }
-        }
-    }
-
-    if (channel === 'sms' || channel === 'both') {
-        const [cssRes, mcRes] = await Promise.all([
-            admin.from('coalition_signal_subscribers').select('contact_value, status')
-                .eq('subscriber_type', 'sms').eq('status', 'active'),
-            admin.from('marketing_contacts').select('id, email, phone_e164, source, unsubscribed_at, unsubscribe_token')
-                .is('unsubscribed_at', null).not('phone_e164', 'is', null),
-        ]);
-        if (cssRes.data) for (const r of cssRes.data) if (r.contact_value) {
-            const k = `css:${r.contact_value}`;
-            if (!rows.has(k)) rows.set(k, { email: null, phone: r.contact_value, source: 'sms_signup', unsubscribe_token: null });
-        }
-        if (mcRes.data) for (const r of mcRes.data) if (r.phone_e164) {
-            const k = `mc:${r.phone_e164}`;
-            if (!rows.has(k)) rows.set(k, { id: r.id, email: r.email, phone: r.phone_e164, source: r.source || 'marketing_contacts', unsubscribe_token: r.unsubscribe_token || null });
-        }
-    }
-
-    return Array.from(rows.values());
-}
+// The reachable-audience query moved to api/_marketingAudience.ts, which
+// /api/marketing-stats reads too — so the count an operator sees in the admin UI
+// is the count this handler actually sends to.
 async function sendEmails(opts: {
     recipients: Array<{ id?: string; email: string; unsubscribe_url?: string }>;
     subject: string;
@@ -103,7 +78,7 @@ async function sendEmails(opts: {
         }
         return { sent: 0, failed: opts.recipients.length };
     }
-    const resend = new Resend(apiKey);
+    const resend = resendClient();
     let sent = 0, failed = 0;
     for (const r of opts.recipients) {
         try {
@@ -121,21 +96,23 @@ async function sendEmails(opts: {
                 html,
                 text: opts.text,
                 headers,
-            });
-            const error = (result as any)?.error;
+            } as Parameters<Resend['emails']['send']>[0]);
+            const error = result?.error;
+            const messageId = result?.data?.id ?? null;
             await opts.admin.from('marketing_sends').upsert({
                 campaign_id: opts.campaignId, contact_id: r.id || null, channel: 'email',
-                message_id: (result as any)?.data?.id || null,
+                message_id: messageId,
                 status: error ? 'failed' : 'delivered',
                 error: error?.message || null,
                 delivered_at: error ? null : new Date().toISOString(),
             }, { onConflict: 'campaign_id,contact_id,channel', ignoreDuplicates: true });
             if (error) failed += 1; else sent += 1;
-        } catch (e: any) {
+        } catch (e: unknown) {
             failed += 1;
+            const message = e instanceof Error ? e.message : 'send failed';
             await opts.admin.from('marketing_sends').upsert({
                 campaign_id: opts.campaignId, contact_id: r.id || null, channel: 'email',
-                status: 'failed', error: e?.message || 'send failed',
+                status: 'failed', error: typeof message === 'string' ? message : 'send failed',
             }, { onConflict: 'campaign_id,contact_id,channel', ignoreDuplicates: true });
         }
     }
@@ -180,7 +157,25 @@ async function sendSmss(opts: {
         }
         return { sent: 0, failed: opts.recipients.length };
     }
-    const twilioImport = await import('twilio');
+    // `twilio` is an OPTIONAL dependency: it is not in package.json, so a static
+    // import would break the build and this handler has to load anyway to send
+    // EMAIL campaigns. A non-literal specifier keeps the module loadable, and a
+    // missing module is reported as a per-recipient failure — the campaign shows
+    // as failed with the real reason instead of 500ing or claiming success.
+    let twilioImport: any;
+    try {
+        const specifier = 'twilio';
+        twilioImport = await import(specifier);
+    } catch {
+        console.warn('[marketing-send] twilio module not installed; skipping', opts.recipients.length, 'sms recipients');
+        for (const r of opts.recipients) {
+            await opts.admin.from('marketing_sends').upsert({
+                campaign_id: opts.campaignId, contact_id: r.id || null, channel: 'sms',
+                status: 'failed', error: 'twilio module not installed',
+            }, { onConflict: 'campaign_id,contact_id,channel', ignoreDuplicates: true });
+        }
+        return { sent: 0, failed: opts.recipients.length };
+    }
     const Twilio = twilioImport.default ?? twilioImport;
     const client = (Twilio as unknown as (sid: string, token: string) => { messages: { create(opts: { to: string; from: string; body: string }): Promise<{ sid: string }> } })(sid, token);
 
@@ -215,33 +210,21 @@ async function sendSmss(opts: {
     }
     return { sent, failed };
 }
-export default async function handler(req: any, res: any) {
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
-    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-    if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+export default withAdminAuth(async (req, res) => {
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
-    const authHeader = typeof req.headers?.authorization === 'string' ? req.headers.authorization : undefined;
-    if (!isAdminAuthorized(authHeader)) {
-        res.status(401).json({ error: 'Admin authorization required.' });
-        return;
-    }
-
-    let body: any = req.body ?? {};
+    let body: Record<string, unknown> = (req.body ?? {}) as Record<string, unknown>;
     if (typeof body === 'string') {
-        try { body = JSON.parse(body); } catch { body = {}; }
+        try { body = JSON.parse(body) as Record<string, unknown>; } catch { body = {}; }
     }
 
-    const name = typeof body?.name === 'string' ? body.name.trim().slice(0, 200) : '';
-    const channel: 'email' | 'sms' | 'both' =
-        body?.channel === 'sms' || body?.channel === 'email' || body?.channel === 'both' ? body.channel : 'email';
-    const subject = typeof body?.subject === 'string' ? body.subject.slice(0, 200) : '';
-    const bodyHtml = typeof body?.bodyHtml === 'string' ? body.bodyHtml.slice(0, 50000) : '';
-    const bodyText = typeof body?.bodyText === 'string' ? body.bodyText.slice(0, 10000) : '';
-    const smsBody = typeof body?.smsBody === 'string' ? body.smsBody.slice(0, 1600) : '';
+    const name = typeof body.name === 'string' ? body.name.trim().slice(0, 200) : '';
+    const channel: MarketingChannel =
+        body.channel === 'sms' || body.channel === 'email' || body.channel === 'both' ? body.channel : 'email';
+    const subject = typeof body.subject === 'string' ? body.subject.slice(0, 200) : '';
+    const bodyHtml = typeof body.bodyHtml === 'string' ? body.bodyHtml.slice(0, 50000) : '';
+    const bodyText = typeof body.bodyText === 'string' ? body.bodyText.slice(0, 10000) : '';
+    const smsBody = typeof body.smsBody === 'string' ? body.smsBody.slice(0, 1600) : '';
 
     if (!name) { res.status(400).json({ error: 'Campaign name is required.' }); return; }
     if ((channel === 'email' || channel === 'both') && (!subject || !bodyHtml)) {
@@ -263,11 +246,13 @@ export default async function handler(req: any, res: any) {
             sms_body: channel !== 'email' ? smsBody : null,
             channel,
             status: 'sending',
-            audience_filter: typeof body?.audienceFilter === 'object' && body.audienceFilter !== null ? body.audienceFilter : {},
+            audience_filter: typeof body.audienceFilter === 'object' && body.audienceFilter !== null ? body.audienceFilter : {},
         }).select('*').single();
         if (cErr || !campaign) throw new Error(cErr?.message || 'Could not create campaign.');
 
-        const audience = await fetchAudience(admin, channel);
+        const { rows: audience, excludedVerifiedCustomers } = await fetchAudience(admin, channel, {
+            excludeVerified: isTestCampaignName(name),
+        });
 
         // CRITICAL 2: consent re-verification right before dispatch. Pull the
         // active contact set in one batch query and skip any audience row whose
@@ -338,6 +323,7 @@ export default async function handler(req: any, res: any) {
                 total_sent: totalSent,
                 total_failed: totalFailed,
                 audience_count: audience.length,
+                ...(excludedVerifiedCustomers > 0 ? { excluded_verified_customers: excludedVerifiedCustomers } : {}),
             },
         }).eq('id', campaign.id);
 
@@ -345,12 +331,14 @@ export default async function handler(req: any, res: any) {
             success: true,
             campaignId: campaign.id,
             audienceCount: audience.length,
+            excludedVerifiedCustomers,
             email: emailResult,
             sms: smsResult,
             status,
         });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('[marketing-send] failed:', err);
-        res.status(500).json({ error: err?.message || 'Send failed.' });
+        const message = err instanceof Error ? err.message : 'Send failed.';
+        res.status(500).json({ error: message });
     }
-}
+}, { cors: { methods: 'POST,OPTIONS' } });

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
     ChevronDown,
     HelpCircle,
@@ -9,19 +9,35 @@ import {
     Wallet,
     Package,
     Shield,
-    MessageCircle,
-    Mail,
-    ExternalLink
+    MessageCircle
 } from 'lucide-react';
+import Seo from '../components/Seo';
+import { HELP_FAQS, type HelpFaq } from '../data/helpFaqs';
+import {
+    buildFaqPageJsonLd,
+    buildOrganizationJsonLd,
+    buildWebPageJsonLd,
+    structuredDataGraph
+} from '../utils/structuredData';
 
-interface FAQItem {
-    question: string;
-    answer: string | React.ReactNode;
-    icon: any;
-}
+// The FAQ copy lives in data/helpFaqs.ts so the prerendered FAQPage JSON-LD and
+// this rendered accordion read the same answers. Icons are presentation only,
+// keyed off the FAQ id so reordering the list can't shift the icons.
+type FaqIcon = React.ComponentType<{ className?: string }>;
 
-const FAQAccordion = ({ item, isOpen, onClick }: { item: FAQItem, isOpen: boolean, onClick: () => void }) => {
-    const Icon = item.icon;
+const FAQ_ICONS: Record<string, FaqIcon> = {
+    orders: ShoppingBag,
+    vip: Star,
+    payments: CreditCard,
+    sgcoin: Wallet,
+    wallet: Package,
+    shipping: Package,
+    returns: Shield,
+    tracking: MessageCircle,
+    support: HelpCircle,
+};
+
+const FAQAccordion = ({ item, icon: Icon, isOpen, onClick }: { item: HelpFaq, icon: FaqIcon, isOpen: boolean, onClick: () => void }) => {
 
     return (
         <div className="border border-white/10 rounded-xl overflow-hidden mb-4 bg-[#0A0A0A] hover:border-white/20 transition-all duration-300">
@@ -52,7 +68,7 @@ const FAQAccordion = ({ item, isOpen, onClick }: { item: FAQItem, isOpen: boolea
                     >
                         <div className="px-6 pb-6 pt-0 text-gray-400 text-sm leading-relaxed border-t border-white/5 bg-white/[0.01]">
                             <div className="pt-4">
-                                {typeof item.answer === 'string' ? <p>{item.answer}</p> : item.answer}
+                                <p>{item.answer}</p>
                             </div>
                         </div>
                     </motion.div>
@@ -62,59 +78,40 @@ const FAQAccordion = ({ item, isOpen, onClick }: { item: FAQItem, isOpen: boolea
     );
 };
 
+// Title + description mirror the /help entry in STATIC_ROUTES
+// (scripts/generateSeoArtifacts.mjs) so the prerendered head and the hydrated
+// head agree.
+const HELP_PAGE_TITLE = 'Coalition | Help Center';
+const HELP_PAGE_DESCRIPTION =
+    'Answers on orders, shipping, returns, membership and SGCOIN, plus AI-powered support from the Coalition team.';
+
 const Help = () => {
     const [openIndex, setOpenIndex] = useState<number | null>(0);
 
-    const faqs: FAQItem[] = [
-        {
-            icon: ShoppingBag,
-            question: "How do I place an order?",
-            answer: "Browse our shop, select your size, and click 'Add to Cart'. When ready, click the cart icon in the header and proceed to checkout. We accept card payments, crypto, and store credit."
-        },
-        {
-            icon: Star,
-            question: "What is Coalition VIP?",
-            answer: "Coalition VIP is our premium membership that offers exclusive benefits including monthly store credit, free shipping, and early access to drops. You can manage your membership in your profile or the dedicated VIP page."
-        },
-        {
-            icon: CreditCard,
-            question: "What payment methods do you accept?",
-            answer: "We accept all major credit cards, Apple Pay, Google Pay, and cryptocurrency via the Polygon network. Store credit can also be applied at checkout for VIP members."
-        },
-        {
-            icon: Wallet,
-            question: "What is SGCoin and how do I earn it?",
-            answer: "SGCoin is our digital currency used within the Coalition ecosystem. You can earn it through purchases, participation in community events, and by holding select physical items with digital twins."
-        },
-        {
-            icon: Package,
-            question: "How do I link my crypto wallet? (Optional)",
-            answer: "Visit your settings or the wallet connect modal in the header. We support MetaMask and other WalletConnect-compatible wallets. This is optional but unlocks Web3-exclusive perks."
-        },
-        {
-            icon: Package,
-            question: "What is your shipping policy?",
-            answer: "We ship worldwide. US orders typically arrive in 3-5 business days. International shipping times vary by location. VIP members receive complimentary express shipping on all orders."
-        },
-        {
-            icon: Shield,
-            question: "What is your return policy?",
-            answer: "Returns are accepted within 14 days of receipt for unused items in original packaging. Some limited releases may be final sale. Please check the product description for specific terms."
-        },
-        {
-            icon: MessageCircle,
-            question: "How can I track my order?",
-            answer: "Once your order ships, you'll receive a confirmation email with a tracking link. You can also view your order history and status in your profile dashboard."
-        },
-        {
-            icon: HelpCircle,
-            question: "I have another question. How do I contact support?",
-            answer: "Our support team is available 24/7. You can reach us via email at support@coalitionbrand.com or through our community Discord channel."
-        }
-    ];
+    // Memoized so the structured-data graph keeps one identity across renders —
+    // <Seo> re-runs its head effect when the node identity changes.
+    const jsonLd = useMemo(
+        () =>
+            structuredDataGraph([
+                buildOrganizationJsonLd(),
+                buildWebPageJsonLd({
+                    path: '/help',
+                    name: HELP_PAGE_TITLE,
+                    description: HELP_PAGE_DESCRIPTION,
+                }),
+                buildFaqPageJsonLd('/help', HELP_FAQS),
+            ]),
+        []
+    );
 
     return (
         <div className="min-h-screen bg-black text-white selection:bg-purple-500 selection:text-white pt-32 pb-24 relative overflow-hidden">
+            <Seo
+                title={HELP_PAGE_TITLE}
+                description={HELP_PAGE_DESCRIPTION}
+                canonicalPath="/help"
+                jsonLd={jsonLd}
+            />
             {/* Background Glows */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-purple-900/10 blur-[120px] pointer-events-none" />
 
@@ -155,10 +152,11 @@ const Help = () => {
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.3 }}
                 >
-                    {faqs.map((faq, index) => (
+                    {HELP_FAQS.map((faq, index) => (
                         <FAQAccordion
-                            key={index}
+                            key={faq.id}
                             item={faq}
+                            icon={FAQ_ICONS[faq.id] ?? HelpCircle}
                             isOpen={openIndex === index}
                             onClick={() => setOpenIndex(openIndex === index ? null : index)}
                         />
@@ -183,7 +181,7 @@ const Help = () => {
 
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
                         <a
-                            href="mailto:support@coalitionbrand.com"
+                            href="mailto:sgctrustyourself@gmail.com"
                             className="w-full sm:w-auto px-8 py-3.5 bg-white text-black font-bold uppercase tracking-widest text-xs hover:bg-gray-200 transition-all active:scale-95"
                         >
                             EMAIL SUPPORT

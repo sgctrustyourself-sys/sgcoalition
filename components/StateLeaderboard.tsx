@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Trophy, Medal, Crown, TrendingUp } from 'lucide-react';
 
 interface StateData {

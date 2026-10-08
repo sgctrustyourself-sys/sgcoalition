@@ -1,4 +1,4 @@
-import { SGCoinData, Trade } from '../types';
+import { SGCoinData, Trade } from '../types.js';
 
 // SGCoin Contract Address (Polygon)
 const SGCOIN_ADDRESS = '0x951806a2581c22C478aC613a675e6c898E2aBe21';

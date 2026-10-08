@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { clearOtherFeaturedProducts } from '../utils/featuredExclusivity';
 
 // Load environment variables
 const __filename = fileURLToPath(import.meta.url);
@@ -47,6 +48,14 @@ async function addSkyyWallet() {
     if (error) {
         console.error('❌ Error adding product:', error);
         process.exit(1);
+    }
+
+    // Mirror api/_handlers/admin-products.ts featured-exclusivity hook:
+    // the new Skyy wallet becomes the sole featured row; existing featured
+    // rows get is_featured=false so the storefront's featured-slot logic
+    // (utils/storefront.ts selectFeaturedProduct) keeps returning just one.
+    if (product.is_featured) {
+        await clearOtherFeaturedProducts(supabase, product.id, product.is_featured);
     }
 
     console.log('✅ Successfully added Coalition Skyy Blue Wallet:', data);

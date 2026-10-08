@@ -7,13 +7,20 @@ import { ToastProvider } from './context/ToastContext';
 import Footer from './components/Footer';
 import Navbar from './components/Navbar';
 import AnnouncementBar from './components/AnnouncementBar';
-import CartDrawer from './components/CartDrawer';
-import RewardActivation from './components/RewardActivation';
 import PageLoader from './components/ui/PageLoader';
-import MobileBottomNav from './components/MobileBottomNav';
 import ToastContainer from './components/ui/ToastContainer';
-import SignalAlert from './components/SignalAlert';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
+
+// Lazy-loaded shell components. Each pulls `motion/react` (~50 KB gzip) at the
+// top level, so wrapping them in React.lazy() splits the framer-motion chunk
+// out of the main entry bundle. They all share one Suspense with fallback={null}
+// so first paint on / and /shop is unaffected when these components don't
+// immediately mount.
+const SignalAlert = React.lazy(() => import('./components/SignalAlert'));
+const CartDrawer = React.lazy(() => import('./components/CartDrawer'));
+const RewardActivation = React.lazy(() => import('./components/RewardActivation'));
+const MobileBottomNav = React.lazy(() => import('./components/MobileBottomNav'));
 import { TutorialProvider } from './context/TutorialContext';
 import { storeReferralCode } from './utils/referralSystem';
 
@@ -27,8 +34,10 @@ const Shop = React.lazy(() => import('./pages/Shop'));
 const ProductDetails = React.lazy(() => import('./pages/ProductDetails'));
 const About = React.lazy(() => import('./pages/About'));
 const Profile = React.lazy(() => import('./pages/Profile'));
+const TrustCircle = React.lazy(() => import('./pages/TrustCircle'));
 const Membership = React.lazy(() => import('./pages/Membership'));
 const Ecosystem = React.lazy(() => import('./pages/Ecosystem'));
+const Community = React.lazy(() => import('./pages/Community'));
 const Archive = React.lazy(() => import('./pages/Archive'));
 const Checkout = React.lazy(() => import('./pages/Checkout'));
 const Cart = React.lazy(() => import('./pages/Cart'));
@@ -53,6 +62,8 @@ const UpdatePassword = React.lazy(() => import('./pages/UpdatePassword'));
 const GiveawayEntry = React.lazy(() => import('./pages/GiveawayEntry'));
 const YoutubeGiveaway = React.lazy(() => import('./pages/YoutubeGiveaway'));
 const CustomInquiry = React.lazy(() => import('./pages/CustomInquiry'));
+const Wallets = React.lazy(() => import('./pages/Wallets'));
+const CustomWallets = React.lazy(() => import('./pages/CustomWallets'));
 const BuySGCoin = React.lazy(() => import('./pages/BuySGCoin'));
 const Favorites = React.lazy(() => import('./pages/Favorites'));
 const OrderHistory = React.lazy(() => import('./pages/OrderHistory'));
@@ -85,8 +96,11 @@ const ReferralTracker = () => {
       console.log('[Referral] Detected referral code:', refCode);
       storeReferralCode(refCode);
 
-      // Track the click
+      // Track the click and view. 'click' fires once per URL load with ?ref=;
+      // 'view' fires alongside it so the analytics funnel (click → view → signup
+      // → purchase) has all four stages wired.
       trackReferralEvent(refCode, 'click');
+      trackReferralEvent(refCode, 'view');
     }
   }, [location]);
 
@@ -142,6 +156,16 @@ const ConditionalNav = () => {
   );
 };
 
+/**
+ * Route-level error boundary. Passing the router location key as `resetKey`
+ * means navigating to another page clears a caught error, so a failure on one
+ * route can't strand the visitor on a failure screen.
+ */
+const RouteErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const location = useLocation();
+  return <ErrorBoundary resetKey={location.key}>{children}</ErrorBoundary>;
+};
+
 const App = () => {
   return (
     <ToastProvider>
@@ -152,16 +176,17 @@ const App = () => {
             <AuthEventHandler />
             <ReferralTracker />
             <div className="min-h-screen flex flex-col font-sans text-white bg-black selection:bg-brand-accent selection:text-black">
-              <SignalAlert />
-              <ConditionalNav />
-              <CartDrawer />
-              <RewardActivation />
               <Suspense fallback={null}>
+                <SignalAlert />
+                <ConditionalNav />
+                <CartDrawer />
+                <RewardActivation />
                 <AIChatWidget />
               </Suspense>
               <ToastContainer />
               <main className="flex-grow">
                 <Suspense fallback={<PageLoader />}>
+                  <RouteErrorBoundary>
                   <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/portal" element={<SGCoalitionPortal />} />
@@ -175,10 +200,12 @@ const App = () => {
                     <Route path="/favorites" element={<Favorites />} />
                     <Route path="/wishlist/:shareId" element={<PublicWishlist />} />
                     <Route path="/profile" element={<Profile />} />
+                    <Route path="/trust-circle" element={<TrustCircle />} />
                     <Route path="/order-history" element={<OrderHistory />} />
                     <Route path="/saved-addresses" element={<SavedAddresses />} />
                     <Route path="/my-reviews" element={<MyReviews />} />
                     <Route path="/ecosystem" element={<Ecosystem />} />
+                    <Route path="/community" element={<Community />} />
                     <Route path="/archive" element={<Archive />} />
                     <Route path="/checkout" element={<Checkout />} />
                     <Route path="/cart" element={<Cart />} />
@@ -199,6 +226,8 @@ const App = () => {
                     <Route path="/update-password" element={<UpdatePassword />} />
                     <Route path="/giveaway/:id" element={<GiveawayEntry />} />
                     <Route path="/inquire" element={<CustomInquiry />} />
+                    <Route path="/wallets" element={<Wallets />} />
+                    <Route path="/custom-wallets" element={<CustomWallets />} />
                     <Route path="/sgcoin" element={<BuySGCoin />} />
                     <Route path="/membership" element={<Membership />} />
                     <Route path="/help" element={<Help />} />
@@ -234,10 +263,13 @@ const App = () => {
 
                     <Route path="*" element={<NotFound />} />
                   </Routes>
+                  </RouteErrorBoundary>
                 </Suspense>
               </main>
               <Footer />
-              <MobileBottomNav />
+              <Suspense fallback={null}>
+                <MobileBottomNav />
+              </Suspense>
               <SpeedInsights />
               <Analytics />
             </div>

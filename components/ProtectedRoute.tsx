@@ -22,12 +22,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     children,
     requireAdmin = false
 }) => {
-    const { user, isAdminMode, loginAdmin } = useApp();
+    const { user, isAdminMode, loginAdmin, loginAdminWallet } = useApp();
     const [checking, setChecking] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
     const [adminPassword, setAdminPassword] = useState('');
     const [loginError, setLoginError] = useState(false);
     const [isLoggingIn, setIsLoggingIn] = useState(false);
+    const [isWalletLogin, setIsWalletLogin] = useState(false);
+    const [walletError, setWalletError] = useState(false);
 
     useEffect(() => {
         const checkAdminAccess = () => {
@@ -58,6 +60,19 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             setLoginError(true);
         } finally {
             setIsLoggingIn(false);
+        }
+    };
+
+    const handleWalletLogin = async () => {
+        setIsWalletLogin(true);
+        setWalletError(false);
+        try {
+            const success = await loginAdminWallet();
+            if (!success) setWalletError(true);
+        } catch (err) {
+            setWalletError(true);
+        } finally {
+            setIsWalletLogin(false);
         }
     };
 
@@ -119,6 +134,26 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
                                 )}
                             </button>
                         </form>
+
+                        <div className="mt-6 pt-6 border-t border-white/5">
+                            <button
+                                type="button"
+                                onClick={handleWalletLogin}
+                                disabled={isWalletLogin}
+                                className="w-full bg-white/5 border border-white/10 text-white font-bold uppercase tracking-[0.2em] py-4 rounded-xl hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                            >
+                                {isWalletLogin ? (
+                                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                                ) : (
+                                    'Sign in with MetaMask'
+                                )}
+                            </button>
+                            {walletError && (
+                                <p className="text-red-500 text-[10px] font-bold uppercase tracking-widest mt-2 ml-1 text-left">
+                                    Wallet not authorized or signature rejected.
+                                </p>
+                            )}
+                        </div>
 
                         <div className="mt-6 pt-6 border-t border-white/5">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600 mb-3 text-left">Currently Connected:</p>

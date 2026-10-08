@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coalition | Crafted in Baltimore</title>
+  <meta name="description" content="Coalition is a premium streetwear brand born in Baltimore. Quality, community, and the hustle." />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:title" content="Coalition | Crafted in Baltimore" />
+  <meta property="og:description" content="Premium streetwear designed for the city that built us." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://sgcoalition.xyz/nojs.html" />
+  <meta property="og:image" content="https://sgcoalition.xyz/hero-cinematic.png" />
+  <meta property="og:site_name" content="Coalition" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@sgcoalition" />
+  <meta name="twitter:title" content="Coalition | Crafted in Baltimore" />
+  <meta name="twitter:description" content="Premium streetwear designed for the city that built us." />
+  <meta name="twitter:image" content="https://sgcoalition.xyz/hero-cinematic.png" />
+  <link rel="canonical" href="https://sgcoalition.xyz/nojs.html" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="alternate" href="/" title="Full site (requires JavaScript)" />
+  <style>
+    /* Self-contained, no external dependencies. Works without JS. */
+    * { box-sizing: border-box; }
+    body {
+      background-color: #050505;
+      color: #E5E5E5;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .site-nav { display: flex; justify-content: center; gap: 1rem; padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap; }
+    .site-nav a { color: #999; text-decoration: none; font-family: 'Oswald', 'Arial', sans-serif; letter-spacing: 0.15em; text-transform: uppercase; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: 4px; transition: all 0.2s ease; }
+    .site-nav a:hover, .site-nav a:focus { color: #3B82F6; background: rgba(59,130,246,0.05); }
+    .container {
+      max-width: 42rem;
+      margin: 0 auto;
+      padding: 4rem 1.5rem;
+      text-align: center;
+      flex: 1;
+    }
+    .brand {
+      font-family: 'Impact', 'Oswald', 'Arial Black', sans-serif;
+      letter-spacing: 0.2em;
+      font-weight: 700;
+      font-size: 2.5rem;
+      text-transform: uppercase;
+      color: #E5E5E5;
+      margin: 0 0 0.5rem;
+    }
+    .tagline {
+      font-family: 'Oswald', 'Arial', sans-serif;
+      letter-spacing: 0.3em;
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      color: #999;
+      margin: 0 0 3rem;
+    }
+    .divider {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      margin: 0 0 3rem;
+    }
+    .divider::before, .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .divider span {
+      color: #3B82F6;
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      font-family: 'Oswald', 'Arial', sans-serif;
+    }
+    .description {
+      font-size: 1.125rem;
+      line-height: 1.7;
+      color: #ccc;
+      margin: 0 0 2.5rem;
+    }
+    .notice {
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 0 0 2.5rem;
+      color: #ccc;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    .notice strong {
+      color: #3B82F6;
+      display: block;
+      margin-bottom: 0.5rem;
+      font-family: 'Oswald', 'Arial', sans-serif;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      font-size: 0.85rem;
+    }
+    .links {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      align-items: center;
+      margin: 0 0 2.5rem;
+    }
+    .links a {
+      color: #E5E5E5;
+      text-decoration: none;
+      font-family: 'Oswald', 'Arial', sans-serif;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      font-size: 0.9rem;
+      padding: 0.75rem 1.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      transition: all 0.2s ease;
+      min-width: 220px;
+      display: inline-block;
+    }
+    .links a:hover, .links a:focus {
+      border-color: #3B82F6;
+      color: #3B82F6;
+    }
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      color: #666;
+      font-size: 0.8rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    footer a {
+      color: #999;
+      text-decoration: none;
+    }
+    footer a:hover {
+      color: #3B82F6;
+    }
+  </style>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Coalition",
+    "description": "Premium streetwear brand born in Baltimore. Quality, community, and the hustle.",
+    "url": "https://sgcoalition.xyz",
+    "logo": "https://sgcoalition.xyz/images/logo.png",
+    "sameAs": [
+      "https://twitter.com/sgcoalition"
+    ]
+  }
+  </script>
+</head>
+<body>
+  <nav class="site-nav" aria-label="Site navigation">
+    <a href="/">Home</a>
+    <a href="/shop.html">Shop</a>
+    <a href="/about.html">About</a>
+    <a href="/membership.html">Membership</a>
+  </nav>
+  <main class="container">
+    <h1 class="brand">Coalition</h1>
+    <p class="tagline">Crafted in Baltimore</p>
+
+    <div class="divider"><span>Premium Streetwear</span></div>
+
+    <p class="description">
+      Coalition is a premium streetwear brand born in Baltimore. Quality, community, and the hustle. Shop the latest drops and join the movement.
+    </p>
+
+    <div class="notice" role="note">
+      <strong>JavaScript is required</strong>
+      for the full Coalition experience &mdash; shopping, live drops, and member features. Please enable JavaScript in your browser settings, then return to our homepage.
+    </div>
+
+    <nav class="links" aria-label="External links">
+      <a href="https://twitter.com/sgcoalition" rel="noopener noreferrer" target="_blank">Follow on X / Twitter</a>
+      <a href="mailto:sgctrustyourself@gmail.com">Contact Us</a>
+    </nav>
+  </main>
+
+  <footer>
+    <a href="/">sgcoalition.xyz</a>
+  </footer>
+</body>
+</html>

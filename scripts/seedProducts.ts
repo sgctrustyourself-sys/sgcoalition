@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { INITIAL_PRODUCTS } from '../constants';
+import { INITIAL_PRODUCTS } from '../constants/products';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';

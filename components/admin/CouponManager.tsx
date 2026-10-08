@@ -227,8 +227,27 @@ const CouponManager: React.FC = () => {
                                         {coupon.min_order_value > 0 && <span className="text-gray-500 text-xs block">Min: ${coupon.min_order_value}</span>}
                                     </td>
                                     <td className="py-4">
-                                        {coupon.used_count} uses
-                                        {coupon.max_uses && <span className="text-gray-500"> / {coupon.max_uses}</span>}
+                                        {coupon.max_uses ? (() => {
+                                            const pct = Math.min(100, Math.round((coupon.used_count / coupon.max_uses) * 100));
+                                            const exhausted = coupon.used_count >= coupon.max_uses;
+                                            const nearCap = pct >= 75 && !exhausted;
+                                            const barColor = exhausted ? 'bg-red-500' : nearCap ? 'bg-amber-500' : 'bg-green-500';
+                                            const textColor = exhausted ? 'text-red-400' : nearCap ? 'text-amber-400' : 'text-green-400';
+                                            return (
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-xs font-bold ${textColor} whitespace-nowrap`} title={`${coupon.used_count} of ${coupon.max_uses} uses consumed`}>
+                                                        Used {coupon.used_count}/{coupon.max_uses}
+                                                    </span>
+                                                    <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden" aria-hidden="true">
+                                                        <div className={`h-full ${barColor}`} style={{ width: `${pct}%` }} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })() : (
+                                            <span className="text-xs font-bold text-green-400 whitespace-nowrap">
+                                                Used {coupon.used_count} · Unlimited
+                                            </span>
+                                        )}
                                     </td>
                                     <td className="py-4">
                                         <button

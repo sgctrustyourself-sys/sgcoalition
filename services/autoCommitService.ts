@@ -2,7 +2,8 @@
  * Auto-commit service for tracking data changes
  */
 
-import { buildGitOperationsUrl } from './apiBase';
+import { buildGitOperationsUrl } from './apiBase.js';
+import { ADMIN_SESSION_EXPIRED_ERROR, getAdminAuthHeaders, handleAdminAuthFailure } from './adminSession.js';
 
 export interface AutoCommitOptions {
     message: string;
@@ -17,8 +18,10 @@ export async function autoCommit(options: AutoCommitOptions): Promise<string | n
     try {
         const response = await fetch(buildGitOperationsUrl('commit'), {
             method: 'POST',
+            // Admin-gated: this action writes a commit through the server.
             headers: {
                 'Content-Type': 'application/json',
+                ...getAdminAuthHeaders(),
             },
             body: JSON.stringify({
                 message: options.message,
@@ -27,7 +30,10 @@ export async function autoCommit(options: AutoCommitOptions): Promise<string | n
         });
 
         if (!response.ok) {
-            const error = await response.json();
+            if (handleAdminAuthFailure(response.status)) {
+                throw new Error(ADMIN_SESSION_EXPIRED_ERROR);
+            }
+            const error = await response.json().catch(() => ({}));
             throw new Error(error.error || 'Failed to create commit');
         }
 

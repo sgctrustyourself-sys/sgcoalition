@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
 import {
     getRobustProvider
 } from '../services/web3Service';
@@ -9,6 +8,14 @@ import {
     WPOL_ADDRESS,
     LIQUIDITY_TARGET_POL
 } from '../constants';
+
+// Lazy-loaded ethers — ~100 KB chunk only downloaded when the liquidity
+// hook is first called (TreasuryPage, WizardsPortal). Cached after first call.
+let ethersModule: Promise<typeof import('ethers')> | null = null;
+const getEthers = () => {
+    if (!ethersModule) ethersModule = import('ethers');
+    return ethersModule;
+};
 
 const ERC20_ABI = [
     'function balanceOf(address owner) view returns (uint256)',
@@ -24,6 +31,7 @@ export const useLiquidity = () => {
     const fetchLiquidity = async () => {
         try {
             setIsLoading(true);
+            const { ethers } = await getEthers();
 
             // Use a more robust provider initialization
             const provider = await getRobustProvider();

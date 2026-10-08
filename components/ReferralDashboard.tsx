@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Copy, Check, TrendingUp, Users, DollarSign, Award, ExternalLink, Eye, MousePointerClick } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
@@ -12,8 +13,16 @@ import {
     type Referral
 } from '../utils/referralSystem';
 import { getReferrerAnalytics } from '../utils/referralAnalytics';
+import {
+    getMembership,
+    getMyApplication,
+    acceptInvite,
+    declineInvite,
+    TRUST_CIRCLE_FLAT_RATE,
+    type TrustCircleMembership
+} from '../services/trustCircle';
 
-const ReferralDashboard = () => {
+const TrustedFewDashboard = () => {
     const { user } = useApp();
     const { addToast } = useToast();
     const [stats, setStats] = useState<ReferralStats | null>(null);
@@ -21,10 +30,27 @@ const ReferralDashboard = () => {
     const [analytics, setAnalytics] = useState({ clicks: 0, views: 0, signups: 0, purchases: 0, conversionRate: 0 });
     const [loading, setLoading] = useState(true);
     const [copied, setCopied] = useState(false);
+    // Trust Circle membership + application state (drives the brand-team
+    // panel: member view / invite banner / apply card).
+    const [trustCircleMembership, setTrustCircleMembership] = useState<TrustCircleMembership | null>(null);
+    const [trustCircleLoading, setTrustCircleLoading] = useState(true);
 
     useEffect(() => {
         if (user) {
             loadReferralData();
+        }
+    }, [user]);
+
+    useEffect(() => {
+        if (user) {
+            void (async () => {
+                const [membership] = await Promise.all([
+                    getMembership(user.uid),
+                    getMyApplication(user.uid),
+                ]);
+                setTrustCircleMembership(membership);
+                setTrustCircleLoading(false);
+            })();
         }
     }, [user]);
 
@@ -42,6 +68,28 @@ const ReferralDashboard = () => {
         setHistory(historyData);
         setAnalytics(analyticsData);
         setLoading(false);
+    };
+
+    const handleAcceptInvite = async () => {
+        if (!user) return;
+        const result = await acceptInvite(user.uid);
+        if (result.success) {
+            addToast('Welcome to the Trust Circle!', 'success');
+            setTrustCircleMembership(await getMembership(user.uid));
+        } else {
+            addToast(result.error || 'Could not accept invite.', 'error');
+        }
+    };
+
+    const handleDeclineInvite = async () => {
+        if (!user) return;
+        const result = await declineInvite(user.uid);
+        if (result.success) {
+            addToast('Invite declined.', 'success');
+            setTrustCircleMembership(await getMembership(user.uid));
+        } else {
+            addToast(result.error || 'Could not decline invite.', 'error');
+        }
     };
 
     const copyReferralLink = () => {
@@ -77,10 +125,38 @@ const ReferralDashboard = () => {
         );
     }
 
+    // MetaMask (wallet-only) sign-ins can't have a referral_stats row —
+    // the `user_id` column is a UUID FK to `auth.users(id)` and MetaMask
+    // users never create a Supabase auth user. This is purely a
+    // *display* concern (the data layer already short-circuits to null);
+    // the panel here explains *why* the data is unavailable instead of
+    // showing the generic "unable to load" error.
+    if (user?.uid?.startsWith('user_eth_')) {
+        return (
+            <div className="bg-gray-900 rounded-xl p-8 text-center border border-gray-800">
+                <Award className="w-16 h-16 text-gray-700 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-white mb-2">Referrals require a Coalition account</h3>
+                <p className="text-gray-400 max-w-md mx-auto">
+                    Wallet-only sign-ins don't currently support the referral program.
+                    Sign in with email or Google to get a referral code and start earning commissions on every sale.
+                </p>
+            </div>
+        );
+    }
+
     if (!stats) {
         return (
-            <div className="bg-gray-900 rounded-xl p-8 text-center">
-                <p className="text-gray-400">Unable to load referral data</p>
+            <div className="bg-gray-900 rounded-xl p-8 text-center border border-red-900/30">
+                <h3 className="text-xl font-bold text-white mb-2">Unable to load referral data</h3>
+                <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                    We couldn't load your referral data. This usually resolves itself on retry.
+                </p>
+                <button
+                    onClick={() => loadReferralData()}
+                    className="bg-brand-accent hover:bg-brand-accent/80 text-white px-6 py-2 rounded font-bold transition"
+                >
+                    Retry
+                </button>
             </div>
         );
     }
@@ -90,12 +166,81 @@ const ReferralDashboard = () => {
 
     return (
         <div className="space-y-6">
+            {/* Trust Circle status panel — member view / invite banner / apply card */}
+            {trustCircleLoading ? (
+                <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 animate-pulse">
+                    <div className="h-6 bg-gray-800 rounded w-1/2 mb-3"></div>
+                    <div className="h-4 bg-gray-800 rounded w-3/4"></div>
+                </div>
+            ) : trustCircleMembership?.partner_tier === 'trust_circle' ? (
+                <div className="bg-gradient-to-r from-emerald-900/40 to-teal-900/40 rounded-xl p-6 border border-emerald-500/30">
+                    <div className="flex items-center gap-3 mb-2">
+                        <Award className="w-6 h-6 text-emerald-400" />
+                        <h3 className="font-bold text-emerald-100 uppercase tracking-wide text-sm">Welcome to the Trust Circle</h3>
+                    </div>
+                    <p className="text-sm text-emerald-100/80">
+                        You're on the brand team. Your commission is a flat{' '}
+                        <span className="font-bold text-white">{TRUST_CIRCLE_FLAT_RATE}%</span> on every sale —
+                        no ladder, no caps. Watch for drop vouchers and early-access emails.
+                    </p>
+                    <p className="text-xs text-emerald-200/60 mt-2 font-mono">
+                        Member since {trustCircleMembership.circle_member_since ? new Date(trustCircleMembership.circle_member_since).toLocaleDateString() : '—'}
+                    </p>
+                </div>
+            ) : trustCircleMembership?.invited_at ? (
+                <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 rounded-xl p-6 border border-purple-500/30">
+                    <div className="flex items-center gap-3 mb-2">
+                        <Award className="w-6 h-6 text-purple-300" />
+                        <h3 className="font-bold text-purple-100 uppercase tracking-wide text-sm">You've been invited to the Trust Circle</h3>
+                    </div>
+                    <p className="text-sm text-purple-100/80 mb-4">
+                        The Coalition brand team wants you in. Accept to lock in a flat {TRUST_CIRCLE_FLAT_RATE}% rate,
+                        free drops, and early access.
+                    </p>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleAcceptInvite}
+                            className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold transition"
+                        >
+                            Accept
+                        </button>
+                        <button
+                            onClick={handleDeclineInvite}
+                            className="px-6 py-2 rounded-lg border border-white/20 text-gray-300 hover:bg-white/10 transition"
+                        >
+                            Decline
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div>
+                            <h3 className="font-bold text-white flex items-center gap-2">
+                                <Award className="w-5 h-5 text-purple-400" />
+                                Join the Trust Circle
+                            </h3>
+                            <p className="text-sm text-gray-400 mt-1">
+                                The Coalition brand team — flat {TRUST_CIRCLE_FLAT_RATE}% commission, free drops, early access.
+                                Invite-only, or apply and let us see your work.
+                            </p>
+                        </div>
+                        <Link
+                            to="/trust-circle"
+                            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white px-6 py-2.5 rounded-lg font-bold uppercase tracking-wider transition"
+                        >
+                            Apply
+                        </Link>
+                    </div>
+                </div>
+            )}
+
             {/* Header with Tier Info */}
             <div className="bg-gradient-to-r from-purple-900 to-blue-900 rounded-xl p-6 border border-purple-500/20">
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <h2 className="text-2xl font-display font-bold uppercase text-white mb-1">
-                            Referral Program
+                            The Trusted Few
                         </h2>
                         <p className="text-purple-200 text-sm">Earn up to 40% commission on every sale!</p>
                     </div>
@@ -197,12 +342,12 @@ const ReferralDashboard = () => {
                 </div>
             </div>
 
-            {/* Coupon Code - NEW */}
+            {/* Coupon Code */}
             <div className="bg-gradient-to-br from-green-900 to-emerald-900 rounded-xl p-6 border border-green-500/20">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="font-bold text-white flex items-center gap-2">
                         <Award size={18} className="text-green-400" />
-                        Your Referral Code
+                        Your Partner Code
                     </h3>
                     <div className="bg-green-500/20 px-3 py-1 rounded-full">
                         <span className="text-xs font-bold text-green-300">EASY TO SHARE!</span>
@@ -284,12 +429,12 @@ const ReferralDashboard = () => {
                             {COMMISSION_TIERS.map((tier) => (
                                 <tr
                                     key={tier.tier}
-                                    className={`border-b border-gray-800/50 ${tier.tier === stats.current_tier ? 'bg-purple-500/10' : ''}`}
+                                    className={`border-b border-gray-800/50 ${tier.tier === tierInfo.tier ? 'bg-purple-500/10' : ''}`}
                                 >
                                     <td className="py-3">
-                                        <span className={`font-bold ${tier.tier === stats.current_tier ? 'text-purple-400' : 'text-white'}`}>
+                                        <span className={`font-bold ${tier.tier === tierInfo.tier ? 'text-purple-400' : 'text-white'}`}>
                                             Tier {tier.tier}
-                                            {tier.tier === stats.current_tier && ' (Current)'}
+                                            {tier.tier === tierInfo.tier && ' (Current)'}
                                         </span>
                                     </td>
                                     <td className="py-3 text-gray-300">
@@ -349,4 +494,4 @@ const ReferralDashboard = () => {
     );
 };
 
-export default ReferralDashboard;
+export default TrustedFewDashboard;
