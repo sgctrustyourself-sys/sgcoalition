@@ -860,7 +860,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     "id": "Coalition_Parts_Wallet_4_4",
     "name": "Coalition 'Parts' Wallet 4/4",
-    "price": 85,
+    "price": 60,
     "images": [
       "https://i.imgur.com/RqcU0I9.jpg",
       "https://i.imgur.com/Lnimi33.jpg"
