@@ -301,10 +301,16 @@ const PaymentStatusCard: React.FC = () => {
                 </div>
             )}
 
-            {/* The canonical host, always visible. It is the answer to "what
-                URL do the webhook dashboards need?" and it is a field the
-                operator otherwise has to go and look up. */}
-            {origin && !originMismatch && origin.configuredHost && (
+            {/* The host this deployment is served on, always visible. It is the
+                answer to "what URL do the webhook dashboards need?" and it is a
+                field the operator otherwise has to go and look up.
+
+                The SERVING host is the answer, not the configured one: it is
+                the host that actually answers /api/stripe-webhook, and that is
+                what a webhook has to point at. When VITE_APP_URL is unset
+                there is no configured host at all, and this line is then the
+                only place the live host appears. */}
+            {origin && !originMismatch && origin.requestHost && (
                 <p
                     data-testid="origin-host"
                     className="mt-3 text-[10px] font-bold uppercase tracking-widest text-gray-600 flex items-center gap-1.5"
@@ -312,8 +318,23 @@ const PaymentStatusCard: React.FC = () => {
                     <Globe className="w-3 h-3" />
                     Live on{' '}
                     <span className="font-mono normal-case tracking-normal text-gray-500">
-                        {origin.configuredHost}
+                        {origin.requestHost}
                     </span>
+                </p>
+            )}
+
+            {/* VITE_APP_URL unset means the origin every generated link and
+                CORS header uses is a built-in default rather than
+                configuration. Nothing breaks today — the fallback is correct
+                right now — but the moment the default and the real host
+                disagree, the mismatch is invisible. Say so here rather than
+                leaving it to be discovered by a failed order. */}
+            {origin && !originMismatch && !origin.configured && (
+                <p
+                    data-testid="origin-env-unset"
+                    className="mt-2 text-[10px] font-bold uppercase tracking-widest text-amber-500/80"
+                >
+                    VITE_APP_URL is not set — the origin falls back to a built-in default
                 </p>
             )}
 

@@ -240,4 +240,28 @@ describe('PaymentStatusCard render flow', () => {
         expect(container.querySelector('[data-testid="origin-host"]')).toBeNull();
         expect(container.innerHTML).toContain('Healthy');
     });
+
+    it('ORIGIN_UNSET: VITE_APP_URL missing still names the live host, and says the origin is a default', async () => {
+        // Production currently has no VITE_APP_URL, so the origin every
+        // generated link uses is a built-in fallback. The serving host is
+        // still the answer to "where do webhooks point?", so it must be
+        // shown — and the fallback must be flagged rather than looked up.
+        fetchMock.mockResolvedValue(jsonResponse(200, {
+            ...HEALTHY_BODY,
+            origin: {
+                configured: null,
+                configuredHost: null,
+                requestHost: 'sgcoalition-five.vercel.app',
+                matches: null,
+            },
+        }));
+
+        await renderCard();
+
+        const host = container.querySelector('[data-testid="origin-host"]');
+        expect(host).toBeTruthy();
+        expect(host!.textContent).toContain('sgcoalition-five.vercel.app');
+        expect(container.querySelector('[data-testid="origin-mismatch"]')).toBeNull();
+        expect(container.querySelector('[data-testid="origin-env-unset"]')?.textContent).toContain('VITE_APP_URL is not set');
+    });
 });
