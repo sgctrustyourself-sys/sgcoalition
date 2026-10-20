@@ -186,4 +186,58 @@ describe('PaymentStatusCard render flow', () => {
             return container.innerHTML.includes(s);
         }
     });
+
+    it('ORIGIN_MATCH: a matching origin shows the live host and no mismatch warning', async () => {
+        fetchMock.mockResolvedValue(jsonResponse(200, {
+            ...HEALTHY_BODY,
+            origin: {
+                configured: 'https://sgcoalition.shop',
+                configuredHost: 'sgcoalition.shop',
+                requestHost: 'sgcoalition.shop',
+                matches: true,
+            },
+        }));
+
+        await renderCard();
+
+        expect(container.querySelector('[data-testid="origin-mismatch"]')).toBeNull();
+        expect(container.querySelector('[data-testid="origin-host"]')?.textContent).toContain('sgcoalition.shop');
+    });
+
+    it('ORIGIN_MISMATCH: a different serving host raises the warning and names the webhook URLs', async () => {
+        // The silent outage: the app is healthy, Stripe is happy, but the
+        // host Stripe posts to is not this one, so paid orders reconcile
+        // nowhere. The card must name the host to use.
+        fetchMock.mockResolvedValue(jsonResponse(200, {
+            ...HEALTHY_BODY,
+            origin: {
+                configured: 'https://sgcoalition.shop',
+                configuredHost: 'sgcoalition.shop',
+                requestHost: 'sgcoalition-five.vercel.app',
+                matches: false,
+            },
+        }));
+
+        await renderCard();
+
+        const warning = container.querySelector('[data-testid="origin-mismatch"]');
+        expect(warning).toBeTruthy();
+        expect(warning!.textContent).toContain('sgcoalition-five.vercel.app');
+        expect(warning!.textContent).toContain('sgcoalition.shop');
+        // The actionable part: the exact URLs the dashboards need.
+        expect(warning!.textContent).toContain('https://sgcoalition.shop/api/stripe-webhook');
+        expect(warning!.textContent).toContain('https://sgcoalition.shop/api/shippo-webhook');
+    });
+
+    it('ORIGIN_ABSENT: a response with no origin block renders normally', async () => {
+        // An older server (or a mocked body) without the field must not
+        // crash the card or invent a warning.
+        fetchMock.mockResolvedValue(jsonResponse(200, HEALTHY_BODY));
+
+        await renderCard();
+
+        expect(container.querySelector('[data-testid="origin-mismatch"]')).toBeNull();
+        expect(container.querySelector('[data-testid="origin-host"]')).toBeNull();
+        expect(container.innerHTML).toContain('Healthy');
+    });
 });

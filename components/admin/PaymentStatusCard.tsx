@@ -10,11 +10,24 @@
 // The endpoint contract (api/_handlers/health.ts):
 //   200 { status: 'ok', checkoutWorking: true, stripe: { configured, keyValid,
 //        paymentMethods: string[], checkoutMethods: string[],
-//        checkoutMethodsMissing: string[], error } }
-//   503 { status: 'degraded', checkoutWorking: false, stripe: { ... , error } }
+//        checkoutMethodsMissing: string[], error },
+//        origin: { configured, configuredHost, requestHost, matches } }
+//   503 { status: 'degraded', checkoutWorking: false, stripe: { ... , error },
+//        origin: { ... } }
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { CreditCard, RefreshCw, CheckCircle2, AlertTriangle, WifiOff, Loader } from 'lucide-react';
+import { CreditCard, RefreshCw, CheckCircle2, AlertTriangle, WifiOff, Loader, Globe } from 'lucide-react';
+
+/**
+ * Where the deployment says it lives, next to where the request landed.
+ * `matches` is null when either side is unknown (no VITE_APP_URL set).
+ */
+interface OriginInfo {
+    configured: string | null;
+    configuredHost: string | null;
+    requestHost: string | null;
+    matches: boolean | null;
+}
 
 type HealthState =
     | { phase: 'loading' }
@@ -25,6 +38,7 @@ type HealthState =
         paymentMethods: string[];
         checkoutMethods: string[];
         checkoutMethodsMissing: string[];
+        origin: OriginInfo | null;
     }
     | {
         phase: 'degraded';
@@ -34,6 +48,7 @@ type HealthState =
         paymentMethods: string[];
         checkoutMethods: string[];
         checkoutMethodsMissing: string[];
+        origin: OriginInfo | null;
     }
     | { phase: 'unreachable' };
 
@@ -80,6 +95,19 @@ async function fetchHealth(): Promise<HealthState> {
             ? stripe.checkoutMethodsMissing
             : [];
 
+        // Where the deployment says it lives, next to where this request
+        // landed. A mismatch means third-party webhooks configured with the
+        // canonical host would not reach this deployment.
+        const rawOrigin = body.origin;
+        const origin: OriginInfo | null = rawOrigin && typeof rawOrigin === 'object'
+            ? {
+                configured: rawOrigin.configured ?? null,
+                configuredHost: rawOrigin.configuredHost ?? null,
+                requestHost: rawOrigin.requestHost ?? null,
+                matches: typeof rawOrigin.matches === 'boolean' ? rawOrigin.matches : null,
+            }
+            : null;
+
         if (response.ok && body.status === 'ok') {
             return {
                 phase: 'ok',
@@ -88,6 +116,7 @@ async function fetchHealth(): Promise<HealthState> {
                 paymentMethods,
                 checkoutMethods,
                 checkoutMethodsMissing,
+                origin,
             };
         }
         if (response.status === 503 || body.status === 'degraded') {
@@ -99,6 +128,7 @@ async function fetchHealth(): Promise<HealthState> {
                 paymentMethods,
                 checkoutMethods,
                 checkoutMethodsMissing,
+                origin,
             };
         }
         // A 5xx from the probe itself is a server-side failure — degraded,
@@ -112,6 +142,7 @@ async function fetchHealth(): Promise<HealthState> {
                 paymentMethods,
                 checkoutMethods,
                 checkoutMethodsMissing,
+                origin,
             };
         }
         return { phase: 'unreachable' };
@@ -137,6 +168,8 @@ const PaymentStatusCard: React.FC = () => {
 
     const degraded = health.phase === 'degraded';
     const unreachable = health.phase === 'unreachable';
+    const origin = health.phase === 'ok' || health.phase === 'degraded' ? health.origin : null;
+    const originMismatch = origin?.matches === false;
 
     return (
         <div
@@ -232,6 +265,56 @@ const PaymentStatusCard: React.FC = () => {
                         The health probe could not be reached. Check the network or the /api/health endpoint.
                     </p>
                 </div>
+            )}
+
+            {/* Origin mismatch. The Stripe and Shippo webhook URLs are the
+                things that break when this is wrong, and they break SILENTLY:
+                a request to a host that does not serve this deployment never
+                arrives, so a paid order reconciles nowhere. The card names the
+                host to use so it can be pasted into those dashboards. */}
+            {originMismatch && (
+                <div
+                    data-testid="origin-mismatch"
+                    className="mt-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl"
+                >
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-1 flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5" /> Serving on a different host than configured
+                    </p>
+                    <p className="text-xs text-amber-200/90 leading-relaxed">
+                        This deployment is being served on{' '}
+                        <strong className="font-mono">{origin?.requestHost}</strong>, but{' '}
+                        <code className="font-mono">VITE_APP_URL</code> names{' '}
+                        <strong className="font-mono">{origin?.configuredHost}</strong>.
+                    </p>
+                    <p className="text-[10px] text-amber-400/70 mt-2 leading-relaxed">
+                        Point the Stripe webhook at{' '}
+                        <strong className="font-mono">
+                            https://{origin?.configuredHost}/api/stripe-webhook
+                        </strong>{' '}
+                        and the Shippo webhook at{' '}
+                        <strong className="font-mono">
+                            https://{origin?.configuredHost}/api/shippo-webhook
+                        </strong>
+                        . A webhook aimed at a host that does not serve this app never arrives, so paid
+                        orders stop reconciling without any error.
+                    </p>
+                </div>
+            )}
+
+            {/* The canonical host, always visible. It is the answer to "what
+                URL do the webhook dashboards need?" and it is a field the
+                operator otherwise has to go and look up. */}
+            {origin && !originMismatch && origin.configuredHost && (
+                <p
+                    data-testid="origin-host"
+                    className="mt-3 text-[10px] font-bold uppercase tracking-widest text-gray-600 flex items-center gap-1.5"
+                >
+                    <Globe className="w-3 h-3" />
+                    Live on{' '}
+                    <span className="font-mono normal-case tracking-normal text-gray-500">
+                        {origin.configuredHost}
+                    </span>
+                </p>
             )}
 
             {health.phase !== 'loading' && !unreachable && (

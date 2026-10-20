@@ -67,8 +67,8 @@ function makeRes() {
     return res;
 }
 
-function makeReq(method = 'GET', query: any = {}) {
-    return { method, query };
+function makeReq(method = 'GET', query: any = {}, headers: Record<string, string> = {}) {
+    return { method, query, headers };
 }
 
 /** on = usable and switched on · off = usable but hidden · unavailable = the account cannot use it. */
@@ -282,5 +282,110 @@ describe('GET /api/health', () => {
         const resOptions = makeRes();
         await handler(preflight, resOptions);
         expect(resOptions._status).toBe(200);
+    });
+});
+
+// =========================================================================
+// Origin reporting
+//
+// The failure this covers is invisible from inside the app: a Stripe
+// endpoint, a Shippo URL or a monitor pointed at a hostname that no longer
+// serves this deployment. The request never arrives, so no handler can
+// report it — the app looks healthy while money moves and orders never
+// reconcile. The health payload answers "which host should those be
+// configured with?" by naming the configured origin next to the host the
+// request actually landed on.
+// =========================================================================
+
+describe('GET /api/health — origin reporting', () => {
+    let handler: (req: any, res: any) => Promise<void>;
+    const originalKey = process.env.STRIPE_SECRET_KEY;
+    const originalAppUrl = process.env.VITE_APP_URL;
+
+    beforeEach(async () => {
+        mockBalanceRetrieve.mockReset();
+        mockConfigsList.mockReset();
+        mockBalanceRetrieve.mockResolvedValue({ available: [{ amount: 100 }] });
+        mockConfigsList.mockResolvedValue({ data: [] });
+        process.env.STRIPE_SECRET_KEY = 'sk_test_health_key';
+        handler = await loadHandler();
+    });
+
+    afterEach(() => {
+        if (originalKey === undefined) delete process.env.STRIPE_SECRET_KEY;
+        else process.env.STRIPE_SECRET_KEY = originalKey;
+        if (originalAppUrl === undefined) delete process.env.VITE_APP_URL;
+        else process.env.VITE_APP_URL = originalAppUrl;
+    });
+
+    it('reports the configured origin and the host the request arrived on', async () => {
+        process.env.VITE_APP_URL = 'https://sgcoalition.shop';
+
+        const res = makeRes();
+        await handler(makeReq('GET', {}, { host: 'sgcoalition.shop' }), res);
+
+        expect(res._status).toBe(200);
+        expect(res._body.origin.configured).toBe('https://sgcoalition.shop');
+        expect(res._body.origin.configuredHost).toBe('sgcoalition.shop');
+        expect(res._body.origin.requestHost).toBe('sgcoalition.shop');
+        expect(res._body.origin.matches).toBe(true);
+    });
+
+    it('flags a mismatch when the deployment is served on another host', async () => {
+        // The exact shape of the silent outage: the app is reachable, Stripe
+        // is healthy, but the host Stripe posts to is not this one.
+        process.env.VITE_APP_URL = 'https://sgcoalition.shop';
+
+        const res = makeRes();
+        await handler(makeReq('GET', {}, { host: 'sgcoalition-five.vercel.app' }), res);
+
+        expect(res._status).toBe(200);
+        expect(res._body.origin.matches).toBe(false);
+        expect(res._body.origin.requestHost).toBe('sgcoalition-five.vercel.app');
+        expect(res._body.origin.configuredHost).toBe('sgcoalition.shop');
+    });
+
+    it('reports matches:null when VITE_APP_URL is unset rather than claiming a mismatch', async () => {
+        // An unset env var is a misconfiguration, but it is NOT a host
+        // mismatch — conflating them would make every preview deployment look
+        // like an outage.
+        delete process.env.VITE_APP_URL;
+
+        const res = makeRes();
+        await handler(makeReq('GET', {}, { host: 'sgcoalition-five.vercel.app' }), res);
+
+        expect(res._body.origin.configured).toBeNull();
+        expect(res._body.origin.configuredHost).toBeNull();
+        expect(res._body.origin.requestHost).toBe('sgcoalition-five.vercel.app');
+        expect(res._body.origin.matches).toBeNull();
+    });
+
+    it('ignores the port when comparing hosts', async () => {
+        process.env.VITE_APP_URL = 'https://sgcoalition.shop';
+
+        const res = makeRes();
+        await handler(makeReq('GET', {}, { host: 'sgcoalition.shop:443' }), res);
+
+        expect(res._body.origin.matches).toBe(true);
+    });
+
+    it('still reports the origin on the degraded paths — that is when it matters most', async () => {
+        // A dead Stripe key is exactly when an operator needs to know which
+        // host to point the webhook at.
+        process.env.VITE_APP_URL = 'https://sgcoalition.shop';
+        mockBalanceRetrieve.mockRejectedValue(
+            Object.assign(new Error('Expired API Key provided: sk_live_****abcd1234'), {
+                code: 'api_key_expired',
+                type: 'StripeAuthenticationError',
+            }),
+        );
+
+        const res = makeRes();
+        await handler(makeReq('GET', {}, { host: 'sgcoalition-five.vercel.app' }), res);
+
+        expect(res._status).toBe(503);
+        expect(res._body.origin).toBeTruthy();
+        expect(res._body.origin.matches).toBe(false);
+        expect(res._body.origin.requestHost).toBe('sgcoalition-five.vercel.app');
     });
 });

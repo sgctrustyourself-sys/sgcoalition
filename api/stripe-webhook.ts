@@ -23,6 +23,7 @@ import { stripeClient } from './_services.js';
 import { reconcilePayment, notifyAdminReconcileFailure } from '../services/orderIntake.js';
 import { purchaseLabelForOrder } from '../services/shipping.js';
 import { createLogger } from '../utils/logger.js';
+import { originStatus } from './_helpers.js';
 
 const webhookLog = createLogger('stripe-webhook');
 
@@ -89,7 +90,7 @@ export function isValidOrderId(value: unknown): value is string {
  * option — and returns whether the failure is retryable so the caller can
  * pick the HTTP status that controls Stripe redelivery.
  */
-async function tryAutoReconcile(orderId: string, paymentIntentId: string, eventId?: string): Promise<{ reconciled: boolean; retryable: boolean }> {
+async function tryAutoReconcile(orderId: string, paymentIntentId: string, eventId?: string, deliveryHost?: string | null): Promise<{ reconciled: boolean; retryable: boolean }> {
     const result = await reconcilePayment(orderId);
     if (result.success) {
         webhookLog.info('Reconciled order ' + orderId + ' (PI ' + paymentIntentId + ')');
@@ -105,7 +106,7 @@ async function tryAutoReconcile(orderId: string, paymentIntentId: string, eventI
     // the response returns, which would silently drop a void'd send. The
     // failure path is rare and the helper swallows its own errors, so the
     // (at most ~1s) delay is worth the delivery guarantee.
-    await notifyAdminReconcileFailure(orderId, paymentIntentId, result.error || 'Unknown reconcile failure', retryable, eventId);
+    await notifyAdminReconcileFailure(orderId, paymentIntentId, result.error || 'Unknown reconcile failure', retryable, eventId, deliveryHost);
     return { reconciled: false, retryable };
 }
 
@@ -196,6 +197,25 @@ export default async function handler(
         return;
     }
 
+    // Which host actually took this delivery. When it is not the configured
+    // origin, the Stripe endpoint (or the DNS behind it) is pointed somewhere
+    // other than where this deployment expects to be — the exact class of
+    // misconfiguration that makes orders quietly fail to reconcile. The
+    // delivery is still processed: the order must land even if the hostname
+    // is off, and rejecting it would leave a paid order with no order at all.
+    // It is recorded on the failure alert instead.
+    const origin = originStatus(
+        typeof req.headers?.host === 'string' ? req.headers.host : null
+    );
+    const deliveryHost = origin.requestHost;
+    if (origin.matches === false) {
+        console.warn(
+            '[stripe-webhook] Delivery landed on ' + deliveryHost +
+            ' but VITE_APP_URL names ' + origin.configuredHost +
+            ' — check the Stripe endpoint URL and DNS for this domain.'
+        );
+    }
+
     const signature = String(req.headers['stripe-signature'] ?? '');
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -244,7 +264,7 @@ export default async function handler(
                 res.status(400).json({ error: 'Malformed order_id metadata' });
                 return;
             } else {
-                const { reconciled, retryable } = await tryAutoReconcile(orderId, paymentIntent.id, event.id);
+                const { reconciled, retryable } = await tryAutoReconcile(orderId, paymentIntent.id, event.id, deliveryHost);
                 if (!reconciled) {
                     // 500 only for transient failures (DB/network, or an
                     // order whose write has not landed yet — that write is

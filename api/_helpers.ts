@@ -136,6 +136,66 @@ export function resolvePublicOrigin(req: ApiRequest): string {
     return origin;
 }
 
+/**
+ * The host a URL or a `Host` header names — lowercased, port stripped.
+ * Returns null when the value names no host (empty, or unparseable).
+ *
+ * `http://localhost:3000` and `localhost:3000` both normalize to
+ * `localhost`, so a dev request and a configured dev origin compare equal.
+ */
+export function hostOf(value: string | null | undefined): string | null {
+    if (!value) return null;
+    const trimmed = value.trim().toLowerCase();
+    if (!trimmed) return null;
+    if (!trimmed.includes('://')) return trimmed.replace(/:\d+$/, '');
+    try {
+        return new URL(trimmed).host.replace(/:\d+$/, '');
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Where this deployment believes it lives, next to where the request actually
+ * landed.
+ *
+ * This exists because of a failure that is invisible from inside the app: a
+ * third party (Stripe's webhook endpoint, Shippo, a monitor) configured with
+ * a hostname that no longer serves this deployment. The request never
+ * arrives, so no handler can report it — the app looks perfectly healthy
+ * while money moves and orders never land. Surfacing the configured origin
+ * next to the serving host turns "which host should I have configured?"
+ * into a field you can read instead of a puzzle.
+ *
+ * `matches` is null when either side is unknown — an unset VITE_APP_URL is a
+ * misconfiguration worth reporting, but it is not a host mismatch, and
+ * conflating the two would make a preview deployment look like an outage.
+ */
+export interface OriginStatus {
+    /** VITE_APP_URL exactly as configured, or null when it is not set. */
+    configured: string | null;
+    /** The host VITE_APP_URL names. */
+    configuredHost: string | null;
+    /** The host the request arrived on. */
+    requestHost: string | null;
+    /** True when both are known and equal; null when either is unknown. */
+    matches: boolean | null;
+}
+
+export function originStatus(requestHost: string | null | undefined): OriginStatus {
+    const configured = process.env.VITE_APP_URL?.trim() || null;
+    const configuredHost = hostOf(configured);
+    const resolvedRequestHost = hostOf(requestHost);
+    const matches =
+        configuredHost && resolvedRequestHost ? configuredHost === resolvedRequestHost : null;
+    return {
+        configured,
+        configuredHost,
+        requestHost: resolvedRequestHost,
+        matches,
+    };
+}
+
 // ----------------------------------------------------------------------
 // Rate limiter (in-memory, per-Lambda)
 //

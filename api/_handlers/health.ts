@@ -1,5 +1,5 @@
 // api/_handlers/health.ts
-import { CHECKOUT_PAYMENT_METHOD_TYPES } from '../_helpers.js';
+import { CHECKOUT_PAYMENT_METHOD_TYPES, originStatus } from '../_helpers.js';
 //
 // GET /api/health — lightweight liveness + Stripe readiness probe.
 //
@@ -23,6 +23,18 @@ import { CHECKOUT_PAYMENT_METHOD_TYPES } from '../_helpers.js';
 //                   configuration Stripe resolves automatic_payment_methods
 //                   through, so checkoutMethodsMissing can still answer "is a
 //                   method this code sends actually enabled on the account?"
+//   - origin — the configured VITE_APP_URL next to the host this request
+//              arrived on. The origin mismatch that matters is the one NO
+//              handler can see: a Stripe endpoint, a Shippo URL or a monitor
+//              pointing at a hostname that no longer serves this deployment
+//              never reaches any code, so the app looks healthy while orders
+//              quietly fail to reconcile. This field answers "which host
+//              should those be configured with?" from inside the app.
+//
+// The origin mismatch is REPORTED, not acted on: a preview deployment
+// legitimately serves a different host than the configured production origin,
+// and downgrading the response to 503 for that would page an operator for
+// something that is working exactly as designed.
 //
 // READ-ONLY BY CONSTRUCTION: nothing in this handler may create, confirm or
 // cancel a Stripe object. An earlier version resolved the method list by
@@ -101,6 +113,12 @@ export default async function handler(req: any, res: any) {
         return;
     }
 
+    // Read BEFORE any early return: the origin report is the one piece of
+    // this payload that stays useful when the Stripe key is dead, so a
+    // degraded checkout still tells the operator which host to point
+    // third-party webhooks at.
+    const origin = originStatus(req.headers?.host);
+
     const stripeKey = process.env.STRIPE_SECRET_KEY || '';
     const stripe: {
         configured: boolean;
@@ -129,6 +147,7 @@ export default async function handler(req: any, res: any) {
             status: 'degraded',
             checkoutWorking: false,
             stripe,
+            origin,
             timestamp: new Date().toISOString(),
         });
         return;
@@ -149,6 +168,7 @@ export default async function handler(req: any, res: any) {
             status: 'degraded',
             checkoutWorking: false,
             stripe,
+            origin,
             timestamp: new Date().toISOString(),
         });
         return;
@@ -198,6 +218,7 @@ export default async function handler(req: any, res: any) {
         status: 'ok',
         checkoutWorking: true,
         stripe,
+        origin,
         timestamp: new Date().toISOString(),
     });
 }

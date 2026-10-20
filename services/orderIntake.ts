@@ -405,7 +405,7 @@ function adminOrderUrl(orderId: string): string {
 // Ops alert: money moved (payment_intent.succeeded) but the order could not
 // be reconciled. Fire-and-forget — an email failure must never affect the
 // webhook's HTTP response, which controls Stripe retry behavior.
-export async function notifyAdminReconcileFailure(orderId: string, paymentIntentId: string, reason: string, willRetry: boolean, eventId?: string | null): Promise<void> {
+export async function notifyAdminReconcileFailure(orderId: string, paymentIntentId: string, reason: string, willRetry: boolean, eventId?: string | null, deliveryHost?: string | null): Promise<void> {
     try {
         const key = process.env.RESEND_API_KEY;
         const rcpts = adminRcpt();
@@ -423,6 +423,10 @@ export async function notifyAdminReconcileFailure(orderId: string, paymentIntent
             + (eventId ? '<tr><td style="background:#f9fafb;"><strong>Stripe event</strong></td><td><code>' + esc(eventId) + '</code></td></tr>' : '')
             + '<tr><td style="background:#f9fafb;"><strong>PaymentIntent</strong></td><td><code>' + esc(paymentIntentId) + '</code></td></tr>'
             + '<tr><td style="background:#f9fafb;"><strong>Reason</strong></td><td>' + esc(reason) + '</td></tr>'
+            // Which host the delivery actually landed on. When this is not
+            // the domain the Stripe endpoint is supposed to point at, the
+            // endpoint URL and the DNS behind it are the thing to fix.
+            + (deliveryHost ? '<tr><td style="background:#f9fafb;"><strong>Delivered to</strong></td><td><code>' + esc(deliveryHost) + '</code></td></tr>' : '')
             + '<tr><td style="background:#f9fafb;"><strong>Retry</strong></td><td>' + (willRetry ? 'Stripe will redeliver (transient failure)' : 'Permanently unreconcilable — Stripe was told NOT to retry') + '</td></tr>'
             + '<tr><td style="background:#f9fafb;"><strong>Time (UTC)</strong></td><td>' + esc(new Date().toISOString()) + '</td></tr>'
             + '</table>'
