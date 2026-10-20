@@ -14,9 +14,9 @@ export interface DropVoucherRecipient {
     displayName: string;
     /** The 100%-off coupon code (e.g. DROP-202608-AB12). */
     couponCode: string;
-    /** e.g. https://sgcoalition.xyz/checkout */
+    /** e.g. https://sgcoalition.shop/checkout */
     checkoutUrl: string;
-    /** e.g. https://sgcoalition.xyz/#/profile */
+    /** e.g. https://sgcoalition.shop/#/profile */
     profileUrl: string;
 }
 
@@ -84,7 +84,7 @@ export const renderDropVoucherEmailHtml = (
         `</div>` +
         `<div class="footer">` +
         `<p>Coalition Access Protocol &bull; Private Secure Cloud</p>` +
-        `<p><a href="${siteBase}" style="color:#888;text-decoration:none;">sgcoalition.xyz</a></p>` +
+        `<p><a href="${siteBase}" style="color:#888;text-decoration:none;">sgcoalition.shop</a></p>` +
         `</div>` +
         `</div></body></html>`
     );

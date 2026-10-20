@@ -11,14 +11,14 @@ import {
     type DropVoucherRecipient,
 } from '../utils/dropVoucherEmailTemplate';
 
-const SITE_BASE = 'https://sgcoalition.xyz';
+const SITE_BASE = 'https://sgcoalition.shop';
 
 const baseRecipient: DropVoucherRecipient = {
     email: 'member@example.com',
     displayName: 'Trust Member',
     couponCode: 'DROP-202608-AB12',
-    checkoutUrl: 'https://sgcoalition.xyz/checkout',
-    profileUrl: 'https://sgcoalition.xyz/#/profile',
+    checkoutUrl: 'https://sgcoalition.shop/checkout',
+    profileUrl: 'https://sgcoalition.shop/#/profile',
 };
 
 describe('dropVoucherEmailTemplate', () => {
@@ -39,8 +39,8 @@ describe('dropVoucherEmailTemplate', () => {
         it('renders the redeem + dashboard CTAs', () => {
             expect(html).toContain('Redeem at Checkout');
             expect(html).toContain('Open Dashboard');
-            expect(html).toMatch(/href="https:\/\/sgcoalition\.xyz\/checkout" class="button"/);
-            expect(html).toMatch(/href="https:\/\/sgcoalition\.xyz\/#\/profile" class="button-outline"/);
+            expect(html).toMatch(/href="https:\/\/sgcoalition\.shop\/checkout" class="button"/);
+            expect(html).toMatch(/href="https:\/\/sgcoalition\.shop\/#\/profile" class="button-outline"/);
         });
 
         it('mentions one-time use + the checkout code field', () => {
@@ -52,7 +52,7 @@ describe('dropVoucherEmailTemplate', () => {
             expect(html).toContain('TRUST CIRCLE DROP');
             expect(html).toContain('Stay focused. Trust Yourself.');
             expect(html).toContain('Coalition Access Protocol');
-            expect(html).toContain('sgcoalition.xyz');
+            expect(html).toContain('sgcoalition.shop');
         });
 
         it('falls back to email localpart when displayName is blank', () => {
@@ -69,8 +69,8 @@ describe('dropVoucherEmailTemplate', () => {
                 email: 'evil@example.com',
                 displayName: '<script>alert("x")</script>',
                 couponCode: '"><img src=x onerror=alert(1)>',
-                checkoutUrl: 'https://sgcoalition.xyz/checkout?ref=<>',
-                profileUrl: 'https://sgcoalition.xyz/#/profile',
+                checkoutUrl: 'https://sgcoalition.shop/checkout?ref=<>',
+                profileUrl: 'https://sgcoalition.shop/#/profile',
             };
             const evilHtml = renderDropVoucherEmailHtml(evil, SITE_BASE);
             expect(evilHtml).not.toContain('<script>alert("x")</script>');

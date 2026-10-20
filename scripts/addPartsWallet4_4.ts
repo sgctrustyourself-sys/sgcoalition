@@ -64,7 +64,7 @@ async function addPartsWallet4_4() {
     }
 
     console.log("✅ Successfully upserted Coalition 'Parts' Wallet 4/4:", data);
-    console.log('🔗 View at: https://sgcoalition.xyz/product/Coalition_Parts_Wallet_4_4');
+    console.log('🔗 View at: https://sgcoalition.shop/product/Coalition_Parts_Wallet_4_4');
 }
 
 addPartsWallet4_4();

@@ -81,10 +81,22 @@ export interface DropSpec {
   /** Variant denominator. 2 for a 1/2 run, 12 for a 12-piece run, etc. */
   y: number;
 
+  /**
+   * Physical units held for THIS listing, when the run is numbered and sold one
+   * at a time — a 'Parts' 3/4 is ONE unit of a FOUR-piece run, so its `x`/`y`
+   * display counter (3 / 4) and its stock (1) diverge.
+   *
+   * Defaults to `y`, which is correct for a uniform run (twelve identical
+   * pieces → `y` = 12 = held). `x`/`y` stay the DISPLAY run counter that every
+   * generated surface prints ("3 OF 4"); this field is the STOCK claim, the one
+   * tests/dropRegistry.test.ts checks against sizeInventory.
+   */
+  unitsHeld?: number;
+
   /** "$85" with the dollar sign already prefixed. Mirrors listing.price. */
   price: string;
 
-  /** "sgcoalition.xyz/shop" — used in CTA slide. */
+  /** "sgcoalition.shop/shop" — used in CTA slide. */
   shopUrl: string;
 
   /** Relative paths from the rendered HTML file at docs/story-reveal/{slug}-slide-N.html back to project root. */
@@ -231,7 +243,7 @@ export const DROPS: Record<string, DropRelease> = {
       y: 2,
 
       price: '$85',
-      shopUrl: 'sgcoalition.xyz/shop',
+      shopUrl: 'sgcoalition.shop/shop',
 
       images: {
         front: '../../public/images/grey-wave-wallet-1-2-front.png',
@@ -280,7 +292,7 @@ export const DROPS: Record<string, DropRelease> = {
           layout: 'cta',
           eyebrow: 'GREY WAVE / WALLET 1/2',
           headline: 'SHOP NOW',
-          url: 'sgcoalition.xyz/shop',
+          url: 'sgcoalition.shop/shop',
           stickers: [
             { type: 'link', anchor: 'center-right', label: 'Story → PDP conversion path' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
@@ -305,20 +317,20 @@ export const DROPS: Record<string, DropRelease> = {
     },
     copy: {
       igCaptionLong:
-        '🌊 GREY WAVE.\n\nCoalition \'Grey Wave\' Wallet 1/2 — $85.\n\nHand-finished charcoal dye. Inspired by Baltimore harbor at dawn — the moment before anything moves. 1 of 2 in this run. Limited edition.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → sgcoalition.xyz/shop\n\n#Coalition #GreyWave #BaltimoreStreetwear #TrustYourself #LimitedEdition',
+        '🌊 GREY WAVE.\n\nCoalition \'Grey Wave\' Wallet 1/2 — $85.\n\nHand-finished charcoal dye. Inspired by Baltimore harbor at dawn — the moment before anything moves. 1 of 2 in this run. Limited edition.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → sgcoalition.shop/shop\n\n#Coalition #GreyWave #BaltimoreStreetwear #TrustYourself #LimitedEdition',
       igCaptionShort:
         '🌊 GREY WAVE.\n\nCoalition \'Grey Wave\' Wallet 1/2 — $85. 1 of 2. Hand-finished charcoal dye.\n\nWhen it\'s gone, it\'s gone.\n\n🔗 Link in bio.\n\n#Coalition #GreyWave #TrustYourself #LimitedEdition #BaltimoreStreetwear',
       xSingle:
-        "🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $85. Hand-finished charcoal dye. Inspired by Baltimore harbor at dawn. Limited 1/2. Once it's gone, it's gone. sgcoalition.xyz/shop",
+        "🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $85. Hand-finished charcoal dye. Inspired by Baltimore harbor at dawn. Limited 1/2. Once it's gone, it's gone. sgcoalition.shop/shop",
       xThread: [
-        "🌊 GREY WAVE.\n\nCoalition 'Grey Wave' Wallet 1/2 — $85. Hand-finished charcoal dye inspired by Baltimore harbor at dawn. Once it's gone, it's gone.\n\nsgcoalition.xyz/shop",
+        "🌊 GREY WAVE.\n\nCoalition 'Grey Wave' Wallet 1/2 — $85. Hand-finished charcoal dye inspired by Baltimore harbor at dawn. Once it's gone, it's gone.\n\nsgcoalition.shop/shop",
         '1 of 2. No reprints.\n\nEach wallet is finished by hand. Harbor-at-dawn dye pattern — the moment before anything moves.',
         'Coalition is action. Trust Yourself. 🖤',
       ],
       hashtagsCanonical: ['#Coalition', '#GreyWave', '#BaltimoreStreetwear', '#TrustYourself', '#LimitedEdition'],
       hashtagsTier2: ['#Streetwear', '#Baltimore', '#1of2', '#GreyWaveEdition', '#HandFinished', '#Drops'],
       slackOneLiner:
-        "🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $85. 1 of 2. Hand-finished charcoal dye. sgcoalition.xyz/shop",
+        "🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $85. 1 of 2. Hand-finished charcoal dye. sgcoalition.shop/shop",
       postTitle: "Coalition 'Grey Wave' Wallet 1/2",
       postSlug: 'coalition-grey-wave-wallet-1-2',
       postExcerpt:
@@ -364,7 +376,7 @@ Two pieces. This is the first. When they are gone, they do not come back.
       y: 12,
 
       price: '$45',
-      shopUrl: 'sgcoalition.xyz/shop',
+      shopUrl: 'sgcoalition.shop/shop',
 
       images: {
         front: '../../public/images/pink-silver-crop-top-front.png',
@@ -411,7 +423,7 @@ Two pieces. This is the first. When they are gone, they do not come back.
           layout: 'cta',
           eyebrow: 'PINK / SILVER · CROP TOP',
           headline: 'SHOP NOW',
-          url: 'sgcoalition.xyz/shop',
+          url: 'sgcoalition.shop/shop',
           stickers: [
             { type: 'link', anchor: 'center-right', label: 'Story → PDP conversion path' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
@@ -434,20 +446,20 @@ Two pieces. This is the first. When they are gone, they do not come back.
     },
     copy: {
       igCaptionLong:
-        'PINK / SILVER.\n\nWomen\'s Leopard Print Crop T-Shirt — $45.\n\nPink leopard print, 3D silver puff lettering, cut fitted. Finished in-house. 1 of 12 in this run, sized S–XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → sgcoalition.xyz/shop\n\n#Coalition #PinkSilver #BaltimoreStreetwear #TrustYourself #LimitedEdition',
+        'PINK / SILVER.\n\nWomen\'s Leopard Print Crop T-Shirt — $45.\n\nPink leopard print, 3D silver puff lettering, cut fitted. Finished in-house. 1 of 12 in this run, sized S–XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → sgcoalition.shop/shop\n\n#Coalition #PinkSilver #BaltimoreStreetwear #TrustYourself #LimitedEdition',
       igCaptionShort:
         'PINK / SILVER.\n\nWomen\'s Leopard Print Crop T-Shirt — $45. 1 of 12. Sized S–XL.\n\nWhen it\'s gone, it\'s gone.\n\n🔗 Link in bio.\n\n#Coalition #PinkSilver #TrustYourself #LimitedEdition #BaltimoreStreetwear',
       xSingle:
-        'PINK / SILVER. Women\'s Leopard Print Crop T-Shirt — $45. Pink leopard print, 3D silver puff lettering, cut fitted. 12-piece run, S–XL. Once it\'s gone, it\'s gone. sgcoalition.xyz/shop',
+        'PINK / SILVER. Women\'s Leopard Print Crop T-Shirt — $45. Pink leopard print, 3D silver puff lettering, cut fitted. 12-piece run, S–XL. Once it\'s gone, it\'s gone. sgcoalition.shop/shop',
       xThread: [
-        'PINK / SILVER.\n\nWomen\'s Leopard Print Crop T-Shirt — $45. Pink leopard print, 3D silver puff lettering, cut fitted. Sized S–XL. Once it\'s gone, it\'s gone.\n\nsgcoalition.xyz/shop',
+        'PINK / SILVER.\n\nWomen\'s Leopard Print Crop T-Shirt — $45. Pink leopard print, 3D silver puff lettering, cut fitted. Sized S–XL. Once it\'s gone, it\'s gone.\n\nsgcoalition.shop/shop',
         '1 of 12. No reprints.\n\nThe leopard print reads up close; the silver puff carries across a room.',
         'Coalition is action. Trust Yourself. 🖤',
       ],
       hashtagsCanonical: ['#Coalition', '#PinkSilver', '#BaltimoreStreetwear', '#TrustYourself', '#LimitedEdition'],
       hashtagsTier2: ['#Streetwear', '#Baltimore', '#1of12', '#PinkSilverEdition', '#HandFinished', '#Drops'],
       slackOneLiner:
-        'PINK / SILVER. Women\'s Leopard Print Crop T-Shirt — $45. 1 of 12. Sized S–XL. sgcoalition.xyz/shop',
+        'PINK / SILVER. Women\'s Leopard Print Crop T-Shirt — $45. 1 of 12. Sized S–XL. sgcoalition.shop/shop',
       postTitle: "Women's Leopard Print Crop T-Shirt",
       postSlug: 'coalition-pink-silver-crop-top',
       postExcerpt:
@@ -496,7 +508,7 @@ Twelve pieces, one run. When they are gone, they do not come back.
       y: 15,
 
       price: '$100',
-      shopUrl: 'sgcoalition.xyz/shop',
+      shopUrl: 'sgcoalition.shop/shop',
 
       images: {
         front: '../../public/images/coalition-fleece-hoodie-front.png',
@@ -543,7 +555,7 @@ Twelve pieces, one run. When they are gone, they do not come back.
           layout: 'cta',
           eyebrow: 'COALITION FLEECE · HOODIE',
           headline: 'SHOP NOW',
-          url: 'sgcoalition.xyz/shop',
+          url: 'sgcoalition.shop/shop',
           stickers: [
             { type: 'link', anchor: 'center-right', label: 'Story → PDP conversion path' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
@@ -565,20 +577,20 @@ Twelve pieces, one run. When they are gone, they do not come back.
     },
     copy: {
       igCaptionLong:
-        'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100.\n\nWashed black. Orange metal across the chest. Built to look better worn in. Finished in-house. 1 of 15 in this run, sized S–2XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → sgcoalition.xyz/shop\n\n#Coalition #CoalitionFleece #BaltimoreStreetwear #TrustYourself #LimitedEdition',
+        'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100.\n\nWashed black. Orange metal across the chest. Built to look better worn in. Finished in-house. 1 of 15 in this run, sized S–2XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → sgcoalition.shop/shop\n\n#Coalition #CoalitionFleece #BaltimoreStreetwear #TrustYourself #LimitedEdition',
       igCaptionShort:
         'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100. 1 of 15. Washed black, orange metal. Sized S–2XL.\n\nWhen it\'s gone, it\'s gone.\n\n🔗 Link in bio.\n\n#Coalition #CoalitionFleece #TrustYourself #LimitedEdition #BaltimoreStreetwear',
       xSingle:
-        'COALITION FLEECE. Coalition Fleece Hoodie — $100. Washed black, orange metal lettering across the chest. 15-piece run, S–2XL. Once it\'s gone, it\'s gone. sgcoalition.xyz/shop',
+        'COALITION FLEECE. Coalition Fleece Hoodie — $100. Washed black, orange metal lettering across the chest. 15-piece run, S–2XL. Once it\'s gone, it\'s gone. sgcoalition.shop/shop',
       xThread: [
-        'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100. Washed black with orange metal across the chest. Sized S–2XL. Once it\'s gone, it\'s gone.\n\nsgcoalition.xyz/shop',
+        'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100. Washed black with orange metal across the chest. Sized S–2XL. Once it\'s gone, it\'s gone.\n\nsgcoalition.shop/shop',
         '1 of 15. No reprints.\n\nWashed black, orange lettering, and a build that looks better the more you wear it. Finished in-house.',
         'Coalition is action. Trust Yourself. 🖤',
       ],
       hashtagsCanonical: ['#Coalition', '#CoalitionFleece', '#BaltimoreStreetwear', '#TrustYourself', '#LimitedEdition'],
       hashtagsTier2: ['#Streetwear', '#Baltimore', '#1of15', '#CoalitionFleeceEdition', '#HandFinished', '#Drops'],
       slackOneLiner:
-        'COALITION FLEECE. Coalition Fleece Hoodie — $100. 1 of 15. Sized S–2XL. sgcoalition.xyz/shop',
+        'COALITION FLEECE. Coalition Fleece Hoodie — $100. 1 of 15. Sized S–2XL. sgcoalition.shop/shop',
       postTitle: 'Coalition Fleece Hoodie',
       postSlug: 'coalition-fleece-hoodie',
       postExcerpt:
@@ -627,7 +639,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
       y: 15,
 
       price: '$75',
-      shopUrl: 'sgcoalition.xyz/shop',
+      shopUrl: 'sgcoalition.shop/shop',
 
       images: {
         front: '../../public/images/above-as-below-thermal-front.png',
@@ -674,7 +686,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
           layout: 'cta',
           eyebrow: 'ABOVE AS BELOW · THERMAL',
           headline: 'SHOP NOW',
-          url: 'sgcoalition.xyz/shop',
+          url: 'sgcoalition.shop/shop',
           stickers: [
             { type: 'link', anchor: 'center-right', label: 'Story → PDP conversion path' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
@@ -696,20 +708,20 @@ Fifteen pieces, one run. When they are gone, they do not come back.
     },
     copy: {
       igCaptionLong:
-        'ABOVE AS BELOW.\n\nCoalition Above as Below Thermal — $75.\n\nWaffle knit warmth with the Above as Below artwork, worked in red. Same lineage as the tee and the shorts. 1 of 15 in this run, sized S–2XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → sgcoalition.xyz/shop\n\n#Coalition #AboveAsBelow #BaltimoreStreetwear #TrustYourself #LimitedEdition',
+        'ABOVE AS BELOW.\n\nCoalition Above as Below Thermal — $75.\n\nWaffle knit warmth with the Above as Below artwork, worked in red. Same lineage as the tee and the shorts. 1 of 15 in this run, sized S–2XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → sgcoalition.shop/shop\n\n#Coalition #AboveAsBelow #BaltimoreStreetwear #TrustYourself #LimitedEdition',
       igCaptionShort:
         'ABOVE AS BELOW.\n\nCoalition Above as Below Thermal — $75. 1 of 15. Waffle knit, red artwork. Sized S–2XL.\n\nWhen it\'s gone, it\'s gone.\n\n🔗 Link in bio.\n\n#Coalition #AboveAsBelow #TrustYourself #LimitedEdition #BaltimoreStreetwear',
       xSingle:
-        'ABOVE AS BELOW. Coalition Above as Below Thermal — $75. Waffle knit warmth, red artwork, matching the tee and shorts. 15-piece run, S–2XL. Once it\'s gone, it\'s gone. sgcoalition.xyz/shop',
+        'ABOVE AS BELOW. Coalition Above as Below Thermal — $75. Waffle knit warmth, red artwork, matching the tee and shorts. 15-piece run, S–2XL. Once it\'s gone, it\'s gone. sgcoalition.shop/shop',
       xThread: [
-        'ABOVE AS BELOW.\n\nCoalition Above as Below Thermal — $75. Waffle knit warmth with the Above as Below artwork in red. Sized S–2XL. Once it\'s gone, it\'s gone.\n\nsgcoalition.xyz/shop',
+        'ABOVE AS BELOW.\n\nCoalition Above as Below Thermal — $75. Waffle knit warmth with the Above as Below artwork in red. Sized S–2XL. Once it\'s gone, it\'s gone.\n\nsgcoalition.shop/shop',
         '1 of 15. No reprints.\n\nSame lineage as the tee and the shorts — built for the months the tee cannot cover.',
         'Coalition is action. Trust Yourself. 🖤',
       ],
       hashtagsCanonical: ['#Coalition', '#AboveAsBelow', '#BaltimoreStreetwear', '#TrustYourself', '#LimitedEdition'],
       hashtagsTier2: ['#Streetwear', '#Baltimore', '#1of15', '#AboveAsBelowEdition', '#HandFinished', '#Drops'],
       slackOneLiner:
-        'ABOVE AS BELOW. Coalition Above as Below Thermal — $75. 1 of 15. Sized S–2XL. sgcoalition.xyz/shop',
+        'ABOVE AS BELOW. Coalition Above as Below Thermal — $75. 1 of 15. Sized S–2XL. sgcoalition.shop/shop',
       postTitle: 'Coalition Above as Below Thermal',
       postSlug: 'coalition-above-as-below-thermal',
       postExcerpt:
@@ -757,7 +769,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
       y: 1,
 
       price: '$80',
-      shopUrl: 'sgcoalition.xyz/shop',
+      shopUrl: 'sgcoalition.shop/shop',
 
       images: {
         front: '../../public/images/ghost-riders-wallet-front.png',
@@ -808,7 +820,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
           layout: 'cta',
           eyebrow: 'GHOST RIDERS / WALLET 1/1',
           headline: 'SHOP NOW',
-          url: 'sgcoalition.xyz/shop',
+          url: 'sgcoalition.shop/shop',
           stickers: [
             { type: 'link', anchor: 'center-right', label: 'Story → PDP conversion path' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
@@ -838,20 +850,20 @@ Fifteen pieces, one run. When they are gone, they do not come back.
     },
     copy: {
       igCaptionLong:
-        '👻 GHOST RIDERS: AFTER DARK.\n\nCoalition \'Ghost Riders: After Dark\' Wallet 1/1 — $80.\n\nHand-stitched patchwork: camo and rust corduroy under green blanket stitching. The Coalition banner across one face, the skull gang riding out on the other.\n\nOne of one. When it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → sgcoalition.xyz/shop\n\n#Coalition #GhostRiders #BaltimoreStreetwear #TrustYourself #OneOfOne',
+        '👻 GHOST RIDERS: AFTER DARK.\n\nCoalition \'Ghost Riders: After Dark\' Wallet 1/1 — $80.\n\nHand-stitched patchwork: camo and rust corduroy under green blanket stitching. The Coalition banner across one face, the skull gang riding out on the other.\n\nOne of one. When it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → sgcoalition.shop/shop\n\n#Coalition #GhostRiders #BaltimoreStreetwear #TrustYourself #OneOfOne',
       igCaptionShort:
         '👻 GHOST RIDERS: AFTER DARK.\n\nCoalition \'Ghost Riders: After Dark\' Wallet 1/1 — $80. Hand-stitched patchwork, one of one.\n\nWhen it\'s gone, it\'s gone.\n\n🔗 Link in bio.\n\n#Coalition #GhostRiders #TrustYourself #OneOfOne #BaltimoreStreetwear',
       xSingle:
-        "👻 GHOST RIDERS: AFTER DARK. Coalition 'Ghost Riders: After Dark' Wallet 1/1 — $80. Hand-stitched patchwork: banner on one face, skull gang on the other. One of one. Once it's gone, it's gone. sgcoalition.xyz/shop",
+        "👻 GHOST RIDERS: AFTER DARK. Coalition 'Ghost Riders: After Dark' Wallet 1/1 — $80. Hand-stitched patchwork: banner on one face, skull gang on the other. One of one. Once it's gone, it's gone. sgcoalition.shop/shop",
       xThread: [
-        "👻 GHOST RIDERS: AFTER DARK.\n\nCoalition 'Ghost Riders: After Dark' Wallet 1/1 — $80. Hand-stitched patchwork: the Coalition banner on one face, the skull gang riding out on the other.\n\nsgcoalition.xyz/shop",
+        "👻 GHOST RIDERS: AFTER DARK.\n\nCoalition 'Ghost Riders: After Dark' Wallet 1/1 — $80. Hand-stitched patchwork: the Coalition banner on one face, the skull gang riding out on the other.\n\nsgcoalition.shop/shop",
         '1 of 1. No reprints.\n\nCamo and rust corduroy under green blanket stitching, finished by hand. The only one like it — literally.',
         'Coalition is action. Trust Yourself. 🖤',
       ],
       hashtagsCanonical: ['#Coalition', '#GhostRiders', '#BaltimoreStreetwear', '#TrustYourself', '#OneOfOne'],
       hashtagsTier2: ['#Streetwear', '#Baltimore', '#1of1', '#HandStitched', '#Patchwork', '#Drops'],
       slackOneLiner:
-        '👻 GHOST RIDERS: AFTER DARK. Coalition wallet 1/1 — $80. Hand-stitched patchwork, one of one. sgcoalition.xyz/shop',
+        '👻 GHOST RIDERS: AFTER DARK. Coalition wallet 1/1 — $80. Hand-stitched patchwork, one of one. sgcoalition.shop/shop',
       postTitle: "Coalition 'Ghost Riders: After Dark' Wallet 1/1",
       postSlug: 'coalition-ghost-riders-after-dark-wallet-1-1',
       postExcerpt:
@@ -888,6 +900,256 @@ One piece. When it is gone, it does not come back.
 <img src="/images/ghost-riders-buy-qr.png" alt="Scan to shop the Ghost Riders: After Dark wallet" style="width:244px; height:244px; background:#ffffff; padding:12px; border-radius:16px; display:inline-block;" />
 <p style="margin-top:14px; font-weight:700; letter-spacing:.08em;">SCAN TO SHOP — ONE OF ONE, $80</p>
 </div>
+`.trim(),
+    },
+  },
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // PARTS: CLOSING THE RUN — 3/4 and 4/4. Both pieces are ALREADY available;
+  // this is a reveal, not a launch, so the date is the announce date and the
+  // countdown / "drop time" stickers are deliberately absent (nothing to count
+  // down to). Numbered run sold one piece at a time: `x`/`y` print "3 OF 4" /
+  // "4 OF 4" while each listing holds a single unit (`unitsHeld: 1`). The two
+  // share a dropId so Marketing sends ONE email covering the closing pair.
+  // ───────────────────────────────────────────────────────────────────────────
+  'parts-wallet-3-4': {
+    dropId: 'drop-2026-10-16',
+    dropDate: '2026-10-16',
+    spec: {
+      slug: 'parts-wallet-3-4',
+
+      releaseName: 'PARTS',
+      productName: "Coalition 'Parts' Wallet 3/4",
+
+      x: 3,
+      y: 4,
+      unitsHeld: 1,
+
+      price: '$45',
+      shopUrl: 'sgcoalition.shop/shop',
+
+      images: {
+        front: '../../public/images/parts-wallet-3-4-front.png',
+        back: '../../public/images/parts-wallet-3-4-back.png',
+      },
+
+      slides: [
+        {
+          layout: 'hero',
+          wordmark: 'COALITION',
+          headline: 'PARTS',
+          body: ["Coalition 'Parts' Wallet 3/4"],
+          stickers: [{ type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' }],
+        },
+        {
+          layout: 'detail',
+          headline: 'Industrial detailing.',
+          body: ['Raw-edge construction and a single Coalition mark on a numbered, hand-finished carry.'],
+          stickers: [{ type: 'poll', anchor: 'center-right', label: '"Wear it raw or box it?" Wear / Box' }],
+        },
+        {
+          layout: 'scarcity',
+          eyebrow: 'THE RUN CLOSES',
+          headline: '3 OF 4',
+          price: '$45',
+          stickers: [{ type: 'poll', anchor: 'bottom-left', label: '"Run it again?" Yes / Never' }],
+        },
+        {
+          layout: 'manifesto',
+          headline: 'TRUST YOURSELF.',
+          body: ['Coalition is action. Show up.'],
+          stickers: [
+            { type: 'mention', anchor: 'bottom-right', label: '@sgcoalition mention' },
+            { type: 'emoji', anchor: 'center-left', label: '🧩 Trust Yourself (emoji slider, optional)' },
+          ],
+        },
+        {
+          layout: 'cta',
+          eyebrow: 'PARTS · WALLET 3/4',
+          headline: 'SHOP NOW',
+          url: 'sgcoalition.shop/shop',
+          stickers: [
+            { type: 'link', anchor: 'center-right', label: 'Story → PDP conversion path' },
+            { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
+          ],
+        },
+      ],
+    },
+    listing: {
+      id: 'Coalition_Parts_Wallet_3_4',
+      price: 45,
+      category: 'wallet',
+      sizes: ['One Size'],
+      sizeInventory: { 'One Size': 1 },
+      isLimitedEdition: true,
+      isFeatured: false,
+      description:
+        "Third piece of the Coalition 'Parts' limited wallet run. Hand-finished with industrial detailing, raw-edge construction, and the Coalition mark on a numbered carry. Each piece is a distinct part of the whole — built different, numbered once, gone forever. Priced at $45 with standard shipping included.",
+      storeImages: ['https://i.imgur.com/83jXZKg.jpg', 'https://i.imgur.com/0OMUUgV.jpg'],
+    },
+    copy: {
+      igCaptionLong:
+        '🧩 PARTS.\n\nCoalition \'Parts\' Wallet 3/4 — $45.\n\nIndustrial detailing, raw-edge construction, and the Coalition mark on a numbered, hand-finished carry. Each piece is a distinct part of the whole — built different, numbered once, gone forever.\n\nThe run closes with this one and 4/4. When they\'re gone, they\'re gone. Trust Yourself.\n\n🔗 Link in bio → sgcoalition.shop/shop\n\n#Coalition #Parts #BaltimoreStreetwear #TrustYourself #LimitedEdition',
+      igCaptionShort:
+        '🧩 PARTS.\n\nCoalition \'Parts\' Wallet 3/4 — $45. 3 of 4. Industrial detailing, raw-edge construction.\n\nWhen they\'re gone, they\'re gone.\n\n🔗 Link in bio.\n\n#Coalition #Parts #TrustYourself #LimitedEdition #BaltimoreStreetwear',
+      xSingle:
+        '🧩 PARTS. Coalition \'Parts\' Wallet 3/4 — $45. Industrial detailing, raw-edge construction, the Coalition mark on a numbered carry. 3 of 4. Once it\'s gone, it\'s gone. sgcoalition.shop/shop',
+      xThread: [
+        '🧩 PARTS.\n\nCoalition \'Parts\' Wallet 3/4 — $45. Industrial detailing and raw-edge construction on a numbered, hand-finished carry. 3 of 4 — the run closes with this one and 4/4.\n\nsgcoalition.shop/shop',
+        'Each piece is a distinct part of the whole.\n\nBuilt different, numbered once. One Coalition mark, finished by hand, never made again.',
+        'Coalition is action. Trust Yourself. 🖤',
+      ],
+      hashtagsCanonical: ['#Coalition', '#Parts', '#BaltimoreStreetwear', '#TrustYourself', '#LimitedEdition'],
+      hashtagsTier2: ['#Streetwear', '#Baltimore', '#3of4', '#PartsRun', '#HandFinished', '#Drops'],
+      slackOneLiner:
+        '🧩 PARTS. Coalition \'Parts\' Wallet 3/4 — $45. 3 of 4. Industrial detailing, raw-edge construction. sgcoalition.shop/shop',
+      postTitle: "Coalition 'Parts' Wallet 3/4",
+      postSlug: 'coalition-parts-wallet-3-4',
+      postExcerpt:
+        'Third piece in the Parts run: industrial detailing and raw-edge construction on a numbered carry — the run closes here and at 4/4.',
+      postTags: ['drop', 'wallet', 'limited', 'parts'],
+      postBody: `
+<img src="/images/parts-wallet-3-4-front.png" alt="Coalition 'Parts' Wallet 3/4 — front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+
+Third of four. Industrial detailing and a raw-edge finish on a carry that is built by hand and numbered once.
+
+<h2>THE BUILD</h2>
+
+<ul>
+<li><strong>Industrial detailing</strong> — raw-edge construction, finished in-house.</li>
+<li><strong>One Coalition mark</strong> on a numbered carry.</li>
+<li><strong>Three of four</strong> — the run closes with this piece and 4/4.</li>
+</ul>
+
+<img src="/images/parts-wallet-3-4-back.png" alt="Coalition 'Parts' Wallet 3/4 — back" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+
+<h2>THE RUN</h2>
+
+Each piece is a distinct part of the whole — built different, numbered once, gone forever.
+
+<em>Trust the process. Trust yourself.</em>
+`.trim(),
+    },
+  },
+
+  'parts-wallet-4-4': {
+    dropId: 'drop-2026-10-16',
+    dropDate: '2026-10-16',
+    spec: {
+      slug: 'parts-wallet-4-4',
+
+      releaseName: 'PARTS',
+      productName: "Coalition 'Parts' Wallet 4/4",
+
+      x: 4,
+      y: 4,
+      unitsHeld: 1,
+
+      price: '$60',
+      shopUrl: 'sgcoalition.shop/shop',
+
+      images: {
+        front: '../../public/images/parts-wallet-4-4-front.png',
+        back: '../../public/images/parts-wallet-4-4-back.png',
+      },
+
+      slides: [
+        {
+          layout: 'hero',
+          wordmark: 'COALITION',
+          headline: 'PARTS',
+          body: ["Coalition 'Parts' Wallet 4/4"],
+          stickers: [{ type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' }],
+        },
+        {
+          layout: 'detail',
+          headline: 'The closing piece.',
+          body: [
+            'The fourth and final numbered carry — industrial detailing and raw-edge construction, finished by hand with the Coalition mark.',
+          ],
+          stickers: [{ type: 'poll', anchor: 'center-right', label: '"Which part is yours?" 1–3 / 4' }],
+        },
+        {
+          layout: 'scarcity',
+          eyebrow: 'THE FINAL PIECE',
+          headline: '4 OF 4',
+          price: '$60',
+          stickers: [{ type: 'poll', anchor: 'bottom-left', label: '"Run it again?" Yes / Never' }],
+        },
+        {
+          layout: 'manifesto',
+          headline: 'TRUST YOURSELF.',
+          body: ['Coalition is action. Show up.'],
+          stickers: [
+            { type: 'mention', anchor: 'bottom-right', label: '@sgcoalition mention' },
+            { type: 'emoji', anchor: 'center-left', label: '🧩 Trust Yourself (emoji slider, optional)' },
+          ],
+        },
+        {
+          layout: 'cta',
+          eyebrow: 'PARTS · WALLET 4/4',
+          headline: 'SHOP NOW',
+          url: 'sgcoalition.shop/shop',
+          stickers: [
+            { type: 'link', anchor: 'center-right', label: 'Story → PDP conversion path' },
+            { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
+          ],
+        },
+      ],
+    },
+    listing: {
+      id: 'Coalition_Parts_Wallet_4_4',
+      price: 60,
+      category: 'wallet',
+      sizes: ['One Size'],
+      sizeInventory: { 'One Size': 1 },
+      isLimitedEdition: true,
+      isFeatured: false,
+      description:
+        "Fourth and final piece of the Coalition 'Parts' limited wallet run. Hand-finished with industrial detailing, raw-edge construction, and the Coalition mark on a numbered carry. The closing piece — once sold, the full four-part assembly is gone forever.",
+      storeImages: ['https://i.imgur.com/RqcU0I9.jpg', 'https://i.imgur.com/Lnimi33.jpg'],
+    },
+    copy: {
+      igCaptionLong:
+        '🧩 PARTS.\n\nCoalition \'Parts\' Wallet 4/4 — $60.\n\nThe closing piece. Industrial detailing and raw-edge construction on the fourth and final numbered carry — finished by hand with the Coalition mark.\n\nOnce the full four-part assembly is sold, it\'s gone forever. Trust Yourself.\n\n🔗 Link in bio → sgcoalition.shop/shop\n\n#Coalition #Parts #BaltimoreStreetwear #TrustYourself #LimitedEdition',
+      igCaptionShort:
+        '🧩 PARTS.\n\nCoalition \'Parts\' Wallet 4/4 — $60. 4 of 4. The closing piece.\n\nOnce the assembly is gone, it\'s gone.\n\n🔗 Link in bio.\n\n#Coalition #Parts #TrustYourself #LimitedEdition #BaltimoreStreetwear',
+      xSingle:
+        '🧩 PARTS. Coalition \'Parts\' Wallet 4/4 — $60. The closing piece — industrial detailing and raw-edge construction on the final numbered carry. 4 of 4. sgcoalition.shop/shop',
+      xThread: [
+        '🧩 PARTS.\n\nCoalition \'Parts\' Wallet 4/4 — $60. The closing piece: industrial detailing and raw-edge construction on the fourth and final numbered carry.\n\nsgcoalition.shop/shop',
+        'Four pieces. One lineage.\n\nWhen 4/4 sells, the full four-part assembly is gone — no reprints, no restock.',
+        'Coalition is action. Trust Yourself. 🖤',
+      ],
+      hashtagsCanonical: ['#Coalition', '#Parts', '#BaltimoreStreetwear', '#TrustYourself', '#LimitedEdition'],
+      hashtagsTier2: ['#Streetwear', '#Baltimore', '#4of4', '#PartsRun', '#HandFinished', '#Drops'],
+      slackOneLiner:
+        '🧩 PARTS. Coalition \'Parts\' Wallet 4/4 — $60. 4 of 4. The closing piece. sgcoalition.shop/shop',
+      postTitle: "Coalition 'Parts' Wallet 4/4",
+      postSlug: 'coalition-parts-wallet-4-4',
+      postExcerpt:
+        'The closing piece: industrial detailing and raw-edge construction on the fourth and final numbered carry of the Parts run.',
+      postTags: ['drop', 'wallet', 'limited', 'parts'],
+      postBody: `
+<img src="/images/parts-wallet-4-4-front.png" alt="Coalition 'Parts' Wallet 4/4 — front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+
+The fourth and final piece. Industrial detailing and a raw-edge finish on the carry that closes the run.
+
+<h2>THE BUILD</h2>
+
+<ul>
+<li><strong>Industrial detailing</strong> — raw-edge construction, finished in-house.</li>
+<li><strong>One Coalition mark</strong> on a numbered carry.</li>
+<li><strong>Four of four</strong> — the closing piece.</li>
+</ul>
+
+<img src="/images/parts-wallet-4-4-back.png" alt="Coalition 'Parts' Wallet 4/4 — back" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+
+<h2>THE RUN</h2>
+
+Once the full four-part assembly is sold, it is gone forever.
+
+<em>Trust the process. Trust yourself.</em>
 `.trim(),
     },
   },

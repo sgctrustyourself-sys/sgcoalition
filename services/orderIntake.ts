@@ -67,6 +67,9 @@ export interface PriceSnapshot {
     // Method-specific crypto (SGCoin) discount, split out so the checkout
     // order summary can render its own line. Always 0 for card (Stripe).
     cryptoDiscountCents: number;
+    // Account-holder (member) discount: 30% off for any logged-in user with
+    // an account. Applies to all payment methods. 0 for guests.
+    memberDiscountCents: number;
     items: Array<{ productId: string; productName: string; selectedSize: string; quantity: number; unitCents: number; lineCents: number; basePriceDollars: number; addOnCents: number; keychainClipOn: boolean; }>;
 }
 
@@ -157,7 +160,7 @@ export async function loadStoreCreditCents(userId: string | null | undefined): P
     return Math.max(0, Math.round(Number((data as { store_credit?: number } | null)?.store_credit || 0) * 100));
 }
 
-export async function resolvePricing(items: PricingItem[], shippingDollars: number, clientDiscountDollars: number, paymentMethod: string, storeCreditCents: number = 0, couponCode?: string | null, storeCreditAppliedCents: number = 0): Promise<PriceSnapshot> {
+export async function resolvePricing(items: PricingItem[], shippingDollars: number, clientDiscountDollars: number, paymentMethod: string, storeCreditCents: number = 0, couponCode?: string | null, storeCreditAppliedCents: number = 0, userId?: string | null): Promise<PriceSnapshot> {
     if (!items.length) throw err(400, 'At least one item required.');
     const products = await loadProducts([...new Set(items.map(i => i.productId))]);
     let itemTotalCents = 0;
@@ -182,6 +185,11 @@ export async function resolvePricing(items: PricingItem[], shippingDollars: numb
     const shipCents = toCents(shippingDollars, 'Shipping');
     if (shipCents !== 0 && shipCents !== 500 && shipCents !== 1000) throw err(400, 'Shipping must be 0, 5, or 10.');
     const setBonus = calculateAboveAsBelowSetBonusCents(items.map(i => ({ productId: i.productId, quantity: i.quantity })));
+    // Member discount: 30% off for any logged-in account holder. Applies to all
+    // payment methods. Gated on a valid (UUID) userId — the same identity the
+    // storefront sends from Supabase auth. Guests (no userId) get nothing.
+    const isMember = Boolean(userId && uuid(userId));
+    const memberDiscountCents = isMember ? Math.round(itemTotalCents * 0.30) : 0;
     const otherDisc = Math.max(0, toCents(clientDiscountDollars, 'Discount') - setBonus);
     // Crypto discount (SGCoin incentive): applies to the `crypto` method
     // ONLY — card (Stripe) never sees it, matching the rule that the crypto
@@ -189,7 +197,7 @@ export async function resolvePricing(items: PricingItem[], shippingDollars: numb
     // env flag the checkout UI badge reads, so the advertised offer and the
     // server math can never disagree. Capped at $10 so large carts stay
     // bounded. Computed on the post-set-bonus payable base.
-    const basePayableCents = Math.max(0, itemTotalCents + shipCents - setBonus);
+    const basePayableCents = Math.max(0, itemTotalCents + shipCents - setBonus - memberDiscountCents);
     const cryptoDiscountCents = paymentMethod === 'crypto'
         ? resolveCryptoDiscountCents(items.map(i => ({ productId: i.productId, quantity: i.quantity, price: (products.get(i.productId)?.price || 0) })), shippingDollars, setBonus)
         : 0;
@@ -205,14 +213,14 @@ export async function resolvePricing(items: PricingItem[], shippingDollars: numb
     // The coupon base is the pre-coupon payable total (after set bonus and
     // the method-specific crypto discount). Coupon discounts apply to ALL
     // payment methods — they're an explicit discount the customer applied.
-    const couponBaseCents = Math.max(0, itemTotalCents + shipCents - setBonus - cryptoDiscountCents - (paymentMethod === 'stripe' ? 0 : otherDisc));
+    const couponBaseCents = Math.max(0, itemTotalCents + shipCents - setBonus - memberDiscountCents - cryptoDiscountCents - (paymentMethod === 'stripe' ? 0 : otherDisc));
     const couponApplied = await validateCoupon(couponCode, couponBaseCents);
     const couponDiscountCents = couponApplied?.discountCents || 0;
     const preCreditTotal = Math.max(0, couponBaseCents - couponDiscountCents);
     const scCents = Math.min(statedAppliedCents > 0 ? statedAppliedCents : rawScCents, preCreditTotal);
-    const discCents = setBonus + cryptoDiscountCents + (paymentMethod === 'stripe' ? 0 : otherDisc) + couponDiscountCents + scCents;
+    const discCents = setBonus + memberDiscountCents + cryptoDiscountCents + (paymentMethod === 'stripe' ? 0 : otherDisc) + couponDiscountCents + scCents;
     const totalCents = Math.max(0, itemTotalCents + shipCents - discCents);
-    return { itemTotalCents, shippingCents: shipCents, discountCents: discCents, storeCreditCents: scCents, cryptoDiscountCents, totalCents, couponDiscountCents, couponCode: couponApplied?.coupon.code || null, items: resolved };
+    return { itemTotalCents, shippingCents: shipCents, discountCents: discCents, storeCreditCents: scCents, cryptoDiscountCents, memberDiscountCents, totalCents, couponDiscountCents, couponCode: couponApplied?.coupon.code || null, items: resolved };
 }
 
 // =========================================================================
@@ -382,7 +390,7 @@ async function sendAdm(rec: OrderRow): Promise<void> {
         return '<tr><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;"><strong>' + esc(i.productName || i.name) + '</strong><br><span style="color:#6b7280;font-size:13px;">Size: ' + esc(i.selectedSize || i.size) + ' - Qty: ' + q + '</span></td><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;text-align:right;">$' + up.toFixed(2) + '</td><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;text-align:right;">$' + (up * q).toFixed(2) + '</td></tr>';
     }).join('');
     const payRefRow = payRef ? '<tr><td style="padding:12px;background:#f9fafb;"><strong>Payment Ref</strong></td><td style="padding:12px;text-align:right;">' + esc(payRef) + '</td></tr>' : '';
-    const html = '<div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:28px;background:#fff;color:#111827;"><h1 style="margin:0 0 8px;letter-spacing:2px;text-transform:uppercase;">Order Ready To Fulfill</h1><p style="margin:0 0 24px;color:#6b7280;">A paid order was placed on sgcoalition.xyz. Prepare, pack, and ship the items below.</p><div style="background:#111827;color:#fff;border-radius:8px;padding:18px;margin-bottom:24px;"><div style="font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#9ca3af;">Fulfillment Summary</div><div style="font-size:28px;font-weight:bold;margin-top:4px;">' + esc(rec.order_number) + '</div><div style="margin-top:8px;">Total: <strong>$' + Number(rec.total || 0).toFixed(2) + '</strong> | Payment: <strong>' + esc(rec.payment_method) + ' / ' + esc(rec.payment_status) + '</strong></div></div><table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;"><tr><td style="padding:12px;background:#f9fafb;"><strong>Order</strong></td><td style="padding:12px;text-align:right;">' + esc(rec.order_number) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Total</strong></td><td style="padding:12px;text-align:right;">$' + Number(rec.total || 0).toFixed(2) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Payment</strong></td><td style="padding:12px;text-align:right;">' + esc(rec.payment_method) + ' / ' + esc(rec.payment_status) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Shipping</strong></td><td style="padding:12px;text-align:right;">' + esc(shipping.shippingMethod || 'standard') + ' ($' + Number(shipping.shippingCost || 0).toFixed(2) + ')</td></tr>' + payRefRow + '</table><h2 style="font-size:18px;margin:0 0 10px;">Customer</h2><p style="margin:0 0 20px;line-height:1.6;">' + esc(rec.customer_name) + '<br><a href="mailto:' + esc(rec.customer_email) + '">' + esc(rec.customer_email) + '</a><br>' + esc(rec.customer_phone || '') + '</p><h2 style="font-size:18px;margin:0 0 10px;">Ship To</h2><p style="margin:0 0 20px;line-height:1.6;">' + formatAddr(rec.shipping_address as any) + '</p><h2 style="font-size:18px;margin:0 0 10px;">Items</h2><table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;"><tr><th align="left" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Item</th><th align="right" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Unit</th><th align="right" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Line</th></tr>' + itemsRows + '</table><div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;padding:16px;margin-bottom:24px;"><strong>Next step:</strong> Pull the items, verify size/quantity, pack the order, then update the admin dashboard when it ships.</div><p style="margin-top:24px;"><a href="https://sgcoalition.xyz/#/admin" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Admin Dashboard</a></p></div>';
+    const html = '<div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:28px;background:#fff;color:#111827;"><h1 style="margin:0 0 8px;letter-spacing:2px;text-transform:uppercase;">Order Ready To Fulfill</h1><p style="margin:0 0 24px;color:#6b7280;">A paid order was placed on sgcoalition.shop. Prepare, pack, and ship the items below.</p><div style="background:#111827;color:#fff;border-radius:8px;padding:18px;margin-bottom:24px;"><div style="font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#9ca3af;">Fulfillment Summary</div><div style="font-size:28px;font-weight:bold;margin-top:4px;">' + esc(rec.order_number) + '</div><div style="margin-top:8px;">Total: <strong>$' + Number(rec.total || 0).toFixed(2) + '</strong> | Payment: <strong>' + esc(rec.payment_method) + ' / ' + esc(rec.payment_status) + '</strong></div></div><table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;"><tr><td style="padding:12px;background:#f9fafb;"><strong>Order</strong></td><td style="padding:12px;text-align:right;">' + esc(rec.order_number) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Total</strong></td><td style="padding:12px;text-align:right;">$' + Number(rec.total || 0).toFixed(2) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Payment</strong></td><td style="padding:12px;text-align:right;">' + esc(rec.payment_method) + ' / ' + esc(rec.payment_status) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Shipping</strong></td><td style="padding:12px;text-align:right;">' + esc(shipping.shippingMethod || 'standard') + ' ($' + Number(shipping.shippingCost || 0).toFixed(2) + ')</td></tr>' + payRefRow + '</table><h2 style="font-size:18px;margin:0 0 10px;">Customer</h2><p style="margin:0 0 20px;line-height:1.6;">' + esc(rec.customer_name) + '<br><a href="mailto:' + esc(rec.customer_email) + '">' + esc(rec.customer_email) + '</a><br>' + esc(rec.customer_phone || '') + '</p><h2 style="font-size:18px;margin:0 0 10px;">Ship To</h2><p style="margin:0 0 20px;line-height:1.6;">' + formatAddr(rec.shipping_address as any) + '</p><h2 style="font-size:18px;margin:0 0 10px;">Items</h2><table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;"><tr><th align="left" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Item</th><th align="right" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Unit</th><th align="right" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Line</th></tr>' + itemsRows + '</table><div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;padding:16px;margin-bottom:24px;"><strong>Next step:</strong> Pull the items, verify size/quantity, pack the order, then update the admin dashboard when it ships.</div><p style="margin-top:24px;"><a href="https://sgcoalition.shop/#/admin" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Admin Dashboard</a></p></div>';
     const result = await r.emails.send({ from: fromAddr(), to: rcpts, subject: 'ACTION REQUIRED: Prepare Coalition order ' + rec.order_number, html } as any);
     if ((result as any)?.error) throw new Error((result as any).error.message);
 }
@@ -391,7 +399,7 @@ async function sendAdm(rec: OrderRow): Promise<void> {
 // matches the raw order id), so this link lands pre-filtered on the exact row.
 // Owned here so every ops alert reaches the same place.
 function adminOrderUrl(orderId: string): string {
-    return 'https://sgcoalition.xyz/#/admin?tab=orders&q=' + encodeURIComponent(orderId);
+    return 'https://sgcoalition.shop/#/admin?tab=orders&q=' + encodeURIComponent(orderId);
 }
 
 // Ops alert: money moved (payment_intent.succeeded) but the order could not
@@ -407,7 +415,7 @@ export async function notifyAdminReconcileFailure(orderId: string, paymentIntent
         const stripeUrl = 'https://dashboard.stripe.com/payments/' + encodeURIComponent(paymentIntentId);
         const html = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#fff;color:#111827;">'
             + '<h2 style="letter-spacing:1px;text-transform:uppercase;">Webhook reconcile failed</h2>'
-            + '<p>A <strong>payment_intent.succeeded</strong> event arrived for sgcoalition.xyz but the order could not be reconciled automatically. Money has moved — resolve manually in the Stripe dashboard and Admin &rarr; Orders.</p>'
+            + '<p>A <strong>payment_intent.succeeded</strong> event arrived for sgcoalition.shop but the order could not be reconciled automatically. Money has moved — resolve manually in the Stripe dashboard and Admin &rarr; Orders.</p>'
             + '<p><a href="' + esc(adminUrl) + '" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;margin-right:12px;">Triage order in Admin</a>'
             + '<a href="' + esc(stripeUrl) + '" style="background:#f3f4f6;color:#111827;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">View payment in Stripe</a></p>'
             + '<table cellpadding="8" style="border:1px solid #e5e7eb;border-radius:8px;margin:16px 0;">'
@@ -572,7 +580,7 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
 
     const pricing = await resolvePricing(
         attempt.items.map(i => ({ productId: i.productId, selectedSize: i.selectedSize, quantity: i.quantity, keychainClipOn: Boolean(i.keychainClipOn) })),
-        attempt.shippingDollars, attempt.clientDiscount, attempt.paymentEvidence.method, 0, attempt.couponCode, serverCreditCents);
+        attempt.shippingDollars, attempt.clientDiscount, attempt.paymentEvidence.method, 0, attempt.couponCode, serverCreditCents, attempt.userId ? String(attempt.userId) : null);
     if (attempt.clientTotal !== undefined) {
         const cc = toCents(attempt.clientTotal, 'Client total');
         if (cc !== pricing.totalCents) console.warn('[OrderIntake] Total mismatch: client=' + cc + 'c server=' + pricing.totalCents + 'c');
@@ -604,6 +612,8 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
             ? 'Coupon: ' + pricing.couponCode + ' (-$' + c2d(pricing.couponDiscountCents) + ')'
             : '', pricing.storeCreditCents > 0
             ? 'Store credit applied: -$' + c2d(pricing.storeCreditCents)
+            : '', pricing.memberDiscountCents > 0
+            ? 'Member discount (30%): -$' + c2d(pricing.memberDiscountCents)
             : '', pricing.cryptoDiscountCents > 0
             ? 'Crypto discount (' + Math.min(100, Number(process.env.VITE_SGCOIN_DISCOUNT_PERCENTAGE || 10)) + '%): -$' + c2d(pricing.cryptoDiscountCents)
             : ''].filter(Boolean).join('\n'),

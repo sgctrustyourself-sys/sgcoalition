@@ -50,7 +50,7 @@ function req(overrides: Partial<any> = {}): any {
     return {
         method: 'POST',
         body: JSON.stringify({ error: 'Stripe success but API failure', context: 'Test', metadata: {} }),
-        headers: { 'user-agent': 'vitest-agent', referer: 'https://sgcoalition.xyz/checkout' },
+        headers: { 'user-agent': 'vitest-agent', referer: 'https://sgcoalition.shop/checkout' },
         query: {},
         ...overrides,
     };
@@ -77,7 +77,7 @@ describe('POST /api/report-error', () => {
         expect(call.to).toEqual(['ops@example.com']);
         expect(call.subject).toContain('Test');
         expect(call.html).toContain('Stripe success but API failure');
-        expect(call.html).toContain('https://sgcoalition.xyz/checkout');
+        expect(call.html).toContain('https://sgcoalition.shop/checkout');
     });
 
     it('is fire-and-forget: a failing email must not reject the acknowledgment', async () => {

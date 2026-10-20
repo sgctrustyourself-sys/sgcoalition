@@ -176,16 +176,16 @@ describe('withRateLimit', () => {
 
 describe('setCorsHeaders', () => {
     it('falls back to the configured origin when no whitelist is supplied', () => {
-        process.env.VITE_APP_URL = 'https://sgcoalition.xyz';
+        process.env.VITE_APP_URL = 'https://sgcoalition.shop';
         const res = makeRes();
         setCorsHeaders(makeReq({ headers: { origin: 'https://evil.example.test' } }) as never, res as never);
 
-        expect(res.headers['Access-Control-Allow-Origin']).toBe('https://sgcoalition.xyz');
+        expect(res.headers['Access-Control-Allow-Origin']).toBe('https://sgcoalition.shop');
         expect(res.headers['Access-Control-Allow-Credentials']).toBe('true');
     });
 
     it('echoes a whitelisted origin verbatim and rejects anything else', () => {
-        process.env.VITE_APP_URL = 'https://sgcoalition.xyz';
+        process.env.VITE_APP_URL = 'https://sgcoalition.shop';
 
         const good = makeRes();
         setCorsHeaders(
@@ -201,7 +201,7 @@ describe('setCorsHeaders', () => {
             bad as never,
             { originWhitelist: LOCAL_DEV_ORIGINS },
         );
-        expect(bad.headers['Access-Control-Allow-Origin']).toBe('https://sgcoalition.xyz');
+        expect(bad.headers['Access-Control-Allow-Origin']).toBe('https://sgcoalition.shop');
     });
 
     it('keeps the documented Vite dev origins on the allow-list', () => {

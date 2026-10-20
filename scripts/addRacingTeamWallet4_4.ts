@@ -74,7 +74,7 @@ async function addRacingTeamWallet4_4() {
     }
 
     console.log("✅ Successfully upserted Coalition 'Racing Team' Wallet 4/4:", data);
-    console.log('🔗 View at: https://sgcoalition.xyz/product/Coalition_Racing_Team_Wallet_4_4');
+    console.log('🔗 View at: https://sgcoalition.shop/product/Coalition_Racing_Team_Wallet_4_4');
 }
 
 addRacingTeamWallet4_4();

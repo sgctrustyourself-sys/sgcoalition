@@ -1,7 +1,7 @@
 // tests/checkoutCouponIntent.test.tsx
 //
 // REGRESSION CATCH for two paid-but-broken money paths, both reproduced on
-// sgcoalition.xyz on 2026-09-20 with the live 100%-off voucher DROP-202608-C0G7:
+// sgcoalition.shop on 2026-09-20 with the live 100%-off voucher DROP-202608-C0G7:
 //
 //   1. A discount coupon applied AFTER the shipping form was filled did not
 //      re-create the PaymentIntent, because the coupon was missing from the

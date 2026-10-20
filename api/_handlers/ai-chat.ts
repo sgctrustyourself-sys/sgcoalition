@@ -27,7 +27,7 @@ KEY INFORMATION:
 - SGCoin: Loyalty cryptocurrency (ERC-20 on Polygon network)
 - NFTs: Each physical item comes with a unique digital NFT
 - Support Email: sgctrustyourself@gmail.com
-- Website: https://sgcoalition.xyz
+- Website: https://sgcoalition.shop
 
 CAPABILITIES:
 - Answer questions about products, prices, sizing, and availability
@@ -75,7 +75,7 @@ const MAX_HISTORY_MESSAGES = 12;
 const MAX_IMAGE_DATA_URL_LENGTH = 8_000_000;
 
 function setCorsHeaders(req: any, res: any) {
-    const configuredOrigin = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
+    const configuredOrigin = process.env.VITE_APP_URL || 'https://sgcoalition.shop';
     const allowedOrigins = new Set([
         configuredOrigin,
         'http://localhost:3000',

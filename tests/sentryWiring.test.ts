@@ -130,7 +130,7 @@ describe('beforeSend redaction', () => {
             message: 'payer member@example.com',
             exception: { values: [{ value: 'auth failed for member@example.com with Bearer sk_live_abcdef123456' }] },
             request: {
-                url: 'https://sgcoalition.xyz/api/complete-order?id=1',
+                url: 'https://sgcoalition.shop/api/complete-order?id=1',
                 data: { email: 'member@example.com', orderId: 'order_1784012446238' },
                 cookies: { session: 'abc' },
                 headers: { authorization: 'Bearer xyz', 'content-type': 'application/json' },

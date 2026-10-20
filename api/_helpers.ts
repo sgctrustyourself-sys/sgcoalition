@@ -76,7 +76,7 @@ export interface CorsOptions {
     allowedHeaders?: string;
 }
 
-const DEFAULT_PUBLIC_ORIGIN = 'https://sgcoalition.xyz';
+const DEFAULT_PUBLIC_ORIGIN = 'https://sgcoalition.shop';
 
 export const LOCAL_DEV_ORIGINS: readonly string[] = [
     'http://localhost:3000',

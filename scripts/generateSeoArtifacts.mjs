@@ -15,7 +15,7 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '..');
-const SITE_ORIGIN = 'https://sgcoalition.xyz';
+const SITE_ORIGIN = 'https://sgcoalition.shop';
 // Share cards, mirroring SHARE_CARD_DIRECTORY / DEFAULT_SEO_IMAGE / shareCardImage
 // in utils/seo.ts. 1200x630 is the size every scraper needs before it renders a
 // full-width link preview; scripts/generateOgCard.mjs writes one card per route.

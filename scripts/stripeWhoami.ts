@@ -80,7 +80,7 @@ const main = async (): Promise<number> => {
     const key = (process.env.STRIPE_SECRET_KEY ?? '').trim();
     const publishable = (process.env.VITE_STRIPE_PUBLISHABLE_KEY ?? '').trim();
     const webhookSecret = (process.env.STRIPE_WEBHOOK_SECRET ?? '').trim();
-    const site = (process.env.SITE_URL ?? 'https://sgcoalition.xyz').replace(/\/$/, '');
+    const site = (process.env.SITE_URL ?? 'https://sgcoalition.shop').replace(/\/$/, '');
 
     console.log(`Stripe configuration — read-only  [source: ${process.env.VERCEL ? `Vercel (${process.env.VERCEL_ENV ?? 'deployment'})` : '.env (+ .env.local)'}]`);
 

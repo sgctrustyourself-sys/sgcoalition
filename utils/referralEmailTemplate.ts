@@ -183,7 +183,7 @@ export const renderReferralCodeOnboardingHtml = (
         `</div>` +
         `<div class="footer">` +
         `<p>Coalition Access Protocol &bull; Private Secure Cloud</p>` +
-        `<p><a href="${siteBase}" style="color:#888;text-decoration:none;">sgcoalition.xyz</a></p>` +
+        `<p><a href="${siteBase}" style="color:#888;text-decoration:none;">sgcoalition.shop</a></p>` +
         `</div>` +
         `</div></body></html>`
     );

@@ -62,7 +62,7 @@ async function addGreyWaveWallet() {
     }
 
     console.log("✅ Successfully upserted Coalition 'Grey Wave' Wallet 1/2:", data);
-    console.log('🔗 View at: https://sgcoalition.xyz/#/shop');
+    console.log('🔗 View at: https://sgcoalition.shop/#/shop');
     console.log("🏷️  is_limited_edition=true — the Limited Edition badge will render on the deployed shop.");
 }
 

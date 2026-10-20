@@ -2,7 +2,7 @@
 # ensure-uptimerobot-monitor.sh
 #
 # Idempotently ensure an UptimeRobot HTTPS monitor exists for the checkout
-# health endpoint (https://sgcoalition.xyz/api/health).
+# health endpoint (https://sgcoalition.shop/api/health).
 #
 #   - API key:  UPTIMEROBOT_API_KEY env var, or UPTIMEROBOT_API_KEY=... in .env
 #   - Only creates the monitor if it doesn't already exist (no duplicates)
@@ -20,7 +20,7 @@
 
 set -euo pipefail
 
-URL="https://sgcoalition.xyz/api/health"
+URL="https://sgcoalition.shop/api/health"
 NAME="Checkout Health (Stripe key)"
 # Default 300s (5 min, free plan). Override with UPTIMEROBOT_INTERVAL=60 on paid plans.
 INTERVAL="${UPTIMEROBOT_INTERVAL:-300}"

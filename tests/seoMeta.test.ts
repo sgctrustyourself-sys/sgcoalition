@@ -345,21 +345,21 @@ describe('share metadata block — complete, and free of inherited tags', () => 
     const baseHtml = `<!DOCTYPE html><html><head>
   <title>Coalition | Crafted in Baltimore</title>
   <meta name="description" content="homepage description" />
-  <meta property="og:image" content="https://sgcoalition.xyz/og-card.jpg" />
+  <meta property="og:image" content="https://sgcoalition.shop/og-card.jpg" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="homepage alt" />
-  <link rel="canonical" href="https://sgcoalition.xyz/" />
+  <link rel="canonical" href="https://sgcoalition.shop/" />
 </head><body><div id="root"></div></body></html>`;
 
     const routeSeo = {
         title: 'Coalition | Help Center',
         description: 'Answers on orders, shipping, returns, membership and SGCOIN.',
-        image: 'https://sgcoalition.xyz/og-card.jpg',
+        image: 'https://sgcoalition.shop/og-card.jpg',
         imageAlt: 'Coalition wordmark beside the Coalition hero artwork — crafted in Baltimore',
         imageWidth: 1200,
         imageHeight: 630,
-        url: 'https://sgcoalition.xyz/help',
+        url: 'https://sgcoalition.shop/help',
         type: 'website',
     };
 
@@ -372,17 +372,17 @@ describe('share metadata block — complete, and free of inherited tags', () => 
             'name="description" content="Answers on orders, shipping, returns, membership and SGCOIN."',
             'name="robots" content="index,follow"',
             'property="og:title" content="Coalition | Help Center"',
-            'property="og:image" content="https://sgcoalition.xyz/og-card.jpg"',
+            'property="og:image" content="https://sgcoalition.shop/og-card.jpg"',
             'property="og:image:width" content="1200"',
             'property="og:image:height" content="630"',
             'property="og:image:alt"',
             'property="og:locale" content="en_US"',
-            'property="og:url" content="https://sgcoalition.xyz/help"',
+            'property="og:url" content="https://sgcoalition.shop/help"',
             'property="og:type" content="website"',
             'name="twitter:card" content="summary_large_image"',
-            'name="twitter:image" content="https://sgcoalition.xyz/og-card.jpg"',
+            'name="twitter:image" content="https://sgcoalition.shop/og-card.jpg"',
             'name="twitter:image:alt"',
-            'rel="canonical" href="https://sgcoalition.xyz/help"',
+            'rel="canonical" href="https://sgcoalition.shop/help"',
         ]) {
             expect(tags, `missing ${needle}`).toContain(needle);
         }
@@ -394,7 +394,7 @@ describe('share metadata block — complete, and free of inherited tags', () => 
             description: 'A hand-cut wallet.',
             image: 'https://example.supabase.co/storage/v1/object/public/products/images/wallet.jpg',
             imageAlt: 'Coalition Test Wallet 1/1 by Coalition',
-            url: 'https://sgcoalition.xyz/product/prod_fixture',
+            url: 'https://sgcoalition.shop/product/prod_fixture',
             type: 'product',
         };
 
@@ -416,7 +416,7 @@ describe('share metadata block — complete, and free of inherited tags', () => 
         const html = read('index.html');
         for (const needle of [
             'property="og:image"',
-            'https://sgcoalition.xyz/og/card.jpg',
+            'https://sgcoalition.shop/og/card.jpg',
             'property="og:image:width" content="1200"',
             'property="og:image:height" content="630"',
             'property="og:image:alt"',

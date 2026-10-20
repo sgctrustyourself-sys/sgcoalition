@@ -4,7 +4,7 @@ import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet.
 export default async function handler(req: any, res: any) {
     // CORS
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
+    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.shop');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
     res.setHeader(
         'Access-Control-Allow-Headers',
@@ -53,6 +53,8 @@ export default async function handler(req: any, res: any) {
             pm,
             storeCreditCents,
             couponCode ? String(couponCode) : undefined,
+            0, // storeCreditAppliedCents
+            userId ? String(userId) : null,
         );
 
         // Compute the set bonus independently so the UI can split
@@ -76,6 +78,7 @@ export default async function handler(req: any, res: any) {
             shippingCents: pricing.shippingCents,
             setBonusCents,
             cryptoDiscountCents,
+            memberDiscountCents: pricing.memberDiscountCents,
             couponDiscountCents: pricing.couponDiscountCents,
             couponCode: pricing.couponCode,
             discountCents: pricing.discountCents,

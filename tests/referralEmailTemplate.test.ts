@@ -12,13 +12,13 @@ import {
 } from '../utils/referralEmailTemplate';
 import { COMMISSION_TIERS } from '../utils/referralSystem';
 
-const SITE_BASE = 'https://sgcoalition.xyz';
+const SITE_BASE = 'https://sgcoalition.shop';
 
 const baseRecipient: ReferralCodeRecipient = {
     email: 'zambox847@gmail.com',
     displayName: 'Zambo',
     referralCode: 'ZAMBO',
-    referralUrl: 'https://sgcoalition.xyz/?ref=ZAMBO',
+    referralUrl: 'https://sgcoalition.shop/?ref=ZAMBO',
     currentTier: 1,
     verifiedDate: '2026-07-24',
 };
@@ -60,7 +60,7 @@ describe('referralEmailTemplate', () => {
         });
 
         it('renders the shareable URL', () => {
-            expect(html).toContain('https://sgcoalition.xyz/?ref=ZAMBO');
+            expect(html).toContain('https://sgcoalition.shop/?ref=ZAMBO');
         });
 
         it('renders an 8-row tier table', () => {
@@ -141,14 +141,14 @@ describe('referralEmailTemplate', () => {
         it('inlines both Share-My-Link and Open-Dashboard CTAs', () => {
             expect(html).toContain('Share My Link');
             expect(html).toContain('Open Dashboard');
-            expect(html).toMatch(/href="https:\/\/sgcoalition\.xyz\/\?ref=ZAMBO" class="button"/);
-            expect(html).toMatch(/href="https:\/\/sgcoalition\.xyz\/#\/profile" class="button-outline"/);
+            expect(html).toMatch(/href="https:\/\/sgcoalition\.shop\/\?ref=ZAMBO" class="button"/);
+            expect(html).toMatch(/href="https:\/\/sgcoalition\.shop\/#\/profile" class="button-outline"/);
         });
 
         it('company footer ships unchanged', () => {
             expect(html).toContain('Coalition Access Protocol');
             expect(html).toContain('Private Secure Cloud');
-            expect(html).toContain('sgcoalition.xyz');
+            expect(html).toContain('sgcoalition.shop');
         });
     });
 });

@@ -69,7 +69,7 @@ const isAllowed = (rawUrl: string, sources: string[]) => {
     }
 
     return sources.some((source) => {
-        if (source === "'self'") return url.host === 'sgcoalition.xyz';
+        if (source === "'self'") return url.host === 'sgcoalition.shop';
         const match = source.match(/^([a-z]+):\/\/([^/]+)(\/.*)?$/);
         if (!match) return false;
         const [, scheme, hostPattern, pathPrefix] = match;

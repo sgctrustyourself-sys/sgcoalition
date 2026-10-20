@@ -66,7 +66,7 @@ async function sendConfirmationEmail(opts: {
         return;
     }
     const resend = resendClient();
-    const appUrl = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
+    const appUrl = process.env.VITE_APP_URL || 'https://sgcoalition.shop';
     const unsubscribeUrl = `${appUrl}/api/unsubscribe?token=${encodeURIComponent(opts.unsubscribeToken)}`;
     const subject = 'You are on the Coalition drop list';
     const html = confirmationEmailHtml({ source: opts.source, unsubscribeUrl });
@@ -154,7 +154,7 @@ function escapeHtml(value: string): string {
 
 export default async function handler(req: any, res: any) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
+    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.shop');
     res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 

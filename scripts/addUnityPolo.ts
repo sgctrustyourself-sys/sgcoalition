@@ -93,7 +93,7 @@ async function addUnityPolo() {
     }
 
     console.log('✅ Successfully upserted Coalition Unity No. 4 Polo:', data);
-    console.log('🔗 View at: https://sgcoalition.xyz/#/shop');
+    console.log('🔗 View at: https://sgcoalition.shop/#/shop');
     console.log('🏷️  is_limited_edition=true — the Limited Edition badge will render on the deployed shop.');
     console.log('👕 gender=unisex — surfaces under both ?category=men and ?category=women on /shop.');
 }

@@ -75,7 +75,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
 });
 
-const SITE_BASE = process.env.SITE_BASE || 'https://sgcoalition.xyz';
+const SITE_BASE = process.env.SITE_BASE || 'https://sgcoalition.shop';
 const API_URL_OVERRIDE = (() => {
     const arg = process.argv.find((a) => a.startsWith('--api-url='));
     return arg ? arg.split('=')[1] : null;

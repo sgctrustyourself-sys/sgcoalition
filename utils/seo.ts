@@ -1,6 +1,6 @@
 import { BlogPost, Product } from '../types.js';
 
-export const SITE_ORIGIN = 'https://sgcoalition.xyz';
+export const SITE_ORIGIN = 'https://sgcoalition.shop';
 export const SITE_NAME = 'Coalition';
 // Social share cards, rendered by scripts/generateOgCard.mjs and committed.
 // Scrapers only give a link a full-width preview when the image is at least

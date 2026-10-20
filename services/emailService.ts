@@ -53,12 +53,12 @@ export async function sendApprovalEmail(
                     
                     <p>You can verify the transaction in your wallet or on a blockchain explorer.</p>
                     
-                    <a href="https://sgcoalition.xyz/#/profile" class="button">View My Profile</a>
+                    <a href="https://sgcoalition.shop/#/profile" class="button">View My Profile</a>
                     
                     <p>Thank you for being part of the Coalition!</p>
                 </div>
                 <div class="footer">
-                    <p>SG Coalition | <a href="https://sgcoalition.xyz">sgcoalition.xyz</a></p>
+                    <p>SG Coalition | <a href="https://sgcoalition.shop">sgcoalition.shop</a></p>
                     <p>This is an automated email. Please do not reply.</p>
                 </div>
             </div>
@@ -114,7 +114,7 @@ export async function sendRejectionEmail(
                     <p>You can submit a new request at any time through our website.</p>
                 </div>
                 <div class="footer">
-                    <p>SG Coalition | <a href="https://sgcoalition.xyz">sgcoalition.xyz</a></p>
+                    <p>SG Coalition | <a href="https://sgcoalition.shop">sgcoalition.shop</a></p>
                     <p>This is an automated email. Please do not reply.</p>
                 </div>
             </div>
@@ -153,7 +153,7 @@ export async function sendGiveawayValidationEmail(
         <body>
             <div class="container">
                 <div class="header">
-                    <img src="https://sgcoalition.xyz/logo-white.png" alt="Coalition" style="height: 30px; margin-bottom: 20px;">
+                    <img src="https://sgcoalition.shop/logo-white.png" alt="Coalition" style="height: 30px; margin-bottom: 20px;">
                     <h1 style="font-family: 'Helvetica', sans-serif; font-weight: 900; margin: 0; letter-spacing: -2px; font-style: italic;">ACCESS CONFIRMED</h1>
                 </div>
                 <div class="content">
@@ -168,14 +168,14 @@ export async function sendGiveawayValidationEmail(
                     <p>We're tracking your engagement. The winner will be selected via weighted raffle and announced on the official SGCoalition YouTube channel.</p>
                     
                     <div style="text-align: center;">
-                        <a href="https://sgcoalition.xyz/#/ecosystem" class="button">Visit the Ecosystem</a>
+                        <a href="https://sgcoalition.shop/#/ecosystem" class="button">Visit the Ecosystem</a>
                     </div>
                     
                     <p style="color: #666; font-size: 14px; line-height: 1.8;">Stay focused. Trust Yourself.</p>
                 </div>
                 <div class="footer">
                     <p>Coalition Access Protocol • Private Secure Cloud</p>
-                    <p>sgcoalition.xyz</p>
+                    <p>sgcoalition.shop</p>
                 </div>
             </div>
         </body>
@@ -247,10 +247,10 @@ export async function sendAdminNotification(
                 </div>
                 <div class="content">
                     <div class="message">${message}</div>
-                    <p style="margin-top: 20px;"><a href="https://sgcoalition.xyz/#/admin" style="background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Review in Admin Dashboard</a></p>
+                    <p style="margin-top: 20px;"><a href="https://sgcoalition.shop/#/admin" style="background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Review in Admin Dashboard</a></p>
                 </div>
                 <div class="footer">
-                    <p>SG Coalition | <a href="https://sgcoalition.xyz">sgcoalition.xyz</a></p>
+                    <p>SG Coalition | <a href="https://sgcoalition.shop">sgcoalition.shop</a></p>
                 </div>
             </div>
         </body>
@@ -311,10 +311,10 @@ export async function sendPayoutApprovedEmail(
                     </div>
                     <p>${amount.toLocaleString()} SGCoin has been deducted from your store-credit balance and is queued for on-chain transfer to your Polygon wallet. You will receive a follow-up email once the transaction is confirmed on-chain.</p>
                     <p>The transaction typically completes within 24 hours.</p>
-                    <a href="https://sgcoalition.xyz/#/profile" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0;">View My Profile</a>
+                    <a href="https://sgcoalition.shop/#/profile" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0;">View My Profile</a>
                 </div>
                 <div style="text-align: center; margin-top: 30px; color: #666; font-size: 12px;">
-                    <p>SG Coalition | <a href="https://sgcoalition.xyz">sgcoalition.xyz</a></p>
+                    <p>SG Coalition | <a href="https://sgcoalition.shop">sgcoalition.shop</a></p>
                 </div>
             </div>
         </body></html>
@@ -350,7 +350,7 @@ export async function sendPayoutCompletedEmail(
                     <p>Thank you for being part of the Coalition.</p>
                 </div>
                 <div style="text-align: center; margin-top: 30px; color: #666; font-size: 12px;">
-                    <p>SG Coalition | <a href="https://sgcoalition.xyz">sgcoalition.xyz</a></p>
+                    <p>SG Coalition | <a href="https://sgcoalition.shop">sgcoalition.shop</a></p>
                 </div>
             </div>
         </body></html>
@@ -384,7 +384,7 @@ export async function sendReferralCodeOnboardingEmail(
             currentTier,
             verifiedDate,
         },
-        "https://sgcoalition.xyz",
+        "https://sgcoalition.shop",
     );
 
     await sendEmail({
@@ -409,10 +409,10 @@ export async function sendDropVoucherEmail(
             email,
             displayName: (displayName || "").trim(),
             couponCode,
-            checkoutUrl: "https://sgcoalition.xyz/checkout",
-            profileUrl: "https://sgcoalition.xyz/#/profile",
+            checkoutUrl: "https://sgcoalition.shop/checkout",
+            profileUrl: "https://sgcoalition.shop/#/profile",
         },
-        "https://sgcoalition.xyz",
+        "https://sgcoalition.shop",
     );
 
     await sendEmail({
@@ -454,7 +454,7 @@ export async function sendPayoutRejectedEmail(
                     <a href="mailto:sgctrustyourself@gmail.com" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0;">Contact Support</a>
                 </div>
                 <div style="text-align: center; margin-top: 30px; color: #666; font-size: 12px;">
-                    <p>SG Coalition | <a href="https://sgcoalition.xyz">sgcoalition.xyz</a></p>
+                    <p>SG Coalition | <a href="https://sgcoalition.shop">sgcoalition.shop</a></p>
                 </div>
             </div>
         </body></html>

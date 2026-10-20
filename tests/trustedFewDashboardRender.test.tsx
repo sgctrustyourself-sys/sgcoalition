@@ -47,7 +47,7 @@ vi.mock('../utils/referralSystem', () => ({
         updated_at: '2026-08-01T00:00:00Z',
     })),
     getReferralHistory: vi.fn(async () => []),
-    generateReferralLink: vi.fn(() => 'https://sgcoalition.xyz/?ref=SG-MEMBER'),
+    generateReferralLink: vi.fn(() => 'https://sgcoalition.shop/?ref=SG-MEMBER'),
     calculateCommissionTier: vi.fn(() => ({ tier: 2, rate: 10, nextTier: { tier: 3, rate: 15, minReferrals: 3 }, referralsToNextTier: 2, progress: 50 })),
     COMMISSION_TIERS: [],
 }));

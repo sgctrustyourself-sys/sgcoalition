@@ -65,7 +65,7 @@ import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ARTIFACT_DIR = join(__dirname, '..', '.checkout-smoke-artifacts');
-const PRODUCTION_HOSTS = ['sgcoalition.xyz', 'www.sgcoalition.xyz'];
+const PRODUCTION_HOSTS = ['sgcoalition.shop', 'www.sgcoalition.shop'];
 
 // ---------------------------------------------------------------------------
 // Target

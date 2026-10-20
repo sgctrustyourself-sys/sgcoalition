@@ -56,7 +56,7 @@ Coalition &middot; Baltimore, Maryland
 }
 
 export default async function handler(req: any, res: any) {
-    const appUrl = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
+    const appUrl = process.env.VITE_APP_URL || 'https://sgcoalition.shop';
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Access-Control-Allow-Origin', appUrl);
 
