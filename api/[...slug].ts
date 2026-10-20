@@ -14,6 +14,7 @@ type Loader = () => Promise<{ default: Handler }>;
 const handlers: Record<string, Loader> = {
     'admin-buy-label': () => import('./_handlers/admin-buy-label.js'),
     'admin-products': () => import('./_handlers/admin-products.js'),
+    'admin-refund': () => import('./_handlers/admin-refund.js'),
     'admin-shipments': () => import('./_handlers/admin-shipments.js'),
     'admin-verify': () => import('./_handlers/admin-verify.js'),
     'ai-chat': () => import('./_handlers/ai-chat.js'),

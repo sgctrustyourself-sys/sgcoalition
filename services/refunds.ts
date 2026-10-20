@@ -1,5 +1,7 @@
 import { supabase } from './supabase.js';
 import { ConsentData } from './consentTracking.js';
+import { API_BASE_URL } from './apiBase.js';
+import { getAdminAuthHeaders, handleAdminAuthFailure, ADMIN_SESSION_EXPIRED_ERROR } from './adminSession.js';
 
 export interface RefundException {
     id: string;
@@ -149,23 +151,39 @@ export function blockRefund(reason: string): never {
     throw new Error(`Refund Blocked: ${reason}`);
 }
 
-/**
- * Process refund (placeholder - integrate with actual payment processor)
- */
-export async function processRefund(orderId: string, amount: number): Promise<void> {
-    // Validate refund first
-    const validation = await validateRefundRequest(orderId);
+export interface IssuedRefund {
+    ok: boolean;
+    refundId: string;
+    exceptionId: string;
+    amountCents: number;
+    fullyRefunded: boolean;
+}
 
-    if (!validation.allowed) {
-        blockRefund(validation.reason);
+/**
+ * Issue a real Stripe refund for an order, as an admin override of the
+ * no-refunds policy. The browser only calls the admin endpoint; Stripe is
+ * called server-side (services/refundPayments.ts), which also writes the audit
+ * row and updates the order.
+ */
+export async function processRefund(orderId: string, amountDollars: number, reason: string, adminId: string): Promise<IssuedRefund> {
+    let res: Response;
+    try {
+        res = await fetch(`${API_BASE_URL}/api/admin-refund`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAdminAuthHeaders() },
+            body: JSON.stringify({ orderId, amount: amountDollars, reason, adminId }),
+        });
+    } catch (e) {
+        throw new Error((e as Error)?.message || 'Network error while issuing the refund.');
     }
 
-    // TODO: Integrate with Stripe or payment processor
-    console.log(`Processing refund for order ${orderId}: $${amount}`);
+    if (handleAdminAuthFailure(res.status)) {
+        throw new Error(ADMIN_SESSION_EXPIRED_ERROR);
+    }
 
-    // This would call Stripe refund API:
-    // const refund = await stripe.refunds.create({
-    //     payment_intent: paymentIntentId,
-    //     amount: Math.round(amount * 100)
-    // });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body?.ok) {
+        throw new Error((body as { error?: string })?.error || `HTTP ${res.status} — refund failed.`);
+    }
+    return body as IssuedRefund;
 }
