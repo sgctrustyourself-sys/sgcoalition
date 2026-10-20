@@ -19,6 +19,9 @@
 // answers 200 so Shippo does not retry a send that will never succeed.
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createLogger } from '../utils/logger.js';
+
+const milestoneLog = createLogger('ShippingMilestones');
 
 // Shippo's normalized tracking statuses. The "package is actually moving"
 // milestones — USPS acceptance scans surface as IN_TRANSIT, and a package can
@@ -138,7 +141,7 @@ async function sendMilestoneEmail(
 ): Promise<void> {
     const to = String(order.customer_email || '').trim();
     if (!to || !to.includes('@')) {
-        console.log('[ShippingMilestones] no buyer email on order ' + (order.order_number || order.id) + ' — milestone skipped');
+        milestoneLog.info('no buyer email on order ' + (order.order_number || order.id) + ' — milestone skipped');
         return;
     }
     try {
@@ -180,7 +183,7 @@ async function sendMilestoneEmail(
                 + '</div>';
         }
         await resendClient().emails.send({ from: fromAddr(), to: [to], subject, html } as never);
-        console.log('[ShippingMilestones] ' + milestone + ' email sent for ' + (order.order_number || order.id));
+        milestoneLog.info(milestone + ' email sent for ' + (order.order_number || order.id));
     } catch (e) {
         // Fail-open: the milestone is claimed; a redelivery will no-op, so a
         // failed send stays failed. Log loudly for the operator.
@@ -227,7 +230,7 @@ async function sendCarrierIssueEmails(
                 subject: (issue === 'failure' ? 'Delivery issue with your Coalition order — ' : 'Update on your Coalition order — ') + (order.order_number || order.id),
                 html,
             } as never);
-            console.log('[ShippingMilestones] carrier-issue customer email sent for ' + (order.order_number || order.id));
+            milestoneLog.info('carrier-issue customer email sent for ' + (order.order_number || order.id));
         }
     } catch (e) {
         console.warn('[ShippingMilestones] carrier-issue customer email failed:', (e as Error)?.message || e);
@@ -304,7 +307,7 @@ async function sendPickupEmails(
                 subject: 'Action needed: pick up your Coalition package — ' + (order.order_number || order.id),
                 html,
             } as never);
-            console.log('[ShippingMilestones] pickup customer email sent for ' + (order.order_number || order.id));
+            milestoneLog.info('pickup customer email sent for ' + (order.order_number || order.id));
         }
     } catch (e) {
         console.warn('[ShippingMilestones] pickup customer email failed:', (e as Error)?.message || e);

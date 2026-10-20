@@ -14,10 +14,13 @@ import { processReferralOnPurchase, clearReferralCode } from '../utils/referralS
 import { validateCouponCode, validateDiscountCoupon, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
 import { getCartItemAddOnPrice, getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { clearCheckoutAttempt, resolveCheckoutAttempt, recordedOrderNumber, mintOrderId } from '../utils/checkoutAttempt';
+import { createLogger } from '../utils/logger';
+
+const checkoutLog = createLogger('Checkout');
 
 const reportErrorToAdmin = async (error: string, context: string, metadata: any = {}) => {
     try {
-        console.log(`⚠️ Reporting ${context} error to admin...`);
+        checkoutLog.info(`Reporting ${context} error to admin...`);
         fetch('/api/report-error', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -937,7 +940,7 @@ const Checkout: React.FC = () => {
                     recorded.total,
                 ).then((result) => {
                     if (result.success && result.commissionEarned) {
-                        console.log(`[Referral] Commission earned: $${result.commissionEarned.toFixed(2)}`);
+                        checkoutLog.info(`Referral commission earned: $${result.commissionEarned.toFixed(2)}`);
                     }
                 }).catch((err) => {
                     console.error('[Referral] Commission processing failed:', err);
@@ -977,7 +980,7 @@ const Checkout: React.FC = () => {
             sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));            const orderNumber = await createOrder('store_credit')
 ;
             sessionStorage.setItem('orderNumber', orderNumber);
-            console.log('✅ Store credit order created, redirecting...');
+            checkoutLog.info('Store credit order created, redirecting...');
 
             window.location.href = `/order/success?payment_method=store_credit&shippingMethod=${shippingMethod}&shippingCost=${shippingCost}`;
 
@@ -1004,7 +1007,7 @@ const Checkout: React.FC = () => {
             const orderNumber = await createOrder('crypto');
             sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
             sessionStorage.setItem('orderNumber', orderNumber);
-            console.log('✅ Crypto order created, redirecting...');
+            checkoutLog.info('Crypto order created, redirecting...');
             window.location.href = '/order/success?payment_method=crypto';
         } catch (error) {
             addToast('Failed to create order. Please try again.', 'error');
@@ -1023,7 +1026,7 @@ const Checkout: React.FC = () => {
             const orderNumber = await createOrder('cashapp');
             sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
             sessionStorage.setItem('orderNumber', orderNumber);
-            console.log('✅ Cash App order created, redirecting...');
+            checkoutLog.info('Cash App order created, redirecting...');
             window.location.href = '/order/success?payment_method=cashapp';
         } catch (error) {
             addToast('Failed to create order. Please try again.', 'error');
@@ -1040,7 +1043,7 @@ const Checkout: React.FC = () => {
             const orderNumber = await createOrder('stripe', paymentIntentId, seed);
             sessionStorage.setItem('orderNumber', orderNumber);
             sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
-            console.log('✅ Stripe payment confirmed, redirecting...');
+            checkoutLog.info('Stripe payment confirmed, redirecting...');
             window.location.href = `/order/success?payment_method=stripe&shippingMethod=${shippingMethod}&shippingCost=${shippingCost}`;
         } catch (err: any) {
             console.error('Order creation error:', err);

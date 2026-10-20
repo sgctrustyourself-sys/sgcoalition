@@ -22,6 +22,9 @@ import type Stripe from 'stripe';
 import { stripeClient } from './_services.js';
 import { reconcilePayment, notifyAdminReconcileFailure } from '../services/orderIntake.js';
 import { purchaseLabelForOrder } from '../services/shipping.js';
+import { createLogger } from '../utils/logger.js';
+
+const webhookLog = createLogger('stripe-webhook');
 
 // Disable Vercel's automatic JSON body parsing — Stripe signature
 // verification requires the raw body bytes.
@@ -89,7 +92,7 @@ export function isValidOrderId(value: unknown): value is string {
 async function tryAutoReconcile(orderId: string, paymentIntentId: string, eventId?: string): Promise<{ reconciled: boolean; retryable: boolean }> {
     const result = await reconcilePayment(orderId);
     if (result.success) {
-        console.log('[stripe-webhook] Reconciled order ' + orderId + ' (PI ' + paymentIntentId + ')');
+        webhookLog.info('Reconciled order ' + orderId + ' (PI ' + paymentIntentId + ')');
         return await finishWithLabelPurchase(orderId, { reconciled: true, retryable: false });
     }
     // permanent=true: retrying can never fix it (the RPC rejected the state
@@ -116,7 +119,7 @@ async function finishWithLabelPurchase(orderId: string, verdict: { reconciled: b
     try {
         const label = await purchaseLabelForOrder(orderId);
         if (label.outcome === 'purchased') {
-            console.log('[stripe-webhook] Shipping label purchased for ' + orderId);
+            webhookLog.info('Shipping label purchased for ' + orderId);
         } else if (label.outcome === 'retryable') {
             console.warn('[stripe-webhook] Label purchase failed (transient) for ' + orderId + ': ' + label.reason);
             return { reconciled: true, retryable: true };
@@ -229,8 +232,8 @@ export default async function handler(
             if (orderId === undefined || orderId === null || orderId === '') {
                 // Expected for off-checkout payments — log and accept so
                 // Stripe does not retry an event we will never act on.
-                console.log(
-                    '[stripe-webhook] PI ' + paymentIntent.id +
+                webhookLog.info(
+                    'PI ' + paymentIntent.id +
                     ' succeeded but no order_id in metadata. ' +
                     'Pass orderId in create-payment-intent body to enable auto-reconciliation.'
                 );

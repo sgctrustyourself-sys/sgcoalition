@@ -1,4 +1,7 @@
 import { stripeClient } from '../../api/_services.js';
+import { createLogger } from '../../utils/logger.js';
+
+const checkoutSessionLog = createLogger('create-checkout-session');
 
 if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is missing');
@@ -65,7 +68,7 @@ export default async function handler(req: any, res: any) {
             origin = `https://${origin}`;
         }
 
-        console.log('Stripe Checkout Origin:', origin);
+        checkoutSessionLog.debug('Stripe checkout origin:', origin);
 
         // Create Stripe Checkout Session
         const session = await stripe.checkout.sessions.create({

@@ -7,6 +7,9 @@ import { getReferralStats, generateReferralLink, type ReferralStats } from '../u
 import { trackReferralShare } from '../utils/referralAnalytics';
 import { clearCheckoutAttempt, getOrCreateRecoveryOrderId } from '../utils/checkoutAttempt';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
+import { createLogger } from '../utils/logger';
+
+const orderSuccessLog = createLogger('OrderSuccess');
 
 // ---- Stripe redirect-return recovery ----------------------------------
 // Stripe redirect methods (3D Secure card auth, Klarna, Afterpay) bounce the
@@ -79,7 +82,7 @@ const OrderSuccess = () => {
     const total = cartTotal();
     const reward = calculateReward(total);
 
-    console.log('🎯 OrderSuccess: Search Params:', {
+    orderSuccessLog.debug('Search params:', {
         paymentMethod,
         paymentIntentId,
         txHash,

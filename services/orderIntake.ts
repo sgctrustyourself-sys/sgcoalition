@@ -5,6 +5,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { resendClient, stripeClient } from '../api/_services.js';
 import { sendCashAppInstructions } from './paymentInstructions.js';
+import { createLogger } from '../utils/logger.js';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet.js';
 import { resolveCryptoDiscountCents } from '../utils/cryptoDiscount.js';
 import { resolvePaymentState } from '../utils/orderDepositNotes.js';
@@ -13,6 +14,7 @@ import type {
 } from '../api/_types.js';
 
 const CURRENCY = 'USD';
+const orderLog = createLogger('OrderIntake');
 const KEYCHAIN_CLIP_CENTS = 1000;
 const MAX_QTY = 99;
 const ADMIN_EMAIL = 'sgctrustyourself@gmail.com';
@@ -727,9 +729,9 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
                 throw err(409, (pi.productName || pi.productId) + ' size ' + pi.selectedSize + ' just sold out. Please remove it and try again.');
             }
             if (currentQty - pi.quantity <= 0) {
-                console.log('[OrderIntake] Sold out flag: ' + pi.productId + ' size ' + pi.selectedSize + ' hit 0 after order ' + saved.record.id);
+                orderLog.info('Sold out flag: ' + pi.productId + ' size ' + pi.selectedSize + ' hit 0 after order ' + saved.record.id);
             }
-            console.log('[OrderIntake] Inventory: ' + pi.productId + ' size ' + pi.selectedSize + ' ' + currentQty + ' -> ' + (currentQty - pi.quantity) + ' (order ' + saved.record.id + ')');
+            orderLog.info('Inventory: ' + pi.productId + ' size ' + pi.selectedSize + ' ' + currentQty + ' -> ' + (currentQty - pi.quantity) + ' (order ' + saved.record.id + ')');
         }
     }
 
@@ -786,7 +788,7 @@ export async function reconcilePayment(orderId: string): Promise<ReconcileResult
     const { data, error } = await s.rpc('reconcile_balance_payment', { p_order_id: orderId });
     if (error) return { success: false, error: error.message }; // transport/DB error — transient
     const r = data as { success: boolean; error?: string; balance_paid?: number; new_total_paid?: number } | null;
-    if (r?.success) { console.log('[OrderIntake] Reconciled ' + orderId + ': $' + pa + ' + $' + bd + ' = $' + tot); return { success: true, balancePaid: r.balance_paid, newTotalPaid: r.new_total_paid }; }
+    if (r?.success) { orderLog.info('Reconciled ' + orderId + ': $' + pa + ' + $' + bd + ' = $' + tot); return { success: true, balancePaid: r.balance_paid, newTotalPaid: r.new_total_paid }; }
     // RPC responded with a business rejection (e.g. balance mismatch, status
     // changed under FOR UPDATE). Retrying cannot change the outcome — flag it
     // permanent so the webhook alerts instead of burning Stripe retries.

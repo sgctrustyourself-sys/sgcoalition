@@ -17,6 +17,9 @@
 // garnish.
 
 import type { OrderRow } from '../api/_types.js';
+import { createLogger } from '../utils/logger.js';
+
+const paymentLog = createLogger('PaymentInstructions');
 
 function fromAddr(): string {
     return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>';
@@ -128,7 +131,7 @@ export async function sendCashAppInstructions(order: OrderRow): Promise<void> {
             subject: 'Finish your Cash App payment — ' + orderNumber,
             html,
         } as never);
-        console.log('[PaymentInstructions] Cash App instructions sent for ' + orderNumber + (aiIntro ? ' (AI intro)' : ' (template intro)'));
+        paymentLog.info('Cash App instructions sent for ' + orderNumber + (aiIntro ? ' (AI intro)' : ' (template intro)'));
     } catch (e) {
         console.warn('[PaymentInstructions] instruction email failed (non-fatal):', (e as Error)?.message || e);
     }

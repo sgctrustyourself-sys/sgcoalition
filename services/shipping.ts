@@ -19,6 +19,9 @@
 // can ever reach the Shippo purchase call for a given order.
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createLogger } from '../utils/logger.js';
+
+const shipLog = createLogger('Shipping');
 
 const SHIPPO_API = 'https://api.goshippo.com';
 const DEFAULT_WEIGHT_OZ = 8; // padded mailer + wallet; calibrate after the first scale weigh-in
@@ -369,7 +372,7 @@ async function emailCustomerTracking(order: ShippableOrderRow, bought: NonNullab
             subject: 'Your Coalition order is on its way — ' + (order.order_number || order.id),
             html,
         } as never);
-        console.log('[Shipping] customer tracking email sent for ' + (order.order_number || order.id));
+        shipLog.info('customer tracking email sent for ' + (order.order_number || order.id));
     } catch (e) {
         console.warn('[Shipping] customer tracking email failed:', (e as Error)?.message || e);
     }
@@ -552,6 +555,6 @@ export async function purchaseLabelForOrder(orderId: string): Promise<LabelResul
     await emailCustomerTracking(row, bought);
     await emailAdminLabel(row, bought, shipTo);
 
-    console.log('[Shipping] label purchased for ' + (row.order_number || row.id) + ': ' + bought.trackingNumber + ' ($' + (bought.rateCents / 100).toFixed(2) + ')');
+    shipLog.info('label purchased for ' + (row.order_number || row.id) + ': ' + bought.trackingNumber + ' ($' + (bought.rateCents / 100).toFixed(2) + ')');
     return { outcome: 'purchased', reason: 'label_purchased', shipment: bought };
 }
