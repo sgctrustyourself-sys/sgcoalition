@@ -67,9 +67,6 @@ export interface PriceSnapshot {
     // Method-specific crypto (SGCoin) discount, split out so the checkout
     // order summary can render its own line. Always 0 for card (Stripe).
     cryptoDiscountCents: number;
-    // Account-holder (member) discount: 30% off for any logged-in user with
-    // an account. Applies to all payment methods. 0 for guests.
-    memberDiscountCents: number;
     items: Array<{ productId: string; productName: string; selectedSize: string; quantity: number; unitCents: number; lineCents: number; basePriceDollars: number; addOnCents: number; keychainClipOn: boolean; }>;
 }
 
@@ -160,7 +157,7 @@ export async function loadStoreCreditCents(userId: string | null | undefined): P
     return Math.max(0, Math.round(Number((data as { store_credit?: number } | null)?.store_credit || 0) * 100));
 }
 
-export async function resolvePricing(items: PricingItem[], shippingDollars: number, clientDiscountDollars: number, paymentMethod: string, storeCreditCents: number = 0, couponCode?: string | null, storeCreditAppliedCents: number = 0, userId?: string | null): Promise<PriceSnapshot> {
+export async function resolvePricing(items: PricingItem[], shippingDollars: number, clientDiscountDollars: number, paymentMethod: string, storeCreditCents: number = 0, couponCode?: string | null, storeCreditAppliedCents: number = 0): Promise<PriceSnapshot> {
     if (!items.length) throw err(400, 'At least one item required.');
     const products = await loadProducts([...new Set(items.map(i => i.productId))]);
     let itemTotalCents = 0;
@@ -185,11 +182,6 @@ export async function resolvePricing(items: PricingItem[], shippingDollars: numb
     const shipCents = toCents(shippingDollars, 'Shipping');
     if (shipCents !== 0 && shipCents !== 500 && shipCents !== 1000) throw err(400, 'Shipping must be 0, 5, or 10.');
     const setBonus = calculateAboveAsBelowSetBonusCents(items.map(i => ({ productId: i.productId, quantity: i.quantity })));
-    // Member discount: 30% off for any logged-in account holder. Applies to all
-    // payment methods. Gated on a valid (UUID) userId — the same identity the
-    // storefront sends from Supabase auth. Guests (no userId) get nothing.
-    const isMember = Boolean(userId && uuid(userId));
-    const memberDiscountCents = isMember ? Math.round(itemTotalCents * 0.30) : 0;
     const otherDisc = Math.max(0, toCents(clientDiscountDollars, 'Discount') - setBonus);
     // Crypto discount (SGCoin incentive): applies to the `crypto` method
     // ONLY — card (Stripe) never sees it, matching the rule that the crypto
@@ -197,7 +189,7 @@ export async function resolvePricing(items: PricingItem[], shippingDollars: numb
     // env flag the checkout UI badge reads, so the advertised offer and the
     // server math can never disagree. Capped at $10 so large carts stay
     // bounded. Computed on the post-set-bonus payable base.
-    const basePayableCents = Math.max(0, itemTotalCents + shipCents - setBonus - memberDiscountCents);
+    const basePayableCents = Math.max(0, itemTotalCents + shipCents - setBonus);
     const cryptoDiscountCents = paymentMethod === 'crypto'
         ? resolveCryptoDiscountCents(items.map(i => ({ productId: i.productId, quantity: i.quantity, price: (products.get(i.productId)?.price || 0) })), shippingDollars, setBonus)
         : 0;
@@ -213,14 +205,14 @@ export async function resolvePricing(items: PricingItem[], shippingDollars: numb
     // The coupon base is the pre-coupon payable total (after set bonus and
     // the method-specific crypto discount). Coupon discounts apply to ALL
     // payment methods — they're an explicit discount the customer applied.
-    const couponBaseCents = Math.max(0, itemTotalCents + shipCents - setBonus - memberDiscountCents - cryptoDiscountCents - (paymentMethod === 'stripe' ? 0 : otherDisc));
+    const couponBaseCents = Math.max(0, itemTotalCents + shipCents - setBonus - cryptoDiscountCents - (paymentMethod === 'stripe' ? 0 : otherDisc));
     const couponApplied = await validateCoupon(couponCode, couponBaseCents);
     const couponDiscountCents = couponApplied?.discountCents || 0;
     const preCreditTotal = Math.max(0, couponBaseCents - couponDiscountCents);
     const scCents = Math.min(statedAppliedCents > 0 ? statedAppliedCents : rawScCents, preCreditTotal);
-    const discCents = setBonus + memberDiscountCents + cryptoDiscountCents + (paymentMethod === 'stripe' ? 0 : otherDisc) + couponDiscountCents + scCents;
+    const discCents = setBonus + cryptoDiscountCents + (paymentMethod === 'stripe' ? 0 : otherDisc) + couponDiscountCents + scCents;
     const totalCents = Math.max(0, itemTotalCents + shipCents - discCents);
-    return { itemTotalCents, shippingCents: shipCents, discountCents: discCents, storeCreditCents: scCents, cryptoDiscountCents, memberDiscountCents, totalCents, couponDiscountCents, couponCode: couponApplied?.coupon.code || null, items: resolved };
+    return { itemTotalCents, shippingCents: shipCents, discountCents: discCents, storeCreditCents: scCents, cryptoDiscountCents, totalCents, couponDiscountCents, couponCode: couponApplied?.coupon.code || null, items: resolved };
 }
 
 // =========================================================================
@@ -584,7 +576,7 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
 
     const pricing = await resolvePricing(
         attempt.items.map(i => ({ productId: i.productId, selectedSize: i.selectedSize, quantity: i.quantity, keychainClipOn: Boolean(i.keychainClipOn) })),
-        attempt.shippingDollars, attempt.clientDiscount, attempt.paymentEvidence.method, 0, attempt.couponCode, serverCreditCents, attempt.userId ? String(attempt.userId) : null);
+        attempt.shippingDollars, attempt.clientDiscount, attempt.paymentEvidence.method, 0, attempt.couponCode, serverCreditCents);
     if (attempt.clientTotal !== undefined) {
         const cc = toCents(attempt.clientTotal, 'Client total');
         if (cc !== pricing.totalCents) console.warn('[OrderIntake] Total mismatch: client=' + cc + 'c server=' + pricing.totalCents + 'c');
@@ -616,8 +608,6 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
             ? 'Coupon: ' + pricing.couponCode + ' (-$' + c2d(pricing.couponDiscountCents) + ')'
             : '', pricing.storeCreditCents > 0
             ? 'Store credit applied: -$' + c2d(pricing.storeCreditCents)
-            : '', pricing.memberDiscountCents > 0
-            ? 'Member discount (30%): -$' + c2d(pricing.memberDiscountCents)
             : '', pricing.cryptoDiscountCents > 0
             ? 'Crypto discount (' + Math.min(100, Number(process.env.VITE_SGCOIN_DISCOUNT_PERCENTAGE || 10)) + '%): -$' + c2d(pricing.cryptoDiscountCents)
             : ''].filter(Boolean).join('\n'),

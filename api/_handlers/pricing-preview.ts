@@ -53,8 +53,6 @@ export default async function handler(req: any, res: any) {
             pm,
             storeCreditCents,
             couponCode ? String(couponCode) : undefined,
-            0, // storeCreditAppliedCents
-            userId ? String(userId) : null,
         );
 
         // Compute the set bonus independently so the UI can split
@@ -78,7 +76,6 @@ export default async function handler(req: any, res: any) {
             shippingCents: pricing.shippingCents,
             setBonusCents,
             cryptoDiscountCents,
-            memberDiscountCents: pricing.memberDiscountCents,
             couponDiscountCents: pricing.couponDiscountCents,
             couponCode: pricing.couponCode,
             discountCents: pricing.discountCents,

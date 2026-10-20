@@ -124,8 +124,6 @@ export default async function handler(req: any, res: any) {
                 'stripe',
                 storeCreditCents,
                 couponCode ? String(couponCode) : undefined,
-                0, // storeCreditAppliedCents
-                userId ? String(userId) : null,
             );
         } catch (e: unknown) {
             const he = e as HttpError;
