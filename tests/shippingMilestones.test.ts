@@ -196,7 +196,7 @@ describe('handleTrackingUpdate', () => {
         expect(mockResendSend).toHaveBeenCalledTimes(1);
         const mail = mockResendSend.mock.calls[0][0];
         expect(mail.subject).toContain('Delivered');
-        expect(mail.html).toContain('sgcoalition.shop/#/shop');
+        expect(mail.html).toContain('sgcoalition-five.vercel.app/#/shop');
         expect(mail.html).toContain('Trust Yourself');
     });
 

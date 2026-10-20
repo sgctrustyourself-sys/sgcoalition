@@ -178,7 +178,7 @@ async function sendMilestoneEmail(
                 + '<table style="border:1px solid #e5e7eb;border-radius:8px;margin:16px 0;width:100%;">'
                 + '<tr><td style="padding:12px;background:#f9fafb;"><strong>Items</strong></td><td style="padding:12px;">' + itemsLine(order) + '</td></tr>'
                 + '</table>'
-                + '<p><a href="https://sgcoalition.shop/#/shop" style="background:#111;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Shop the latest</a></p>'
+                + '<p><a href="https://sgcoalition-five.vercel.app/#/shop" style="background:#111;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Shop the latest</a></p>'
                 + '<p style="color:#555;">Coalition is action. Trust Yourself. <a href="mailto:sgctrustyourself@gmail.com">sgctrustyourself@gmail.com</a></p>'
                 + '</div>';
         }
@@ -242,7 +242,7 @@ async function sendCarrierIssueEmails(
             .split(',').map((e) => e.trim()).filter(Boolean);
         if (!key || !rcpts.length) return;
         const { resendClient } = await import('../api/_services.js');
-        const adminUrl = 'https://sgcoalition.shop/#/admin?tab=orders&q=' + encodeURIComponent(shipment.order_id);
+        const adminUrl = 'https://sgcoalition-five.vercel.app/#/admin?tab=orders&q=' + encodeURIComponent(shipment.order_id);
         const shippoUrl = 'https://app.goshippo.com/shipments/';
         const checklist = issue === 'failure'
             ? ['Check the carrier\'s status details in Shippo (returned to sender? held? refused?)', 'Contact the buyer if the carrier note is unclear', 'Reship with a fresh label (Buy Label in Admin) or refund — your call']
@@ -319,7 +319,7 @@ async function sendPickupEmails(
             .split(',').map((e) => e.trim()).filter(Boolean);
         if (!key || !rcpts.length) return;
         const { resendClient } = await import('../api/_services.js');
-        const adminUrl = 'https://sgcoalition.shop/#/admin?tab=orders&q=' + encodeURIComponent(shipment.order_id);
+        const adminUrl = 'https://sgcoalition-five.vercel.app/#/admin?tab=orders&q=' + encodeURIComponent(shipment.order_id);
         const html =
             '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#fff;color:#111827;">'
             + '<h2 style="letter-spacing:1px;text-transform:uppercase;">Package held for pickup</h2>'
@@ -355,7 +355,7 @@ async function notifyAdminCarrierException(
             .split(',').map((e) => e.trim()).filter(Boolean);
         if (!key || !rcpts.length) return;
         const { resendClient } = await import('../api/_services.js');
-        const adminUrl = 'https://sgcoalition.shop/#/admin?tab=orders&q=' + encodeURIComponent(shipment.order_id);
+        const adminUrl = 'https://sgcoalition-five.vercel.app/#/admin?tab=orders&q=' + encodeURIComponent(shipment.order_id);
         const html =
             '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#fff;color:#111827;">'
             + '<h2 style="letter-spacing:1px;text-transform:uppercase;">Carrier exception — review</h2>'

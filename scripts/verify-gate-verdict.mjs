@@ -32,13 +32,13 @@
 // Wired in .github/workflows/post-deploy-gate.yml, on successful production
 // deployments; runnable by hand against any origin:
 //
-//   TEST_URL=https://sgcoalition.shop EXPECTED_COMMIT=$(git rev-parse HEAD) \
+//   TEST_URL=https://sgcoalition-five.vercel.app EXPECTED_COMMIT=$(git rev-parse HEAD) \
 //     npm run test:gate-verdict
 
 import { spawnSync } from 'node:child_process';
 import { VERDICT_FILE } from '../utils/bareCheckoutGate.mjs';
 
-const ORIGIN = (process.env.TEST_URL || 'https://sgcoalition.shop').replace(/\/+$/, '');
+const ORIGIN = (process.env.TEST_URL || 'https://sgcoalition-five.vercel.app').replace(/\/+$/, '');
 const EXPECTED_ENVIRONMENT = (process.env.EXPECTED_ENVIRONMENT || '').trim();
 
 const gitHead = () => {

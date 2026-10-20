@@ -191,9 +191,9 @@ describe('PaymentStatusCard render flow', () => {
         fetchMock.mockResolvedValue(jsonResponse(200, {
             ...HEALTHY_BODY,
             origin: {
-                configured: 'https://sgcoalition.shop',
-                configuredHost: 'sgcoalition.shop',
-                requestHost: 'sgcoalition.shop',
+                configured: 'https://sgcoalition-five.vercel.app',
+                configuredHost: 'sgcoalition-five.vercel.app',
+                requestHost: 'sgcoalition-five.vercel.app',
                 matches: true,
             },
         }));
@@ -201,7 +201,7 @@ describe('PaymentStatusCard render flow', () => {
         await renderCard();
 
         expect(container.querySelector('[data-testid="origin-mismatch"]')).toBeNull();
-        expect(container.querySelector('[data-testid="origin-host"]')?.textContent).toContain('sgcoalition.shop');
+        expect(container.querySelector('[data-testid="origin-host"]')?.textContent).toContain('sgcoalition-five.vercel.app');
     });
 
     it('ORIGIN_MISMATCH: a different serving host raises the warning and names the webhook URLs', async () => {
@@ -211,8 +211,8 @@ describe('PaymentStatusCard render flow', () => {
         fetchMock.mockResolvedValue(jsonResponse(200, {
             ...HEALTHY_BODY,
             origin: {
-                configured: 'https://sgcoalition.shop',
-                configuredHost: 'sgcoalition.shop',
+                configured: 'https://sgcoalition-five.vercel.app',
+                configuredHost: 'sgcoalition-five.vercel.app',
                 requestHost: 'sgcoalition-five.vercel.app',
                 matches: false,
             },
@@ -223,10 +223,10 @@ describe('PaymentStatusCard render flow', () => {
         const warning = container.querySelector('[data-testid="origin-mismatch"]');
         expect(warning).toBeTruthy();
         expect(warning!.textContent).toContain('sgcoalition-five.vercel.app');
-        expect(warning!.textContent).toContain('sgcoalition.shop');
+        expect(warning!.textContent).toContain('sgcoalition-five.vercel.app');
         // The actionable part: the exact URLs the dashboards need.
-        expect(warning!.textContent).toContain('https://sgcoalition.shop/api/stripe-webhook');
-        expect(warning!.textContent).toContain('https://sgcoalition.shop/api/shippo-webhook');
+        expect(warning!.textContent).toContain('https://sgcoalition-five.vercel.app/api/stripe-webhook');
+        expect(warning!.textContent).toContain('https://sgcoalition-five.vercel.app/api/shippo-webhook');
     });
 
     it('ORIGIN_ABSENT: a response with no origin block renders normally', async () => {

@@ -125,11 +125,11 @@ function buildUnsubscribeFooterHtml(url?: string | null, fallbackUrl?: string | 
         : (fallbackUrl
             ? ` &middot; <a href="${fallbackUrl}" style="color:#9ca3af;text-decoration:underline;">Manage preferences</a>`
             : '');
-    return `\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:32px;border-top:1px solid #2a2a2a;padding-top:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#9ca3af;font-size:11px;line-height:1.6;"><tr><td align="center">\nSG Coalition &middot; Baltimore, Maryland<br>\nYou're receiving this because you opted in at sgcoalition.shop.${linkPart}\n</td></tr></table>\n`;
+    return `\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:32px;border-top:1px solid #2a2a2a;padding-top:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#9ca3af;font-size:11px;line-height:1.6;"><tr><td align="center">\nSG Coalition &middot; Baltimore, Maryland<br>\nYou're receiving this because you opted in at sgcoalition-five.vercel.app.${linkPart}\n</td></tr></table>\n`;
 }
 
 function getCampaignSenderBaseUrl(): string {
-    return (process.env.VITE_APP_URL || 'https://sgcoalition.shop').replace(/\/+$/, '');
+    return (process.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app').replace(/\/+$/, '');
 }
 
 function appendStopGuidance(body: string): string {

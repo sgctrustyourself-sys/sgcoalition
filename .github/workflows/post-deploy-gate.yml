@@ -67,11 +67,11 @@ jobs:
       # so it stays fast enough to run on every production deploy.
       - name: Verify the live deployment's own verdict
         env:
-          # The origin the deployment actually answers on. sgcoalition.shop is
+          # The origin the deployment actually answers on. sgcoalition-five.vercel.app is
           # the domain the storefront is moving to, but it serves nothing until
           # the domain transfer out of Whop completes — checking it now would
           # read a 404 and call a healthy deployment broken. When the
-          # transfer lands, this becomes sgcoalition.shop.
+          # transfer lands, this becomes sgcoalition-five.vercel.app.
           TEST_URL: ${{ github.event.inputs.base_url || 'https://sgcoalition-five.vercel.app' }}
           # The deployment's own commit, straight from the event: that is what
           # "the commit it was built from" means here, and it is not the same as

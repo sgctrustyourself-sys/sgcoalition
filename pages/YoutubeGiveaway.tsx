@@ -213,7 +213,7 @@ const YoutubeGiveaway = () => {
                                     icon={<UserPlus className="w-5 h-5 text-emerald-400" />} 
                                     title="Profile & Newsletter" 
                                     points="+5" 
-                                    desc="Create Account on sgcoalition.shop"
+                                    desc="Create Account on sgcoalition-five.vercel.app"
                                     href="/login"
                                 />
                                 <PointAction 

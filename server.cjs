@@ -16,7 +16,7 @@ const PORT = 4242;
 // Middleware
 app.use(cors({ 
     origin: [
-        process.env.VITE_APP_URL || 'https://sgcoalition.shop',
+        process.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app',
         'http://localhost:3000',
         'http://localhost:3001',
     ],

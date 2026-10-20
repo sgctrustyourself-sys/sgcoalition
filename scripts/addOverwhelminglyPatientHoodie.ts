@@ -94,7 +94,7 @@ async function addOverwhelminglyPatientHoodie() {
     }
 
     console.log(`Upserted Overwhelmingly Patient Hoodie (stock: ${totalStock}, sizes: S-2XL x1 each):`, data);
-    console.log('View at: https://sgcoalition.shop/#/shop');
+    console.log('View at: https://sgcoalition-five.vercel.app/#/shop');
 }
 
 addOverwhelminglyPatientHoodie();

@@ -35,7 +35,7 @@ const newSection = '## Working generations \u2014 deployment state as of 2026-07
   + '2. Cherry-pick the ESM `.js` extension fix from commit `7ef19f7` (adds `.js` to all dynamic imports).\r\n'
   + '3. Rebuild and deploy with build cache off (`vercel --prod --force`).\r\n'
   + '4. Verify `/api/complete-order` returns 200.\r\n\r\n'
-  + '### Current working state (`sgcoalition.shop`)\r\n\r\n'
+  + '### Current working state (`sgcoalition-five.vercel.app`)\r\n\r\n'
   + '- **Bundle:** `assets/index-CFMsameB.js` (latest deploy \u2014 contains the SearchResults loading-guard fix, 7 missing products added to INITIAL_PRODUCTS, category type fixes, and real image URLs)\r\n'
   + '- **API handlers:** all fixed \u2014 `api/_handlers/*.ts` uses `.js` extensions for ESM import resolution. `/api/complete-order`, `/api/ai-chat`, `/api/marketing-subscribe` all return 200.\r\n'
   + '- **Products:** 26 on the live shop page (up from 19), including all Women\'s products, Halo Mini Dress, and Above As Below Set \u2014 verified working in the browser with no broken images.\r\n'

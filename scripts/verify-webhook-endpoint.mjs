@@ -29,7 +29,7 @@
 //   OK but no order_id  200 with an ack — the whole path is live.
 //
 // Usage:
-//   STRIPE_WEBHOOK_SECRET=whsec_... node scripts/verify-webhook-endpoint.mjs https://sgcoalition.shop
+//   STRIPE_WEBHOOK_SECRET=whsec_... node scripts/verify-webhook-endpoint.mjs https://sgcoalition-five.vercel.app
 //
 // Exit code 0 when the endpoint is serving, 1 when it is not, 2 on a usage
 // error. Safe to point at production: it writes nothing.

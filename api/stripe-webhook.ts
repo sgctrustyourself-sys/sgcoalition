@@ -154,7 +154,7 @@ async function notifyAdminLabelFailure(orderId: string, reason: string): Promise
             + '<h2 style="letter-spacing:1px;text-transform:uppercase;">Shipping label could not be purchased</h2>'
             + '<p>The order was paid but no label was bought. Reason: <strong>' + esc(reason) + '</strong></p>'
             + '<p>Buy the label manually in Shippo (or fix the cause and let the next webhook redelivery retry), then fulfill the order.</p>'
-            + '<p><a href="https://sgcoalition.shop/#/admin?tab=orders&q=' + encodeURIComponent(orderId) + '" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Open order in Admin</a></p>'
+            + '<p><a href="https://sgcoalition-five.vercel.app/#/admin?tab=orders&q=' + encodeURIComponent(orderId) + '" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Open order in Admin</a></p>'
             + '<p style="color:#6b7280;">Order ID: <code>' + esc(orderId) + '</code></p>'
             + '</div>';
         await resendClient().emails.send({ from: process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>', to: rcpts, subject: 'ACTION REQUIRED: label failed for ' + orderId, html } as never);

@@ -1,10 +1,10 @@
 // scripts/fixProd1784012446238Sizing.ts
 //
 // One-shot operator script for the live PDP sizing bug on
-// https://sgcoalition.shop/product/prod_1784012446238 ("COALITION ABOVE AS
+// https://sgcoalition-five.vercel.app/product/prod_1784012446238 ("COALITION ABOVE AS
 // BELOW 2/4 WALLET"). The wallet renders with apparel-style sizing
 // (S/M/L/XL with size S = 1 left). Its sibling
-// https://sgcoalition.shop/product/prod_1784012355221 ("COALITION ABOVE AS
+// https://sgcoalition-five.vercel.app/product/prod_1784012355221 ("COALITION ABOVE AS
 // BELOW 3/4 WALLET", $85) renders correctly with the wallet shape:
 // category=wallet, sizes=['One Size'], size_inventory={'One Size':1}.
 //
@@ -202,7 +202,7 @@ async function main() {
     console.log('\n--- WRONG (after update) ---');
     describeRow('WRONG (after)', written as Record<string, unknown>);
     console.log(`\nFixed: ${WRONG_ID} now matches the wallet shape.`);
-    console.log('Next: reload https://sgcoalition.shop/product/prod_1784012446238 in a browser to confirm ONE SIZE - 1 LEFT.');
+    console.log('Next: reload https://sgcoalition-five.vercel.app/product/prod_1784012446238 in a browser to confirm ONE SIZE - 1 LEFT.');
 }
 
 main().catch((err) => {

@@ -1,17 +1,24 @@
 // tests/downDomain.test.ts
 //
-// sgcoalition.xyz is DOWN. It is not a fallback, not a second storefront,
-// not a legacy alias: it answers 402 DEPLOYMENT_DISABLED, and it has no MX
-// records, so the address that used to live on it cannot receive mail
-// either.
+// Two storefront hosts are retired, and neither one serves this app any
+// more:
 //
-// The domain that replaced it is sgcoalition.shop. Every reference in the
-// codebase has to point there, because a reference to the old domain is a
-// customer-facing link to a host that returns 402 — a checkout that 402s,
-// a canonical tag that points at nothing, a webhook that never arrives.
+//   sgcoalition.xyz  — answers 402 DEPLOYMENT_DISABLED, and has no MX
+//                      records, so the address that used to live on it
+//                      cannot receive mail either.
+//   sgcoalition.shop — the Whop-hosted storefront was removed from the
+//                      domain, so the apex now serves Whop's "Nothing here
+//                      yet" 404 page. A link to it lands a customer on an
+//                      empty page, not on the shop.
+//
+// The domain that replaced them is sgcoalition-five.vercel.app — the host
+// this deployment actually serves. Every reference in the codebase has to
+// point there, because a reference to a retired host is a customer-facing
+// link to nothing — a checkout that 402s, a canonical tag that points at a
+// 404, a webhook that never arrives.
 //
 // This test is the thing that keeps it that way. The failure mode it
-// guards against is quiet: nobody adds a "just in case" link to the old
+// guards against is quiet: nobody adds a "just in case" link to an old
 // domain on purpose, but a copy-pasted URL or an old snippet in a
 // template brings one back, and nothing else notices.
 //
@@ -24,7 +31,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const DOWN_DOMAIN = 'sgcoalition.xyz';
+const DOWN_DOMAINS = ['sgcoalition.xyz', 'sgcoalition.shop'];
 const ALLOWED = ['mail.sgcoalition.xyz'];
 
 /** Directories that hold no user-facing source. */
@@ -70,26 +77,29 @@ describe('the down domain stays down', () => {
         expect(files.length).toBeGreaterThan(50);
     });
 
-    it('no source file references sgcoalition.xyz', () => {
+    it('no source file references a retired storefront host', () => {
         const offenders: string[] = [];
         for (const file of files) {
             const rel = path.relative(ROOT, file);
             const content = fs.readFileSync(file, 'utf8');
             content.split(/\r?\n/).forEach((line, i) => {
-                if (!line.includes(DOWN_DOMAIN)) return;
-                // The Resend sending domain is not the down website.
+                if (!DOWN_DOMAINS.some((down) => line.includes(down))) return;
+                // The Resend sending domain is not a down website.
                 if (ALLOWED.some((allowed) => line.includes(allowed))) return;
                 offenders.push(`${rel}:${i + 1}: ${line.trim().slice(0, 120)}`);
             });
         }
         expect(
             offenders,
-            `sgcoalition.xyz is down (402, no MX). These references point at a dead host — use sgcoalition.shop:\n${offenders.join('\n')}`,
+            `sgcoalition.xyz is down (402, no MX) and sgcoalition.shop serves Whop's empty 404 page. `
+            + `These references point at a dead host — use sgcoalition-five.vercel.app:\n${offenders.join('\n')}`,
         ).toEqual([]);
     });
 
-    it('the canonical origin is sgcoalition.shop', () => {
+    it('the canonical origin is sgcoalition-five.vercel.app', () => {
         const seo = fs.readFileSync(path.join(ROOT, 'utils', 'seo.ts'), 'utf8');
-        expect(seo).toContain("SITE_ORIGIN = 'https://sgcoalition.shop'");
+        expect(seo).toContain("SITE_ORIGIN = 'https://sgcoalition-five.vercel.app'");
+    });
+        const seo = fs.readFileSync(path.join(ROOT, 'utils', 'seo.ts'), 'utf8');
     });
 });

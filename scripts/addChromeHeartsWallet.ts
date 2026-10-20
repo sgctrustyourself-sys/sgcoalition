@@ -69,7 +69,7 @@ async function addChromeHeartsWallet() {
     console.log('📦 Product Details:');
     console.log(JSON.stringify(data[0], null, 2));
     console.log('\n🎉 The wallet is now live on your shop!');
-    console.log('🔗 View at: https://sgcoalition.shop/#/shop\n');
+    console.log('🔗 View at: https://sgcoalition-five.vercel.app/#/shop\n');
 }
 
 addChromeHeartsWallet();

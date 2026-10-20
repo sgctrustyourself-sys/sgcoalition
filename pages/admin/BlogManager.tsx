@@ -89,7 +89,7 @@ const BlogManager = () => {
                         body: JSON.stringify({
                             title: postData.title,
                             summary: postData.content.substring(0, 250) + '...', // Simple summary from content
-                            url: `https://sgcoalition.shop/blog/${slug}`,
+                            url: `https://sgcoalition-five.vercel.app/blog/${slug}`,
                             imageUrl: postData.coverImage
                         })
                     });

@@ -856,7 +856,7 @@ vi.mock('../utils/referralSystem', () => ({
         paid_earnings: 0,
     })),
     getReferralHistory: vi.fn(async () => []),
-    generateReferralLink: vi.fn(() => 'https://sgcoalition.xyz/?ref=SG-MEMBER'),
+    generateReferralLink: vi.fn(() => 'https://sgcoalition-five.vercel.app/?ref=SG-MEMBER'),
     calculateCommissionTier: vi.fn(() => ({ tier: 2, rate: 10, nextTier: { tier: 3, rate: 15, minReferrals: 3 }, referralsToNextTier: 2, progress: 50 })),
     COMMISSION_TIERS: [],
 }));

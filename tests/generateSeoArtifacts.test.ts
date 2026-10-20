@@ -179,7 +179,7 @@ describe('SEO sitemap priorities', () => {
 
     const rowRegex = (id: string, changefreq: 'weekly' | 'monthly', priority: '0.8' | '0.6') =>
         new RegExp(
-            `<loc>${`https://sgcoalition.shop/product/${id}`}<\\/loc>\\s*` +
+            `<loc>${`https://sgcoalition-five.vercel.app/product/${id}`}<\\/loc>\\s*` +
                 `<lastmod>[\\d-]+<\\/lastmod>\\s*` +
                 `<changefreq>${changefreq}<\\/changefreq>\\s*` +
                 `<priority>${priority}<\\/priority>`,
@@ -249,7 +249,7 @@ describe('SEO sitemap priorities', () => {
 describe('SEO sitemap and prerendered routes agree', () => {
     const staticLocs = (buildSitemap([]) as string)
         .match(/<loc>[^<]*/g)!
-        .map((loc) => loc.replace('<loc>', '').replace('https://sgcoalition.shop', ''))
+        .map((loc) => loc.replace('<loc>', '').replace('https://sgcoalition-five.vercel.app', ''))
         .filter((loc) => !loc.startsWith('/product/'));
 
     // Hardcoded on purpose. Because the sitemap is now DERIVED from
@@ -314,7 +314,7 @@ describe('SEO sitemap — blog posts', () => {
 
     it('advertises every post it can build a page for', () => {
         const xml = buildSitemap([], [post()]);
-        expect(locsOf(xml)).toContain('https://sgcoalition.shop/blog/coalition-pink-silver-crop-top');
+        expect(locsOf(xml)).toContain('https://sgcoalition-five.vercel.app/blog/coalition-pink-silver-crop-top');
         expect(getPostSeo(post()).path).toBe('/blog/coalition-pink-silver-crop-top');
     });
 
@@ -323,7 +323,7 @@ describe('SEO sitemap — blog posts', () => {
     it('dates a post row by its publication date, not the build date', () => {
         const xml = buildSitemap([], [post()]);
         expect(xml).toMatch(
-            /<loc>https:\/\/sgcoalition\.shop\/blog\/coalition-pink-silver-crop-top<\/loc>\s*<lastmod>2026-09-17<\/lastmod>/,
+            /<loc>https:\/\/sgcoalition-five\.vercel\.app\/blog\/coalition-pink-silver-crop-top<\/loc>\s*<lastmod>2026-09-17<\/lastmod>/,
         );
     });
 
@@ -342,13 +342,13 @@ describe('SEO sitemap — blog posts', () => {
         const withCover = getPostSeo(post());
         // A cover photo is announced as itself, with NO declared size: a 1200x630
         // declaration on a photo of another shape makes scrapers crop it.
-        expect(withCover.image).toBe('https://sgcoalition.shop/images/pink-silver-crop-top-front.png');
+        expect(withCover.image).toBe('https://sgcoalition-five.vercel.app/images/pink-silver-crop-top-front.png');
         expect([withCover.imageWidth, withCover.imageHeight]).toEqual([undefined, undefined]);
         expect(withCover.type).toBe('article');
         expect(withCover.description.length).toBeGreaterThan(20);
 
         const withoutCover = getPostSeo(post({ coverImage: '' }));
-        expect(withoutCover.image).toBe('https://sgcoalition.shop/og/card.jpg');
+        expect(withoutCover.image).toBe('https://sgcoalition-five.vercel.app/og/card.jpg');
         expect([withoutCover.imageWidth, withoutCover.imageHeight]).toEqual([1200, 630]);
     });
 
@@ -377,7 +377,7 @@ describe('SEO sitemap — blog posts', () => {
         }
         const xml = buildSitemap([], posts);
         for (const row of posts) {
-            expect(locsOf(xml)).toContain(`https://sgcoalition.shop${getPostSeo(row).path}`);
+            expect(locsOf(xml)).toContain(`https://sgcoalition-five.vercel.app${getPostSeo(row).path}`);
         }
     });
 });

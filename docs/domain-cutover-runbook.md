@@ -29,12 +29,21 @@ Your registrar (Name.com / Cloudflare)  -->  nameservers -->  Vercel
 
 | Host | Serves | `/api/stripe-webhook` |
 | --- | --- | --- |
-| `sgcoalition.shop` | Whop app `app_5CA056S8qOljcB` | 404 — no such route |
 | `sgcoalition-five.vercel.app` | this deployment | live, verifying signatures |
 | `sgcoalition.xyz` | Vercel, deployment disabled | 402 `DEPLOYMENT_DISABLED` |
 
-Production `VITE_APP_URL` is `https://sgcoalition.xyz` — a domain that
-answers 402. The CORS header on every `/api/*` response still echoes it.
+Production `VITE_APP_URL` is `https://sgcoalition-five.vercel.app` — the host
+this deployment actually serves. The CORS header on every `/api/*` response
+echoes it, and it is the canonical origin in `utils/seo.ts` (canonical/OG
+tags, sitemap, robots).
+
+Two hosts are retired and **nothing may point at either**:
+
+- `sgcoalition.xyz` answers 402 and has no MX records, so the address that
+  used to live on it cannot receive mail either.
+- `sgcoalition.shop` still resolves, but the Whop app was detached from it
+  and the apex now serves Whop's empty "Nothing here yet" page. A link
+  there lands a customer on a blank page, not on the shop.
 
 No paid order has landed since 2026-09-23 and the `shipments` table is
 empty, so nothing has been lost yet. The webhook breakage is **latent,
@@ -48,6 +57,7 @@ app looks healthy while paid orders never reconcile and shipping labels
 are never bought. Fix the webhooks **before** the DNS moves, and verify.
 
 ---
+| `sgcoalition.shop` | Whop's "Nothing here yet" 404 page | 404 — no such route |
 
 ### 1. Whop — get the auth code and release the lock
 
@@ -82,18 +92,22 @@ the domain into `releasing` and could stop the renewal.
 
 ### 4. Stripe and Shippo — the silent ones
 
-- Stripe → Developers → Webhooks → `https://sgcoalition.shop/api/stripe-webhook`
-- Shippo → `https://sgcoalition.shop/api/shippo-webhook?token=...`
+- Stripe → Developers → Webhooks → `https://sgcoalition-five.vercel.app/api/stripe-webhook`
+- Shippo → `https://sgcoalition-five.vercel.app/api/shippo-webhook?token=...`
 
-Confirm the Stripe endpoint URL was not pointing at `sgcoalition.xyz`
-already — that host answers 402, so such a webhook has been failing
-silently.
+These move to the apex in the same session as the DNS change, or payments
+keep reconciling against the old host.
+
+Confirm neither endpoint is still pointing at `sgcoalition.xyz` or
+`sgcoalition.shop` — one answers 402 and the other serves an empty Whop
+page, so a webhook aimed at either has been failing silently.
 
 ### 5. Whop — stop serving the app on the domain
 
 Dashboard: remove the domain from the app. Or via the API:
 
 ```
+  (it is `https://sgcoalition-five.vercel.app` until the transfer lands)
 PATCH /domains/{id}   { "website": null }
 ```
 
@@ -103,10 +117,10 @@ PATCH /domains/{id}   { "website": null }
 
 ```bash
 # Does the host actually serve the webhook handler, and does the secret match?
-STRIPE_WEBHOOK_SECRET=<the endpoint's secret> npm run verify:webhook -- https://sgcoalition.shop
+STRIPE_WEBHOOK_SECRET=<the endpoint's secret> npm run verify:webhook -- https://sgcoalition-five.vercel.app
 
 # The health probe reports the configured origin next to the serving host.
-curl -s https://sgcoalition.shop/api/health | jq '.origin'
+curl -s https://sgcoalition-five.vercel.app/api/health | jq '.origin'
 
 # The full browser checkout.
 npm run smoke:checkout

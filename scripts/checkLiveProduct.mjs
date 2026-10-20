@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 
-const url = 'https://sgcoalition.shop/product/Coalition_Grey_Wave_Wallet_2_2';
+const url = 'https://sgcoalition-five.vercel.app/product/Coalition_Grey_Wave_Wallet_2_2';
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage();
 

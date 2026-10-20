@@ -76,7 +76,7 @@ export interface CorsOptions {
     allowedHeaders?: string;
 }
 
-const DEFAULT_PUBLIC_ORIGIN = 'https://sgcoalition.shop';
+const DEFAULT_PUBLIC_ORIGIN = 'https://sgcoalition-five.vercel.app';
 
 export const LOCAL_DEV_ORIGINS: readonly string[] = [
     'http://localhost:3000',

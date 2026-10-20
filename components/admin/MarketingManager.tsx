@@ -315,13 +315,13 @@ const ComposerView: React.FC<{ onSent: () => void }> = ({ onSent }) => {
               <textarea value={bodyHtml} onChange={(e) => setBodyHtml(e.target.value)} rows={10} placeholder="<h1>Spring drop is live</h1><p>...</p>" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-xs" />
             </Field>
             <Field label="Plain Text Body (optional fallback)">
-              <textarea value={bodyText} onChange={(e) => setBodyText(e.target.value)} rows={4} placeholder="Spring drop is live on sgcoalition.shop" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600" />
+              <textarea value={bodyText} onChange={(e) => setBodyText(e.target.value)} rows={4} placeholder="Spring drop is live on sgcoalition-five.vercel.app" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600" />
             </Field>
           </>
         )}
         {(channel === 'sms' || channel === 'both') && (
           <Field label={`SMS Body -- ${smsCharCount} chars (${smsSegments} segment${smsSegments === 1 ? '' : 's'})`}>
-            <textarea value={smsBody} onChange={(e) => setSmsBody(e.target.value)} rows={3} maxLength={1600} placeholder="Spring drop is live on sgcoalition.shop. Reply STOP to opt out." className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600" />
+            <textarea value={smsBody} onChange={(e) => setSmsBody(e.target.value)} rows={3} maxLength={1600} placeholder="Spring drop is live on sgcoalition-five.vercel.app. Reply STOP to opt out." className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600" />
           </Field>
         )}
         <button onClick={() => setConfirmOpen(true)} disabled={submitDisabled} className="bg-white text-black font-bold uppercase tracking-widest px-6 py-3 rounded-lg hover:bg-brand-accent transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">

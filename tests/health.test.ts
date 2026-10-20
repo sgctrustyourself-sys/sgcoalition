@@ -319,30 +319,32 @@ describe('GET /api/health — origin reporting', () => {
     });
 
     it('reports the configured origin and the host the request arrived on', async () => {
-        process.env.VITE_APP_URL = 'https://sgcoalition.shop';
-
-        const res = makeRes();
-        await handler(makeReq('GET', {}, { host: 'sgcoalition.shop' }), res);
-
-        expect(res._status).toBe(200);
-        expect(res._body.origin.configured).toBe('https://sgcoalition.shop');
-        expect(res._body.origin.configuredHost).toBe('sgcoalition.shop');
-        expect(res._body.origin.requestHost).toBe('sgcoalition.shop');
-        expect(res._body.origin.matches).toBe(true);
-    });
-
-    it('flags a mismatch when the deployment is served on another host', async () => {
-        // The exact shape of the silent outage: the app is reachable, Stripe
-        // is healthy, but the host Stripe posts to is not this one.
-        process.env.VITE_APP_URL = 'https://sgcoalition.shop';
+        process.env.VITE_APP_URL = 'https://sgcoalition-five.vercel.app';
 
         const res = makeRes();
         await handler(makeReq('GET', {}, { host: 'sgcoalition-five.vercel.app' }), res);
 
         expect(res._status).toBe(200);
-        expect(res._body.origin.matches).toBe(false);
+        expect(res._body.origin.configured).toBe('https://sgcoalition-five.vercel.app');
+        expect(res._body.origin.configuredHost).toBe('sgcoalition-five.vercel.app');
         expect(res._body.origin.requestHost).toBe('sgcoalition-five.vercel.app');
-        expect(res._body.origin.configuredHost).toBe('sgcoalition.shop');
+        expect(res._body.origin.matches).toBe(true);
+    });
+
+    it('flags a mismatch when the deployment is served on another host', async () => {
+        // The exact shape of the silent outage: the app is reachable, Stripe
+        // is healthy, but the host Stripe posts to is not this one. A preview
+        // deployment is the common case — it serves its own host while
+        // VITE_APP_URL still names production.
+        process.env.VITE_APP_URL = 'https://sgcoalition-five.vercel.app';
+
+        const res = makeRes();
+        await handler(makeReq('GET', {}, { host: 'sgcoalition-five-git-main.vercel.app' }), res);
+
+        expect(res._status).toBe(200);
+        expect(res._body.origin.matches).toBe(false);
+        expect(res._body.origin.requestHost).toBe('sgcoalition-five-git-main.vercel.app');
+        expect(res._body.origin.configuredHost).toBe('sgcoalition-five.vercel.app');
     });
 
     it('reports matches:null when VITE_APP_URL is unset rather than claiming a mismatch', async () => {
@@ -361,10 +363,10 @@ describe('GET /api/health — origin reporting', () => {
     });
 
     it('ignores the port when comparing hosts', async () => {
-        process.env.VITE_APP_URL = 'https://sgcoalition.shop';
+        process.env.VITE_APP_URL = 'https://sgcoalition-five.vercel.app';
 
         const res = makeRes();
-        await handler(makeReq('GET', {}, { host: 'sgcoalition.shop:443' }), res);
+        await handler(makeReq('GET', {}, { host: 'sgcoalition-five.vercel.app:443' }), res);
 
         expect(res._body.origin.matches).toBe(true);
     });
@@ -372,7 +374,7 @@ describe('GET /api/health — origin reporting', () => {
     it('still reports the origin on the degraded paths — that is when it matters most', async () => {
         // A dead Stripe key is exactly when an operator needs to know which
         // host to point the webhook at.
-        process.env.VITE_APP_URL = 'https://sgcoalition.shop';
+        process.env.VITE_APP_URL = 'https://sgcoalition-five.vercel.app';
         mockBalanceRetrieve.mockRejectedValue(
             Object.assign(new Error('Expired API Key provided: sk_live_****abcd1234'), {
                 code: 'api_key_expired',
@@ -381,11 +383,11 @@ describe('GET /api/health — origin reporting', () => {
         );
 
         const res = makeRes();
-        await handler(makeReq('GET', {}, { host: 'sgcoalition-five.vercel.app' }), res);
+        await handler(makeReq('GET', {}, { host: 'sgcoalition-five-git-main.vercel.app' }), res);
 
         expect(res._status).toBe(503);
         expect(res._body.origin).toBeTruthy();
         expect(res._body.origin.matches).toBe(false);
-        expect(res._body.origin.requestHost).toBe('sgcoalition-five.vercel.app');
+        expect(res._body.origin.requestHost).toBe('sgcoalition-five-git-main.vercel.app');
     });
 });

@@ -107,7 +107,7 @@ async function sendEmailConfirmation(opts: { to: string; source: string; unsubsc
         return;
     }
     const resend = resendClient();
-    const appUrl = process.env.VITE_APP_URL || 'https://sgcoalition.shop';
+    const appUrl = process.env.VITE_APP_URL || 'sgcoalition-five.vercel.app';
     const unsubscribeUrl = `${appUrl}/api/marketing-optout?token=${encodeURIComponent(opts.unsubscribeToken)}&channel=email`;
     const sourceLabel = opts.source && opts.source !== 'footer' && opts.source !== 'sms_signup'
         ? ` via the ${opts.source} page`
@@ -187,7 +187,7 @@ async function writeConsentLog(admin: SupabaseClient, params: {
 
 export default async function handler(req: any, res: any) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.shop');
+    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'sgcoalition-five.vercel.app');
     res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
