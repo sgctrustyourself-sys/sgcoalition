@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
     PenTool, Shirt, Package, Building, SprayCan, Music, TrendingUp, ArrowRight,
     Instagram, Twitter, Youtube, MessageCircle as MessageCircleIcon, Mail,
-    ArrowUpRight, Loader,
+    ArrowUpRight, Loader, Link2,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { supabase } from '../services/supabase';
@@ -12,6 +12,7 @@ import { blogFallbackPosts, normalizeBlogRows, filterBlogPostsByCategory } from 
 import Newsletter from '../components/Newsletter';
 import Seo from '../components/Seo';
 import { ABOUT_PAGE_TITLE, ABOUT_PAGE_DESCRIPTION } from '../constants';
+import { MAIN_SHARING_LINK, MAIN_SHARING_LABEL } from '../utils/sharingLinks';
 import {
     buildAboutPageJsonLd,
     buildOrganizationJsonLd,
@@ -364,6 +365,14 @@ const Story = () => {
                     <p className="text-sm text-gray-600">Drops, behind-the-scenes, the grind — across every channel.</p>
                 </div>
                 <div className="flex flex-wrap justify-center gap-3">
+                    {/* The main sharing link, first in the row: the linktree
+                        carries the portfolio next to the shop, so it is the
+                        one URL that answers "where is everything you make". */}
+                    <a href={MAIN_SHARING_LINK} target="_blank" rel="noopener noreferrer" aria-label={`Portfolio and all links (opens ${MAIN_SHARING_LABEL})`} className="group">
+                        <div className="flex items-center justify-center bg-gradient-to-r from-brand-accent/20 to-white border border-gray-200 text-gray-900 px-5 py-3 rounded-sm text-xs font-bold uppercase tracking-wide group-hover:border-brand-accent group-hover:bg-brand-accent/10 transition-all">
+                            <Link2 className="w-4 h-4 mr-2 text-brand-accent" /> All Links
+                        </div>
+                    </a>
                     <a href="https://www.instagram.com/sgcoalition" target="_blank" rel="noopener noreferrer" className="group">
                         <div className="flex items-center justify-center bg-gradient-to-r from-purple-900/20 to-pink-900/20 border border-gray-200 text-gray-900 px-5 py-3 rounded-sm text-xs font-bold uppercase tracking-wide group-hover:border-pink-500/50 group-hover:bg-pink-900/10 transition-all">
                             <Instagram className="w-4 h-4 mr-2 text-pink-500" /> Instagram

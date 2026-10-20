@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Instagram, MessageCircle, Twitter } from 'lucide-react';
+import { Instagram, MessageCircle, Twitter, Link2 } from 'lucide-react';
 import Newsletter from './Newsletter';
 import { useApp } from '../context/AppContext';
+import { MAIN_SHARING_LINK, MAIN_SHARING_LABEL } from '../utils/sharingLinks';
 
 const Footer = () => {
     const { isAdminMode } = useApp();
@@ -47,6 +48,22 @@ const Footer = () => {
                 <div>
                     <h4 className="font-bold uppercase mb-6 text-xs tracking-[0.2em] text-gray-400">Community</h4>
                     <div className="flex flex-col items-start space-y-4">
+                        {/* The main sharing link, first in the column because it
+                            is the one that carries everything: the linktree
+                            holds the portfolio next to the shop, so it is the
+                            same URL the brand prints for "link in bio". */}
+                        <a
+                            href={MAIN_SHARING_LINK}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Portfolio and all links (opens ${MAIN_SHARING_LABEL})`}
+                            className="group w-full"
+                        >
+                            <div className="flex items-center justify-center bg-gradient-to-r from-brand-accent/20 to-white/5 border border-brand-accent/30 text-white px-4 py-3 rounded-sm text-xs font-bold uppercase tracking-wide group-hover:border-brand-accent/60 group-hover:bg-brand-accent/20 transition-all">
+                                <Link2 className="w-4 h-4 mr-2 text-brand-accent" />
+                                Portfolio &amp; Links
+                            </div>
+                        </a>
                         <a
                             href="https://www.instagram.com/sgcoalition"
                             target="_blank"

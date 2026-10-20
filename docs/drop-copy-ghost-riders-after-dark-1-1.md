@@ -36,7 +36,7 @@ Hand-stitched patchwork: camo and rust corduroy under green blanket stitching. T
 
 One of one. When it's gone, it's gone. Trust Yourself.
 
-🔗 Link in bio → sgcoalition.xyz/shop
+🔗 Link in bio → linktr.ee/sgcoalition
 
 #Coalition #GhostRiders #BaltimoreStreetwear #TrustYourself #OneOfOne
 ```
@@ -64,7 +64,7 @@ When it's gone, it's gone.
 ## X — single post
 
 ```
-👻 GHOST RIDERS: AFTER DARK. Coalition 'Ghost Riders: After Dark' Wallet 1/1 — $80. Hand-stitched patchwork: banner on one face, skull gang on the other. One of one. Once it's gone, it's gone. sgcoalition.xyz/shop
+👻 GHOST RIDERS: AFTER DARK. Coalition 'Ghost Riders: After Dark' Wallet 1/1 — $80. Hand-stitched patchwork: banner on one face, skull gang on the other. One of one. Once it's gone, it's gone. linktr.ee/sgcoalition
 ```
 
 **Length:** 213 chars ✓
@@ -80,7 +80,7 @@ When it's gone, it's gone.
 
 Coalition 'Ghost Riders: After Dark' Wallet 1/1 — $80. Hand-stitched patchwork: the Coalition banner on one face, the skull gang riding out on the other.
 
-sgcoalition.xyz/shop
+linktr.ee/sgcoalition
 ```
 
 **Length:** 205 chars ✓
@@ -167,7 +167,7 @@ Coalition is action. Show up.
 ```
 GHOST RIDERS / WALLET 1/1
 SHOP NOW
-sgcoalition.xyz/shop
+linktr.ee/sgcoalition
 ```
 
 **Stickers:**
@@ -222,7 +222,7 @@ $80. When this one's gone, it's gone.
 ## Internal Slack one-liner
 
 ```
-👻 GHOST RIDERS: AFTER DARK. Coalition wallet 1/1 — $80. Hand-stitched patchwork, one of one. sgcoalition.xyz/shop
+👻 GHOST RIDERS: AFTER DARK. Coalition wallet 1/1 — $80. Hand-stitched patchwork, one of one. linktr.ee/sgcoalition
 ```
 
 **Length:** 114 chars ✓

@@ -24,7 +24,13 @@
  *     docs/{story,grid,x}-reveal/, i.e. '../../public/images/<name>.png'.
  */
 
-// ΓöÇΓöÇΓöÇ Render-spec types (consumed by scripts/render-story.ts + the templates) ΓöÇΓöÇ
+// The main sharing link, owned by utils/sharingLinks.ts. Every URL field in
+// this registry (the CTA slide URL and spec.shopUrl) points at the SAME
+// linktree the storefront links to, so the poster a customer sees and the
+// link a customer clicks can never disagree about where the brand lives.
+import { MAIN_SHARING_LABEL } from '../../utils/sharingLinks';
+
+// ─── Render-spec types (consumed by scripts/render-story.ts + the templates) ──
 
 export type SlideLayout = 'hero' | 'detail' | 'scarcity' | 'manifesto' | 'cta';
 
@@ -84,7 +90,7 @@ export interface DropSpec {
   /** "$85" with the dollar sign already prefixed. Mirrors listing.price. */
   price: string;
 
-  /** "sgcoalition.shop/shop" ΓÇö used in CTA slide. */
+  /** The main sharing link ("linktr.ee/sgcoalition") — used in CTA slide. */
   shopUrl: string;
 
   /** Relative paths from the rendered HTML file at docs/story-reveal/{slug}-slide-N.html back to project root. */
@@ -231,7 +237,7 @@ export const DROPS: Record<string, DropRelease> = {
       y: 2,
 
       price: '$85',
-      shopUrl: 'sgcoalition.shop/shop',
+      shopUrl: MAIN_SHARING_LABEL,
 
       images: {
         front: '../../public/images/grey-wave-wallet-1-2-front.png',
@@ -280,7 +286,7 @@ export const DROPS: Record<string, DropRelease> = {
           layout: 'cta',
           eyebrow: 'GREY WAVE / WALLET 1/2',
           headline: 'SHOP NOW',
-          url: 'sgcoalition.shop/shop',
+          url: MAIN_SHARING_LABEL,
           stickers: [
             { type: 'link', anchor: 'center-right', label: 'Story ΓåÆ PDP conversion path' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
@@ -305,20 +311,20 @@ export const DROPS: Record<string, DropRelease> = {
     },
     copy: {
       igCaptionLong:
-        '≡ƒîè GREY WAVE.\n\nCoalition \'Grey Wave\' Wallet 1/2 ΓÇö $85.\n\nHand-finished charcoal dye. Inspired by Baltimore harbor at dawn ΓÇö the moment before anything moves. 1 of 2 in this run. Limited edition.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n≡ƒöù Link in bio ΓåÆ sgcoalition.shop/shop\n\n#Coalition #GreyWave #BaltimoreStreetwear #TrustYourself #LimitedEdition',
+        '🌊 GREY WAVE.\n\nCoalition \'Grey Wave\' Wallet 1/2 — $85.\n\nHand-finished charcoal dye. Inspired by Baltimore harbor at dawn — the moment before anything moves. 1 of 2 in this run. Limited edition.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → linktr.ee/sgcoalition\n\n#Coalition #GreyWave #BaltimoreStreetwear #TrustYourself #LimitedEdition',
       igCaptionShort:
         '≡ƒîè GREY WAVE.\n\nCoalition \'Grey Wave\' Wallet 1/2 ΓÇö $85. 1 of 2. Hand-finished charcoal dye.\n\nWhen it\'s gone, it\'s gone.\n\n≡ƒöù Link in bio.\n\n#Coalition #GreyWave #TrustYourself #LimitedEdition #BaltimoreStreetwear',
       xSingle:
-        "≡ƒîè GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 ΓÇö $85. Hand-finished charcoal dye. Inspired by Baltimore harbor at dawn. Limited 1/2. Once it's gone, it's gone. sgcoalition.shop/shop",
+        "🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $85. Hand-finished charcoal dye. Inspired by Baltimore harbor at dawn. Limited 1/2. Once it's gone, it's gone. linktr.ee/sgcoalition",
       xThread: [
-        "≡ƒîè GREY WAVE.\n\nCoalition 'Grey Wave' Wallet 1/2 ΓÇö $85. Hand-finished charcoal dye inspired by Baltimore harbor at dawn. Once it's gone, it's gone.\n\nsgcoalition.shop/shop",
-        '1 of 2. No reprints.\n\nEach wallet is finished by hand. Harbor-at-dawn dye pattern ΓÇö the moment before anything moves.',
-        'Coalition is action. Trust Yourself. ≡ƒûñ',
+        "🌊 GREY WAVE.\n\nCoalition 'Grey Wave' Wallet 1/2 — $85. Hand-finished charcoal dye inspired by Baltimore harbor at dawn. Once it's gone, it's gone.\n\nlinktr.ee/sgcoalition",
+        '1 of 2. No reprints.\n\nEach wallet is finished by hand. Harbor-at-dawn dye pattern — the moment before anything moves.',
+        'Coalition is action. Trust Yourself. 🖤',
       ],
       hashtagsCanonical: ['#Coalition', '#GreyWave', '#BaltimoreStreetwear', '#TrustYourself', '#LimitedEdition'],
       hashtagsTier2: ['#Streetwear', '#Baltimore', '#1of2', '#GreyWaveEdition', '#HandFinished', '#Drops'],
       slackOneLiner:
-        "≡ƒîè GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 ΓÇö $85. 1 of 2. Hand-finished charcoal dye. sgcoalition.shop/shop",
+        "🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $85. 1 of 2. Hand-finished charcoal dye. linktr.ee/sgcoalition",
       postTitle: "Coalition 'Grey Wave' Wallet 1/2",
       postSlug: 'coalition-grey-wave-wallet-1-2',
       postExcerpt:
@@ -364,7 +370,7 @@ Two pieces. This is the first. When they are gone, they do not come back.
       y: 12,
 
       price: '$45',
-      shopUrl: 'sgcoalition.shop/shop',
+      shopUrl: MAIN_SHARING_LABEL,
 
       images: {
         front: '../../public/images/pink-silver-crop-top-front.png',
@@ -411,7 +417,7 @@ Two pieces. This is the first. When they are gone, they do not come back.
           layout: 'cta',
           eyebrow: 'PINK / SILVER ┬╖ CROP TOP',
           headline: 'SHOP NOW',
-          url: 'sgcoalition.shop/shop',
+          url: MAIN_SHARING_LABEL,
           stickers: [
             { type: 'link', anchor: 'center-right', label: 'Story ΓåÆ PDP conversion path' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
@@ -434,20 +440,20 @@ Two pieces. This is the first. When they are gone, they do not come back.
     },
     copy: {
       igCaptionLong:
-        'PINK / SILVER.\n\nWomen\'s Leopard Print Crop T-Shirt ΓÇö $45.\n\nPink leopard print, 3D silver puff lettering, cut fitted. Finished in-house. 1 of 12 in this run, sized SΓÇôXL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n≡ƒöù Link in bio ΓåÆ sgcoalition.shop/shop\n\n#Coalition #PinkSilver #BaltimoreStreetwear #TrustYourself #LimitedEdition',
+        'PINK / SILVER.\n\nWomen\'s Leopard Print Crop T-Shirt — $45.\n\nPink leopard print, 3D silver puff lettering, cut fitted. Finished in-house. 1 of 12 in this run, sized S–XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → linktr.ee/sgcoalition\n\n#Coalition #PinkSilver #BaltimoreStreetwear #TrustYourself #LimitedEdition',
       igCaptionShort:
         'PINK / SILVER.\n\nWomen\'s Leopard Print Crop T-Shirt ΓÇö $45. 1 of 12. Sized SΓÇôXL.\n\nWhen it\'s gone, it\'s gone.\n\n≡ƒöù Link in bio.\n\n#Coalition #PinkSilver #TrustYourself #LimitedEdition #BaltimoreStreetwear',
       xSingle:
-        'PINK / SILVER. Women\'s Leopard Print Crop T-Shirt ΓÇö $45. Pink leopard print, 3D silver puff lettering, cut fitted. 12-piece run, SΓÇôXL. Once it\'s gone, it\'s gone. sgcoalition.shop/shop',
+        'PINK / SILVER. Women\'s Leopard Print Crop T-Shirt — $45. Pink leopard print, 3D silver puff lettering, cut fitted. 12-piece run, S–XL. Once it\'s gone, it\'s gone. linktr.ee/sgcoalition',
       xThread: [
-        'PINK / SILVER.\n\nWomen\'s Leopard Print Crop T-Shirt ΓÇö $45. Pink leopard print, 3D silver puff lettering, cut fitted. Sized SΓÇôXL. Once it\'s gone, it\'s gone.\n\nsgcoalition.shop/shop',
+        'PINK / SILVER.\n\nWomen\'s Leopard Print Crop T-Shirt — $45. Pink leopard print, 3D silver puff lettering, cut fitted. Sized S–XL. Once it\'s gone, it\'s gone.\n\nlinktr.ee/sgcoalition',
         '1 of 12. No reprints.\n\nThe leopard print reads up close; the silver puff carries across a room.',
         'Coalition is action. Trust Yourself. ≡ƒûñ',
       ],
       hashtagsCanonical: ['#Coalition', '#PinkSilver', '#BaltimoreStreetwear', '#TrustYourself', '#LimitedEdition'],
       hashtagsTier2: ['#Streetwear', '#Baltimore', '#1of12', '#PinkSilverEdition', '#HandFinished', '#Drops'],
       slackOneLiner:
-        'PINK / SILVER. Women\'s Leopard Print Crop T-Shirt ΓÇö $45. 1 of 12. Sized SΓÇôXL. sgcoalition.shop/shop',
+        'PINK / SILVER. Women\'s Leopard Print Crop T-Shirt — $45. 1 of 12. Sized S–XL. linktr.ee/sgcoalition',
       postTitle: "Women's Leopard Print Crop T-Shirt",
       postSlug: 'coalition-pink-silver-crop-top',
       postExcerpt:
@@ -496,7 +502,7 @@ Twelve pieces, one run. When they are gone, they do not come back.
       y: 15,
 
       price: '$100',
-      shopUrl: 'sgcoalition.shop/shop',
+      shopUrl: MAIN_SHARING_LABEL,
 
       images: {
         front: '../../public/images/coalition-fleece-hoodie-front.png',
@@ -543,7 +549,7 @@ Twelve pieces, one run. When they are gone, they do not come back.
           layout: 'cta',
           eyebrow: 'COALITION FLEECE ┬╖ HOODIE',
           headline: 'SHOP NOW',
-          url: 'sgcoalition.shop/shop',
+          url: MAIN_SHARING_LABEL,
           stickers: [
             { type: 'link', anchor: 'center-right', label: 'Story ΓåÆ PDP conversion path' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
@@ -565,20 +571,20 @@ Twelve pieces, one run. When they are gone, they do not come back.
     },
     copy: {
       igCaptionLong:
-        'COALITION FLEECE.\n\nCoalition Fleece Hoodie ΓÇö $100.\n\nWashed black. Orange metal across the chest. Built to look better worn in. Finished in-house. 1 of 15 in this run, sized SΓÇô2XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n≡ƒöù Link in bio ΓåÆ sgcoalition.shop/shop\n\n#Coalition #CoalitionFleece #BaltimoreStreetwear #TrustYourself #LimitedEdition',
+        'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100.\n\nWashed black. Orange metal across the chest. Built to look better worn in. Finished in-house. 1 of 15 in this run, sized S–2XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → linktr.ee/sgcoalition\n\n#Coalition #CoalitionFleece #BaltimoreStreetwear #TrustYourself #LimitedEdition',
       igCaptionShort:
         'COALITION FLEECE.\n\nCoalition Fleece Hoodie ΓÇö $100. 1 of 15. Washed black, orange metal. Sized SΓÇô2XL.\n\nWhen it\'s gone, it\'s gone.\n\n≡ƒöù Link in bio.\n\n#Coalition #CoalitionFleece #TrustYourself #LimitedEdition #BaltimoreStreetwear',
       xSingle:
-        'COALITION FLEECE. Coalition Fleece Hoodie ΓÇö $100. Washed black, orange metal lettering across the chest. 15-piece run, SΓÇô2XL. Once it\'s gone, it\'s gone. sgcoalition.shop/shop',
+        'COALITION FLEECE. Coalition Fleece Hoodie — $100. Washed black, orange metal lettering across the chest. 15-piece run, S–2XL. Once it\'s gone, it\'s gone. linktr.ee/sgcoalition',
       xThread: [
-        'COALITION FLEECE.\n\nCoalition Fleece Hoodie ΓÇö $100. Washed black with orange metal across the chest. Sized SΓÇô2XL. Once it\'s gone, it\'s gone.\n\nsgcoalition.shop/shop',
+        'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100. Washed black with orange metal across the chest. Sized S–2XL. Once it\'s gone, it\'s gone.\n\nlinktr.ee/sgcoalition',
         '1 of 15. No reprints.\n\nWashed black, orange lettering, and a build that looks better the more you wear it. Finished in-house.',
         'Coalition is action. Trust Yourself. ≡ƒûñ',
       ],
       hashtagsCanonical: ['#Coalition', '#CoalitionFleece', '#BaltimoreStreetwear', '#TrustYourself', '#LimitedEdition'],
       hashtagsTier2: ['#Streetwear', '#Baltimore', '#1of15', '#CoalitionFleeceEdition', '#HandFinished', '#Drops'],
       slackOneLiner:
-        'COALITION FLEECE. Coalition Fleece Hoodie ΓÇö $100. 1 of 15. Sized SΓÇô2XL. sgcoalition.shop/shop',
+        'COALITION FLEECE. Coalition Fleece Hoodie — $100. 1 of 15. Sized S–2XL. linktr.ee/sgcoalition',
       postTitle: 'Coalition Fleece Hoodie',
       postSlug: 'coalition-fleece-hoodie',
       postExcerpt:
@@ -627,7 +633,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
       y: 15,
 
       price: '$75',
-      shopUrl: 'sgcoalition.shop/shop',
+      shopUrl: MAIN_SHARING_LABEL,
 
       images: {
         front: '../../public/images/above-as-below-thermal-front.png',
@@ -674,7 +680,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
           layout: 'cta',
           eyebrow: 'ABOVE AS BELOW ┬╖ THERMAL',
           headline: 'SHOP NOW',
-          url: 'sgcoalition.shop/shop',
+          url: MAIN_SHARING_LABEL,
           stickers: [
             { type: 'link', anchor: 'center-right', label: 'Story ΓåÆ PDP conversion path' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
@@ -696,20 +702,20 @@ Fifteen pieces, one run. When they are gone, they do not come back.
     },
     copy: {
       igCaptionLong:
-        'ABOVE AS BELOW.\n\nCoalition Above as Below Thermal ΓÇö $75.\n\nWaffle knit warmth with the Above as Below artwork, worked in red. Same lineage as the tee and the shorts. 1 of 15 in this run, sized SΓÇô2XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n≡ƒöù Link in bio ΓåÆ sgcoalition.shop/shop\n\n#Coalition #AboveAsBelow #BaltimoreStreetwear #TrustYourself #LimitedEdition',
+        'ABOVE AS BELOW.\n\nCoalition Above as Below Thermal — $75.\n\nWaffle knit warmth with the Above as Below artwork, worked in red. Same lineage as the tee and the shorts. 1 of 15 in this run, sized S–2XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → linktr.ee/sgcoalition\n\n#Coalition #AboveAsBelow #BaltimoreStreetwear #TrustYourself #LimitedEdition',
       igCaptionShort:
         'ABOVE AS BELOW.\n\nCoalition Above as Below Thermal ΓÇö $75. 1 of 15. Waffle knit, red artwork. Sized SΓÇô2XL.\n\nWhen it\'s gone, it\'s gone.\n\n≡ƒöù Link in bio.\n\n#Coalition #AboveAsBelow #TrustYourself #LimitedEdition #BaltimoreStreetwear',
       xSingle:
-        'ABOVE AS BELOW. Coalition Above as Below Thermal ΓÇö $75. Waffle knit warmth, red artwork, matching the tee and shorts. 15-piece run, SΓÇô2XL. Once it\'s gone, it\'s gone. sgcoalition.shop/shop',
+        'ABOVE AS BELOW. Coalition Above as Below Thermal — $75. Waffle knit warmth, red artwork, matching the tee and shorts. 15-piece run, S–2XL. Once it\'s gone, it\'s gone. linktr.ee/sgcoalition',
       xThread: [
-        'ABOVE AS BELOW.\n\nCoalition Above as Below Thermal ΓÇö $75. Waffle knit warmth with the Above as Below artwork in red. Sized SΓÇô2XL. Once it\'s gone, it\'s gone.\n\nsgcoalition.shop/shop',
-        '1 of 15. No reprints.\n\nSame lineage as the tee and the shorts ΓÇö built for the months the tee cannot cover.',
-        'Coalition is action. Trust Yourself. ≡ƒûñ',
+        'ABOVE AS BELOW.\n\nCoalition Above as Below Thermal — $75. Waffle knit warmth with the Above as Below artwork in red. Sized S–2XL. Once it\'s gone, it\'s gone.\n\nlinktr.ee/sgcoalition',
+        '1 of 15. No reprints.\n\nSame lineage as the tee and the shorts — built for the months the tee cannot cover.',
+        'Coalition is action. Trust Yourself. 🖤',
       ],
       hashtagsCanonical: ['#Coalition', '#AboveAsBelow', '#BaltimoreStreetwear', '#TrustYourself', '#LimitedEdition'],
       hashtagsTier2: ['#Streetwear', '#Baltimore', '#1of15', '#AboveAsBelowEdition', '#HandFinished', '#Drops'],
       slackOneLiner:
-        'ABOVE AS BELOW. Coalition Above as Below Thermal ΓÇö $75. 1 of 15. Sized SΓÇô2XL. sgcoalition.shop/shop',
+        'ABOVE AS BELOW. Coalition Above as Below Thermal — $75. 1 of 15. Sized S–2XL. linktr.ee/sgcoalition',
       postTitle: 'Coalition Above as Below Thermal',
       postSlug: 'coalition-above-as-below-thermal',
       postExcerpt:
@@ -757,7 +763,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
       y: 1,
 
       price: '$80',
-      shopUrl: 'sgcoalition.shop/shop',
+      shopUrl: MAIN_SHARING_LABEL,
 
       images: {
         front: '../../public/images/ghost-riders-wallet-front.png',
@@ -808,7 +814,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
           layout: 'cta',
           eyebrow: 'GHOST RIDERS / WALLET 1/1',
           headline: 'SHOP NOW',
-          url: 'sgcoalition.shop/shop',
+          url: MAIN_SHARING_LABEL,
           stickers: [
             { type: 'link', anchor: 'center-right', label: 'Story ΓåÆ PDP conversion path' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
@@ -838,20 +844,20 @@ Fifteen pieces, one run. When they are gone, they do not come back.
     },
     copy: {
       igCaptionLong:
-        '≡ƒæ╗ GHOST RIDERS: AFTER DARK.\n\nCoalition \'Ghost Riders: After Dark\' Wallet 1/1 ΓÇö $80.\n\nHand-stitched patchwork: camo and rust corduroy under green blanket stitching. The Coalition banner across one face, the skull gang riding out on the other.\n\nOne of one. When it\'s gone, it\'s gone. Trust Yourself.\n\n≡ƒöù Link in bio ΓåÆ sgcoalition.shop/shop\n\n#Coalition #GhostRiders #BaltimoreStreetwear #TrustYourself #OneOfOne',
+        '👻 GHOST RIDERS: AFTER DARK.\n\nCoalition \'Ghost Riders: After Dark\' Wallet 1/1 — $80.\n\nHand-stitched patchwork: camo and rust corduroy under green blanket stitching. The Coalition banner across one face, the skull gang riding out on the other.\n\nOne of one. When it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → linktr.ee/sgcoalition\n\n#Coalition #GhostRiders #BaltimoreStreetwear #TrustYourself #OneOfOne',
       igCaptionShort:
         '≡ƒæ╗ GHOST RIDERS: AFTER DARK.\n\nCoalition \'Ghost Riders: After Dark\' Wallet 1/1 ΓÇö $80. Hand-stitched patchwork, one of one.\n\nWhen it\'s gone, it\'s gone.\n\n≡ƒöù Link in bio.\n\n#Coalition #GhostRiders #TrustYourself #OneOfOne #BaltimoreStreetwear',
       xSingle:
-        "≡ƒæ╗ GHOST RIDERS: AFTER DARK. Coalition 'Ghost Riders: After Dark' Wallet 1/1 ΓÇö $80. Hand-stitched patchwork: banner on one face, skull gang on the other. One of one. Once it's gone, it's gone. sgcoalition.shop/shop",
+        "👻 GHOST RIDERS: AFTER DARK. Coalition 'Ghost Riders: After Dark' Wallet 1/1 — $80. Hand-stitched patchwork: banner on one face, skull gang on the other. One of one. Once it's gone, it's gone. linktr.ee/sgcoalition",
       xThread: [
-        "≡ƒæ╗ GHOST RIDERS: AFTER DARK.\n\nCoalition 'Ghost Riders: After Dark' Wallet 1/1 ΓÇö $80. Hand-stitched patchwork: the Coalition banner on one face, the skull gang riding out on the other.\n\nsgcoalition.shop/shop",
-        '1 of 1. No reprints.\n\nCamo and rust corduroy under green blanket stitching, finished by hand. The only one like it ΓÇö literally.',
-        'Coalition is action. Trust Yourself. ≡ƒûñ',
+        "👻 GHOST RIDERS: AFTER DARK.\n\nCoalition 'Ghost Riders: After Dark' Wallet 1/1 — $80. Hand-stitched patchwork: the Coalition banner on one face, the skull gang riding out on the other.\n\nlinktr.ee/sgcoalition",
+        '1 of 1. No reprints.\n\nCamo and rust corduroy under green blanket stitching, finished by hand. The only one like it — literally.',
+        'Coalition is action. Trust Yourself. 🖤',
       ],
       hashtagsCanonical: ['#Coalition', '#GhostRiders', '#BaltimoreStreetwear', '#TrustYourself', '#OneOfOne'],
       hashtagsTier2: ['#Streetwear', '#Baltimore', '#1of1', '#HandStitched', '#Patchwork', '#Drops'],
       slackOneLiner:
-        '≡ƒæ╗ GHOST RIDERS: AFTER DARK. Coalition wallet 1/1 ΓÇö $80. Hand-stitched patchwork, one of one. sgcoalition.shop/shop',
+        '👻 GHOST RIDERS: AFTER DARK. Coalition wallet 1/1 — $80. Hand-stitched patchwork, one of one. linktr.ee/sgcoalition',
       postTitle: "Coalition 'Ghost Riders: After Dark' Wallet 1/1",
       postSlug: 'coalition-ghost-riders-after-dark-wallet-1-1',
       postExcerpt:

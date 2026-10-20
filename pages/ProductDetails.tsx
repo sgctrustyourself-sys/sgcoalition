@@ -18,6 +18,7 @@ import { trackReferralShare } from '../utils/referralAnalytics';
 import { isWalletProduct, WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils/walletAddOns';
 import { PRODUCT_IDS, WHITE_BG_PRODUCT_IDS } from '../constants/productIds';
 import { buildProductJsonLd, getProductSeo } from '../utils/seo';
+import { MAIN_SHARING_LINK, MAIN_SHARING_LABEL } from '../utils/sharingLinks';
 import QuantityStepper from '../components/QuantityStepper';
 import { isNumberedEdition, getActiveTierPrice } from '../types';
 import { formatTierCalloutCopy } from '../services/numberedPieces';
@@ -1074,6 +1075,23 @@ const ProductDetails = () => {
                                             Share your code — earn {referralCommissionRate ?? 5}% on every friend's purchase
                                         </p>
                                     )}
+
+                                    {/* The portfolio link. The main sharing link is the
+                                        linktree, which carries the full portfolio next
+                                        to the shop — so a customer looking at one
+                                        product can reach everything else the brand
+                                        has made without losing the thread. It is the
+                                        same URL the brand prints for "link in bio". */}
+                                    <a
+                                        href={MAIN_SHARING_LINK}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        aria-label={`See the full portfolio (opens ${MAIN_SHARING_LABEL})`}
+                                        className="flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 hover:text-brand-accent transition-colors"
+                                    >
+                                        See the full portfolio
+                                        <ExternalLink className="w-3 h-3" />
+                                    </a>
 
                                     {/* Local Impact Message */}
                                     <ImpactMessage className="mt-2" />

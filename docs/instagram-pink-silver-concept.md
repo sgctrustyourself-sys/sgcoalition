@@ -30,7 +30,7 @@ The Women's Leopard Print Crop T-Shirt — $45. Finished in-house, sized S–XL.
 
 When it's gone, it's gone. Trust Yourself.
 
-🔗 Link in bio → sgcoalition.xyz/shop
+🔗 Link in bio → linktr.ee/sgcoalition
 
 #Coalition #PinkSilver #BaltimoreStreetwear #TrustYourself #LimitedEdition
 ```

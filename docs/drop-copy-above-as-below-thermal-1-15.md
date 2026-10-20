@@ -36,7 +36,7 @@ Waffle knit warmth with the Above as Below artwork, worked in red. Same lineage 
 
 When it's gone, it's gone. Trust Yourself.
 
-🔗 Link in bio → sgcoalition.xyz/shop
+🔗 Link in bio → linktr.ee/sgcoalition
 
 #Coalition #AboveAsBelow #BaltimoreStreetwear #TrustYourself #LimitedEdition
 ```
@@ -64,7 +64,7 @@ When it's gone, it's gone.
 ## X — single post
 
 ```
-ABOVE AS BELOW. Coalition Above as Below Thermal — $75. Waffle knit warmth, red artwork, matching the tee and shorts. 15-piece run, S–2XL. Once it's gone, it's gone. sgcoalition.xyz/shop
+ABOVE AS BELOW. Coalition Above as Below Thermal — $75. Waffle knit warmth, red artwork, matching the tee and shorts. 15-piece run, S–2XL. Once it's gone, it's gone. linktr.ee/sgcoalition
 ```
 
 **Length:** 186 chars ✓
@@ -80,7 +80,7 @@ ABOVE AS BELOW.
 
 Coalition Above as Below Thermal — $75. Waffle knit warmth with the Above as Below artwork in red. Sized S–2XL. Once it's gone, it's gone.
 
-sgcoalition.xyz/shop
+linktr.ee/sgcoalition
 ```
 
 **Length:** 177 chars ✓
@@ -167,7 +167,7 @@ Coalition is action. Show up.
 ```
 ABOVE AS BELOW · THERMAL
 SHOP NOW
-sgcoalition.xyz/shop
+linktr.ee/sgcoalition
 ```
 
 **Stickers:**
@@ -222,7 +222,7 @@ $75. When this one's gone, it's gone.
 ## Internal Slack one-liner
 
 ```
-ABOVE AS BELOW. Coalition Above as Below Thermal — $75. 1 of 15. Sized S–2XL. sgcoalition.xyz/shop
+ABOVE AS BELOW. Coalition Above as Below Thermal — $75. 1 of 15. Sized S–2XL. linktr.ee/sgcoalition
 ```
 
 **Length:** 98 chars ✓

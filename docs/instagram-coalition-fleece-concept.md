@@ -35,7 +35,7 @@ the black ground.
 2. **Detail study** — "Orange on black." Tight crop on the chest graphic.
 3. **One run only** — 1 OF 15, no reprints, $100, S–2XL.
 4. **The belief** — hood-and-fleece crop, "TRUST YOURSELF. Coalition is action. Show up."
-5. **Shop the drop** — price, sizes, sgcoalition.xyz/shop.
+5. **Shop the drop** — price, sizes, linktr.ee/sgcoalition.
 
 **Files**
 
@@ -67,7 +67,7 @@ Washed black. Orange metal across the chest. Built to look better worn in. Finis
 
 When it's gone, it's gone. Trust Yourself.
 
-🔗 Link in bio → sgcoalition.xyz/shop
+🔗 Link in bio → linktr.ee/sgcoalition
 
 #Coalition #CoalitionFleece #BaltimoreStreetwear #TrustYourself #LimitedEdition
 ```

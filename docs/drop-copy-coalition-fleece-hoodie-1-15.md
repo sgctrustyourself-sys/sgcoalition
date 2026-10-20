@@ -36,7 +36,7 @@ Midweight fleece, brushed inside, cut to hold its shape. Finished in-house. 1 of
 
 When it's gone, it's gone. Trust Yourself.
 
-🔗 Link in bio → sgcoalition.xyz/shop
+🔗 Link in bio → linktr.ee/sgcoalition
 
 #Coalition #CoalitionFleece #BaltimoreStreetwear #TrustYourself #LimitedEdition
 ```
@@ -64,7 +64,7 @@ When it's gone, it's gone.
 ## X — single post
 
 ```
-COALITION FLEECE. Coalition Fleece Hoodie — $100. Midweight fleece, brushed inside, cut to hold its shape. 15-piece run, S–2XL. Once it's gone, it's gone. sgcoalition.xyz/shop
+COALITION FLEECE. Coalition Fleece Hoodie — $100. Midweight fleece, brushed inside, cut to hold its shape. 15-piece run, S–2XL. Once it's gone, it's gone. linktr.ee/sgcoalition
 ```
 
 **Length:** 175 chars ✓
@@ -80,7 +80,7 @@ COALITION FLEECE.
 
 Coalition Fleece Hoodie — $100. Midweight fleece, brushed inside. Sized S–2XL. Once it's gone, it's gone.
 
-sgcoalition.xyz/shop
+linktr.ee/sgcoalition
 ```
 
 **Length:** 146 chars ✓
@@ -167,7 +167,7 @@ Coalition is action. Show up.
 ```
 COALITION FLEECE · HOODIE
 SHOP NOW
-sgcoalition.xyz/shop
+linktr.ee/sgcoalition
 ```
 
 **Stickers:**
@@ -222,7 +222,7 @@ $100. When this one's gone, it's gone.
 ## Internal Slack one-liner
 
 ```
-COALITION FLEECE. Coalition Fleece Hoodie — $100. 1 of 15. Sized S–2XL. sgcoalition.xyz/shop
+COALITION FLEECE. Coalition Fleece Hoodie — $100. 1 of 15. Sized S–2XL. linktr.ee/sgcoalition
 ```
 
 **Length:** 92 chars ✓

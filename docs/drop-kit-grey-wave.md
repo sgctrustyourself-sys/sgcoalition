@@ -124,7 +124,7 @@ For the next drop, swap these paths + URLs only.
 
 **Story variant:** replace "SHOP NOW" with a "Shop Now" sticker + URL sticker. URL = `{{shop_url}}`.
 
-**Grey Wave:** "GREY WAVE / WALLET 1/2" / "sgcoalition.xyz/shop".
+**Grey Wave:** "GREY WAVE / WALLET 1/2" / "linktr.ee/sgcoalition".
 
 ---
 
@@ -223,7 +223,7 @@ The grid carousel is 1080×1350. Stories flip to 1080×1920 vertical 9:16 and ad
 
 **Stickers:** Link sticker on the `→` mark → `{{shop_url}}`; mention sticker `@sgcoalition` bottom-left. The link sticker is the actual Story → PDP conversion path.
 
-**Grey Wave:** eyebrow "GREY WAVE / WALLET 1/2", URL "sgcoalition.xyz/shop".
+**Grey Wave:** eyebrow "GREY WAVE / WALLET 1/2", URL "linktr.ee/sgcoalition".
 
 ### Sticker strategy (priority order)
 

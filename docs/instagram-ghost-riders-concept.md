@@ -14,7 +14,7 @@ Use the grid renders at 1080 × 1350, in this order:
 2. **Detail:** Wallet back — skull gang riding out — with "Stitched after dark." and the patchwork story.
 3. **Scarcity:** Wallet art crop over a solid black lower half: "ONE OF ONE / 1 OF 1 / $80."
 4. **Manifesto:** Ghosted wallet art with "TRUST YOURSELF." and "Coalition is action. Show up."
-5. **Shop CTA:** Left-column wallet crop with the black CTA block: "GHOST RIDERS / WALLET 1/1 — SHOP NOW → sgcoalition.xyz/shop."
+5. **Shop CTA:** Left-column wallet crop with the black CTA block: "GHOST RIDERS / WALLET 1/1 — SHOP NOW → linktr.ee/sgcoalition."
 
 Grid slide PNGs: `docs/grid-reveal/grid-ghost-riders-after-dark-slide-{1..5}.png`
 Review page: `docs/grid-reveal/ghost-riders-contact-sheet.html`
@@ -30,7 +30,7 @@ Hand-stitched patchwork: camo and rust corduroy under green blanket stitching. T
 
 One of one. When it's gone, it's gone. Trust Yourself.
 
-🔗 Link in bio → sgcoalition.xyz/shop
+🔗 Link in bio → linktr.ee/sgcoalition
 
 #Coalition #GhostRiders #BaltimoreStreetwear #TrustYourself #OneOfOne
 ```
@@ -52,7 +52,7 @@ Sticker strategy (priority order):
 ## Publish checks
 
 - Confirm the drop date/time before setting any countdown sticker.
-- Confirm the PDP exists at $80 with 1-of-1 inventory before adding the link sticker; link URL is `sgcoalition.xyz/shop`.
+- Confirm the PDP exists at $80 with 1-of-1 inventory before adding the link sticker; link URL is `linktr.ee/sgcoalition`.
 - Verify the bio link points to this product or the shop destination.
 - Keep all stickers off the static feed-art PNGs; use Instagram's native stickers on Stories only.
 - Safe-zone clearance on Stories: nothing inside the top 250 px or bottom 320 px.

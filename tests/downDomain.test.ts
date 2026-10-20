@@ -25,6 +25,11 @@
 // The one legitimate exception is mail.sgcoalition.xyz — the domain Resend
 // sends transactional email from. Its DKIM and DMARC records are intact
 // and it is not a website, so it stays.
+//
+// The MAIN SHARING LINK is a third thing and is deliberately not here:
+// linktr.ee/sgcoalition is what the brand prints when it says "link in
+// bio" — the linktree carries the portfolio next to the shop. It is not
+// the storefront origin and no origin rule applies to it.
 
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
@@ -100,6 +105,23 @@ describe('the down domain stays down', () => {
         const seo = fs.readFileSync(path.join(ROOT, 'utils', 'seo.ts'), 'utf8');
         expect(seo).toContain("SITE_ORIGIN = 'https://sgcoalition-five.vercel.app'");
     });
+
+    it('the main sharing link is the linktree, not the storefront', () => {
+        // Two different URLs on purpose: the storefront origin and the
+        // "link in bio" the brand prints. Conflating them either points
+        // the linktree at a bare product page, or points the storefront
+        // origin at a linktree.
+        //
+        // The sharing link is owned by utils/sharingLinks.ts, and the
+        // canonical origin by utils/seo.ts. Neither file may hold the
+        // other's URL.
         const seo = fs.readFileSync(path.join(ROOT, 'utils', 'seo.ts'), 'utf8');
+        expect(seo).not.toContain('linktr.ee');
+
+        const sharing = fs.readFileSync(path.join(ROOT, 'utils', 'sharingLinks.ts'), 'utf8');
+        expect(sharing).toContain("MAIN_SHARING_LINK = 'https://linktr.ee/sgcoalition'");
+        // The sharing module may not claim to be the origin: the origin has
+        // exactly one home, utils/seo.ts.
+        expect(sharing).not.toMatch(/SITE_ORIGIN\s*=/);
     });
 });

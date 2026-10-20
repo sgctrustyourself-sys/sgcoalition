@@ -130,7 +130,7 @@ served by the live site and uploaded to the `products` bucket by
 | Bottom 40 % | lower portion | solid `#000` panel |
 | Eyebrow | top of black panel, 24–26 px `#6B6B6B` | `COALITION FLEECE · HOODIE` |
 | Display CTA | mid panel, 70 px white | `SHOP NOW` + arrow `→` |
-| URL | bottom of panel, 28 px `#C8C8C8` | `sgcoalition.xyz/shop` |
+| URL | bottom of panel, 28 px `#C8C8C8` | `linktr.ee/sgcoalition` |
 
 **Stickers (reviewer aid — added in-app, never baked into the PNG):**
 
@@ -168,7 +168,7 @@ Outputs (gitignored — re-run to refresh):
 ## Pre-publish checklist
 
 - [ ] Drop time for the countdown sticker matches the publish time exactly.
-- [ ] Link sticker URL is `sgcoalition.xyz/shop` and resolves to this product's PDP.
+- [ ] Link sticker URL is `linktr.ee/sgcoalition` and resolves to this product's PDP.
 - [ ] `@sgcoalition` resolves to the active handle.
 - [ ] Poll options are short (≤ 24 chars), mutually exclusive, on-brand.
 - [ ] Safe-zone clearance: nothing inside the top 250 px or bottom 320 px of a Story.

@@ -36,7 +36,7 @@ Pink leopard print, 3D silver puff lettering, cut fitted. Finished in-house. 1 o
 
 When it's gone, it's gone. Trust Yourself.
 
-🔗 Link in bio → sgcoalition.xyz/shop
+🔗 Link in bio → linktr.ee/sgcoalition
 
 #Coalition #PinkSilver #BaltimoreStreetwear #TrustYourself #LimitedEdition
 ```
@@ -64,7 +64,7 @@ When it's gone, it's gone.
 ## X — single post
 
 ```
-PINK / SILVER. Women's Leopard Print Crop T-Shirt — $45. Pink leopard print, 3D silver puff lettering, cut fitted. 12-piece run, S–XL. Once it's gone, it's gone. sgcoalition.xyz/shop
+PINK / SILVER. Women's Leopard Print Crop T-Shirt — $45. Pink leopard print, 3D silver puff lettering, cut fitted. 12-piece run, S–XL. Once it's gone, it's gone. linktr.ee/sgcoalition
 ```
 
 **Length:** 182 chars ✓
@@ -80,7 +80,7 @@ PINK / SILVER.
 
 Women's Leopard Print Crop T-Shirt — $45. Pink leopard print, 3D silver puff lettering, cut fitted. Sized S–XL. Once it's gone, it's gone.
 
-sgcoalition.xyz/shop
+linktr.ee/sgcoalition
 ```
 
 **Length:** 176 chars ✓
@@ -167,7 +167,7 @@ Coalition is action. Show up.
 ```
 PINK / SILVER · CROP TOP
 SHOP NOW
-sgcoalition.xyz/shop
+linktr.ee/sgcoalition
 ```
 
 **Stickers:**
@@ -222,7 +222,7 @@ $45. When this one's gone, it's gone.
 ## Internal Slack one-liner
 
 ```
-PINK / SILVER. Women's Leopard Print Crop T-Shirt — $45. 1 of 12. Sized S–XL. sgcoalition.xyz/shop
+PINK / SILVER. Women's Leopard Print Crop T-Shirt — $45. 1 of 12. Sized S–XL. linktr.ee/sgcoalition
 ```
 
 **Length:** 98 chars ✓

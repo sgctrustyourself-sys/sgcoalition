@@ -1,7 +1,24 @@
 # Domain cutover runbook — `sgcoalition.shop` → Vercel
 
 Moving `sgcoalition.shop` off the Whop-hosted storefront onto this Vercel
-deployment. Written 2026-10-20.
+deployment. Written 2026-10-20, updated the same day after the storefront
+was moved back to `sgcoalition-five.vercel.app`.
+
+## The two URLs, up front
+
+| Role | URL | What it is |
+| --- | --- | --- |
+| **Storefront origin** | `https://sgcoalition-five.vercel.app` | The site. `VITE_APP_URL` and `SITE_ORIGIN`; canonical/OG tags, transactional email links, the CORS echo, the sitemap, the robots line, the webhook URLs. |
+| **Main sharing link** | `https://linktr.ee/sgcoalition` | What the brand prints when it says "link in bio". The linktree carries the portfolio next to the shop, so one URL does both jobs. |
+
+They are different things and they are not interchangeable. Changing the
+storefront origin must never change the sharing link, and vice versa.
+`tests/downDomain.test.ts` pins both halves: no source file may point at a
+retired host, and the storefront origin may not be a linktree.
+`tests/sharingLink.test.ts` pins the other direction: the sharing link IS
+the linktree, every drop poster prints that same link, and the storefront
+itself (footer, about page, product page) links the portfolio next to the
+shop.
 
 ## Why the domain has to be transferred
 
@@ -145,3 +162,24 @@ works for a Whop-hosted store, if one is kept.
 
 `sgcoalition.xyz` currently answers 402. Reattach it to the same project
 or let it go — but never point a webhook at it.
+
+## Where each URL lives in the repo
+
+| Surface | File | Value |
+| --- | --- | --- |
+| Canonical origin | `utils/seo.ts` (`SITE_ORIGIN`) | storefront origin |
+| CORS echo / public origin | `api/_helpers.ts` (`DEFAULT_PUBLIC_ORIGIN`) | storefront origin |
+| SEO generator | `scripts/generateSeoArtifacts.mjs` (`SITE_ORIGIN`) | storefront origin |
+| Environment template | `.env.production.template` (`VITE_APP_URL`) | storefront origin |
+| **Main sharing link (the one owner)** | `utils/sharingLinks.ts` (`MAIN_SHARING_LINK`, `MAIN_SHARING_LABEL`) | main sharing link |
+| Portfolio link in the footer, about page, product page | `components/Footer.tsx`, `pages/About.tsx`, `pages/ProductDetails.tsx` | main sharing link (imported, never pasted) |
+| Drop copy decks, story/grid/x slides, reel CTAs | `scripts/story-reveal-specs/drops.ts` (`shopUrl`, CTA `url`), `scripts/reels/*.html` | main sharing link |
+
+The sharing link has one owner. `utils/sharingLinks.ts` holds the URL; the
+app surfaces import it, the drop registry imports it. Nothing pastes
+`linktr.ee/sgcoalition` into a second place by hand — `tests/sharingLink.test.ts`
+fails if one does, and if a second linktree handle ever appears.
+
+Regenerate the generated SEO artifacts after any origin change:
+`npm run generate:seo` (sitemap, robots, static page meta). The drop docs
+come from `npm run drop:docs`.

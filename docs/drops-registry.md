@@ -105,7 +105,7 @@ sed -i 's/{{release_name_title_case}}/Ironclad/g'        docs/drop-kit-ironclad-
 sed -i 's/{{release_hashtag}}/Ironclad/g'                docs/drop-copy-ironclad-1-2.md
 sed -i 's/{{x}}/1/g; s/{{y}}/2/g'                        docs/drop-kit-ironclad-1-2.md docs/drop-copy-ironclad-1-2.md
 sed -i 's/{{price}}/45/g'                                docs/drop-kit-ironclad-1-2.md docs/drop-copy-ironclad-1-2.md
-sed -i 's/{{shop_url}}/sgcoalition.xyz\/shop/g'          docs/drop-kit-ironclad-1-2.md docs/drop-copy-ironclad-1-2.md
+sed -i 's/{{shop_url}}/linktr.ee/sgcoalition\/shop/g'          docs/drop-kit-ironclad-1-2.md docs/drop-copy-ironclad-1-2.md
 
 # Per-drop custom copy stays in the copy deck only:
 #   {{detail_headline}}, {{detail_subtext}},
