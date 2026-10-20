@@ -17,6 +17,7 @@
     "test:referral": "node scripts/verify-referral-self-heal.mjs",
     "smoke:checkout": "node scripts/smoke-checkout.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",
+    "verify:webhook": "node scripts/verify-webhook-endpoint.mjs",
     "dev": "vite",
     "prebuild": "npm run check:serverless-imports && node scripts/generateSeoArtifacts.mjs",
     "build": "vite build",
