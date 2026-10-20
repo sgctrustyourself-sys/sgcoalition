@@ -389,7 +389,7 @@ const Story = () => {
                             <MessageCircleIcon className="w-4 h-4 mr-2 text-indigo-500" /> Discord
                         </div>
                     </a>
-                    <a href="mailto:admin@sgcoalition.xyz" className="group">
+                    <a href="mailto:sgctrustyourself@gmail.com" className="group">
                         <div className="flex items-center justify-center bg-white border border-gray-200 text-gray-900 px-5 py-3 rounded-sm text-xs font-bold uppercase tracking-wide group-hover:border-brand-accent transition-all">
                             <Mail className="w-4 h-4 mr-2 text-brand-accent" /> Email
                         </div>

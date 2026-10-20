@@ -35,7 +35,7 @@ const SGCoalitionPortal = () => {
                         <Link to="/migrate" className="text-orange-500 hover:text-orange-400 transition-colors">
                             Migration
                         </Link>
-                        <a href="https://shop.sgcoalition.xyz" className="bg-white text-black px-6 py-2.5 rounded-full hover:bg-orange-500 hover:text-white transition-all transform hover:scale-105 active:scale-95 shadow-lg font-black tracking-widest">Shop Drops</a>
+                        <a href="https://sgcoalition.shop" className="bg-white text-black px-6 py-2.5 rounded-full hover:bg-orange-500 hover:text-white transition-all transform hover:scale-105 active:scale-95 shadow-lg font-black tracking-widest">Shop Drops</a>
                     </div>
                 </div>
             </nav>
@@ -186,7 +186,7 @@ const SGCoalitionPortal = () => {
                                 "We are bridging the gap between digital scarcity and physical reality. SGCoalition isn't just a project—it's a manufacturing loop where your tokens have tangible weight."
                             </p>
                             <div className="flex flex-col items-center gap-8">
-                                <a href="https://shop.sgcoalition.xyz/transparency" className="group flex items-center gap-3 text-sm font-bold uppercase tracking-[0.4em] text-white hover:text-orange-500 transition-all">
+                                <a href="https://sgcoalition.shop/transparency" className="group flex items-center gap-3 text-sm font-bold uppercase tracking-[0.4em] text-white hover:text-orange-500 transition-all">
                                     <span className="border-b border-white/20 group-hover:border-orange-500 pb-2">Audit Transparency</span>
                                     <ArrowRight className="w-4 h-4" />
                                 </a>

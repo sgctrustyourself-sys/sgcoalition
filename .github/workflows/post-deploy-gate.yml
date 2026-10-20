@@ -24,7 +24,7 @@ on:
   workflow_dispatch:
     inputs:
       base_url:
-        description: 'Origin to check (blank = https://sgcoalition.xyz)'
+        description: 'Origin to check (blank = the host that currently serves the deployment)'
         required: false
       commit:
         description: 'Commit the deployment was built from (blank = this checkout HEAD)'
@@ -44,10 +44,16 @@ jobs:
     # Deployment Protection (checkout-smoke.yml covers previews), and a preview's
     # record is not a release claim. The environment is the deployment's own
     # report of what it is, so nothing here guesses.
+    #
+    # The environment name is matched loosely because it is not a fixed string:
+    # Vercel names it "Production" for some projects and "Production - <project>"
+    # for others, and this project is the latter. An exact match on 'Production'
+    # made this job skip on every deployment — a check that never ran, which is
+    # the failure mode this workflow exists to prevent.
     if: >
       github.event_name == 'workflow_dispatch' ||
       (github.event.deployment_status.state == 'success' &&
-       github.event.deployment.environment == 'Production')
+       startsWith(github.event.deployment.environment, 'Production'))
 
     steps:
       - uses: actions/checkout@v4
@@ -61,7 +67,12 @@ jobs:
       # so it stays fast enough to run on every production deploy.
       - name: Verify the live deployment's own verdict
         env:
-          TEST_URL: ${{ github.event.inputs.base_url || 'https://sgcoalition.xyz' }}
+          # The origin the deployment actually answers on. sgcoalition.shop is
+          # the domain the storefront is moving to, but it serves nothing until
+          # the domain transfer out of Whop completes — checking it now would
+          # read a 404 and call a healthy deployment broken. When the
+          # transfer lands, this becomes sgcoalition.shop.
+          TEST_URL: ${{ github.event.inputs.base_url || 'https://sgcoalition-five.vercel.app' }}
           # The deployment's own commit, straight from the event: that is what
           # "the commit it was built from" means here, and it is not the same as
           # whatever the default branch happens to point at now.

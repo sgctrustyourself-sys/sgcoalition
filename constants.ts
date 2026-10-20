@@ -563,7 +563,11 @@ export const ADMIN_USER: {
 } = {
   uid: "admin",
   displayName: "Admin",
-  email: "admin@sgcoalition.xyz",
+  // The owner mailbox. It used to be an address on the old apex domain,
+  // which has no MX records — the address could not receive mail at all, so
+  // anything showing it (the profile, the About contact button) pointed at a
+  // dead inbox. This is the address the storefront already uses for support.
+  email: "sgctrustyourself@gmail.com",
   walletAddress: null,
   sgCoinBalance: 0,
   isAdmin: true,

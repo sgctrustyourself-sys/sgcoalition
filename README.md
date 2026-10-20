@@ -4,7 +4,7 @@
 
 ## Working generations — deployment state
 
-> Snapshot at 2026-07-10. Only matters for Vercel rollback runs; current `sgcoalition.xyz` state lives below. Older history: `git log --oneline --first-parent -- packages/index.html dist public`.
+> Snapshot at 2026-07-10. Only matters for Vercel rollback runs; current `sgcoalition.shop` state lives below. Older history: `git log --oneline --first-parent -- packages/index.html dist public`.
 
 ### The "perfect UI" — known-good target for restoration
 
@@ -22,7 +22,7 @@ vercel rollback dpl_75Vza3u5F1cqwmK83qvGXV9x4ANg --yes
 3. Rebuild and deploy with build cache off (`vercel --prod --force`).
 4. Verify /api/complete-order returns 200.
 
-### Current working state (`sgcoalition.xyz`)
+### Current working state (`sgcoalition.shop`)
 
 - **Bundle:** `assets/index-CFMsameB.js` (latest deploy — contains the SearchResults loading-guard fix, 7 missing products added to INITIAL_PRODUCTS, category type fixes, and real image URLs)
 - **API handlers:** all fixed — api/_handlers/*.ts uses .js extensions for ESM import resolution. /api/complete-order, /api/ai-chat, /api/marketing-subscribe all return 200.
@@ -1661,7 +1661,7 @@ WHERE metadata->>'instagram_username' = 'friiqy';
 ```
 
 Then verify the Live Orders Map surfaces the wholesale at
-https://sgcoalition.xyz/live-orders under the 90d or all-time chip.
+https://sgcoalition.shop/live-orders under the 90d or all-time chip.
 
 To test the suppression, send a campaign whose name contains "test"
 from the admin Marketing Manager UI - friiqy should NOT appear in the
@@ -1924,7 +1924,7 @@ Balling like the Pacers… stitch by stitch.🪡🫡
 
 The next 1/1 Custom Coalition Wallet is coming together from scratch — balling like the Pacers, stitch by stitch. Same no-factory energy as the last build, rebuilt into an everyday carry piece. Hand-cut, hand-finished, red and white Coalition mark, one bag only. No second copy. No factory. No shortcuts. Just the process.
 
-Trust Yourself — available now at sgcoalition.xyz
+Trust Yourself — available now at sgcoalition.shop
 ```
 
 **First comment hashtags** (paste within 5 sec of posting IG):
@@ -1948,7 +1948,7 @@ Balling like the Pacers… stitch by stitch.🪡🔥
 
 The next 1/1 Custom Coalition Wallet is pulling together from scratch — Pacers tempo, one stitch at a time. Same no-factory energy as the last build, rebuilt into an everyday carry piece. Hand-cut, hand-finished, red and white Coalition mark, one bag only. No second copy. No factory. No shortcuts. Just the process.
 
-Trust Yourself — live at sgcoalition.xyz
+Trust Yourself — live at sgcoalition.shop
 ```
 
 ### Pre-publish audit (the gate)
@@ -1961,8 +1961,8 @@ The final 30 seconds between "build ready" and tapping Post. This table runs eve
 | 1.2 | Title | Matches last week's series shape (drops read as a series, not one-offs). | Pick a series anchor from the last 2 reels and rename. |
 | 2.1 | Caption hook | Line 1 ≤125 chars. Lands the song phrase + a craft verb in one breath. | Rewrite line 1. Pull the song hook + the action verb from the audio. |
 | 2.2 | Caption body | Closing triptych present verbatim: `No factory. No shortcuts. Just the process. Trust Yourself.` | Restore verbatim from the recipe template. Don't paraphrase, don't abbreviate. |
-| 2.3 | Caption CTA | `Trust Yourself` line + `sgcoalition.xyz` URL present at the bottom. | Append both. Without these the post is a vibe post, not a sale post. |
-| 2.4 | Caption → CTA resolves | The `sgcoalition.xyz` URL resolves to a live PDP: 200, stock=1, price matches the caption. | Hard-fix the PDP before posting. A 404 link makes the whole post a vibe post. |
+| 2.3 | Caption CTA | `Trust Yourself` line + `sgcoalition.shop` URL present at the bottom. | Append both. Without these the post is a vibe post, not a sale post. |
+| 2.4 | Caption → CTA resolves | The `sgcoalition.shop` URL resolves to a live PDP: 200, stock=1, price matches the caption. | Hard-fix the PDP before posting. A 404 link makes the whole post a vibe post. |
 | 2.5 | Hashtags | First comment only. NOT inline in the caption body. | Move inline tags to the first comment within 5 sec of posting. |
 | 3.1 | Timing — IG | Inside the 6–8pm evening window. Not lunch, not midnight. | Schedule for the next evening window. Don't post against this gate. |
 | 3.2 | Timing — FB | Cross-post scheduled ≥48h after IG. | Pull same-day FB; reschedule to the 48h slot. Same-day splits the algorithm signal. |
@@ -2210,7 +2210,7 @@ Returns `{ noChanges: true, hash: <git short-sha> }` when nothing has changed in
 #### Production verification (post-deploy)
 
 ```bash
-curl -s -X POST 'https://sgcoalition.xyz/api/git-operations?action=sync-constants'   -H 'Content-Type: application/json' -d '{}'
+curl -s -X POST 'https://sgcoalition.shop/api/git-operations?action=sync-constants'   -H 'Content-Type: application/json' -d '{}'
 ```
 
 - `{ noChanges: true, hash: "<40-char SHA>" }` → already in sync; hash is the GitHub blob SHA, not a git commit SHA

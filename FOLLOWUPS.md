@@ -25,7 +25,7 @@ Steps:
 
 Verify on the next production deploy:
 
-1. Open `https://sgcoalition.xyz` in an incognito window; the `index-*.js` chunk should make a Sentry init call on first paint.
+1. Open `https://sgcoalition.shop` in an incognito window; the `index-*.js` chunk should make a Sentry init call on first paint.
 2. Confirm events arrive in the Sentry Issues page (e.g. trigger a temporary unhandled error with `throw new Error("test")` in DevTools, then delete the test event).
 
 ### 2. Configure Sentry alert rules

@@ -2,13 +2,23 @@
 # ensure-uptimerobot-monitor.sh
 #
 # Idempotently ensure an UptimeRobot HTTPS monitor exists for the checkout
-# health endpoint (https://sgcoalition.shop/api/health).
+# health endpoint.
 #
 #   - API key:  UPTIMEROBOT_API_KEY env var, or UPTIMEROBOT_API_KEY=... in .env
+#   - Host:     HEALTH_MONITOR_HOST env var, defaulting to sgcoalition.shop
 #   - Only creates the monitor if it doesn't already exist (no duplicates)
 #   - /api/health returns 200 "ok" when Stripe checkout is healthy and 503
 #     "degraded" when the key is missing or Stripe rejects it —
 #     UptimeRobot marks 5xx DOWN, so an alert fires exactly when checkout breaks.
+#
+# The host matters more than it looks. sgcoalition.shop is the domain the
+# storefront is moving to, but it does not SERVE anything until the domain
+# transfer out of Whop completes — until then it answers 404, and a monitor
+# pointed at it would report DOWN continuously, which is a false alarm about
+# a checkout that is working. So the default host is the one that currently
+# serves, and it changes to the canonical domain at cutover:
+#
+#   HEALTH_MONITOR_HOST=sgcoalition.shop bash scripts/ensure-uptimerobot-monitor.sh
 #
 # Usage:
 #   UPTIMEROBOT_API_KEY=u123456-abc bash scripts/ensure-uptimerobot-monitor.sh
@@ -20,7 +30,10 @@
 
 set -euo pipefail
 
-URL="https://sgcoalition.shop/api/health"
+# The host that currently serves /api/health. sgcoalition.shop becomes the
+# canonical one when the domain transfer completes.
+HEALTH_HOST="${HEALTH_MONITOR_HOST:-sgcoalition-five.vercel.app}"
+URL="https://${HEALTH_HOST}/api/health"
 NAME="Checkout Health (Stripe key)"
 # Default 300s (5 min, free plan). Override with UPTIMEROBOT_INTERVAL=60 on paid plans.
 INTERVAL="${UPTIMEROBOT_INTERVAL:-300}"
