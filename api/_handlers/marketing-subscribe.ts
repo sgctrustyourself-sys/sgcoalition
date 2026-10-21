@@ -7,7 +7,14 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { resendClient } from '../../api/_services.js';
 
-const ALLOWED_SOURCES = new Set(['home', 'shop', 'about', 'footer', 'sms_signup', 'product', 'custom_wallets']);
+// The sources a signup can claim itself. `member_signup` is the member
+// account form: signing up for an account to get the 30% member discount also
+// opts the member into drop alerts, which is the whole point of the offer —
+// the member becomes a reachable contact instead of an anonymous discount
+// claim. `sms_signup` is the fallback when a caller states no source.
+const ALLOWED_SOURCES = new Set([
+    'home', 'shop', 'about', 'footer', 'sms_signup', 'product', 'custom_wallets', 'member_signup',
+]);
 
 let cachedAdminClient: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient | null {

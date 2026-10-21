@@ -23,8 +23,9 @@
 //   1. the sharing link IS the linktree, and is NOT the storefront origin
 //   2. every drop poster, CTA slide and caption prints THAT link
 //   3. the storefront itself carries the portfolio link next to the shop
-//      (footer, about page, product page) — the customer is looking at a
-//      product, and the portfolio is one click away
+//      (footer, about page, product page, mobile bottom nav, announcement
+//      bar) — the customer is looking at a product, and the portfolio is
+//      one click away, on every screen
 //   4. no source file grows a second linktree handle behind the owner's back
 
 import { describe, it, expect, vi } from 'vitest';
@@ -106,11 +107,11 @@ describe('every drop points at the same link', () => {
 });
 
 describe('the storefront carries the portfolio link', () => {
-    it('links the portfolio from the footer, the about page and the product page', () => {
+    it('links the portfolio from the footer, the about page, the product page, the mobile nav and the announcement bar', () => {
         // The customer is looking at a product; the portfolio is one click
-        // away. These three surfaces use the shared constant rather than a
+        // away. These surfaces use the shared constant rather than a
         // pasted URL, so a link change cannot leave one of them behind.
-        for (const file of ['components/Footer.tsx', 'pages/About.tsx', 'pages/ProductDetails.tsx']) {
+        for (const file of ['components/Footer.tsx', 'pages/About.tsx', 'pages/ProductDetails.tsx', 'components/MobileBottomNav.tsx', 'components/AnnouncementBar.tsx']) {
             const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
             expect(source, `${file} must use the shared constant`).toContain('MAIN_SHARING_LINK');
             expect(source, `${file} must not paste its own link`).not.toContain('linktr.ee');

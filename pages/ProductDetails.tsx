@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Share2, Shield, Plus, Trash2, X, Upload, ExternalLink, Smartphone, Scan, Heart, MessageSquare, ChevronLeft, ChevronRight, GripVertical, Star, CheckCircle2, Clock3, Ruler, Truck, Instagram } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
@@ -198,6 +198,12 @@ const ProductDetails = () => {
     const tierActivePrice = isNumbered ? getActiveTierPrice(product, soldCount) : null;
     const basePrice = tierActivePrice ?? product.price;
     const displayPrice = basePrice + (walletProduct && includeKeychainClipOn ? WALLET_KEYCHAIN_CLIP_PRICE : 0);
+    // The member price: 30% off for a signed-in account holder. The same
+    // number the pricing authority charges (services/orderIntake.ts →
+    // MEMBER_DISCOUNT_RATE) — this is a DISPLAY of that rate, and the
+    // authoritative total is always the one the server computes.
+    const isAccountMember = Boolean(user?.uid);
+    const memberPrice = Math.round(displayPrice * 0.7 * 100) / 100;
     const tierInfo = isNumbered ? formatTierCalloutCopy(product, soldCount) : null;
     const editableSizes = getProductEditableSizes(editForm.sizes, editForm.sizeInventory);
     const galleryImages = isEditing && editForm.images ? editForm.images : product.images;
@@ -773,7 +779,25 @@ const ProductDetails = () => {
                                         </div>
                                     )}
                                     <div className="space-y-1">
-                                        <p className="text-3xl text-brand-accent font-bold font-mono tracking-tighter">${displayPrice}</p>
+                                        {isAccountMember ? (
+                                            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                                <span className="text-lg text-gray-500 font-mono line-through">${displayPrice}</span>
+                                                <span className="text-3xl text-brand-accent font-bold font-mono tracking-tighter">${memberPrice}</span>
+                                                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-400">
+                                                    Member 30% off
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <p className="text-3xl text-brand-accent font-bold font-mono tracking-tighter">${displayPrice}</p>
+                                        )}
+                                        {!isAccountMember && (
+                                            <Link
+                                                to="/login"
+                                                className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-pink-300 hover:text-pink-200 transition-colors"
+                                            >
+                                                👻 Log in or sign up to unlock 30% off →
+                                            </Link>
+                                        )}
                                         {product.freeShipping && (
                                             <p className="inline-flex border border-brand-accent/30 bg-brand-accent/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-accent">
                                                 Free Shipping

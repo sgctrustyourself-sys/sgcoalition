@@ -994,8 +994,8 @@ describe('acceptCheckout', () => {
 
     it('re-prices with the server-stated credit and debits the profile once', async () => {
         process.env.STRIPE_SECRET_KEY = 'sk_test_stripe';
-        mockStripeRetrieve.mockResolvedValue({ status: 'succeeded', amount_received: 2000 });
-        const savedRow = stubOrderRow({ id: 'saved-order', total: 20 });
+        mockStripeRetrieve.mockResolvedValue({ status: 'succeeded', amount_received: 1250 });
+        const savedRow = stubOrderRow({ id: 'saved-order', total: 12.5 });
         mockSupabaseFrom.mockImplementation((table: string) => {
             if (table === 'profiles') return chain('maybeSingle', { data: { store_credit: 8 }, error: null });
             if (table === 'orders') return ordersStub(null, savedRow);
@@ -1004,7 +1004,7 @@ describe('acceptCheckout', () => {
 
         const attempt: CheckoutAttempt = {
             items: [{ productId: 'prod-1', selectedSize: 'M', quantity: 1 }],
-            clientSubtotal: 25, clientDiscount: 0, clientTotal: 20,
+            clientSubtotal: 25, clientDiscount: 0, clientTotal: 12.5,
             shippingDollars: 0,
             paymentEvidence: { method: 'stripe', paymentIntentId: 'pi_test_credit' },
             orderId: 'order_credit_1', orderNumber: 'ORD-CREDIT-1',
@@ -1165,7 +1165,7 @@ describe('acceptCheckout store credit (every payment method)', () => {
         process.env.RESEND_API_KEY = 're_test_key';
         mockSupabaseFrom.mockReset();
         mockStripeRetrieve.mockReset();
-        mockStripeRetrieve.mockResolvedValue({ status: 'succeeded', amount_received: 2000 });
+        mockStripeRetrieve.mockResolvedValue({ status: 'succeeded', amount_received: 1250 });
         mockResendSend.mockReset();
         mockResendSend.mockResolvedValue({ data: { id: 'email-1' }, error: null });
     });
@@ -1208,7 +1208,7 @@ describe('acceptCheckout store credit (every payment method)', () => {
                 .find((q: any) => q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0);
             expect(orderQuery).toBeTruthy();
             const record = orderQuery.upsert.mock.calls[0][0] as Record<string, any>;
-            expect(record.total).toBe(20); // $25 - $5, not the undiscounted $25
+            expect(record.total).toBe(12.5); // $25 - 30% member - $5
             expect(record.notes).toContain('Store credit applied: -$5.00');
 
             // ... and the balance was debited exactly once ($8 - $5).
@@ -1241,7 +1241,7 @@ describe('acceptCheckout store credit (every payment method)', () => {
         const orderQuery = mockSupabaseFrom.mock.results
             .map((r: { value: any }) => r.value)
             .find((q: any) => q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0);
-        expect((orderQuery.upsert.mock.calls[0][0] as Record<string, any>).total).toBe(25);
+        expect((orderQuery.upsert.mock.calls[0][0] as Record<string, any>).total).toBe(17.5);
         const profileUpdate = mockSupabaseFrom.mock.results
             .map((r: { value: any }) => r.value)
             .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.store_credit !== undefined));
@@ -1509,7 +1509,7 @@ describe('acceptCheckout attempt id', () => {
 
     it('does not let a twin that loses the id claim become a second creator', async () => {
         const winner = stubOrderRow({
-            id: ATTEMPT_ID, user_id: BUYER_ID, customer_email: 'attempt@test.com', total: 20,
+            id: ATTEMPT_ID, user_id: BUYER_ID, customer_email: 'attempt@test.com', total: 12.5,
         });
         // Orders chain faithful to the two claim semantics: ON CONFLICT (id) DO
         // NOTHING answers with the rows INSERTED — none, because the twin got
@@ -1551,7 +1551,7 @@ describe('acceptCheckout attempt id', () => {
 
     it('refuses an attempt id that is recorded for a different buyer', async () => {
         const otherBuyersOrder = stubOrderRow({
-            id: ATTEMPT_ID, user_id: OTHER_BUYER_ID, customer_email: 'someone-else@test.com', total: 20,
+            id: ATTEMPT_ID, user_id: OTHER_BUYER_ID, customer_email: 'someone-else@test.com', total: 17.5,
         });
         mockSupabaseFrom.mockImplementation((table: string) =>
             (table === 'orders' ? ordersStub(otherBuyersOrder) : chain('maybeSingle', { data: null, error: null })));
@@ -1579,7 +1579,7 @@ describe('acceptCheckout attempt id', () => {
 
     it('refuses an attempt id that is another guest\'s order', async () => {
         const otherGuestsOrder = stubOrderRow({
-            id: ATTEMPT_ID, user_id: null, customer_email: 'someone-else@test.com', total: 20,
+            id: ATTEMPT_ID, user_id: null, customer_email: 'someone-else@test.com', total: 17.5,
         });
         mockSupabaseFrom.mockImplementation((table: string) =>
             (table === 'orders' ? ordersStub(otherGuestsOrder) : chain('maybeSingle', { data: null, error: null })));

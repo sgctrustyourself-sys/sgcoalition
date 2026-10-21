@@ -26,6 +26,16 @@ export interface CustomerProfile {
     lifetimeSpendUsd: number;
     lifetimeOrders: number;
     customerNotes: string | null;
+    // Contact details captured at signup (the member offer doubles as an
+    // acquisition offer — see supabase/migrations/20261021_add_member_contact_fields.sql).
+    phone: string | null;
+    contactAddress: {
+        line1: string | null;
+        city: string | null;
+        state: string | null;
+        zip: string | null;
+        country: string | null;
+    };
     // Enriched data
     orderCount: number;
     totalSpend: number;
@@ -83,7 +93,7 @@ export const buildCustomerProfile = async (userId: string): Promise<CustomerProf
         const [profileRes, ordersRes, socialsRes, referralStatsRes, payoutsRes] = await Promise.all([
             isMetaMaskUser ? Promise.resolve({ data: null, error: null }) : supabase
                 .from('profiles')
-                .select('is_vip, store_credit, sg_coin_balance, lifetime_spend_usd, lifetime_orders, customer_notes')
+                .select('is_vip, store_credit, sg_coin_balance, lifetime_spend_usd, lifetime_orders, customer_notes, phone, address_line1, address_city, address_state, address_zip, address_country')
                 .eq('id', userId)
                 .maybeSingle(),
             isMetaMaskUser
@@ -185,6 +195,14 @@ export const buildCustomerProfile = async (userId: string): Promise<CustomerProf
             lifetimeSpendUsd: profile?.lifetime_spend_usd || 0,
             lifetimeOrders: profile?.lifetime_orders || 0,
             customerNotes: profile?.customer_notes || null,
+            phone: profile?.phone || null,
+            contactAddress: {
+                line1: profile?.address_line1 || null,
+                city: profile?.address_city || null,
+                state: profile?.address_state || null,
+                zip: profile?.address_zip || null,
+                country: profile?.address_country || null,
+            },
             orderCount: paidOrders.length,
             totalSpend,
             firstOrderDate,

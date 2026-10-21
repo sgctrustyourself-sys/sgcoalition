@@ -197,7 +197,7 @@ describe('/api/pricing-preview store credit', () => {
             await handler(req, res);
             expect(res._status).toBe(200);
             expect(res._body.storeCreditCents).toBe(800);
-            expect(res._body.totalCents).toBe(6700); // $75 - $8
+            expect(res._body.totalCents).toBe(4450); // $75 - 30% member - $8
         });
     }
 
@@ -214,7 +214,7 @@ describe('/api/pricing-preview store credit', () => {
         const res = makeRes();
         await handler(req, res);
         expect(res._body.storeCreditCents).toBe(800);
-        expect(res._body.totalCents).toBe(6700);
+        expect(res._body.totalCents).toBe(4450);
     });
 
     it('applies no credit when the shopper did not ask for it', async () => {
@@ -228,7 +228,7 @@ describe('/api/pricing-preview store credit', () => {
         const res = makeRes();
         await handler(req, res);
         expect(res._body.storeCreditCents).toBe(0);
-        expect(res._body.totalCents).toBe(7500);
+        expect(res._body.totalCents).toBe(5250);
         // No balance read at all — the credit path is only entered when asked.
         expect(mockSupabaseFrom).not.toHaveBeenCalledWith('profiles');
     });

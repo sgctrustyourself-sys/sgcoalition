@@ -46,6 +46,12 @@ export default async function handler(req: any, res: any) {
         // acceptCheckout re-verifies it against the live balance before debiting.
         const storeCreditCents = useStoreCredit ? await loadStoreCreditCents(userId) : 0;
 
+        // The buyer's identity is forwarded so the account-holder (member)
+        // discount is priced exactly as the order path prices it: a guest
+        // (no userId) gets nothing, an account holder gets 30% off the item
+        // total. create-payment-intent and acceptCheckout already forward it
+        // — without it here the summary showed a bigger total than the one
+        // the order was actually charged.
         const pricing = await resolvePricing(
             pricingItems,
             Number(shippingCost || 0),
@@ -53,6 +59,8 @@ export default async function handler(req: any, res: any) {
             pm,
             storeCreditCents,
             couponCode ? String(couponCode) : undefined,
+            0, // storeCreditAppliedCents — the preview prices the credit itself
+            userId ? String(userId) : null,
         );
 
         // Compute the set bonus independently so the UI can split
@@ -63,12 +71,13 @@ export default async function handler(req: any, res: any) {
             pricingItems.map(i => ({ productId: i.productId, quantity: i.quantity }))
         );
 
-        // discountCents = setBonus + cryptoDiscount + otherDisc + coupon +
-        // storeCredit. The UI renders each component on its own line, so the
-        // crypto (SGCoin) discount comes straight from the pricing authority
-        // (already method-gated: always 0 for card/Stripe) instead of a
-        // remainder that could leak the coupon into a fake "Crypto Discount"
-        // line.
+        // discountCents = setBonus + memberDiscount + cryptoDiscount +
+        // otherDisc + coupon + storeCredit. The UI renders each component on
+        // its own line, so the crypto (SGCoin) discount comes straight from
+        // the pricing authority (already method-gated: always 0 for
+        // card/Stripe) instead of a remainder that could leak the coupon into
+        // a fake "Crypto Discount" line — and the member discount gets its
+        // own "Member discount (30% off)" line.
         const cryptoDiscountCents = pricing.cryptoDiscountCents;
 
         res.status(200).json({
@@ -76,6 +85,9 @@ export default async function handler(req: any, res: any) {
             shippingCents: pricing.shippingCents,
             setBonusCents,
             cryptoDiscountCents,
+            memberDiscountCents: pricing.memberDiscountCents,
+            cryptoDiscountSuppressed: pricing.cryptoDiscountSuppressed,
+            couponSuppressed: pricing.couponSuppressed,
             couponDiscountCents: pricing.couponDiscountCents,
             couponCode: pricing.couponCode,
             discountCents: pricing.discountCents,

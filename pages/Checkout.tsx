@@ -316,6 +316,9 @@ const Checkout: React.FC = () => {
     const [pricingPreview, setPricingPreview] = useState<{
         itemTotalCents: number; shippingCents: number;
         setBonusCents: number; cryptoDiscountCents: number;
+        memberDiscountCents: number;
+        cryptoDiscountSuppressed?: boolean;
+        couponSuppressed?: boolean;
         couponDiscountCents: number; couponCode: string | null;
         discountCents: number; totalCents: number;
         storeCreditCents?: number;
@@ -383,7 +386,12 @@ const Checkout: React.FC = () => {
     // would promise a discount the order total never shows. The estimate is
     // only meaningful pre-discount (before serverPricing), because the
     // server already includes the discount in its totals.
-    const cryptoDiscountAdvertised = !serverPricing && total > 0
+    //
+    // A signed-in account holder already has the 30% member discount, and the
+    // server allows ONE promotional discount per order — so the crypto
+    // incentive does NOT apply to them and the badge must not promise it.
+    const isAccountMember = Boolean(user?.uid);
+    const cryptoDiscountAdvertised = !serverPricing && !isAccountMember && total > 0
         ? resolveCryptoDiscountCents(cart.map(item => ({ productId: item.id, quantity: item.quantity, price: getCartItemUnitPrice(item) })), shippingCost) > 0
         : false;
 
@@ -1769,11 +1777,22 @@ const Checkout: React.FC = () => {
                                         <span>-${(pricingPreview.cryptoDiscountCents / 100).toFixed(2)}</span>
                                     </div>
                                 )}
+                                {pricingPreview && pricingPreview.memberDiscountCents > 0 && (
+                                    <div className="flex justify-between text-emerald-400">
+                                        <span>Member discount (30% off)</span>
+                                        <span>-${(pricingPreview.memberDiscountCents / 100).toFixed(2)}</span>
+                                    </div>
+                                )}
                                 {pricingPreview && pricingPreview.couponDiscountCents > 0 && (
                                     <div className="flex justify-between text-emerald-400">
                                         <span>Coupon ({appliedCoupon})</span>
                                         <span>-${(pricingPreview.couponDiscountCents / 100).toFixed(2)}</span>
                                     </div>
+                                )}
+                                {pricingPreview && pricingPreview.couponSuppressed && (
+                                    <p className="text-[11px] leading-relaxed text-amber-300/80">
+                                        Your 30% member discount is applied, so the coupon is not stacked on top of it. One discount per order.
+                                    </p>
                                 )}
                                 {showPairAnotherItemHint && (
                                     <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">

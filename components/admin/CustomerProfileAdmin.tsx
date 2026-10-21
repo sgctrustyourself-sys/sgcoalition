@@ -18,7 +18,7 @@ import {
     Mail, Calendar, Coins, CreditCard, TrendingUp, Receipt, Users as UsersIcon,
     Instagram, Facebook, Twitter, Globe, MessageSquare,
     Pencil, Save, X, Plus, Minus, RefreshCw, History, Tag, ShoppingBag,
-    Sparkles, CheckCircle2, AlertCircle, Hash, ArrowUpRight,
+    Sparkles, CheckCircle2, AlertCircle, Hash, ArrowUpRight, Phone, MapPin,
 } from 'lucide-react';
 // bring in PayoutRequest type from services so the centralised payoutLastStatusDisplay
 // helper below (and any future status-mapping DRY) has a single source of truth.
@@ -223,6 +223,30 @@ const ProfileDetail: React.FC<ProfileDetailProps> = ({
                             </div>
                             <p className="text-[10px] font-mono text-gray-500 break-all flex items-center gap-2"><Hash className="w-3 h-3" />{profile.userId}</p>
                             {profile.walletAddress && <p className="text-xs text-gray-400 mt-1 flex items-center gap-2 font-mono"><Wallet className="w-3 h-3" />{profile.walletAddress}</p>}
+                            {/* Contact details captured at signup — the member
+                                offer is also an acquisition offer, so these
+                                are the fields a drop campaign needs. */}
+                            {(profile.phone || profile.contactAddress?.line1) && (
+                                <div className="mt-3 flex flex-col gap-1.5 text-xs text-gray-300">
+                                    {profile.phone && (
+                                        <p className="flex items-center gap-2">
+                                            <Phone className="w-3 h-3 text-pink-400 shrink-0" />
+                                            <a href={`tel:${profile.phone}`} className="hover:text-white transition-colors">{profile.phone}</a>
+                                        </p>
+                                    )}
+                                    {profile.contactAddress?.line1 && (
+                                        <p className="flex items-start gap-2">
+                                            <MapPin className="w-3 h-3 text-pink-400 shrink-0 mt-0.5" />
+                                            <span>
+                                                {profile.contactAddress.line1}
+                                                {profile.contactAddress.city ? `, ${profile.contactAddress.city}` : ''}
+                                                {profile.contactAddress.state ? `, ${profile.contactAddress.state}` : ''}
+                                                {profile.contactAddress.zip ? ` ${profile.contactAddress.zip}` : ''}
+                                            </span>
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">

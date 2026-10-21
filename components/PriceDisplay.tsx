@@ -1,5 +1,7 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Coins } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 import { calculateSGCoinPrice, formatPrice, isSGCoinDiscountEnabled, getDiscountPercentageText } from '../utils/pricing';
 
 interface PriceDisplayProps {
@@ -15,8 +17,11 @@ const PriceDisplay: React.FC<PriceDisplayProps> = ({
     showDiscount = true,
     className = ''
 }) => {
+    const { user } = useApp();
     const discountEnabled = isSGCoinDiscountEnabled();
     const sgcoinPrice = calculateSGCoinPrice(basePrice);
+    const isMember = Boolean(user?.uid);
+    const memberPrice = isMember ? Math.round(basePrice * 0.7 * 100) / 100 : null;
 
     const sizeClasses = {
         small: {
@@ -38,10 +43,29 @@ const PriceDisplay: React.FC<PriceDisplayProps> = ({
 
     return (
         <div className={`max-w-full space-y-2 ${className}`}>
-            {/* Regular Price - NOT crossed out */}
-            <div className={`text-white font-bold ${sizeClasses[size].base}`}>
-                {formatPrice(basePrice)}
-            </div>
+            {/* Regular Price - crossed out for members, who get 30% off */}
+            {isMember && memberPrice !== null ? (
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <span className={`text-gray-500 font-medium line-through ${sizeClasses[size].label}`}>
+                        {formatPrice(basePrice)}
+                    </span>
+                    <span className={`text-emerald-400 font-bold ${sizeClasses[size].base}`}>
+                        {formatPrice(memberPrice)}
+                    </span>
+                    <span className="text-emerald-400 text-xs font-bold uppercase tracking-widest">
+                        Member 30% off
+                    </span>
+                </div>
+            ) : (
+                <div className="space-y-1">
+                    <div className={`text-white font-bold ${sizeClasses[size].base}`}>
+                        {formatPrice(basePrice)}
+                    </div>
+                    <Link to="/login" className="text-pink-300 text-xs font-bold uppercase tracking-widest hover:text-pink-200 underline decoration-pink-500/40">
+                        👻 Log in or sign up to unlock 30% off →
+                    </Link>
+                </div>
+            )}
 
             {/* SGCoin Payment Option - Only if enabled and showDiscount is true */}
             {discountEnabled && showDiscount && (
