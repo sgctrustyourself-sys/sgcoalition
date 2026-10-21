@@ -143,14 +143,7 @@ const WizardsDashboard: React.FC = () => {
                             </h2>
                             <p className="text-gray-500 font-medium text-sm mt-1">External Wizard artifacts manifesting from the WAX Blockchain</p>
                         </div>
-                        <a
-                            href="https://neftyblocks.com/collection/sgminiwizard"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-6 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-3"
-                        >
-                            Explorer WAX Collection <ArrowUpRight size={14} />
-                        </a>
+
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
