@@ -580,6 +580,37 @@ export const INITIAL_ORDERS: Order[] = [
     createdAt: "2026-10-18T00:00:00+00:00",
     paidAt: "2026-10-18T00:00:00+00:00",
   },
+  {
+    // Coalition Above as Below Wallet 1/1 — sold to David in Essex, MD.
+    // David drove from out of state to Essex, MD to pick it up in person.
+    // id mirrored in PUBLIC_RECENT_ORDER_SEEDS (dedup contract).
+    id: "public-md-above-as-below-wallet-david-2026_10_19",
+    orderNumber: "ORD-SG-AAB-DAVID",
+    isGuest: true,
+    customerName: "David",
+    customerEmail: "david@example.com",
+    shippingAddress: { address1: "", city: "Essex", state: "MD", zip: "", country: "US" },
+    items: [
+      {
+        productId: "Coalition_Above_As_Below_Wallet_1_1",
+        productName: "Coalition Above as Below Wallet 1/1",
+        productImage: "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-wallet-front.png",
+        selectedSize: "One Size",
+        quantity: 1,
+        price: 85,
+        total: 85,
+      },
+    ],
+    subtotal: 85,
+    tax: 0,
+    discount: 0,
+    total: 85,
+    paymentMethod: "cash",
+    paymentStatus: "paid" as OrderStatus,
+    orderType: "manual",
+    createdAt: "2026-10-19T00:00:00+00:00",
+    paidAt: "2026-10-19T00:00:00+00:00",
+  },
 ];
 
 export const ADMIN_USER: {

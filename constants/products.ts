@@ -395,13 +395,13 @@ export const INITIAL_PRODUCTS: Product[] = [
       "One Size"
     ],
     "sizeInventory": {
-      "One Size": 1
+      "One Size": 0
     },
     "nft": null,
-    "archived": false,
-    "archivedAt": null,
+    "archived": true,
+    "archivedAt": "2026-10-19T00:00:00+00:00",
     "releasedAt": null,
-    "soldAt": null
+    "soldAt": "2026-10-19T00:00:00+00:00"
   },
   {
     "id": "prod_hoodie_overwhelmingly_patient",
