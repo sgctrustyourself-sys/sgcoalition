@@ -197,6 +197,7 @@ export const blogFallbackPosts: BlogPost[] = [
         slug: 'sgmw-chapter-one-honest-update',
         content: `
 <h2>Chapter One: SGMW</h2>
+<p><em>Published October 21, 2026 at 06:00 UTC</em></p>
 <p>The SGMW project (Community SG Mini Wizards) was Chapter One of something bigger — a community build I was doing with friends.</p>
 <p>Everybody ended up going separate ways to experience other things. I hold no ill will toward any of them.</p>
 <p>I did get all the rewards sent out to the people who earned them.</p>
