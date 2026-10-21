@@ -191,6 +191,31 @@ export const blogFallbackPosts: BlogPost[] = [
         createdAt: REFERENDUM_PUBLISHED_AT,
         updatedAt: REFERENDUM_PUBLISHED_AT,
     },
+    {
+        id: 'blog-sgmw-chapter-one-honest-update',
+        title: 'SGMW: CHAPTER ONE — AN HONEST COMMUNITY UPDATE',
+        slug: 'sgmw-chapter-one-honest-update',
+        content: `
+<h2>Chapter One: SGMW</h2>
+<p>The SGMW project (Community SG Mini Wizards) was Chapter One of something bigger — a community build I was doing with friends.</p>
+<p>Everybody ended up going separate ways to experience other things. I hold no ill will toward any of them.</p>
+<p>I did get all the rewards sent out to the people who earned them.</p>
+<p>The coin's price tanked. I don't know if that was because of something I did, or the community taking withdrawals. It doesn't really matter at the end — crypto was dying regardless. It would have been pure luck if mine survived.</p>
+<p>I want to thank the MiniWizard team for showing me a different way of life.</p>
+<p><em>— SG, 2026</em></p>
+`.trim(),
+        excerpt: 'An honest look back at the SGMW (Community SG Mini Wizards) Phase 1 project — what happened, where the rewards went, and why the coin tanked.',
+        author: 'SG',
+        category: 'update',
+        tags: ['sgmw', 'community', 'update', 'honest'],
+        isPublished: true,
+        upvotePower: 0,
+        downvotePower: 0,
+        score: 0,
+        publishedAt: '2026-10-21T06:00:00.000Z',
+        createdAt: '2026-10-21T06:00:00.000Z',
+        updatedAt: '2026-10-21T06:00:00.000Z',
+    },
 ];
 
 const toIsoString = (value: unknown, fallback: string) => {
