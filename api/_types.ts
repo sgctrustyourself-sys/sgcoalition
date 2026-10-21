@@ -169,6 +169,16 @@ export interface OrderRow {
     facebook_username?: string | null;
     paid_amount: number;
     balance_due: number;
+    // Direct-USDC (crypto-verify) markers. Optional because the
+    // crypto-verify migration may not be applied in every environment —
+    // the handler writes them best-effort and falls back to
+    // payment_reference + notes markers when the columns are absent.
+    crypto_status?: string | null;
+    crypto_tx_hash?: string | null;
+    crypto_expected_usdc?: number | null;
+    crypto_merchant_address?: string | null;
+    crypto_confirmed_amount?: string | null;
+    crypto_confirmed_at?: string | null;
 }
 
 // OrderRow without the payment-reference columns — used when migrating legacy
