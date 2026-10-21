@@ -90,4 +90,9 @@ nul
 # Local debug screenshots + audit artifacts (never commit)
 pdp-*.png
 mobile-home.png
+screenshots/
 lighthouse-ecosystem-*.json
+
+# Local/agent scratch that must never be committed
+*.bak
+thread-Admin-*.md

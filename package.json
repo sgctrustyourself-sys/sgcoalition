@@ -19,6 +19,7 @@
     "smoke:checkout": "node scripts/smoke-checkout.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",
     "verify:webhook": "node scripts/verify-webhook-endpoint.mjs",
+    "verify:app-url": "node scripts/verify-app-url.mjs",
     "dev": "vite",
     "prebuild": "npm run check:serverless-imports && node scripts/generateSeoArtifacts.mjs",
     "build": "vite build",
@@ -93,4 +94,4 @@
     "vite": "^6.2.0",
     "vitest": "^4.1.8"
   }
-}
+}
