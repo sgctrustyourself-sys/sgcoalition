@@ -85,6 +85,9 @@ export default defineConfig(() => {
               if (id.includes('ethers')) {
                 return 'vendor-ethers';
               }
+              if (id.includes('recharts')) {
+                return 'vendor-recharts';
+              }
             }
             return undefined;
           },
