@@ -4,6 +4,7 @@ import { ArrowUpRight, Zap, Flame, Sparkles, Wand2, Globe, Database, TrendingUp 
 import { Link } from 'react-router-dom';
 import { fetchSGCoinData } from '../utils/sgcoinApi';
 import { useApp } from '../context/AppContext';
+import Seo from '../components/Seo';
 import { getBurnedSGCoinV1, getRobustProvider } from '../services/web3Service';
 import { POLYGON_RPC_URL } from '../constants';
 import { useLiquidity } from '../hooks/useLiquidity';
@@ -24,7 +25,7 @@ const WizardsPortal = () => {
     } = useLiquidity();
 
     const tokenStats = {
-        price: coinData?.price ? `$${coinData.price.toFixed(6)}` : "$0.0000382",
+        price: coinData?.price ? `$${coinData.price.toFixed(6)}` : "≈ $0.0000382",
         burned: totalBurned
     };
 
@@ -47,6 +48,11 @@ const WizardsPortal = () => {
 
     return (
         <div className="bg-[#050505] text-white min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden">
+            <Seo
+                title="MiniWizards Portal"
+                description="Bridge the SGC Arcane Economy across dimensions — MiniWizards, V1 Legacy Wizards, and strategic liquidity on Polygon. Buy direct, swap on QuickSwap, or burn V1 Legacy Wizards."
+                canonicalPath="/sgminiwizards"
+            />
 
             {/* Arcane Background Layers */}
             <div className="fixed inset-0 pointer-events-none z-0">
@@ -163,24 +169,6 @@ const WizardsPortal = () => {
                                 className="lg:col-span-1 border border-white/10 bg-black/50 p-10 rounded-[2.5rem]"
                             >
                                 <div className="space-y-8">
-                                    <div className="p-8 rounded-[2rem] border border-white/10 bg-gradient-to-br from-blue-900/20 to-black relative overflow-hidden group hover:border-blue-400/30 transition-all">
-                                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform duration-700">
-                                            <Globe className="w-24 h-24 text-blue-400" />
-                                        </div>
-                                        <h3 className="text-2xl font-black uppercase tracking-tight mb-4 text-blue-400">NeftyBlocks</h3>
-                                        <p className="text-gray-500 text-xs leading-relaxed mb-6">
-                                            Forged by SurudoiRyu. Dimensional expansion manifested on WAX Origin Chain.
-                                        </p>
-                                        <a
-                                            href="https://neftyblocks.com/collection/sgminiwizard"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-500 text-white rounded-full font-black uppercase tracking-widest text-[9px] hover:bg-blue-600 transition-all"
-                                        >
-                                            Explore <ArrowUpRight className="w-3 h-3" />
-                                        </a>
-                                    </div>
-
                                     <div className="p-8 rounded-[2rem] border border-white/10 bg-gradient-to-br from-purple-900/20 to-black relative overflow-hidden group hover:border-purple-400/30 transition-all">
                                         <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform duration-700">
                                             <Database className="w-24 h-24 text-purple-400" />
