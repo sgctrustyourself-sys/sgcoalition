@@ -8,6 +8,7 @@ import { sendCashAppInstructions } from './paymentInstructions.js';
 import { createLogger } from '../utils/logger.js';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet.js';
 import { resolveCryptoDiscountCents } from '../utils/cryptoDiscount.js';
+import { MEMBER_DISCOUNT_RATE, isMemberPromoActive } from '../utils/memberDiscount.js';
 import { resolvePaymentState } from '../utils/orderDepositNotes.js';
 import type {
     OrderRow, OrderItemRow, OrderSaveResult, ProductRow,
@@ -22,12 +23,15 @@ const ADMIN_EMAIL = 'sgctrustyourself@gmail.com';
 /**
  * The member discount rate for a logged-in account holder.
  *
- * This is the headline acquisition offer ("members get 30% off every piece"),
- * and it is the only discount an account holder gets — it does NOT stack with
- * an admin coupon or the SGCoin crypto incentive. See the discount ladder in
+ * The rate and the promotion's end date live in utils/memberDiscount.ts,
+ * which the storefront reads too — one owner, so the advertised price and the
+ * charged price agree about whether the promotion is still running.
+ *
+ * It is the only discount an account holder gets: it does NOT stack with an
+ * admin coupon or the SGCoin crypto incentive. See the discount ladder in
  * resolvePricing for the full precedence.
  */
-export const MEMBER_DISCOUNT_RATE = 0.30;
+export { MEMBER_DISCOUNT_RATE };
 
 // ---- Custom error type ----
 export class HttpError extends Error {
@@ -180,7 +184,8 @@ export async function loadStoreCreditCents(userId: string | null | undefined): P
     return Math.max(0, Math.round(Number((data as { store_credit?: number } | null)?.store_credit || 0) * 100));
 }
 
-export async function resolvePricing(items: PricingItem[], shippingDollars: number, clientDiscountDollars: number, paymentMethod: string, storeCreditCents: number = 0, couponCode?: string | null, storeCreditAppliedCents: number = 0, userId?: string | null): Promise<PriceSnapshot> {    if (!items.length) throw err(400, 'At least one item required.');
+export async function resolvePricing(items: PricingItem[], shippingDollars: number, clientDiscountDollars: number, paymentMethod: string, storeCreditCents: number = 0, couponCode?: string | null, storeCreditAppliedCents: number = 0, userId?: string | null): Promise<PriceSnapshot> {
+    if (!items.length) throw err(400, 'At least one item required.');
     const products = await loadProducts([...new Set(items.map(i => i.productId))]);
     let itemTotalCents = 0;
     const resolved: PriceSnapshot['items'] = [];
@@ -236,8 +241,16 @@ export async function resolvePricing(items: PricingItem[], shippingDollars: numb
     // The member discount applies to the BUNDLE price (post set bonus), not to
     // the sum of the list prices — otherwise the bundle discount and the
     // member discount would stack on the same dollars.
+    //
+    // It is a promotion with an end date (utils/memberDiscount.ts). When the
+    // window closes the discount is simply 0: every surface that keys off
+    // memberDiscountCents > 0 — the crossed-out price, the checkout line, the
+    // "coupon not stacked" notice, the suppressed crypto badge — follows from
+    // this one number.
     const bundleBaseCents = Math.max(0, itemTotalCents - setBonus);
-    const memberDiscountCents = isMember ? Math.round(bundleBaseCents * MEMBER_DISCOUNT_RATE) : 0;
+    const memberDiscountCents = isMember && isMemberPromoActive()
+        ? Math.round(bundleBaseCents * MEMBER_DISCOUNT_RATE)
+        : 0;
     // The legacy client-supplied discount (the old crypto/store-credit path).
     // It is another markdown, so it yields to every offer above it.
     const otherDisc = Math.max(0, toCents(clientDiscountDollars, 'Discount') - setBonus);
@@ -705,7 +718,7 @@ export async function acceptCheckout(attempt: CheckoutAttempt): Promise<AcceptCh
             : '', pricing.storeCreditCents > 0
             ? 'Store credit applied: -$' + c2d(pricing.storeCreditCents)
             : '', pricing.memberDiscountCents > 0
-            ? 'Member discount (30%): -$' + c2d(pricing.memberDiscountCents)
+            ? 'Member discount (' + Math.round(MEMBER_DISCOUNT_RATE * 100) + '%): -$' + c2d(pricing.memberDiscountCents)
             : '', pricing.cryptoDiscountCents > 0
             ? 'Crypto discount (' + Math.min(100, Number(process.env.VITE_SGCOIN_DISCOUNT_PERCENTAGE || 10)) + '%): -$' + c2d(pricing.cryptoDiscountCents)
             : ''].filter(Boolean).join('\n'),

@@ -93,13 +93,22 @@ beforeEach(() => {
     process.env.SUPABASE_URL = 'https://test.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
     // Pin the SGCoin incentive OFF: these fixtures assert discount-line
-    // SPLITTING (coupon vs crypto vs set bonus), not the crypto amount.
+    // SPLITTING (coupon vs crypto vs set bonus vs member), not the crypto
+    // amount.
     // Vercel exposes VITE_* vars to functions, so a real deployment env
     // would otherwise flip the crypto line on and break these totals.
     delete process.env.VITE_SGCOIN_DISCOUNT_ENABLED;
+    // Pin the clock INSIDE the member promotion window: the pricing
+    // authority reads the wall clock to decide whether the member discount is
+    // still running, so a test that asserts member pricing has to say WHEN
+    // it is asserting it. Without this, these expectations would start
+    // failing the morning the promotion ends.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-20T12:00:00Z'));
 });
 
 afterEach(() => {
+    vi.useRealTimers();
     delete process.env.VITE_SGCOIN_DISCOUNT_ENABLED;
 });
 

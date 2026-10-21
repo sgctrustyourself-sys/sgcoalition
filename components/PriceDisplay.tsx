@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Coins } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { calculateSGCoinPrice, formatPrice, isSGCoinDiscountEnabled, getDiscountPercentageText } from '../utils/pricing';
+import { MEMBER_DISCOUNT_RATE, getMemberPrice, isMemberPromoActive } from '../utils/memberDiscount';
 
 interface PriceDisplayProps {
     basePrice: number;
@@ -21,7 +22,10 @@ const PriceDisplay: React.FC<PriceDisplayProps> = ({
     const discountEnabled = isSGCoinDiscountEnabled();
     const sgcoinPrice = calculateSGCoinPrice(basePrice);
     const isMember = Boolean(user?.uid);
-    const memberPrice = isMember ? Math.round(basePrice * 0.7 * 100) / 100 : null;
+    // null once the promotion ends, so the crossed-out price and the invite
+    // below both disappear together.
+    const memberPrice = isMember ? getMemberPrice(basePrice) : null;
+    const memberPercent = Math.round(MEMBER_DISCOUNT_RATE * 100);
 
     const sizeClasses = {
         small: {
@@ -43,7 +47,7 @@ const PriceDisplay: React.FC<PriceDisplayProps> = ({
 
     return (
         <div className={`max-w-full space-y-2 ${className}`}>
-            {/* Regular Price - crossed out for members, who get 30% off */}
+            {/* Regular price. Crossed out only while the member promotion runs. */}
             {isMember && memberPrice !== null ? (
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                     <span className={`text-gray-500 font-medium line-through ${sizeClasses[size].label}`}>
@@ -53,7 +57,7 @@ const PriceDisplay: React.FC<PriceDisplayProps> = ({
                         {formatPrice(memberPrice)}
                     </span>
                     <span className="text-emerald-400 text-xs font-bold uppercase tracking-widest">
-                        Member 30% off
+                        Member {memberPercent}% off
                     </span>
                 </div>
             ) : (
@@ -61,9 +65,11 @@ const PriceDisplay: React.FC<PriceDisplayProps> = ({
                     <div className={`text-white font-bold ${sizeClasses[size].base}`}>
                         {formatPrice(basePrice)}
                     </div>
-                    <Link to="/login" className="text-pink-300 text-xs font-bold uppercase tracking-widest hover:text-pink-200 underline decoration-pink-500/40">
-                        👻 Log in or sign up to unlock 30% off →
-                    </Link>
+                    {!isMember && isMemberPromoActive() && (
+                        <Link to="/login" className="text-pink-300 text-xs font-bold uppercase tracking-widest hover:text-pink-200 underline decoration-pink-500/40">
+                            👻 Log in or sign up to unlock {memberPercent}% off →
+                        </Link>
+                    )}
                 </div>
             )}
 

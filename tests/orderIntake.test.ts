@@ -150,8 +150,17 @@ describe('resolvePricing', () => {
     beforeEach(() => {
         withSupabaseEnv();
         mockSupabaseFrom.mockReset();
+        // Pin the clock INSIDE the member promotion window: the pricing
+        // authority reads the wall clock to decide whether the member
+        // discount is still running, and the store-credit expectations
+        // below are MEMBER prices (a member order at 30% off). Without a
+        // pinned clock they would start failing the morning the promotion
+        // ends. Only Date is faked, so nothing else here is affected.
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-10-20T12:00:00Z'));
     });
     afterEach(() => {
+        vi.useRealTimers();
         clearSupabaseEnv();
         delete process.env.VITE_SGCOIN_DISCOUNT_ENABLED;
     });

@@ -90,6 +90,18 @@ const COUPON_MIN_100 = {
 
 let resolvePricing: typeof import('../services/orderIntake').resolvePricing;
 let MEMBER_DISCOUNT_RATE: number;
+let MEMBER_PROMO_ENDS_AT: string;
+
+/**
+ * The member discount is a PROMOTION with an end date
+ * (utils/memberDiscount.ts), and the pricing authority reads the wall clock
+ * to decide whether it is still running. These tests therefore pin the clock
+ * to a moment inside the window, so they assert the PROMOTION's behaviour
+ * rather than today's date - without this they would start failing the
+ * morning the promotion ends.
+ */
+const INSIDE_THE_PROMO = new Date('2026-10-20T12:00:00Z');
+const AFTER_THE_PROMO = new Date('2026-11-02T12:00:00Z');
 
 /** Point the Supabase mock at a product set + a coupon row. */
 function stub(products: unknown[], coupon: unknown = null) {
@@ -111,7 +123,9 @@ beforeAll(async () => {
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-key';
     const mod = await import('../services/orderIntake');
     resolvePricing = mod.resolvePricing;
-    MEMBER_DISCOUNT_RATE = mod.MEMBER_DISCOUNT_RATE;
+    const shared = await import('../utils/memberDiscount');
+    MEMBER_DISCOUNT_RATE = shared.MEMBER_DISCOUNT_RATE;
+    MEMBER_PROMO_ENDS_AT = shared.MEMBER_PROMO_ENDS_AT;
 });
 
 beforeEach(() => {
@@ -123,9 +137,14 @@ beforeEach(() => {
     // choosing between it and the other offers.
     process.env.VITE_SGCOIN_DISCOUNT_ENABLED = 'true';
     process.env.VITE_SGCOIN_DISCOUNT_PERCENTAGE = '10';
+    // Pin the clock INSIDE the member promotion window. Only Date is faked,
+    // so nothing else in the suite is affected by the fake timers.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(INSIDE_THE_PROMO);
 });
 
 afterEach(() => {
+    vi.useRealTimers();
     delete process.env.VITE_SGCOIN_DISCOUNT_ENABLED;
     delete process.env.VITE_SGCOIN_DISCOUNT_PERCENTAGE;
 });
@@ -333,5 +352,33 @@ describe('the no-double-discount invariant', () => {
 
     it('the member rate is 30%', () => {
         expect(MEMBER_DISCOUNT_RATE).toBe(0.30);
+    });
+});
+
+// =========================================================================
+// The promotion has an end date
+// =========================================================================
+
+describe('the member promotion window', () => {
+    it('stops applying the discount once the window closes', async () => {
+        vi.setSystemTime(AFTER_THE_PROMO);
+        stub([TEE]);
+        const p = await resolvePricing(teeItem, 0, 0, 'stripe', 0, undefined, 0, MEMBER_ID);
+        expect(p.memberDiscountCents).toBe(0);
+        expect(p.totalCents).toBe(7500);
+    });
+
+    it('a closed window hands the order back to the coupon', async () => {
+        vi.setSystemTime(AFTER_THE_PROMO);
+        stub([TEE], COUPON_25);
+        const p = await resolvePricing(teeItem, 0, 0, 'stripe', 0, 'SAVE25', 0, MEMBER_ID);
+        expect(p.memberDiscountCents).toBe(0);
+        expect(p.couponDiscountCents).toBe(1875);
+        expect(p.couponSuppressed).toBe(false);
+        expect(p.totalCents).toBe(5625);
+    });
+
+    it('the window is dated in the future of this suite', () => {
+        expect(Date.parse(MEMBER_PROMO_ENDS_AT)).toBeGreaterThan(INSIDE_THE_PROMO.getTime());
     });
 });

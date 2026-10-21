@@ -13,6 +13,7 @@ import { trackReferralEvent } from '../utils/referralAnalytics';
 import { processReferralOnPurchase, clearReferralCode } from '../utils/referralSystem';
 import { validateCouponCode, validateDiscountCoupon, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
 import { getCartItemAddOnPrice, getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
+import { isMemberPromoActive } from '../utils/memberDiscount';
 import { clearCheckoutAttempt, resolveCheckoutAttempt, recordedOrderNumber, mintOrderId } from '../utils/checkoutAttempt';
 import { createLogger } from '../utils/logger';
 
@@ -387,11 +388,14 @@ const Checkout: React.FC = () => {
     // only meaningful pre-discount (before serverPricing), because the
     // server already includes the discount in its totals.
     //
-    // A signed-in account holder already has the 30% member discount, and the
-    // server allows ONE promotional discount per order — so the crypto
-    // incentive does NOT apply to them and the badge must not promise it.
+    // While the member promotion runs, a signed-in account holder already has
+    // the 30% member discount, and the server allows ONE promotional discount
+    // per order — so the crypto incentive does NOT apply to them and the badge
+    // must not promise it. Once the promotion ends the member discount is 0
+    // and the incentive applies again, so the badge comes back on its own.
     const isAccountMember = Boolean(user?.uid);
-    const cryptoDiscountAdvertised = !serverPricing && !isAccountMember && total > 0
+    const memberPromoClaimsOrder = isAccountMember && isMemberPromoActive();
+    const cryptoDiscountAdvertised = !serverPricing && !memberPromoClaimsOrder && total > 0
         ? resolveCryptoDiscountCents(cart.map(item => ({ productId: item.id, quantity: item.quantity, price: getCartItemUnitPrice(item) })), shippingCost) > 0
         : false;
 
