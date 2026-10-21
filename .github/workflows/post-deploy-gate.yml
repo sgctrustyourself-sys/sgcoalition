@@ -79,3 +79,14 @@ jobs:
           EXPECTED_COMMIT: ${{ github.event.inputs.commit || github.event.deployment.sha }}
           EXPECTED_ENVIRONMENT: ${{ github.event_name == 'deployment_status' && 'production' || '' }}
         run: npm run test:gate-verdict
+
+      # VITE_APP_URL overrides every in-code origin default, so a drifted
+      # production variable silently repoints the CORS echo, the email links
+      # and the webhook URLs at a dead host while the code stays correct.
+      # This reads the value back from the live deployment (/api/health
+      # reports it as origin.configured) and fails unless it is the
+      # canonical origin. Same TEST_URL: the deployment this run is about.
+      - name: Verify VITE_APP_URL is the canonical origin
+        env:
+          TEST_URL: ${{ github.event.inputs.base_url || 'https://sgcoalition-five.vercel.app' }}
+        run: npm run verify:app-url

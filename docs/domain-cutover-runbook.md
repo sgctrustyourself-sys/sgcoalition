@@ -4,6 +4,17 @@ Moving `sgcoalition.shop` off the Whop-hosted storefront onto this Vercel
 deployment. Written 2026-10-20, updated the same day after the storefront
 was moved back to `sgcoalition-five.vercel.app`.
 
+## Decision: this is not planned
+
+The transfer below is **not being done**. The storefront's canonical origin is
+`https://sgcoalition-five.vercel.app` and stays there: it is what `VITE_APP_URL`,
+`SITE_ORIGIN`, the canonical and OG tags, the sitemap, the robots line, the CORS
+echo and every transactional email link name.
+
+This file is kept only as the record of what a transfer out of Whop would
+involve, should that decision ever be revisited. Nothing in the app, the deploy
+pipeline or the post-deploy gate waits on it.
+
 ## The two URLs, up front
 
 | Role | URL | What it is |
@@ -47,6 +58,7 @@ Your registrar (Name.com / Cloudflare)  -->  nameservers -->  Vercel
 | Host | Serves | `/api/stripe-webhook` |
 | --- | --- | --- |
 | `sgcoalition-five.vercel.app` | this deployment | live, verifying signatures |
+| `sgcoalition.shop` | Whop's "Nothing here yet" 404 page | 404 — no such route |
 | `sgcoalition.xyz` | Vercel, deployment disabled | 402 `DEPLOYMENT_DISABLED` |
 
 Production `VITE_APP_URL` is `https://sgcoalition-five.vercel.app` — the host
@@ -74,7 +86,6 @@ app looks healthy while paid orders never reconcile and shipping labels
 are never bought. Fix the webhooks **before** the DNS moves, and verify.
 
 ---
-| `sgcoalition.shop` | Whop's "Nothing here yet" 404 page | 404 — no such route |
 
 ### 1. Whop — get the auth code and release the lock
 
@@ -104,6 +115,7 @@ the domain into `releasing` and could stop the renewal.
   nameservers (or records) from step 2
 - Settings → **Environment Variables** → `VITE_APP_URL` =
   `https://sgcoalition.shop`, **Production** scope at minimum
+  (it is `https://sgcoalition-five.vercel.app` until the transfer lands)
 - **Redeploy.** `VITE_` vars are inlined at build time; without a
   redeploy the running bundle still carries the old origin.
 
@@ -121,10 +133,13 @@ page, so a webhook aimed at either has been failing silently.
 
 ### 5. Whop — stop serving the app on the domain
 
+**Done** (2026-10-20): the domain was detached from the Whop app, which is
+why the apex now serves Whop's "Nothing here yet" page. The remaining work
+is the transfer itself.
+
 Dashboard: remove the domain from the app. Or via the API:
 
 ```
-  (it is `https://sgcoalition-five.vercel.app` until the transfer lands)
 PATCH /domains/{id}   { "website": null }
 ```
 
@@ -171,8 +186,9 @@ or let it go — but never point a webhook at it.
 | CORS echo / public origin | `api/_helpers.ts` (`DEFAULT_PUBLIC_ORIGIN`) | storefront origin |
 | SEO generator | `scripts/generateSeoArtifacts.mjs` (`SITE_ORIGIN`) | storefront origin |
 | Environment template | `.env.production.template` (`VITE_APP_URL`) | storefront origin |
+| Vercel env guard | `scripts/verify-app-url.mjs` (post-deploy gate) | storefront origin — fails the deploy unless the live `VITE_APP_URL` is the canonical origin |
 | **Main sharing link (the one owner)** | `utils/sharingLinks.ts` (`MAIN_SHARING_LINK`, `MAIN_SHARING_LABEL`) | main sharing link |
-| Portfolio link in the footer, about page, product page | `components/Footer.tsx`, `pages/About.tsx`, `pages/ProductDetails.tsx` | main sharing link (imported, never pasted) |
+| Portfolio link in the footer, about page, product page, mobile nav, announcement bar | `components/Footer.tsx`, `pages/About.tsx`, `pages/ProductDetails.tsx`, `components/MobileBottomNav.tsx`, `components/AnnouncementBar.tsx` | main sharing link (imported, never pasted) |
 | Drop copy decks, story/grid/x slides, reel CTAs | `scripts/story-reveal-specs/drops.ts` (`shopUrl`, CTA `url`), `scripts/reels/*.html` | main sharing link |
 
 The sharing link has one owner. `utils/sharingLinks.ts` holds the URL; the
