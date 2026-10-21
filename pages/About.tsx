@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
     PenTool, Shirt, Package, Building, SprayCan, Music, TrendingUp, ArrowRight, ArrowUpRight, Loader, Link2,
-    Instagram, Twitter, Youtube, MessageCircle as MessageCircleIcon, Mail,
+    Instagram, Twitter, Youtube, MessageCircle as MessageCircleIcon, Mail, ExternalLink,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { supabase } from '../services/supabase';
@@ -437,7 +437,7 @@ const Story = () => {
                             <Instagram className="w-4 h-4 text-pink-400" /> Instagram
                         </div>
                     </a>
-                    <a href="https://twitter.com/sgcoalition" target="_blank" rel="noopener noreferrer" className="group">
+                    <a href="https://twitter.com/sgminiwizards" target="_blank" rel="noopener noreferrer" className="group">
                         <div className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-sky-900/30 to-blue-900/30 border border-white/10 text-white px-6 py-3 rounded-lg text-xs font-bold uppercase tracking-wide group-hover:bg-sky-900/40 group-hover:border-sky-500/30 transition-all">
                             <Twitter className="w-4 h-4 text-sky-400" /> X / Twitter
                         </div>
@@ -447,9 +447,9 @@ const Story = () => {
                             <Youtube className="w-4 h-4 text-red-400" /> YouTube
                         </div>
                     </a>
-                    <a href="https://www.reddit.com/r/SGCoalition/" target="_blank" rel="noopener noreferrer" className="group">
-                        <div className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-900/30 to-amber-900/30 border border-white/10 text-white px-6 py-3 rounded-lg text-xs font-bold uppercase tracking-wide group-hover:bg-amber-900/40 group-hover:border-amber-500/30 transition-all">
-                            <MessageCircleIcon className="w-4 h-4 text-orange-400" /> Reddit
+                    <a href="https://whop.com/sgcoalition-five" target="_blank" rel="noopener noreferrer" className="group">
+                        <div className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-white/10 text-white px-6 py-3 rounded-lg text-xs font-bold uppercase tracking-wide group-hover:bg-pink-900/40 group-hover:border-pink-500/30 transition-all">
+                            <ExternalLink className="w-4 h-4 text-purple-400" /> Whop
                         </div>
                     </a>
                     <a href="https://discord.gg/bByqsC5f5V" target="_blank" rel="noopener noreferrer" className="group">
