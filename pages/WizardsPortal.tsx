@@ -305,6 +305,35 @@ const WizardsPortal = () => {
                         </div>
                     </div>
                 </section>
+
+                {/* Chapter One — SGMW: an honest community update */}
+                <section className="max-w-7xl mx-auto px-6 mb-32">
+                    <div className="rounded-[3rem] border border-white/5 bg-gradient-to-br from-purple-900/10 via-black to-blue-900/10 p-12 md:p-24 relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                        <div className="relative z-10">
+                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-purple-500/20 bg-purple-500/10 text-purple-400 text-[10px] mb-10 uppercase tracking-[0.3em] font-bold">
+                                <Wand2 className="w-3 h-3" /> Chapter One · SGMW
+                            </div>
+                            <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-10 font-display">
+                                An Honest<br />
+                                <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-purple-500 bg-clip-text text-transparent italic">Community Update</span>
+                            </h2>
+                            <p className="text-gray-400 text-lg leading-relaxed mb-10 max-w-3xl font-light">
+                                The SGMW project was Chapter One of something bigger — a community build I was doing with friends. Everyone ended up going separate ways to experience other things, and I hold no ill will toward any of them.
+                            </p>
+                            <p className="text-gray-400 text-lg leading-relaxed max-w-3xl font-light">
+                                I did get every reward sent out to the people who earned them. The coin's price tanked — I don't know if that was something I did, the community taking withdrawals, or just crypto dying at the time. Regardless, it would have taken pure luck for any of it to survive.
+                            </p>
+                            <p className="text-gray-400 text-lg leading-relaxed mt-10 max-w-3xl font-light">
+                                I'm posting this here because the MiniWizard team showed me a different way of life. Thank you for that.
+                            </p>
+                            <div className="border-t border-white/10 pt-12 mt-12">
+                                <p className="text-gray-500 text-xs uppercase tracking-[0.4em] font-bold mb-2">Signed</p>
+                                <p className="text-white font-black uppercase tracking-tighter">SG — 2026</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </main>
 
             <footer className="py-20 px-6 border-t border-white/5 text-center">
