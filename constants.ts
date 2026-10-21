@@ -215,7 +215,7 @@ export const QUICKSWAP_V3_LP_ADDRESS = "0x95194a754b6f768ed08ef5d695dabee349b7bf
 export const WPOL_ADDRESS = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"; // Wrapped POL
 export const TREASURY_WALLET_ADDRESS = "0x39451d0ee9Fc5dd861C985d2a3e227F6Ac7387f4"; // SGC Treasury / Founder Wallet
 export const FOUNDER_WALLET_ADDRESS = "0x0F4A0466C2a1d3FA6Ed55a20994617F0533fbf74"; // Founder / Direct Send Wallet
-export const LIQUIDITY_TARGET_POL = 500;
+export const LIQUIDITY_TARGET_POL = 100; // First milestone: 100 WPOL staked
 export const FALLBACK_LIQUIDITY_POL = 27.6; // Last known good value
 
 export const QUICKSWAP_SWAP_URL = `https://dapp.quickswap.exchange/swap/best/ETH/${SGCOIN_V2_CONTRACT_ADDRESS}?chainId=137`;

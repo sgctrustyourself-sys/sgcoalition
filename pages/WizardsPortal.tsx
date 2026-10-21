@@ -214,13 +214,13 @@ const WizardsPortal = () => {
                                         <div>
                                             <div className="flex items-center gap-3 text-purple-400 mb-4">
                                                 <Zap className="w-6 h-6 animate-pulse" />
-                                                <span className="text-xs font-black uppercase tracking-[0.4em]">Strategic Liquidity Goal</span>
+                                                <span className="text-xs font-black uppercase tracking-[0.4em]">WPOL Staked in Pool</span>
                                             </div>
                                             <div className="text-5xl md:text-6xl font-black tracking-tighter">
-                                                {liquidity.toFixed(2)} <span className="text-gray-600 font-light text-3xl">/ {target} POL</span>
+                                                {liquidity.toFixed(2)} <span className="text-gray-600 font-light text-3xl">WPOL</span>
                                             </div>
                                             <p className="text-gray-500 text-sm mt-4 font-medium uppercase tracking-widest italic">
-                                                Current Valuation: <span className="text-white">${currentUSDValue} USD</span>
+                                                Next Milestone: <span className="text-white">{Math.ceil(liquidity / 100) * 100} WPOL</span>
                                             </p>
                                         </div>
                                         <div className="text-right">
@@ -243,8 +243,8 @@ const WizardsPortal = () => {
                                         </motion.div>
                                     </div>
                                     <div className="flex justify-between mt-4">
-                                        <span className="text-[9px] uppercase tracking-widest font-bold text-gray-600">Foundation Stage</span>
-                                        <span className="text-[9px] uppercase tracking-widest font-bold text-purple-500 animate-pulse">Arcane Threshold: {target} POL</span>
+                                        <span className="text-[9px] uppercase tracking-widest font-bold text-gray-600">Current: {liquidity.toFixed(1)} WPOL</span>
+                                        <span className="text-[9px] uppercase tracking-widest font-bold text-purple-500 animate-pulse">Next: {Math.ceil(liquidity / 100) * 100} WPOL</span>
                                     </div>
                                 </>
                             )}

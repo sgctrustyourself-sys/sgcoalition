@@ -157,9 +157,9 @@ const TreasuryPage: React.FC = () => {
                                         <span className="text-lg font-black text-white">${poolBreakdown.combinedTvlUsd.toFixed(0)}</span>
                                     </div>
                                     <div className="flex justify-between border-t border-purple-500/10 pt-3 mt-1">
-                                        <span className="text-xs text-gray-400">Progress to {LIQUIDITY_TARGET_POL} POL</span>
+                                        <span className="text-xs text-gray-400">Next Milestone: {Math.ceil((poolBreakdown.v2.wpol + (poolBreakdown.v3?.wpol ?? 0)) / 100) * 100} WPOL</span>
                                         <span className="text-sm font-bold text-purple-400">
-                                            {((poolBreakdown.v2.wpol + (poolBreakdown.v3?.wpol ?? 0)) / LIQUIDITY_TARGET_POL * 100).toFixed(1)}%
+                                            {((poolBreakdown.v2.wpol + (poolBreakdown.v3?.wpol ?? 0)) / 100).toFixed(1)}%
                                         </span>
                                     </div>
                                 </div>

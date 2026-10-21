@@ -303,11 +303,13 @@ const Ecosystem = () => {
 
                                     {/* Combined */}
                                     <div className="p-5 rounded-xl bg-purple-500/5 border border-purple-500/10">
-                                        <div className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-400 mb-3">Blended</div>
-                                        <div className="text-2xl font-black text-white mb-1">${poolBreakdown.combinedTvlUsd.toFixed(0)}</div>
-                                        <div className="text-[10px] text-gray-500">Total liquidity</div>
-                                        <div className="text-lg font-black text-purple-300 mt-2">${poolBreakdown.blendedPriceUsd.toFixed(6)}</div>
-                                        <div className="text-[9px] text-purple-400/60">per SGCOIN</div>
+                                        <div className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-400 mb-3">WPOL Staked in Pool</div>
+                                        <div className="text-2xl font-black text-white mb-1">
+                                            {(poolBreakdown.v2.wpol + (poolBreakdown.v3?.wpol ?? 0)).toFixed(2)} <span className="text-gray-600 font-light text-xl">WPOL</span>
+                                        </div>
+                                        <div className="text-[10px] text-gray-500">Total staked</div>
+                                        <div className="text-lg font-black text-purple-300 mt-2">Next: {Math.ceil((poolBreakdown.v2.wpol + (poolBreakdown.v3?.wpol ?? 0)) / 100) * 100} WPOL</div>
+                                        <div className="text-[9px] text-purple-400/60">Milestone: {Math.ceil((poolBreakdown.v2.wpol + (poolBreakdown.v3?.wpol ?? 0)) / 100) * 100} WPOL</div>
 
                                         {/* QuickSwap Dropdown */}
                                         <div className="mt-4 relative">
