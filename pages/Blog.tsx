@@ -6,7 +6,7 @@ import { ArrowBigUp, ArrowBigDown, Loader, Search } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import IdeaSubmission from '../components/IdeaSubmission';
 import Seo from '../components/Seo';
-import { blogFallbackPosts, filterBlogPostsByCategory, normalizeBlogRows } from '../data/blogPosts';
+import { blogFallbackPosts, filterBlogPostsByCategory, mergeBlogPosts, normalizeBlogRows } from '../data/blogPosts';
 import { buildOrganizationJsonLd, buildWebPageJsonLd, structuredDataGraph } from '../utils/structuredData';
 
 // The /blog head. Mirrored by the '/blog' entry in STATIC_ROUTES
@@ -69,12 +69,11 @@ const Blog = () => {
 
             if (error) throw error;
             const normalizedPosts = normalizeBlogRows(data || []);
-            if (normalizedPosts.length > 0) {
-                setPosts(filterBlogPostsByCategory(normalizedPosts, selectedCategory));
-                return;
-            }
 
-            setPosts(filterBlogPostsByCategory(blogFallbackPosts, selectedCategory));
+            // Merge DB posts with fallback posts so we get the full catalog
+            // DB posts take precedence (same slug wins), fallback fills gaps
+            const mergedPosts = mergeBlogPosts(normalizedPosts, blogFallbackPosts);
+            setPosts(filterBlogPostsByCategory(mergedPosts, selectedCategory));
         } catch (err) {
             console.error('Error fetching posts:', err);
             setPosts(filterBlogPostsByCategory(blogFallbackPosts, selectedCategory));
