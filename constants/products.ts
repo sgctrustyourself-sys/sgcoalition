@@ -882,6 +882,29 @@ export const INITIAL_PRODUCTS: Product[] = [
     "soldAt": null
   },
   {
+    "id": "prod_lighter_holder",
+    "name": "Coalition Lighter Holder",
+    "price": 10,
+    "images": [
+      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/lighter-holder-front.png"
+    ],
+    "description": "Coalition Lighter Holder — hand-stitched leather sleeve for standard Bic lighters. Keeps your flame close and your style tighter.",
+    "category": "accessory",
+    "isFeatured": false,
+    "isLimitedEdition": false,
+    "sizes": [
+      "One Size"
+    ],
+    "sizeInventory": {
+      "One Size": 10
+    },
+    "nft": null,
+    "archived": false,
+    "archivedAt": null,
+    "releasedAt": null,
+    "soldAt": null
+  },
+  {
     "id": "Coalition_Ghost_Riders_After_Dark_Wallet_1_1",
     "name": "Coalition 'Ghost Riders: After Dark' Wallet 1/1",
     "price": 80,

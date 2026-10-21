@@ -550,6 +550,36 @@ export const INITIAL_ORDERS: Order[] = [
     createdAt: "2026-03-06T00:00:00+00:00",
     paidAt: "2026-03-06T00:00:00+00:00",
   },
+  {
+    // Coalition Lighter Holders — sold in Baltimore, MD (Sunday 2026-10-18).
+    // id mirrored in PUBLIC_RECENT_ORDER_SEEDS (dedup contract).
+    id: "public-md-lighter-holders-2026_10_18",
+    orderNumber: "ORD-SG-LIGHTER-01",
+    isGuest: true,
+    customerName: "Walk-in Customer",
+    customerEmail: "walkin@example.com",
+    shippingAddress: { address1: "", city: "Baltimore", state: "MD", zip: "", country: "US" },
+    items: [
+      {
+        productId: "prod_lighter_holder",
+        productName: "Coalition Lighter Holder",
+        productImage: "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/lighter-holder-front.png",
+        selectedSize: "One Size",
+        quantity: 2,
+        price: 10,
+        total: 20,
+      },
+    ],
+    subtotal: 20,
+    tax: 0,
+    discount: 0,
+    total: 20,
+    paymentMethod: "cash",
+    paymentStatus: "paid" as OrderStatus,
+    orderType: "manual",
+    createdAt: "2026-10-18T00:00:00+00:00",
+    paidAt: "2026-10-18T00:00:00+00:00",
+  },
 ];
 
 export const ADMIN_USER: {

@@ -42,7 +42,7 @@ const sellableStock = (product: any) =>
     Object.values(product?.sizeInventory || {}).reduce<number>((sum, n) => sum + Number(n || 0), 0);
 
 describe('a sold piece is unsellable everywhere', () => {
-    it('marks every product with a recorded paid sale as archived, sold and out of stock', () => {
+    it('marks every LIMITED EDITION product with a recorded paid sale as archived, sold and out of stock', () => {
         const paid = orders.filter((o) => o.paymentStatus === 'paid');
         expect(paid.length, 'the sale records are the evidence this test rests on').toBeGreaterThan(0);
 
@@ -53,6 +53,10 @@ describe('a sold piece is unsellable everywhere', () => {
                 // A product the table holds and the seed has never seen is out of this
                 // file's reach; the seed is what it owns.
                 if (!seed) continue;
+                // Only enforce the "unsellable after sale" invariant for limited edition
+                // (1/1) products. Regular inventory products can be sold multiple times
+                // without being archived.
+                if (!seed.isLimitedEdition) continue;
                 checked++;
                 expect(
                     seed.archived,
