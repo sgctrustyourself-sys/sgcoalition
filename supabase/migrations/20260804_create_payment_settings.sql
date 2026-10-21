@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.payment_settings (
     klarna_enabled  boolean     NOT NULL DEFAULT true,
     cashapp_enabled boolean     NOT NULL DEFAULT true,
     crypto_enabled  boolean     NOT NULL DEFAULT true,
+    whop_enabled    boolean     NOT NULL DEFAULT false,
     updated_at      timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT payment_settings_singleton CHECK (id = 1)
 );

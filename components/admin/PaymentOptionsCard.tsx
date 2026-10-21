@@ -20,13 +20,14 @@ interface PaymentFlags {
     klarna: boolean;
     cashapp: boolean;
     crypto: boolean;
+    whop: boolean;
 }
 
 // NOTE: PayPal checkout was removed from the product (its legacy
 // `paypal_enabled` DB column is ignored). Klarna defaults OFF — the owner
 // asked to hide the pay-later options. Card + Cash App + Crypto are the
 // working primary paths.
-const DEFAULT_FLAGS: PaymentFlags = { card: true, klarna: false, cashapp: true, crypto: true };
+const DEFAULT_FLAGS: PaymentFlags = { card: true, klarna: false, cashapp: true, crypto: true, whop: false };
 
 const ROWS: { key: keyof PaymentFlags; label: string; detail: string; icon: React.ReactNode; accent: string }[] = [
     {
@@ -57,13 +58,27 @@ const ROWS: { key: keyof PaymentFlags; label: string; detail: string; icon: Reac
         icon: <Wallet className="w-4 h-4" />,
         accent: 'bg-blue-500/10 border-blue-500/20 text-blue-300',
     },
+    {
+        key: 'whop',
+        label: 'Whop',
+        detail: 'Whop checkout — behind “More payment options” at checkout',
+        icon: <Wallet className="w-4 h-4" />,
+        accent: 'bg-orange-500/10 border-orange-500/20 text-orange-400',
+    },
 ];
+
+const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
 const PaymentOptionsCard: React.FC = () => {
     const { addToast } = useToast();
     const [flags, setFlags] = useState<PaymentFlags>(DEFAULT_FLAGS);
     const [loading, setLoading] = useState(true);
     const [savingKey, setSavingKey] = useState<keyof PaymentFlags | null>(null);
+    // Merchant USDC config: '' address means "not set" (the checkout and
+    // the verifier fall back to the founder wallet).
+    const [merchantAddress, setMerchantAddress] = useState('');
+    const [windowHours, setWindowHours] = useState('24');
+    const [savingMerchant, setSavingMerchant] = useState(false);
 
     const refresh = useCallback(async () => {
         setLoading(true);
@@ -76,7 +91,10 @@ const PaymentOptionsCard: React.FC = () => {
                     klarna: !!body.klarna_enabled,
                     cashapp: !!body.cashapp_enabled,
                     crypto: !!body.crypto_enabled,
+                    whop: !!body.whop_enabled,
                 });
+                if (typeof body.crypto_merchant_address === 'string') setMerchantAddress(body.crypto_merchant_address);
+                if (typeof body.crypto_window_hours === 'number') setWindowHours(String(body.crypto_window_hours));
             }
             // On failure keep the current (default = card/cashapp/crypto on,
             // klarna off) state — the
@@ -127,6 +145,7 @@ const PaymentOptionsCard: React.FC = () => {
                     klarna: !!body.klarna_enabled,
                     cashapp: !!body.cashapp_enabled,
                     crypto: !!body.crypto_enabled,
+                    whop: !!body.whop_enabled,
                 });
             }
             addToast(
@@ -141,6 +160,45 @@ const PaymentOptionsCard: React.FC = () => {
             addToast(error?.message || 'Failed to save payment settings.', 'error');
         } finally {
             setSavingKey(null);
+        }
+    };
+
+    const saveMerchant = async () => {
+        const token = getAdminToken();
+        if (!token) {
+            addToast('Admin session expired — log in again to change payment options.', 'error');
+            return;
+        }
+        const addr = merchantAddress.trim();
+        if (addr !== '' && !ADDRESS_RE.test(addr)) {
+            addToast('Merchant address must be a 0x Polygon address (or blank for the fallback).', 'error');
+            return;
+        }
+        const hours = Number(windowHours);
+        if (!Number.isInteger(hours) || hours < 1 || hours > 72) {
+            addToast('Payment window must be a whole number of hours, 1–72.', 'error');
+            return;
+        }
+        setSavingMerchant(true);
+        try {
+            const response = await fetch('/api/payment-settings', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ crypto_merchant_address: addr, crypto_window_hours: hours }),
+            });
+            const body = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(body.error || 'Failed to save merchant address.');
+            if (typeof body.crypto_merchant_address === 'string') setMerchantAddress(body.crypto_merchant_address);
+            if (typeof body.crypto_window_hours === 'number') setWindowHours(String(body.crypto_window_hours));
+            addToast('USDC receiving address saved — live at checkout.', 'success');
+        } catch (error: any) {
+            console.error('Merchant address save failed:', error);
+            addToast(error?.message || 'Failed to save merchant address.', 'error');
+        } finally {
+            setSavingMerchant(false);
         }
     };
 
@@ -213,6 +271,47 @@ const PaymentOptionsCard: React.FC = () => {
                             </button>
                         </div>
                     ))}
+
+                    <div className="rounded-xl border border-blue-500/20 bg-blue-500/[0.04] p-4 space-y-3">
+                        <div>
+                            <p className="text-sm font-bold text-white">USDC receiving address</p>
+                            <p className="text-[10px] text-gray-500 leading-relaxed">Direct-crypto orders verify against this Polygon address. Blank = founder wallet fallback.</p>
+                        </div>
+                        <input
+                            type="text"
+                            value={merchantAddress}
+                            onChange={e => setMerchantAddress(e.target.value.trim())}
+                            placeholder="0x… (blank for fallback)"
+                            spellCheck={false}
+                            autoComplete="off"
+                            data-testid="crypto-merchant-address-input"
+                            className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 font-mono text-xs text-gray-200 placeholder-gray-600 focus:border-blue-500 focus:outline-none"
+                        />
+                        <div className="flex items-center gap-3">
+                            <label htmlFor="crypto-window-hours" className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex-shrink-0">
+                                Payment window (hrs)
+                            </label>
+                            <input
+                                id="crypto-window-hours"
+                                type="number"
+                                min={1}
+                                max={72}
+                                value={windowHours}
+                                onChange={e => setWindowHours(e.target.value)}
+                                data-testid="crypto-window-hours-input"
+                                className="w-20 bg-black/40 border border-white/10 rounded-lg p-2 font-mono text-xs text-gray-200 focus:border-blue-500 focus:outline-none"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => void saveMerchant()}
+                                disabled={savingMerchant}
+                                data-testid="crypto-merchant-save"
+                                className="ml-auto bg-blue-600/80 hover:bg-blue-500 text-white text-[11px] font-bold uppercase tracking-widest px-4 py-2 rounded-lg transition disabled:opacity-60"
+                            >
+                                {savingMerchant ? 'Saving…' : 'Save'}
+                            </button>
+                        </div>
+                    </div>
 
                     <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest pt-1">
                         Changes apply to the live checkout immediately. Card is primary; Cash App, Crypto,

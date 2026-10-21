@@ -4,7 +4,7 @@
 // moved for an order, this module buys the cheapest USPS Ground Advantage
 // label through Shippo and emails the owner the printable PDF link.
 //
-// Failure semantics are money-safe and mirror api/stripe-webhook.ts:
+// Failure semantics are money-safe and mirror api/whop-webhook.ts:
 //   - transient failures (Shippo 5xx/429, network, DB)      -> 'retryable'
 //     (the webhook answers 500 and Stripe redelivers; the next attempt
 //     no-ops through the claim row and retries the label)

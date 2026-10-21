@@ -58,6 +58,11 @@ const OWNER_PREFIXES = [
   // no suffix rule should have to guess.
   'SHIPPO',
   'SHIP_FROM',
+  // The Whop promoter channel (api/whop-webhook.ts, create-whop-checkout-link).
+  // WHOP_API_KEY/SECRET are already covered by shape; the prefix covers
+  // WHOP_ACCOUNT_ID, WHOP_PRODUCT_MAP and WHOP_DEFAULT_PRODUCT_ID, which no
+  // suffix rule should have to guess.
+  'WHOP',
 ];
 
 /** The shapes deployment configuration takes, whatever it is called. */

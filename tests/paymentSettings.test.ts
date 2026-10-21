@@ -117,7 +117,27 @@ describe('GET/PATCH /api/payment-settings', () => {
             klarna_enabled: false,
             cashapp_enabled: true,
             crypto_enabled: false,
+            crypto_merchant_address: '',
+            crypto_window_hours: 24,
+            whop_enabled: false,
         });
+    });
+
+    it('GET includes the merchant crypto config when the row carries it', async () => {
+        const merchant = '0x0F4A0466C2a1d3FA6Ed55a20994617F0533fbf74';
+        mockSupabaseFrom
+            .mockReturnValueOnce(chain({ data: { ...DEFAULT_ROW }, error: null }))
+            .mockReturnValueOnce(chain({
+                data: { id: 1, crypto_merchant_address: merchant, crypto_window_hours: 12 },
+                error: null,
+            }));
+
+        const res = makeRes();
+        await handler(makeReq('GET'), res);
+
+        expect(res._status).toBe(200);
+        expect(res._body.crypto_merchant_address).toBe(merchant);
+        expect(res._body.crypto_window_hours).toBe(12);
     });
 
     it('GET degrades to the working set (klarna off) when the table read returns an error', async () => {
@@ -134,6 +154,9 @@ describe('GET/PATCH /api/payment-settings', () => {
             klarna_enabled: false,
             cashapp_enabled: true,
             crypto_enabled: true,
+            crypto_merchant_address: '',
+            crypto_window_hours: 24,
+            whop_enabled: false,
         });
     });
 
@@ -211,6 +234,66 @@ describe('GET/PATCH /api/payment-settings', () => {
 
         expect(res._status).toBe(400);
         expect(res._body.error).toContain('must be a boolean');
+        expect(mockSupabaseFrom).not.toHaveBeenCalled();
+    });
+
+    it('PATCH saves the merchant address and window hours', async () => {
+        const merchant = '0x0F4A0466C2a1d3FA6Ed55a20994617F0533fbf74';
+        mockSupabaseFrom.mockReturnValueOnce(
+            chain({ data: { ...DEFAULT_ROW }, error: null }),
+        );
+
+        const res = makeRes();
+        await handler(
+            makeReq(
+                'PATCH',
+                { crypto_merchant_address: merchant, crypto_window_hours: 12 },
+                { authorization: 'Bearer admin-test-token' },
+            ),
+            res,
+        );
+
+        expect(res._status).toBe(200);
+        const query = mockSupabaseFrom.mock.results[0].value;
+        expect(query.upsert).toHaveBeenCalledWith(
+            expect.objectContaining({
+                id: 1,
+                crypto_merchant_address: merchant,
+                crypto_window_hours: 12,
+            }),
+            { onConflict: 'id' },
+        );
+    });
+
+    it('PATCH rejects an invalid merchant address', async () => {
+        const res = makeRes();
+        await handler(
+            makeReq(
+                'PATCH',
+                { crypto_merchant_address: 'not-an-address' },
+                { authorization: 'Bearer admin-test-token' },
+            ),
+            res,
+        );
+
+        expect(res._status).toBe(400);
+        expect(res._body.error).toContain('crypto_merchant_address');
+        expect(mockSupabaseFrom).not.toHaveBeenCalled();
+    });
+
+    it('PATCH rejects an out-of-range window', async () => {
+        const res = makeRes();
+        await handler(
+            makeReq(
+                'PATCH',
+                { crypto_window_hours: 200 },
+                { authorization: 'Bearer admin-test-token' },
+            ),
+            res,
+        );
+
+        expect(res._status).toBe(400);
+        expect(res._body.error).toContain('crypto_window_hours');
         expect(mockSupabaseFrom).not.toHaveBeenCalled();
     });
 

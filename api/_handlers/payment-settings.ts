@@ -23,8 +23,16 @@ import {
 import { withAdminAuth } from '../_adminAuth.js';
 import {
     loadPaymentSettings,
+    DEFAULT_PAYMENT_SETTINGS,
     type PaymentSettings,
 } from '../../services/paymentSettings.js';
+import {
+    isValidAddress,
+    loadMerchantCryptoConfig,
+    MAX_CRYPTO_WINDOW_HOURS,
+    MIN_CRYPTO_WINDOW_HOURS,
+    type MerchantCryptoConfig,
+} from '../../services/cryptoWatcher.js';
 
 function getSupabaseAdmin(): SupabaseClient {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
@@ -43,41 +51,60 @@ const FLAG_TO_KEY: Record<string, keyof PaymentSettings> = {
     klarna_enabled: 'klarna',
     cashapp_enabled: 'cashapp',
     crypto_enabled: 'crypto',
+    whop_enabled: 'whop',
 };
 
 // Wire shape shared by GET and PATCH responses so the admin card and the
-// checkout client read one contract.
-function toWire(settings: PaymentSettings) {
+// checkout client read one contract. The crypto merchant fields ride along
+// so the checkout learns the receiving address without a second round-trip:
+// crypto_merchant_address is '' when the owner never set one (clients fall
+// back to the founder wallet); crypto_window_hours is the payment window
+// in hours the verify endpoint enforces.
+function toWire(settings: PaymentSettings, crypto: MerchantCryptoConfig) {
     return {
         card_enabled: settings.card,
         klarna_enabled: settings.klarna,
         cashapp_enabled: settings.cashapp,
         crypto_enabled: settings.crypto,
+        whop_enabled: settings.whop,
+        crypto_merchant_address: crypto.merchantAddressConfigured ? crypto.merchantAddress : '',
+        crypto_window_hours: crypto.windowHours,
     };
 }
 
-async function saveSettings(patch: Partial<PaymentSettings>): Promise<PaymentSettings> {
+export interface MerchantSettingsPatch {
+    cryptoMerchantAddress?: string;
+    cryptoWindowHours?: number;
+}
+
+async function saveSettings(patch: Partial<PaymentSettings> & MerchantSettingsPatch): Promise<PaymentSettings> {
     const supabase = getSupabaseAdmin();
-    const row: Record<string, boolean> = {};
+    const row: Record<string, boolean | string | number> = {};
     for (const [flag, key] of Object.entries(FLAG_TO_KEY)) {
         if (patch[key] !== undefined) row[flag] = patch[key];
     }
+    if (patch.cryptoMerchantAddress !== undefined) row.crypto_merchant_address = patch.cryptoMerchantAddress;
+    if (patch.cryptoWindowHours !== undefined) row.crypto_window_hours = patch.cryptoWindowHours;
 
     const { data, error } = await supabase
         .from('payment_settings')
         .upsert({ id: 1, ...row }, { onConflict: 'id' })
-        .select('card_enabled, klarna_enabled, cashapp_enabled, crypto_enabled')
+        .select('card_enabled, klarna_enabled, cashapp_enabled, crypto_enabled, whop_enabled')
         .single();
 
     if (error || !data) {
         throw createHttpError(500, error?.message || 'Failed to save payment settings.');
     }
 
+    // Same `?? DEFAULT` rule the checkout's reader uses (services/
+    // paymentSettings.ts) — one rule, so the admin card and the live
+    // checkout can never show a different set of options.
     return {
-        card: data.card_enabled !== false,
-        klarna: data.klarna_enabled !== false,
-        cashapp: data.cashapp_enabled !== false,
-        crypto: data.crypto_enabled !== false,
+        card: data.card_enabled ?? DEFAULT_PAYMENT_SETTINGS.card,
+        klarna: data.klarna_enabled ?? DEFAULT_PAYMENT_SETTINGS.klarna,
+        cashapp: data.cashapp_enabled ?? DEFAULT_PAYMENT_SETTINGS.cashapp,
+        crypto: data.crypto_enabled ?? DEFAULT_PAYMENT_SETTINGS.crypto,
+        whop: data.whop_enabled ?? DEFAULT_PAYMENT_SETTINGS.whop,
     };
 }
 
@@ -86,7 +113,7 @@ async function saveSettings(patch: Partial<PaymentSettings>): Promise<PaymentSet
 // it throws propagate to the single formatter in the handler below.
 const adminSettings = withAdminAuth(async (req: ApiRequest, res: ApiResponse) => {
     const body = parseBody(req) as Record<string, unknown>;
-    const patch: Partial<PaymentSettings> = {};
+    const patch: Partial<PaymentSettings> & MerchantSettingsPatch = {};
     let found = false;
 
     for (const [flag, key] of Object.entries(FLAG_TO_KEY)) {
@@ -99,12 +126,35 @@ const adminSettings = withAdminAuth(async (req: ApiRequest, res: ApiResponse) =>
         found = true;
     }
 
+    // Merchant crypto config: receiving address ('' clears back to the
+    // founder-wallet fallback) and payment window in hours.
+    if (body.crypto_merchant_address !== undefined) {
+        const addr = String(body.crypto_merchant_address || '').trim();
+        if (addr !== '' && !isValidAddress(addr)) {
+            res.status(400).json({ error: 'crypto_merchant_address must be a 0x Polygon address or empty.' });
+            return;
+        }
+        patch.cryptoMerchantAddress = addr;
+        found = true;
+    }
+    if (body.crypto_window_hours !== undefined) {
+        const hours = Number(body.crypto_window_hours);
+        if (!Number.isInteger(hours) || hours < MIN_CRYPTO_WINDOW_HOURS || hours > MAX_CRYPTO_WINDOW_HOURS) {
+            res.status(400).json({ error: `crypto_window_hours must be an integer ${MIN_CRYPTO_WINDOW_HOURS}-${MAX_CRYPTO_WINDOW_HOURS}.` });
+            return;
+        }
+        patch.cryptoWindowHours = hours;
+        found = true;
+    }
+
     if (!found) {
         res.status(400).json({ error: 'At least one payment option flag is required.' });
         return;
     }
 
-    res.status(200).json(toWire(await saveSettings(patch)));
+    const supabase = getSupabaseAdmin();
+    const settings = await saveSettings(patch);
+    res.status(200).json(toWire(settings, await loadMerchantCryptoConfig(supabase)));
 });
 
 export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
@@ -116,10 +166,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
     }
 
     try {
-        // Public: the checkout reads which payment options are enabled.
+        // Public: the checkout reads which payment options are enabled
+        // (plus the crypto merchant config for the receiving address).
         if (req.method === 'GET') {
-            const settings = await loadPaymentSettings(getSupabaseAdmin());
-            res.status(200).json(toWire(settings));
+            const supabase = getSupabaseAdmin();
+            const settings = await loadPaymentSettings(supabase);
+            res.status(200).json(toWire(settings, await loadMerchantCryptoConfig(supabase)));
             return;
         }
 
