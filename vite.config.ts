@@ -88,6 +88,9 @@ export default defineConfig(() => {
               if (id.includes('recharts')) {
                 return 'vendor-recharts';
               }
+              if (id.includes('d3-scale') || id.includes('react-simple-maps')) {
+                return 'vendor-maps';
+              }
             }
             return undefined;
           },
