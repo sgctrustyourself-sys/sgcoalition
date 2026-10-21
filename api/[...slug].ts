@@ -8,6 +8,8 @@
 // (req: any, res: any) signature and avoid pulling in @vercel/node as a
 // hard dependency; Vercel provides the runtime types automatically.
 
+import { withRateLimit } from './_helpers.js';
+
 type Handler = (req: any, res: any) => unknown | Promise<unknown>;
 type Loader = () => Promise<{ default: Handler }>;
 
@@ -23,6 +25,9 @@ const handlers: Record<string, Loader> = {
     'create-checkout-session': () => import('./_handlers/create-checkout-session.js'),
     'create-payment-intent': () => import('./_handlers/create-payment-intent.js'),
     'create-subscription-session': () => import('./_handlers/create-subscription-session.js'),
+    'crypto-verify': () => import('./_handlers/crypto-verify.js'),
+    'crypto-review-queue': () => import('./_handlers/crypto-review-queue.js'),
+    'create-whop-checkout-link': () => import('./_handlers/create-whop-checkout-link.js'),
     'git-operations': () => import('./_handlers/git-operations.js'),
     'health': () => import('./_handlers/health.js'),
     'marketing-optout': () => import('./_handlers/marketing-optout.js'),
@@ -86,6 +91,12 @@ export default async function handler(req: any, res: any) {
         res.status(404).json({ error: 'Endpoint not found' });
         return;
     }
+
+    // Enforce the per-slug budget before the handler loads. withRateLimit
+    // writes the 429 itself, so a limited request returns here and never
+    // reaches the handler.
+    const rate = withRateLimit(slug, req, res);
+    if (!rate.allowed) return;
 
     const mod = await loader();
     return mod.default(req, res);

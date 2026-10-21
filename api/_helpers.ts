@@ -251,6 +251,7 @@ const SLUG_LIMITS_PER_MINUTE: Record<string, number> = {
     'create-checkout-session': 20,
     'create-payment-intent': 20,
     'complete-order': 20,
+    'crypto-verify': 20,
     'place-order-credits': 20,
     // The checkout's "is this attempt already recorded?" probe
     // (api/_handlers/order-attempt.ts). One call per submit that already has

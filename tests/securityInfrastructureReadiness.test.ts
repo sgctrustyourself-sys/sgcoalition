@@ -385,6 +385,8 @@ describe('source invariants: admin authorization has one gate', () => {
         'product-drift': { policy: 'shared', why: 'read-only catalog drift report (seed vs products table)' },
         'update-piece-metadata': { policy: 'shared', why: 'numbered-piece metadata' },
         'complete-order': { policy: 'union', why: 'order list/update; the dashboard login is a Supabase session' },
+        'create-whop-checkout-link': { policy: 'shared', why: 'creates a Whop checkout link via the Whop API' },
+        'crypto-review-queue': { policy: 'shared', why: 'admin crypto review queue — lists underpaid/awaiting USDC orders with expected vs received amounts, Polygonscan links, and confirm/top-up actions' },
         'ai-chat': { policy: 'supabase', why: 'brain actions (that branch; chat/image actions are public)' },
         // NOTE: place-order-credits is gated too, but not by withAdminAuth — a
         // shopper spending their OWN credit is not an admin action, and the admin
@@ -403,6 +405,7 @@ describe('source invariants: admin authorization has one gate', () => {
         'create-checkout-session': 'a shopper starts a checkout',
         'create-payment-intent': 'a shopper starts a card payment',
         'create-subscription-session': 'a shopper starts a membership signup',
+        'crypto-verify': 'a shopper proves their own crypto order paid: buyer-scoped orderRef, read-only chain evidence, only flips crypto pending to paid, rate-limited',
         'csp-report': 'browsers report CSP violations anonymously',
         'health': 'uptime probe',
         'report-error': 'anonymous client error reports; handler validates, clips, rate-limits, and never echoes content',
