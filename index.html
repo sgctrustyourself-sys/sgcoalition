@@ -364,8 +364,10 @@
   <script>
     // Keep this recovery timer outside the module graph. If index.tsx never
     // executes, the user still gets an actionable screen instead of a logo.
+    // 30s timeout: accommodates cold starts, slow connections, and large chunk loads.
+    // The app sets window.__coalitionBooted = true when React hydrates (index.tsx).
     (function () {
-      var BOOT_TIMEOUT_MS = 8000;
+      var BOOT_TIMEOUT_MS = 30000;
       window.__coalitionBooted = false;
       window.setTimeout(function () {
         if (window.__coalitionBooted) return;
