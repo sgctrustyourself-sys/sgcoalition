@@ -91,6 +91,9 @@ export default defineConfig(() => {
               if (id.includes('d3-scale') || id.includes('react-simple-maps')) {
                 return 'vendor-maps';
               }
+              if (id.includes('@supabase/')) {
+                return 'vendor-supabase';
+              }
             }
             return undefined;
           },
