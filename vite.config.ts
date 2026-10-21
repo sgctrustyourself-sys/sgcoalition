@@ -82,6 +82,9 @@ export default defineConfig(() => {
               if (id.includes('/react-router/')) {
                 return 'vendor-router';
               }
+              if (id.includes('ethers')) {
+                return 'vendor-ethers';
+              }
             }
             return undefined;
           },
