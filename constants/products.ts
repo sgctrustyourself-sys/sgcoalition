@@ -886,7 +886,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     "name": "Coalition Lighter Holder",
     "price": 10,
     "images": [
-      "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/lighter-holder-front.png"
+      "/images/lighter-holder-front.svg"
     ],
     "description": "Coalition Lighter Holder — hand-stitched leather sleeve for standard Bic lighters. Keeps your flame close and your style tighter.",
     "category": "accessory",
