@@ -1,14 +1,14 @@
 /**
- * scripts/story-reveal-specs/drops.ts ΓÇö the single owner of Coalition drop data.
+ * scripts/story-reveal-specs/drops.ts — the single owner of Coalition drop data.
  *
  * ONE entry per release. Every consumer reads THIS file, so a release can no
  * longer disagree with itself across surfaces:
  *
- *   - `scripts/render-story.ts`            ΓåÆ `DROPS[slug].spec`      (social PNGs, 3 formats)
- *   - `scripts/generateDropDocs.mjs`       ΓåÆ spec + copy             (docs trio + registry row)
- *   - `scripts/upsertDropProduct.ts`       ΓåÆ listing                 (Supabase products row)
- *   - `scripts/generateDropPost.ts`        ΓåÆ copy.post*              (blog drop post)
- *   - `scripts/sendDropEmail.ts`           ΓåÆ dropId grouping         (one email per drop day)
+ *   - `scripts/render-story.ts`            → `DROPS[slug].spec`      (social PNGs, 3 formats)
+ *   - `scripts/generateDropDocs.mjs`       → spec + copy             (docs trio + registry row)
+ *   - `scripts/upsertDropProduct.ts`       → listing                 (Supabase products row)
+ *   - `scripts/generateDropPost.ts`        → copy.post*              (blog drop post)
+ *   - `scripts/sendDropEmail.ts`           → dropId grouping         (one email per drop day)
  *
  * Adding a release is one object literal. Nothing else needs editing:
  * `render-story.ts` resolves the spec from this registry by slug, and every
@@ -48,7 +48,7 @@ export interface StickerHint {
   type: StickerType;
   /** Where on the rendered slide the sticker prompt sits (reviewer aid only). */
   anchor: StickerAnchor;
-  /** Reviewer-aid text ΓÇö explains what to overlay in IG. Not part of the post. */
+  /** Reviewer-aid text — explains what to overlay in IG. Not part of the post. */
   label: string;
 }
 
@@ -59,7 +59,7 @@ export interface SlideSpec {
   wordmark?: string;
   eyebrow?: string;
 
-  /** Display copy (Bebas Neue 88ΓÇô140 px in the rendered output). */
+  /** Display copy (Bebas Neue 88–140 px in the rendered output). */
   headline?: string;
 
   /** 32 px body copy (Inter). */
@@ -69,23 +69,35 @@ export interface SlideSpec {
   price?: string;
   url?: string;
 
-  /** Reviewer-aid stickers (NOT rendered on the post ΓÇö added in IG in-app). */
+  /** Reviewer-aid stickers (NOT rendered on the post — added in IG in-app). */
   stickers?: StickerHint[];
 }
 
 export interface DropSpec {
   slug: string;
 
-  /** Uppercase release name used in display text ΓÇö "GREY WAVE" */
+  /** Uppercase release name used in display text — "GREY WAVE" */
   releaseName: string;
 
-  /** Title-cased used in long-form copy ΓÇö "Coalition 'Grey Wave' Wallet 1/2" */
+  /** Title-cased used in long-form copy — "Coalition 'Grey Wave' Wallet 1/2" */
   productName: string;
 
   /** Variant numerator. 1 for first of two, 2 for second. */
   x: number;
   /** Variant denominator. 2 for a 1/2 run, 12 for a 12-piece run, etc. */
   y: number;
+
+  /**
+   * Physical units held for THIS listing, when the run is numbered and sold one
+   * at a time — a 'Parts' 3/4 is ONE unit of a FOUR-piece run, so its `x`/`y`
+   * display counter (3 / 4) and its stock (1) diverge.
+   *
+   * Defaults to `y`, which is correct for a uniform run (twelve identical
+   * pieces → `y` = 12 = held). `x`/`y` stay the DISPLAY run counter that every
+   * generated surface prints ("3 OF 4"); this field is the STOCK claim, the one
+   * tests/dropRegistry.test.ts checks against sizeInventory.
+   */
+  unitsHeld?: number;
 
   /** "$85" with the dollar sign already prefixed. Mirrors listing.price. */
   price: string;
@@ -108,11 +120,11 @@ export interface DropSpec {
   slides: SlideSpec[];
 }
 
-// ΓöÇΓöÇΓöÇ Listing / copy types (consumed by the generators) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Listing / copy types (consumed by the generators) ───────────────────────
 
 /** The Supabase `products` row this release becomes. Columns mirror scripts/syncProducts.ts. */
 export interface ReleaseListing {
-  /** Supabase row id. Keep stable ΓÇö a new id creates a duplicate row. */
+  /** Supabase row id. Keep stable — a new id creates a duplicate row. */
   id: string;
   /** Numeric column. Must equal spec.price (pinned by tests/dropRegistry.test.ts). */
   price: number;
@@ -127,7 +139,7 @@ export interface ReleaseListing {
    * Public image URLs written to products.images. Filled by
    * `npm run drop:assets -- --slug <slug> --confirm`, which uploads the local
    * PNGs to the Supabase `products` bucket and prints the URLs back here.
-   * Empty until then ΓÇö `upsertDropProduct --confirm` refuses to write a row
+   * Empty until then — `upsertDropProduct --confirm` refuses to write a row
    * with no images rather than listing an imageless product.
    */
   storeImages: string[];
@@ -145,15 +157,15 @@ export interface ReleaseCopy {
   igCaptionLong: string;
   /** Stories-first / casual feed caption. */
   igCaptionShort: string;
-  /** X single post (Γëñ 280 chars). */
+  /** X single post (≤ 280 chars). */
   xSingle: string;
   /** Exactly 3, published in order. Tweet 3 ends on the brand line, not the URL. */
   xThread: [string, string, string];
   /** Always included, in this order. */
   hashtagsCanonical: string[];
-  /** Rotate 2ΓÇô3 per post for reach ΓÇö never all at once. */
+  /** Rotate 2–3 per post for reach — never all at once. */
   hashtagsTier2: string[];
-  /** Γëñ 200 chars ΓÇö internal Slack / Discord / SMS preview. */
+  /** ≤ 200 chars — internal Slack / Discord / SMS preview. */
   slackOneLiner: string;
   /** Blog drop post (same shape as data/blogPosts.ts entries). */
   postTitle: string;
@@ -165,7 +177,7 @@ export interface ReleaseCopy {
 }
 
 export interface DropRelease {
-  /** Groups releases announced together ΓÇö one email per dropId, not per piece. */
+  /** Groups releases announced together — one email per dropId, not per piece. */
   dropId: string;
   /** ISO date (YYYY-MM-DD). */
   dropDate: string;
@@ -173,7 +185,7 @@ export interface DropRelease {
    * True while the release is a mid-shoot draft with no source photos yet.
    * tests/dropRegistry.test.ts exempts these from the "source images on disk"
    * rule (the same courtesy the newest drop group gets) until real photos land
-   * in public/images/<name>-{front,back}.png ΓÇö then delete the flag.
+   * in public/images/<name>-{front,back}.png — then delete the flag.
    */
   awaitingPhotos?: boolean;
   spec: DropSpec;
@@ -181,7 +193,7 @@ export interface DropRelease {
   copy: ReleaseCopy;
 }
 
-// ΓöÇΓöÇΓöÇ Asset path helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Asset path helpers ──────────────────────────────────────────────────────
 
 /** Rendered-reviewer-HTML directory the spec's relative image paths are written against. */
 export const REVEAL_DOC_DIR = 'docs/story-reveal';
@@ -201,13 +213,13 @@ export function assetRelPath(spec: DropSpec, which: 'front' | 'back'): string {
   return rel.replace(/^\.\.\/\.\.\//, '');
 }
 
-/** Local PNG filename base for a release ΓÇö public/images/<base>-{front,back}.png */
+/** Local PNG filename base for a release — public/images/<base>-{front,back}.png */
 export function assetBase(spec: DropSpec): string {
   const filename = assetRelPath(spec, 'front').split('/').pop() || '';
   return filename.replace(/-front\.(png|jpg|jpeg|webp)$/i, '');
 }
 
-// ΓöÇΓöÇΓöÇ The registry ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── The registry ────────────────────────────────────────────────────────────
 
 /**
  * Release entries, keyed by slug.
@@ -217,13 +229,13 @@ export function assetBase(spec: DropSpec): string {
  * refuses to overwrite an existing document without --force.
  */
 export const DROPS: Record<string, DropRelease> = {
-  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-  // Grey Wave 1/2 ΓÇö drop date 2026-06-20 ┬╖ migrated from grey-wave.ts
+  // ───────────────────────────────────────────────────────────────────────────
+  // Grey Wave 1/2 — drop date 2026-06-20 · migrated from grey-wave.ts
   // Mirror of docs/drop-kit-grey-wave.md "IG Story variants" section.
   // NOTE: the legacy hand-authored trio quotes $35 for this piece; the Supabase
   // row and every other wallet in the catalog are $85. The registry now owns the
-  // price and says $85 ΓÇö the legacy trio is stale on that one number.
-  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // price and says $85 — the legacy trio is stale on that one number.
+  // ───────────────────────────────────────────────────────────────────────────
   'grey-wave': {
     dropId: 'drop-2026-06-20',
     dropDate: '2026-06-20',
@@ -251,14 +263,14 @@ export const DROPS: Record<string, DropRelease> = {
           headline: 'GREY WAVE',
           body: ["Coalition 'Grey Wave' Wallet 1/2"],
           stickers: [
-            { type: 'countdown', anchor: 'top-right', label: 'ΓÅ▒ Countdown ΓåÆ drop time' },
+            { type: 'countdown', anchor: 'top-right', label: '⏱ Countdown → drop time' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
           ],
         },
         {
           layout: 'detail',
           headline: 'Hand-finished charcoal dye.',
-          body: ['Inspired by Baltimore harbor at dawn ΓÇö the moment before anything moves.'],
+          body: ['Inspired by Baltimore harbor at dawn — the moment before anything moves.'],
           stickers: [
             { type: 'poll', anchor: 'center-right', label: '"Harbor at dawn?" Yes / No' },
           ],
@@ -269,7 +281,7 @@ export const DROPS: Record<string, DropRelease> = {
           headline: '1 OF 2',
           price: '$85',
           stickers: [
-            { type: 'countdown', anchor: 'top-right', label: 'ΓÅ▒ Drop time (primary urgency driver)' },
+            { type: 'countdown', anchor: 'top-right', label: '⏱ Drop time (primary urgency driver)' },
             { type: 'poll', anchor: 'bottom-left', label: '"Should we run 2/2?" Yes / Wait' },
           ],
         },
@@ -279,7 +291,7 @@ export const DROPS: Record<string, DropRelease> = {
           body: ['Coalition is action. Show up.'],
           stickers: [
             { type: 'mention', anchor: 'bottom-right', label: '@sgcoalition mention' },
-            { type: 'emoji', anchor: 'center-left', label: '≡ƒöÑ Trust Yourself (emoji slider, optional)' },
+            { type: 'emoji', anchor: 'center-left', label: '🔥 Trust Yourself (emoji slider, optional)' },
           ],
         },
         {
@@ -288,7 +300,7 @@ export const DROPS: Record<string, DropRelease> = {
           headline: 'SHOP NOW',
           url: MAIN_SHARING_LABEL,
           stickers: [
-            { type: 'link', anchor: 'center-right', label: 'Story ΓåÆ PDP conversion path' },
+            { type: 'link', anchor: 'center-right', label: 'Story → PDP conversion path' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
           ],
         },
@@ -303,7 +315,7 @@ export const DROPS: Record<string, DropRelease> = {
       isLimitedEdition: false,
       isFeatured: false,
       description:
-        "First piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a custom charcoal-grey dye pattern inspired by Baltimore harbor at dawn. Built as a limited 1/2 collectible ΓÇö once sold, it's gone forever.",
+        "First piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a custom charcoal-grey dye pattern inspired by Baltimore harbor at dawn. Built as a limited 1/2 collectible — once sold, it's gone forever.",
       storeImages: [
         'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_7z2h8u6.jpg',
         'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_UqtbJCq.jpg',
@@ -313,7 +325,7 @@ export const DROPS: Record<string, DropRelease> = {
       igCaptionLong:
         '🌊 GREY WAVE.\n\nCoalition \'Grey Wave\' Wallet 1/2 — $85.\n\nHand-finished charcoal dye. Inspired by Baltimore harbor at dawn — the moment before anything moves. 1 of 2 in this run. Limited edition.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → linktr.ee/sgcoalition\n\n#Coalition #GreyWave #BaltimoreStreetwear #TrustYourself #LimitedEdition',
       igCaptionShort:
-        '≡ƒîè GREY WAVE.\n\nCoalition \'Grey Wave\' Wallet 1/2 ΓÇö $85. 1 of 2. Hand-finished charcoal dye.\n\nWhen it\'s gone, it\'s gone.\n\n≡ƒöù Link in bio.\n\n#Coalition #GreyWave #TrustYourself #LimitedEdition #BaltimoreStreetwear',
+        '🌊 GREY WAVE.\n\nCoalition \'Grey Wave\' Wallet 1/2 — $85. 1 of 2. Hand-finished charcoal dye.\n\nWhen it\'s gone, it\'s gone.\n\n🔗 Link in bio.\n\n#Coalition #GreyWave #TrustYourself #LimitedEdition #BaltimoreStreetwear',
       xSingle:
         "🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $85. Hand-finished charcoal dye. Inspired by Baltimore harbor at dawn. Limited 1/2. Once it's gone, it's gone. linktr.ee/sgcoalition",
       xThread: [
@@ -331,7 +343,7 @@ export const DROPS: Record<string, DropRelease> = {
         'First piece in the Grey Wave run: hand-finished charcoal dye, inspired by Baltimore harbor at dawn.',
       postTags: ['drop', 'wallet', 'limited', 'grey-wave'],
       postBody: `
-<img src="/images/grey-wave-wallet-1-2-front.png" alt="Coalition Grey Wave Wallet 1/2 ΓÇö front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="/images/grey-wave-wallet-1-2-front.png" alt="Coalition Grey Wave Wallet 1/2 — front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 The first Grey Wave wallet is a study in restraint. One dye pattern, worked by hand until it held the color of the harbor before anything moves.
 
@@ -339,11 +351,11 @@ The first Grey Wave wallet is a study in restraint. One dye pattern, worked by h
 
 <ul>
 <li><strong>Full-grain leather</strong>, cut and stitched in-house.</li>
-<li><strong>Charcoal dye</strong>, applied by hand ΓÇö no two pieces take it the same way.</li>
+<li><strong>Charcoal dye</strong>, applied by hand — no two pieces take it the same way.</li>
 <li><strong>Copper grommet</strong> and a single Coalition mark.</li>
 </ul>
 
-<img src="/images/grey-wave-wallet-1-2-back.png" alt="Coalition Grey Wave Wallet 1/2 ΓÇö back" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="/images/grey-wave-wallet-1-2-back.png" alt="Coalition Grey Wave Wallet 1/2 — back" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 <h2>THE RUN</h2>
 
@@ -354,9 +366,9 @@ Two pieces. This is the first. When they are gone, they do not come back.
     },
   },
 
-  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-  // Pink / Silver Crop Top ΓÇö draft listing values, correct in ONE place.
-  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ───────────────────────────────────────────────────────────────────────────
+  // Pink / Silver Crop Top — draft listing values, correct in ONE place.
+  // ───────────────────────────────────────────────────────────────────────────
   'pink-silver-crop-top': {
     dropId: 'drop-2026-09-17',
     dropDate: '2026-09-17',
@@ -384,14 +396,14 @@ Two pieces. This is the first. When they are gone, they do not come back.
           headline: 'PINK / SILVER',
           body: ['Leopard Print Crop T-Shirt'],
           stickers: [
-            { type: 'countdown', anchor: 'top-right', label: 'ΓÅ▒ Countdown ΓåÆ drop time' },
+            { type: 'countdown', anchor: 'top-right', label: '⏱ Countdown → drop time' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
           ],
         },
         {
           layout: 'detail',
           headline: 'Silver on rose.',
-          body: ['Pink leopard print, 3D silver puff lettering, cut fitted. Finished in-house, sized SΓÇôXL.'],
+          body: ['Pink leopard print, 3D silver puff lettering, cut fitted. Finished in-house, sized S–XL.'],
           stickers: [{ type: 'poll', anchor: 'center-right', label: '"Pink or silver first?" Pink / Silver' }],
         },
         {
@@ -400,7 +412,7 @@ Two pieces. This is the first. When they are gone, they do not come back.
           headline: '1 OF 12',
           price: '$45',
           stickers: [
-            { type: 'countdown', anchor: 'top-right', label: 'ΓÅ▒ Drop time (primary urgency driver)' },
+            { type: 'countdown', anchor: 'top-right', label: '⏱ Drop time (primary urgency driver)' },
             { type: 'poll', anchor: 'bottom-left', label: '"Run it again?" Yes / Wait' },
           ],
         },
@@ -410,16 +422,16 @@ Two pieces. This is the first. When they are gone, they do not come back.
           body: ['Coalition is action. Show up.'],
           stickers: [
             { type: 'mention', anchor: 'bottom-right', label: '@sgcoalition mention' },
-            { type: 'emoji', anchor: 'center-left', label: '≡ƒÆù Trust Yourself (emoji slider, optional)' },
+            { type: 'emoji', anchor: 'center-left', label: '💗 Trust Yourself (emoji slider, optional)' },
           ],
         },
         {
           layout: 'cta',
-          eyebrow: 'PINK / SILVER ┬╖ CROP TOP',
+          eyebrow: 'PINK / SILVER · CROP TOP',
           headline: 'SHOP NOW',
           url: MAIN_SHARING_LABEL,
           stickers: [
-            { type: 'link', anchor: 'center-right', label: 'Story ΓåÆ PDP conversion path' },
+            { type: 'link', anchor: 'center-right', label: 'Story → PDP conversion path' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
           ],
         },
@@ -435,20 +447,20 @@ Two pieces. This is the first. When they are gone, they do not come back.
       isLimitedEdition: true,
       isFeatured: false,
       description:
-        "Women's Leopard Print Crop T-Shirt. Pink leopard print with 3D silver puff lettering ΓÇö COALITION across the front, TRUST YOURSELF on the back. A 12-piece run, sized SΓÇôXL.",
+        "Women's Leopard Print Crop T-Shirt. Pink leopard print with 3D silver puff lettering — COALITION across the front, TRUST YOURSELF on the back. A 12-piece run, sized S–XL.",
       storeImages: [],
     },
     copy: {
       igCaptionLong:
         'PINK / SILVER.\n\nWomen\'s Leopard Print Crop T-Shirt — $45.\n\nPink leopard print, 3D silver puff lettering, cut fitted. Finished in-house. 1 of 12 in this run, sized S–XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → linktr.ee/sgcoalition\n\n#Coalition #PinkSilver #BaltimoreStreetwear #TrustYourself #LimitedEdition',
       igCaptionShort:
-        'PINK / SILVER.\n\nWomen\'s Leopard Print Crop T-Shirt ΓÇö $45. 1 of 12. Sized SΓÇôXL.\n\nWhen it\'s gone, it\'s gone.\n\n≡ƒöù Link in bio.\n\n#Coalition #PinkSilver #TrustYourself #LimitedEdition #BaltimoreStreetwear',
+        'PINK / SILVER.\n\nWomen\'s Leopard Print Crop T-Shirt — $45. 1 of 12. Sized S–XL.\n\nWhen it\'s gone, it\'s gone.\n\n🔗 Link in bio.\n\n#Coalition #PinkSilver #TrustYourself #LimitedEdition #BaltimoreStreetwear',
       xSingle:
         'PINK / SILVER. Women\'s Leopard Print Crop T-Shirt — $45. Pink leopard print, 3D silver puff lettering, cut fitted. 12-piece run, S–XL. Once it\'s gone, it\'s gone. linktr.ee/sgcoalition',
       xThread: [
         'PINK / SILVER.\n\nWomen\'s Leopard Print Crop T-Shirt — $45. Pink leopard print, 3D silver puff lettering, cut fitted. Sized S–XL. Once it\'s gone, it\'s gone.\n\nlinktr.ee/sgcoalition',
         '1 of 12. No reprints.\n\nThe leopard print reads up close; the silver puff carries across a room.',
-        'Coalition is action. Trust Yourself. ≡ƒûñ',
+        'Coalition is action. Trust Yourself. 🖤',
       ],
       hashtagsCanonical: ['#Coalition', '#PinkSilver', '#BaltimoreStreetwear', '#TrustYourself', '#LimitedEdition'],
       hashtagsTier2: ['#Streetwear', '#Baltimore', '#1of12', '#PinkSilverEdition', '#HandFinished', '#Drops'],
@@ -457,22 +469,22 @@ Two pieces. This is the first. When they are gone, they do not come back.
       postTitle: "Women's Leopard Print Crop T-Shirt",
       postSlug: 'coalition-pink-silver-crop-top',
       postExcerpt:
-        'Pink leopard print, 3D silver puff lettering, cut fitted. A 12-piece run, finished in-house and sized SΓÇôXL.',
+        'Pink leopard print, 3D silver puff lettering, cut fitted. A 12-piece run, finished in-house and sized S–XL.',
       postTags: ['drop', 'apparel', 'limited', 'pink-silver'],
       postBody: `
-<img src="/images/pink-silver-crop-top-front.png" alt="Women's Leopard Print Crop T-Shirt ΓÇö front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="/images/pink-silver-crop-top-front.png" alt="Women's Leopard Print Crop T-Shirt — front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 Two prints on one piece: a pink leopard base up close, 3D silver puff lettering that carries across a room.
 
 <h2>THE BUILD</h2>
 
 <ul>
-<li><strong>Fitted crop</strong> with a clean neckline ΓÇö built to sit right without adjusting all night.</li>
-<li><strong>3D silver puff</strong> lettering ΓÇö COALITION across the front, TRUST YOURSELF on the back.</li>
-<li><strong>Twelve pieces</strong> in the run, sized SΓÇôXL.</li>
+<li><strong>Fitted crop</strong> with a clean neckline — built to sit right without adjusting all night.</li>
+<li><strong>3D silver puff</strong> lettering — COALITION across the front, TRUST YOURSELF on the back.</li>
+<li><strong>Twelve pieces</strong> in the run, sized S–XL.</li>
 </ul>
 
-<img src="/images/pink-silver-crop-top-back.png" alt="Women's Leopard Print Crop T-Shirt ΓÇö back" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="/images/pink-silver-crop-top-back.png" alt="Women's Leopard Print Crop T-Shirt — back" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 <h2>THE RUN</h2>
 
@@ -483,14 +495,14 @@ Twelve pieces, one run. When they are gone, they do not come back.
     },
   },
 
-  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-  // Coalition Fleece Hoodie ΓÇö draft listing values, correct in ONE place.
+  // ───────────────────────────────────────────────────────────────────────────
+  // Coalition Fleece Hoodie — draft listing values, correct in ONE place.
   // Copy rule: describe the silhouette, never the brand the blank is based on.
-  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ───────────────────────────────────────────────────────────────────────────
   'coalition-fleece-hoodie': {
     dropId: 'drop-2026-09-17',
     dropDate: '2026-09-17',
-    // Mid-shoot draft ΓÇö no source photos exist yet (repo or storage).
+    // Mid-shoot draft — no source photos exist yet (repo or storage).
     awaitingPhotos: true,
     spec: {
       slug: 'coalition-fleece-hoodie',
@@ -516,7 +528,7 @@ Twelve pieces, one run. When they are gone, they do not come back.
           headline: 'COALITION FLEECE',
           body: ['Coalition Fleece Hoodie'],
           stickers: [
-            { type: 'countdown', anchor: 'top-right', label: 'ΓÅ▒ Countdown ΓåÆ drop time' },
+            { type: 'countdown', anchor: 'top-right', label: '⏱ Countdown → drop time' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
           ],
         },
@@ -532,7 +544,7 @@ Twelve pieces, one run. When they are gone, they do not come back.
           headline: '1 OF 15',
           price: '$100',
           stickers: [
-            { type: 'countdown', anchor: 'top-right', label: 'ΓÅ▒ Drop time (primary urgency driver)' },
+            { type: 'countdown', anchor: 'top-right', label: '⏱ Drop time (primary urgency driver)' },
             { type: 'poll', anchor: 'bottom-left', label: '"Second colorway?" Yes / Wait' },
           ],
         },
@@ -542,16 +554,16 @@ Twelve pieces, one run. When they are gone, they do not come back.
           body: ['Coalition is action. Show up.'],
           stickers: [
             { type: 'mention', anchor: 'bottom-right', label: '@sgcoalition mention' },
-            { type: 'emoji', anchor: 'center-left', label: '≡ƒöÑ Trust Yourself (emoji slider, optional)' },
+            { type: 'emoji', anchor: 'center-left', label: '🔥 Trust Yourself (emoji slider, optional)' },
           ],
         },
         {
           layout: 'cta',
-          eyebrow: 'COALITION FLEECE ┬╖ HOODIE',
+          eyebrow: 'COALITION FLEECE · HOODIE',
           headline: 'SHOP NOW',
           url: MAIN_SHARING_LABEL,
           stickers: [
-            { type: 'link', anchor: 'center-right', label: 'Story ΓåÆ PDP conversion path' },
+            { type: 'link', anchor: 'center-right', label: 'Story → PDP conversion path' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
           ],
         },
@@ -566,20 +578,20 @@ Twelve pieces, one run. When they are gone, they do not come back.
       isLimitedEdition: true,
       isFeatured: true,
       description:
-        'Coalition Fleece Hoodie. Washed black with orange metal lettering across the chest, built to look better worn in. 15 pieces in the run, sized SΓÇô2XL.',
+        'Coalition Fleece Hoodie. Washed black with orange metal lettering across the chest, built to look better worn in. 15 pieces in the run, sized S–2XL.',
       storeImages: [],
     },
     copy: {
       igCaptionLong:
         'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100.\n\nWashed black. Orange metal across the chest. Built to look better worn in. Finished in-house. 1 of 15 in this run, sized S–2XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → linktr.ee/sgcoalition\n\n#Coalition #CoalitionFleece #BaltimoreStreetwear #TrustYourself #LimitedEdition',
       igCaptionShort:
-        'COALITION FLEECE.\n\nCoalition Fleece Hoodie ΓÇö $100. 1 of 15. Washed black, orange metal. Sized SΓÇô2XL.\n\nWhen it\'s gone, it\'s gone.\n\n≡ƒöù Link in bio.\n\n#Coalition #CoalitionFleece #TrustYourself #LimitedEdition #BaltimoreStreetwear',
+        'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100. 1 of 15. Washed black, orange metal. Sized S–2XL.\n\nWhen it\'s gone, it\'s gone.\n\n🔗 Link in bio.\n\n#Coalition #CoalitionFleece #TrustYourself #LimitedEdition #BaltimoreStreetwear',
       xSingle:
         'COALITION FLEECE. Coalition Fleece Hoodie — $100. Washed black, orange metal lettering across the chest. 15-piece run, S–2XL. Once it\'s gone, it\'s gone. linktr.ee/sgcoalition',
       xThread: [
         'COALITION FLEECE.\n\nCoalition Fleece Hoodie — $100. Washed black with orange metal across the chest. Sized S–2XL. Once it\'s gone, it\'s gone.\n\nlinktr.ee/sgcoalition',
         '1 of 15. No reprints.\n\nWashed black, orange lettering, and a build that looks better the more you wear it. Finished in-house.',
-        'Coalition is action. Trust Yourself. ≡ƒûñ',
+        'Coalition is action. Trust Yourself. 🖤',
       ],
       hashtagsCanonical: ['#Coalition', '#CoalitionFleece', '#BaltimoreStreetwear', '#TrustYourself', '#LimitedEdition'],
       hashtagsTier2: ['#Streetwear', '#Baltimore', '#1of15', '#CoalitionFleeceEdition', '#HandFinished', '#Drops'],
@@ -588,22 +600,22 @@ Twelve pieces, one run. When they are gone, they do not come back.
       postTitle: 'Coalition Fleece Hoodie',
       postSlug: 'coalition-fleece-hoodie',
       postExcerpt:
-        'Washed black with orange metal lettering across the chest ΓÇö a 15-piece run finished in-house, sized SΓÇô2XL.',
+        'Washed black with orange metal lettering across the chest — a 15-piece run finished in-house, sized S–2XL.',
       postTags: ['drop', 'apparel', 'limited', 'fleece'],
       postBody: `
-<img src="/images/coalition-fleece-hoodie-front.png" alt="Coalition Fleece Hoodie ΓÇö front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="/images/coalition-fleece-hoodie-front.png" alt="Coalition Fleece Hoodie — front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 The hoodie we wanted to wear through a Baltimore winter: washed black, heavy through the body, and better looking the more it gets lived in.
 
 <h2>THE BUILD</h2>
 
 <ul>
-<li><strong>Washed black</strong> ΓÇö the wash is the point, not a defect.</li>
+<li><strong>Washed black</strong> — the wash is the point, not a defect.</li>
 <li><strong>Orange metal lettering</strong> across the chest.</li>
-<li><strong>Fifteen pieces</strong> in the run, sized SΓÇô2XL.</li>
+<li><strong>Fifteen pieces</strong> in the run, sized S–2XL.</li>
 </ul>
 
-<img src="/images/coalition-fleece-hoodie-back.png" alt="Coalition Fleece Hoodie ΓÇö back" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="/images/coalition-fleece-hoodie-back.png" alt="Coalition Fleece Hoodie — back" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 <h2>THE RUN</h2>
 
@@ -614,14 +626,14 @@ Fifteen pieces, one run. When they are gone, they do not come back.
     },
   },
 
-  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-  // Above as Below Thermal ΓÇö draft listing values, correct in ONE place.
+  // ───────────────────────────────────────────────────────────────────────────
+  // Above as Below Thermal — draft listing values, correct in ONE place.
   // Joins the existing Above as Below line (tee $75, shorts $75, set $120).
-  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ───────────────────────────────────────────────────────────────────────────
   'above-as-below-thermal': {
     dropId: 'drop-2026-09-17',
     dropDate: '2026-09-17',
-    // Mid-shoot draft ΓÇö no source photos exist yet (repo or storage).
+    // Mid-shoot draft — no source photos exist yet (repo or storage).
     awaitingPhotos: true,
     spec: {
       slug: 'above-as-below-thermal',
@@ -647,7 +659,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
           headline: 'ABOVE AS BELOW',
           body: ['Coalition Above as Below Thermal'],
           stickers: [
-            { type: 'countdown', anchor: 'top-right', label: 'ΓÅ▒ Countdown ΓåÆ drop time' },
+            { type: 'countdown', anchor: 'top-right', label: '⏱ Countdown → drop time' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
           ],
         },
@@ -663,7 +675,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
           headline: '1 OF 15',
           price: '$75',
           stickers: [
-            { type: 'countdown', anchor: 'top-right', label: 'ΓÅ▒ Drop time (primary urgency driver)' },
+            { type: 'countdown', anchor: 'top-right', label: '⏱ Drop time (primary urgency driver)' },
             { type: 'poll', anchor: 'bottom-left', label: '"Match it to the set?" Yes / Wait' },
           ],
         },
@@ -673,16 +685,16 @@ Fifteen pieces, one run. When they are gone, they do not come back.
           body: ['Coalition is action. Show up.'],
           stickers: [
             { type: 'mention', anchor: 'bottom-right', label: '@sgcoalition mention' },
-            { type: 'emoji', anchor: 'center-left', label: '≡ƒöÑ Trust Yourself (emoji slider, optional)' },
+            { type: 'emoji', anchor: 'center-left', label: '🔥 Trust Yourself (emoji slider, optional)' },
           ],
         },
         {
           layout: 'cta',
-          eyebrow: 'ABOVE AS BELOW ┬╖ THERMAL',
+          eyebrow: 'ABOVE AS BELOW · THERMAL',
           headline: 'SHOP NOW',
           url: MAIN_SHARING_LABEL,
           stickers: [
-            { type: 'link', anchor: 'center-right', label: 'Story ΓåÆ PDP conversion path' },
+            { type: 'link', anchor: 'center-right', label: 'Story → PDP conversion path' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
           ],
         },
@@ -697,14 +709,14 @@ Fifteen pieces, one run. When they are gone, they do not come back.
       isLimitedEdition: true,
       isFeatured: false,
       description:
-        'Coalition Above as Below Thermal. Waffle-knit warmth with the Above as Below artwork worked in red ΓÇö the layer for the months the tee cannot cover. 15 pieces in the run, sized SΓÇô2XL.',
+        'Coalition Above as Below Thermal. Waffle-knit warmth with the Above as Below artwork worked in red — the layer for the months the tee cannot cover. 15 pieces in the run, sized S–2XL.',
       storeImages: [],
     },
     copy: {
       igCaptionLong:
         'ABOVE AS BELOW.\n\nCoalition Above as Below Thermal — $75.\n\nWaffle knit warmth with the Above as Below artwork, worked in red. Same lineage as the tee and the shorts. 1 of 15 in this run, sized S–2XL.\n\nWhen it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → linktr.ee/sgcoalition\n\n#Coalition #AboveAsBelow #BaltimoreStreetwear #TrustYourself #LimitedEdition',
       igCaptionShort:
-        'ABOVE AS BELOW.\n\nCoalition Above as Below Thermal ΓÇö $75. 1 of 15. Waffle knit, red artwork. Sized SΓÇô2XL.\n\nWhen it\'s gone, it\'s gone.\n\n≡ƒöù Link in bio.\n\n#Coalition #AboveAsBelow #TrustYourself #LimitedEdition #BaltimoreStreetwear',
+        'ABOVE AS BELOW.\n\nCoalition Above as Below Thermal — $75. 1 of 15. Waffle knit, red artwork. Sized S–2XL.\n\nWhen it\'s gone, it\'s gone.\n\n🔗 Link in bio.\n\n#Coalition #AboveAsBelow #TrustYourself #LimitedEdition #BaltimoreStreetwear',
       xSingle:
         'ABOVE AS BELOW. Coalition Above as Below Thermal — $75. Waffle knit warmth, red artwork, matching the tee and shorts. 15-piece run, S–2XL. Once it\'s gone, it\'s gone. linktr.ee/sgcoalition',
       xThread: [
@@ -719,10 +731,10 @@ Fifteen pieces, one run. When they are gone, they do not come back.
       postTitle: 'Coalition Above as Below Thermal',
       postSlug: 'coalition-above-as-below-thermal',
       postExcerpt:
-        'Waffle knit warmth with the Above as Below artwork worked in red ΓÇö same lineage as the tee and the shorts.',
+        'Waffle knit warmth with the Above as Below artwork worked in red — same lineage as the tee and the shorts.',
       postTags: ['drop', 'apparel', 'limited', 'above-as-below'],
       postBody: `
-<img src="/images/above-as-below-thermal-front.png" alt="Coalition Above as Below Thermal ΓÇö front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="/images/above-as-below-thermal-front.png" alt="Coalition Above as Below Thermal — front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 Above as Below started as a tee and a pair of shorts. This is the layer for the months those cannot cover.
 
@@ -731,10 +743,10 @@ Above as Below started as a tee and a pair of shorts. This is the layer for the 
 <ul>
 <li><strong>Waffle knit</strong> for warmth without weight.</li>
 <li><strong>Above as Below artwork</strong> worked in red, matched to the rest of the line.</li>
-<li><strong>Fifteen pieces</strong> in the run, sized SΓÇô2XL.</li>
+<li><strong>Fifteen pieces</strong> in the run, sized S–2XL.</li>
 </ul>
 
-<img src="/images/above-as-below-thermal-back.png" alt="Coalition Above as Below Thermal ΓÇö back" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="/images/above-as-below-thermal-back.png" alt="Coalition Above as Below Thermal — back" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 <h2>THE RUN</h2>
 
@@ -745,11 +757,11 @@ Fifteen pieces, one run. When they are gone, they do not come back.
     },
   },
 
-  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-  // GHOST RIDERS: AFTER DARK ΓÇö 1/1 hand-stitched patchwork wallet, $80.
+  // ───────────────────────────────────────────────────────────────────────────
+  // GHOST RIDERS: AFTER DARK — 1/1 hand-stitched patchwork wallet, $80.
   // Drop date 2026-10-02. One piece only: sizeInventory holds one One Size
   // unit. Store images are the two real product photos plus the drop artwork.
-  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ───────────────────────────────────────────────────────────────────────────
   'ghost-riders-after-dark': {
     dropId: 'drop-2026-10-02',
     dropDate: '2026-10-02',
@@ -777,7 +789,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
           headline: 'GHOST RIDERS',
           body: ["Coalition 'Ghost Riders: After Dark' Wallet 1/1"],
           stickers: [
-            { type: 'countdown', anchor: 'top-right', label: 'ΓÅ▒ Countdown ΓåÆ drop time' },
+            { type: 'countdown', anchor: 'top-right', label: '⏱ Countdown → drop time' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
           ],
         },
@@ -785,7 +797,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
           layout: 'detail',
           headline: 'Stitched after dark.',
           body: [
-            'Camo and rust corduroy patchwork under green blanket stitching ΓÇö the Coalition banner on one face, the skull gang riding out on the other.',
+            'Camo and rust corduroy patchwork under green blanket stitching — the Coalition banner on one face, the skull gang riding out on the other.',
           ],
           stickers: [
             { type: 'poll', anchor: 'center-right', label: '"Banner face or skull face?" Banner / Skulls' },
@@ -797,7 +809,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
           headline: '1 OF 1',
           price: '$80',
           stickers: [
-            { type: 'countdown', anchor: 'top-right', label: 'ΓÅ▒ Drop time (primary urgency driver)' },
+            { type: 'countdown', anchor: 'top-right', label: '⏱ Drop time (primary urgency driver)' },
             { type: 'poll', anchor: 'bottom-left', label: '"Run it again?" Yes / Never' },
           ],
         },
@@ -807,7 +819,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
           body: ['Coalition is action. Show up.'],
           stickers: [
             { type: 'mention', anchor: 'bottom-right', label: '@sgcoalition mention' },
-            { type: 'emoji', anchor: 'center-left', label: '≡ƒæ╗ Trust Yourself (emoji slider, optional)' },
+            { type: 'emoji', anchor: 'center-left', label: '👻 Trust Yourself (emoji slider, optional)' },
           ],
         },
         {
@@ -816,7 +828,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
           headline: 'SHOP NOW',
           url: MAIN_SHARING_LABEL,
           stickers: [
-            { type: 'link', anchor: 'center-right', label: 'Story ΓåÆ PDP conversion path' },
+            { type: 'link', anchor: 'center-right', label: 'Story → PDP conversion path' },
             { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
           ],
         },
@@ -831,11 +843,11 @@ Fifteen pieces, one run. When they are gone, they do not come back.
       isLimitedEdition: true,
       isFeatured: false,
       description:
-        "GHOST RIDERS: AFTER DARK. Hand-stitched patchwork wallet ΓÇö camo and rust corduroy under green blanket stitching, the Coalition banner across one face and the skull gang riding out on the other. 1 of 1: once it's sold, it's gone forever.",
+        "GHOST RIDERS: AFTER DARK. Hand-stitched patchwork wallet — camo and rust corduroy under green blanket stitching, the Coalition banner across one face and the skull gang riding out on the other. 1 of 1: once it's sold, it's gone forever.",
       storeImages: [
         'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/ghost-riders-wallet-front.png',
         'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/ghost-riders-wallet-back.png',
-        // ?v=N ΓÇö the art was revised (real Coalition logo, corner fix, and the
+        // ?v=N — the art was revised (real Coalition logo, corner fix, and the
         // banner lettering un-mirrored to read left-to-right like the wallet);
         // the storage URL is the same object path, so the query busts CDN/browser
         // caches holding earlier rasters under the old cacheControl.
@@ -846,7 +858,7 @@ Fifteen pieces, one run. When they are gone, they do not come back.
       igCaptionLong:
         '👻 GHOST RIDERS: AFTER DARK.\n\nCoalition \'Ghost Riders: After Dark\' Wallet 1/1 — $80.\n\nHand-stitched patchwork: camo and rust corduroy under green blanket stitching. The Coalition banner across one face, the skull gang riding out on the other.\n\nOne of one. When it\'s gone, it\'s gone. Trust Yourself.\n\n🔗 Link in bio → linktr.ee/sgcoalition\n\n#Coalition #GhostRiders #BaltimoreStreetwear #TrustYourself #OneOfOne',
       igCaptionShort:
-        '≡ƒæ╗ GHOST RIDERS: AFTER DARK.\n\nCoalition \'Ghost Riders: After Dark\' Wallet 1/1 ΓÇö $80. Hand-stitched patchwork, one of one.\n\nWhen it\'s gone, it\'s gone.\n\n≡ƒöù Link in bio.\n\n#Coalition #GhostRiders #TrustYourself #OneOfOne #BaltimoreStreetwear',
+        '👻 GHOST RIDERS: AFTER DARK.\n\nCoalition \'Ghost Riders: After Dark\' Wallet 1/1 — $80. Hand-stitched patchwork, one of one.\n\nWhen it\'s gone, it\'s gone.\n\n🔗 Link in bio.\n\n#Coalition #GhostRiders #TrustYourself #OneOfOne #BaltimoreStreetwear',
       xSingle:
         "👻 GHOST RIDERS: AFTER DARK. Coalition 'Ghost Riders: After Dark' Wallet 1/1 — $80. Hand-stitched patchwork: banner on one face, skull gang on the other. One of one. Once it's gone, it's gone. linktr.ee/sgcoalition",
       xThread: [
@@ -864,23 +876,23 @@ Fifteen pieces, one run. When they are gone, they do not come back.
         'One wallet, made once: hand-stitched camo and rust corduroy patchwork, the Coalition banner on one face and the skull gang on the other.',
       postTags: ['drop', 'wallet', 'limited', 'ghost-riders'],
       postBody: `
-<img src="/images/ghost-riders-wallet-front.png" alt="Coalition Ghost Riders: After Dark Wallet 1/1 ΓÇö front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="/images/ghost-riders-wallet-front.png" alt="Coalition Ghost Riders: After Dark Wallet 1/1 — front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 Ghost Riders: After Dark is one wallet, made once. The front face carries the Coalition banner over rust hills; turn it over and the skull gang rides out after dark.
 
 <h2>THE BUILD</h2>
 
 <ul>
-<li><strong>Hand-stitched patchwork</strong> ΓÇö camo and rust corduroy strips under green blanket stitching.</li>
-<li><strong>Two faces</strong> ΓÇö the Coalition banner on one, the skull gang riding out on the other.</li>
-<li><strong>One of one</strong> ΓÇö one piece, made once, no reprint.</li>
+<li><strong>Hand-stitched patchwork</strong> — camo and rust corduroy strips under green blanket stitching.</li>
+<li><strong>Two faces</strong> — the Coalition banner on one, the skull gang riding out on the other.</li>
+<li><strong>One of one</strong> — one piece, made once, no reprint.</li>
 </ul>
 
-<img src="/images/ghost-riders-wallet-back.png" alt="Coalition Ghost Riders: After Dark Wallet 1/1 ΓÇö back" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+<img src="/images/ghost-riders-wallet-back.png" alt="Coalition Ghost Riders: After Dark Wallet 1/1 — back" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
 <h2>THE ART</h2>
 
-The Ghost Riders: After Dark artwork ΓÇö the same scene, drawn in the wallet's own colors.
+The Ghost Riders: After Dark artwork — the same scene, drawn in the wallet's own colors.
 
 <img src="/images/ghost-riders-wallet-art.png" alt="Ghost Riders: After Dark artwork" style="width:100%;border-radius:16px;margin-bottom:24px;" />
 
@@ -892,14 +904,264 @@ One piece. When it is gone, it does not come back.
 
 <div style="text-align:center; margin:40px 0 8px;">
 <img src="/images/ghost-riders-buy-qr.png" alt="Scan to shop the Ghost Riders: After Dark wallet" style="width:244px; height:244px; background:#ffffff; padding:12px; border-radius:16px; display:inline-block;" />
-<p style="margin-top:14px; font-weight:700; letter-spacing:.08em;">SCAN TO SHOP ΓÇö ONE OF ONE, $80</p>
+<p style="margin-top:14px; font-weight:700; letter-spacing:.08em;">SCAN TO SHOP — ONE OF ONE, $80</p>
 </div>
+`.trim(),
+    },
+  },
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // PARTS: CLOSING THE RUN — 3/4 and 4/4. Both pieces are ALREADY available;
+  // this is a reveal, not a launch, so the date is the announce date and the
+  // countdown / "drop time" stickers are deliberately absent (nothing to count
+  // down to). Numbered run sold one piece at a time: `x`/`y` print "3 OF 4" /
+  // "4 OF 4" while each listing holds a single unit (`unitsHeld: 1`). The two
+  // share a dropId so Marketing sends ONE email covering the closing pair.
+  // ───────────────────────────────────────────────────────────────────────────
+  'parts-wallet-3-4': {
+    dropId: 'drop-2026-10-16',
+    dropDate: '2026-10-16',
+    spec: {
+      slug: 'parts-wallet-3-4',
+
+      releaseName: 'PARTS',
+      productName: "Coalition 'Parts' Wallet 3/4",
+
+      x: 3,
+      y: 4,
+      unitsHeld: 1,
+
+      price: '$45',
+      shopUrl: MAIN_SHARING_LABEL,
+
+      images: {
+        front: '../../public/images/parts-wallet-3-4-front.png',
+        back: '../../public/images/parts-wallet-3-4-back.png',
+      },
+
+      slides: [
+        {
+          layout: 'hero',
+          wordmark: 'COALITION',
+          headline: 'PARTS',
+          body: ["Coalition 'Parts' Wallet 3/4"],
+          stickers: [{ type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' }],
+        },
+        {
+          layout: 'detail',
+          headline: 'Industrial detailing.',
+          body: ['Raw-edge construction and a single Coalition mark on a numbered, hand-finished carry.'],
+          stickers: [{ type: 'poll', anchor: 'center-right', label: '"Wear it raw or box it?" Wear / Box' }],
+        },
+        {
+          layout: 'scarcity',
+          eyebrow: 'THE RUN CLOSES',
+          headline: '3 OF 4',
+          price: '$45',
+          stickers: [{ type: 'poll', anchor: 'bottom-left', label: '"Run it again?" Yes / Never' }],
+        },
+        {
+          layout: 'manifesto',
+          headline: 'TRUST YOURSELF.',
+          body: ['Coalition is action. Show up.'],
+          stickers: [
+            { type: 'mention', anchor: 'bottom-right', label: '@sgcoalition mention' },
+            { type: 'emoji', anchor: 'center-left', label: '🧩 Trust Yourself (emoji slider, optional)' },
+          ],
+        },
+        {
+          layout: 'cta',
+          eyebrow: 'PARTS · WALLET 3/4',
+          headline: 'SHOP NOW',
+          url: MAIN_SHARING_LABEL,
+          stickers: [
+            { type: 'link', anchor: 'center-right', label: 'Story → PDP conversion path' },
+            { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
+          ],
+        },
+      ],
+    },
+    listing: {
+      id: 'Coalition_Parts_Wallet_3_4',
+      price: 45,
+      category: 'wallet',
+      sizes: ['One Size'],
+      sizeInventory: { 'One Size': 1 },
+      isLimitedEdition: true,
+      isFeatured: false,
+      description:
+        "Third piece of the Coalition 'Parts' limited wallet run. Hand-finished with industrial detailing, raw-edge construction, and the Coalition mark on a numbered carry. Each piece is a distinct part of the whole — built different, numbered once, gone forever. Priced at $45 with standard shipping included.",
+      storeImages: ['https://i.imgur.com/83jXZKg.jpg', 'https://i.imgur.com/0OMUUgV.jpg'],
+    },
+    copy: {
+      igCaptionLong:
+        '🧩 PARTS.\n\nCoalition \'Parts\' Wallet 3/4 — $45.\n\nIndustrial detailing, raw-edge construction, and the Coalition mark on a numbered, hand-finished carry. Each piece is a distinct part of the whole — built different, numbered once, gone forever.\n\nThe run closes with this one and 4/4. When they\'re gone, they\'re gone. Trust Yourself.\n\n🔗 Link in bio → linktr.ee/sgcoalition\n\n#Coalition #Parts #BaltimoreStreetwear #TrustYourself #LimitedEdition',
+      igCaptionShort:
+        '🧩 PARTS.\n\nCoalition \'Parts\' Wallet 3/4 — $45. 3 of 4. Industrial detailing, raw-edge construction.\n\nWhen they\'re gone, they\'re gone.\n\n🔗 Link in bio.\n\n#Coalition #Parts #TrustYourself #LimitedEdition #BaltimoreStreetwear',
+      xSingle:
+        '🧩 PARTS. Coalition \'Parts\' Wallet 3/4 — $45. Industrial detailing, raw-edge construction, the Coalition mark on a numbered carry. 3 of 4. Once it\'s gone, it\'s gone. linktr.ee/sgcoalition',
+      xThread: [
+        '🧩 PARTS.\n\nCoalition \'Parts\' Wallet 3/4 — $45. Industrial detailing and raw-edge construction on a numbered, hand-finished carry. 3 of 4 — the run closes with this one and 4/4.\n\nlinktr.ee/sgcoalition',
+        'Each piece is a distinct part of the whole.\n\nBuilt different, numbered once. One Coalition mark, finished by hand, never made again.',
+        'Coalition is action. Trust Yourself. 🖤',
+      ],
+      hashtagsCanonical: ['#Coalition', '#Parts', '#BaltimoreStreetwear', '#TrustYourself', '#LimitedEdition'],
+      hashtagsTier2: ['#Streetwear', '#Baltimore', '#3of4', '#PartsRun', '#HandFinished', '#Drops'],
+      slackOneLiner:
+        '🧩 PARTS. Coalition \'Parts\' Wallet 3/4 — $45. 3 of 4. Industrial detailing, raw-edge construction. linktr.ee/sgcoalition',
+      postTitle: "Coalition 'Parts' Wallet 3/4",
+      postSlug: 'coalition-parts-wallet-3-4',
+      postExcerpt:
+        'Third piece in the Parts run: industrial detailing and raw-edge construction on a numbered carry — the run closes here and at 4/4.',
+      postTags: ['drop', 'wallet', 'limited', 'parts'],
+      postBody: `
+<img src="/images/parts-wallet-3-4-front.png" alt="Coalition 'Parts' Wallet 3/4 — front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+
+Third of four. Industrial detailing and a raw-edge finish on a carry that is built by hand and numbered once.
+
+<h2>THE BUILD</h2>
+
+<ul>
+<li><strong>Industrial detailing</strong> — raw-edge construction, finished in-house.</li>
+<li><strong>One Coalition mark</strong> on a numbered carry.</li>
+<li><strong>Three of four</strong> — the run closes with this piece and 4/4.</li>
+</ul>
+
+<img src="/images/parts-wallet-3-4-back.png" alt="Coalition 'Parts' Wallet 3/4 — back" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+
+<h2>THE RUN</h2>
+
+Each piece is a distinct part of the whole — built different, numbered once, gone forever.
+
+<em>Trust the process. Trust yourself.</em>
+`.trim(),
+    },
+  },
+
+  'parts-wallet-4-4': {
+    dropId: 'drop-2026-10-16',
+    dropDate: '2026-10-16',
+    spec: {
+      slug: 'parts-wallet-4-4',
+
+      releaseName: 'PARTS',
+      productName: "Coalition 'Parts' Wallet 4/4",
+
+      x: 4,
+      y: 4,
+      unitsHeld: 1,
+
+      price: '$60',
+      shopUrl: MAIN_SHARING_LABEL,
+
+      images: {
+        front: '../../public/images/parts-wallet-4-4-front.png',
+        back: '../../public/images/parts-wallet-4-4-back.png',
+      },
+
+      slides: [
+        {
+          layout: 'hero',
+          wordmark: 'COALITION',
+          headline: 'PARTS',
+          body: ["Coalition 'Parts' Wallet 4/4"],
+          stickers: [{ type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' }],
+        },
+        {
+          layout: 'detail',
+          headline: 'The closing piece.',
+          body: [
+            'The fourth and final numbered carry — industrial detailing and raw-edge construction, finished by hand with the Coalition mark.',
+          ],
+          stickers: [{ type: 'poll', anchor: 'center-right', label: '"Which part is yours?" 1–3 / 4' }],
+        },
+        {
+          layout: 'scarcity',
+          eyebrow: 'THE FINAL PIECE',
+          headline: '4 OF 4',
+          price: '$60',
+          stickers: [{ type: 'poll', anchor: 'bottom-left', label: '"Run it again?" Yes / Never' }],
+        },
+        {
+          layout: 'manifesto',
+          headline: 'TRUST YOURSELF.',
+          body: ['Coalition is action. Show up.'],
+          stickers: [
+            { type: 'mention', anchor: 'bottom-right', label: '@sgcoalition mention' },
+            { type: 'emoji', anchor: 'center-left', label: '🧩 Trust Yourself (emoji slider, optional)' },
+          ],
+        },
+        {
+          layout: 'cta',
+          eyebrow: 'PARTS · WALLET 4/4',
+          headline: 'SHOP NOW',
+          url: MAIN_SHARING_LABEL,
+          stickers: [
+            { type: 'link', anchor: 'center-right', label: 'Story → PDP conversion path' },
+            { type: 'mention', anchor: 'bottom-left', label: '@sgcoalition mention' },
+          ],
+        },
+      ],
+    },
+    listing: {
+      id: 'Coalition_Parts_Wallet_4_4',
+      price: 60,
+      category: 'wallet',
+      sizes: ['One Size'],
+      sizeInventory: { 'One Size': 1 },
+      isLimitedEdition: true,
+      isFeatured: false,
+      description:
+        "Fourth and final piece of the Coalition 'Parts' limited wallet run. Hand-finished with industrial detailing, raw-edge construction, and the Coalition mark on a numbered carry. The closing piece — once sold, the full four-part assembly is gone forever.",
+      storeImages: ['https://i.imgur.com/RqcU0I9.jpg', 'https://i.imgur.com/Lnimi33.jpg'],
+    },
+    copy: {
+      igCaptionLong:
+        '🧩 PARTS.\n\nCoalition \'Parts\' Wallet 4/4 — $60.\n\nThe closing piece. Industrial detailing and raw-edge construction on the fourth and final numbered carry — finished by hand with the Coalition mark.\n\nOnce the full four-part assembly is sold, it\'s gone forever. Trust Yourself.\n\n🔗 Link in bio → linktr.ee/sgcoalition\n\n#Coalition #Parts #BaltimoreStreetwear #TrustYourself #LimitedEdition',
+      igCaptionShort:
+        '🧩 PARTS.\n\nCoalition \'Parts\' Wallet 4/4 — $60. 4 of 4. The closing piece.\n\nOnce the assembly is gone, it\'s gone.\n\n🔗 Link in bio.\n\n#Coalition #Parts #TrustYourself #LimitedEdition #BaltimoreStreetwear',
+      xSingle:
+        '🧩 PARTS. Coalition \'Parts\' Wallet 4/4 — $60. The closing piece — industrial detailing and raw-edge construction on the final numbered carry. 4 of 4. linktr.ee/sgcoalition',
+      xThread: [
+        '🧩 PARTS.\n\nCoalition \'Parts\' Wallet 4/4 — $60. The closing piece: industrial detailing and raw-edge construction on the fourth and final numbered carry.\n\nlinktr.ee/sgcoalition',
+        'Four pieces. One lineage.\n\nWhen 4/4 sells, the full four-part assembly is gone — no reprints, no restock.',
+        'Coalition is action. Trust Yourself. 🖤',
+      ],
+      hashtagsCanonical: ['#Coalition', '#Parts', '#BaltimoreStreetwear', '#TrustYourself', '#LimitedEdition'],
+      hashtagsTier2: ['#Streetwear', '#Baltimore', '#4of4', '#PartsRun', '#HandFinished', '#Drops'],
+      slackOneLiner:
+        '🧩 PARTS. Coalition \'Parts\' Wallet 4/4 — $60. 4 of 4. The closing piece. linktr.ee/sgcoalition',
+      postTitle: "Coalition 'Parts' Wallet 4/4",
+      postSlug: 'coalition-parts-wallet-4-4',
+      postExcerpt:
+        'The closing piece: industrial detailing and raw-edge construction on the fourth and final numbered carry of the Parts run.',
+      postTags: ['drop', 'wallet', 'limited', 'parts'],
+      postBody: `
+<img src="/images/parts-wallet-4-4-front.png" alt="Coalition 'Parts' Wallet 4/4 — front" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+
+The fourth and final piece. Industrial detailing and a raw-edge finish on the carry that closes the run.
+
+<h2>THE BUILD</h2>
+
+<ul>
+<li><strong>Industrial detailing</strong> — raw-edge construction, finished in-house.</li>
+<li><strong>One Coalition mark</strong> on a numbered carry.</li>
+<li><strong>Four of four</strong> — the closing piece.</li>
+</ul>
+
+<img src="/images/parts-wallet-4-4-back.png" alt="Coalition 'Parts' Wallet 4/4 — back" style="width:100%;border-radius:16px;margin-bottom:24px;" />
+
+<h2>THE RUN</h2>
+
+Once the full four-part assembly is sold, it is gone forever.
+
+<em>Trust the process. Trust yourself.</em>
 `.trim(),
     },
   },
 };
 
-// ΓöÇΓöÇΓöÇ Registry helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Registry helpers ────────────────────────────────────────────────────────
 
 export function listDropSlugs(): string[] {
   return Object.keys(DROPS).sort();
@@ -907,7 +1169,7 @@ export function listDropSlugs(): string[] {
 
 /**
  * Resolve a release by slug. Throws with the list of known slugs rather than
- * silently rendering the wrong drop ΓÇö a typo used to fail only when the
+ * silently rendering the wrong drop — a typo used to fail only when the
  * dynamic import could not find a file.
  */
 export function getDrop(slug: string): DropRelease {

@@ -138,6 +138,7 @@ Kept for the hand-authored Grey Wave documents only. New drops use the registry 
 │   ├── drop-copy-grey-wave.md             ← text spec (next-drop clone)
 │   ├── storyboard-grey-wave.html          ← ASCII review aid
 │   ├── drops-registry.md                  ← ledger of every past drop + index of trio filenames
+│   ├── pieces-proposal-2026-10-16.md       ← proposal: buildable pieces from on-hand items (Parts 3/4 + 4/4 focus)
 │   ├── story-reveal/                      ← gitignored: 1080×1920 IG Story PNGs + reviewer HTML aids
 │   ├── grid-reveal/                       ← gitignored: 1080×1350 IG Grid carousel PNGs + reviewer HTML aids
 │   └── x-reveal/                          ← gitignored: 1200×628 X feed PNGs + reviewer HTML aids

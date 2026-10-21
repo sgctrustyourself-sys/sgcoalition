@@ -1899,7 +1899,7 @@ My playbook for posting any reel that shows a hand-built process — wallet, pat
 If any of those is missing, this is not the right recipe — pick the matching template triple:
 
 - **Visual drop** (5-slide Story thread or Grid carousel) → [the Grey-Wave-style triple in `docs/README.md`](docs/README.md)
-- **Reel drop** (process video, which is almost always what brings you here) → the **reel template triple** under [`docs/templates/reel/`](docs/templates/reel/) — clone the three master files into `docs/drop-{kit,copy,storyboard}-{slug}.{md,html}` at the top of `docs/`, find-replace every `{{ }}` token, then return here for the pre-publish audit gate.
+- **Reel drop** (process video, which is almost always what brings you here) → clone an existing reel. There is no `docs/templates/reel/` on disk (that pointer was stale). Pick the renderer that matches the cut: [`docs/logo-reveal/reel-pink/`](docs/logo-reveal/reel-pink/HANDOFF.md) — a HyperFrames two-act drop reel with a documented beat map and `verify-reel-pink.py` pixel gates, closest to a drop-announcement reel — or [`scripts/reels/ghost-riders-y2k-reel.html`](scripts/reels/ghost-riders-y2k-reel.html) with [`scripts/render-reel.ts`](scripts/render-reel.ts) (Playwright frame-by-frame → ffmpeg). Then return here for the pre-publish audit gate.
 
 The triple captures the *what to fill in*. This recipe captures the *why* and the gate. They live in different docs on purpose.
 

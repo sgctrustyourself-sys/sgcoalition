@@ -24,7 +24,7 @@ import path from 'path';
 import { argValue, hasFlag, logHeader, logRow } from './cli';
 import { PROJECT_ROOT, slugsFromArgs } from './dropKit';
 import { getDrop, assetBase, assetRelPath } from './story-reveal-specs/drops';
-import type { DropRelease, SlideLayout, SlideSpec } from './story-reveal-specs/drops';
+import type { DropRelease, SlideLayout, SlideSpec, StickerType } from './story-reveal-specs/drops';
 
 const DOCS_DIR = path.join(PROJECT_ROOT, 'docs');
 const REGISTRY_PATH = path.join(DOCS_DIR, 'drops-registry.md');
@@ -90,6 +90,41 @@ function stickerList(slide: SlideSpec): string {
   return slide.stickers
     .map((s) => `- **${s.type}** (${s.anchor}) — ${s.label}`)
     .join('\n');
+}
+
+const STICKER_BLURB: Record<StickerType, string> = {
+  countdown: 'drives reminder sets',
+  poll: 'earliest demand signal',
+  link: 'the only Story → PDP conversion path',
+  mention: '`@sgcoalition` cross-pollination',
+  emoji: 'retention only',
+};
+const STICKER_ORDER: StickerType[] = ['countdown', 'poll', 'link', 'mention', 'emoji'];
+
+/**
+ * Collect a release's stickers off the slides so the kit describes what the
+ * piece actually posts. The section used to be a hard-coded list that always
+ * named a countdown sticker — wrong for a reveal of an item that is already
+ * available, where there is no drop time to count down to.
+ */
+function stickerStrategy(drop: DropRelease): string {
+  const byType = new Map<StickerType, number[]>();
+  drop.spec.slides.forEach((slide, i) => {
+    for (const s of slide.stickers ?? []) {
+      byType.set(s.type, [...(byType.get(s.type) ?? []), i + 1]);
+    }
+  });
+  if (byType.size === 0) return '_No stickers across the five slides._';
+  return STICKER_ORDER.filter((t) => byType.has(t))
+    .map((t, i) => `${i + 1}. **${t[0].toUpperCase()}${t.slice(1)}** — ${STICKER_BLURB[t]}; slide${
+      byType.get(t)!.length > 1 ? 's' : ''
+    } ${byType.get(t)!.join(' + ')}.${t === 'emoji' ? ' Optional.' : ''}`)
+    .join('\n');
+}
+
+/** True when any slide declares a countdown sticker (i.e. there is a drop time). */
+function hasCountdown(drop: DropRelease): boolean {
+  return drop.spec.slides.some((s) => s.stickers?.some((st) => st.type === 'countdown'));
 }
 
 // ─── Kit document ────────────────────────────────────────────────────────────
@@ -182,18 +217,13 @@ Outputs (gitignored — re-run to refresh):
 
 ## Sticker strategy (priority order)
 
-1. **Countdown** — drives reminder sets; slides 1 + 3.
-2. **Poll** — earliest demand signal; slides 2 + 3.
-3. **Link sticker** — the only Story → PDP conversion path; slide 5.
-4. **Mention** — \`@sgcoalition\` cross-pollination; slides 4 + 5.
-5. **Emoji slider** — retention only; slide 4. Optional.
+${stickerStrategy(drop)}
 
 ---
 
 ## Pre-publish checklist
 
-- [ ] Drop time for the countdown sticker matches the publish time exactly.
-- [ ] Link sticker URL is \`${spec.shopUrl}\` and resolves to this product's PDP.
+${hasCountdown(drop) ? '- [ ] Drop time for the countdown sticker matches the publish time exactly.\n' : ''}- [ ] Link sticker URL is \`${spec.shopUrl}\` and resolves to this product's PDP.
 - [ ] \`@sgcoalition\` resolves to the active handle.
 - [ ] Poll options are short (≤ 24 chars), mutually exclusive, on-brand.
 - [ ] Safe-zone clearance: nothing inside the top 250 px or bottom 320 px of a Story.
@@ -471,7 +501,7 @@ ${frames}
     <li>Safe-zone clearance on all five: nothing inside the top 250 px or bottom 320 px.</li>
     <li>Copy matches the deck verbatim: <b>${spec.x} OF ${spec.y}</b> and <b>${spec.price}</b>.</li>
     <li>Story 5's link sticker routes to this product's PDP, not the grid.</li>
-    <li>Countdown sticker's end time equals the publish time.</li>
+    <li>${hasCountdown(drop) ? "Countdown sticker's end time equals the publish time." : 'No countdown sticker — the item is already available (a reveal, not a launch).'}</li>
     <li>Poll options read as questions a buyer would actually answer.</li>
     <li>Grid crops stay legible at thumbnail size.</li>
     <li>X thread publishes 1 → 2 → 3, brand line last.</li>

@@ -96,3 +96,10 @@ lighthouse-ecosystem-*.json
 # Local/agent scratch that must never be committed
 *.bak
 thread-Admin-*.md
+
+# Reel render output: derived, large, and reproducible from the project sources
+docs/parts-reel/renders/
+docs/parts-reel/snapshots/
+docs/parts-reel/.hyperframes/
+docs/parts-reel/.thumbnails/
+docs/logo-reveal/reel-pink-october-awareness/.hyperframes/

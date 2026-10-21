@@ -73,11 +73,19 @@ describe('drop registry', () => {
             const release_ = release.spec;
             const stock = Object.values(release.listing.sizeInventory).reduce((sum, n) => sum + Number(n || 0), 0);
             const scarcity = release.spec.slides.find((s) => s.layout === 'scarcity');
+            // x/y are the DISPLAY run counter ("3 OF 4"); unitsHeld is the STOCK
+            // claim. They coincide for a uniform run (twelve identical pieces →
+            // y = 12 = held) and diverge for a numbered run sold one at a time
+            // (a 'Parts' 3/4 is ONE unit of a FOUR-piece run, so x/y = 3/4 but
+            // held = 1). Comparing against y alone forced such a piece to claim
+            // "1 OF 1" — the one thing the copy rules forbid.
+            const held = release_.unitsHeld ?? release_.y;
             expect(release_.x, `${release_.slug} numerator`).toBeLessThanOrEqual(release_.y);
+            expect(held, `${release_.slug} unitsHeld`).toBeLessThanOrEqual(release_.y);
             // grey-wave is the sold-out worked example: its row is archived with 0
             // left, so the claim is historical rather than current.
             if (release.listing.sizeInventory['One Size'] === 0) continue;
-            expect(stock, `${release_.slug} claims 1 OF ${release_.y} but holds ${stock} units`).toBe(release_.y);
+            expect(stock, `${release_.slug} claims ${held} held but holds ${stock} units`).toBe(held);
             if (scarcity?.headline) {
                 expect(scarcity.headline).toContain(`${release_.x} OF ${release_.y}`);
             }
