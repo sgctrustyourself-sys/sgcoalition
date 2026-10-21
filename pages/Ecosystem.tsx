@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Trophy, ExternalLink, Gift, Clock, Users, CheckCircle, ArrowRight, MessageCircle, Star, Share2, DollarSign, ShoppingBag, Wallet, Flame, Zap, Shield, Sparkles, Activity, Copy, Check, Mail } from 'lucide-react';
+import { Trophy, ExternalLink, Gift, Clock, Users, CheckCircle, ArrowRight, MessageCircle, Star, Share2, DollarSign, ShoppingBag, Wallet, Flame, Zap, Shield, Sparkles, Activity, Copy, Check, Mail, ChevronDown, RefreshCw } from 'lucide-react';
 import SGCoinCard from '../components/SGCoinCard';
 import LiveTransactions from '../components/LiveTransactions';
 import BurnTracker from '../components/BurnTracker';
@@ -12,7 +12,7 @@ import { useApp } from '../context/AppContext';
 import { fetchSGCoinData, fetchPoolBreakdown, PoolBreakdown } from '../utils/sgcoinApi';
 import { getGiveawayTicketCount, isSubscriberEligible } from '../utils/giveawayUtils';
 
-import { V2_REWARD_RATE, FOUNDER_WALLET_ADDRESS, TREASURY_WALLET_ADDRESS } from '../constants';
+import { V2_REWARD_RATE, FOUNDER_WALLET_ADDRESS, TREASURY_WALLET_ADDRESS, QUICKSWAP_SWAP_URL } from '../constants';
 import { getBurnedSGCoinV1, getRobustProvider } from '../services/web3Service';
 
 /**
@@ -45,6 +45,34 @@ const Ecosystem = () => {
     const [now, setNow] = useState<number>(() => Date.now());
     // Pre-filled to "100" so the calculator shows the meaningful "$100 → 25 SGC" preview on first paint.
     const [projectionInput, setProjectionInput] = useState<string>('100');
+
+    // QuickSwap dropdown state
+    const [quickSwapOpen, setQuickSwapOpen] = useState(false);
+    const [quickSwapMode, setQuickSwapMode] = useState<'buy' | 'sell'>('buy');
+
+    // QuickSwap URLs with pre-selected tokens
+    // WPOL contract on Polygon: 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270
+    const WPOL_ADDRESS = '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270';
+    const SGC_V2_ADDRESS = '0xd53e417107d0e01bbe74a704bb90fe7a6916ee1e';
+    const SGC_V1_ADDRESS = '0x951806a2581c22C478aC613a675e6c898E2aBe21';
+
+    const getQuickSwapUrl = (mode: 'buy' | 'sell', version: 'v1' | 'v2' = 'v2') => {
+        const sgcAddress = version === 'v1' ? SGC_V1_ADDRESS : SGC_V2_ADDRESS;
+        const baseUrl = 'https://dapp.quickswap.exchange/swap';
+        const params = new URLSearchParams({
+            chainId: '137',
+        });
+        if (mode === 'buy') {
+            // BUY SGC: input = WPOL, output = SGC
+            params.set('inputCurrency', WPOL_ADDRESS);
+            params.set('outputCurrency', sgcAddress);
+        } else {
+            // SELL SGC: input = SGC, output = WPOL
+            params.set('inputCurrency', sgcAddress);
+            params.set('outputCurrency', WPOL_ADDRESS);
+        }
+        return `${baseUrl}?${params.toString()}`;
+    };
 
     // Reward Projection (Value Matrix) — derived; no direct DOM writes.
     const val = parseFloat(projectionInput) || 0;
@@ -280,14 +308,73 @@ const Ecosystem = () => {
                                         <div className="text-[10px] text-gray-500">Total liquidity</div>
                                         <div className="text-lg font-black text-purple-300 mt-2">${poolBreakdown.blendedPriceUsd.toFixed(6)}</div>
                                         <div className="text-[9px] text-purple-400/60">per SGCOIN</div>
-                                        <a
-                                            href="https://dapp.quickswap.exchange/swap/best/ETH/0xd53e417107d0e01bbe74a704bb90fe7a6916ee1e?chainId=137"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-300 text-[10px] font-black uppercase tracking-widest hover:bg-purple-500/30 hover:text-white transition-all"
-                                        >
-                                            <ExternalLink size={12} /> Trade on QuickSwap
-                                        </a>
+
+                                        {/* QuickSwap Dropdown */}
+                                        <div className="mt-4 relative">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <RefreshCw className="w-4 h-4 text-purple-400" />
+                                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-300">QuickSwap Trade</span>
+                                            </div>
+                                            <div className="relative">
+                                                <button
+                                                    onClick={() => setQuickSwapOpen(!quickSwapOpen)}
+                                                    className="w-full flex items-center justify-between gap-2 py-2.5 px-4 rounded-xl bg-purple-500/20 border border-purple-500/30 text-white text-[10px] font-black uppercase tracking-widest hover:bg-purple-500/30 transition-all focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                                                >
+                                                    <span>
+                                                        {quickSwapMode === 'buy' ? 'Buy SGC (Receive)' : 'Sell SGC (Send)'}
+                                                    </span>
+                                                    <ChevronDown className={`w-4 h-4 text-purple-400 transition-transform ${quickSwapOpen ? 'rotate-180' : ''}`} />
+                                                </button>
+                                                {quickSwapOpen && (
+                                                    <div className="absolute bottom-full left-0 right-0 mb-2 bg-black border border-purple-500/30 rounded-xl overflow-hidden shadow-[0_0_30px_rgba(147,51,234,0.3)]">
+                                                        <button
+                                                            onClick={() => { setQuickSwapMode('buy'); setQuickSwapOpen(false); }}
+                                                            className={`w-full flex items-center gap-3 px-4 py-3 text-left text-white text-[10px] font-bold uppercase tracking-widest ${quickSwapMode === 'buy' ? 'bg-purple-500/30' : 'hover:bg-purple-500/20'}`}
+                                                        >
+                                                            <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
+                                                                <ArrowRight className="w-4 h-4 text-green-400" />
+                                                            </div>
+                                                            <span>Buy SGC (Receive)</span>
+                                                            <span className="ml-auto text-[9px] text-green-400/70">WPOL → SGC V2</span>
+                                                        </button>
+                                                        <div className="border-t border-white/10" />
+                                                        <button
+                                                            onClick={() => { setQuickSwapMode('sell'); setQuickSwapOpen(false); }}
+                                                            className={`w-full flex items-center gap-3 px-4 py-3 text-left text-white text-[10px] font-bold uppercase tracking-widest ${quickSwapMode === 'sell' ? 'bg-red-500/30' : 'hover:bg-red-500/20'}`}
+                                                        >
+                                                            <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center">
+                                                                <ArrowRight className="w-4 h-4 text-red-400 rotate-180" />
+                                                            </div>
+                                                            <span>Sell SGC (Send)</span>
+                                                            <span className="ml-auto text-[9px] text-red-400/70">SGC V2 → WPOL</span>
+                                                        </button>
+                                                        <div className="border-t border-white/10" />
+                                                        <a
+                                                            href={getQuickSwapUrl(quickSwapMode, 'v1')}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="w-full flex items-center gap-3 px-4 py-3 text-left text-white text-[10px] font-bold uppercase tracking-widest hover:bg-purple-500/20"
+                                                        >
+                                                            <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center">
+                                                                <RefreshCw className="w-4 h-4 text-purple-400" />
+                                                            </div>
+                                                            <span>{quickSwapMode === 'buy' ? 'Buy SGC V1' : 'Sell SGC V1'}</span>
+                                                            <span className="ml-auto text-[9px] text-purple-400/70">Legacy</span>
+                                                        </a>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Go button */}
+                                            <a
+                                                href={getQuickSwapUrl(quickSwapMode)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-[10px] font-black uppercase tracking-widest hover:from-purple-600 hover:to-indigo-700 transition-all shadow-[0_0_20px_rgba(147,51,234,0.3)]"
+                                            >
+                                                <ExternalLink size={12} /> Go to QuickSwap
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
