@@ -27,6 +27,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const state = vi.hoisted(() => ({
     rows: [] as any[],
@@ -133,5 +135,18 @@ describe('the live products table is the catalog', () => {
 
         // The site still renders something a shopper can browse.
         expect(shown().length).toBeGreaterThan(0);
+    });
+});
+
+describe('the Supabase flag is a property of the build', () => {
+    it('initialises isSupabaseConfigured from the inlined keys, not from false', () => {
+        // The flag used to start false and flip inside the init effect, so
+        // every hook that takes it - the catalog above all - took the
+        // "Supabase unavailable" branch on its first fetch. The catalog's
+        // fallback branch returns the local seed, so production served the
+        // seed and never queried the products table.
+        const src = fs.readFileSync(path.join(__dirname, '..', 'context', 'AppContext.tsx'), 'utf8');
+        expect(src).toContain('useState(hasSupabaseKeys)');
+        expect(src).not.toMatch(/const \[isSupabaseConfigured, setIsSupabaseConfigured\] = useState\(false\)/);
     });
 });

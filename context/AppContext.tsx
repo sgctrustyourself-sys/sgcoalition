@@ -104,7 +104,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { addToast } = useToast();
     const [sections, setSections] = useState<Section[]>(() => safeJsonParse('coalition_sections', INITIAL_SECTIONS));
     // walletMints7d, productionState are now owned by useWallets hook.
-    const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(false);
+    //
+    // Whether Supabase is usable is a property of the BUILD (the keys are
+    // inlined by Vite), not of a runtime fetch, so it is computed once here
+    // and used as the INITIAL state.
+    //
+    // It used to start false and flip to true inside the init effect, which
+    // meant every hook that takes this flag - the catalog above all - took
+    // its "Supabase is not available" branch on the very first fetch. The
+    // catalog's fallback branch returns the LOCAL SEED instead of querying
+    // the products table, so production was serving the seed catalog (33
+    // entries, seed prices) and NEVER the live table (29 rows). The seed
+    // deliberately carries entries the table has no row for (the Parts
+    // wallets 1/4 and 2/4, the Chrome Hearts wallet, the Lighter Holder),
+    // and the server prices a cart from the table alone - so those pieces
+    // were listed for sale and then answered 409 "Unavailable: <id>" at
+    // /api/pricing-preview, which is what broke the checkout.
+    //
+    // Computing the flag up front makes the table the catalog on the first
+    // load, and the seed stays what it was always meant to be: the fallback
+    // for when the table cannot be reached.
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+    const hasSupabaseKeys = Boolean(
+        supabaseUrl &&
+        supabaseAnonKey &&
+        supabaseUrl !== 'VITE_SUPABASE_URL' &&
+        !supabaseUrl.includes('placeholder')
+    );
+    const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(hasSupabaseKeys);
     const [isConfigError, setIsConfigError] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     // The admin-token accessor used to be re-implemented here and handed to
@@ -132,11 +160,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const initApp = async () => {
             try {
-                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-                const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-                const hasKeys = supabaseUrl && supabaseAnonKey &&
-                    supabaseUrl !== 'VITE_SUPABASE_URL' &&
-                    !supabaseUrl.includes('placeholder');
+                const hasKeys = hasSupabaseKeys;
 
                 if (mounted) setIsSupabaseConfigured(!!hasKeys);
 
