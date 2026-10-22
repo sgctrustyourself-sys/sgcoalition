@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Hexagon, Send, Search, Users, TrendingUp } from 'lucide-react';
 import { UserProfile } from '../types';
 import { useToast } from '../context/ToastContext';
@@ -11,10 +11,58 @@ const SGCoinDistribution = () => {
     const [amount, setAmount] = useState('');
     const [note, setNote] = useState('');
 
+    // Ref so we can toggle the allocation banner open/closed without re-fetching
+    const allocationRef = useRef<{ loaded: boolean; data: { note: string; totalOrders: number; allocationPercentage: number } | null }>({ loaded: false, data: null });
+
+    // Ref for sgcoin V2 rate data
+    const rateRef = useRef<{ loaded: boolean; data: { v2PerUsd: number; usdPerV2: number; note: string } | null }>({ loaded: false, data: null });
+
     useEffect(() => {
         // Load users from localStorage (in production, this would be from Supabase)
         const loadedUsers = JSON.parse(localStorage.getItem('users') || '[]');
         setUsers(loadedUsers);
+    }, []);
+
+    // Fetch sgcoin allocation from past sales (once, on mount)
+    useEffect(() => {
+        if (allocationRef.current.loaded) return;
+        fetch('/api/admin/sgcoin-allocation', {
+            headers: {
+                Authorization: `Bearer ${typeof window !== 'undefined' ? sessionStorage.getItem('coalition_admin_token') || '' : ''}`
+            }
+        })
+            .then((r) => r.json())
+            .then((data) => {
+                allocationRef.current = { loaded: true, data };
+                // We'll display the note below; no state update needed here
+                // to avoid re-render loops, but we store it for the UI.
+                // (The note string is in data.note)
+            })
+            .catch((e) => {
+                console.error('Failed to fetch sgcoin allocation:', e);
+                allocationRef.current = { loaded: true, data: null };
+            });
+    }, []);
+
+    // Fetch sgcoin V2 rate (once, on mount)
+    useEffect(() => {
+        if (rateRef.current.loaded) return;
+        fetch('/api/admin/sgcoin-v2-rate', {
+            headers: {
+                Authorization: `Bearer ${typeof window !== 'undefined' ? sessionStorage.getItem('coalition_admin_token') || '' : ''}`
+            }
+        })
+            .then((r: Response) => {
+                if (!r.ok) throw new Error('Network error');
+                return r.json();
+            })
+            .then((data: { v2PerUsd: number; usdPerV2: number; note: string }) => {
+                rateRef.current = { loaded: true, data };
+            })
+            .catch((e) => {
+                console.error('Failed to fetch sgcoin V2 rate:', e);
+                rateRef.current = { loaded: true, data: null };
+            });
     }, []);
 
     const filteredUsers = users.filter(user => {
@@ -75,6 +123,30 @@ const SGCoinDistribution = () => {
 
     return (
         <div className="space-y-8">
+            {/* Allocation from past sales note */}
+            {allocationRef.current.data && (
+                <div className="bg-gray-900 border border-white/10 rounded-xl p-6 mb-6">
+                    <h3 className="text-lg font-bold text-green-400 mb-2">SGCoin Allocation from Past Sales</h3>
+                    <p className="text-sm text-gray-300 line-clamp-4">{allocationRef.current.data.note}</p>
+                    <p className="text-xs text-gray-500">
+                        Based on {allocationRef.current.data.totalOrders} orders, {(
+                            allocationRef.current.data.allocationPercentage
+                        ).toFixed(1)}% of sales allocated to SGCoin distribution fund.
+                    </p>
+                </div>
+            )}
+
+            {/* SGCoin V2 → USD rate */}
+            {rateRef.current.data && (
+                <div className="bg-gray-900 border border-white/10 rounded-xl p-6 mb-6">
+                    <h3 className="text-lg font-bold text-purple-400 mb-2">SGCOIN V2 → USD Rate</h3>
+                    <p className="text-sm text-gray-300 line-clamp-2">{rateRef.current.data.note}</p>
+                    <p className="text-xs text-gray-500">
+                        {rateRef.current.data.v2PerUsd} V2 = $1 USD (1 V2 = ${rateRef.current.data.usdPerV2.toFixed(2)} USD)
+                    </p>
+                </div>
+            )}
+
             <div>
                 <h2 className="text-2xl font-bold mb-2">SGCoin Distribution</h2>
                 <p className="text-gray-400 text-sm">Send SGCoin directly to user accounts</p>
