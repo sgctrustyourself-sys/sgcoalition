@@ -2,6 +2,7 @@
 // Whop webhook handler for card payment events
 // Replace: api/stripe-webhook.ts
 
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { reconcilePayment, notifyAdminReconcileFailure } from '../services/orderIntake.js';
 import { purchaseLabelForOrder } from '../services/shipping.js';
 import { createLogger } from '../utils/logger.js';
@@ -62,15 +63,30 @@ function verifyWhopSignature(
 
     // Compute HMAC-SHA256 of the raw body using the webhook secret
     // The webhook secret from Whop starts with "ws_" - use it as-is
-    const crypto = require('crypto');
+    //
+    // `node:crypto` is imported at module scope on purpose: this package is
+    // ESM (package.json "type": "module"), so loading crypto with a CommonJS
+    // require from inside this function threw `ReferenceError: require is not
+    // defined` on every real `v1,<sig>` delivery in production — a 500 that
+    // made Whop retry and left paid orders unreconciled while GET/OPTIONS kept
+    // the endpoint looking alive.
     const secretKey = webhookSecret.startsWith('ws_')
         ? webhookSecret
         : `ws_${webhookSecret}`;
-    const hmac = crypto.createHmac('sha256', secretKey);
-    const computed = Buffer.from(hmac.update(rawBody).digest('base64'));
+    // Compare raw digest bytes against the decoded header bytes. Encoding the
+    // digest as base64 here (Buffer.from(digest('base64'))) compares 44 UTF-8
+    // bytes against the 32 decoded bytes and can never match a real delivery.
+    const hmac = createHmac('sha256', secretKey);
+    const computed = hmac.update(rawBody).digest();
+
+    // timingSafeEqual throws RangeError when the buffers differ in length, so a
+    // truncated or undecodable signature must be rejected here, not thrown.
+    if (signature.length !== computed.length) {
+        return { valid: false };
+    }
 
     // Compare the signatures using constant-time comparison
-    const isValid = crypto.timingSafeEqual(signature, computed);
+    const isValid = timingSafeEqual(signature, computed);
 
     return { valid: isValid };
 }

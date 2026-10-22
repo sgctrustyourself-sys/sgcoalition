@@ -10,6 +10,8 @@
 // signing scheme, so signature verification runs for real in every test.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 // ---------------------------------------------------------------------------
 // Mock external modules BEFORE importing the handler
@@ -73,8 +75,10 @@ function makeEvent(payload: object): { raw: string; signature: string } {
     const crypto = require('crypto');
     const secret = WEBHOOK_SECRET.startsWith('ws_') ? WEBHOOK_SECRET : 'ws_' + WEBHOOK_SECRET;
     const hmac = crypto.createHmac('sha256', secret);
-    const signatureB64 = Buffer.from(hmac.update(raw).digest('base64')).toString('base64');
-    const signature = 'v1,' + signatureB64;
+    // Whop's header carries base64 of the raw HMAC digest — not a re-encoded
+    // base64 string. Signing the double-encoded form made these tests pass
+    // while every real delivery was rejected.
+    const signature = 'v1,' + hmac.update(raw).digest('base64');
     return { raw, signature };
 }
 
@@ -273,5 +277,30 @@ describe('whop-webhook reconcile hardening', () => {
         const res = await post(piSucceeded(), { 'whop-signature': 't=1,v1=deadbeef' });
         expect(res.statusCode).toBe(400);
         expect(mockSupabaseFrom).not.toHaveBeenCalled();
+    });
+
+    it('v1 signature with a non-32-byte payload -> 400, not an uncaught throw', async () => {
+        // timingSafeEqual throws RangeError when the buffers differ in length.
+        // Before the length guard, a truncated `v1,` header crashed the whole
+        // function (500) instead of rejecting the delivery (400).
+        const short = await post(piSucceeded(), { 'whop-signature': 'v1,abc' });
+        expect(short.statusCode).toBe(400);
+        expect(mockSupabaseFrom).not.toHaveBeenCalled();
+
+        const fullLengthButWrong = await post(piSucceeded(), {
+            'whop-signature': 'v1,' + Buffer.alloc(32).toString('base64'),
+        });
+        expect(fullLengthButWrong.statusCode).toBe(400);
+        expect(mockSupabaseFrom).not.toHaveBeenCalled();
+    });
+
+    it('verification uses a module-scope node:crypto import, never require()', () => {
+        // This package is ESM ("type": "module"), so require() is undefined in
+        // the deployed Vercel function even though Vitest hands it to test
+        // modules. A require() on the verification path 500s every real
+        // `v1,<sig>` delivery while GET/OPTIONS keep the endpoint looking alive.
+        const source = readFileSync(resolve(process.cwd(), 'api/whop-webhook.ts'), 'utf8');
+        expect(source).not.toMatch(/\brequire\s*\(/);
+        expect(source).toMatch(/from 'node:crypto'/);
     });
 });

@@ -72,8 +72,10 @@ function makeEvent(payload: object): { raw: string; signature: string } {
     const crypto = require('crypto');
     const secret = WEBHOOK_SECRET.startsWith('ws_') ? WEBHOOK_SECRET : 'ws_' + WEBHOOK_SECRET;
     const hmac = crypto.createHmac('sha256', secret);
-    const signatureB64 = Buffer.from(hmac.update(raw).digest('base64')).toString('base64');
-    const signature = 'v1,' + signatureB64;
+    // Whop's header carries base64 of the raw HMAC digest — not a re-encoded
+    // base64 string. Signing the double-encoded form made these tests pass
+    // while every real delivery was rejected.
+    const signature = 'v1,' + hmac.update(raw).digest('base64');
     return { raw, signature };
 }
 
