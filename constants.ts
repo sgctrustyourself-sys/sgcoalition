@@ -188,15 +188,15 @@ export type SGCoinPaymentMethod = (typeof SGCOIN_PAYMENT_METHODS)[number];
 // Every holder receives the same migration ratio regardless of wallet size
 // This ensures fairness, transparency, and rewards loyalty equally
 // Ratio set to 1M:1 (matching the old "Whale" tier worst-case scenario)
+//
+// Verified on Polygon mainnet: every Migrated event ever emitted used the
+// tier "Standard" and exactly 1,000,000 V1 : 1 V2. The flat ratio is the
+// contract behaviour, not just the copy. services/sgcoinMigration.ts owns
+// the integer-exact maths for it.
 
 export const V1_TOTAL_SUPPLY = 10_000_000_000_000; // 10 Trillion V1
 export const V2_TOTAL_SUPPLY = 10_000_000; // 10 Million V2
 export const MIGRATION_RATIO = 1_000_000; // 1M V1 = 1 V2 (flat for everyone)
-
-// Migration ratio calculation helper
-export const calculateV2Amount = (v1Amount: number): number => {
-  return v1Amount / MIGRATION_RATIO;
-};
 
 // Migration ratio display helper
 export const getMigrationRatioDisplay = (): string => {
@@ -207,6 +207,12 @@ export const SGCOIN_V1_CONTRACT_ADDRESS = "0x951806a2581c22C478aC613a675e6c898E2
 export const SGCOIN_V2_CONTRACT_ADDRESS = "0xd53e417107d0e01bbe74a704bb90fe7a6916ee1e"; // Official V2 Contract
 export const SGCOIN_MIGRATOR_ADDRESS = "0xc6c1EB54E5Ed966C0B48154d6e22eaA8a4c4C536"; // SafeMigration Contract (Flat 1M:1 Logic)
 export const SGCOIN_BURN_ADDRESS = "0x20756b2667D575Ddde2383f3841D2CD855D5fb6d"; // Migration Burn Wallet
+
+// Block the migration contract was deployed in (verified on Polygon mainnet
+// 2026-10-22). Shipping it saves the ~27 archive calls a binary search
+// would cost on the first visit; services/sgcoinMigration.ts still verifies
+// the block holds contract code and falls back to the search if it does not.
+export const SGCOIN_MIGRATOR_DEPLOY_BLOCK = 83_156_424;
 export const SGCOIN_LIQUIDITY_PROVIDER = "0xd4d7691f062614ae6905d7bef62638b42c33df9f"; // SGCoin V2 Source Wallet
 
 // Strategic Liquidity Tracking
@@ -219,14 +225,21 @@ export const LIQUIDITY_TARGET_POL = 100; // First milestone: 100 WPOL staked
 export const FALLBACK_LIQUIDITY_POL = 27.6; // Last known good value
 
 export const QUICKSWAP_SWAP_URL = `https://dapp.quickswap.exchange/swap/best/ETH/${SGCOIN_V2_CONTRACT_ADDRESS}?chainId=137`;
-// Public Polygon RPCs, tried in order by services/web3Service.ts.
+// Public Polygon RPCs, tried in order by services/web3Service.ts and
+// services/sgcoinMigration.ts.
 // Every entry must also appear in `connect-src` in vercel.json — a host that
 // is not listed there is refused by the browser's CSP before it leaves the
 // page, so the fallback chain silently collapses (verified 2026-09-15: the
 // previous two entries were dead, and the only CSP-allowed one returned
 // "tenant disabled", which left every on-chain read broken in production).
-// All three below answered eth_chainId with 200 when this list was written.
+//
+// Tenderly is first because it is the only free endpoint that answers a
+// wide eth_getLogs query (1M+ blocks) and archive calls. The migration
+// history needs both: publicnode caps a log query at 10,000 blocks and
+// refuses archive requests, which is why the history panel used to be
+// permanently empty. Re-checked 2026-10-22.
 export const POLYGON_RPC_URLS = [
+  "https://polygon.gateway.tenderly.co",
   "https://polygon-bor.publicnode.com",
   "https://polygon.drpc.org",
   "https://rpc.ankr.com/polygon",
