@@ -26,3 +26,17 @@
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
+
+/* ── No sideways scrolling ───────────────────────────────────────────────
+   The header is `position: sticky`, and a sticky element only sticks
+   vertically. If a page is ever wider than the viewport, the document can be
+   scrolled sideways, which drags the sticky header off screen and leaves a
+   half-cut nav bar over the content.
+
+   `clip` removes the horizontal scrollbar without turning the root into a
+   scroll container, so `position: sticky` keeps working (unlike `hidden`,
+   which would create one). The header itself is sized to fit, so nothing is
+   actually cut off — this is only a guard rail. */
+html {
+  overflow-x: clip;
+}

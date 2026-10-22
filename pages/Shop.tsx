@@ -224,12 +224,12 @@ const Shop = () => {
                     </button>
 
                     <div className="flex items-center gap-4">
-                        <div className="relative flex items-center">
-                            <span className="text-[10px] uppercase tracking-widest text-gray-500 mr-2">Category:</span>
+                        <div className="relative flex items-center min-w-0">
+                            <span className="hidden sm:inline text-[10px] uppercase tracking-widest text-gray-500 mr-2">Category:</span>
                             <select
                                 value={category}
                                 onChange={(e) => setCategory(e.target.value)}
-                                className="text-sm font-black uppercase bg-transparent border-none focus:ring-0 cursor-pointer text-white appearance-none pr-8 relative bg-none"
+                                className="max-w-[130px] sm:max-w-none text-sm font-black uppercase bg-transparent border-none focus:ring-0 cursor-pointer text-white appearance-none pr-8 relative bg-none"
                                 title="Filter by Category"
                             >
                                 {categories.map(cat => (
@@ -245,12 +245,12 @@ const Shop = () => {
 
                         <div className="h-4 w-[1px] bg-white/10 hidden sm:block"></div>
 
-                        <div className="relative flex items-center">
-                            <span className="text-[10px] uppercase tracking-widest text-gray-500 mr-2">Sort by:</span>
+                        <div className="relative flex items-center min-w-0">
+                            <span className="hidden sm:inline text-[10px] uppercase tracking-widest text-gray-500 mr-2">Sort by:</span>
                             <select
                                 value={sortOption}
                                 onChange={(e) => setSortOption(e.target.value)}
-                                className="text-sm font-black uppercase bg-transparent border-none focus:ring-0 cursor-pointer text-white appearance-none pr-8 relative bg-none"
+                                className="max-w-[130px] sm:max-w-none text-sm font-black uppercase bg-transparent border-none focus:ring-0 cursor-pointer text-white appearance-none pr-8 relative bg-none"
                                 title="Sort products"
                             >
                                 <option value="newest" className="bg-black">Newest</option>

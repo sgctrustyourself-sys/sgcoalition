@@ -81,13 +81,19 @@ const Navbar = () => {
                             </Link>
                         </div>
 
-                        {/* Search Bar - Desktop */}
-                        <div className="hidden md:block flex-1 max-w-md mx-8">
-                            <SearchBar showSuggestions={true} />
+                        {/* Search Bar - Desktop
+                            The header row must never exceed the viewport: this
+                            nav is `sticky`, and a sticky element only sticks
+                            vertically, so any horizontal overflow lets the page
+                            scroll sideways and drags the header off screen.
+                            `min-w-0` on the wrapper and on the input lets the
+                            search shrink instead of forcing the row wider. */}
+                        <div className="hidden lg:block flex-1 min-w-0 max-w-md mx-6 xl:mx-8">
+                            <SearchBar showSuggestions={true} placeholder="Search" />
                         </div>
 
                         {/* Desktop Nav */}
-                        <div className="hidden md:flex items-center space-x-10 h-full">
+                        <div className="hidden lg:flex items-center space-x-4 xl:space-x-6 h-full">
                             <Link to="/" className={`text-[11px] font-bold uppercase tracking-[0.2em] transition-all ${isActive('/') ? 'text-white text-glow underline underline-offset-8 decoration-brand-accent decoration-2' : 'text-gray-400 hover:text-white hover:text-glow'}`}>HOME</Link>
                             <Link to="/shop" className={`text-[11px] font-bold uppercase tracking-[0.2em] transition-all ${isActive('/shop') ? 'text-white text-glow underline underline-offset-8 decoration-brand-accent decoration-2' : 'text-gray-400 hover:text-white hover:text-glow'}`}>SHOP</Link>
                             <Link to="/blog" className={`text-[11px] font-bold uppercase tracking-[0.2em] transition-all ${isActive('/blog') ? 'text-white text-glow underline underline-offset-8 decoration-brand-accent decoration-2' : 'text-gray-400 hover:text-white hover:text-glow'}`}>BLOG</Link>
@@ -196,14 +202,14 @@ const Navbar = () => {
                             )}
 
                             {!user ? (
-                                <div className="flex items-center pl-4 border-l border-white/5 space-x-6 min-w-[140px] justify-end">
-                                    <span className="text-gray-800 font-light select-none ml-4">|</span>
+                                <div className="flex items-center pl-4 border-l border-white/5 space-x-4 xl:space-x-6 min-w-[100px] xl:min-w-[140px] justify-end">
+                                    <span className="text-gray-800 font-light select-none ml-2 xl:ml-4">|</span>
                                     <Link to="/login" className="text-[11px] font-bold uppercase tracking-[0.2em] text-white hover:text-glow transition-all">
                                         LOGIN
                                     </Link>
                                 </div>
                             ) : !user.walletAddress && !user.connectedWalletAddress ? (
-                                <div className="flex items-center space-x-4 pl-4 border-l border-white/10 min-w-[240px] justify-end">
+                                <div className="flex items-center space-x-4 pl-4 border-l border-white/10 min-w-[170px] xl:min-w-[240px] justify-end">
                                     <button
                                         onClick={() => navigate('/membership')}
                                         className="text-[10px] font-bold uppercase tracking-wider text-brand-accent hover:text-white transition-all flex items-center gap-1.5 px-3 py-1.5 rounded bg-brand-accent/10 border border-brand-accent/30"
@@ -214,7 +220,7 @@ const Navbar = () => {
                                     <button onClick={logout} className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-500 hover:text-red-500 transition-colors" title="Logout">LOGOUT</button>
                                 </div>
                             ) : (
-                                <div className="flex items-center space-x-6 pl-4 border-l border-white/10 min-w-[280px] justify-end">
+                                <div className="flex items-center space-x-6 pl-4 border-l border-white/10 min-w-[190px] xl:min-w-[280px] justify-end">
                                     {/* V1 Balance - Red */}
                                     <div className="flex items-center text-red-400">
                                         <Hexagon className="w-4 h-4 mr-2 fill-current" />
@@ -245,8 +251,11 @@ const Navbar = () => {
                             </button>
                         </div>
 
-                        {/* Mobile Menu Button */}
-                        <div className="md:hidden flex items-center space-x-4">
+                        {/* Mobile Menu Button
+                            The desktop nav needs ~800px of fixed content, so it
+                            starts at lg (1024px). Below that the burger menu
+                            carries the same links (plus search). */}
+                        <div className="lg:hidden flex items-center space-x-4">
                             <button onClick={() => setCartOpen(true)} className="relative p-2 text-white" title="Open Cart">
                                 <ShoppingBag className="w-5 h-5" />
                                 {cartCount > 0 && (
@@ -264,7 +273,10 @@ const Navbar = () => {
 
                 {/* Mobile Menu */}
                 {isMobileMenuOpen && (
-                    <div className="md:hidden bg-black/95 backdrop-blur-xl border-b border-white/10 p-6 space-y-6 shadow-2xl absolute w-full">
+                    <div className="lg:hidden bg-black/95 backdrop-blur-xl border-b border-white/10 p-6 space-y-6 shadow-2xl absolute w-full">
+                        <div className="relative">
+                            <SearchBar showSuggestions={true} placeholder="Search products" id="mobile-search-bar" />
+                        </div>
                         <Link to="/" className="block text-lg font-display font-bold uppercase tracking-widest text-white" onClick={closeMobile}>Home</Link>
                         <Link to="/shop" className="block text-lg font-display font-bold uppercase tracking-widest text-white" onClick={closeMobile}>Shop</Link>
                         <Link to="/blog" className="block text-lg font-display font-bold uppercase tracking-widest text-white" onClick={closeMobile}>Blog</Link>
