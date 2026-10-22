@@ -1,7 +1,5 @@
 import React, { Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
-import { SpeedInsights } from '@vercel/speed-insights/react';
-import { Analytics } from '@vercel/analytics/react';
 import { AppProvider } from './context/AppContext';
 import { ToastProvider } from './context/ToastContext';
 import Footer from './components/Footer';
@@ -11,6 +9,8 @@ import PageLoader from './components/ui/PageLoader';
 import ToastContainer from './components/ui/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
+import CookieConsentBanner from './components/CookieConsentBanner';
+import ConsentGatedAnalytics from './components/ConsentGatedAnalytics';
 
 // Lazy-loaded shell components. Each pulls `motion/react` (~50 KB gzip) at the
 // top level, so wrapping them in React.lazy() splits the framer-motion chunk
@@ -270,8 +270,8 @@ const App = () => {
               <Suspense fallback={null}>
                 <MobileBottomNav />
               </Suspense>
-              <SpeedInsights />
-              <Analytics />
+              <ConsentGatedAnalytics />
+              <CookieConsentBanner />
             </div>
           </BrowserRouter>
         </TutorialProvider>

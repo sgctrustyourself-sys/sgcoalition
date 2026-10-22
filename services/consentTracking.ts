@@ -1,5 +1,30 @@
 import { CONSENT_TEXT, CONSENT_CHECKBOX_TEXT } from '../constants.js';
 
+// Cookie consent used to be delegated to Cookiebot, but no Cookiebot loader
+// (and no domain group ID) was ever configured, so the banner never loaded and
+// `window.Cookiebot.renew()` silently did nothing. Consent now lives in
+// services/cookieConsent.ts as first-party code: same categories, same event
+// hook, but no third-party script that can fail closed to "no banner".
+export {
+    getConsentRecord,
+    getCookieConsent,
+    hasConsented,
+    onConsentChanged,
+    showConsentDialog,
+    acceptAllConsent,
+    rejectNonEssentialConsent,
+    saveConsent,
+} from './cookieConsent.js';
+export type {
+    ConsentCategory,
+    CookieConsentState,
+    ConsentChoice,
+} from './cookieConsent.js';
+
+// ---------------------------------------------------------------------------
+// Legacy consent capture (no-refunds checkbox verification)
+// ---------------------------------------------------------------------------
+
 export interface ConsentData {
     consentText: string;
     consentTimestamp: string;
@@ -8,142 +33,22 @@ export interface ConsentData {
     consentUserId?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Cookiebot CMP integration helpers
-// ---------------------------------------------------------------------------
-
-/** The global Cookiebot API, injected by the uc.js script in index.html. */
-declare global {
-    interface Window {
-        Cookiebot?: {
-            consent: {
-                necessary: boolean;
-                preferences: boolean;
-                statistics: boolean;
-                marketing: boolean;
-            };
-            hasResponse: boolean;
-            show: () => void;
-            hide: () => void;
-            renew: () => void;
-            withdraw: () => void;
-            submitCustomConsent: (
-                necessary: boolean,
-                preferences: boolean,
-                statistics: boolean,
-                marketing: boolean
-            ) => void;
-        };
-        // NOTE: addEventListener and removeEventListener already exist on
-        // Window from lib.dom.d.ts — they are NOT redeclared here to avoid
-        // a required-vs-optional merge conflict with the DOM types.
-    }
-}
-
-/** Cookie categories as reported by Cookiebot. */
-export interface CookieConsentState {
-    necessary: boolean;
-    preferences: boolean;
-    statistics: boolean;
-    marketing: boolean;
-    hasResponded: boolean;
-}
-
 /**
- * Read the current cookie consent state from Cookiebot.
- * Returns null if Cookiebot hasn't loaded yet.
+ * Capture consent data for the no-refunds acknowledgement.
+ *
+ * The IP is deliberately NOT fetched from api.ipify.org any more: that sent the
+ * visitor's IP to a third party just to write it back to our own order record.
+ * Server handlers already see the request, so they should fill this in; the
+ * browser only records "unknown" when it has no trustworthy value.
  */
-export function getCookieConsent(): CookieConsentState | null {
-    if (!window.Cookiebot) return null;
-    return {
-        necessary: window.Cookiebot.consent.necessary,
-        preferences: window.Cookiebot.consent.preferences,
-        statistics: window.Cookiebot.consent.statistics,
-        marketing: window.Cookiebot.consent.marketing,
-        hasResponded: window.Cookiebot.hasResponse,
-    };
-}
-
-/**
- * Check if a specific cookie category has been consented to.
- * Necessary cookies are always granted and return true even before consent.
- */
-export function hasConsented(category: 'necessary' | 'preferences' | 'statistics' | 'marketing'): boolean {
-    const state = getCookieConsent();
-    if (!state) return category === 'necessary'; // fail-safe: necessary only
-    if (category === 'necessary') return true;
-    return state[category] === true;
-}
-
-/**
- * Listen for Cookiebot consent changes. The callback fires when the
- * visitor accepts, declines, or changes their cookie preferences.
- * Returns an unsubscribe function.
- */
-export function onConsentChanged(callback: (state: CookieConsentState) => void): () => void {
-    const handler = () => {
-        const state = getCookieConsent();
-        if (state) callback(state);
-    };
-
-    window.addEventListener?.('CookiebotOnAccept', handler);
-    window.addEventListener?.('CookiebotOnDecline', handler);
-    window.addEventListener?.('CookiebotOnLoad', handler);
-
-    return () => {
-        window.removeEventListener?.('CookiebotOnAccept', handler);
-        window.removeEventListener?.('CookiebotOnDecline', handler);
-        window.removeEventListener?.('CookiebotOnLoad', handler);
-    };
-}
-
-/**
- * Reopen the Cookiebot consent dialog so the visitor can change preferences.
- */
-export function showConsentDialog(): void {
-    if (window.Cookiebot) {
-        window.Cookiebot.renew();
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Legacy consent capture (checkout checkbox verification)
-// ---------------------------------------------------------------------------
-
-/**
- * Capture consent data from the current session
- */
-export async function captureConsent(userId?: string): Promise<ConsentData> {
-    const timestamp = new Date().toISOString();
-    const userAgent = navigator.userAgent;
-
-    // Get client IP (this will need to be done server-side in production)
-    const ip = await getClientIP();
-
+export async function captureConsent(userId?: string, ip = 'unknown'): Promise<ConsentData> {
     return {
         consentText: CONSENT_TEXT,
-        consentTimestamp: timestamp,
+        consentTimestamp: new Date().toISOString(),
         consentIp: ip,
-        consentUserAgent: userAgent,
-        consentUserId: userId
+        consentUserAgent: navigator.userAgent,
+        consentUserId: userId,
     };
-}
-
-/**
- * Get client IP address
- * Note: In production, this should be done server-side
- */
-async function getClientIP(): Promise<string> {
-    try {
-        // In production, this would be captured server-side from the request headers
-        // For now, we'll use a placeholder or a third-party service
-        const response = await fetch('https://api.ipify.org?format=json');
-        const data = await response.json();
-        return data.ip || 'unknown';
-    } catch (error) {
-        console.error('Failed to get client IP:', error);
-        return 'unknown';
-    }
 }
 
 /**

@@ -4,6 +4,7 @@ import { Instagram, MessageCircle, Twitter, Link2, ShoppingBag } from 'lucide-re
 import Newsletter from './Newsletter';
 import { useApp } from '../context/AppContext';
 import { MAIN_SHARING_LINK, MAIN_SHARING_LABEL } from '../utils/sharingLinks';
+import { showConsentDialog } from '../services/cookieConsent';
 
 const Footer = () => {
     const { isAdminMode } = useApp();
@@ -41,7 +42,7 @@ const Footer = () => {
                         )}
                         <li><Link to="/archive" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Archive</Link></li>
                         <li><Link to="/privacy" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Privacy Policy</Link></li>
-                        <li><a href="#" onClick={(e) => { e.preventDefault(); if (window.Cookiebot) window.Cookiebot.renew(); }} className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Cookie Settings</a></li>
+                        <li><button type="button" onClick={showConsentDialog} className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide text-left">Cookie Settings</button></li>
                         <li><a href="mailto:sgctrustyourself@gmail.com" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Contact Us</a></li>
                     </ul>
                 </div>

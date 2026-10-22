@@ -89,7 +89,7 @@ const clearCheckoutState = () => {
 
 // ---- Stripe (card / Klarna / Afterpay) -------------------------------
 // Stripe.js is loaded lazily only when the buyer picks the card/BNPL
-// method — no third-party script on page load, no Cookiebot interplay.
+// method — no third-party script on page load, and no external consent widget.
 // VITE_STRIPE_PUBLISHABLE_KEY is already documented in README/.env.example.
 const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
 let stripePromise: ReturnType<typeof loadStripe> | null = null;
