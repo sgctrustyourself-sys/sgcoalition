@@ -26,6 +26,10 @@ import { MEMBER_DISCOUNT_RATE, isMemberPromoActive } from '../utils/memberDiscou
  * the pricing authority would refuse.
  *
  * To swap the promoted link/text, update the promo `to` and children below.
+ *
+ * The bar is sticky (it sits in the same sticky wrapper as the nav), so its
+ * background is opaque: a translucent bar let the page scroll through it and
+ * the header read as broken.
  */
 const AnnouncementBar = () => {
     const { user } = useApp();
@@ -45,7 +49,7 @@ const AnnouncementBar = () => {
 
     return (
         <div
-            className="bg-pink-500/10 border-b border-pink-500/20 text-pink-200 py-2 px-4 min-h-[36px] flex items-center justify-center gap-2 text-[10px] sm:text-xs font-bold uppercase tracking-[0.25em]"
+            className="bg-[#1c0c14] border-b border-pink-500/20 text-pink-200 py-2 px-4 min-h-[36px] flex items-center justify-center gap-2 text-[10px] sm:text-xs font-bold uppercase tracking-[0.25em]"
             role="region"
             aria-label={memberPromoActive && isMember
                 ? `Your ${memberPercent}% member discount is active`
