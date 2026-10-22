@@ -296,7 +296,10 @@ export const INITIAL_ORDERS: Order[] = [
       {
         productId: "GreenCamoWallet",
         productName: "Coalition Green Camo Wallet",
-        productImage: "https://i.imgur.com/kzIWQzA.jpg",
+        // Supabase-migrated copy of the same photo. The bare i.imgur.com URL
+        // is rate-limited when the ticker requests it repeatedly, which shows
+        // as a broken thumbnail on the homepage.
+        productImage: "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_kzIWQzA.png",
         selectedSize: "One Size",
         quantity: 1,
         price: 25,
@@ -380,7 +383,7 @@ export const INITIAL_ORDERS: Order[] = [
       {
         productId: "Coalition_Grey_Wave_Wallet_2_2",
         productName: "Coalition 'Grey Wave' Wallet 2/2",
-        productImage: "https://i.imgur.com/FVMHZoq.jpg",
+        productImage: "/images/grey-wave-wallet-2-2-front.jpg",
         selectedSize: "One Size",
         quantity: 1,
         price: 75,
@@ -410,7 +413,7 @@ export const INITIAL_ORDERS: Order[] = [
       {
         productId: "Coalition_Grey_Wave_Wallet_1_2",
         productName: "Coalition 'Grey Wave' Wallet 1/2",
-        productImage: "https://i.imgur.com/7z2h8u6.jpg",
+        productImage: "/images/grey-wave-wallet-1-2-front.png",
         selectedSize: "One Size",
         quantity: 1,
         price: 75,
@@ -563,7 +566,10 @@ export const INITIAL_ORDERS: Order[] = [
       {
         productId: "prod_lighter_holder",
         productName: "Coalition Lighter Holder",
-        productImage: "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/lighter-holder-front.png",
+        // The products bucket never received lighter-holder-front.png (that
+        // path answers HTTP 400), so point the ticker at the catalog's actual
+        // local asset instead.
+        productImage: "/images/lighter-holder-front.svg",
         selectedSize: "One Size",
         quantity: 2,
         price: 10,
@@ -594,7 +600,9 @@ export const INITIAL_ORDERS: Order[] = [
       {
         productId: "Coalition_Above_As_Below_Wallet_1_1",
         productName: "Coalition Above as Below Wallet 1/1",
-        productImage: "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-wallet-front.png",
+        // above-as-below-wallet-front.png was never uploaded (HTTP 400). Use
+        // the same migrated image the product row renders on its PDP.
+        productImage: "https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_9NF3LzM.jpg",
         selectedSize: "One Size",
         quantity: 1,
         price: 85,

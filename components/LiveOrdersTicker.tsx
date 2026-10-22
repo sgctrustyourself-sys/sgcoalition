@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingBag } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { resolveLocalImageUrl } from '../utils/localImageAssets';
 import type { Order } from '../types';
 
 /**
@@ -43,11 +44,45 @@ const orderToTickerItems = (order: Order): TickerItem[] => {
     return order.items.map((item) => ({
         customerName: order.customerName || 'Someone',
         productName: item.productName || 'a product',
-        productImage: item.productImage || '',
+        // Order rows are historical records and can still carry a local path
+        // or a bucket URL that has since gone dead. Canonicalize the same way
+        // the catalog does before handing the URL to <img>.
+        productImage: resolveLocalImageUrl(item.productImage || ''),
         selectedSize: item.selectedSize || 'One Size',
         productId: item.productId || '',
         createdAt: order.createdAt,
     }));
+};
+
+/**
+ * Thumbnail with a graceful failure state. An order can reference an image
+ * that was never uploaded; showing the broken-image glyph in the ticker reads
+ * as a site bug, so fall back to the same bag icon used for imageless items.
+ */
+const TickerThumb: React.FC<{ src: string }> = ({ src }) => {
+    const [failed, setFailed] = React.useState(false);
+
+    React.useEffect(() => {
+        setFailed(false);
+    }, [src]);
+
+    if (!src || failed) {
+        return (
+            <div className="w-6 h-6 rounded bg-gray-800 flex items-center justify-center">
+                <ShoppingBag className="w-3 h-3 text-gray-600" />
+            </div>
+        );
+    }
+
+    return (
+        <img
+            src={src}
+            alt=""
+            className="w-6 h-6 rounded object-cover border border-white/5 group-hover:border-white/20 transition-colors"
+            loading="lazy"
+            onError={() => setFailed(true)}
+        />
+    );
 };
 
 const LiveOrdersTicker: React.FC = () => {
@@ -86,18 +121,7 @@ const LiveOrdersTicker: React.FC = () => {
                         className="flex items-center gap-3 py-2 px-6 shrink-0 text-gray-500 hover:text-gray-300 transition-colors group"
                     >
                         <div className="flex items-center gap-2">
-                            {item.productImage ? (
-                                <img
-                                    src={item.productImage}
-                                    alt=""
-                                    className="w-6 h-6 rounded object-cover border border-white/5 group-hover:border-white/20 transition-colors"
-                                    loading="lazy"
-                                />
-                            ) : (
-                                <div className="w-6 h-6 rounded bg-gray-800 flex items-center justify-center">
-                                    <ShoppingBag className="w-3 h-3 text-gray-600" />
-                                </div>
-                            )}
+                            <TickerThumb src={item.productImage} />
                             <span className="text-[11px] whitespace-nowrap">
                                 <span className="text-gray-400 font-medium">{firstName(item.customerName)}</span>
                                 <span className="mx-1 text-white/30">&middot;</span>

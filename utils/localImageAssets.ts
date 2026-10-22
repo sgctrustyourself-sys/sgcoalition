@@ -226,6 +226,14 @@ const REMOTE_TO_LOCAL_IMAGE_URLS: Record<string, string> = {
     'https://i.imgur.com/RqcU0I9.jpg': PRODUCT_IMAGE_URLS.partsWallet4_4.front,
     'https://imgur.com/Lnimi33': PRODUCT_IMAGE_URLS.partsWallet4_4.back,
     'https://i.imgur.com/Lnimi33.jpg': PRODUCT_IMAGE_URLS.partsWallet4_4.back,
+    // Legacy order-thumbnail paths that were never uploaded to the products
+    // bucket (both answer HTTP 400). Order rows seeded before the fetch-time
+    // rewrite existed still carry them, and the homepage ticker reads
+    // item.productImage directly, so resolve them to the catalog's real image.
+    'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/above-as-below-wallet-front.png':
+        'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/migrated/imgur_9NF3LzM.jpg',
+    'https://tvacscfbzcmjlcekjcsn.supabase.co/storage/v1/object/public/products/images/lighter-holder-front.png':
+        '/images/lighter-holder-front.svg',
 };
 
 export const resolveLocalImageUrl = (url?: string | null) => {
