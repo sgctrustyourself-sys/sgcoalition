@@ -82,6 +82,26 @@ declare global {
 
 const SKEW_RECOVERY_FLAG = '__coalitionSkewReloadArmed' as const;
 
+// True only for this app's own Vite chunks: same origin, under /assets/.
+//
+// Third-party scripts fail for reasons a reload cannot fix — an analytics
+// endpoint missing on the host that is not Vercel, an extension blocking a
+// beacon, a CDN hiccup. Treating those as version skew is worse than useless:
+// the reload re-runs the same script, fails again, and reloads again, so one
+// blocked analytics file becomes an endless refresh loop that never lets the
+// app paint. Vite puts every app chunk under /assets/, so scoping to that path
+// keeps the skew recovery for the case it was written for.
+function isAppChunkUrl(url: string): boolean {
+    if (!/\.js$/i.test(url)) return false;
+    try {
+        const parsed = new URL(url, window.location.href);
+        if (parsed.origin !== window.location.origin) return false;
+        return /^\/assets\/[^/]+\.js$/i.test(parsed.pathname);
+    } catch {
+        return false;
+    }
+}
+
 function isModuleLoadError(event: Event): boolean {
     // Vite emits its dynamic-import failures on the window error channel with a
     // module-shaped filename. A failed <script type="module"> load also reaches
@@ -89,17 +109,7 @@ function isModuleLoadError(event: Event): boolean {
     const filename = 'filename' in event && typeof (event as Record<string, unknown>).filename === 'string'
         ? (event as { filename?: string }).filename
         : undefined;
-    if (filename) {
-        // Vite chunk URLs carry the hash in the path; any .js module from this
-        // origin that fails to load is the skew signature we care about.
-        if (
-            filename.endsWith('.js') ||
-            /\/assets\/[a-zA-Z0-9-]+\.js/i.test(filename)
-        ) {
-            return true;
-        }
-    }
-    return false;
+    return filename ? isAppChunkUrl(filename) : false;
 }
 
 function showSkewRecovery(): void {
@@ -148,7 +158,7 @@ function installSkewRecovery(): void {
             const url =
                 (r.url && typeof r.url === 'string' ? r.url : undefined) ||
                 (r.message && typeof r.message === 'string' ? r.message : undefined);
-            if (url && /\.js$/i.test(url)) {
+            if (url && isAppChunkUrl(url)) {
                 event.preventDefault();
                 queueMicrotask(armSkewReload);
             }
