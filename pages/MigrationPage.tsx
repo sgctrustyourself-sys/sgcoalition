@@ -163,6 +163,7 @@ const MigrationPage: React.FC = () => {
 
     const [activity, setActivity] = useState<MigrationRecord[]>([]);
     const [myActivity, setMyActivity] = useState<MigrationRecord[]>([]);
+    const [activityError, setActivityError] = useState<string | null>(null);
 
     const successRef = useRef<HTMLDivElement>(null);
     const amountRef = useRef<HTMLInputElement>(null);
@@ -182,6 +183,7 @@ const MigrationPage: React.FC = () => {
     // ── Data loading ──────────────────────────────────────────────────────
     const loadActivity = useCallback(async () => {
         setIsLoadingActivity(true);
+        setActivityError(null);
         try {
             const provider = await createReadProvider();
             // The per-wallet list is only meaningful with a wallet. Without one
@@ -198,7 +200,9 @@ const MigrationPage: React.FC = () => {
             setMigratedSupplyRaw(await getMigratedSupply(provider));
         } catch (err) {
             console.error('Migration activity failed:', err);
-            setError('We could not read the migration history from Polygon right now. The contracts and the step-by-step guide below still work.');
+            setActivityError(
+                'We could not read the migration history from Polygon right now. The contracts and the step-by-step guide below still work.'
+            );
         } finally {
             setIsLoadingActivity(false);
         }
@@ -887,9 +891,11 @@ const MigrationPage: React.FC = () => {
                             </ul>
                         ) : (
                             <p className="mt-4 text-sm text-gray-500">
-                                {walletAddress
-                                    ? 'No migration events for this wallet yet. Once you migrate, it shows up here with the exact on-chain amounts.'
-                                    : 'Connect a wallet to see the migration history for that address.'}
+                                {activityError
+                                    ? 'The history for this wallet could not be read from Polygon right now.'
+                                    : walletAddress
+                                        ? 'No migration events for this wallet yet. Once you migrate, it shows up here with the exact on-chain amounts.'
+                                        : 'Connect a wallet to see the migration history for that address.'}
                             </p>
                         )}
                     </div>
@@ -902,6 +908,8 @@ const MigrationPage: React.FC = () => {
                             <div className="flex justify-center py-10">
                                 <Loader className="h-6 w-6 animate-spin text-gray-600" aria-hidden="true" />
                             </div>
+                        ) : activityError ? (
+                            <p className="mt-4 text-sm text-amber-300/80">{activityError}</p>
                         ) : activity.length > 0 ? (
                             <ul className="mt-3">
                                 {activity.map((record) => (

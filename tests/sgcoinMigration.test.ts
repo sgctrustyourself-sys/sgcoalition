@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
     MIGRATION_RATIO_BIG,
+    fetchMigrationEvents,
     formatV1,
     formatV1ForDisplay,
     formatV2,
@@ -79,6 +80,34 @@ describe('amount parsing', () => {
         expect(formatV1(1n)).toBe('0.000000001');
         expect(formatV1ForDisplay(1_234_567n * V1_UNIT)).toBe('1,234,567');
         expect(formatV2ForDisplay(v1RawToV2Raw(900_000_000n * V1_UNIT))).toBe('900');
+    });
+});
+
+describe('migration history reads', () => {
+    const fakeProvider = (getLogs: () => Promise<any[]>) => ({
+        getBlockNumber: async () => 1_000,
+        getBlock: async () => ({ timestamp: 1_700_000_000 }),
+        getCode: async () => '0x60',
+        getLogs,
+    });
+
+    it('returns an empty list when the chain really has no events', async () => {
+        const records = await fetchMigrationEvents({
+            provider: fakeProvider(async () => []) as any,
+            fromBlock: 1,
+            toBlock: 1_000,
+        });
+        expect(records).toEqual([]);
+    });
+
+    it('reports a failed read instead of pretending nothing was migrated', async () => {
+        await expect(
+            fetchMigrationEvents({
+                provider: fakeProvider(async () => { throw new Error('exceed maximum block range'); }) as any,
+                fromBlock: 1,
+                toBlock: 1_000,
+            })
+        ).rejects.toThrow();
     });
 });
 

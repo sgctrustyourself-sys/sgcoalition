@@ -311,11 +311,17 @@ export const fetchMigrationEvents = async (options: {
     }
 
     const records: MigrationRecord[] = [];
-    let chunkSize = 1_000_000;
+    // 5M blocks per request: Tenderly (the first RPC in the list) accepts a
+    // 20M-block range, so a single request usually covers the whole history
+    // of the contract. Endpoints with a tighter cap (publicnode: 10,000)
+    // reject it and the range halves until it fits.
+    let chunkSize = 5_000_000;
 
     // Walk backwards from the newest block so the panel fills after a couple
     // of requests instead of scanning the contract's whole life first.
     let cursor = toBlock;
+    let successfulQueries = 0;
+    let failedQueries = 0;
 
     while (cursor >= fromBlock && chunkSize >= 10_000) {
         const start = Math.max(fromBlock, cursor - chunkSize + 1);
@@ -326,6 +332,7 @@ export const fetchMigrationEvents = async (options: {
                 fromBlock: start,
                 toBlock: cursor,
             });
+            successfulQueries += 1;
 
             for (const log of logs) {
                 try {
@@ -346,8 +353,16 @@ export const fetchMigrationEvents = async (options: {
             cursor = start - 1;
         } catch (error) {
             // The endpoint refused this range: halve it and try again.
+            failedQueries += 1;
             chunkSize = Math.floor(chunkSize / 2);
         }
+    }
+
+    // Every range was refused: the read failed. An empty result and a failed
+    // read are different facts, and the page must not claim "nothing has been
+    // migrated" when it simply could not look.
+    if (successfulQueries === 0) {
+        throw new Error('Every Polygon log range was refused - the migration history could not be read.');
     }
 
     records.sort((a, b) => b.blockNumber - a.blockNumber);
