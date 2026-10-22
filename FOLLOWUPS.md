@@ -335,6 +335,28 @@ The script is run by hand and its output committed on purpose: sharp is a devDep
 
 ---
 
+## §20. Provable V1 burn — gated on 100 migrated members (2026-10-22)
+
+**The decision.** The migration currently sends V1 to the burn **wallet** (`0x20756b2667D575Ddde2383f3841D2CD855D5fb6d`, an EOA we control). That takes the supply out of circulation but it is not a provable destroy — the tokens sit in an address that can move them again. The next step is a **provable burn**: the migrator sends V1 to `0x000000000000000000000000000000000000dEaD`, where it is unrecoverable by anyone.
+
+**The gate.** That change waits until **100 distinct members have migrated** (decision, 2026-10-22). The counter is not a claim in a doc: it is derived from the on-chain `Migrated` events (`services/sgcoinMigration.ts > countDistinctMigrators`) and rendered on `/migrate` as a milestone bar, so the number is public and verifiable at any time. `constants.ts > MIGRATION_MEMBER_MILESTONE` is the gate.
+
+**Why 100 and not "after the launch window".** A redeploy of the migrator changes where every future V1 goes, so it wants a base of migrated members rather than a date: once 100 members have migrated, the remaining float of unmigrated V1 is the tail the burn should capture, and the change is a contract-level edit rather than a mid-flight surprise.
+
+**What has to be true before the change ships**
+
+1. `MIGRATION_MEMBER_MILESTONE` reached on the live counter (distinct wallets, not events).
+2. The migrator is redeployed with a new destination constant and a new address, then `constants.ts > SGCOIN_MIGRATOR_ADDRESS` is updated to it. **The old migrator stays live** so historical events keep resolving; the page must show both while the tail runs.
+3. `services/sgcoinMigration.ts > getMigratedSupply` already sums the burn wallet **and** `0x…dEaD`, so the "V1 migrated" figure keeps counting correctly across the switch. No change needed, but re-verify the number after the redeploy.
+4. The page copy changes from "V1 is transferred to the migration burn wallet" to "V1 is destroyed on chain". `pages/MigrationPage.tsx` says the current truth; it must not keep claiming a burn that is only a transfer.
+5. The `Migrated` event payload may gain a destination field. The reader parses it defensively (`services/sgcoinMigration.ts`), so an old event without the field still parses — keep it that way.
+
+**Do not** do this by adding a `transfer` to `0x…dEaD` on the frontend. The destination is a contract-level decision; a client-side call would leave the old contract able to move the remaining float.
+
+**Also open from the same session:** the V1 balance of the founder wallet is 7,938,142,814,068.01 (79% of the 10T supply) and the treasury wallet holds 0. Whether the founder's holding is also burned at the 100-member milestone is a separate decision and is **not** covered by this item.
+
+---
+
 ## §19. Drop content pipeline + the restored Marketing tab (2026-09-17)
 
 The repo already had a working drop-content renderer (`scripts/render-story.ts` → 1080×1920 Story / 1080×1350 grid / 1200×628 X PNGs), but a new drop meant cloning a docs trio, `sed`-ing nine `{{tokens}}` across three documents by hand, and cloning a per-product Supabase script. This pass made that data-driven and used it for three new designs.

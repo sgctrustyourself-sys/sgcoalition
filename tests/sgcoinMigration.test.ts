@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
     MIGRATION_RATIO_BIG,
+    countDistinctMigrators,
     fetchMigrationEvents,
     formatV1,
     formatV1ForDisplay,
@@ -25,8 +26,9 @@ import {
     ratioFromEvent,
     v1RawToV2Raw,
     v2RawToV1Raw,
+    type MigrationRecord,
 } from '../services/sgcoinMigration';
-import { MIGRATION_RATIO, POLYGON_RPC_URLS, SGCOIN_MIGRATOR_ADDRESS } from '../constants';
+import { MIGRATION_MEMBER_MILESTONE, MIGRATION_RATIO, POLYGON_RPC_URLS, SGCOIN_MIGRATOR_ADDRESS } from '../constants';
 
 const read = (rel: string) => fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
 
@@ -108,6 +110,36 @@ describe('migration history reads', () => {
                 toBlock: 1_000,
             })
         ).rejects.toThrow();
+    });
+});
+
+describe('the member milestone counter', () => {
+    const record = (user: string, txHash: string): MigrationRecord => ({
+        txHash,
+        blockNumber: 1,
+        timestamp: null,
+        user,
+        v1Raw: 1_000_000n * 1_000_000_000n,
+        v2Raw: 1_000_000_000_000_000_000n,
+        tier: 'Standard',
+    });
+
+    it('counts wallets, not events', () => {
+        const records = [
+            record('0xAAAA1111111111111111111111111111111111111', '0x1'),
+            record('0xaaaa1111111111111111111111111111111111111', '0x2'), // same wallet, other case
+            record('0xBBBB2222222222222222222222222222222222222', '0x3'),
+        ];
+
+        expect(countDistinctMigrators(records)).toBe(2);
+    });
+
+    it('is zero when nothing has migrated', () => {
+        expect(countDistinctMigrators([])).toBe(0);
+    });
+
+    it('gates the provable-burn step on a documented milestone', () => {
+        expect(MIGRATION_MEMBER_MILESTONE).toBe(100);
     });
 });
 

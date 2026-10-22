@@ -59,7 +59,39 @@ vi.mock('../services/sgcoinMigration', async () => {
         getV2BalanceRaw: vi.fn(async () => 500n * V2_UNIT),
         getMigrationAllowance: vi.fn(async () => allowance),
         getMigratedSupply: vi.fn(async () => 823n * V1_UNIT),
-        fetchMigrationEvents: vi.fn(async () => []),
+        fetchMigrationEvents: vi.fn(async (options?: { user?: string }) => {
+            if (options?.user) return [];
+            // Two wallets, three events: the member counter must not be 3.
+            return [
+                {
+                    txHash: '0xaaa',
+                    blockNumber: 3,
+                    timestamp: null,
+                    user: '0xAAAA1111111111111111111111111111111111111',
+                    v1Raw: 1_000_000n * V1_UNIT,
+                    v2Raw: V2_UNIT,
+                    tier: 'Standard',
+                },
+                {
+                    txHash: '0xbbb',
+                    blockNumber: 2,
+                    timestamp: null,
+                    user: '0xaaaa1111111111111111111111111111111111111',
+                    v1Raw: 1_000_000n * V1_UNIT,
+                    v2Raw: V2_UNIT,
+                    tier: 'Standard',
+                },
+                {
+                    txHash: '0xccc',
+                    blockNumber: 1,
+                    timestamp: null,
+                    user: '0xBBBB2222222222222222222222222222222222222',
+                    v1Raw: 1_000_000n * V1_UNIT,
+                    v2Raw: V2_UNIT,
+                    tier: 'Standard',
+                },
+            ];
+        }),
         estimateMigrationGas: vi.fn(async () => null),
     };
 });
@@ -174,5 +206,15 @@ describe('migration console render flow', () => {
     it('never shows an unlimited approval', () => {
         expect(container.textContent?.toLowerCase()).not.toContain('permanent approval');
         expect(container.textContent?.toLowerCase()).not.toContain('infinite');
+    });
+
+    it('counts members, not events, against the milestone', async () => {
+        await act(async () => { await Promise.resolve(); });
+
+        // Three events from two wallets: the milestone counter is 2 of 100.
+        // The label is uppercased by CSS, not by the markup, so match the DOM
+        // text case-insensitively.
+        expect(container.textContent).toContain('2 / 100');
+        expect(container.textContent?.toLowerCase()).toContain('milestone — 100 members migrated');
     });
 });

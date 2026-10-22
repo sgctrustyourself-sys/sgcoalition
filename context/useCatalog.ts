@@ -67,9 +67,19 @@ export function useCatalog(
                     if (local) return { ...local, ...sp, isFeatured: typeof sp.isFeatured === 'boolean' ? sp.isFeatured : local.isFeatured };
                     return sp;
                 });
-                const supabaseIds = new Set(interceptedProducts.map((p: any) => p.id));
-                const localOnly = INITIAL_PRODUCTS.filter(p => !supabaseIds.has(p.id));
-                const finalMerged = [...interceptedProducts, ...localOnly];
+                // The live table IS the catalog once it has loaded.
+                //
+                // It used to be merged with the local fallback (every
+                // INITIAL_PRODUCTS row the table did not have was appended),
+                // which let the shop sell products that do not exist in the
+                // database. The server prices a cart from the table alone, so
+                // those rows produced a 409 "Unavailable: <id>" at
+                // /api/pricing-preview and the checkout could not total the
+                // order - the shopper got a dead checkout with no explanation.
+                // The local file stays the fallback for when Supabase is
+                // unreachable (below), which is the only case it should ever
+                // be the source of.
+                const finalMerged = interceptedProducts;
                 const finalWithOverrides = applyLocalProductOverrides(finalMerged);
                 const numberedIds = finalWithOverrides.filter(p => p.editionSize && p.pricingTiers && p.pricingTiers.length > 0).map(p => p.id);
                 const countsByProduct = numberedIds.length > 0 ? await fetchPaidCountsByProduct(numberedIds) : {};

@@ -213,6 +213,20 @@ export const SGCOIN_BURN_ADDRESS = "0x20756b2667D575Ddde2383f3841D2CD855D5fb6d";
 // would cost on the first visit; services/sgcoinMigration.ts still verifies
 // the block holds contract code and falls back to the search if it does not.
 export const SGCOIN_MIGRATOR_DEPLOY_BLOCK = 83_156_424;
+
+// Milestone gate for the next migration step.
+//
+// Today the migrator sends V1 to the burn WALLET (an EOA we control), so the
+// supply is out of circulation but not provably destroyed. The next step is a
+// provable burn to 0x...dEaD, which means redeploying the migrator with a
+// different destination.
+//
+// Decision (2026-10-22): that change waits until this many DISTINCT wallets
+// have migrated. The counter is derived from the on-chain Migrated events
+// (services/sgcoinMigration.ts > countDistinctMigrators) and shown on
+// /migrate, so the gate is public and verifiable rather than a claim.
+// Rollout steps: FOLLOWUPS.md §20.
+export const MIGRATION_MEMBER_MILESTONE = 100;
 export const SGCOIN_LIQUIDITY_PROVIDER = "0xd4d7691f062614ae6905d7bef62638b42c33df9f"; // SGCoin V2 Source Wallet
 
 // Strategic Liquidity Tracking

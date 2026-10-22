@@ -245,7 +245,7 @@ const StripePaymentSection: React.FC<StripePaymentSectionProps> = ({ email, tota
 
 const Checkout: React.FC = () => {
     const navigate = useNavigate();
-    const { cart, cartTotal, calculateReward, clearCart, addOrder, generateOrderNumber, user, deductInventory } = useApp();
+    const { cart, cartTotal, calculateReward, clearCart, addOrder, generateOrderNumber, user, deductInventory, products, removeFromCart, isLoading: catalogLoading } = useApp();
     const { addToast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -307,6 +307,14 @@ const Checkout: React.FC = () => {
 
     const [copied, setCopied] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
+    // The server's pricing error, kept so a cart that cannot be priced is
+    // EXPLAINED instead of silently falling back to the client estimate. The
+    // common cause is a line the live products table no longer has (a piece
+    // that sold out or was pulled): the server prices from the table, so it
+    // answers 409 "Unavailable: <id>" while the shopper's browser still has
+    // the old line in its cart. The banner below turns that into one clear
+    // message plus a one-click fix.
+    const [pricingError, setPricingError] = useState<string | null>(null);
     const [clientSecret, setClientSecret] = useState<string>('');
     const [serverPricing, setServerPricing] = useState<{ totalCents: number; itemTotalCents: number; shippingCents: number; discountCents: number; storeCreditCents?: number } | null>(null);
 
@@ -575,7 +583,12 @@ const Checkout: React.FC = () => {
             })
             .then(r => r.json())
             .then(data => {
-                if (data.error) { setPricingPreview(null); return; }
+                if (data.error) {
+                    setPricingPreview(null);
+                    setPricingError(String(data.error));
+                    return;
+                }
+                setPricingError(null);
                 setPricingPreview(data);
             })
             .catch(() => setPricingPreview(null));
@@ -737,7 +750,17 @@ const Checkout: React.FC = () => {
             // mismatch").
         } catch (err: any) {
             console.error('Payment intent error:', err);
-            setError(err.message || 'Failed to initialize payment. Please check your connection.');
+            const message = err.message || 'Failed to initialize payment. Please check your connection.';
+            // A 409 from the pricing authority means a bag line the live
+            // products table no longer carries. The self-heal banner above
+            // explains it and removes the line, so show that instead of a raw
+            // "Unavailable: prod_x" the shopper cannot act on.
+            if (message.startsWith('Unavailable')) {
+                setPricingError(message);
+                setError('One of the pieces in your bag is no longer available. Remove it below to continue.');
+            } else {
+                setError(message);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -1081,6 +1104,27 @@ const Checkout: React.FC = () => {
         );
     }
 
+    // Cart lines the live catalog no longer carries. The cart lives in
+    // localStorage, so a line added before a piece was pulled (or sold out
+    // and was deleted) keeps the checkout un-priceable for that shopper until
+    // they clear storage by hand. The catalog has to be LOADED before a line
+    // counts as unavailable - an empty catalog during the fetch would make
+    // every line look stale.
+    const catalogReady = !catalogLoading && (products?.length ?? 0) > 0;
+    const unavailableCartItems = catalogReady
+        ? cart.filter(item => !(products || []).some(p => p.id === item.id))
+        : [];
+
+    const removeUnavailableItems = () => {
+        if (!unavailableCartItems.length) return;
+        unavailableCartItems.forEach(item => removeFromCart(item.cartId));
+        setPricingError(null);
+        addToast(
+            `Removed ${unavailableCartItems.length} item${unavailableCartItems.length !== 1 ? 's' : ''} that ${unavailableCartItems.length !== 1 ? 'are' : 'is'} no longer available.`,
+            'success'
+        );
+    };
+
     return (
         <div className="min-h-screen pt-24 pb-16 px-4 bg-black">
             <div className="max-w-4xl mx-auto">
@@ -1092,6 +1136,25 @@ const Checkout: React.FC = () => {
                 {validationError && (
                     <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg">
                         {validationError}
+                    </div>
+                )}
+
+                {pricingError && (
+                    <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+                        <p className="text-sm text-amber-200">
+                            <strong className="font-bold uppercase tracking-wide">We could not price your bag.</strong>{' '}
+                            {pricingError.startsWith('Unavailable')
+                                ? 'One of the pieces in your bag is no longer available.'
+                                : pricingError}
+                        </p>
+                        {unavailableCartItems.length > 0 && (
+                            <button
+                                onClick={removeUnavailableItems}
+                                className="mt-3 inline-flex items-center gap-2 rounded-sm bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-black transition-colors hover:bg-gray-200"
+                            >
+                                Remove {unavailableCartItems.length} unavailable item{unavailableCartItems.length !== 1 ? 's' : ''} and continue
+                            </button>
+                        )}
                     </div>
                 )}
 

@@ -18,6 +18,7 @@ import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import {
     getMigrationRatioDisplay,
+    MIGRATION_MEMBER_MILESTONE,
     POLYGON_BLOCK_EXPLORER,
     POLYGON_CHAIN_ID,
     SGCOIN_BURN_ADDRESS,
@@ -29,6 +30,7 @@ import { AuthProvider } from '../types';
 import { fetchSGCoinV2Price } from '../services/priceService';
 import {
     approveExactAmount,
+    countDistinctMigrators,
     createReadProvider,
     estimateMigrationGas,
     executeMigration,
@@ -49,6 +51,10 @@ import {
     type MigrationExecution,
     type MigrationRecord,
 } from '../services/sgcoinMigration';
+
+/** Events fetched for the counters. The list itself shows only the first few. */
+const ACTIVITY_FETCH_LIMIT = 500;
+const ACTIVITY_VISIBLE = 8;
 
 const panel = 'rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl';
 const actionButton =
@@ -165,6 +171,11 @@ const MigrationPage: React.FC = () => {
     const [myActivity, setMyActivity] = useState<MigrationRecord[]>([]);
     const [activityError, setActivityError] = useState<string | null>(null);
 
+    // Distinct wallets, not events: a member can migrate more than once, and
+    // the 100-member milestone is counted in people.
+    const migratedMembers = useMemo(() => countDistinctMigrators(activity), [activity]);
+    const milestoneProgress = Math.min(100, Math.round((migratedMembers / MIGRATION_MEMBER_MILESTONE) * 100));
+
     const successRef = useRef<HTMLDivElement>(null);
     const amountRef = useRef<HTMLInputElement>(null);
 
@@ -190,7 +201,7 @@ const MigrationPage: React.FC = () => {
             // the query would return every migration on chain, which is the
             // community list, not "yours".
             const [global, mine] = await Promise.all([
-                fetchMigrationEvents({ provider, limit: 8 }),
+                fetchMigrationEvents({ provider, limit: ACTIVITY_FETCH_LIMIT }),
                 walletAddress
                     ? fetchMigrationEvents({ provider, limit: 5, user: walletAddress })
                     : Promise.resolve([] as MigrationRecord[]),
@@ -534,9 +545,9 @@ const MigrationPage: React.FC = () => {
                         hint="V1 in the burn wallet"
                     />
                     <StatTile
-                        label="Migrations"
-                        value={isLoadingActivity ? '…' : activity.length >= 8 ? '8+' : String(activity.length)}
-                        hint="On-chain events found"
+                        label="Members migrated"
+                        value={isLoadingActivity ? '…' : String(migratedMembers)}
+                        hint="Distinct wallets"
                     />
                     <StatTile
                         label="V1 → V2"
@@ -548,6 +559,40 @@ const MigrationPage: React.FC = () => {
                         value={priceUsd !== null ? `$${priceUsd.toFixed(6)}` : '—'}
                         hint={priceUsd !== null ? 'Live from DexScreener' : 'No V2 market pair yet'}
                     />
+                </section>
+
+                {/* Milestone - the count is read from the chain, not typed in */}
+                <section
+                    aria-label={`Migration milestone: ${migratedMembers} of ${MIGRATION_MEMBER_MILESTONE} members migrated`}
+                    className="mb-10 rounded-2xl border border-white/10 bg-white/[0.03] p-5"
+                >
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
+                            Milestone — {MIGRATION_MEMBER_MILESTONE} members migrated
+                        </p>
+                        <p className="font-mono text-sm font-bold text-white">
+                            {migratedMembers} / {MIGRATION_MEMBER_MILESTONE}
+                        </p>
+                    </div>
+                    <div
+                        className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10"
+                        role="progressbar"
+                        aria-valuenow={migratedMembers}
+                        aria-valuemin={0}
+                        aria-valuemax={MIGRATION_MEMBER_MILESTONE}
+                        aria-label="Members migrated"
+                    >
+                        <div
+                            className="h-full rounded-full bg-yellow-500 transition-[width] duration-500"
+                            style={{ width: `${milestoneProgress}%` }}
+                        />
+                    </div>
+                    <p className="mt-3 text-[11px] leading-relaxed text-gray-500">
+                        Counted from the public <code className="text-gray-400">Migrated</code> events on
+                        Polygon, one per wallet. At {MIGRATION_MEMBER_MILESTONE} members the migration
+                        destination changes from the burn wallet to a provable burn address, and every
+                        remaining V1 is destroyed on chain instead of parked.
+                    </p>
                 </section>
 
                 {gate}
@@ -904,6 +949,12 @@ const MigrationPage: React.FC = () => {
                         <h2 className="flex items-center gap-2 font-display text-lg font-bold uppercase tracking-wide">
                             <Coins size={16} className="text-yellow-500" aria-hidden="true" /> Recent community migrations
                         </h2>
+                        {activity.length > ACTIVITY_VISIBLE && (
+                            <p className="mt-2 text-[11px] text-gray-600">
+                                Showing the {ACTIVITY_VISIBLE} most recent of {activity.length} recorded
+                                migrations.
+                            </p>
+                        )}
                         {isLoadingActivity ? (
                             <div className="flex justify-center py-10">
                                 <Loader className="h-6 w-6 animate-spin text-gray-600" aria-hidden="true" />
@@ -912,7 +963,7 @@ const MigrationPage: React.FC = () => {
                             <p className="mt-4 text-sm text-amber-300/80">{activityError}</p>
                         ) : activity.length > 0 ? (
                             <ul className="mt-3">
-                                {activity.map((record) => (
+                                {activity.slice(0, ACTIVITY_VISIBLE).map((record) => (
                                     <MigrationRow key={record.txHash} record={record} showWallet />
                                 ))}
                             </ul>

@@ -161,6 +161,21 @@ export function ratioFromEvent(v1Raw: bigint, v2Raw: bigint): number | null {
     return v1 / v2;
 }
 
+/**
+ * How many distinct wallets have migrated.
+ *
+ * A member can migrate more than once, so the number of events is not the
+ * number of members. This is the counter the 100-member milestone is
+ * measured against, so it is derived from the chain and nothing else.
+ */
+export function countDistinctMigrators(records: MigrationRecord[]): number {
+    const seen = new Set<string>();
+    for (const record of records) {
+        if (record.user) seen.add(record.user.toLowerCase());
+    }
+    return seen.size;
+}
+
 // ---------------------------------------------------------------------------
 // Providers
 // ---------------------------------------------------------------------------
