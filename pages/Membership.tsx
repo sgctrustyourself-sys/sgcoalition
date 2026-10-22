@@ -1,39 +1,34 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, CreditCard, ShoppingBag, Check, Star, Zap, X, Mail, Ticket } from 'lucide-react';
+import { Shield, CreditCard, ShoppingBag, Check, Star, Zap, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 
-const MEMBERSHIP_SUPPORT_EMAIL = 'sgctrustyourself@gmail.com';
+const API_BASE = import.meta.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app';
 
 const Membership = () => {
     const { addToast } = useToast();
-    const { user } = useApp();
 
-    const [showPayment, setShowPayment] = React.useState(false);
+    const [isCreatingSession, setIsCreatingSession] = React.useState(false);
 
-    const handleSubscribe = () => {
-        setShowPayment(true);
-    };
-
-    // PayPal self-checkout was removed from the product. VIP activation is
-    // now requested by email: the owner confirms the $15 payment off-platform
-    // (Card / Cash App / crypto) and flips the VIP flag manually, mirroring
-    // the Cash App + crypto manual-verification flows at checkout.
-    const membershipRequestBody = [
-        'Hi, I want to join the Coalition VIP membership ($15/month).',
-        '',
-        user?.email ? `Account email: ${user.email}` : 'Account email: (not signed in)',
-        user?.uid ? `User ID: ${user.uid}` : '',
-        '',
-        'Please send me payment instructions (card / Cash App / crypto).',
-    ].filter(Boolean).join('\n');
-
-    const handleEmailMembershipRequest = () => {
-        const subject = encodeURIComponent('Coalition VIP membership request');
-        const body = encodeURIComponent(membershipRequestBody);
-        window.location.href = `mailto:${MEMBERSHIP_SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
-        addToast('Opening your email app to request VIP activation...', 'info');
+    const handleCreateWhopCheckout = async () => {
+        setIsCreatingSession(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/create-whop-checkout-link`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ productId: 'coalition-vip-membership' }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.whopCheckoutUrl) {
+                throw new Error(data.error || 'Failed to create Whop checkout link');
+            }
+            // Redirect shopper to Whop Checkout to complete payment.
+            window.location.href = data.whopCheckoutUrl;
+        } catch (err: any) {
+            setIsCreatingSession(false);
+            addToast(err.message || 'Could not start checkout. Please try again.', 'error');
+        }
     };
 
 
@@ -62,10 +57,11 @@ const Membership = () => {
 
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
                         <button
-                            onClick={handleSubscribe}
+                            onClick={handleCreateWhopCheckout}
+                            disabled={isCreatingSession}
                             className="w-full sm:w-auto px-10 py-5 bg-white text-black font-bold text-lg uppercase tracking-widest hover:bg-gray-200 hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Join for $15/mo
+                            {isCreatingSession ? 'Creating checkout…' : 'Join for $15/mo'}
                         </button>
                         <Link
                             to="/shop"
@@ -73,15 +69,6 @@ const Membership = () => {
                         >
                             View Collection
                         </Link>
-                    </div>
-                    <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-                        <span className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-purple-200">
-                            <Ticket className="h-3.5 w-3.5" />
-                            15 giveaway tickets
-                        </span>
-                        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-300">
-                            Auto-enter every active giveaway
-                        </span>
                     </div>
                 </div>
             </div>
@@ -116,9 +103,9 @@ const Membership = () => {
                         <div className="bg-green-500/20 w-16 h-16 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform text-green-400">
                             <Zap className="w-8 h-8" />
                         </div>
-                        <h3 className="font-display text-2xl font-bold uppercase mb-4">VIP Status + Giveaways</h3>
+                        <h3 className="font-display text-2xl font-bold uppercase mb-4">VIP Status</h3>
                         <p className="text-gray-400 leading-relaxed">
-                            Unlock the exclusive <span className="text-white font-bold">VIP Badge</span> on your profile. Auto-enter every giveaway with 15 tickets, plus early access to limited drops and free shipping on all orders.
+                            Unlock the exclusive <span className="text-white font-bold">VIP Badge</span> on your profile, plus early access to limited drops and free shipping on all orders.
                         </p>
                     </div>
                 </div>
@@ -266,7 +253,7 @@ const Membership = () => {
                         { label: 'Monthly Store Credit', std: false, vip: '$15.00' },
                         { label: 'Ava / Credit Builder Friendly', std: false, vip: true },
                         { label: 'Free Shipping', std: false, vip: true },
-                        { label: 'Giveaway Tickets', std: false, vip: '15' }
+                        { label: 'Giveaway Tickets', std: false, vip: '—' }
                     ].map((row, i) => (
                         <React.Fragment key={i}>
                             <div className="p-6 border-b border-r border-white/10 text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center bg-white/[0.01]">
@@ -288,7 +275,7 @@ const Membership = () => {
 
                 <div className="mt-16 text-center">
                     <button
-                        onClick={handleSubscribe}
+                        onClick={handleCreateWhopCheckout}
                         className="group relative inline-flex items-center justify-center"
                     >
                         <div className="absolute inset-0 bg-purple-600 blur-xl opacity-20 group-hover:opacity-40 transition-opacity" />
@@ -296,68 +283,9 @@ const Membership = () => {
                             Upgrade to VIP
                         </span>
                     </button>
-                    <p className="mt-6 text-[10px] text-gray-500 uppercase tracking-widest font-medium">Cancel anytime. Activated after payment confirmation.</p>
+                    <p className="mt-6 text-[10px] text-gray-500 uppercase tracking-widest font-medium">Cancel anytime. Activated after Whop payment confirmation.</p>
                 </div>
             </div>
-
-            {/* Payment Modal */}
-            {showPayment && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={() => setShowPayment(false)}></div>
-                    <div className="relative bg-brand-dark border border-white/10 w-full max-w-md rounded-3xl overflow-hidden animate-in fade-in zoom-in duration-300">
-                        <div className="p-8">
-                            <div className="flex items-center justify-between mb-8">
-                                <h3 className="text-xl font-black uppercase">VIP Upgrade</h3>
-                                <button onClick={() => setShowPayment(false)} className="text-gray-500 hover:text-white transition" title="Close Payment Portal">
-                                    <X size={24} />
-                                </button>
-                            </div>
-
-                            <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-6 mb-8 text-center">
-                                <span className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">Premium Membership</span>
-                                <div className="text-4xl font-black text-white">$15.00</div>
-                                <div className="text-xs text-gray-400 mt-2 uppercase">Per Month</div>
-                            </div>
-
-                            <div className="space-y-4 mb-8">
-                                <div className="flex items-center gap-3 text-sm text-gray-300">
-                                    <Check className="w-4 h-4 text-purple-400" />
-                                    <span>$15 Monthly Store Credit</span>
-                                </div>
-                                <div className="flex items-center gap-3 text-sm text-gray-300">
-                                    <Check className="w-4 h-4 text-purple-400" />
-                                    <span>Auto-enter every giveaway with 15 tickets</span>
-                                </div>
-                                <div className="flex items-center gap-3 text-sm text-gray-300">
-                                    <Check className="w-4 h-4 text-purple-400" />
-                                    <span>Early Access to Drops</span>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <button
-                                    onClick={handleEmailMembershipRequest}
-                                    className="w-full bg-purple-600 text-white py-4 rounded-xl font-black uppercase tracking-widest hover:bg-purple-500 transition flex items-center justify-center gap-2 text-sm shadow-lg shadow-purple-500/20"
-                                >
-                                    <Mail className="w-5 h-5" />
-                                    Request Payment Instructions
-                                </button>
-                                <a
-                                    href={`mailto:${MEMBERSHIP_SUPPORT_EMAIL}`}
-                                    className="block text-center text-xs text-gray-400 underline decoration-white/20 underline-offset-4 hover:text-white transition"
-                                >
-                                    {MEMBERSHIP_SUPPORT_EMAIL}
-                                </a>
-                            </div>
-
-                            <p className="text-[10px] text-gray-500 text-center mt-8 uppercase tracking-widest leading-relaxed">
-                                Pay by card, Cash App, or crypto — confirmed by email.<br />
-                                Your VIP status is activated manually after payment.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

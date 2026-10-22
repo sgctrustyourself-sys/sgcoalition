@@ -100,7 +100,7 @@ export const BRAND_SAME_AS_LINKS: readonly string[] = [
     'https://www.instagram.com/sgcoalition',
     'https://twitter.com/sgcoalition',
     'https://www.youtube.com/@sgctrustyourself',
-    'https://www.reddit.com/r/SGCoalition/',
+    'https://whop.com/sgcoalition-five/',
     'https://discord.gg/bByqsC5f5V',
 ];
 

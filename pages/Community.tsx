@@ -60,13 +60,13 @@ const ChannelCard = ({ href, label, icon, tint }: ChannelCardProps) => (
   </a>
 );
 
-// BRAND_SAME_AS_LINKS index map: 0 Instagram, 1 X/Twitter, 2 YouTube, 3 Reddit.
+// BRAND_SAME_AS_LINKS index map: 0 Instagram, 1 X/Twitter, 2 YouTube, 3 Whop store.
 // Discord (index 4) gets its own dedicated section + invite CTA further up.
 const CHANNELS = [
   { href: BRAND_SAME_AS_LINKS[0], label: 'Instagram', icon: <Instagram className="w-5 h-5 text-pink-400" />, tint: 'text-pink-400' },
   { href: BRAND_SAME_AS_LINKS[1], label: 'X / Twitter', icon: <Twitter className="w-5 h-5 text-sky-400" />, tint: 'text-sky-400' },
   { href: BRAND_SAME_AS_LINKS[2], label: 'YouTube', icon: <Youtube className="w-5 h-5 text-red-400" />, tint: 'text-red-400' },
-  { href: BRAND_SAME_AS_LINKS[3], label: 'Reddit', icon: <MessageCircle className="w-5 h-5 text-orange-400" />, tint: 'text-orange-400' },
+  { href: BRAND_SAME_AS_LINKS[3], label: 'Whop', icon: <ShoppingBag className="w-5 h-5 text-blue-400" />, tint: 'text-blue-400' },
 ];
 
 const Community = () => (
