@@ -861,9 +861,14 @@ export const INITIAL_PRODUCTS: Product[] = [
     "id": "Coalition_Parts_Wallet_4_4",
     "name": "Coalition 'Parts' Wallet 4/4",
     "price": 60,
+    // White-pointed copies of the original Imgur photos. The raw uploads carry a
+    // grey ~#eee backdrop, which was the one tile in the run that did not match
+    // 1/4, 2/4 and 3/4 (all pure white). Same photographs, backdrop lifted to
+    // white. utils/localImageAssets.ts maps the two Imgur IDs onto these same
+    // files, so a stale Supabase row carrying the old URLs resolves here too.
     "images": [
-      "https://i.imgur.com/RqcU0I9.jpg",
-      "https://i.imgur.com/Lnimi33.jpg"
+      "/images/parts-wallet-4-4-front-white.jpg",
+      "/images/parts-wallet-4-4-back-white.jpg"
     ],
     "description": "Fourth and final piece of the Coalition 'Parts' limited wallet run. Hand-finished with industrial detailing, raw-edge construction, and the Coalition mark on a numbered carry. The closing piece — once sold, the full four-part assembly is gone forever.",
     "category": "wallet",

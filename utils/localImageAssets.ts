@@ -98,8 +98,14 @@ export const PRODUCT_IMAGE_URLS = {
         back: 'https://i.imgur.com/0OMUUgV.jpg',
     },
     partsWallet4_4: {
-        front: 'https://i.imgur.com/RqcU0I9.jpg',
-        back: 'https://i.imgur.com/Lnimi33.jpg',
+        // The raw Imgur uploads for 4/4 were shot against a flat grey (~#eee)
+        // backdrop, while every other wallet in the run is on pure white. Rendered
+        // with bg-white + object-contain that grey square was the one tile in the
+        // shop grid that read as off. These are the same photographs with the
+        // backdrop white-pointed (shadow preserved) — same file on the PDP, the
+        // grid, the cart and the share card.
+        front: '/images/parts-wallet-4-4-front-white.jpg',
+        back: '/images/parts-wallet-4-4-back-white.jpg',
     },
 } as const;
 
@@ -213,7 +219,9 @@ const REMOTE_TO_LOCAL_IMAGE_URLS: Record<string, string> = {
     'https://i.imgur.com/83jXZKg.jpg': PRODUCT_IMAGE_URLS.partsWallet3_4.front,
     'https://imgur.com/0OMUUgV': PRODUCT_IMAGE_URLS.partsWallet3_4.back,
     'https://i.imgur.com/0OMUUgV.jpg': PRODUCT_IMAGE_URLS.partsWallet3_4.back,
-    // Parts Wallet 4/4
+    // Parts Wallet 4/4 — unlike 1/4–3/4, these do NOT resolve back to their own
+    // Imgur IDs: the live Supabase row still points at them, so the map is what
+    // actually rewrites the stale row to the white-pointed copies at fetch time.
     'https://imgur.com/RqcU0I9': PRODUCT_IMAGE_URLS.partsWallet4_4.front,
     'https://i.imgur.com/RqcU0I9.jpg': PRODUCT_IMAGE_URLS.partsWallet4_4.front,
     'https://imgur.com/Lnimi33': PRODUCT_IMAGE_URLS.partsWallet4_4.back,
