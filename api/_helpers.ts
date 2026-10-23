@@ -373,6 +373,20 @@ export interface RateLimitResult {
     retryAfterSeconds: number;
 }
 
+export interface RateLimitOptions {
+    /**
+     * Count GET/HEAD against the budget too. FALSE by default, because the
+     * limiter's contract is to gate mutating handlers and every read route
+     * inherits that exemption.
+     *
+     * Opt in for a READ that is not cheap: an admin read that reaches Supabase
+     * with the service-role key costs a query per call, and `sgcoin-allocation`
+     * scans the orders table. Routing it through the dispatcher alone would
+     * leave it unmetered, which reads as "rate-limited" without being true.
+     */
+    includeReadMethods?: boolean;
+}
+
 /**
  * Gate a mutating handler. Returns `allowed: true` if the request
  * is allowed, `false` if the caller has exceeded their per-minute
@@ -384,7 +398,8 @@ export interface RateLimitResult {
  *
  * Skips GET/HEAD (read-only) and when disabled via env. The skip
  * is silent -- we do NOT set rate-limit headers on GET so a
- * polite client doesn't waste budget-checking reads.
+ * polite client doesn't waste budget-checking reads. A route that
+ * needs its reads counted opts in with `includeReadMethods`.
  */
 export function withRateLimit(
     slug: string,
@@ -393,8 +408,10 @@ export function withRateLimit(
         setHeader: (key: string, value: string) => void;
         status: (code: number) => { json: (body: unknown) => void };
     },
+    options: RateLimitOptions = {},
 ): RateLimitResult {
-    if ((isRateLimitDisabled() && !forceRateLimitEnabled) || isReadMethod(req.method)) {
+    const skipsReads = !options.includeReadMethods && isReadMethod(req.method);
+    if ((isRateLimitDisabled() && !forceRateLimitEnabled) || skipsReads) {
         const limit = getLimitForSlug(slug);
         return { allowed: true, limit, remaining: limit, resetAt: 0, retryAfterSeconds: 0 };
     }

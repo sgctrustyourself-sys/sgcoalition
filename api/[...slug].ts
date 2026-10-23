@@ -42,11 +42,22 @@ const handlers: Record<string, Loader> = {
     'place-order-credits': () => import('./_handlers/place-order-credits.js'),
     'send-email': () => import('./_handlers/send-email.js'),
     'send-order-confirmation': () => import('./_handlers/send-order-confirmation.js'),
+    'sgcoin-allocation': () => import('./_handlers/sgcoin-allocation.js'),
+    'sgcoin-v2-rate': () => import('./_handlers/sgcoin-v2-rate.js'),
     'subscribe-drop': () => import('./_handlers/subscribe-drop.js'),
     'update-piece-metadata': () => import('./_handlers/update-piece-metadata.js'),
     'unsubscribe': () => import('./_handlers/unsubscribe.js'),
     'verify-subscription': () => import('./_handlers/verify-subscription.js'),
 };
+
+// Read-only endpoints that still need a budget. withRateLimit exempts GET by
+// design (it gates mutations), but these are admin reads that query Supabase
+// with the service-role key, and sgcoin-allocation scans the orders table. The
+// exemption would leave them unmetered while the docs call them rate-limited.
+const READ_LIMITED_SLUGS = new Set([
+    'sgcoin-allocation',
+    'sgcoin-v2-rate',
+]);
 
 export default async function handler(req: any, res: any) {
     // Vercel's catch-all `[...slug]` populates `req.query.slug` as an array
@@ -95,7 +106,9 @@ export default async function handler(req: any, res: any) {
     // Enforce the per-slug budget before the handler loads. withRateLimit
     // writes the 429 itself, so a limited request returns here and never
     // reaches the handler.
-    const rate = withRateLimit(slug, req, res);
+    const rate = withRateLimit(slug, req, res, {
+        includeReadMethods: READ_LIMITED_SLUGS.has(slug),
+    });
     if (!rate.allowed) return;
 
     const mod = await loader();

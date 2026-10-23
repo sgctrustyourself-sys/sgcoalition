@@ -383,6 +383,8 @@ describe('source invariants: admin authorization has one gate', () => {
         'admin-products': { policy: 'shared', why: 'product CRUD' },
         'payment-settings': { policy: 'shared', why: 'payment flags (admin branch; GET is public)' },
         'product-drift': { policy: 'shared', why: 'read-only catalog drift report (seed vs products table)' },
+        'sgcoin-allocation': { policy: 'shared', why: 'reads total revenue and order counts from orders with the service-role key' },
+        'sgcoin-v2-rate': { policy: 'shared', why: 'internal V2→USD rate shown in the admin SGCoin Distribution tab' },
         'update-piece-metadata': { policy: 'shared', why: 'numbered-piece metadata' },
         'complete-order': { policy: 'union', why: 'order list/update; the dashboard login is a Supabase session' },
         'create-whop-checkout-link': { policy: 'shared', why: 'creates a Whop checkout link via the Whop API' },
@@ -501,10 +503,11 @@ describe('source invariants: admin authorization has one gate', () => {
         for (const name of Object.keys(GATED)) {
             if (name in NON_ADMIN_GATED || name in PREDICATE_USE) continue;
             const src = read(`api/_handlers/${name}.ts`);
-            continue;
             // An inline credential check is the shape that let git-operations
             // ship with no gate at all: a check somewhere inside a body, which a
-            // new action can simply not call.
+            // new action can simply not call. (This assertion used to sit after
+            // a bare `continue`, so it never ran — the vacuous test is why this
+            // file's first paragraph exists.)
             expect(src, `${name} must not call the policy predicates directly`)
                 .not.toMatch(/\b(isAdminPolicy|isSharedSecretAdmin|isSupabaseAdminUser)\s*\(/);
         }
@@ -572,5 +575,131 @@ describe('source invariants: admin authorization has one gate', () => {
         const src = read('api/_handlers/send-email.ts');
         expect(src).toMatch(/isSharedSecretAdmin/);
         expect(src).toMatch(/403/);
+    });
+
+    // -----------------------------------------------------------------------
+    // The two invariants below were added after api/admin/*.ts shipped.
+    //
+    // Those files carried this as their entire authorization step:
+    //
+    //     if (token.length !== 43 && token.length !== 11) return 401
+    //
+    // Any 43-character string was an admin credential, and sgcoin-allocation
+    // read total revenue with the service-role key. Both properties are
+    // asserted here over the whole api/ tree, because the first version of this
+    // suite only scanned api/_handlers — so a file in a SUBDIRECTORY was
+    // outside every check it makes.
+    // -----------------------------------------------------------------------
+
+    /** Every .ts file under api/, repo-relative and forward-slashed. */
+    const apiSourceFiles = (): string[] => {
+        const apiRoot = path.join(__dirname, '..', 'api');
+        const out: string[] = [];
+        const walk = (dir: string) => {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                const absolute = path.join(dir, entry.name);
+                if (entry.isDirectory()) walk(absolute);
+                else if (entry.name.endsWith('.ts')) {
+                    out.push(path.relative(path.join(__dirname, '..'), absolute).replaceAll(path.sep, '/'));
+                }
+            }
+        };
+        walk(apiRoot);
+        return out.sort();
+    };
+
+    /**
+     * Comments are stripped before the pattern assertions, so prose describing
+     * the bug cannot trip them. The `(^|[^:])` guard keeps `https://` intact.
+     */
+    const withoutComments = (src: string): string =>
+        src
+            .replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, ''))
+            .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+
+    /**
+     * Files allowed to read the inbound authorization header, and the policy
+     * each one implements. The set is derived from the source, so a new reader
+     * fails this suite until it is classified here rather than remembered.
+     */
+    const AUTH_HEADER_READERS: Record<string, string> = {
+        'api/_adminAuth.ts': 'the one admin credential owner',
+        'api/_handlers/place-order-credits.ts':
+            'user-scoped Supabase JWT (verifySupabaseToken), deliberately not an admin credential',
+    };
+
+    it('only classified modules read the inbound authorization header', () => {
+        const readers = apiSourceFiles().filter((file) =>
+            /\breq\w*\s*\??\.\s*headers\s*(\[|\??\.)\s*['"]?authorization/i.test(withoutComments(read(file))),
+        );
+
+        const unclassified = readers.filter((file) => !(file in AUTH_HEADER_READERS));
+        expect(
+            unclassified,
+            `Unclassified authorization-header reader(s): ${unclassified.join(', ')}. ` +
+            'Use withAdminAuth from api/_adminAuth.ts, or classify the reader with its policy.',
+        ).toEqual([]);
+
+        const stale = Object.keys(AUTH_HEADER_READERS).filter((file) => !readers.includes(file));
+        expect(stale, `Classified readers that no longer read the header: ${stale.join(', ')}`).toEqual([]);
+    });
+
+    it('no code decides authorization from a bearer token length', () => {
+        // The exact shape, in any spacing: `token.length !== 43`.
+        // `\b` after the base name keeps `tokenRefreshIds.length` out: that is a
+        // batch of row ids, not a credential. Only a value NAMED token/bearer/
+        // authHeader/credential is in scope.
+        const LENGTH_AUTH = /\b(token|bearer|authHeader|credential)\b[A-Za-z0-9_]*\.length\s*(===|!==|==|!=|<=|>=|<|>)/i;
+
+        for (const file of apiSourceFiles()) {
+            if (file === 'api/_adminAuth.ts') continue;
+            const src = withoutComments(read(file));
+            expect(
+                src,
+                `${file} must compare the credential itself, not its length — ` +
+                'a length check accepts every token of that length.',
+            ).not.toMatch(LENGTH_AUTH);
+        }
+
+        // Anti-vacuity: the pattern really does catch the shape it forbids, so
+        // a typo in the regex cannot turn this test into a no-op.
+        expect("if (token.length !== 43)").toMatch(LENGTH_AUTH);
+    });
+
+    /**
+     * Vercel turns EVERY .ts file under api/ into its own function. Only the
+     * slugs in api/[...slug].ts pass through the route table — which is the
+     * only place withRateLimit runs. So a handler anywhere else is unlimited,
+     * unrouted by our own contract, and untested by every assertion above.
+     */
+    const STANDALONE_FUNCTIONS: Record<string, string> = {
+        'api/shippo-webhook': 'Shippo delivery receipts; signature-verified over the raw body',
+        'api/stripe-webhook': 'Stripe deliveries; signature-verified over the raw body',
+        'api/whop-webhook': 'Whop deliveries; signature-verified over the raw body',
+    };
+
+    it('every serverless function under api/ is routed, or a stated standalone', () => {
+        const functions = apiSourceFiles()
+            // `_`-prefixed files and directories are modules, not endpoints:
+            // api/_adminAuth.ts, api/_helpers.ts, and everything in _handlers/.
+            .filter((file) => !file.split('/').slice(1).some((segment) => segment.startsWith('_')))
+            .filter((file) => file !== 'api/[...slug].ts')
+            .map((file) => file.replace(/\.ts$/, ''));
+
+        const stranded = functions.filter((file) => !(file in STANDALONE_FUNCTIONS));
+        expect(
+            stranded,
+            `Unrouted serverless function(s): ${stranded.join(', ')}. ` +
+            'A file under api/ becomes its own endpoint, outside withRateLimit — ' +
+            'move it to api/_handlers and register the slug, or state why it stands alone.',
+        ).toEqual([]);
+
+        const stale = Object.keys(STANDALONE_FUNCTIONS).filter((file) => !functions.includes(file));
+        expect(stale, `Stated standalone functions that no longer exist: ${stale.join(', ')}`).toEqual([]);
+
+        // Anti-vacuity: the walk found the three webhook functions and the
+        // handler directory, so neither filter silently swallowed the tree.
+        expect(functions.length).toBeGreaterThanOrEqual(3);
+        expect(apiSourceFiles().some((file) => file.startsWith('api/_handlers/'))).toBe(true);
     });
 });
