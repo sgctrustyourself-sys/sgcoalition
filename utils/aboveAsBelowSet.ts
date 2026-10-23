@@ -1,14 +1,14 @@
+import { PRODUCT_IDS } from '../constants/productIds.js';
+
 // Auto-applied cart discount for the Above as Below tee + shorts combination.
 // Replaces the retired `prod_set_above_as_below` standalone bundle SKU so a
 // $30 saving kicks in whenever a shopper buys both pieces together. Lives in
 // `utils/` (not under `api/_handlers/`) so the same source-of-truth is shared
 // by the React UI (Checkout / Cart / CartDrawer) and the Vercel Lambda
-// handlers (paypal-order, complete-order). Keeping the math on both sides of
-// the network prevents the storefront total from drifting away from the
-// amount PayPal / Stripe actually captures.
+// handler (complete-order). Keeping the math on both sides of the network
+// prevents the storefront total from drifting away from the amount Stripe
+// actually captures.
 
-export const ABOVE_AS_BELOW_TEE_ID = 'prod_tee_above_as_below';
-export const ABOVE_AS_BELOW_SHORTS_ID = 'prod_shorts_above_as_below';
 // One-shot auto-applied bonus for the Above-as-Below tee+shorts set. Caps at
 // $30 per cart — extra quantities of either piece do not stack additional
 // bonuses, matching the spirit of the original $120 bundle SKU we replaced.
@@ -38,8 +38,8 @@ export function calculateAboveAsBelowSetBonusCents(items: SetBonusItemInput[] | 
     let hasShorts = false;
     for (const item of items) {
         const id = typeof item === 'string' ? item : extractProductId(item as SetBonusItemInput);
-        if (id === ABOVE_AS_BELOW_TEE_ID) hasTee = true;
-        else if (id === ABOVE_AS_BELOW_SHORTS_ID) hasShorts = true;
+        if (id === PRODUCT_IDS.ABOVE_AS_BELOW_TEE) hasTee = true;
+        else if (id === PRODUCT_IDS.ABOVE_AS_BELOW_SHORTS) hasShorts = true;
         if (hasTee && hasShorts) break;
     }
     return hasTee && hasShorts ? ABOVE_AS_BELOW_SET_BONUS_CENTS : 0;

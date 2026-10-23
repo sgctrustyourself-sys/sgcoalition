@@ -22,6 +22,8 @@ import {
     getRevenueOverTime
 } from '../../utils/analyticsEngine';
 import { getGiveawayTicketCount } from '../../utils/giveawayUtils';
+import PaymentStatusCard from './PaymentStatusCard';
+import PaymentOptionsCard from './PaymentOptionsCard';
 import {
     LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area
 } from 'recharts';
@@ -78,6 +80,12 @@ const EcosystemCommandCenter: React.FC = () => {
                     Live Sync Active
                 </div>
             </div>
+
+            {/* Payment Processing Health — Stripe key + enabled methods from /api/health */}
+            <PaymentStatusCard />
+
+            {/* Payment Options — live on/off toggles for what customers see at checkout */}
+            <PaymentOptionsCard />
 
             {/* Top Level Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

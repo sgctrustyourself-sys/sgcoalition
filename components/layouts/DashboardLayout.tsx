@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import {
     LayoutDashboard,
     Shield,
@@ -24,11 +24,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     const location = useLocation();
     const { user } = useApp();
 
-    const sidebarItems = [
+    const sidebarItems: { icon: React.ReactElement; label: string; path: string; isExternal?: boolean }[] = [
         { icon: <LayoutDashboard size={20} />, label: 'Gallery', path: '/sgminiwizards/dashboard' },
         { icon: <Layers size={20} />, label: 'V1 Legacy', path: '/migrate' },
-        { icon: <Globe size={20} />, label: 'WAX Relics', path: 'https://neftyblocks.com/collection/sgminiwizard', isExternal: true },
-        { icon: <Shield size={20} />, label: 'Quests', path: '/sgminiwizards/quests' },
         { icon: <Zap size={20} />, label: 'Treasury', path: '/sgminiwizards/treasury' },
     ];
 

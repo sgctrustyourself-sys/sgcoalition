@@ -20,7 +20,7 @@ export const ProductPage: React.FC = () => {
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
   useEffect(() => {
-    if (product && product.sizes.length > 0) {
+    if (product && product.sizes && product.sizes.length > 0) {
         setSelectedSize(product.sizes[0]);
     }
   }, [product]);
@@ -106,7 +106,7 @@ export const ProductPage: React.FC = () => {
              <div className="mb-8">
                  <h3 className="text-sm font-medium text-gray-900 mb-4">Select Size</h3>
                  <div className="flex flex-wrap gap-3">
-                     {product.sizes.map(size => (
+                     {(product.sizes ?? []).map(size => (
                          <button
                             key={size}
                             onClick={() => setSelectedSize(size)}

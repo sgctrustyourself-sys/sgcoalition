@@ -1,98 +1,35 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, CreditCard, ShoppingBag, Check, Star, Zap, X, Loader, Sparkles as SparklesIcon, Ticket } from 'lucide-react';
+import { Shield, CreditCard, ShoppingBag, Check, Star, Zap, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 
+const API_BASE = import.meta.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app';
+
 const Membership = () => {
     const { addToast } = useToast();
-    const { user } = useApp();
 
-    const [isLoading, setIsLoading] = React.useState(false);
-    const [showPayment, setShowPayment] = React.useState(false);
-    const [paymentError, setPaymentError] = React.useState<string | null>(null);
+    const [isCreatingSession, setIsCreatingSession] = React.useState(false);
 
-    const handleSubscribe = () => {
-        setShowPayment(true);
-    };
-
-    const initializePayPal = async () => {
-        if (!window.paypal) {
-            setPaymentError('PayPal SDK not loaded. Please refresh.');
-            return;
-        }
-
+    const handleCreateWhopCheckout = async () => {
+        setIsCreatingSession(true);
         try {
-            setIsLoading(true);
-            const container = document.getElementById('paypal-button-container-membership');
-            if (container) {
-                container.innerHTML = '';
+            const res = await fetch(`${API_BASE}/api/create-whop-checkout-link`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ productId: 'coalition-vip-membership' }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.whopCheckoutUrl) {
+                throw new Error(data.error || 'Failed to create Whop checkout link');
             }
-
-            window.paypal.Buttons({
-                createOrder: (data: any, actions: any) => {
-                    return actions.order.create({
-                        purchase_units: [{
-                            amount: {
-                                currency_code: 'USD',
-                                value: '15.00',
-                                breakdown: {
-                                    item_total: { currency_code: 'USD', value: '15.00' }
-                                }
-                            },
-                            description: 'Coalition VIP Membership (1 Month)',
-                            items: [{
-                                name: 'Coalition VIP Membership',
-                                quantity: '1',
-                                unit_amount: { currency_code: 'USD', value: '15.00' },
-                                category: 'DIGITAL_GOODS'
-                            }]
-                        }]
-                    });
-                },
-                onApprove: async (data: any, actions: any) => {
-                    try {
-                        const order = await actions.order.capture();
-                        const transactionId = order.purchase_units[0].payments.captures[0].id;
-
-                        // Notify admin and update user status
-                        await fetch('/api/notify-membership', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                orderId: transactionId,
-                                userId: user?.uid,
-                                userEmail: user?.email,
-                                amount: '15.00',
-                                tier: 'VIP'
-                            })
-                        });
-
-                        addToast('Welcome to the Elite Circle! Your VIP status is being activated.', 'success');
-                        setShowPayment(false);
-                    } catch (err: any) {
-                        console.error('Membership activation error:', err);
-                        setPaymentError('Payment succeeded but membership activation failed. Please contact support.');
-                    }
-                },
-                onError: (err: any) => {
-                    console.error('PayPal error:', err);
-                    setPaymentError('Payment failed. Please try again.');
-                }
-            }).render('#paypal-button-container-membership');
-            setIsLoading(false);
+            // Redirect shopper to Whop Checkout to complete payment.
+            window.location.href = data.whopCheckoutUrl;
         } catch (err: any) {
-            console.error('PayPal init error:', err);
-            setPaymentError('Failed to initialize PayPal.');
-            setIsLoading(false);
+            setIsCreatingSession(false);
+            addToast(err.message || 'Could not start checkout. Please try again.', 'error');
         }
     };
-
-    React.useEffect(() => {
-        if (showPayment) {
-            initializePayPal();
-        }
-    }, [showPayment]);
 
 
     return (
@@ -120,11 +57,11 @@ const Membership = () => {
 
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
                         <button
-                            onClick={handleSubscribe}
-                            disabled={isLoading}
+                            onClick={handleCreateWhopCheckout}
+                            disabled={isCreatingSession}
                             className="w-full sm:w-auto px-10 py-5 bg-white text-black font-bold text-lg uppercase tracking-widest hover:bg-gray-200 hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {isLoading ? 'Loading...' : 'Join for $15/mo'}
+                            {isCreatingSession ? 'Creating checkout…' : 'Join for $15/mo'}
                         </button>
                         <Link
                             to="/shop"
@@ -132,15 +69,6 @@ const Membership = () => {
                         >
                             View Collection
                         </Link>
-                    </div>
-                    <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-                        <span className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-purple-200">
-                            <Ticket className="h-3.5 w-3.5" />
-                            15 giveaway tickets
-                        </span>
-                        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-300">
-                            Auto-enter every active giveaway
-                        </span>
                     </div>
                 </div>
             </div>
@@ -175,9 +103,9 @@ const Membership = () => {
                         <div className="bg-green-500/20 w-16 h-16 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform text-green-400">
                             <Zap className="w-8 h-8" />
                         </div>
-                        <h3 className="font-display text-2xl font-bold uppercase mb-4">VIP Status + Giveaways</h3>
+                        <h3 className="font-display text-2xl font-bold uppercase mb-4">VIP Status</h3>
                         <p className="text-gray-400 leading-relaxed">
-                            Unlock the exclusive <span className="text-white font-bold">VIP Badge</span> on your profile. Auto-enter every giveaway with 15 tickets, plus early access to limited drops and free shipping on all orders.
+                            Unlock the exclusive <span className="text-white font-bold">VIP Badge</span> on your profile, plus early access to limited drops and free shipping on all orders.
                         </p>
                     </div>
                 </div>
@@ -325,7 +253,7 @@ const Membership = () => {
                         { label: 'Monthly Store Credit', std: false, vip: '$15.00' },
                         { label: 'Ava / Credit Builder Friendly', std: false, vip: true },
                         { label: 'Free Shipping', std: false, vip: true },
-                        { label: 'Giveaway Tickets', std: false, vip: '15' }
+                        { label: 'Giveaway Tickets', std: false, vip: '—' }
                     ].map((row, i) => (
                         <React.Fragment key={i}>
                             <div className="p-6 border-b border-r border-white/10 text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center bg-white/[0.01]">
@@ -347,7 +275,7 @@ const Membership = () => {
 
                 <div className="mt-16 text-center">
                     <button
-                        onClick={handleSubscribe}
+                        onClick={handleCreateWhopCheckout}
                         className="group relative inline-flex items-center justify-center"
                     >
                         <div className="absolute inset-0 bg-purple-600 blur-xl opacity-20 group-hover:opacity-40 transition-opacity" />
@@ -355,69 +283,9 @@ const Membership = () => {
                             Upgrade to VIP
                         </span>
                     </button>
-                    <p className="mt-6 text-[10px] text-gray-500 uppercase tracking-widest font-medium">Cancel anytime. Secure payment via PayPal.</p>
+                    <p className="mt-6 text-[10px] text-gray-500 uppercase tracking-widest font-medium">Cancel anytime. Activated after Whop payment confirmation.</p>
                 </div>
             </div>
-
-            {/* Payment Modal */}
-            {showPayment && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={() => setShowPayment(false)}></div>
-                    <div className="relative bg-brand-dark border border-white/10 w-full max-w-md rounded-3xl overflow-hidden animate-in fade-in zoom-in duration-300">
-                        <div className="p-8">
-                            <div className="flex items-center justify-between mb-8">
-                                <h3 className="text-xl font-black uppercase">VIP Upgrade</h3>
-                                <button onClick={() => setShowPayment(false)} className="text-gray-500 hover:text-white transition" title="Close Payment Portal">
-                                    <X size={24} />
-                                </button>
-                            </div>
-
-                            <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-6 mb-8 text-center">
-                                <span className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 block">Premium Membership</span>
-                                <div className="text-4xl font-black text-white">$15.00</div>
-                                <div className="text-xs text-gray-400 mt-2 uppercase">Per Month</div>
-                            </div>
-
-                            <div className="space-y-4 mb-8">
-                                <div className="flex items-center gap-3 text-sm text-gray-300">
-                                    <Check className="w-4 h-4 text-purple-400" />
-                                    <span>$15 Monthly Store Credit</span>
-                                </div>
-                                <div className="flex items-center gap-3 text-sm text-gray-300">
-                                    <Check className="w-4 h-4 text-purple-400" />
-                                    <span>Auto-enter every giveaway with 15 tickets</span>
-                                </div>
-                                <div className="flex items-center gap-3 text-sm text-gray-300">
-                                    <Check className="w-4 h-4 text-purple-400" />
-                                    <span>Early Access to Drops</span>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                {paymentError && (
-                                    <div className="bg-red-500/10 border border-red-500/30 p-3 rounded-xl text-red-400 text-xs text-center">
-                                        {paymentError}
-                                    </div>
-                                )}
-
-                                <div id="paypal-button-container-membership" className="min-h-[150px]">
-                                    {isLoading && (
-                                        <div className="flex flex-col items-center justify-center py-10">
-                                            <Loader className="w-8 h-8 text-purple-500 animate-spin mb-4" />
-                                            <span className="text-sm text-gray-400 font-bold uppercase tracking-widest">Initialising PayPal...</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <p className="text-[10px] text-gray-500 text-center mt-8 uppercase tracking-widest leading-relaxed">
-                                Processed via PayPal Secure Checkout.<br />
-                                Cancel or manage subscription in your PayPal account.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

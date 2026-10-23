@@ -5,7 +5,27 @@ import { BlogPost } from '../types';
 import { ArrowBigUp, ArrowBigDown, Loader, Search } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import IdeaSubmission from '../components/IdeaSubmission';
-import { blogFallbackPosts, filterBlogPostsByCategory, normalizeBlogRows } from '../data/blogPosts';
+import Seo from '../components/Seo';
+import { blogFallbackPosts, filterBlogPostsByCategory, mergeBlogPosts, normalizeBlogRows } from '../data/blogPosts';
+import { buildOrganizationJsonLd, buildWebPageJsonLd, structuredDataGraph } from '../utils/structuredData';
+
+// The /blog head. Mirrored by the '/blog' entry in STATIC_ROUTES
+// (scripts/generateSeoArtifacts.mjs), so the prerendered head a scraper reads and
+// the hydrated head a person gets are the same strings, and the share card comes
+// from the route (public/og/blog.jpg) rather than being passed in here.
+const BLOG_PAGE_TITLE = 'Coalition | Community Updates';
+const BLOG_PAGE_DESCRIPTION =
+    'Drop announcements, build notes and community updates from Coalition — written as each release ships.';
+
+// Module scope keeps node identity stable so <Seo>'s head effect runs once.
+const BLOG_PAGE_LD = structuredDataGraph([
+    buildOrganizationJsonLd(),
+    buildWebPageJsonLd({
+        path: '/blog',
+        name: BLOG_PAGE_TITLE,
+        description: BLOG_PAGE_DESCRIPTION,
+    }),
+]);
 
 const safeDate = (dateStr: any) => {
     if (!dateStr) return new Date();
@@ -49,12 +69,11 @@ const Blog = () => {
 
             if (error) throw error;
             const normalizedPosts = normalizeBlogRows(data || []);
-            if (normalizedPosts.length > 0) {
-                setPosts(filterBlogPostsByCategory(normalizedPosts, selectedCategory));
-                return;
-            }
 
-            setPosts(filterBlogPostsByCategory(blogFallbackPosts, selectedCategory));
+            // Merge DB posts with fallback posts so we get the full catalog
+            // DB posts take precedence (same slug wins), fallback fills gaps
+            const mergedPosts = mergeBlogPosts(normalizedPosts, blogFallbackPosts);
+            setPosts(filterBlogPostsByCategory(mergedPosts, selectedCategory));
         } catch (err) {
             console.error('Error fetching posts:', err);
             setPosts(filterBlogPostsByCategory(blogFallbackPosts, selectedCategory));
@@ -72,6 +91,12 @@ const Blog = () => {
 
     return (
         <div className="min-h-screen pt-32 pb-20 bg-black text-white px-4">
+            <Seo
+                title={BLOG_PAGE_TITLE}
+                description={BLOG_PAGE_DESCRIPTION}
+                canonicalPath="/blog"
+                jsonLd={BLOG_PAGE_LD}
+            />
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="text-center mb-16">

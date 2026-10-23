@@ -99,7 +99,7 @@ function htmlPage(message: string, success: boolean): string {
 }
 export default async function handler(req: any, res: any) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
+    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Twilio-Signature');
 
@@ -133,7 +133,7 @@ export default async function handler(req: any, res: any) {
             // last activity. We bump updated_at on each email send in
             // /api/marketing-send so an active recipient stays within the window.
             if (row.updated_at && Date.now() - new Date(row.updated_at).getTime() > 365 * 24 * 3600 * 1000) {
-                sendPage('That unsubscribe link has expired. Visit sgcoalition.xyz to manage preferences, or reply STOP to any future SMS.', false);
+                sendPage('That unsubscribe link has expired. Visit sgcoalition-five.vercel.app to manage preferences, or reply STOP to any future SMS.', false);
                 return;
             }
             if (row.unsubscribed_at) {
@@ -181,7 +181,7 @@ export default async function handler(req: any, res: any) {
             return;
         }
         const proto = typeof req.headers?.['x-forwarded-proto'] === 'string' ? req.headers['x-forwarded-proto'] : 'https';
-        const host = req.headers?.host || (process.env.VITE_APP_URL ? new URL(process.env.VITE_APP_URL).host : 'sgcoalition.xyz');
+        const host = req.headers?.host || (process.env.VITE_APP_URL ? new URL(process.env.VITE_APP_URL).host : 'sgcoalition-five.vercel.app');
         const fullUrl = `${proto}://${host}${req.url || '/api/marketing-optout'}`;
         const isValid = validateTwilioSignature({ authToken, signatureHeader, fullUrl, bodyParams });
         if (!isValid) {

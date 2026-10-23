@@ -1,0 +1,89 @@
+name: Boot Checks — Loader Fade + Injected Article
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  boot-checks:
+    name: Verify loader fade and injected-article removal
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    concurrency:
+      group: boot-checks-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Start preview + run boot checks (loader fade, injected article)
+        # GitHub Actions kills background processes when a step ends, so the
+        # preview server MUST live in the same step as the test that uses it.
+        run: |
+          npm run preview -- --port 4173 --host 127.0.0.1 > /tmp/preview.log 2>&1 &
+          PREVIEW_PID=$!
+          echo "Preview server PID: $PREVIEW_PID"
+
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4173/ 2>/dev/null | grep -q 200; then
+              echo "Preview server ready on port 4173"
+              break
+            fi
+            sleep 1
+          done
+
+          if ! curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4173/ 2>/dev/null | grep -q 200; then
+            echo "Preview server failed to start. Log:"
+            cat /tmp/preview.log
+            kill $PREVIEW_PID 2>/dev/null || true
+            exit 1
+          fi
+
+          # Both checks run before the step fails, so one report names both
+          # regressions. `|| EXIT=$?` rather than a bare `EXIT=$?`: the step shell
+          # runs with `-e`, and a plain assignment after a failing command is never
+          # reached.
+          TEST_EXIT=0
+          ARTICLE_EXIT=0
+          TEST_URL=http://127.0.0.1:4173 npm run test:fade || TEST_EXIT=$?
+
+          # The same preview serves the injected-article check. It drives a post
+          # page (taken from the sitemap this build wrote), because the loader-fade
+          # URL carries no injected node and so cannot see a node that was never
+          # removed.
+          TEST_URL=http://127.0.0.1:4173 npm run test:prerendered-article || ARTICLE_EXIT=$?
+
+          kill $PREVIEW_PID 2>/dev/null || true
+          exit $(( TEST_EXIT + ARTICLE_EXIT ))
+
+      - name: Upload screenshots + result.json
+        # FLAG — the name overstates: this step reports success on every run
+        # while uploading nothing. Checked 2026-09-19: the repo carried 655
+        # artifacts and none of them a screenshots artifact — not from this
+        # workflow, ever — because `if-no-files-found: ignore` swallows an empty
+        # directory. The only writer is scripts/verify-loader-fade.mjs (its
+        # OUT_DIR), and README's "Loader Fade" section promises the artifact
+        # exists on failures too. Left as it is: making it real is a behavior change.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: boot-checks-screenshots
+          path: .loader-fade-screenshots/
+          if-no-files-found: ignore

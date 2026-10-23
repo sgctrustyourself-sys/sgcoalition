@@ -7,7 +7,7 @@
 // - Surfaces no secrets in any branch.
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+import { resendClient } from '../../api/_services.js';
 
 const ALLOWED_SOURCES = new Set(['home', 'shop', 'about', 'footer']);
 
@@ -65,8 +65,8 @@ async function sendConfirmationEmail(opts: {
         );
         return;
     }
-    const resend = new Resend(apiKey);
-    const appUrl = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
+    const resend = resendClient();
+    const appUrl = process.env.VITE_APP_URL || 'sgcoalition-five.vercel.app';
     const unsubscribeUrl = `${appUrl}/api/unsubscribe?token=${encodeURIComponent(opts.unsubscribeToken)}`;
     const subject = 'You are on the Coalition drop list';
     const html = confirmationEmailHtml({ source: opts.source, unsubscribeUrl });
@@ -154,7 +154,7 @@ function escapeHtml(value: string): string {
 
 export default async function handler(req: any, res: any) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
+    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'sgcoalition-five.vercel.app');
     res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 

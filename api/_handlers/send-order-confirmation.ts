@@ -1,6 +1,5 @@
-import { Resend } from 'resend';
+import { resendClient } from '../../api/_services.js';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const DEFAULT_ORDER_NOTIFICATION_EMAIL = 'sgctrustyourself@gmail.com';
 
 function getOrderNotificationRecipients() {
@@ -15,6 +14,7 @@ function getResendFromAddress() {
 }
 
 async function sendResendEmail(payload: any) {
+    const resend = resendClient();
     const result = await resend.emails.send({
         ...payload,
         from: getResendFromAddress(),
@@ -63,7 +63,7 @@ async function sendAdminOrderNotification(order: any) {
         html: `
             <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:28px;background:#ffffff;color:#111827;">
                 <h1 style="margin:0 0 8px;letter-spacing:2px;text-transform:uppercase;">Order Ready To Fulfill</h1>
-                <p style="margin:0 0 24px;color:#6b7280;">A paid order was placed on sgcoalition.xyz. Prepare, pack, and ship the items below.</p>
+                <p style="margin:0 0 24px;color:#6b7280;">A paid order was placed on sgcoalition-five.vercel.app. Prepare, pack, and ship the items below.</p>
                 <div style="background:#111827;color:#ffffff;border-radius:8px;padding:18px;margin-bottom:24px;">
                     <div style="font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#9ca3af;">Fulfillment Summary</div>
                     <div style="font-size:28px;font-weight:bold;margin-top:4px;">${escapeHtml(order.id)}</div>
@@ -99,7 +99,7 @@ async function sendAdminOrderNotification(order: any) {
                     <strong>Next step:</strong> Pull the items, verify size/quantity, pack the order, then update the admin dashboard when it ships.
                 </div>
                 <p style="margin-top:24px;">
-                    <a href="https://sgcoalition.xyz/#/admin" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Admin Dashboard</a>
+                    <a href="https://sgcoalition-five.vercel.app/#/admin" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Admin Dashboard</a>
                 </p>
             </div>
         `,
@@ -109,7 +109,7 @@ async function sendAdminOrderNotification(order: any) {
 export default async function handler(req: any, res: any) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
+    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
     res.setHeader(
         'Access-Control-Allow-Headers',

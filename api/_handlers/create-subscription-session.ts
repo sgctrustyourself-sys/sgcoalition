@@ -1,17 +1,15 @@
-import Stripe from 'stripe';
+import { stripeClient } from '../../api/_services.js';
 
 if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is missing');
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    // apiVersion omitted
-});
+const stripe = stripeClient();
 
 export default async function handler(req: any, res: any) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
+    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
     res.setHeader(
         'Access-Control-Allow-Headers',
@@ -44,7 +42,7 @@ export default async function handler(req: any, res: any) {
             }
         }
         if (!origin) {
-            origin = 'https://sgcoalition.xyz';
+            origin = 'https://sgcoalition-five.vercel.app';
         }
         origin = origin.replace(/\/$/, '');
         if (!origin.startsWith('http://') && !origin.startsWith('https://')) {

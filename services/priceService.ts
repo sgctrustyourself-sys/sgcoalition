@@ -1,7 +1,10 @@
-import { SGCoinData, Trade } from '../types';
+import { SGCoinData, Trade } from '../types.js';
 
 // SGCoin Contract Address (Polygon)
 const SGCOIN_ADDRESS = '0x951806a2581c22C478aC613a675e6c898E2aBe21';
+
+// SGCOIN V2 Contract Address (Polygon) - the token the migration mints.
+const SGCOIN_V2_ADDRESS = '0xd53e417107d0e01bbe74a704bb90fe7a6916ee1e';
 
 // Fallback Token (WMATIC on Polygon) - Used for demo if SGCoin has no trading data yet
 const FALLBACK_ADDRESS = '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270';
@@ -37,8 +40,30 @@ export const fetchSGCoinData = async (): Promise<SGCoinData | null> => {
     }
 };
 
-export const fetchRecentTrades = async (currentPrice: number): Promise<Trade[]> => {
-    // Simulate recent trades for UI vitality
+/**
+ * Live SGCOIN V2 price in USD.
+ *
+ * Unlike fetchSGCoinData this never falls back to another token: a migration
+ * quote valued in a placeholder price would be a lie, so the caller shows the
+ * token amount and says the price is unavailable.
+ */
+export const fetchSGCoinV2Price = async (): Promise<number | null> => {
+    try {
+        const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${SGCOIN_V2_ADDRESS}`);
+        if (!response.ok) return null;
+        const data = await response.json();
+        const pairs: any[] = Array.isArray(data?.pairs) ? data.pairs : [];
+        const pair = pairs.find(p => p?.priceUsd && Number(p.priceUsd) > 0) || null;
+        if (!pair) return null;
+        const price = parseFloat(pair.priceUsd);
+        return Number.isFinite(price) && price > 0 ? price : null;
+    } catch (error) {
+        console.warn('Error fetching SGCOIN V2 price:', error);
+        return null;
+    }
+};
+
+export const fetchRecentTrades = async (currentPrice: number): Promise<Trade[]> => {    // Simulate recent trades for UI vitality
     const trades: Trade[] = [];
     const now = Date.now();
 

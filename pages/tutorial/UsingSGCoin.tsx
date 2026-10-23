@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import TutorialLayout from '../../components/tutorial/TutorialLayout';
 import StepCard from '../../components/tutorial/StepCard';
-import { ShoppingCart, Wallet, Sparkles, CheckCircle, Trophy } from 'lucide-react';
+import { ShoppingCart, CheckCircle, Trophy } from 'lucide-react';
 
 const UsingSGCoin: React.FC = () => {
     const navigate = useNavigate();
@@ -14,33 +14,32 @@ const UsingSGCoin: React.FC = () => {
             prevRoute="/tutorial/quickswap"
         >
             <div className="space-y-6">
-                {/* Introduction */}
-                <div className="bg-gradient-to-r from-green-900/20 to-green-800/20 border-2 border-green-500/50 rounded-xl p-6">
+                {/* Introduction — neutral archival, no celebration framing, no emoji. */}
+                <div className="border border-white/10 bg-white/[0.03] rounded-xl p-6">
                     <div className="flex items-start gap-4">
-                        <Sparkles className="w-10 h-10 text-green-400 flex-shrink-0" />
                         <div>
-                            <h3 className="text-2xl font-bold text-white mb-2">🎉 You're All Set!</h3>
+                            <h3 className="text-2xl font-bold text-white mb-2">You're all set</h3>
                             <p className="text-gray-300">
-                                You now have SGCoin in your wallet and are ready to enjoy 10% savings on all your purchases!
+                                SGCoin is in your wallet. From here on out, every checkout you pay with SGCoin or GMONEY takes 10% off the subtotal automatically.
                             </p>
                         </div>
                     </div>
                 </div>
 
-                {/* Benefits Banner */}
+                {/* Benefits Banner — neutral archival, sentence-case labels. */}
                 <div className="grid md:grid-cols-2 gap-4">
-                    <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+                    <div className="border border-white/10 bg-white/[0.03] rounded-lg p-4">
                         <div className="flex items-center gap-3 mb-2">
-                            <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
-                                <Sparkles className="w-5 h-5 text-white" />
+                            <div className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center">
+                                <span className="text-white font-bold text-sm">10%</span>
                             </div>
-                            <h4 className="font-bold text-white">10% Discount</h4>
+                            <h4 className="font-bold text-white">Automatic discount</h4>
                         </div>
                         <p className="text-sm text-gray-300">
-                            Automatic savings on every purchase when you pay with SGCoin or GMONEY
+                            Every purchase paid in SGCoin or GMONEY takes 10% off the subtotal automatically.
                         </p>
                     </div>
-                    <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+                    <div className="border border-white/10 bg-white/[0.03] rounded-lg p-4">
                         <div className="flex items-center gap-3 mb-2">
                             <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
                                 <CheckCircle className="w-5 h-5 text-white" />
@@ -76,13 +75,12 @@ const UsingSGCoin: React.FC = () => {
                     <StepCard stepNumber={3} title="Select Crypto Payment">
                         <div className="space-y-3">
                             <p>In the payment method section, select <strong>"Pay with SGCoin / GMONEY"</strong></p>
-                            <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+                            <div className="border border-white/10 bg-white/[0.03] rounded-lg p-4">
                                 <div className="flex items-start gap-2">
-                                    <Sparkles className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
                                     <div>
-                                        <p className="text-green-300 text-sm font-bold mb-1">10% Discount Applied!</p>
-                                        <p className="text-green-200 text-sm">
-                                            You'll see the discount automatically applied to your total when you select crypto payment.
+                                        <p className="text-white text-sm font-bold mb-1">10% applied at checkout</p>
+                                        <p className="text-gray-300 text-sm">
+                                            The discount is applied to the subtotal automatically when you select crypto payment.
                                         </p>
                                     </div>
                                 </div>
@@ -125,13 +123,13 @@ const UsingSGCoin: React.FC = () => {
                     </StepCard>
 
                     <StepCard stepNumber={7} title="Order Confirmed!">
-                        <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+                        <div className="border border-white/10 bg-white/[0.03] rounded-lg p-4">
                             <div className="flex items-start gap-3">
-                                <CheckCircle className="w-6 h-6 text-green-400 flex-shrink-0" />
+                                <CheckCircle className="w-6 h-6 text-gray-300 flex-shrink-0" />
                                 <div>
-                                    <p className="text-green-300 font-bold mb-2">Payment Successful!</p>
-                                    <p className="text-green-200 text-sm">
-                                        Your order is confirmed and will be processed immediately. You'll receive a confirmation email with your order details.
+                                    <p className="text-white font-bold mb-2">Payment confirmed</p>
+                                    <p className="text-gray-300 text-sm">
+                                        Your order is confirmed and goes into processing immediately. A confirmation email with the order details is on its way.
                                     </p>
                                 </div>
                             </div>
@@ -175,9 +173,9 @@ const UsingSGCoin: React.FC = () => {
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <button
                             onClick={() => navigate('/shop')}
-                            className="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition font-bold shadow-[0_0_20px_rgba(34,197,94,0.3)]"
+                            className="px-8 py-3 bg-white text-black rounded-lg hover:bg-gray-200 transition font-bold"
                         >
-                            Start Shopping
+                            Start shopping
                         </button>
                         <button
                             onClick={() => navigate('/tutorial/welcome')}
@@ -195,7 +193,7 @@ const UsingSGCoin: React.FC = () => {
                         If you have any questions or run into issues, we're here to help!
                     </p>
                     <a
-                        href="mailto:support@sgcoalition.xyz"
+                        href="mailto:sgctrustyourself@gmail.com"
                         className="inline-flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-bold"
                     >
                         Contact Support

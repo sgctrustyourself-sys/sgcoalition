@@ -20,3 +20,7 @@ export function buildGitOperationsUrl(
 
     return `${buildApiUrl('/api/git-operations')}?${searchParams.toString()}`;
 }
+
+// Admin session state is NOT here — see services/adminSession.ts. This module
+// only knows how to address the API, so a session concern cannot re-grow a
+// second home (it had six readers before).

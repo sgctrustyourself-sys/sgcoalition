@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
-import { createRefundException } from '../../services/refunds';
+import { processRefund } from '../../services/refunds';
 
 interface RefundExceptionModalProps {
     orderId: string;
@@ -41,13 +41,7 @@ const RefundExceptionModal: React.FC<RefundExceptionModalProps> = ({
         setError(null);
 
         try {
-            await createRefundException(
-                orderId,
-                adminWalletAddress,
-                adminWalletAddress,
-                reason,
-                refundAmount
-            );
+            await processRefund(orderId, refundAmount, reason, adminWalletAddress);
             onSuccess();
             onClose();
         } catch (err: any) {
@@ -151,7 +145,7 @@ const RefundExceptionModal: React.FC<RefundExceptionModalProps> = ({
                             disabled={isSubmitting}
                             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {isSubmitting ? 'Creating...' : 'Create Exception'}
+                            {isSubmitting ? 'Issuing refund...' : 'Issue refund'}
                         </button>
                     </div>
                 </form>

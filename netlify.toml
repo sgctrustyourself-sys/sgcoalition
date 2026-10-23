@@ -1,0 +1,22 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+# Mirrors the "headers" block in vercel.json.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(self)"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://consent.cookiebot.com https://consentcdn.cookiebot.com https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src 'self' https://consentcdn.cookiebot.com https://js.stripe.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.dexscreener.com https://polygon-bor.publicnode.com https://polygon.drpc.org https://rpc.ankr.com/polygon https://consent.cookiebot.com https://api.stripe.com https://m.stripe.com https://api.ipify.org https://api.zippopotam.us https://cdn.jsdelivr.net/npm/us-atlas@3/ https://api.etherscan.io https://gateway.pinata.cloud"
+
+# Mirrors the "rewrites" block in vercel.json (SPA fallback for client routes).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

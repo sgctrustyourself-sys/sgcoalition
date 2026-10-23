@@ -196,7 +196,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({ productId }) => {
                     {!isWriting && (
                         <button
                             onClick={() => setIsWriting(true)}
-                            disabled={!user || hasReviewed}
+                            disabled={!user || !!hasReviewed}
                             className="px-6 py-3 bg-white text-black hover:bg-gray-200 font-bold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {hasReviewed ? 'Already Reviewed' : 'Write a Review'}

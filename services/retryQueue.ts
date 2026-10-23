@@ -1,5 +1,6 @@
-import { Product } from '../types';
-import { supabase } from './supabase';
+import { Product } from '../types.js';
+import { supabase } from './supabase.js';
+import { clearOtherFeaturedProducts } from '../utils/featuredExclusivity.js';
 
 interface PendingWrite {
     id: string;
@@ -158,27 +159,43 @@ export class RetryQueue {
     }
 
     /**
-     * Attempt to retry a failed write
+     * Attempt to retry a failed write.
+     *
+     * Adds a featured-exclusivity clear AFTER a successful add/update so the
+     * catalog invariant (at most one row with is_featured = true) holds even
+     * when the retry path itself bypasses api/_handlers/admin-products.ts.
+     * The helper no-ops when is_featured is false/undefined and logs a
+     * warning on clear failure so the row stays in DB but the operator
+     * sees the duplicate in the console.
      */
     private async retryWrite(write: PendingWrite): Promise<boolean> {
         const dbProduct = this.mapProductToDb(write.product);
+        let writeSucceeded = false;
 
         try {
             if (write.operation === 'add') {
                 const { error } = await supabase.from('products').insert([dbProduct]);
-                return !error;
+                writeSucceeded = !error;
             } else if (write.operation === 'update') {
                 const { error } = await supabase.from('products').update(dbProduct).eq('id', write.id);
-                return !error;
+                writeSucceeded = !error;
             } else if (write.operation === 'delete') {
                 const { error } = await supabase.from('products').delete().eq('id', write.id);
-                return !error;
+                writeSucceeded = !error;
             }
         } catch (err) {
             console.error(`Retry write error:`, err);
         }
 
-        return false;
+        if (
+            writeSucceeded &&
+            (write.operation === 'add' || write.operation === 'update') &&
+            dbProduct.is_featured
+        ) {
+            await clearOtherFeaturedProducts(supabase, write.id, dbProduct.is_featured);
+        }
+
+        return writeSucceeded;
     }
 
     /**
@@ -200,9 +217,6 @@ export class RetryQueue {
             description: p.description,
             is_featured: p.isFeatured,
             is_limited_edition: p.isLimitedEdition ?? false,
-            // Numbered-edition tier-pricing columns (migration 20261101).
-            pricing_tiers: p.pricingTiers ?? null,
-            edition_size: p.editionSize ?? null,
             sizes: p.sizes,
             size_inventory: p.sizeInventory || {},
             nft_metadata: p.nft,

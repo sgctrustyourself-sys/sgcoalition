@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { ArrowUpRight, Zap, Flame, Sparkles, Wand2, Globe, Database, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { fetchSGCoinData } from '../utils/sgcoinApi';
 import { useApp } from '../context/AppContext';
-import { ethers } from 'ethers';
+import Seo from '../components/Seo';
 import { getBurnedSGCoinV1, getRobustProvider } from '../services/web3Service';
 import { POLYGON_RPC_URL } from '../constants';
 import { useLiquidity } from '../hooks/useLiquidity';
@@ -25,7 +25,7 @@ const WizardsPortal = () => {
     } = useLiquidity();
 
     const tokenStats = {
-        price: coinData?.price ? `$${coinData.price.toFixed(6)}` : "$0.0000382",
+        price: coinData?.price ? `$${coinData.price.toFixed(6)}` : "≈ $0.0000382",
         burned: totalBurned
     };
 
@@ -48,6 +48,11 @@ const WizardsPortal = () => {
 
     return (
         <div className="bg-[#050505] text-white min-h-screen font-sans selection:bg-purple-500/30 overflow-x-hidden">
+            <Seo
+                title="MiniWizards Portal"
+                description="Bridge the SGC Arcane Economy across dimensions — MiniWizards, V1 Legacy Wizards, and strategic liquidity on Polygon. Buy direct, swap on QuickSwap, or burn V1 Legacy Wizards."
+                canonicalPath="/sgminiwizards"
+            />
 
             {/* Arcane Background Layers */}
             <div className="fixed inset-0 pointer-events-none z-0">
@@ -79,9 +84,8 @@ const WizardsPortal = () => {
                                 Dashboard
                             </Link>
                         ) : (
-                            <Link to="/sgcoin" className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-2.5 rounded-full hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 active:scale-95 shadow-lg font-black tracking-widest relative">
-                                <span className="absolute -top-2 -right-2 bg-green-400 text-black text-[7px] px-1.5 py-0.5 rounded-full font-black">+10%</span>
-                                Buy Direct
+                            <Link to="/sgcoin" className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-2.5 rounded-full hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 active:scale-95 shadow-lg font-black tracking-widest">
+                                Buy direct
                             </Link>
                         )}
                     </div>
@@ -130,10 +134,9 @@ const WizardsPortal = () => {
                                                 <motion.button
                                                     whileHover={{ scale: 1.02 }}
                                                     whileTap={{ scale: 0.98 }}
-                                                    className="px-12 py-5 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black uppercase tracking-widest text-xs flex items-center gap-3 rounded-full shadow-2xl hover:from-purple-700 hover:to-blue-700 transition-all relative overflow-hidden group"
+                                                    className="px-12 py-5 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-black uppercase tracking-widest text-xs flex items-center gap-3 rounded-full shadow-2xl hover:from-purple-700 hover:to-blue-700 transition-all"
                                                 >
-                                                    <span className="absolute top-1 right-1 bg-green-400 text-black text-[8px] px-2 py-0.5 rounded-full font-black">+10% BONUS</span>
-                                                    Buy Direct <Zap className="w-4 h-4" />
+                                                    Buy direct <Zap className="w-4 h-4" />
                                                 </motion.button>
                                             </Link>
                                             <a href="https://dapp.quickswap.exchange/swap/best/ETH/0xd53e417107D0e01bBE74a704BB90fe7A6916eE1e" target="_blank" rel="noopener noreferrer">
@@ -166,24 +169,6 @@ const WizardsPortal = () => {
                                 className="lg:col-span-1 border border-white/10 bg-black/50 p-10 rounded-[2.5rem]"
                             >
                                 <div className="space-y-8">
-                                    <div className="p-8 rounded-[2rem] border border-white/10 bg-gradient-to-br from-blue-900/20 to-black relative overflow-hidden group hover:border-blue-400/30 transition-all">
-                                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform duration-700">
-                                            <Globe className="w-24 h-24 text-blue-400" />
-                                        </div>
-                                        <h3 className="text-2xl font-black uppercase tracking-tight mb-4 text-blue-400">NeftyBlocks</h3>
-                                        <p className="text-gray-500 text-xs leading-relaxed mb-6">
-                                            Forged by SurudoiRyu. Dimensional expansion manifested on WAX Origin Chain.
-                                        </p>
-                                        <a
-                                            href="https://neftyblocks.com/collection/sgminiwizard"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-500 text-white rounded-full font-black uppercase tracking-widest text-[9px] hover:bg-blue-600 transition-all"
-                                        >
-                                            Explore <ArrowUpRight className="w-3 h-3" />
-                                        </a>
-                                    </div>
-
                                     <div className="p-8 rounded-[2rem] border border-white/10 bg-gradient-to-br from-purple-900/20 to-black relative overflow-hidden group hover:border-purple-400/30 transition-all">
                                         <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform duration-700">
                                             <Database className="w-24 h-24 text-purple-400" />
@@ -229,13 +214,13 @@ const WizardsPortal = () => {
                                         <div>
                                             <div className="flex items-center gap-3 text-purple-400 mb-4">
                                                 <Zap className="w-6 h-6 animate-pulse" />
-                                                <span className="text-xs font-black uppercase tracking-[0.4em]">Strategic Liquidity Goal</span>
+                                                <span className="text-xs font-black uppercase tracking-[0.4em]">WPOL Staked in Pool</span>
                                             </div>
                                             <div className="text-5xl md:text-6xl font-black tracking-tighter">
-                                                {liquidity.toFixed(2)} <span className="text-gray-600 font-light text-3xl">/ {target} POL</span>
+                                                {liquidity.toFixed(2)} <span className="text-gray-600 font-light text-3xl">WPOL</span>
                                             </div>
                                             <p className="text-gray-500 text-sm mt-4 font-medium uppercase tracking-widest italic">
-                                                Current Valuation: <span className="text-white">${currentUSDValue} USD</span>
+                                                Next Milestone: <span className="text-white">{Math.ceil(liquidity / 100) * 100} WPOL</span>
                                             </p>
                                         </div>
                                         <div className="text-right">
@@ -258,8 +243,8 @@ const WizardsPortal = () => {
                                         </motion.div>
                                     </div>
                                     <div className="flex justify-between mt-4">
-                                        <span className="text-[9px] uppercase tracking-widest font-bold text-gray-600">Foundation Stage</span>
-                                        <span className="text-[9px] uppercase tracking-widest font-bold text-purple-500 animate-pulse">Arcane Threshold: {target} POL</span>
+                                        <span className="text-[9px] uppercase tracking-widest font-bold text-gray-600">Current: {liquidity.toFixed(1)} WPOL</span>
+                                        <span className="text-[9px] uppercase tracking-widest font-bold text-purple-500 animate-pulse">Next: {Math.ceil(liquidity / 100) * 100} WPOL</span>
                                     </div>
                                 </>
                             )}
@@ -316,6 +301,35 @@ const WizardsPortal = () => {
                                     <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center font-black">03</div>
                                     <div className="text-sm font-bold uppercase tracking-widest">Multi-Tier Holder Rewards</div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* Chapter One — SGMW: an honest community update */}
+                <section className="max-w-7xl mx-auto px-6 mb-32">
+                    <div className="rounded-[3rem] border border-white/5 bg-gradient-to-br from-purple-900/10 via-black to-blue-900/10 p-12 md:p-24 relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                        <div className="relative z-10">
+                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-purple-500/20 bg-purple-500/10 text-purple-400 text-[10px] mb-10 uppercase tracking-[0.3em] font-bold">
+                                <Wand2 className="w-3 h-3" /> Chapter One · SGMW
+                            </div>
+                            <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-10 font-display">
+                                An Honest<br />
+                                <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-purple-500 bg-clip-text text-transparent italic">Community Update</span>
+                            </h2>
+                            <p className="text-gray-400 text-lg leading-relaxed mb-10 max-w-3xl font-light">
+                                The SGMW project was Chapter One of something bigger — a community build I was doing with friends. Everyone ended up going separate ways to experience other things, and I hold no ill will toward any of them.
+                            </p>
+                            <p className="text-gray-400 text-lg leading-relaxed max-w-3xl font-light">
+                                I did get every reward sent out to the people who earned them. The coin's price tanked — I don't know if that was something I did, the community taking withdrawals, or just crypto dying at the time. Regardless, it would have taken pure luck for any of it to survive.
+                            </p>
+                            <p className="text-gray-400 text-lg leading-relaxed mt-10 max-w-3xl font-light">
+                                I'm posting this here because the MiniWizard team showed me a different way of life. Thank you for that.
+                            </p>
+                            <div className="border-t border-white/10 pt-12 mt-12">
+                                <p className="text-gray-500 text-xs uppercase tracking-[0.4em] font-bold mb-2">Signed</p>
+                                <p className="text-white font-black uppercase tracking-tighter">SG — 2026</p>
                             </div>
                         </div>
                     </div>

@@ -63,6 +63,71 @@ This release pushed the line beyond tees and hats and into a full wardrobe story
 One pair. One season. Once it is gone, it is gone.
 `.trim();
 
+const REFERENDUM_PUBLISHED_AT = '2026-07-11T16:00:00.000Z';
+const REFERENDUM_SLUG = 'referendum-referral-program-2027';
+const REFERENDUM_TAGS = ['referral', 'governance', 'referendum', 'vote', 'coalition', '2027'];
+
+const REFERENDUM_REMOTE_CONTENT = `
+<h2>THE QUESTION</h2>
+
+<p><strong>Should the Coalition referral program continue into 2027, or sunset for the year on December 31, 2026?</strong></p>
+
+<p>Vote below. <strong>Upvote = continue the program into 2027.</strong> <strong>Downvote = sunset it for the year.</strong> Vote weight is your SGCoin v2 governance power at the time the vote is tallied.</p>
+
+<h2>WHERE THE PROGRAM IS TODAY</h2>
+
+<p>The referral program was reimplemented this session with a cleaner tier table and a hardened backend. Here is the current state the community is being asked to ratify (or sunset):</p>
+
+<h3>Commission Tiers</h3>
+
+<p>The first successful sale now immediately bumps a referrer from 5% to 10% &mdash; no more waiting for a second sale to unlock Tier 2.</p>
+
+<ul>
+<li><strong>Tier 1</strong> &mdash; 0 sales &mdash; 5% commission</li>
+<li><strong>Tier 2</strong> &mdash; 1&ndash;2 sales &mdash; 10%</li>
+<li><strong>Tier 3</strong> &mdash; 3&ndash;6 sales &mdash; 15%</li>
+<li><strong>Tier 4</strong> &mdash; 7&ndash;14 sales &mdash; 20%</li>
+<li><strong>Tier 5</strong> &mdash; 15&ndash;29 sales &mdash; 25%</li>
+<li><strong>Tier 6</strong> &mdash; 30&ndash;49 sales &mdash; 30%</li>
+<li><strong>Tier 7</strong> &mdash; 50&ndash;99 sales &mdash; 35%</li>
+<li><strong>Tier 8</strong> &mdash; 100+ sales &mdash; 40%</li>
+</ul>
+
+<h3>Anti-Fraud Hardening</h3>
+
+<ul>
+<li><strong>Self-referral block</strong> at three layers: the coupon input, the client <code>trackReferral</code> function, and the server-side <code>track_referral_event</code> RPC.</li>
+<li><strong>IP capture</strong> on every event (with a planned /24 truncation for GDPR compliance before any EU user is exposed to the new column).</li>
+<li><strong>Atomic tier recompute</strong> in the RPC so the displayed rate is canonical &mdash; no client/server drift.</li>
+<li><strong>22 reserved words</strong> for custom referral codes (ADMIN, SUPPORT, STAFF, HELP, INFO, etc.) so brand names cannot be squatted.</li>
+<li><strong>Uniqueness RPC</strong> for code-claim validation with a reserved-prefix regex (blocks <code>ADMIN-</code>, <code>STAFF-</code>, <code>SUPPORT-</code>, <code>TEST-</code> prefixes).</li>
+</ul>
+
+<h3>Earnings Accounting Fix</h3>
+
+<p>The dashboard's "Total Earnings" no longer double-counts the same set of referrals as "Pending Earnings" &mdash; pending vs paid now means what it says.</p>
+
+<h2>HOW THE VOTE WORKS</h2>
+
+<ul>
+<li>One vote per user, weighted by your <strong>SGCoin v2 balance</strong> at the time the vote is tallied.</li>
+<li>You can change your vote any time before the operator closes the vote.</li>
+<li>Recommended vote window: <strong>December 15&ndash;22, 2026</strong>. The operator will close the vote before December 31 so results land in time.</li>
+<li><strong>If the vote favors continuing:</strong> the program continues into 2027. The dashboard banner auto-stales and can be removed in a follow-up commit. No code change needed.</li>
+<li><strong>If the vote favors sunset:</strong> a hard cutoff is added to the <code>track_referral_event</code> RPC and <code>validateCouponCode</code> so new signups after December 31, 2026 do not attribute to any code. Pending commissions earned before the cutoff still pay out.</li>
+</ul>
+
+<h2>KEY DATES</h2>
+
+<ul>
+<li><strong>July 11, 2026</strong> &mdash; this referendum is published. Voting is open.</li>
+<li><strong>December 15&ndash;22, 2026</strong> &mdash; recommended vote window.</li>
+<li><strong>December 31, 2026</strong> &mdash; program runs through this date regardless of the vote outcome.</li>
+</ul>
+
+<p>Make your voice heard. The community decides.</p>
+`.trim();
+
 export const blogFallbackPosts: BlogPost[] = [
     {
         id: 'blog-custom-hat-blog-01',
@@ -99,6 +164,104 @@ export const blogFallbackPosts: BlogPost[] = [
         publishedAt: '2026-02-24T16:00:00.000Z',
         createdAt: '2026-02-24T16:00:00.000Z',
         updatedAt: '2026-02-24T16:00:00.000Z',
+    },
+    {
+        // The Coalition referral program is scheduled to sunset on
+        // Dec 31, 2026. This post is the referendum the community votes on
+        // to decide whether the program continues into 2027. The post id
+        // is what the existing components/VotingSystem.tsx attaches
+        // `post_votes` rows to; the same RLS that protects other blog posts
+        // applies automatically. Mirrored into the `posts` table by
+        // supabase/migrations/20260711_referendum_referral_2027.sql so the
+        // post exists in production (Blog.tsx queries the DB first and only
+        // falls back to blogFallbackPosts when the DB is empty).
+        id: 'blog-referendum-referral-program-2027',
+        title: 'CONTINUE THE COALITION REFERRAL PROGRAM IN 2027?',
+        slug: REFERENDUM_SLUG,
+        content: rewriteImageSrcs(REFERENDUM_REMOTE_CONTENT),
+        excerpt: 'Community referendum on whether the Coalition referral program (tiered 5%–40% commissions with anti-fraud hardening) continues into 2027 or sunsets for the year on December 31, 2026. Vote weighted by SGCoin v2 governance power.',
+        author: 'Coalition Governance',
+        category: 'announcement',
+        tags: REFERENDUM_TAGS,
+        isPublished: true,
+        upvotePower: 0,
+        downvotePower: 0,
+        score: 0,
+        publishedAt: REFERENDUM_PUBLISHED_AT,
+        createdAt: REFERENDUM_PUBLISHED_AT,
+        updatedAt: REFERENDUM_PUBLISHED_AT,
+    },
+    {
+        id: 'blog-sgmw-chapter-one-honest-update',
+        title: 'SGMW: CHAPTER ONE — AN HONEST COMMUNITY UPDATE',
+        slug: 'sgmw-chapter-one-honest-update',
+        content: `
+<h2>Chapter One: SGMW</h2>
+<p><em>Published October 21, 2026 at 06:00 UTC</em></p>
+<p>The SGMW project (Community SG Mini Wizards) was Chapter One of something bigger — a community build I was doing with friends.</p>
+<p>Everybody ended up going separate ways to experience other things. I hold no ill will toward any of them.</p>
+<p>I did get all the rewards sent out to the people who earned them.</p>
+<p>The coin's price tanked. I don't know if that was because of something I did, or the community taking withdrawals. It doesn't really matter at the end — crypto was dying regardless. It would have been pure luck if mine survived.</p>
+<p>I want to thank the MiniWizard team for showing me a different way of life.</p>
+<p><em>— SG, 2026</em></p>
+`.trim(),
+        excerpt: 'An honest look back at the SGMW (Community SG Mini Wizards) Phase 1 project — what happened, where the rewards went, and why the coin tanked.',
+        author: 'SG',
+        category: 'update',
+        tags: ['sgmw', 'community', 'update', 'honest'],
+        isPublished: true,
+        upvotePower: 0,
+        downvotePower: 0,
+        score: 0,
+        publishedAt: '2026-10-21T06:00:00.000Z',
+        createdAt: '2026-10-21T06:00:00.000Z',
+        updatedAt: '2026-10-21T06:00:00.000Z',
+    },
+    {
+        id: 'blog-sgcoin-legacy-message',
+        title: 'The Legacy Continues: sgcoin & The Power Back in Our Hands',
+        slug: 'sgcoin-legacy-message',
+        content: `
+<h2>I need to be real with you for a second.</h2>
+<p>This coin and this contact—this is important to me. It's not about value at all. It was about keeping a community strong and putting the power back into our hands. That's what sgcoin was really about from the start.</p>
+<p>Us being new to this space, we didn't know how to set up real contracts or really understand what migrations and liquidations were doing. We started all this on live streams—running around in a 3D universe called Decentraland. That was a part of my life I would never take back. All I had to do was wake up, stream, do giveaways, and I got paid. That was the reality I was living in at the moment. Still the same reality, tbh.</p>
+
+<h2>The Starting Days</h2>
+<p>But the starting days of the community—2020, meeting everybody in a Christmas-style land. There was a guy, I think his name was JP or something like that, that did the big events—big giveaways. I can't lie, I wouldn't even imagine myself watching a stream, but I for sure was. He was doing giveaways for all types of NFTs. This was the starting days. The way NFTs and contract work, you can basically see everything in history.</p>
+<p>I HAD my virtual friends—skipthecrux. We fell out, idk why. I don't think I did nothing to him. We even made a clothing item and broke down the cost. If I did do anything wrong on my end, I for sure apologize—he was a good homie. And another, peterparker something like that—that was my homeboy too. Idk if I got bigheaded or he did, but I was still keeping in contact with who I was. Sometimes I get into tunnel vision and really only do what I need to do in my own eyes, not thinking about others. But I always look back and think about 'em. They just don't know.</p>
+<p>And another homie, trapkingplays—I think his partner made him stop being cool with me, 'cause he was donating to the cause so much. But much love to all my brothers past or present.</p>
+<p>And last but not least, my main guy skrilla—shoutout his brand <a href="https://skrillabrand.com/password" target="_blank" rel="noopener noreferrer">skrillabrand.com/password</a>. We started around the same time. I might've started a few months before, vice versa. This is only 1-2 years of the life summarized in a few minutes—freestyles, not written before and barely reading after.</p>
+
+<h2>Why This Coin & Contract Matters</h2>
+<p>That's why this coin and contract is important because it makes history. Even if I can't fulfill my final goal—that's starting a bank so I can help business all around the world and making it a bit easier for the middle lower class to get out of a poverty mindset.</p>
+
+<h2>The Fall Apart</h2>
+<p>But the team definitely fell apart on the crypto side—scrapgonspaz/bussin side. A lot of MANA whales (top holders) controlled everything from the clothing to the donations. The community was supposed to be built by everyone, with everyone getting a fair say. But the person with the most money won at the end because 1 vote is equal to however much money is in your account. Lol, imagine that.</p>
+<p>So I wanted to play this same type of game with my community—to see if anybody would complain or see if they think it's fair. Because it's basically the way the USA and the world operates.</p>
+
+<h2>The Origins</h2>
+<p>I just bring this up because Decentraland is where I made my first real clothing pieces. Actually, it was Sandbox NFTs that I started making. Then someone from there introduced me to Decentraland—I'm guessing, or the way I am, I may have found it myself.</p>
+
+<h2>The Legacy — 10.22.26</h2>
+<p><strong>But 10.22.26—this is my plan to continue the legacy of gmoney / Gerrod Greenwood, my fallen cousin.</strong></p>
+<p>This is what gmoney is named after—to make him worth the most in value or money in my eyes.</p>
+<p>This isn't about chasing a number. This isn't about getting rich. This is about honoring someone who meant everything to me and building something that carries their name into the future.</p>
+<p>The coin might have started as an experiment. The migration might have been messy. The team might have scattered. But the mission hasn't changed: <strong>put the power back in the people's hands.</strong></p>
+<p><em>That's what sgcoin is. That's what it's always been. And on 10.22.26, we continue.</em></p>
+<p><em>— sg Coalition</em></p>
+`.trim(),
+        excerpt: 'A personal message about the sgcoin journey, the community we built in Decentraland, the friends we made, and the legacy of gmoney/Gerrod Greenwood. From the starting days in 2020 to the 10.22.26 plan to continue the legacy.',
+        author: 'SG',
+        category: 'update',
+        coverImage: resolveLocalImageUrl('https://i.imgur.com/iYBlwm8.png'),
+        tags: ['sgcoin', 'legacy', 'community', 'gmoney', 'decentraland', 'sandbox', 'personal'],
+        isPublished: true,
+        upvotePower: 0,
+        downvotePower: 0,
+        score: 0,
+        publishedAt: '2026-10-22T00:00:00.000Z',
+        createdAt: '2026-10-22T00:00:00.000Z',
+        updatedAt: '2026-10-22T00:00:00.000Z',
     },
 ];
 

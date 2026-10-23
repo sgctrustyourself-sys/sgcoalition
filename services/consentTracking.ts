@@ -1,4 +1,29 @@
-import { CONSENT_TEXT, CONSENT_CHECKBOX_TEXT } from '../constants';
+import { CONSENT_TEXT, CONSENT_CHECKBOX_TEXT } from '../constants.js';
+
+// Cookie consent used to be delegated to Cookiebot, but no Cookiebot loader
+// (and no domain group ID) was ever configured, so the banner never loaded and
+// `window.Cookiebot.renew()` silently did nothing. Consent now lives in
+// services/cookieConsent.ts as first-party code: same categories, same event
+// hook, but no third-party script that can fail closed to "no banner".
+export {
+    getConsentRecord,
+    getCookieConsent,
+    hasConsented,
+    onConsentChanged,
+    showConsentDialog,
+    acceptAllConsent,
+    rejectNonEssentialConsent,
+    saveConsent,
+} from './cookieConsent.js';
+export type {
+    ConsentCategory,
+    CookieConsentState,
+    ConsentChoice,
+} from './cookieConsent.js';
+
+// ---------------------------------------------------------------------------
+// Legacy consent capture (no-refunds checkbox verification)
+// ---------------------------------------------------------------------------
 
 export interface ConsentData {
     consentText: string;
@@ -9,39 +34,21 @@ export interface ConsentData {
 }
 
 /**
- * Capture consent data from the current session
+ * Capture consent data for the no-refunds acknowledgement.
+ *
+ * The IP is deliberately NOT fetched from api.ipify.org any more: that sent the
+ * visitor's IP to a third party just to write it back to our own order record.
+ * Server handlers already see the request, so they should fill this in; the
+ * browser only records "unknown" when it has no trustworthy value.
  */
-export async function captureConsent(userId?: string): Promise<ConsentData> {
-    const timestamp = new Date().toISOString();
-    const userAgent = navigator.userAgent;
-
-    // Get client IP (this will need to be done server-side in production)
-    const ip = await getClientIP();
-
+export async function captureConsent(userId?: string, ip = 'unknown'): Promise<ConsentData> {
     return {
         consentText: CONSENT_TEXT,
-        consentTimestamp: timestamp,
+        consentTimestamp: new Date().toISOString(),
         consentIp: ip,
-        consentUserAgent: userAgent,
-        consentUserId: userId
+        consentUserAgent: navigator.userAgent,
+        consentUserId: userId,
     };
-}
-
-/**
- * Get client IP address
- * Note: In production, this should be done server-side
- */
-async function getClientIP(): Promise<string> {
-    try {
-        // In production, this would be captured server-side from the request headers
-        // For now, we'll use a placeholder or a third-party service
-        const response = await fetch('https://api.ipify.org?format=json');
-        const data = await response.json();
-        return data.ip || 'unknown';
-    } catch (error) {
-        console.error('Failed to get client IP:', error);
-        return 'unknown';
-    }
 }
 
 /**

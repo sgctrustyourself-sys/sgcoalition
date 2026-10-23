@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { MiniWizard } from '../../types/MiniWizard';
 import { Zap, Flame, Shield, Sparkles } from 'lucide-react';
 

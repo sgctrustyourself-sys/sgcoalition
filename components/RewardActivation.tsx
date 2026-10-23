@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { CreditCard, X, Zap, Wallet } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { AuthProvider } from '../types';

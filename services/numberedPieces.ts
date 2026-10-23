@@ -1,5 +1,6 @@
-import { supabase } from './supabase';
-import type { Product, NumberedPiece } from '../types';
+import { supabase } from './supabase.js';
+import { getAdminAuthHeaders } from './adminSession.js';
+import type { Product, NumberedPiece } from '../types.js';
 
 export interface PaidCountsByProduct {
     [productId: string]: number;
@@ -81,19 +82,18 @@ export async function fetchPiecesByOrder(orderId: string): Promise<NumberedPiece
 
 /**
  * Editorial helper for the admin OrderDetails inline NFT/NFC editor.
- * Routes the write through /api/admin/update-piece-metadata (server-side
+ * Routes the write through /api/update-piece-metadata (server-side
  * service-role JWT) rather than direct supabase.from(...).update(...).
  *
  * WHY SERVER-ROUTED (reviewer note):
  * The admin UPDATE policy on numbered_pieces requires
  *   EXISTS (SELECT 1 FROM admin_users WHERE user_id = auth.uid())
  * -- which fails for Coalition admins because the admin login flow
- * (sessionStorage.coalition_admin_token + /api/admin/verify) does NOT mint
+ * (sessionStorage.coalition_admin_token + /api/admin-verify) does NOT mint
  * a Supabase auth session. Anonymous UPDATE returns 403 with an opaque
  * error and the operator can't tell whether the migration is wrong or auth
- * is missing. The server-side handler uses ADMIN_SESSION_TOKEN as the
- * gate and SUPABASE_SERVICE_ROLE_KEY for the write, mirroring the
- * api/complete-order.ts order-write pattern.
+ * is missing. The server-side handler uses the shared admin gate in
+ * api/_adminAuth.ts and SUPABASE_SERVICE_ROLE_KEY for the write.
  *
  * UPDATEs ONLY nft_token_id + nfc_tag_url; order_id / piece_index / id are
  * admin-protected and bound by the server on order-paid. Strip empty
@@ -104,14 +104,10 @@ export async function updatePieceMetadata(
     pieceId: string,
     updates: { nftTokenId?: string | null; nfcTagUrl?: string | null }
 ): Promise<{ ok: boolean; error?: string }> {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (typeof sessionStorage !== 'undefined') {
-        const token = sessionStorage.getItem('coalition_admin_token');
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-    }
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...getAdminAuthHeaders() };
 
     try {
-        const res = await fetch('/api/admin/update-piece-metadata', {
+        const res = await fetch('/api/update-piece-metadata', {
             method: 'POST',
             headers,
             body: JSON.stringify({ pieceId, ...updates }),
