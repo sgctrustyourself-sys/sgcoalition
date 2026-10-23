@@ -381,6 +381,7 @@ describe('source invariants: admin authorization has one gate', () => {
         'admin-sgcoin-grant': { policy: 'shared', why: 'mints SGCoin into a member balance — a money-moving write' },
         'admin-sgcoin-grants': { policy: 'shared', why: 'grant ledger — who was paid how much, read with the service-role key' },
         'admin-sgcoin-members': { policy: 'shared', why: 'member roster with balances, read with the service-role key' },
+        'admin-sgcoin-reverse': { policy: 'shared', why: 'takes SGCoin back out of a member balance — a money-moving write' },
         'marketing-stats': { policy: 'shared', why: 'marketing figures' },
         'marketing-send': { policy: 'shared', why: 'dispatches a campaign to real contacts' },
         'admin-products': { policy: 'shared', why: 'product CRUD' },

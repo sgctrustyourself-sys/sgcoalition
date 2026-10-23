@@ -20,6 +20,7 @@ const handlers: Record<string, Loader> = {
     'admin-sgcoin-grant': () => import('./_handlers/admin-sgcoin-grant.js'),
     'admin-sgcoin-grants': () => import('./_handlers/admin-sgcoin-grants.js'),
     'admin-sgcoin-members': () => import('./_handlers/admin-sgcoin-members.js'),
+    'admin-sgcoin-reverse': () => import('./_handlers/admin-sgcoin-reverse.js'),
     'admin-shipments': () => import('./_handlers/admin-shipments.js'),
     'admin-verify': () => import('./_handlers/admin-verify.js'),
     'ai-chat': () => import('./_handlers/ai-chat.js'),

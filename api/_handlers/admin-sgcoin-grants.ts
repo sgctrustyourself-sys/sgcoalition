@@ -6,8 +6,10 @@
 //
 // The rows come from public.sgcoin_admin_grants, which grant_sgcoin() writes in
 // the same transaction as the balance increment (see
-// supabase/migrations/20261023_sgcoin_admin_grants.sql). Reading it here is what
-// makes a grant reviewable after the toast disappears.
+// supabase/migrations/20261023_sgcoin_admin_grants.sql). A clawback is a second
+// row — kind = 'reversal', negative amount, reverses_grant_id pointing at the
+// grant — rather than an edit, so `kind` and `reversesGrantId` travel to the UI
+// and it can show both sides of the correction.
 //
 // TWO QUERIES, ON PURPOSE. The ledger's foreign key is auth.users(id), not
 // profiles(id), so PostgREST cannot embed the member's name — there is no
@@ -43,6 +45,8 @@ interface GrantLedgerRow {
     note: string | null;
     balance_after: number | string;
     created_at: string;
+    kind: string | null;
+    reverses_grant_id: string | null;
 }
 
 interface ProfileLabelRow {
@@ -63,7 +67,7 @@ async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
 
         const { data, error } = await supabase
             .from('sgcoin_admin_grants')
-            .select('id, user_id, amount, note, balance_after, created_at')
+            .select('id, user_id, amount, note, balance_after, created_at, kind, reverses_grant_id')
             .order('created_at', { ascending: false })
             .limit(GRANT_HISTORY_LIMIT);
 
@@ -102,6 +106,10 @@ async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
                 note: row.note || null,
                 balanceAfter: Number(row.balance_after) || 0,
                 createdAt: row.created_at,
+                // A pre-reversal row predates the column, and NULL reads as a
+                // plain grant — which is what every such row is.
+                kind: row.kind === 'reversal' ? ('reversal' as const) : ('grant' as const),
+                reversesGrantId: row.reverses_grant_id || null,
             };
         });
 

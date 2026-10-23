@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Hexagon, Send, Search, Users, TrendingUp, RefreshCw } from 'lucide-react';
+import { Hexagon, Send, Search, Users, TrendingUp, RefreshCw, Undo2 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import {
     ADMIN_SESSION_EXPIRED_ERROR,
@@ -36,7 +36,13 @@ interface V2Rate {
     note: string;
 }
 
-/** A row from GET /api/admin-sgcoin-grants (public.sgcoin_admin_grants). */
+/**
+ * A row from GET /api/admin-sgcoin-grants (public.sgcoin_admin_grants).
+ *
+ * A clawback is its own row — kind 'reversal', negative amount, and
+ * reversesGrantId naming the grant it undoes. Nothing in this list is ever
+ * edited in place, so both halves of a correction are always visible.
+ */
 interface GrantHistoryEntry {
     id: string;
     userId: string;
@@ -46,6 +52,8 @@ interface GrantHistoryEntry {
     note: string | null;
     balanceAfter: number;
     createdAt: string;
+    kind: 'grant' | 'reversal';
+    reversesGrantId: string | null;
 }
 
 /** Read the JSON error body without letting a non-JSON response mask the status. */
@@ -80,8 +88,17 @@ const SGCoinDistribution = () => {
     const [amount, setAmount] = useState('');
     const [note, setNote] = useState('');
     const [isSending, setIsSending] = useState(false);
+    const [reversingGrantId, setReversingGrantId] = useState<string | null>(null);
 
     const selectedUser = members.find((member) => member.userId === selectedUserId) || null;
+
+    // A grant is already clawed back when some reversal row names it. The ledger
+    // is the source of truth: this set is derived, never stored separately.
+    const reversedGrantIds = new Set(
+        grants
+            .map((grant) => grant.reversesGrantId)
+            .filter((grantId): grantId is string => !!grantId),
+    );
 
     const loadMembers = async () => {
         setIsLoadingMembers(true);
@@ -228,6 +245,60 @@ const SGCoinDistribution = () => {
             addToast(error instanceof Error ? error.message : 'Failed to send SGCoin', 'error');
         } finally {
             setIsSending(false);
+        }
+    };
+
+    const handleReverseGrant = async (grant: GrantHistoryEntry) => {
+        if (grant.kind !== 'grant' || reversedGrantIds.has(grant.id)) return;
+
+        const memberLabel = grant.memberName || grant.memberEmail || grant.userId;
+        const amountLabel = grant.amount.toLocaleString();
+        if (
+            !window.confirm(
+                `Reverse this grant?\n\n${amountLabel} SGCoin will be taken back from ${memberLabel}. ` +
+                    'The original grant stays in the ledger; the reversal is recorded beside it.',
+            )
+        ) {
+            return;
+        }
+
+        setReversingGrantId(grant.id);
+        try {
+            const response = await fetch('/api/admin-sgcoin-reverse', {
+                method: 'POST',
+                headers: { ...getAdminAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ grantId: grant.id }),
+            });
+
+            if (handleAdminAuthFailure(response.status)) {
+                addToast(ADMIN_SESSION_EXPIRED_ERROR, 'error');
+                return;
+            }
+            if (!response.ok) {
+                addToast(await readError(response, 'Failed to reverse the grant'), 'error');
+                return;
+            }
+
+            const result = (await response.json()) as { balanceAfter: number };
+
+            // The server's post-decrement balance, for the same reason the grant
+            // path uses its response rather than `old - amount`.
+            setMembers((previous) =>
+                previous.map((member) =>
+                    member.userId === grant.userId
+                        ? { ...member, sgCoinBalance: result.balanceAfter }
+                        : member,
+                ),
+            );
+
+            addToast(`Reversed ${amountLabel} SGCoin from ${memberLabel}`, 'success');
+            // Re-read the ledger so the reversal row and the new "Reversed"
+            // badge come from the server, not from a guess about ordering.
+            void loadGrants();
+        } catch (error) {
+            addToast(error instanceof Error ? error.message : 'Failed to reverse the grant', 'error');
+        } finally {
+            setReversingGrantId(null);
         }
     };
 
@@ -450,7 +521,9 @@ const SGCoinDistribution = () => {
                 <div className="flex items-start justify-between gap-4 mb-4">
                     <div>
                         <h3 className="text-lg font-bold">Recent Grants</h3>
-                        <p className="text-xs text-gray-500">Newest first</p>
+                        <p className="text-xs text-gray-500">
+                            Newest first · a reversal is a new row, never an edit
+                        </p>
                     </div>
                     <button
                         type="button"
@@ -482,31 +555,68 @@ const SGCoinDistribution = () => {
                     </p>
                 ) : (
                     <ul className="divide-y divide-white/5">
-                        {grants.map((grant) => (
-                            <li
-                                key={grant.id}
-                                className="py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2"
-                            >
-                                <div className="min-w-0">
-                                    <p className="font-bold truncate">
-                                        {grant.memberName || grant.memberEmail || grant.userId}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                        {new Date(grant.createdAt).toLocaleString()} · balance after{' '}
-                                        {grant.balanceAfter.toLocaleString()}
-                                    </p>
-                                    {grant.note && (
-                                        <p className="text-sm text-gray-400 mt-1 break-words">
-                                            {grant.note}
+                        {grants.map((grant) => {
+                            const isReversal = grant.kind === 'reversal';
+                            const isReversed = reversedGrantIds.has(grant.id);
+                            const memberLabel =
+                                grant.memberName || grant.memberEmail || grant.userId;
+                            return (
+                                <li
+                                    key={grant.id}
+                                    className="py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2"
+                                >
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <p className="font-bold truncate">{memberLabel}</p>
+                                            {isReversal && (
+                                                <span className="text-[10px] uppercase tracking-wide border border-red-500/30 text-red-400 rounded px-1.5 py-0.5">
+                                                    Reversal
+                                                </span>
+                                            )}
+                                            {isReversed && (
+                                                <span className="text-[10px] uppercase tracking-wide border border-white/10 text-gray-400 rounded px-1.5 py-0.5">
+                                                    Reversed
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-gray-500">
+                                            {new Date(grant.createdAt).toLocaleString()} · balance after{' '}
+                                            {grant.balanceAfter.toLocaleString()}
                                         </p>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-1 text-green-400 font-bold shrink-0">
-                                    <Hexagon className="w-4 h-4 fill-current" />
-                                    +{grant.amount.toLocaleString()}
-                                </div>
-                            </li>
-                        ))}
+                                        {grant.note && (
+                                            <p className="text-sm text-gray-400 mt-1 break-words">
+                                                {grant.note}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0">
+                                        <div
+                                            className={`flex items-center gap-1 font-bold ${
+                                                isReversal ? 'text-red-400' : 'text-green-400'
+                                            }`}
+                                        >
+                                            <Hexagon className="w-4 h-4 fill-current" />
+                                            {isReversal ? '−' : '+'}
+                                            {Math.abs(grant.amount).toLocaleString()}
+                                        </div>
+                                        {!isReversal && !isReversed && (
+                                            <button
+                                                type="button"
+                                                onClick={() => void handleReverseGrant(grant)}
+                                                disabled={reversingGrantId !== null}
+                                                title={`Reverse this ${grant.amount.toLocaleString()} SGCoin grant`}
+                                                className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-400 border border-white/10 hover:border-red-500/30 rounded px-2 py-1 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                                            >
+                                                <Undo2 className="w-3 h-3" />
+                                                {reversingGrantId === grant.id
+                                                    ? 'Reversing…'
+                                                    : 'Reverse'}
+                                            </button>
+                                        )}
+                                    </div>
+                                </li>
+                            );
+                        })}
                     </ul>
                 )}
             </div>
