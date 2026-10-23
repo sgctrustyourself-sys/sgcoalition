@@ -17,6 +17,9 @@ const handlers: Record<string, Loader> = {
     'admin-buy-label': () => import('./_handlers/admin-buy-label.js'),
     'admin-products': () => import('./_handlers/admin-products.js'),
     'admin-refund': () => import('./_handlers/admin-refund.js'),
+    'admin-sgcoin-grant': () => import('./_handlers/admin-sgcoin-grant.js'),
+    'admin-sgcoin-grants': () => import('./_handlers/admin-sgcoin-grants.js'),
+    'admin-sgcoin-members': () => import('./_handlers/admin-sgcoin-members.js'),
     'admin-shipments': () => import('./_handlers/admin-shipments.js'),
     'admin-verify': () => import('./_handlers/admin-verify.js'),
     'ai-chat': () => import('./_handlers/ai-chat.js'),
@@ -55,6 +58,8 @@ const handlers: Record<string, Loader> = {
 // with the service-role key, and sgcoin-allocation scans the orders table. The
 // exemption would leave them unmetered while the docs call them rate-limited.
 const READ_LIMITED_SLUGS = new Set([
+    'admin-sgcoin-grants',
+    'admin-sgcoin-members',
     'sgcoin-allocation',
     'sgcoin-v2-rate',
 ]);
