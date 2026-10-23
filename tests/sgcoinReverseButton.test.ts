@@ -19,11 +19,15 @@
 // Follows the Playwright-via-vitest convention of tests/viewContractButton.test.ts:
 // a real Vite dev server in beforeAll, headless Chromium, external HTTP mocked.
 //
-// DELIBERATELY NOT in vitest.config.ts's exclude list, unlike the other
-// Playwright suites: vitest 4 drops the positional file filter through the
-// exclude list, so an excluded file cannot be run on its own either. This one
-// costs ~10s and runs with the normal `npx vitest run`; run just it with
-//   npx vitest run tests/sgcoinReverseButton.test.ts
+// RUN THROUGH vitest.browser.config.ts, not the default suite:
+//   npm run test:sgcoin-reverse
+// (or: npx vitest run --config vitest.browser.config.ts)
+//
+// It is excluded from vitest.config.ts on purpose. The release path runs that
+// suite from inside the Vercel build (utils/bareCheckoutGate.mjs), and that build
+// installs no browser, so a Chromium test in it would fail every production
+// build. The post-deploy gate (.github/workflows/post-deploy-gate.yml) installs
+// Chromium and runs this file instead.
 //
 // @vitest-environment node
 //

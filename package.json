@@ -15,6 +15,7 @@
     "test:fade": "node scripts/verify-loader-fade.mjs",
     "test:prerendered-article": "node scripts/verify-prerendered-article.mjs",
     "test:gate-verdict": "node scripts/verify-gate-verdict.mjs",
+    "test:sgcoin-reverse": "vitest run --config vitest.browser.config.ts",
     "test:referral": "node scripts/verify-referral-self-heal.mjs",
     "smoke:checkout": "node scripts/smoke-checkout.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",

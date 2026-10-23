@@ -23,6 +23,15 @@ export default defineConfig({
         //       or points to the wrong URL. Run directly:
         //       npx vitest run tests/viewContractButton.test.ts
         //
+        //   sgcoinReverseButton.test.ts — boots a Vite dev server + headless
+        //       Chromium to drive the admin SGCoin tab's Reverse button through
+        //       confirm -> POST -> ledger re-read. MUST stay out of this suite:
+        //       the release path runs `npm test` from inside the Vercel build
+        //       (utils/bareCheckoutGate.mjs), which installs no browser, so a
+        //       browser test here would fail every production build. It has its
+        //       own selector instead — vitest.browser.config.ts — and the
+        //       post-deploy gate runs it: npm run test:sgcoin-reverse
+        //
         //       soldYetBuyableAudit.test.ts is NOT excluded — exclusion also
         //       blocks an explicit `vitest run <file>` (CLI --exclude appends
         //       to this list). It self-gates instead: skipped unless
@@ -36,6 +45,7 @@ export default defineConfig({
             'tests/clsRegression.test.ts',
             'tests/rendererSmoke.test.ts',
             'tests/viewContractButton.test.ts',
+            'tests/sgcoinReverseButton.test.ts',
         ],
 
     },
