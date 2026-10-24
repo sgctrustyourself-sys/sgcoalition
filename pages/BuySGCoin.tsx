@@ -17,6 +17,7 @@ const BuySGCoin = () => {
     });
 
     const [sgcoinAmount, setSgcoinAmount] = useState(0);
+    const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
     const [bonusAmount, setBonusAmount] = useState(0);
     const [totalAmount, setTotalAmount] = useState(0);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -429,7 +430,6 @@ const BuySGCoin = () => {
                                     { label: 'SOL/ETH Address', value: '0x39451d0ee9Fc5dd861C985d2a3e227F6Ac7387f4', type: 'crypto' },
                                     { label: 'Cash App', value: '$SGCoalition', type: 'cash' }
                                 ].map((method, idx) => {
-                                    const [copiedIdx, setCopiedIdx] = React.useState<number | null>(null);
                                     return (
                                         <div
                                             key={idx}

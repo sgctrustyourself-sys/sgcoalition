@@ -29,7 +29,7 @@ export const StoreService = {
   // --- Sections (CMS) ---
   getSections: async (): Promise<PageSection[]> => {
     const stored = localStorage.getItem(STORAGE_KEYS.SECTIONS);
-    let sections = stored ? JSON.parse(stored) : INITIAL_SECTIONS;
+    const sections = stored ? JSON.parse(stored) : INITIAL_SECTIONS;
     return sections.sort((a: PageSection, b: PageSection) => a.order - b.order);
   },
 

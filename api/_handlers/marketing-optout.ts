@@ -159,7 +159,7 @@ export default async function handler(req: any, res: any) {
         const authToken = process.env.TWILIO_AUTH_TOKEN;
         const signatureHeader = typeof req.headers?.['x-twilio-signature'] === 'string' ? req.headers['x-twilio-signature'] : undefined;
 
-        let bodyParams: Record<string, string> = {};
+        const bodyParams: Record<string, string> = {};
         if (req.body && typeof req.body === 'object') {
             for (const [k, v] of Object.entries(req.body)) {
                 bodyParams[k] = Array.isArray(v) ? String(v[0] ?? '') : String(v ?? '');

@@ -196,6 +196,13 @@ const CryptoReviewQueue: React.FC<CryptoReviewQueueProps> = ({ initialStatus = '
         window.open(txHash, '_blank');
     };
 
+    // Initial fetch — declared before the early return so the hook order is
+    // identical on every render, whether or not an admin token is present.
+    useEffect(() => {
+        if (!adminToken) return;
+        fetchOrders();
+    }, [refreshKey, adminToken]);
+
     if (!adminToken) {
         return (
             <div className="min-h-screen bg-black p-8 text-white">
@@ -212,11 +219,6 @@ const CryptoReviewQueue: React.FC<CryptoReviewQueueProps> = ({ initialStatus = '
             </div>
         );
     }
-
-    // Initial fetch
-    useEffect(() => {
-        fetchOrders();
-    }, [refreshKey]);
 
     return (
         <div className="bg-white/5 border-b border-white/10 backdrop-blur-sm min-h-screen">

@@ -4,7 +4,7 @@ import path from 'path';
 
 const root = process.cwd();
 const MP4 = path.join(root, 'docs', 'reels', 'ghost-riders-y2k-reel.mp4');
-const W = 1080, H = 1920;
+const W = 1080;
 const failures = [];
 const check = (name, cond, detail) => {
   if (!cond) { failures.push(name + ': ' + detail); console.log('FAIL', name, detail); }

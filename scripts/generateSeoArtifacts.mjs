@@ -1360,7 +1360,7 @@ export const renderPostBody = (html) => {
 
     if (DROPPED_CONTENT_TAGS.has(name)) {
       if (!closing) {
-        const rest = source.slice(cursor).match(new RegExp(`<\/${name}\\s*>`, 'i'));
+        const rest = source.slice(cursor).match(new RegExp(`</${name}\\s*>`, 'i'));
         if (rest) {
           cursor += rest.index + rest[0].length;
           tagPattern.lastIndex = cursor;

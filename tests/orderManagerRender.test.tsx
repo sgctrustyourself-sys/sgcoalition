@@ -345,7 +345,7 @@ describe('OrderManager modal open + status filter interactions', () => {
             root.render(createElement(OrderManager));
         });
         // Sanity: 3 orders visible BEFORE the filter change.
-        let html0 = container.innerHTML;
+        const html0 = container.innerHTML;
         expect(html0).toContain('SG-100');
         expect(html0).toContain('SG-101');
         expect(html0).toContain('SG-102');

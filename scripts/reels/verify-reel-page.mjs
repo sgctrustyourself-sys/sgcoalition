@@ -17,10 +17,6 @@ function px(buf, x, y) {
   const i = (y * W + x) * 3;
   return [buf[i], buf[i + 1], buf[i + 2]];
 }
-function sat([r, g, b]) {
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  return max === 0 ? 0 : (max - min) / max;
-}
 function check(name, cond, detail) {
   if (!cond) { failures.push(`${name}: ${detail}`); console.log('FAIL', name, detail); }
   else console.log('ok  ', name);

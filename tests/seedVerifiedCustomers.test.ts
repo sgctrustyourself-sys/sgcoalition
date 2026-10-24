@@ -55,21 +55,25 @@ import {
 } from '../scripts/seedVerifiedCustomers';
 
 function captureStdout(fn: () => Promise<void> | void): Promise<string> {
-    return new Promise(async (resolve) => {
-        const captured: string[] = [];
-        const origLog = console.log;
-        const origErr = console.error;
-        console.log = (...args: any[]) => captured.push(args.join(' '));
-        console.error = (...args: any[]) => captured.push(args.join(' '));
-        try {
-            await fn();
-        } catch (e) {
-            captured.push('THREW: ' + (e instanceof Error ? e.message : String(e)));
-        } finally {
-            console.log = origLog;
-            console.error = origErr;
-            resolve(captured.join('\n'));
-        }
+    return new Promise((resolve) => {
+        // Async work runs in an inner IIFE: the executor itself stays
+        // synchronous, so a rejection cannot escape as an unhandled promise.
+        void (async () => {
+            const captured: string[] = [];
+            const origLog = console.log;
+            const origErr = console.error;
+            console.log = (...args: any[]) => captured.push(args.join(' '));
+            console.error = (...args: any[]) => captured.push(args.join(' '));
+            try {
+                await fn();
+            } catch (e) {
+                captured.push('THREW: ' + (e instanceof Error ? e.message : String(e)));
+            } finally {
+                console.log = origLog;
+                console.error = origErr;
+                resolve(captured.join('\n'));
+            }
+        })();
     });
 }
 

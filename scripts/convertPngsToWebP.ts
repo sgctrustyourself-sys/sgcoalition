@@ -160,6 +160,6 @@ if (deleteOriginals && mode !== 'confirm') {
 
 (async () => {
     try {
-        mode === 'dry' ? await runDry() : await runConfirm(deleteOriginals);
+        if (mode === 'dry') await runDry(); else await runConfirm(deleteOriginals);
     } catch (err) { console.error('\nAborted:', err); process.exit(1); }
 })();
