@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
-    PenTool, Shirt, Package, Building, SprayCan, Music, TrendingUp, ArrowRight, ArrowUpRight, Loader, Link2,
+    PenTool, Shirt, Package, TrendingUp, ArrowRight, ArrowUpRight, Loader, Link2,
     Instagram, Twitter, Youtube, MessageCircle as MessageCircleIcon, Mail, ExternalLink,
+    Globe2, Flame, Heart,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { supabase } from '../services/supabase';
@@ -127,6 +128,71 @@ const AboutRecentPosts: React.FC = () => {
     );
 };
 
+type StoryChapter = {
+    id: string;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    headline: string;
+    accent?: string;
+    paragraphs: string[];
+    signoff?: string;
+};
+
+// The founder narrative, pulled from the 10.22.26 blog post
+// ("The Legacy Continues: sgcoin & The Power Back in Our Hands").
+// One array owns the copy so a future edit does not have to hunt through JSX.
+const STORY_CHAPTERS: StoryChapter[] = [
+    {
+        id: 'the-loss',
+        label: 'The Loss',
+        icon: PenTool,
+        headline: 'Built From',
+        accent: 'Loss',
+        paragraphs: [
+            'Coalition was born from loss.',
+            'I lost my best friend and blood cousin, Gerrod Greenwood \u2014 gmoney. The world stopped. Grief turned into a need for an outlet. That outlet became a promise: to keep going, to build something that lasts, to turn pain into power.',
+            'The brand carries his name. Everything built here is measured against it.',
+        ],
+    },
+    {
+        id: 'the-beginning',
+        label: 'The Beginning',
+        icon: Globe2,
+        headline: 'The Starting',
+        accent: 'Days',
+        paragraphs: [
+            'Around 2020, the first pieces were made in Decentraland and The Sandbox \u2014 not a factory, a 3D world.',
+            'Streaming. Giveaways. Learning contracts the hard way. A community that showed up every day.',
+            'That was a part of my life I would never take back.',
+        ],
+    },
+    {
+        id: 'the-fracture',
+        label: 'The Fracture',
+        icon: Flame,
+        headline: 'The Team Fell',
+        accent: 'Apart',
+        paragraphs: [
+            'The team scattered. Friends went separate ways. I hold no ill will toward any of them.',
+            'The coin tanked. Whales controlled the room \u2014 one vote was worth however much money was in your account. The community was supposed to be built by everyone, with everyone getting a fair say.',
+            "It didn't work. So the next version had to.",
+        ],
+    },
+    {
+        id: 'the-legacy',
+        label: 'The Legacy',
+        icon: Heart,
+        headline: '10.22.26',
+        accent: '',
+        paragraphs: [
+            'On October 22, 2026, the mission picked back up.',
+            "This isn't about chasing a number. This isn't about getting rich. This is about honoring someone who meant everything to me and building something that carries their name into the future.",
+            "The coin might have started as an experiment. The migration might have been messy. The team might have scattered. But the mission hasn't changed: put the power back in the people's hands.",
+        ],
+        signoff: '\u2014 SG, 2026',
+    },
+];
+
 // /about structured data: the shared brand Organization node (@id) plus the
 // AboutPage that references it, so a crawler dedupes both surfaces to one
 // entity instead of reading a per-page copy of the brand. Both nodes come from
@@ -201,109 +267,51 @@ const Story = () => {
                 </div>
             </section>
 
-            {/* Emotional Origin Story */}
-            <section className="relative py-24 px-6 max-w-4xl mx-auto">
-                <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.8 }}
-                    className="text-center"
-                >
-                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-purple-500/20 bg-purple-500/10 text-purple-400 text-[10px] mb-8 uppercase tracking-[0.3em] font-bold mx-auto">
-                        <PenTool className="w-3 h-3" /> Chapter One
-                    </div>
-                    <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-10 font-display">
-                        The <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-purple-500 bg-clip-text text-transparent italic">Origin</span>
-                    </h2>
-                    <p className="text-xl md:text-2xl font-light text-gray-300 leading-relaxed mb-6 max-w-3xl mx-auto">
-                        Coalition was born from <span className="text-white font-medium">loss</span>.
-                    </p>
-                    <p className="text-xl md:text-2xl font-light text-gray-300 leading-relaxed mb-6 max-w-3xl mx-auto">
-                        After losing my best friend and blood cousin, the world stopped.
-                        <br /><br />
-                        Grief turned into a need for an outlet. That outlet became a promise.
-                    </p>
-                    <p className="text-xl md:text-2xl font-light text-gray-300 leading-relaxed max-w-3xl mx-auto">
-                        To keep going. To build something that lasts. To turn pain into power.
-                    </p>
-                    <div className="w-24 h-1 bg-gradient-to-r from-purple-500 to-blue-500 mx-auto mt-12" />
-                </motion.div>
-            </section>
-
-            {/* Founder Background */}
-            <section className="relative py-24 px-6 max-w-6xl mx-auto">
-                <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.8 }}
-                    className="grid md:grid-cols-2 gap-16 items-center"
-                >
-                    <div>
-                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-purple-500/20 bg-purple-500/10 text-purple-400 text-[10px] mb-8 uppercase tracking-[0.3em] font-bold">
-                            <PenTool className="w-3 h-3" /> The Grind
-                        </div>
-                        <h3 className="text-4xl md:text-5xl font-black uppercase tracking-tighter mb-6 font-display">
-                            Started From <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Nothing</span>
-                        </h3>
-                        <p className="text-lg text-gray-400 leading-loose mb-6">
-                            Started in a basement with nothing but a vision.
-                            <br /><br />
-                            I taught myself to sew, learned the tech, and built this site line by line.
-                        </p>
-                        <p className="text-lg text-gray-400 leading-loose">
-                            Between balancing life pressure, making music, and hustling for better days,
-                            <br /><br />
-                            Coalition became the proof that you can build a universe from scratch.
-                        </p>
-                    </div>
-                    <div className="relative h-[500px] md:h-[600px] bg-black rounded-[2rem] overflow-hidden shadow-[0_0_60px_rgba(0,0,0,0.5)] transform rotate-2 hover:rotate-0 transition-all duration-700 group">
-                        <img
-                            src="/story-mission.png"
-                            alt="The Grind"
-                            className="w-full h-full object-cover opacity-60 group-hover:opacity-80 group-hover:scale-105 transition-all duration-700"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent" />
-                        <div className="absolute bottom-0 left-0 p-8">
-                            <p className="text-white font-black text-2xl md:text-3xl uppercase tracking-widest">Built From Nothing</p>
-                        </div>
-                    </div>
-                </motion.div>
-            </section>
-
-            {/* Mission Graphic Section - Resilience */}
-            <section className="relative py-32 px-6 overflow-hidden">
-                <div className="absolute inset-0">
-                    <img
-                        src="/story-mission.png"
-                        alt="Mission Graphic"
-                        className="w-full h-full object-cover opacity-20"
-                    />
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent" />
-                <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
-                    <motion.div
+            {/* The Story — four narrative chapters. Each chapter is its own <article>
+                so the anchor ids are stable and the copy has one home in STORY_CHAPTERS. */}
+            <section id="the-story" className="relative py-24 px-6 max-w-4xl mx-auto space-y-24">
+                {STORY_CHAPTERS.map((chapter, index) => (
+                    <motion.article
+                        key={chapter.id}
+                        id={chapter.id}
                         initial={{ opacity: 0, y: 30 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        transition={{ duration: 0.8 }}
+                        transition={{ duration: 0.8, delay: index * 0.05 }}
+                        className="text-center"
                     >
-                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-purple-500/20 bg-purple-500/10 text-purple-400 text-[10px] mb-8 uppercase tracking-[0.3em] font-bold mx-auto">
-                            <Music className="w-3 h-3" /> Resilience
+                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-purple-500/20 bg-purple-500/10 text-purple-400 text-[10px] mb-8 uppercase tracking-[0.3em] font-bold">
+                            <chapter.icon className="w-3 h-3" /> {chapter.label}
                         </div>
-                        <h2 className="text-6xl md:text-8xl font-black uppercase tracking-tighter mb-8 font-display">
-                            <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-purple-500 bg-clip-text text-transparent italic">Resilience</span>
+                        <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-10 font-display">
+                            {chapter.headline}
+                            {chapter.accent && (
+                                <>
+                                    {' '}
+                                    <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-purple-500 bg-clip-text text-transparent italic">
+                                        {chapter.accent}
+                                    </span>
+                                </>
+                            )}
                         </h2>
-                        <p className="text-xl md:text-2xl font-light text-gray-300 leading-relaxed mb-8">
-                            Crosses for the burdens we carry. Angels for the ones watching over us.
-                            <br />
-                        </p>
-                        <p className="text-xl md:text-2xl font-medium text-white leading-relaxed max-w-3xl mx-auto">
-                            Gmoneyworld is about surviving everything and creating something bigger.
-                        </p>
-                    </motion.div>
-                </div>
+                        <div className="space-y-6">
+                            {chapter.paragraphs.map((paragraph) => (
+                                <p
+                                    key={paragraph}
+                                    className="text-xl md:text-2xl font-light text-gray-300 leading-relaxed max-w-3xl mx-auto"
+                                >
+                                    {paragraph}
+                                </p>
+                            ))}
+                        </div>
+                        {chapter.signoff && (
+                            <p className="mt-10 text-sm uppercase tracking-[0.3em] text-gray-500">{chapter.signoff}</p>
+                        )}
+                        {index < STORY_CHAPTERS.length - 1 && (
+                            <div className="w-24 h-1 bg-gradient-to-r from-purple-500 to-blue-500 mx-auto mt-12" />
+                        )}
+                    </motion.article>
+                ))}
             </section>
 
             {/* What Gets Made Here */}
@@ -358,55 +366,6 @@ const Story = () => {
                                 </div>
                                 <h3 className="text-2xl font-display font-bold uppercase mb-4">{item.title}</h3>
                                 <p className="text-gray-400 text-lg leading-loose">{item.desc}</p>
-                            </div>
-                        </motion.div>
-                    ))}
-                </div>
-            </section>
-
-            {/* Timeline Section */}
-            <section className="relative py-24 px-6 max-w-6xl mx-auto">
-                <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.8 }}
-                    className="text-center mb-16"
-                >
-                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-purple-500/20 bg-purple-500/10 text-purple-400 text-[10px] mb-8 uppercase tracking-[0.3em] font-bold mx-auto">
-                        <TrendingUp className="w-3 h-3" /> The Journey
-                    </div>
-                    <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter font-display">
-                        The <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Journey</span>
-                    </h2>
-                </motion.div>
-
-                <div className="space-y-10 relative">
-                    <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-transparent via-purple-500/30 to-transparent -translate-x-1/2 hidden md:block" />
-                    {[
-                        { year: 'Inception', icon: PenTool, color: 'purple', desc: 'First logo sketches. The vision takes shape.' },
-                        { year: 'First Drop', icon: Shirt, color: 'blue', desc: 'The first hoodie. Physical manifestation of the brand.' },
-                        { year: 'Validation', icon: Package, color: 'purple', desc: 'First orders shipping out. The community begins to grow.' },
-                        { year: 'Expansion', icon: Building, color: 'blue', desc: 'New office space. Moving out of the basement.' },
-                        { year: 'The Grind', icon: SprayCan, color: 'purple', desc: 'Stash cans and late nights. Hustling for the vision.' },
-                        { year: 'Soundtrack', icon: Music, color: 'blue', desc: 'Music dropping. The culture expands beyond clothes.' },
-                        { year: 'Comeback', icon: TrendingUp, color: 'purple', desc: 'Rebuilds and resilience. Stronger than ever.' },
-                        { year: 'Above as Below', icon: Shirt, color: 'blue', desc: 'The matching tee and shorts land as a coordinated drop. $75 per piece, $120 for the set, never restocked.' },
-                    ].map((item, idx) => (
-                        <motion.div
-                            key={idx}
-                            initial={{ opacity: 0, x: idx % 2 === 0 ? -50 : 50 }}
-                            whileInView={{ opacity: 1, x: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 0.6, delay: idx * 0.08 }}
-                            className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-8"
-                        >
-                            <div className={`flex items-center justify-center w-16 h-16 rounded-full border-2 bg-black text-white shadow-[0_0_30px_rgba(0,0,0,0.5)] shrink-0 z-10 bg-${item.color === 'purple' ? 'purple' : 'blue'}-600`}>
-                                {React.createElement(item.icon as any, { className: 'w-7 h-7' })}
-                            </div>
-                            <div className="w-full md:w-[calc(50%-2rem)] p-8 rounded-[2rem] border border-white/5 bg-white/[0.02] backdrop-blur-xl">
-                                <div className="text-white font-black uppercase tracking-widest text-xl mb-2">{item.year}</div>
-                                <p className="text-gray-400 leading-relaxed">{item.desc}</p>
                             </div>
                         </motion.div>
                     ))}
