@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
-    PenTool, Shirt, Package, TrendingUp, ArrowRight, ArrowUpRight, Loader, Link2,
+    PenTool, Shirt, Package, TrendingUp, ArrowUpRight, Loader, Link2,
     Instagram, Twitter, Youtube, MessageCircle as MessageCircleIcon, Mail, ExternalLink,
     Globe2, Flame, Heart,
 } from 'lucide-react';
@@ -324,11 +324,15 @@ const Story = () => {
                     className="text-center mb-16"
                 >
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-purple-500/20 bg-purple-500/10 text-purple-400 text-[10px] mb-8 uppercase tracking-[0.3em] font-bold mx-auto">
-                        <Package className="w-3 h-3" /> What Gets Made Here
+                        <Package className="w-3 h-3" /> Coalition Today
                     </div>
                     <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter font-display">
                         What Gets Made <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Here</span>
                     </h2>
+                    <p className="text-lg md:text-xl text-gray-400 leading-relaxed max-w-2xl mx-auto mt-6">
+                        Coalition today is the proof: hand-built in Baltimore, small runs on purpose, no factory, no shortcuts.
+                        The labor lives in the build, not the marketing.
+                    </p>
                 </motion.div>
                 <div className="grid md:grid-cols-3 gap-8">
                     {[
@@ -446,7 +450,12 @@ const Story = () => {
 
             {/* Newsletter */}
             <section className="relative py-20 px-6 max-w-4xl mx-auto">
-                <Newsletter source="about" variant="block" />
+                <Newsletter
+                    source="about"
+                    variant="block"
+                    heading="Stay in touch."
+                    subheading="One email the day a new Coalition piece is ready. No manufactured urgency. No spam."
+                />
             </section>
 
             {/* Brand Message / Footer Callout */}
@@ -471,16 +480,15 @@ const Story = () => {
                     >
                         Unity. Creativity. Rising from the struggle.
                     </motion.p>
-                    <motion.a
+                    <motion.p
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.8, delay: 0.2 }}
-                        href="/shop"
-                        className="inline-flex items-center gap-3 bg-white text-black px-10 py-4 font-black uppercase tracking-widest hover:bg-purple-500 hover:text-white transition-all duration-300 rounded-lg shadow-[0_0_30px_rgba(255,255,255,0.3)]"
+                        className="text-sm uppercase tracking-[0.3em] text-gray-500"
                     >
-                        Join The Movement <ArrowRight className="w-5 h-5" />
-                    </motion.a>
+                        — SG, 2026
+                    </motion.p>
                 </div>
             </section>
         </div>

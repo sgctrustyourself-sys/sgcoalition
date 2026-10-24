@@ -46,4 +46,10 @@ describe('/about brand story', () => {
             expect(pattern.test(source), `pages/About.tsx must not contain ${pattern}`).toBe(false);
         }
     });
+
+    it('closes with a soft email capture, not a hard sell', () => {
+        expect(source).toContain('heading="Stay in touch."');
+        expect(source).toContain('No manufactured urgency');
+        expect(source).not.toContain('Join The Movement');
+    });
 });
