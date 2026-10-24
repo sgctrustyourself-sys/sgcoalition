@@ -324,13 +324,13 @@ const Story = () => {
                     className="text-center mb-16"
                 >
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-purple-500/20 bg-purple-500/10 text-purple-400 text-[10px] mb-8 uppercase tracking-[0.3em] font-bold mx-auto">
-                        <Package className="w-3 h-3" /> Coalition Today
+                        <Package className="w-3 h-3" /> The Brand Now
                     </div>
                     <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter font-display">
-                        What Gets Made <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Here</span>
+                        Coalition <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Today</span>
                     </h2>
                     <p className="text-lg md:text-xl text-gray-400 leading-relaxed max-w-2xl mx-auto mt-6">
-                        Coalition today is the proof: hand-built in Baltimore, small runs on purpose, no factory, no shortcuts.
+                        Hand-built in Baltimore. Small runs on purpose. No factory, no shortcuts.
                         The labor lives in the build, not the marketing.
                     </p>
                 </motion.div>
