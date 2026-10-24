@@ -1,11 +1,11 @@
 # Brand Story Page — Founder Credibility Design
 
 **Date:** 2026-10-24  
-**Status:** Draft (pending user review)  
+**Status:** Approved (2026-10-24)  
 **Owner:** Founder / Creative Director  
-**Route:** `/story` (brand story / about page)  
+**Route:** `/about` — upgrade the existing About page in place (no new route)  
 **Goal:** Establish founder credibility — the "Built from Loss" story made specific and real. No hard sell.  
-**Conversion:** One soft, optional email capture at the end ("stay in touch"), using existing `/api/marketing-subscribe` infrastructure. No urgency, no countdown, no forbidden words.
+**Conversion:** One soft, optional email capture at the end ("stay in touch"), using the existing `components/Newsletter.tsx` → `/api/subscribe-drop` path. No urgency, no countdown, no forbidden words.
 
 ---
 
@@ -83,10 +83,10 @@ Key facts pulled from that post:
 ## Conversion Tool — Email Capture (Soft)
 
 **Placement:** End of Section 5, after the founder sign-off.  
-**Copy:** "Stay in touch." / email input / submit button (secondary/outline style, not primary).  
-**Infrastructure:** Existing `/api/marketing-subscribe` handler + `utils/trafficAttribution.ts` for UTM/referrer capture.  
-**Validation:** Client-side required-field check; server handles opt-in.  
-**Success state:** Quiet confirmation ("Thanks — you're on the list."), no confetti, no celebration chrome (Peaceful Space compliant).  
+**Component:** Reuse `components/Newsletter.tsx` with `source="about"` and `variant="block"` (it already posts to `/api/subscribe-drop`).  
+**Copy:** Heading "Stay in touch." / subheading "One email the day a new Coalition piece is ready. No manufactured urgency. No spam."  
+**Validation:** The component's existing client-side email check; server handles opt-in.  
+**Success state:** The component's existing quiet confirmation ("You're on the list."), no confetti, no celebration chrome (Peaceful Space compliant).  
 **Not a CTA button:** No "Shop Now," no "Buy Now," no urgency.
 
 ---
@@ -106,12 +106,11 @@ Key facts pulled from that post:
 
 | Component | Source | Notes |
 |-----------|--------|-------|
-| `PageStory` | New | Page wrapper, section orchestration |
-| `StorySection` | New | Reusable section container with staggered motion |
-| `StoryHero` | New | Section 1 — oversized headline + sub-headline |
-| `StoryEmailCapture` | New | Section 5 conversion tool → `/api/marketing-subscribe` |
-| `Seo` | Existing | `components/Seo.tsx` — route-specific title/description/OG |
-| `AnnouncementBar` | Existing | Keep the quiet brand line, no promo bar |
+| `pages/About.tsx` | Modify | Upgrade the middle narrative sections in place; keep the hero, Connect, Blog, and footer shell |
+| `STORY_CHAPTERS` | New (inside `About.tsx`) | One data array for the four narrative chapters (Loss, Beginning, Fracture, Legacy) |
+| `Newsletter` | Existing | `components/Newsletter.tsx`, `source="about"`, `variant="block"`, custom heading/subheading |
+| `Seo` | Existing | `components/Seo.tsx` — keep `ABOUT_PAGE_TITLE` / `ABOUT_PAGE_DESCRIPTION` |
+| `MAIN_SHARING_LINK` | Existing | Keep the Connect section's portfolio link (pinned by `tests/sharingLink.test.ts`) |
 
 ---
 
@@ -126,8 +125,8 @@ Key facts pulled from that post:
 
 ## Resolved Decisions (2026-10-24)
 
-1. **Route:** `/story` — confirmed.
-2. **Conversion tool:** Email capture as proposed — confirmed.
+1. **Route:** `/about` — upgrade the existing page in place. A separate `/story` route would duplicate overlapping content and the SEO/prerender wiring.
+2. **Conversion tool:** Email capture via the existing `Newsletter` component — confirmed.
 3. **Specific names:** Gerrod Greenwood is kept as the emotional anchor of the loss. The blog post's friend names may be referenced lightly but must not dilute the focus on Gerrod Greenwood.
 
 Spec approved by the founder on 2026-10-24. Implementation plan follows.
