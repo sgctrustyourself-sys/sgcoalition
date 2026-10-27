@@ -1,4 +1,6 @@
 import { stripeClient } from '../../api/_services.js';
+import { errorMessage } from '../../utils/errorMessage.js';
+import type { ApiRequest, ApiResponse, CreateSubscriptionSessionBody } from '../_types.js';
 
 if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is missing');
@@ -6,7 +8,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 
 const stripe = stripeClient();
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app');
@@ -27,7 +29,7 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const { userId } = req.body;
+        const { userId } = (req.body ?? {}) as CreateSubscriptionSessionBody;
 
         // Determine origin for success/cancel URLs
         let origin = process.env.VITE_APP_URL;
@@ -35,9 +37,11 @@ export default async function handler(req: any, res: any) {
             origin = `https://${process.env.VERCEL_URL}`;
         }
         if (!origin) {
-            const host = req.headers.host;
+            const hostHeader = req.headers?.host;
+            const host = typeof hostHeader === 'string' ? hostHeader : undefined;
             if (host) {
-                const protocol = req.headers['x-forwarded-proto'] || 'http';
+                const protoHeader = req.headers?.['x-forwarded-proto'];
+                const protocol = typeof protoHeader === 'string' && protoHeader ? protoHeader : 'http';
                 origin = `${protocol}://${host}`;
             }
         }
@@ -84,8 +88,8 @@ export default async function handler(req: any, res: any) {
         });
 
         res.status(200).json({ sessionId: session.id, url: session.url });
-    } catch (err: any) {
+    } catch (err) {
         console.error('Stripe Subscription Error:', err);
-        res.status(500).json({ error: err.message || 'Internal server error' });
+        res.status(500).json({ error: errorMessage(err) || 'Internal server error' });
     }
 }

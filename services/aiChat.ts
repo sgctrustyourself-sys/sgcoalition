@@ -1,4 +1,5 @@
 import { buildApiUrl } from './apiBase.js';
+import { errorMessage } from '../utils/errorMessage.js';
 import { supabase } from './supabase.js';
 
 export type ChatMode = 'brand' | 'full';
@@ -106,9 +107,9 @@ export const sendChatMessage = async (
         });
 
         return result.response;
-    } catch (error: any) {
+    } catch (error) {
         console.error('[AI Chat] Request failed:', error);
-        return `Sorry, I encountered an error: ${error.message || 'Unknown error'}. Please try again or contact support at sgctrustyourself@gmail.com`;
+        return `Sorry, I encountered an error: ${errorMessage(error) || 'Unknown error'}. Please try again or contact support at sgctrustyourself@gmail.com`;
     }
 };
 
@@ -119,9 +120,9 @@ export const generateImage = async (prompt: string): Promise<{ success: boolean;
             prompt,
             unlockToken: readStoredUnlockToken(),
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error('[AI Image] Request failed:', error);
-        return { success: false, error: error.message || 'Image generation failed' };
+        return { success: false, error: errorMessage(error) || 'Image generation failed' };
     }
 };
 
@@ -150,8 +151,8 @@ export const generateShirtDesign = async (
             baseGarment,
             unlockToken: readStoredUnlockToken(),
         });
-    } catch (error: any) {
-        return { success: false, error: error.message || 'Shirt design generation failed' };
+    } catch (error) {
+        return { success: false, error: errorMessage(error) || 'Shirt design generation failed' };
     }
 };
 
@@ -166,9 +167,9 @@ export const designShirtFromReference = async (
             userInstructions,
             unlockToken: readStoredUnlockToken(),
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error('[Shirt Designer] Request failed:', error);
-        return { success: false, error: error.message || 'Design generation failed' };
+        return { success: false, error: errorMessage(error) || 'Design generation failed' };
     }
 };
 

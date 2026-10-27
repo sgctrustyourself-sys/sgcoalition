@@ -26,7 +26,7 @@ vi.mock('@supabase/supabase-js', () => ({
 
 const mockResendSend = vi.fn();
 vi.mock('resend', () => ({
-    Resend: vi.fn(function (this: any) {
+    Resend: vi.fn(function (this: Record<string, unknown>) {
         return { emails: { send: mockResendSend } };
     }),
 }));

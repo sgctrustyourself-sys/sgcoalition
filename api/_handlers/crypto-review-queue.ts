@@ -7,7 +7,7 @@
 // Idempotent: safe to poll; only returns orders not yet paid.
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { type ApiRequest, type ApiResponse } from '../_types.js';
-import { createHttpError, parseBody, setCorsHeaders } from '../_helpers.js';
+import { createHttpError, setCorsHeaders } from '../_helpers.js';
 import { withAdminAuth } from '../_adminAuth.js';
 
 function getSupabaseAdmin(): SupabaseClient {
@@ -17,18 +17,6 @@ function getSupabaseAdmin(): SupabaseClient {
         throw createHttpError(503, 'Supabase admin service is not configured.');
     }
     return createClient(supabaseUrl, serviceRoleKey);
-}
-
-async function loadOrder(supabase: SupabaseClient, orderRef: string): Promise<any> {
-    const ref = String(orderRef || '').trim();
-    if (!ref) return null;
-    // Try by id first, then by order_number
-    const byId = await supabase.from('orders').select('*').eq('id', ref).maybeSingle();
-    if (byId.error) throw createHttpError(500, byId.error.message || 'Order lookup failed.');
-    if (byId.data) return byId.data as any;
-    const byNumber = await supabase.from('orders').select('*').eq('order_number', ref).maybeSingle();
-    if (byNumber.error) throw createHttpError(500, byNumber.error.message || 'Order lookup failed.');
-    return (byNumber.data as any) || null;
 }
 
 function formatTxHash(txHash: string | null): string {

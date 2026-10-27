@@ -23,7 +23,6 @@ import { notifyAdminClientError } from '../../services/orderIntake.js';
 // handler is invoked (same arrangement as csp-report.ts).
 
 const MAX_FIELD = 500;
-const MAX_METADATA_JSON = 2000;
 
 function clip(v: unknown, max: number): string {
     return String(v ?? '').slice(0, max);

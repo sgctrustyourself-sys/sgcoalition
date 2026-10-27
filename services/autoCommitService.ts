@@ -44,7 +44,7 @@ export async function autoCommit(options: AutoCommitOptions): Promise<string | n
         }
 
         return data.hash;
-    } catch (error: any) {
+    } catch (error) {
         console.error('Auto-commit failed:', error);
         // Don't throw - we don't want to break the app if Git fails
         return null;

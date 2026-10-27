@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { errorMessage } from '../utils/errorMessage.js';
 
 /**
  * Account Linking Service
@@ -48,7 +49,7 @@ export const getLinkedAccount = async (walletAddress: string): Promise<LinkedAcc
  */
 export const linkWalletToCurrentUser = async (walletAddress: string): Promise<{ success: boolean; error?: string }> => {
     try {
-        const { data, error } = await supabase
+        const { error } = await supabase
             .rpc('link_wallet_to_user', { p_wallet_address: walletAddress });
 
         if (error) {
@@ -56,8 +57,8 @@ export const linkWalletToCurrentUser = async (walletAddress: string): Promise<{ 
         }
 
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message || 'Unknown error' };
+    } catch (error) {
+        return { success: false, error: errorMessage(error) || 'Unknown error' };
     }
 };
 
@@ -136,8 +137,8 @@ export const createAccountAndLinkWallet = async (
         }
 
         return { success: true, userId: authData.user.id };
-    } catch (error: any) {
-        return { success: false, error: error.message || 'Unknown error' };
+    } catch (error) {
+        return { success: false, error: errorMessage(error) || 'Unknown error' };
     }
 };
 
@@ -185,8 +186,8 @@ export const linkWalletToExistingAccount = async (
         }
 
         return { success: true, userId: authData.user.id };
-    } catch (error: any) {
-        return { success: false, error: error.message || 'Unknown error' };
+    } catch (error) {
+        return { success: false, error: errorMessage(error) || 'Unknown error' };
     }
 };
 
@@ -205,8 +206,8 @@ export const unlinkWallet = async (walletAddress: string): Promise<{ success: bo
         }
 
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message || 'Unknown error' };
+    } catch (error) {
+        return { success: false, error: errorMessage(error) || 'Unknown error' };
     }
 };
 

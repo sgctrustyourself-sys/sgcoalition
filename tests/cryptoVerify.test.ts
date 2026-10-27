@@ -39,12 +39,23 @@ function cryptoOrder(overrides: Record<string, unknown> = {}) {
 // Per-table resolution queues: from('orders') shifts the next orders entry,
 // from('payment_settings') the next settings entry. Each query object is
 // thenable so `await update(...).eq(...)` resolves the queued outcome.
+/** The chainable Supabase stub: each link a mock, plus a thenable leaf. */
+type StubQuery = {
+    select: ReturnType<typeof vi.fn>;
+    eq: ReturnType<typeof vi.fn>;
+    limit: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    maybeSingle: ReturnType<typeof vi.fn>;
+    single: ReturnType<typeof vi.fn>;
+    then: (onFulfilled: (value: unknown) => unknown) => Promise<unknown>;
+};
+
 function mockDb(routes: Record<string, Array<{ data: unknown; error: unknown }>>) {
     const queues: Record<string, Array<{ data: unknown; error: unknown }>> = {};
     for (const [table, arr] of Object.entries(routes)) queues[table] = [...arr];
     mockSupabaseFrom.mockImplementation((table: string) => {
         const next = (queues[table] || []).shift() || { data: null, error: null };
-        const q: Record<string, any> = {};
+        const q = {} as StubQuery;
         q.select = vi.fn(() => q);
         q.eq = vi.fn(() => q);
         q.limit = vi.fn(() => q);
@@ -74,7 +85,7 @@ function chainResult(valueBaseUnits: string) {
 }
 
 function stubFetch(payload: unknown) {
-    const fetchFn = vi.fn(async () => ({ ok: true, json: async () => payload }) as any);
+    const fetchFn = vi.fn(async () => ({ ok: true, json: async () => payload }) as unknown as Response);
     vi.stubGlobal('fetch', fetchFn);
     return fetchFn;
 }
@@ -85,7 +96,7 @@ function makeRes() {
         _body: null,
         setHeader: vi.fn(),
         status: vi.fn(function (s: number) { res._status = s; return res; }),
-        json: vi.fn(function (body: any) { res._body = body; return res; }),
+        json: vi.fn(function (body: unknown) { res._body = body; return res; }),
         end: vi.fn(function () { return res; }),
     };
     return res;
@@ -106,7 +117,7 @@ async function loadHandler() {
 }
 
 describe('POST /api/crypto-verify', () => {
-    let handler: (req: any, res: any) => Promise<void>;
+    let handler: Awaited<ReturnType<typeof loadHandler>>;
 
     beforeEach(async () => {
         mockSupabaseFrom.mockReset();
@@ -267,7 +278,7 @@ describe('POST /api/crypto-verify', () => {
 });
 
 describe('GET /api/crypto-verify', () => {
-    let handler: (req: any, res: any) => Promise<void>;
+    let handler: Awaited<ReturnType<typeof loadHandler>>;
 
     beforeEach(async () => {
         mockSupabaseFrom.mockReset();

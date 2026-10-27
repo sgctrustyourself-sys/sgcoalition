@@ -83,7 +83,7 @@ export async function uploadScreenshot(
     const filePath = `${giveawayId}/${filename}`;
 
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
         .from('giveaway-screenshots')
         .upload(filePath, compressedFile, {
             cacheControl: '3600',

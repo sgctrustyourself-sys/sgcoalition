@@ -635,7 +635,10 @@ describe('source invariants: admin authorization has one gate', () => {
 
     it('only classified modules read the inbound authorization header', () => {
         const readers = apiSourceFiles().filter((file) =>
-            /\breq\w*\s*\??\.\s*headers\s*(\[|\??\.)\s*['"]?authorization/i.test(withoutComments(read(file))),
+            // `?.` may precede either the property or the index form, so all three of
+            // req.headers.authorization, req.headers['authorization'] and
+            // req.headers?.['authorization'] count as reading the header.
+            /\breq\w*\s*\??\.\s*headers\s*(\?\.)?(\[|\??\.)\s*['"]?authorization/i.test(withoutComments(read(file))),
         );
 
         const unclassified = readers.filter((file) => !(file in AUTH_HEADER_READERS));

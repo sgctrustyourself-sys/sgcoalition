@@ -8,6 +8,8 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { resendClient } from '../../api/_services.js';
+import { errorMessage } from '../../utils/errorMessage.js';
+import type { ApiRequest, ApiResponse } from '../_types.js';
 
 const ALLOWED_SOURCES = new Set(['home', 'shop', 'about', 'footer']);
 
@@ -78,7 +80,7 @@ async function sendConfirmationEmail(opts: {
         html,
         text,
     });
-    const error = (result as any)?.error;
+    const error = (result as { error?: { message?: string } } | null)?.error;
     if (error) {
         throw new Error(error.message || 'Resend rejected the confirmation email.');
     }
@@ -152,7 +154,7 @@ function escapeHtml(value: string): string {
         .replace(/'/g, '&#39;');
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'sgcoalition-five.vercel.app');
     res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
@@ -249,10 +251,10 @@ export default async function handler(req: any, res: any) {
             emailDelivered,
             source,
         });
-    } catch (err: any) {
+    } catch (err) {
         console.error('[subscribe-drop] failed:', err);
         res.status(500).json({
-            error: err?.message || 'Could not save subscription. Please try again.',
+            error: errorMessage(err) || 'Could not save subscription. Please try again.',
         });
     }
 }

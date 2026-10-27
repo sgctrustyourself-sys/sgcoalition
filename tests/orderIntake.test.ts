@@ -9,8 +9,22 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Mock helpers — build chainable Supabase query stubs
 // ---------------------------------------------------------------------------
 
+/** The chainable query stub: every link a mock, plus an optional thenable. */
+type MockQuery = {
+    select: ReturnType<typeof vi.fn>;
+    in: ReturnType<typeof vi.fn>;
+    eq: ReturnType<typeof vi.fn>;
+    gte: ReturnType<typeof vi.fn>;
+    upsert: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    maybeSingle: ReturnType<typeof vi.fn>;
+    single: ReturnType<typeof vi.fn>;
+    order: ReturnType<typeof vi.fn>;
+    then?: (onFulfilled: (value: unknown) => unknown) => Promise<unknown>;
+};
+
 function freshMockQuery(resolveOnAwait?: unknown) {
-    const q: Record<string, any> = {
+    const q: MockQuery = {
         select: vi.fn().mockReturnThis(),
         in: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
@@ -81,13 +95,13 @@ vi.mock('@supabase/supabase-js', () => ({
 }));
 
 vi.mock('stripe', () => ({
-    default: vi.fn(function(this: any) {
+    default: vi.fn(function(this: Record<string, unknown>) {
         this.paymentIntents = { retrieve: mockStripeRetrieve };
     }),
 }));
 
 vi.mock('resend', () => ({
-    Resend: vi.fn(function(this: any) {
+    Resend: vi.fn(function(this: Record<string, unknown>) {
         this.emails = { send: mockResendSend };
     }),
 }));
@@ -823,7 +837,7 @@ describe('acceptCheckout', () => {
         expect(mockSupabaseFrom).toHaveBeenCalled();
         // resolvePaymentState parses the DEP marker: paid=10, balance=20
         const upsertCall = mockSupabaseFrom.mock.calls.find(
-            (c: any[]) => c[0] === 'orders',
+            (c: unknown[]) => c[0] === 'orders',
         );
         expect(upsertCall).toBeTruthy();
         // The upsert record was built with correct paid_amount/balance_due
@@ -891,8 +905,8 @@ describe('acceptCheckout', () => {
 
         // Capture the upsert payload: from('orders') → chain → upsert(record).
         const orderQuery = mockSupabaseFrom.mock.results
-            .map((r: { value: any }) => r.value)
-            .find((q: any) => q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0);
+            .map((r) => r.value as MockQuery | null)
+            .find((q): q is MockQuery => Boolean(q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0))!;
         expect(orderQuery).toBeTruthy();
         const record = orderQuery.upsert.mock.calls[0][0] as Record<string, unknown>;
         expect(record.shipping_address).toEqual(shipping);
@@ -945,8 +959,8 @@ describe('acceptCheckout', () => {
 
         // The increment: from('coupons').update({ used_count: 3 }).eq('code','SAVE25').eq('used_count', 2)
         const couponQuery = mockSupabaseFrom.mock.results
-            .map((r: { value: any }) => r.value)
-            .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.length > 0);
+            .map((r) => r.value as MockQuery | null)
+            .find((q): q is MockQuery => Boolean(q && typeof q.update === 'function' && q.update.mock.calls.length > 0))!;
         expect(couponQuery).toBeTruthy();
         expect(couponQuery.update.mock.calls[0][0]).toEqual({ used_count: 3 });
         expect(couponQuery.eq.mock.calls[0]).toEqual(['code', 'SAVE25']);
@@ -977,8 +991,8 @@ describe('acceptCheckout', () => {
 
         await acceptCheckout(attempt);
         const orderQuery = mockSupabaseFrom.mock.results
-            .map((r: { value: any }) => r.value)
-            .find((q: any) => q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0);
+            .map((r) => r.value as MockQuery | null)
+            .find((q): q is MockQuery => Boolean(q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0))!;
         const record = orderQuery.upsert.mock.calls[0][0] as Record<string, unknown>;
         expect(record.notes).toContain('Coupon: SAVE25');
         expect(record.notes).toContain('-$6.25');
@@ -1027,8 +1041,8 @@ describe('acceptCheckout', () => {
         delete process.env.STRIPE_SECRET_KEY;
 
         const profileUpdate = mockSupabaseFrom.mock.results
-            .map((r: { value: any }) => r.value)
-            .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.store_credit !== undefined));
+            .map((r) => r.value as MockQuery | null)
+            .find((q): q is MockQuery => Boolean(q && typeof q.update === 'function' && q.update.mock.calls.some((c: Record<string, unknown>[]) => c[0]?.store_credit !== undefined)))!;
         expect(profileUpdate).toBeTruthy();
         expect(profileUpdate.update.mock.calls[0][0]).toEqual({ store_credit: 3 });
     });
@@ -1085,8 +1099,8 @@ describe('acceptCheckout', () => {
         expect(result.created).toBe(true);
 
         const productUpdate = mockSupabaseFrom.mock.results
-            .map((r: { value: any }) => r.value)
-            .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.size_inventory !== undefined));
+            .map((r) => r.value as MockQuery | null)
+            .find((q): q is MockQuery => Boolean(q && typeof q.update === 'function' && q.update.mock.calls.some((c: Record<string, unknown>[]) => c[0]?.size_inventory !== undefined)))!;
         expect(productUpdate).toBeTruthy();
         expect(productUpdate.update.mock.calls[0][0]).toEqual({ size_inventory: { M: 2, L: 5 } });
         expect(productUpdate.eq.mock.calls[0]).toEqual(['id', 'prod-1']);
@@ -1146,8 +1160,8 @@ describe('acceptCheckout', () => {
         const result = await acceptCheckout(attempt);
         expect(result.created).toBe(true);
         const productUpdate = mockSupabaseFrom.mock.results
-            .map((r: { value: any }) => r.value)
-            .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.size_inventory !== undefined));
+            .map((r) => r.value as MockQuery | null)
+            .find((q): q is MockQuery => Boolean(q && typeof q.update === 'function' && q.update.mock.calls.some((c: Record<string, unknown>[]) => c[0]?.size_inventory !== undefined)))!;
         expect(productUpdate).toBeFalsy();
     });
 });
@@ -1213,17 +1227,17 @@ describe('acceptCheckout store credit (every payment method)', () => {
 
             // The RECORDED order is priced with the credit ...
             const orderQuery = mockSupabaseFrom.mock.results
-                .map((r: { value: any }) => r.value)
-                .find((q: any) => q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0);
+                .map((r) => r.value as MockQuery | null)
+                .find((q): q is MockQuery => Boolean(q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0))!;
             expect(orderQuery).toBeTruthy();
-            const record = orderQuery.upsert.mock.calls[0][0] as Record<string, any>;
+            const record = orderQuery.upsert.mock.calls[0][0] as Record<string, unknown>;
             expect(record.total).toBe(12.5); // $25 - 30% member - $5
             expect(record.notes).toContain('Store credit applied: -$5.00');
 
             // ... and the balance was debited exactly once ($8 - $5).
             const profileUpdate = mockSupabaseFrom.mock.results
-                .map((r: { value: any }) => r.value)
-                .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.store_credit !== undefined));
+                .map((r) => r.value as MockQuery | null)
+                .find((q): q is MockQuery => Boolean(q && typeof q.update === 'function' && q.update.mock.calls.some((c: Record<string, unknown>[]) => c[0]?.store_credit !== undefined)))!;
             expect(profileUpdate).toBeTruthy();
             expect(profileUpdate.update.mock.calls[0][0]).toEqual({ store_credit: 3 });
         });
@@ -1248,12 +1262,12 @@ describe('acceptCheckout store credit (every payment method)', () => {
         const result = await acceptCheckout(attempt);
         expect(result.created).toBe(true);
         const orderQuery = mockSupabaseFrom.mock.results
-            .map((r: { value: any }) => r.value)
-            .find((q: any) => q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0);
-        expect((orderQuery.upsert.mock.calls[0][0] as Record<string, any>).total).toBe(17.5);
+            .map((r) => r.value as MockQuery | null)
+            .find((q): q is MockQuery => Boolean(q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0))!;
+        expect((orderQuery.upsert.mock.calls[0][0] as Record<string, unknown>).total).toBe(17.5);
         const profileUpdate = mockSupabaseFrom.mock.results
-            .map((r: { value: any }) => r.value)
-            .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.store_credit !== undefined));
+            .map((r) => r.value as MockQuery | null)
+            .find((q): q is MockQuery => Boolean(q && typeof q.update === 'function' && q.update.mock.calls.some((c: Record<string, unknown>[]) => c[0]?.store_credit !== undefined)))!;
         expect(profileUpdate).toBeFalsy();
     });
 
@@ -1330,7 +1344,7 @@ describe('acceptCheckout store credit (every payment method)', () => {
         serverCreditCents: 500, // the order is priced with $5
     };
 
-    const creditAlerts = () => mockResendSend.mock.calls.filter((c: any[]) =>
+    const creditAlerts = () => mockResendSend.mock.calls.filter((c: Record<string, unknown>[]) =>
         String(c[0]?.subject || '').includes('store credit not debited'));
 
     it('alerts the operator instead of silently keeping credit when the debit matched no row', async () => {
@@ -1342,7 +1356,7 @@ describe('acceptCheckout store credit (every payment method)', () => {
         // untouched — but the lost race is no longer invisible.
         expect(result.created).toBe(true);
         expect(creditAlerts()).toHaveLength(1);
-        const alert = creditAlerts()[0][0] as any;
+        const alert = creditAlerts()[0][0] as { to?: unknown; html: string; subject?: unknown };
         expect(alert.to).toEqual(expect.arrayContaining([expect.stringContaining('@')]));
         expect(alert.html).toContain('Credit applied</strong></td><td>$5.00');
         expect(alert.html).toContain('Actually debited</strong></td><td>$0.00');
@@ -1361,7 +1375,7 @@ describe('acceptCheckout store credit (every payment method)', () => {
         await acceptCheckout(creditAttempt);
 
         expect(creditAlerts()).toHaveLength(1);
-        const html = (creditAlerts()[0][0] as any).html;
+        const html = (creditAlerts()[0][0] as { html: string }).html;
         expect(html).toContain('Credit applied</strong></td><td>$5.00');
         expect(html).toContain('Actually debited</strong></td><td>$3.00');
         expect(html).toContain('lower than the credit the order was priced with');
@@ -1382,7 +1396,7 @@ describe('acceptCheckout store credit (every payment method)', () => {
         // destructive payload it wrote — `[{ store_credit: 0 }]`.
         expect(profiles.update.mock.calls).toEqual([]);
         expect(creditAlerts()).toHaveLength(1);
-        const html = (creditAlerts()[0][0] as any).html;
+        const html = (creditAlerts()[0][0] as { html: string }).html;
         expect(html).toContain('Actually debited</strong></td><td>$0.00');
         expect(html).toContain('The debit did not run: connection reset');
     });
@@ -1398,7 +1412,7 @@ describe('acceptCheckout store credit (every payment method)', () => {
         expect(result.created).toBe(true);
         expect(profiles.update.mock.calls).toEqual([]);
         expect(creditAlerts()).toHaveLength(1);
-        expect((creditAlerts()[0][0] as any).html).toContain('Store-credit balance could not be read');
+        expect((creditAlerts()[0][0] as { html: string }).html).toContain('Store-credit balance could not be read');
     });
 
     it('alerts when the debit write itself fails', async () => {
@@ -1411,7 +1425,7 @@ describe('acceptCheckout store credit (every payment method)', () => {
 
         expect(result.created).toBe(true);
         expect(creditAlerts()).toHaveLength(1);
-        const html = (creditAlerts()[0][0] as any).html;
+        const html = (creditAlerts()[0][0] as { html: string }).html;
         expect(html).toContain('Credit applied</strong></td><td>$5.00');
         expect(html).toContain('Actually debited</strong></td><td>$0.00');
         expect(html).toContain('The debit did not run');
@@ -1426,8 +1440,8 @@ describe('acceptCheckout store credit (every payment method)', () => {
         expect(result.created).toBe(true);
         expect(creditAlerts()).toHaveLength(0);
         const profileUpdate = mockSupabaseFrom.mock.results
-            .map((r: { value: any }) => r.value)
-            .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.store_credit !== undefined));
+            .map((r) => r.value as MockQuery | null)
+            .find((q): q is MockQuery => Boolean(q && typeof q.update === 'function' && q.update.mock.calls.some((c: Record<string, unknown>[]) => c[0]?.store_credit !== undefined)))!;
         expect(profileUpdate.update.mock.calls[0][0]).toEqual({ store_credit: 3 });
     });
 });
@@ -1484,12 +1498,12 @@ describe('acceptCheckout attempt id', () => {
     });
 
     const creditWrite = () => mockSupabaseFrom.mock.results
-        .map((r: { value: any }) => r.value)
-        .find((q: any) => q && typeof q.update === 'function' && q.update.mock.calls.some((c: any[]) => c[0]?.store_credit !== undefined));
+        .map((r) => r.value as MockQuery | null)
+        .find((q): q is MockQuery => Boolean(q && typeof q.update === 'function' && q.update.mock.calls.some((c: Record<string, unknown>[]) => c[0]?.store_credit !== undefined)))!;
 
     const orderClaims = () => mockSupabaseFrom.mock.results
-        .map((r: { value: any }) => r.value)
-        .filter((q: any) => q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0);
+        .map((r) => r.value as MockQuery | null)
+        .filter((q): q is MockQuery => Boolean(q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0));
 
     it('resolves a replay to the recorded order without pricing, charging or debiting again', async () => {
         const recorded = stubOrderRow({
@@ -1525,7 +1539,7 @@ describe('acceptCheckout attempt id', () => {
         // there first — while a plain upsert (DO UPDATE) answers with the row it
         // took over. That difference is the whole point: only the first form
         // lets the loser know it is not the creator.
-        const orders = freshMockQuery(undefined as any);
+        const orders = freshMockQuery(undefined);
         let overwrote = false;
         orders.upsert = vi.fn((_row: unknown, opts?: { ignoreDuplicates?: boolean }) => {
             overwrote = !opts?.ignoreDuplicates;
@@ -1636,8 +1650,8 @@ describe('findRecordedOrderNumber', () => {
         (table === 'orders' ? ordersStub(recorded) : chain('maybeSingle', { data: null, error: null })));
 
     const orderClaims = () => mockSupabaseFrom.mock.results
-        .map((r: { value: any }) => r.value)
-        .filter((q: any) => q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0);
+        .map((r) => r.value as MockQuery | null)
+        .filter((q): q is MockQuery => Boolean(q && typeof q.upsert === 'function' && q.upsert.mock.calls.length > 0));
 
     it('names the order recorded under the attempt, for the buyer who owns it', async () => {
         ordersOnly(stubOrderRow({

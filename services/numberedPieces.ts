@@ -215,7 +215,19 @@ export function getActiveTierInfo(product: Product, currentSold: number): Active
  * by the rest of the app. Mapping is defensive: a missing column returns
  * null/0 instead of `undefined` so consumers don't trip on truthy checks.
  */
-function mapDbRow(row: any): NumberedPiece {
+/** The snake_case row as PostgREST returns it for `numbered_pieces`. */
+interface NumberedPieceRow {
+    id: string;
+    product_id: string;
+    piece_index?: number | null;
+    order_id?: string | null;
+    nft_token_id?: string | null;
+    nfc_tag_url?: string | null;
+    assigned_at?: string | null;
+    created_at?: string | null;
+}
+
+function mapDbRow(row: NumberedPieceRow): NumberedPiece {
     return {
         id: row.id,
         productId: row.product_id,

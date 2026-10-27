@@ -6,6 +6,8 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { resendClient } from '../../api/_services.js';
+import { errorMessage } from '../../utils/errorMessage.js';
+import type { ApiRequest, ApiResponse } from '../_types.js';
 
 // The sources a signup can claim itself. `member_signup` is the member
 // account form: signing up for an account to get the 30% member discount also
@@ -50,11 +52,6 @@ function redactEmail(value: string): string {
     return `${local[0]}***${domain}`;
 }
 
-function redactPhone(value: string): string {
-    if (value.length < 4) return '[redacted]';
-    return '+***' + value.slice(-4);
-}
-
 function getResendFromAddress(): string {
     return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>';
 }
@@ -84,7 +81,7 @@ const ATTRIBUTION_FIELDS = [
     'capturedAt',
 ] as const;
 
-function optionalString(body: any, field: string, maxLength = 240): string | null {
+function optionalString(body: Record<string, unknown>, field: string, maxLength = 240): string | null {
     const value = body?.[field];
     if (typeof value !== 'string') return null;
     const trimmed = value.trim();
@@ -92,7 +89,7 @@ function optionalString(body: any, field: string, maxLength = 240): string | nul
     return trimmed.slice(0, maxLength);
 }
 
-function buildMetadata(body: any, base: Record<string, unknown>): Record<string, unknown> {
+function buildMetadata(body: Record<string, unknown>, base: Record<string, unknown>): Record<string, unknown> {
     const metadata = { ...base };
 
     for (const field of ATTRIBUTION_FIELDS) {
@@ -139,7 +136,7 @@ async function sendEmailConfirmation(opts: { to: string; source: string; unsubsc
         ].join('\n'),
         html: confirmationEmailHtml({ sourceLabel, unsubscribeUrl }),
     });
-    const error = (result as any)?.error;
+    const error = (result as { error?: { message?: string } } | null)?.error;
     if (error) throw new Error(error.message || 'Resend rejected email');
 }
 
@@ -192,7 +189,7 @@ async function writeConsentLog(admin: SupabaseClient, params: {
     }
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'sgcoalition-five.vercel.app');
     res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
@@ -327,9 +324,9 @@ export default async function handler(req: any, res: any) {
             emailDelivered,
             channel,
         });
-    } catch (err: any) {
+    } catch (err) {
         console.error('[marketing-subscribe] failed:', err);
-        res.status(500).json({ error: err?.message || 'Subscription failed.' });
+        res.status(500).json({ error: errorMessage(err) || 'Subscription failed.' });
     }
 }
 

@@ -21,7 +21,7 @@
  */
 import { promises as fs } from 'fs';
 import path from 'path';
-import { argValue, hasFlag, logHeader, logRow } from './cli';
+import { hasFlag, logHeader, logRow } from './cli';
 import { PROJECT_ROOT, slugsFromArgs } from './dropKit';
 import { getDrop, assetBase, assetRelPath } from './story-reveal-specs/drops';
 import type { DropRelease, SlideLayout, SlideSpec, StickerType } from './story-reveal-specs/drops';
@@ -522,7 +522,7 @@ function escapeHtml(value: string): string {
 // ─── Registry ledger row ─────────────────────────────────────────────────────
 
 function registryRow(drop: DropRelease): string {
-  const { spec, listing } = drop;
+  const { spec } = drop;
   const kit = `drop-kit-${spec.slug}-${spec.x}-${spec.y}.md`;
   const copy = `drop-copy-${spec.slug}-${spec.x}-${spec.y}.md`;
   const board = `storyboard-${spec.slug}-${spec.x}-${spec.y}.html`;

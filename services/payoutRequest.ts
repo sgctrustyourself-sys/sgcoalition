@@ -203,7 +203,24 @@ export async function deletePayoutRequest(requestId: string): Promise<void> {
  *  tooling (e.g. utils/customerProfile.ts buildCustomerProfile enrichment)
  *  can map without duplicating this 12-field block — single source of
  *  truth for the snake→camel mapping if the DB schema grows new columns. */
-export function mapToRequest(row: any): PayoutRequest {
+/** The snake_case row as PostgREST returns it for `sgcoin_payout_requests`. */
+interface PayoutRequestRow {
+    id: string;
+    user_id?: string;
+    email: string;
+    wallet_address: string;
+    amount: number | string;
+    status: PayoutRequest['status'];
+    tx_hash?: string;
+    rejection_reason?: string;
+    admin_id?: string;
+    admin_notes?: string;
+    created_at: string;
+    updated_at: string;
+    processed_at?: string;
+}
+
+export function mapToRequest(row: PayoutRequestRow): PayoutRequest {
     return {
         id: row.id,
         userId: row.user_id,

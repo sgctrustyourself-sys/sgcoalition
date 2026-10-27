@@ -1,5 +1,6 @@
 // api/_handlers/health.ts
 import { CHECKOUT_PAYMENT_METHOD_TYPES, originStatus } from '../_helpers.js';
+import type { ApiRequest, ApiResponse } from '../_types.js';
 //
 // GET /api/health — lightweight liveness + Stripe readiness probe.
 //
@@ -94,7 +95,7 @@ function sanitizeStripeError(e: unknown): string {
     return `${code}: ${message}`;
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -117,7 +118,8 @@ export default async function handler(req: any, res: any) {
     // this payload that stays useful when the Stripe key is dead, so a
     // degraded checkout still tells the operator which host to point
     // third-party webhooks at.
-    const origin = originStatus(req.headers?.host);
+    const hostHeader = req.headers?.host;
+    const origin = originStatus(typeof hostHeader === 'string' ? hostHeader : undefined);
 
     const stripeKey = process.env.STRIPE_SECRET_KEY || '';
     const stripe: {

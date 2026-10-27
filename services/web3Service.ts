@@ -9,6 +9,22 @@ import {
     POLYGON_RPC_URL
 } from '../constants.js';
 import { fetchBurnActivity } from '../utils/polygonScanApi.js';
+import type { Provider, Signer } from 'ethers';
+import { errorWithDetails } from '../utils/errorMessage.js';
+
+/** A Mini Wizard NFT as the dashboard renders it. */
+// One MiniWizard type for the whole app: the shape the cards and the detail
+// modal render is types/MiniWizard. Re-declaring a looser one here made the
+// two incompatible at every hand-off point.
+export type { MiniWizard } from '../types/MiniWizard.js';
+import type { MiniWizard } from '../types/MiniWizard.js';
+
+/** The fields this module reads off a Transfer log. */
+interface TransferLogLike {
+    args: { to: string; from: string; value: bigint };
+    transactionHash: string;
+    blockNumber: number;
+}
 
 // Lazy-loaded ethers — ~100 KB chunk only downloaded when a crypto function
 // is first called (connect wallet, check balance, pay with crypto, etc.).
@@ -35,14 +51,14 @@ export const getStaticProvider = async () => {
 /**
  * Attempts to get a working provider from a list of RPCs
  */
-export const getRobustProvider = async (): Promise<any> => {
+export const getRobustProvider = async (): Promise<Provider> => {
     const { ethers } = await getEthers();
     for (const url of POLYGON_RPC_URLS) {
         try {
             const provider = new ethers.JsonRpcProvider(url, { chainId: 137, name: 'polygon' }, { staticNetwork: true });
             await provider.getNetwork();
             return provider;
-        } catch (e) {
+        } catch {
             console.warn(`RPC ${url} failed, trying next...`);
         }
     }
@@ -79,7 +95,7 @@ const ERC1155_ABI = [
     'function balanceOf(address account, uint256 id) view returns (uint256)'
 ];
 
-export const getSGCoinBalance = async (address: string, provider: any): Promise<string> => {
+export const getSGCoinBalance = async (address: string, provider: Provider): Promise<string> => {
     const { ethers } = await getEthers();
     try {
         const network = await provider.getNetwork();
@@ -102,7 +118,7 @@ export const getSGCoinBalance = async (address: string, provider: any): Promise<
     }
 };
 
-export const getSGCoinV2Balance = async (address: string, provider: any): Promise<string> => {
+export const getSGCoinV2Balance = async (address: string, provider: Provider): Promise<string> => {
     const { ethers } = await getEthers();
     try {
         const network = await provider.getNetwork();
@@ -124,7 +140,7 @@ export const getSGCoinV2Balance = async (address: string, provider: any): Promis
     }
 };
 
-export const getBurnedSGCoinV1 = async (provider: any): Promise<string> => {
+export const getBurnedSGCoinV1 = async (provider: Provider): Promise<string> => {
     const { ethers } = await getEthers();
     // Audit-verified fallback if live data fails
     const AUDITED_BURN = '1,777,161';
@@ -157,7 +173,7 @@ export const getBurnedSGCoinV1 = async (provider: any): Promise<string> => {
     }
 };
 
-export const getNativeBalance = async (address: string, provider: any): Promise<string> => {
+export const getNativeBalance = async (address: string, provider: Provider): Promise<string> => {
     const { ethers } = await getEthers();
     try {
         const balance = await provider.getBalance(address);
@@ -168,7 +184,7 @@ export const getNativeBalance = async (address: string, provider: any): Promise<
     }
 };
 
-export const getLiquidityProviderV2Balance = async (provider: any): Promise<string> => {
+export const getLiquidityProviderV2Balance = async (provider: Provider): Promise<string> => {
     const { ethers } = await getEthers();
     try {
         const contract = new ethers.Contract(SGCOIN_V2_CONTRACT_ADDRESS, ERC20_ABI, provider);
@@ -189,7 +205,7 @@ export interface BurnActivity {
     blockNumber?: number;
 }
 
-export const getRecentBurnActivity = async (provider: any): Promise<BurnActivity[]> => {
+export const getRecentBurnActivity = async (provider: Provider): Promise<BurnActivity[]> => {
     const { ethers } = await getEthers();
     try {
         // First try PolygonScan API for a richer history
@@ -211,13 +227,16 @@ export const getRecentBurnActivity = async (provider: any): Promise<BurnActivity
             v1Contract.queryFilter(filterBurn, fromBlock)
         ]);
 
-        const activities: BurnActivity[] = [...eventsDead, ...eventsBurn].map((event: any) => ({
-            type: event.args.to.toLowerCase() === SGCOIN_BURN_ADDRESS.toLowerCase() ? 'migration' : 'burn',
-            txHash: event.transactionHash,
-            amount: ethers.formatUnits(event.args.value, 9),
-            address: event.args.from,
-            blockNumber: event.blockNumber
-        }));
+        const activities: BurnActivity[] = [...eventsDead, ...eventsBurn].map((event) => {
+            const log = event as unknown as TransferLogLike;
+            return {
+                type: log.args.to.toLowerCase() === SGCOIN_BURN_ADDRESS.toLowerCase() ? 'migration' : 'burn',
+                txHash: log.transactionHash,
+                amount: ethers.formatUnits(log.args.value, 9),
+                address: log.args.from,
+                blockNumber: log.blockNumber
+            };
+        });
 
         return activities.sort((a, b) => (b.blockNumber || 0) - (a.blockNumber || 0)).slice(0, 10);
     } catch (error) {
@@ -231,7 +250,7 @@ export const checkNftOwnership = async (
     contractAddress: string,
     tokenId: string,
     walletAddress: string,
-    existingProvider?: any
+    existingProvider?: Provider
 ): Promise<boolean> => {
     try {
         if (!window.ethereum) return false;
@@ -291,8 +310,8 @@ export const connectWallet = async (): Promise<WalletData | null> => {
             totalMigratedV1: totalMigrated
         };
 
-    } catch (error: any) {
-        if (error.code === 4001) {
+    } catch (error) {
+        if (errorWithDetails(error).code === 4001) {
             console.log("User rejected the connection request.");
         } else {
             console.error("Error connecting wallet:", error);
@@ -327,9 +346,9 @@ export const switchToPolygon = async (): Promise<boolean> => {
             params: [{ chainId: '0x89' }], // 0x89 is 137 in hex (Polygon)
         });
         return true;
-    } catch (switchError: any) {
+    } catch (switchError) {
         // This error code indicates that the chain has not been added to MetaMask
-        if (switchError.code === 4902) {
+        if (errorWithDetails(switchError).code === 4902) {
             try {
                 await window.ethereum.request({
                     method: 'wallet_addEthereumChain',
@@ -356,7 +375,7 @@ export const switchToPolygon = async (): Promise<boolean> => {
     }
 };
 
-export const getAllowance = async (tokenAddress: string, owner: string, spender: string, provider: any): Promise<bigint> => {
+export const getAllowance = async (tokenAddress: string, owner: string, spender: string, provider: Provider): Promise<bigint> => {
     const { ethers } = await getEthers();
     try {
         const abi = ['function allowance(address owner, address spender) view returns (uint256)'];
@@ -368,7 +387,7 @@ export const getAllowance = async (tokenAddress: string, owner: string, spender:
     }
 };
 
-export const approveTokens = async (tokenAddress: string, spender: string, amount: bigint, signer: any): Promise<string | null> => {
+export const approveTokens = async (tokenAddress: string, spender: string, amount: bigint, signer: Signer): Promise<string | null> => {
     const { ethers } = await getEthers();
     try {
         const abi = ['function approve(address spender, uint256 amount) returns (bool)'];
@@ -415,7 +434,7 @@ const MINIWIZARD_ABI = [
     'function tokenURI(uint256 tokenId) view returns (string)'
 ];
 
-export const fetchUserMiniWizards = async (ownerAddress: string, provider: any): Promise<any[]> => {
+export const fetchUserMiniWizards = async (ownerAddress: string, provider: Provider): Promise<MiniWizard[]> => {
     const { ethers } = await getEthers();
     try {
         const network = await provider.getNetwork();
@@ -446,9 +465,11 @@ export const fetchUserMiniWizards = async (ownerAddress: string, provider: any):
                         id: tokenId.toString(),
                         name: metadata.name || `Wizard #${tokenId}`,
                         image: metadata.image ? metadata.image.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') : '',
+                        tokenUri,
                         attributes: metadata.attributes || [],
                         isLegacy: true,
                         level: 1, // Default for now
+                        power: 0, // Not in the metadata; the trait cards derive it
                         element: 'Unknown' // To be derived
                     };
                 } catch (err) {

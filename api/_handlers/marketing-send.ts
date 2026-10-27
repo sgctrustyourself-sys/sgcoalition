@@ -34,7 +34,7 @@ import { resendClient } from '../../api/_services.js';
 import { withAdminAuth } from '../_adminAuth.js';
 import { isTestCampaignName } from '../../utils/marketingAudience.js';
 import { fetchAudience } from '../_marketingAudience.js';
-import type { ApiRequest, ApiResponse, MarketingChannel, ResendEmailPayload } from '../_types.js';
+import type { MarketingChannel } from '../_types.js';
 
 let cachedAdminClient: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient | null {

@@ -1,4 +1,4 @@
-import { Product, PageSection, UserProfile, CartItem, UserType } from '../types.js';
+import { Product, PageSection, UserProfile } from '../types.js';
 import { INITIAL_PRODUCTS, INITIAL_SECTIONS, ADMIN_USER } from '../constants.js';
 
 const STORAGE_KEYS = {

@@ -14,13 +14,13 @@ const mockGenerateContent = vi.fn();
 const mockResendSend = vi.fn();
 
 vi.mock('@google/generative-ai', () => ({
-    GoogleGenerativeAI: vi.fn(function (this: any) {
+    GoogleGenerativeAI: vi.fn(function (this: Record<string, unknown>) {
         this.getGenerativeModel = () => ({ generateContent: mockGenerateContent });
     }),
 }));
 
 vi.mock('resend', () => ({
-    Resend: vi.fn(function (this: any) {
+    Resend: vi.fn(function (this: Record<string, unknown>) {
         this.emails = { send: mockResendSend };
     }),
 }));

@@ -4,6 +4,7 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import type { ApiRequest, ApiResponse } from '../_types.js';
 
 let cachedAdminClient: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient | null {
@@ -16,7 +17,6 @@ function getSupabaseAdmin(): SupabaseClient | null {
 }
 
 const STOP_KEYWORDS = new Set(['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT']);
-const START_KEYWORDS = new Set(['START', 'YES', 'UNSTOP']);
 
 function validateTwilioSignature(opts: {
     authToken: string;
@@ -97,7 +97,7 @@ function htmlPage(message: string, success: boolean): string {
 </body>
 </html>`;
 }
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
@@ -148,7 +148,7 @@ export default async function handler(req: any, res: any) {
             });
             sendPage('You are off the Coalition marketing list. You will not receive any further marketing emails.', true);
             return;
-        } catch (err: any) {
+        } catch (err) {
             console.error('[marketing-optout] GET failed:', err);
             sendPage('Something went wrong. Please try again later.', false);
             return;
@@ -214,7 +214,7 @@ export default async function handler(req: any, res: any) {
             }
             res.status(200).send('<Response></Response>');
             return;
-        } catch (err: any) {
+        } catch (err) {
             console.error('[marketing-optout] POST failed:', err);
             res.status(200).send('<Response></Response>');
             return;

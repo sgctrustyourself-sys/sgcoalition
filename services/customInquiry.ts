@@ -17,7 +17,7 @@ export interface CustomInquiryData {
  * @param userId - Optional authenticated user ID to link the inquiry
  */
 export async function submitCustomInquiry(data: CustomInquiryData, userId?: string): Promise<string> {
-    const insertData: Record<string, any> = {
+    const insertData: Record<string, unknown> = {
         customer_name: data.customerName,
         customer_email: data.customerEmail,
         customer_phone: data.customerPhone || null,
@@ -73,7 +73,7 @@ export async function updateInquiry(
         quoteAmount?: number;
     }
 ) {
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
 
     if (updates.status) updateData.status = updates.status;
     if (updates.adminNotes !== undefined) updateData.admin_notes = updates.adminNotes;

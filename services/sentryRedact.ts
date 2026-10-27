@@ -79,11 +79,11 @@ export function scrubEvent(event: ErrorEvent): ErrorEvent {
     if (event.breadcrumbs) {
         for (const b of event.breadcrumbs) {
             if (typeof b.message === 'string') b.message = scrubText(b.message);
-            if (b.data !== undefined) b.data = scrubDeep(b.data) as Record<string, any>;
+            if (b.data !== undefined) b.data = scrubDeep(b.data) as Record<string, unknown>;
         }
     }
 
-    if (event.extra) event.extra = scrubDeep(event.extra) as Record<string, any>;
+    if (event.extra) event.extra = scrubDeep(event.extra) as Record<string, unknown>;
 
     return event;
 }

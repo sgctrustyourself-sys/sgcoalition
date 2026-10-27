@@ -20,9 +20,18 @@ const PurchaseRequestsTab = React.lazy(() => import('../components/profile/Purch
 // only when the user opens the SGCOIN payout section.
 const SGCoinPayoutTab = React.lazy(() => import('../components/profile/SGCoinPayoutTab'));
 
+interface ProfileOrderItem {
+    id?: string;
+    name?: string;
+    image?: string;
+    size?: string;
+    quantity: number;
+    price: number;
+}
+
 interface Order {
     id: string;
-    items: any[];
+    items: ProfileOrderItem[];
     total: number;
     status: string;
     shippingStatus: string;
@@ -408,7 +417,7 @@ const Profile = () => {
                                     {/* Order Items */}
                                     <div className="px-6 py-4">
                                         <div className="space-y-3">
-                                            {order.items.map((item: any, index: number) => (
+                                            {order.items.map((item: ProfileOrderItem, index: number) => (
                                                 <div key={index} className="flex items-center gap-4">
                                                     <img
                                                         src={item.image}
@@ -722,8 +731,8 @@ const Profile = () => {
                                                 await connectMetaMaskWallet(accounts[0]);
                                                 setSuccess('MetaMask wallet connected!');
                                             }
-                                        } catch (err: any) {
-                                            setError(err.message || 'Failed to connect MetaMask');
+                                        } catch (err) {
+                                            setError((err instanceof Error ? err.message : String(err)) || 'Failed to connect MetaMask');
                                         } finally {
                                             setIsConnecting(false);
                                         }
@@ -774,8 +783,8 @@ const Profile = () => {
                                                         setSuccess('Wallet address saved!');
                                                         setManualAddress('');
                                                         setShowManualInput(false);
-                                                    } catch (err: any) {
-                                                        setError(err.message || 'Failed to save address');
+                                                    } catch (err) {
+                                                        setError((err instanceof Error ? err.message : String(err)) || 'Failed to save address');
                                                     } finally {
                                                         setIsConnecting(false);
                                                     }

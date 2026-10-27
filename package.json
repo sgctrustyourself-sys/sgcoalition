@@ -7,7 +7,7 @@
     "node": "24.x"
   },
   "scripts": {
-    "lint": "eslint . --max-warnings 1159",
+    "lint": "eslint . --max-warnings 456",
     "check:serverless-imports": "node scripts/check-serverless-imports.mjs",
     "check:imports": "node scripts/check-imports-resolve.mjs",
     "test": "vitest run",

@@ -94,7 +94,7 @@ export async function submitApplication(
 
 export async function getMyApplication(userId: string): Promise<TrustCircleApplication | null> {
     if (!userId) return null;
-    const { data, error } = await supabase
+    const { data } = await supabase
         .from('trust_circle_applications')
         .select('*')
         .eq('user_id', userId)

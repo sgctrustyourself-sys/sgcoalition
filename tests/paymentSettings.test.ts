@@ -64,7 +64,7 @@ function makeRes() {
         _body: null,
         setHeader: vi.fn(),
         status: vi.fn(function (s: number) { res._status = s; return res; }),
-        json: vi.fn(function (body: any) { res._body = body; return res; }),
+        json: vi.fn(function (body: unknown) { res._body = body; return res; }),
         end: vi.fn(function () { return res; }),
     };
     return res;
@@ -96,7 +96,7 @@ async function loadHandler() {
 // =========================================================================
 
 describe('GET/PATCH /api/payment-settings', () => {
-    let handler: (req: any, res: any) => Promise<void>;
+    let handler: Awaited<ReturnType<typeof loadHandler>>;
 
     beforeEach(async () => {
         mockSupabaseFrom.mockReset();

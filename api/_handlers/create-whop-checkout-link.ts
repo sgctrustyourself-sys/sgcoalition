@@ -29,7 +29,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { withAdminAuth } from '../_adminAuth.js';
-import { createHttpError } from '../_helpers.js';
+import { createHttpError, type HttpError } from '../_helpers.js';
+import { errorMessage } from '../../utils/errorMessage.js';
 import { loadPaymentSettings } from '../../services/paymentSettings.js';
 import type { ApiRequest, ApiResponse } from '../_types.js';
 
@@ -145,7 +146,7 @@ export default withAdminAuth(async (req: ApiRequest, res: ApiResponse) => {
             throw createHttpError(502, `Whop API error (${whopResponse.status}): ${errorBody.slice(0, 300)}`);
         }
 
-        const whopData = await whopResponse.json() as Record<string, any>;
+        const whopData = await whopResponse.json() as Record<string, unknown>;
         // Whop returns the shareable URL on the configuration and/or its plan.
         const checkoutUrl = String(whopData.url || whopData.purchase_url || whopData.checkout_url || '');
         if (!checkoutUrl) {
@@ -160,9 +161,10 @@ export default withAdminAuth(async (req: ApiRequest, res: ApiResponse) => {
             affiliateCode,
             priceCents,
         });
-    } catch (err: any) {
-        const status = Number(err?.status || 500);
-        const message = err?.message || 'Failed to create a Whop checkout link.';
+    } catch (err) {
+        const details = err as Partial<HttpError>;
+        const status = Number(details.status || 500);
+        const message = errorMessage(err) || 'Failed to create a Whop checkout link.';
         if (status >= 500) console.error('[whop-checkout] error:', err);
         res.status(status).json({ error: message });
     }

@@ -52,10 +52,12 @@ export const fetchSGCoinV2Price = async (): Promise<number | null> => {
         const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${SGCOIN_V2_ADDRESS}`);
         if (!response.ok) return null;
         const data = await response.json();
-        const pairs: any[] = Array.isArray(data?.pairs) ? data.pairs : [];
+        const pairs: Array<{ priceUsd?: string }> = Array.isArray(data?.pairs) ? data.pairs : [];
         const pair = pairs.find(p => p?.priceUsd && Number(p.priceUsd) > 0) || null;
         if (!pair) return null;
-        const price = parseFloat(pair.priceUsd);
+        const priceUsd = pair.priceUsd;
+        if (!priceUsd) return null;
+        const price = parseFloat(priceUsd);
         return Number.isFinite(price) && price > 0 ? price : null;
     } catch (error) {
         console.warn('Error fetching SGCOIN V2 price:', error);

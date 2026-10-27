@@ -1,5 +1,4 @@
 import { supabase } from './supabase.js';
-import { ConsentData } from './consentTracking.js';
 import { API_BASE_URL } from './apiBase.js';
 import { getAdminAuthHeaders, handleAdminAuthFailure, ADMIN_SESSION_EXPIRED_ERROR } from './adminSession.js';
 

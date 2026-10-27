@@ -16,7 +16,7 @@ export async function uploadPaymentProof(file: File, requestId: string): Promise
     const filePath = `proofs/${fileName}`;
 
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
         .from('sgcoin-payment-proofs')
         .upload(filePath, file, {
             cacheControl: '3600',

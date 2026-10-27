@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { createHmac } from 'node:crypto';
+import { errorMessage } from '../../utils/errorMessage.js';
+import type { ApiRequest, ApiResponse, PlaceOrderCreditsBody } from '../_types.js';
 
 const supabaseAdmin = createClient(
     process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
@@ -72,8 +74,8 @@ function verifySupabaseToken(token: string, secret: string): DecodedJwt | null {
     };
 }
 
-function bearerToken(req: any): string | null {
-    const header = req.headers['authorization'];
+function bearerToken(req: ApiRequest): string | null {
+    const header = req.headers?.['authorization'];
     if (typeof header !== 'string') return null;
     const m = header.match(/^Bearer\s+(.+)$/i);
     return m ? m[1] : null;
@@ -83,7 +85,7 @@ if (!JWT_SECRET) {
     console.warn('[place-order-credits] SUPABASE_JWT_SECRET is not configured — the auth gate cannot verify JWT signatures and will be ineffective. Set it in every environment.');
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app');
@@ -103,7 +105,7 @@ export default async function handler(req: any, res: any) {
         return;
     }
 
-    const { userId, total, items } = req.body;
+    const { userId, total } = (req.body ?? {}) as PlaceOrderCreditsBody;
 
     if (!userId || !total) {
         res.status(400).json({ error: 'Missing required fields' });
@@ -182,9 +184,9 @@ export default async function handler(req: any, res: any) {
 
         res.status(200).json({ success: true, newBalance: newCredit });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error('Credit Order Error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: errorMessage(error) });
     }
 }
 

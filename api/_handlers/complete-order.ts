@@ -60,7 +60,7 @@ async function createOrder(req: ApiRequest): Promise<OrderRow | null> {
     if (!orderInput) throw createHttpError(400, 'Order is required.');
 
     const method = String(orderInput.paymentMethod || orderInput.payment_method || '').toLowerCase();
-    const items = (orderInput.items || []).map((i: any) => ({
+    const items = (orderInput.items || []).map((i) => ({
         productId: i.productId || i.product_id || i.name || '',
         selectedSize: i.selectedSize || i.size || 'One Size',
         quantity: Math.max(1, Number(i.quantity || 1)),
@@ -74,8 +74,8 @@ async function createOrder(req: ApiRequest): Promise<OrderRow | null> {
         clientSubtotal: Number(orderInput.subtotal || 0),
         clientDiscount: Number(orderInput.discount || 0),
         clientTotal: Number(orderInput.total || 0),
-        shippingDollars: (shippingAddr as any)?.shippingCost || orderInput.shippingCost || 0,
-        shippingMethod: (shippingAddr as any)?.shippingMethod || orderInput.shippingMethod || 'standard',
+        shippingDollars: (shippingAddr as { shippingCost?: number })?.shippingCost || orderInput.shippingCost || 0,
+        shippingMethod: (shippingAddr as { shippingMethod?: string })?.shippingMethod || orderInput.shippingMethod || 'standard',
         paymentEvidence: buildPaymentEvidence(orderInput as Record<string, unknown>),
         // The order id IS the checkout attempt id the server dedupes on, so it
         // arrives as unauthenticated client input: keep it a bounded trimmed
@@ -91,18 +91,22 @@ async function createOrder(req: ApiRequest): Promise<OrderRow | null> {
         shippingAddress: shippingAddr as Record<string, unknown> | null,
         sgCoinReward: Number(orderInput.sgCoinReward || orderInput.sg_coin_reward || 0),
         notes: orderInput.notes || '',
-        facebookUsername: (orderInput as any).facebookUsername || (orderInput as any).facebook_username || null,
-        couponCode: (orderInput as any).couponCode || (orderInput as any).coupon_code || null,
+        facebookUsername: typeof orderInput.facebookUsername === 'string' && orderInput.facebookUsername
+            ? orderInput.facebookUsername
+            : (typeof orderInput.facebook_username === 'string' && orderInput.facebook_username ? orderInput.facebook_username : null),
+        couponCode: typeof orderInput.couponCode === 'string' && orderInput.couponCode
+            ? orderInput.couponCode
+            : (typeof orderInput.coupon_code === 'string' && orderInput.coupon_code ? orderInput.coupon_code : null),
         // Store credit already applied + charged by create-payment-intent
         // (Stripe path). acceptCheckout re-verifies against the live profile
         // balance and debits the profile exactly once per order.
-        serverCreditCents: Math.max(0, Math.round(Number((orderInput as any).storeCreditApplied || 0) * 100)),
+        serverCreditCents: Math.max(0, Math.round(Number(orderInput.storeCreditApplied || 0) * 100)),
     };
 
     // For crypto/cashapp/store_credit: shipping address needs Method + Cost
     if (method === 'crypto' || method === 'cashapp' || method === 'store_credit') {
-        (attempt.shippingAddress as any) = {
-            ...(attempt.shippingAddress as any || {}),
+        attempt.shippingAddress = {
+            ...(attempt.shippingAddress || {}),
             shippingMethod: attempt.shippingMethod,
             shippingCost: attempt.shippingDollars,
         };
@@ -122,7 +126,7 @@ async function createOrder(req: ApiRequest): Promise<OrderRow | null> {
 // ---------------------------------------------------------------------------
 
 // No auth check here: the only caller is adminOrders below, which is wrapped.
-async function listOrders(req: ApiRequest) {
+async function listOrders() {
     const { data, error } = await getSupabaseAdmin().from('orders').select('*').order('created_at', { ascending: false });
     if (error) throw createHttpError(500, error.message || 'Failed to fetch orders.');
     return (data as OrderRow[] | null) || [];
@@ -147,7 +151,7 @@ async function updateOrder(req: ApiRequest) {
 // operator's shared secret.
 const adminOrders = withAdminAuth(async (req: ApiRequest, res: ApiResponse) => {
     try {
-        if (req.method === 'GET') { res.status(200).json(await listOrders(req)); return; }
+        if (req.method === 'GET') { res.status(200).json(await listOrders()); return; }
         if (req.method === 'PATCH') { res.status(200).json(await updateOrder(req)); return; }
         res.status(405).json({ error: 'Method not allowed' });
     } catch (error: unknown) {

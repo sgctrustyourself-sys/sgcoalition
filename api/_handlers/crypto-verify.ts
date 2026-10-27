@@ -31,6 +31,7 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { type ApiRequest, type ApiResponse } from '../_types.js';
+import { errorMessage } from '../../utils/errorMessage.js';
 import {
     createHttpError,
     parseBody,
@@ -71,8 +72,9 @@ async function loadOrder(supabase: SupabaseClient, orderRef: string): Promise<Or
 // The crypto_* columns may not exist yet (migration not applied). Detect a
 // missing-column failure so the write can fall back to the pre-migration
 // payment_reference + notes markers.
-function isColumnError(e: any): boolean {
-    const t = String((e?.code || '') + ' ' + (e?.message || '') + ' ' + (e?.details || '')).toLowerCase();
+function isColumnError(e: unknown): boolean {
+    const details = (e ?? {}) as { code?: unknown; message?: unknown; details?: unknown };
+    const t = String((details.code || '') + ' ' + (details.message || '') + ' ' + (details.details || '')).toLowerCase();
     return t.includes('crypto_') || t.includes('schema cache') || t.includes('does not exist');
 }
 
@@ -170,8 +172,8 @@ async function verifyTransfer(req: ApiRequest, res: ApiResponse): Promise<void> 
             txHash,
             windowStartMs,
         });
-    } catch (e: any) {
-        throw createHttpError(502, e?.message || 'Chain lookup failed.');
+    } catch (e) {
+        throw createHttpError(502, errorMessage(e) || 'Chain lookup failed.');
     }
 
     // Not among the merchant's recent receipts: unmined, mistyped hash, or

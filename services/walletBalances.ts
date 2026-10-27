@@ -1,3 +1,4 @@
+import type { Provider } from 'ethers';
 import {
     POLYGON_CHAIN_ID,
     SGCOIN_BURN_ADDRESS,
@@ -37,7 +38,7 @@ const createPolygonProvider = async () => {
     );
 };
 
-export const getSGCoinBalance = async (address: string, provider: any): Promise<string> => {
+export const getSGCoinBalance = async (address: string, provider: Provider): Promise<string> => {
     const { ethers } = await getEthers();
     try {
         const network = await provider.getNetwork();
@@ -57,7 +58,7 @@ export const getSGCoinBalance = async (address: string, provider: any): Promise<
     }
 };
 
-export const getSGCoinV2Balance = async (address: string, provider: any): Promise<string> => {
+export const getSGCoinV2Balance = async (address: string, provider: Provider): Promise<string> => {
     const { ethers } = await getEthers();
     try {
         const network = await provider.getNetwork();
@@ -77,7 +78,7 @@ export const getSGCoinV2Balance = async (address: string, provider: any): Promis
     }
 };
 
-export const getBurnedSGCoinV1 = async (provider: any): Promise<string> => {
+export const getBurnedSGCoinV1 = async (provider: Provider): Promise<string> => {
     const { ethers } = await getEthers();
     try {
         const network = await provider.getNetwork();

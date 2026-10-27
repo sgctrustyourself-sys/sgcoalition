@@ -124,8 +124,9 @@ async function connect(): Promise<{ client: pg.PoolClient; pool: pg.Pool }> {
             const client = await pool.connect();
             console.log(`Connected via ${label}${projectRef ? ` (project ${projectRef})` : ''}`);
             return { client, pool };
-        } catch (err: any) {
-            console.log(`  ${label}: ${err.message.slice(0, 100)}`);
+        } catch (err) {
+            const reason = err instanceof Error ? err.message : String(err);
+            console.log(`  ${label}: ${reason.slice(0, 100)}`);
             await pool.end().catch(() => {});
         }
     }
@@ -248,9 +249,9 @@ async function main() {
                 await client.query('INSERT INTO public.schema_migrations (version) VALUES ($1)', [m.version]);
                 await client.query('COMMIT');
                 console.log('  OK');
-            } catch (err: any) {
+            } catch (err) {
                 await client.query('ROLLBACK').catch(() => {});
-                console.error(`  FAILED — rolled back: ${err.message}`);
+                console.error(`  FAILED — rolled back: ${err instanceof Error ? err.message : String(err)}`);
                 console.error(`  Remaining pending: ${pending.filter((x) => x.version > m.version).map((x) => x.version).join(', ') || '(none)'}`);
                 process.exit(1);
             }

@@ -30,7 +30,7 @@ import sendEmailHandler from '../api/_handlers/send-email';
 
 const mockResendSend = vi.hoisted(() => vi.fn());
 vi.mock('resend', () => ({
-    Resend: vi.fn(function (this: any) {
+    Resend: vi.fn(function (this: Record<string, unknown>) {
         return { emails: { send: mockResendSend } };
     }),
 }));

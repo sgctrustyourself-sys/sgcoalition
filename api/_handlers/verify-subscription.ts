@@ -1,5 +1,7 @@
 import { stripeClient } from '../../api/_services.js';
 import { createClient } from '@supabase/supabase-js';
+import { errorMessage } from '../../utils/errorMessage.js';
+import type { ApiRequest, ApiResponse, VerifySubscriptionBody } from '../_types.js';
 
 if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is missing');
@@ -13,7 +15,7 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app');
@@ -34,7 +36,7 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const { sessionId } = req.body;
+        const { sessionId } = (req.body ?? {}) as VerifySubscriptionBody;
 
         if (!sessionId) {
             res.status(400).json({ error: 'Missing sessionId' });
@@ -50,7 +52,12 @@ export default async function handler(req: any, res: any) {
         }
 
         const userId = session.metadata?.userId;
-        const type = session.metadata?.type || ((session as any).subscription_data?.metadata as any)?.type;
+        // `subscription_data` exists on the create params, not on the retrieved
+        // Session type, so narrow it structurally instead of casting to `any`.
+        const subscriptionData = (session as unknown as {
+            subscription_data?: { metadata?: { type?: string } };
+        }).subscription_data;
+        const type = session.metadata?.type || subscriptionData?.metadata?.type;
 
         console.log(`Verifying subscription for User: ${userId}, Type: ${type}`);
 
@@ -117,8 +124,8 @@ export default async function handler(req: any, res: any) {
 
         res.status(200).json({ success: true, userId });
 
-    } catch (err: any) {
+    } catch (err) {
         console.error('Verification Error:', err);
-        res.status(500).json({ error: err.message || 'Internal server error' });
+        res.status(500).json({ error: errorMessage(err) || 'Internal server error' });
     }
 }

@@ -12,7 +12,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { withAdminAuth } from '../_adminAuth.js';
-import { LOCAL_DEV_ORIGINS, parseBody } from '../_helpers.js';
+import { LOCAL_DEV_ORIGINS, parseBody, type HttpError } from '../_helpers.js';
+import type { ApiRequest, ApiResponse } from '../_types.js';
+import { errorMessage } from '../../utils/errorMessage.js';
 
 function getSupabaseAdmin() {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
@@ -25,7 +27,7 @@ function getSupabaseAdmin() {
     return createClient(supabaseUrl, serviceRoleKey);
 }
 
-async function updateMetadata(body: any) {
+async function updateMetadata(body: Record<string, unknown>) {
     const pieceId = String(body.pieceId || '').trim();
     if (!pieceId) {
         throw Object.assign(new Error('pieceId is required.'), { status: 400 });
@@ -33,7 +35,7 @@ async function updateMetadata(body: any) {
 
     // Only update fields that were explicitly provided. Strip empty strings
     // to NULL so the PDP falls back to the openseaUrl for the piece.
-    const updates: Record<string, any> = {};
+    const updates: Record<string, string | null> = {};
     if (body.nftTokenId !== undefined) {
         updates.nft_token_id = String(body.nftTokenId || '').trim() || null;
     }
@@ -62,7 +64,7 @@ async function updateMetadata(body: any) {
 
 // Whole-handler gate. The allowed CORS methods are pinned to GET,OPTIONS,POST
 // (the set this endpoint always advertised) rather than the wrapper's default.
-async function handler(req: any, res: any) {
+async function handler(req: ApiRequest, res: ApiResponse) {
     try {
         if (req.method === 'POST') {
             res.status(200).json(await updateMetadata(parseBody(req)));
@@ -70,10 +72,11 @@ async function handler(req: any, res: any) {
         }
 
         res.status(405).json({ error: 'Method not allowed' });
-    } catch (error: any) {
-        const status = Number(error?.status || 500);
-        console.error('[update-piece-metadata]', error?.message || error);
-        res.status(status).json({ error: error?.message || 'Piece metadata update failed.' });
+    } catch (error) {
+        const details = error as Partial<HttpError>;
+        const status = Number(details.status || 500);
+        console.error('[update-piece-metadata]', errorMessage(error));
+        res.status(status).json({ error: errorMessage(error) || 'Piece metadata update failed.' });
     }
 }
 

@@ -11,10 +11,10 @@ import { resolveCryptoDiscountCents } from '../utils/cryptoDiscount.js';
 import { MEMBER_DISCOUNT_RATE, isMemberPromoActive } from '../utils/memberDiscount.js';
 import { resolvePaymentState } from '../utils/orderDepositNotes.js';
 import type {
-    OrderRow, OrderItemRow, OrderSaveResult, ProductRow,
+    OrderRow, OrderItemRow, OrderSaveResult, ProductRow, ShippingAddress,
 } from '../api/_types.js';
+import { errorMessage } from '../utils/errorMessage.js';
 
-const CURRENCY = 'USD';
 const orderLog = createLogger('OrderIntake');
 const KEYCHAIN_CLIP_CENTS = 1000;
 const MAX_QTY = 99;
@@ -62,10 +62,9 @@ function sb(): SupabaseClient {
 // ---- Email helpers ----
 function fromAddr(): string { return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>'; }
 function adminRcpt(): string[] { return (process.env.ORDER_NOTIFICATION_EMAIL || process.env.ADMIN_ORDER_EMAIL || ADMIN_EMAIL).split(',').map(e => e.trim()).filter(Boolean); }
-function formatAddr(addr: Record<string, unknown> | null | undefined): string {
+function formatAddr(addr: ShippingAddress | null | undefined): string {
     if (!addr) return '';
-    const a = addr as any;
-    const lines = [a.address1 || '', (a.city || '') + (a.city && a.state ? ', ' : '') + (a.state || '') + ' ' + (a.zip || ''), a.country || ''];
+    const lines = [addr.address1 || '', (addr.city || '') + (addr.city && addr.state ? ', ' : '') + (addr.state || '') + ' ' + (addr.zip || ''), addr.country || ''];
     return lines.filter(Boolean).map(l => esc(l)).join('<br>');
 }
 
@@ -344,7 +343,7 @@ async function verifySPI(pi: string, expectedCents: number): Promise<void> {
         const i = await s.paymentIntents.retrieve(ref);
         if (i.status !== 'succeeded') throw err(402, 'Stripe payment not completed.');
         if (i.amount_received !== expectedCents) throw err(409, 'Stripe amount mismatch.');
-    } catch (e: any) { if (e?.status) throw e; throw err(502, e?.message || 'Stripe verify failed.'); }
+    } catch (e) { if ((e as { status?: number }).status) throw e; throw err(502, errorMessage(e) || 'Stripe verify failed.'); }
 }
 
 export async function verifyPayment(evidence: PaymentEvidence, expectedTotalCents: number): Promise<VerifiedPayment> {
@@ -362,13 +361,14 @@ export async function verifyPayment(evidence: PaymentEvidence, expectedTotalCent
 // 3. IDEMPOTENT PERSISTENCE
 // =========================================================================
 
-function isColErr(e: any): boolean {
-    const t = (e?.code + ' ' + e?.message + ' ' + e?.details).toLowerCase();
+function isColErr(e: unknown): boolean {
+    const detail = (e && typeof e === 'object' ? e : {}) as { code?: unknown; message?: unknown; details?: unknown };
+    const t = (String(detail.code ?? '') + ' ' + String(detail.message ?? '') + ' ' + String(detail.details ?? '')).toLowerCase();
     return t.includes('payment_reference') || t.includes('schema cache') || t.includes('column');
 }
-function legacyRow(r: OrderRow): any {
+function legacyRow(r: OrderRow): Record<string, unknown> {
     const ref = r.payment_reference;
-    const l: any = { ...r }; delete l.payment_reference; delete l.paypal_order_id; delete l.paid_amount; delete l.balance_due;
+    const l: Record<string, unknown> = { ...r }; delete l.payment_reference; delete l.paypal_order_id; delete l.paid_amount; delete l.balance_due;
     const n = [ref ? 'Payment reference: ' + ref : ''].filter(Boolean).join('\n');
     if (n) l.notes = [l.notes, n].filter(Boolean).join('\n');
     return l;
@@ -476,24 +476,24 @@ export async function persistOrder(record: OrderRow): Promise<OrderSaveResult> {
 async function sendCust(rec: OrderRow): Promise<void> {
     const key = process.env.RESEND_API_KEY; if (!key || !rec.customer_email) return;
     const r = resendClient();
-    const items = (rec.items || []).map((i: any) => '<tr><td style="padding:12px;border-bottom:1px solid #e5e7eb;"><strong>' + esc(i.productName || i.name) + '</strong><br><span style="color:#6b7280;font-size:14px;">Size: ' + esc(i.selectedSize || i.size) + ' - Qty: ' + (i.quantity || 1) + '</span></td><td style="padding:12px;border-bottom:1px solid #e5e7eb;text-align:right;">$' + Number(i.price || 0).toFixed(2) + '</td></tr>').join('');
+    const items = (rec.items || []).map((i) => '<tr><td style="padding:12px;border-bottom:1px solid #e5e7eb;"><strong>' + esc(i.productName || i.name) + '</strong><br><span style="color:#6b7280;font-size:14px;">Size: ' + esc(i.selectedSize || i.size) + ' - Qty: ' + (i.quantity || 1) + '</span></td><td style="padding:12px;border-bottom:1px solid #e5e7eb;text-align:right;">$' + Number(i.price || 0).toFixed(2) + '</td></tr>').join('');
     const html = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:32px;background:#fff;color:#111;"><h1 style="letter-spacing:2px;">Coalition</h1><h2>Order Confirmed</h2><p>Thank you, ' + esc(rec.customer_name) + '.</p><p>Order: ' + esc(rec.order_number) + '</p><table style="border:1px solid #e5e7eb;border-radius:8px;">' + items + '<tr><td style="padding:12px;background:#f9fafb;"><b>Total</b></td><td style="padding:12px;background:#f9fafb;text-align:right;"><b>$' + Number(rec.total || 0).toFixed(2) + '</b></td></tr></table><p style="color:#555;">Processed 1-2 days. Contact <a href="mailto:sgctrustyourself@gmail.com">sgctrustyourself@gmail.com</a>.</p></div>';
-    const result = await r.emails.send({ from: fromAddr(), to: [rec.customer_email], subject: 'Order Confirmation - ' + rec.order_number, html } as any);
-    if ((result as any)?.error) throw new Error((result as any).error.message);
+    const result = await r.emails.send({ from: fromAddr(), to: [rec.customer_email], subject: 'Order Confirmation - ' + rec.order_number, html });
+    if (result.error) throw new Error(result.error.message);
 }
 async function sendAdm(rec: OrderRow): Promise<void> {
     const key = process.env.RESEND_API_KEY; const rcpts = adminRcpt(); if (!key || !rcpts.length) return;
     const r = resendClient();
     const shipping = (rec.shipping_address || {}) as Record<string, unknown>;
     const payRef = rec.payment_reference || '';
-    const itemsRows = (rec.items || []).map((i: any) => {
+    const itemsRows = (rec.items || []).map((i) => {
         const up = Number(i.price || 0); const q = Math.max(1, Number(i.quantity || 1));
         return '<tr><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;"><strong>' + esc(i.productName || i.name) + '</strong><br><span style="color:#6b7280;font-size:13px;">Size: ' + esc(i.selectedSize || i.size) + ' - Qty: ' + q + '</span></td><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;text-align:right;">$' + up.toFixed(2) + '</td><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;text-align:right;">$' + (up * q).toFixed(2) + '</td></tr>';
     }).join('');
     const payRefRow = payRef ? '<tr><td style="padding:12px;background:#f9fafb;"><strong>Payment Ref</strong></td><td style="padding:12px;text-align:right;">' + esc(payRef) + '</td></tr>' : '';
-    const html = '<div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:28px;background:#fff;color:#111827;"><h1 style="margin:0 0 8px;letter-spacing:2px;text-transform:uppercase;">Order Ready To Fulfill</h1><p style="margin:0 0 24px;color:#6b7280;">A paid order was placed on sgcoalition-five.vercel.app. Prepare, pack, and ship the items below.</p><div style="background:#111827;color:#fff;border-radius:8px;padding:18px;margin-bottom:24px;"><div style="font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#9ca3af;">Fulfillment Summary</div><div style="font-size:28px;font-weight:bold;margin-top:4px;">' + esc(rec.order_number) + '</div><div style="margin-top:8px;">Total: <strong>$' + Number(rec.total || 0).toFixed(2) + '</strong> | Payment: <strong>' + esc(rec.payment_method) + ' / ' + esc(rec.payment_status) + '</strong></div></div><table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;"><tr><td style="padding:12px;background:#f9fafb;"><strong>Order</strong></td><td style="padding:12px;text-align:right;">' + esc(rec.order_number) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Total</strong></td><td style="padding:12px;text-align:right;">$' + Number(rec.total || 0).toFixed(2) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Payment</strong></td><td style="padding:12px;text-align:right;">' + esc(rec.payment_method) + ' / ' + esc(rec.payment_status) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Shipping</strong></td><td style="padding:12px;text-align:right;">' + esc(shipping.shippingMethod || 'standard') + ' ($' + Number(shipping.shippingCost || 0).toFixed(2) + ')</td></tr>' + payRefRow + '</table><h2 style="font-size:18px;margin:0 0 10px;">Customer</h2><p style="margin:0 0 20px;line-height:1.6;">' + esc(rec.customer_name) + '<br><a href="mailto:' + esc(rec.customer_email) + '">' + esc(rec.customer_email) + '</a><br>' + esc(rec.customer_phone || '') + '</p><h2 style="font-size:18px;margin:0 0 10px;">Ship To</h2><p style="margin:0 0 20px;line-height:1.6;">' + formatAddr(rec.shipping_address as any) + '</p><h2 style="font-size:18px;margin:0 0 10px;">Items</h2><table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;"><tr><th align="left" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Item</th><th align="right" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Unit</th><th align="right" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Line</th></tr>' + itemsRows + '</table><div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;padding:16px;margin-bottom:24px;"><strong>Next step:</strong> Pull the items, verify size/quantity, pack the order, then update the admin dashboard when it ships.</div><p style="margin-top:24px;"><a href="https://sgcoalition-five.vercel.app/#/admin" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Admin Dashboard</a></p></div>';
-    const result = await r.emails.send({ from: fromAddr(), to: rcpts, subject: 'ACTION REQUIRED: Prepare Coalition order ' + rec.order_number, html } as any);
-    if ((result as any)?.error) throw new Error((result as any).error.message);
+    const html = '<div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:28px;background:#fff;color:#111827;"><h1 style="margin:0 0 8px;letter-spacing:2px;text-transform:uppercase;">Order Ready To Fulfill</h1><p style="margin:0 0 24px;color:#6b7280;">A paid order was placed on sgcoalition-five.vercel.app. Prepare, pack, and ship the items below.</p><div style="background:#111827;color:#fff;border-radius:8px;padding:18px;margin-bottom:24px;"><div style="font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#9ca3af;">Fulfillment Summary</div><div style="font-size:28px;font-weight:bold;margin-top:4px;">' + esc(rec.order_number) + '</div><div style="margin-top:8px;">Total: <strong>$' + Number(rec.total || 0).toFixed(2) + '</strong> | Payment: <strong>' + esc(rec.payment_method) + ' / ' + esc(rec.payment_status) + '</strong></div></div><table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;"><tr><td style="padding:12px;background:#f9fafb;"><strong>Order</strong></td><td style="padding:12px;text-align:right;">' + esc(rec.order_number) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Total</strong></td><td style="padding:12px;text-align:right;">$' + Number(rec.total || 0).toFixed(2) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Payment</strong></td><td style="padding:12px;text-align:right;">' + esc(rec.payment_method) + ' / ' + esc(rec.payment_status) + '</td></tr><tr><td style="padding:12px;background:#f9fafb;"><strong>Shipping</strong></td><td style="padding:12px;text-align:right;">' + esc(shipping.shippingMethod || 'standard') + ' ($' + Number(shipping.shippingCost || 0).toFixed(2) + ')</td></tr>' + payRefRow + '</table><h2 style="font-size:18px;margin:0 0 10px;">Customer</h2><p style="margin:0 0 20px;line-height:1.6;">' + esc(rec.customer_name) + '<br><a href="mailto:' + esc(rec.customer_email) + '">' + esc(rec.customer_email) + '</a><br>' + esc(rec.customer_phone || '') + '</p><h2 style="font-size:18px;margin:0 0 10px;">Ship To</h2><p style="margin:0 0 20px;line-height:1.6;">' + formatAddr(rec.shipping_address) + '</p><h2 style="font-size:18px;margin:0 0 10px;">Items</h2><table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;"><tr><th align="left" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Item</th><th align="right" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Unit</th><th align="right" style="padding:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;">Line</th></tr>' + itemsRows + '</table><div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;padding:16px;margin-bottom:24px;"><strong>Next step:</strong> Pull the items, verify size/quantity, pack the order, then update the admin dashboard when it ships.</div><p style="margin-top:24px;"><a href="https://sgcoalition-five.vercel.app/#/admin" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;">Open Admin Dashboard</a></p></div>';
+    const result = await r.emails.send({ from: fromAddr(), to: rcpts, subject: 'ACTION REQUIRED: Prepare Coalition order ' + rec.order_number, html });
+    if (result.error) throw new Error(result.error.message);
 }
 
 // One-click triage: the admin orders view accepts ?tab=orders&q=<id> (search
@@ -533,7 +533,7 @@ export async function notifyAdminReconcileFailure(orderId: string, paymentIntent
             + '</table>'
             + '<p style="color:#6b7280;">Match the Stripe payment to an order before fulfilling. If the order never appears in Admin, the webhook arrived before the order write — wait for Stripe\'s retry (transient) or create/verify it manually.</p>'
             + '</div>';
-        await r.emails.send({ from: fromAddr(), to: rcpts, subject: 'ACTION REQUIRED: webhook reconcile failed for ' + orderId, html } as any);
+        await r.emails.send({ from: fromAddr(), to: rcpts, subject: 'ACTION REQUIRED: webhook reconcile failed for ' + orderId, html });
     } catch (e) {
         console.warn('[OrderIntake] Reconcile-failure alert email failed:', e);
     }
@@ -567,7 +567,7 @@ export async function notifyAdminCreditDebitFailure(orderId: string, userId: str
             + '</table>'
             + '<p style="color:#6b7280;">Debit the remaining $' + c2d(shortfallCents) + ' in Admin &rarr; Customers (store credit) or collect it from the buyer before fulfilling. Do not fulfil on the discounted total alone.</p>'
             + '</div>';
-        await r.emails.send({ from: fromAddr(), to: rcpts, subject: 'ACTION REQUIRED: store credit not debited for ' + orderId, html } as any);
+        await r.emails.send({ from: fromAddr(), to: rcpts, subject: 'ACTION REQUIRED: store credit not debited for ' + orderId, html });
     } catch (e) {
         console.warn('[OrderIntake] Store-credit debit alert email failed:', e);
     }
@@ -614,7 +614,7 @@ export async function notifyAdminClientError(input: {
             to: rcpts,
             subject: 'Checkout error report: ' + input.context,
             html,
-        } as any);
+        });
     } catch (e) {
         console.warn('[OrderIntake] Client-error alert email failed:', e);
     }

@@ -34,6 +34,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 // so '../_types.js' doesn't need the extension.
 import { withAdminAuth } from '../_adminAuth.js';
 import { fetchAudience, summariseAudience } from '../_marketingAudience.js';
+import { errorMessage } from '../../utils/errorMessage.js';
 import type { ApiRequest, ApiResponse } from '../_types.js';
 
 let cachedAdminClient: SupabaseClient | null = null;
@@ -76,14 +77,24 @@ export default withAdminAuth(async (req: ApiRequest, res: ApiResponse) => {
             source: row.source,
         }));
 
-        const sendsByCampaign = new Map<string, any[]>();
+        // Rows read below: campaign sends and the campaigns they belong to.
+        // Named structurally so the aggregation stays typed end to end.
+        type CampaignSendRow = { campaign_id: string; status: string; channel: string };
+        const sendsByCampaign = new Map<string, CampaignSendRow[]>();
         for (const s of sends || []) {
             const arr = sendsByCampaign.get(s.campaign_id) || [];
             arr.push(s);
             sendsByCampaign.set(s.campaign_id, arr);
         }
 
-        const campaignsWithStats = (campaigns || []).map((c: any) => {
+        const campaignsWithStats = (campaigns || []).map((c: {
+            id: string;
+            name: string;
+            channel: string;
+            status: string;
+            sent_at: string | null;
+            created_at: string;
+        }) => {
             const all = sendsByCampaign.get(c.id) || [];
             const byChannel: Record<string, { sent: number; failed: number }> = {};
             let queued = 0, sent = 0, failed = 0;
@@ -111,8 +122,8 @@ export default withAdminAuth(async (req: ApiRequest, res: ApiResponse) => {
         });
 
         res.status(200).json({ audience, contacts, campaigns: campaignsWithStats });
-    } catch (err: any) {
+    } catch (err) {
         console.error('[marketing-stats] error:', err);
-        res.status(500).json({ error: err?.message || 'Failed to load marketing stats' });
+        res.status(500).json({ error: errorMessage(err) || 'Failed to load marketing stats' });
     }
 }, { cors: { methods: 'GET,OPTIONS' } });

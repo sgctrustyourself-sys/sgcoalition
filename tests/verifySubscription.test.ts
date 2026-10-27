@@ -115,7 +115,7 @@ vi.mock('@supabase/supabase-js', () => ({
 }));
 
 vi.mock('stripe', () => ({
-    default: vi.fn(function (this: any) {
+    default: vi.fn(function (this: Record<string, unknown>) {
         this.checkout = { sessions: { retrieve: mockSessionsRetrieve } };
     }),
 }));
@@ -131,7 +131,7 @@ function makeRes() {
         _headers: {} as Record<string, string>,
         setHeader: vi.fn(function (k: string, v: string) { res._headers[k] = v; }),
         status: vi.fn(function (s: number) { res._status = s; return res; }),
-        json: vi.fn(function (body: any) { res._body = body; return res; }),
+        json: vi.fn(function (body: unknown) { res._body = body; return res; }),
         end: vi.fn(function () { return res; }),
     };
     return res;
@@ -162,7 +162,7 @@ async function loadHandler() {
 // =========================================================================
 
 describe('POST /api/verify-subscription', () => {
-    let handler: (req: any, res: any) => Promise<void>;
+    let handler: Awaited<ReturnType<typeof loadHandler>>;
     let state: Map<string, ProfileRow>;
 
     beforeEach(async () => {

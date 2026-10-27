@@ -1,6 +1,6 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import path from 'path';
+import { errorMessage } from '../utils/errorMessage.js';
 
 const execAsync = promisify(exec);
 
@@ -35,9 +35,9 @@ async function executeGitCommand(command: string): Promise<string> {
         }
 
         return stdout.trim();
-    } catch (error: any) {
+    } catch (error) {
         console.error('Git command failed:', error);
-        throw new Error(`Git operation failed: ${error.message}`);
+        throw new Error(`Git operation failed: ${errorMessage(error)}`);
     }
 }
 
@@ -60,7 +60,7 @@ export async function createCommit(message: string, author?: string): Promise<st
 
         // Create commit
         const authorFlag = author ? `--author="${author}"` : '';
-        const result = await executeGitCommand(
+        await executeGitCommand(
             `git commit -m "${sanitizedMessage}" ${authorFlag}`
         );
 
@@ -68,8 +68,8 @@ export async function createCommit(message: string, author?: string): Promise<st
         const hash = await executeGitCommand('git rev-parse --short HEAD');
 
         return hash;
-    } catch (error: any) {
-        throw new Error(`Failed to create commit: ${error.message}`);
+    } catch (error) {
+        throw new Error(`Failed to create commit: ${errorMessage(error)}`);
     }
 }
 
@@ -112,8 +112,8 @@ export async function getCommitHistory(limit: number = 50): Promise<GitCommit[]>
         });
 
         return commits;
-    } catch (error: any) {
-        throw new Error(`Failed to get commit history: ${error.message}`);
+    } catch (error) {
+        throw new Error(`Failed to get commit history: ${errorMessage(error)}`);
     }
 }
 
@@ -131,8 +131,8 @@ export async function getBranches(): Promise<GitBranch[]> {
         });
 
         return branches;
-    } catch (error: any) {
-        throw new Error(`Failed to get branches: ${error.message}`);
+    } catch (error) {
+        throw new Error(`Failed to get branches: ${errorMessage(error)}`);
     }
 }
 
@@ -154,8 +154,8 @@ export async function switchBranch(branchName: string): Promise<void> {
 
         // Switch branch
         await executeGitCommand(`git checkout ${sanitizedBranch}`);
-    } catch (error: any) {
-        throw new Error(`Failed to switch branch: ${error.message}`);
+    } catch (error) {
+        throw new Error(`Failed to switch branch: ${errorMessage(error)}`);
     }
 }
 
@@ -173,8 +173,8 @@ export async function resetToCommit(commitHash: string, hard: boolean = false): 
         // Reset to commit
         const resetType = hard ? '--hard' : '--soft';
         await executeGitCommand(`git reset ${resetType} ${sanitizedHash}`);
-    } catch (error: any) {
-        throw new Error(`Failed to reset to commit: ${error.message}`);
+    } catch (error) {
+        throw new Error(`Failed to reset to commit: ${errorMessage(error)}`);
     }
 }
 
@@ -190,8 +190,8 @@ export async function getCommitDiff(commitHash: string): Promise<string> {
         const diff = await executeGitCommand(`git show ${sanitizedHash}`);
 
         return diff;
-    } catch (error: any) {
-        throw new Error(`Failed to get commit diff: ${error.message}`);
+    } catch (error) {
+        throw new Error(`Failed to get commit diff: ${errorMessage(error)}`);
     }
 }
 
@@ -202,8 +202,8 @@ export async function getCurrentBranch(): Promise<string> {
     try {
         const branch = await executeGitCommand('git rev-parse --abbrev-ref HEAD');
         return branch;
-    } catch (error: any) {
-        throw new Error(`Failed to get current branch: ${error.message}`);
+    } catch (error) {
+        throw new Error(`Failed to get current branch: ${errorMessage(error)}`);
     }
 }
 
@@ -226,7 +226,7 @@ export async function getStatus(): Promise<string> {
     try {
         const status = await executeGitCommand('git status --short');
         return status;
-    } catch (error: any) {
-        throw new Error(`Failed to get status: ${error.message}`);
+    } catch (error) {
+        throw new Error(`Failed to get status: ${errorMessage(error)}`);
     }
 }

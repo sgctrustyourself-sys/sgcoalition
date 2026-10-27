@@ -1,7 +1,26 @@
 import { loadStoreCreditCents, resolvePricing, type PricingItem, HttpError } from '../../services/orderIntake.js';
 import { calculateAboveAsBelowSetBonusCents } from '../../utils/aboveAsBelowSet.js';
+import type { ApiRequest, ApiResponse } from '../_types.js';
 
-export default async function handler(req: any, res: any) {
+// Cart line and body as the checkout posts them. Price authority stays in
+// resolvePricing(); this only names the fields the handler reads.
+type PreviewItem = {
+    productId?: string;
+    selectedSize?: string;
+    quantity?: number;
+    keychainClipOn?: boolean;
+};
+
+interface PricingPreviewBody {
+    items?: PreviewItem[];
+    shippingCost?: number;
+    paymentMethod?: string;
+    couponCode?: string;
+    useStoreCredit?: boolean;
+    userId?: string | null;
+}
+
+export default async function handler(req: ApiRequest, res: ApiResponse) {
     // CORS
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app');
@@ -22,9 +41,9 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const { items, shippingCost, paymentMethod, couponCode, useStoreCredit, userId } = req.body;
+        const { items, shippingCost, paymentMethod, couponCode, useStoreCredit, userId } = (req.body ?? {}) as PricingPreviewBody;
 
-        const pricingItems: PricingItem[] = Array.isArray(items) ? items.map((i: any) => ({
+        const pricingItems: PricingItem[] = Array.isArray(items) ? items.map((i) => ({
             productId: String(i.productId || ''),
             selectedSize: String(i.selectedSize || 'One Size'),
             quantity: Math.max(1, Number(i.quantity || 1)),

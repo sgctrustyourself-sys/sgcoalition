@@ -21,6 +21,14 @@
 // Native USDC on Polygon (6 decimals). The bridged variant
 // (0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174) is NOT accepted —
 // totals are quoted against native USDC only.
+import { errorMessage } from '../utils/errorMessage.js';
+
+/** Shape of the Etherscan V2 tokentx envelope this module reads. */
+interface ExplorerResponse {
+    result?: unknown;
+    message?: string;
+}
+
 export const NATIVE_USDC_POLYGON = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359';
 export const POLYGON_CHAIN_ID = 137;
 export const USDC_DECIMALS = 6;
@@ -144,7 +152,7 @@ export interface TransferSearch {
     fetchImpl?: typeof fetch;
 }
 
-function parseTransfer(raw: Record<string, any>): UsdcTransfer | null {
+function parseTransfer(raw: Record<string, unknown>): UsdcTransfer | null {
     try {
         const hash = String(raw.hash || '');
         const from = String(raw.from || '');
@@ -186,11 +194,11 @@ export async function fetchUsdcTransfersTo(search: TransferSearch): Promise<Usdc
         let response: Response;
         try {
             response = await fetchImpl(url);
-        } catch (e: any) {
-            throw new Error('Chain lookup failed: ' + (e?.message || 'network error'));
+        } catch (e) {
+            throw new Error('Chain lookup failed: ' + (errorMessage(e) || 'network error'));
         }
         if (!response.ok) throw new Error('Chain lookup failed: HTTP ' + response.status);
-        const data: any = await response.json().catch(() => null);
+        const data = (await response.json().catch(() => null)) as ExplorerResponse | null;
         const result = data?.result;
         if (!Array.isArray(result)) {
             // Etherscan answers status '0' + 'No transactions found' for an
@@ -201,7 +209,7 @@ export async function fetchUsdcTransfersTo(search: TransferSearch): Promise<Usdc
             throw new Error('Chain lookup failed: ' + (message || 'unexpected explorer response'));
         }
         for (const raw of result) {
-            const tx = parseTransfer(raw);
+            const tx = parseTransfer(raw as Record<string, unknown>);
             if (tx) found.push(tx);
         }
         // Stop paging once transfers predate the order — older pages can
@@ -243,8 +251,28 @@ export interface MerchantCryptoConfig {
 // environments, and an explicit select of a missing column turns the whole
 // read into an error. Unknown columns simply read as undefined here and
 // fall back to the safe defaults below.
+// Modelled one step at a time because that is how Supabase types the chain:
+// `from()` returns a builder, `select()` adds the filters, and only
+// `maybeSingle()` resolves. Flattening the three made the real client
+// structurally incompatible with the reader.
+export interface SettingsSingle {
+    maybeSingle: () => PromiseLike<{ data: Record<string, unknown> | null; error: unknown }>;
+}
+
+export interface SettingsFilter {
+    eq: (column: string, value: unknown) => SettingsSingle;
+}
+
+export interface SettingsQuery {
+    select: (columns: string) => SettingsFilter;
+}
+
+// Deliberately loose at this seam: typing `from` to return the full chain made
+// the compiler resolve Supabase's generic builder against it and bail with
+// "type instantiation is excessively deep". The chain is asserted at the one
+// call below instead, where the shape is known.
 export interface SettingsRowReader {
-    from: (table: string) => any;
+    from: (table: string) => unknown;
 }
 
 export async function loadMerchantCryptoConfig(db: SettingsRowReader): Promise<MerchantCryptoConfig> {
@@ -255,11 +283,12 @@ export async function loadMerchantCryptoConfig(db: SettingsRowReader): Promise<M
         usdcContract: NATIVE_USDC_POLYGON,
     };
     try {
-        const { data, error } = await db.from('payment_settings').select('*').eq('id', 1).maybeSingle();
+        const query = db.from('payment_settings') as SettingsQuery;
+        const { data, error } = await query.select('*').eq('id', 1).maybeSingle();
         if (error || !data) return fallback;
-        const rawAddr = String((data as Record<string, unknown>).crypto_merchant_address || '').trim();
-        const rawWindow = Number((data as Record<string, unknown>).crypto_window_hours);
-        const rawUsdc = String((data as Record<string, unknown>).crypto_usdc_contract || '').trim();
+        const rawAddr = String(data.crypto_merchant_address || '').trim();
+        const rawWindow = Number(data.crypto_window_hours);
+        const rawUsdc = String(data.crypto_usdc_contract || '').trim();
         return {
             merchantAddress: isValidAddress(rawAddr) ? rawAddr : FOUNDER_WALLET_FALLBACK,
             merchantAddressConfigured: isValidAddress(rawAddr),

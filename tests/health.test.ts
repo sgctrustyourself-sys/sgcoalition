@@ -31,7 +31,7 @@ const mockConfigsList = vi.fn();
 let paymentIntentAccesses = 0;
 
 vi.mock('stripe', () => ({
-    default: vi.fn(function (this: any) {
+    default: vi.fn(function (this: Record<string, unknown>) {
         this.balance = { retrieve: mockBalanceRetrieve };
         this.paymentMethodConfigurations = { list: mockConfigsList };
         Object.defineProperty(this, 'paymentIntents', {
@@ -61,13 +61,13 @@ function makeRes() {
         _headers: {} as Record<string, string>,
         setHeader: vi.fn(function (k: string, v: string) { res._headers[k] = v; }),
         status: vi.fn(function (s: number) { res._status = s; return res; }),
-        json: vi.fn(function (body: any) { res._body = body; return res; }),
+        json: vi.fn(function (body: unknown) { res._body = body; return res; }),
         end: vi.fn(function () { return res; }),
     };
     return res;
 }
 
-function makeReq(method = 'GET', query: any = {}, headers: Record<string, string> = {}) {
+function makeReq(method = 'GET', query: Record<string, string | string[]> = {}, headers: Record<string, string> = {}) {
     return { method, query, headers };
 }
 
@@ -76,7 +76,7 @@ type MethodState = 'on' | 'off' | 'unavailable';
 
 /** Stripe's CURRENT section shape: availability plus display preference. */
 function currentConfig(states: Record<string, MethodState>) {
-    const config: Record<string, any> = { id: 'pmc_test', is_default: true };
+    const config: Record<string, unknown> = { id: 'pmc_test', is_default: true };
     for (const [method, state] of Object.entries(states)) {
         config[method] = {
             available: state !== 'unavailable',
@@ -88,7 +88,7 @@ function currentConfig(states: Record<string, MethodState>) {
 
 /** Stripe's LEGACY section shape, still accepted. */
 function legacyConfig(methods: Record<string, boolean>) {
-    const config: Record<string, any> = { id: 'pmc_legacy', is_default: true };
+    const config: Record<string, unknown> = { id: 'pmc_legacy', is_default: true };
     for (const [method, enabled] of Object.entries(methods)) {
         config[method] = { enabled };
     }
@@ -105,7 +105,7 @@ async function loadHandler() {
 // =========================================================================
 
 describe('GET /api/health', () => {
-    let handler: (req: any, res: any) => Promise<void>;
+    let handler: Awaited<ReturnType<typeof loadHandler>>;
     const originalKey = process.env.STRIPE_SECRET_KEY;
 
     beforeEach(async () => {
@@ -298,7 +298,7 @@ describe('GET /api/health', () => {
 // =========================================================================
 
 describe('GET /api/health — origin reporting', () => {
-    let handler: (req: any, res: any) => Promise<void>;
+    let handler: Awaited<ReturnType<typeof loadHandler>>;
     const originalKey = process.env.STRIPE_SECRET_KEY;
     const originalAppUrl = process.env.VITE_APP_URL;
 

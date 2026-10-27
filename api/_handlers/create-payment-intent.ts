@@ -4,6 +4,24 @@ import { loadStoreCreditCents, resolvePricing, type PricingItem, HttpError } fro
 import { resolveCryptoDiscountCents } from '../../utils/cryptoDiscount.js';
 import { loadPaymentSettings } from '../../services/paymentSettings.js';
 import { CHECKOUT_PAYMENT_METHOD_TYPES } from '../_helpers.js';
+import { errorWithDetails } from '../../utils/errorMessage.js';
+import type { ApiRequest, ApiResponse, CreatePaymentIntentBody } from '../_types.js';
+
+// One cart line as the client posts it. Asserted at the request boundary;
+// resolvePricing() remains the pricing authority.
+type ClientPricingItem = {
+    productId?: string;
+    selectedSize?: string;
+    quantity?: number;
+    keychainClipOn?: boolean;
+};
+
+interface PaymentIntentBody extends CreatePaymentIntentBody {
+    items?: ClientPricingItem[];
+    shippingCost?: number;
+    paymentMethodTypes?: string[];
+    couponCode?: string;
+}
 
 if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is missing');
@@ -16,7 +34,7 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app');
@@ -38,12 +56,12 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const { items, shippingCost, userId, useStoreCredit, orderId, email, shipping, paymentMethodTypes, couponCode } = req.body;
+        const { items, shippingCost, userId, useStoreCredit, orderId, email, shipping, paymentMethodTypes, couponCode } = (req.body ?? {}) as PaymentIntentBody;
 
         // Pricing authority lives in orderIntake.resolvePricing().
         // Accept raw items + shipping choice; the server computes the
         // real amount including set bonuses, add-ons, and validation.
-        const pricingItems: PricingItem[] = Array.isArray(items) ? items.map((i: any) => ({
+        const pricingItems: PricingItem[] = Array.isArray(items) ? items.map((i) => ({
             productId: String(i.productId || ''),
             selectedSize: String(i.selectedSize || 'One Size'),
             quantity: Math.max(1, Number(i.quantity || 1)),
@@ -212,12 +230,13 @@ export default async function handler(req: any, res: any) {
             finalAmount,
             pricing, // server-computed breakdown for display
         });
-    } catch (err: any) {
+    } catch (err) {
         console.error('Stripe error:', err);
         // Never surface raw Stripe internals (e.g. "Expired API Key provided:
         // sk_live_***") to a customer — the checkout shows this string.
-        const message = String(err?.message || '');
-        const isStripeAuthFailure = err?.type === 'StripeAuthenticationError'
+        const details = errorWithDetails(err);
+        const message = details.message;
+        const isStripeAuthFailure = details.type === 'StripeAuthenticationError'
             || /expired api key|invalid api key/i.test(message);
         res.status(500).json({
             error: isStripeAuthFailure

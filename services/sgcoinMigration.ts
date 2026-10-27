@@ -19,6 +19,7 @@
 //
 // Raw-unit scale: 1 V1 (1e9 raw) -> 1e-6 V2 (1e12 raw) => x1000.
 
+import type { Provider, Signer } from 'ethers';
 import {
     MIGRATION_RATIO,
     POLYGON_CHAIN_ID,
@@ -200,29 +201,29 @@ export const createReadProvider = async () => {
 /** The wallet's own provider - needed for signing, not for reading history. */
 export const getWalletProvider = async () => {
     const { ethers } = await getEthers();
-    if (typeof window === 'undefined' || !(window as any).ethereum) {
+    if (typeof window === 'undefined' || !window.ethereum) {
         throw new Error('No Ethereum wallet found in this browser.');
     }
-    return new ethers.BrowserProvider((window as any).ethereum);
+    return new ethers.BrowserProvider(window.ethereum);
 };
 
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
 
-export const getV1BalanceRaw = async (address: string, provider: any): Promise<bigint> => {
+export const getV1BalanceRaw = async (address: string, provider: Provider): Promise<bigint> => {
     const { ethers } = await getEthers();
     const contract = new ethers.Contract(SGCOIN_V1_CONTRACT_ADDRESS, ERC20_ABI, provider);
     return contract.balanceOf(address);
 };
 
-export const getV2BalanceRaw = async (address: string, provider: any): Promise<bigint> => {
+export const getV2BalanceRaw = async (address: string, provider: Provider): Promise<bigint> => {
     const { ethers } = await getEthers();
     const contract = new ethers.Contract(SGCOIN_V2_CONTRACT_ADDRESS, ERC20_ABI, provider);
     return contract.balanceOf(address);
 };
 
-export const getMigrationAllowance = async (owner: string, provider: any): Promise<bigint> => {
+export const getMigrationAllowance = async (owner: string, provider: Provider): Promise<bigint> => {
     const { ethers } = await getEthers();
     const contract = new ethers.Contract(SGCOIN_V1_CONTRACT_ADDRESS, ERC20_ABI, provider);
     return contract.allowance(owner, SGCOIN_MIGRATOR_ADDRESS);
@@ -248,7 +249,7 @@ const DEPLOY_BLOCK_CACHE_KEY = 'coalition_migration_deploy_block';
 
 let deployBlockCache: number | null = null;
 
-export const getMigrationDeployBlock = async (provider: any): Promise<number> => {
+export const getMigrationDeployBlock = async (provider: Provider): Promise<number> => {
     if (deployBlockCache !== null) return deployBlockCache;
 
     if (typeof window !== 'undefined') {
@@ -307,7 +308,7 @@ export const getMigrationDeployBlock = async (provider: any): Promise<number> =>
 export const fetchMigrationEvents = async (options: {
     user?: string;
     limit?: number;
-    provider?: any;
+    provider?: Provider;
     fromBlock?: number;
     toBlock?: number;
 } = {}): Promise<MigrationRecord[]> => {
@@ -336,7 +337,6 @@ export const fetchMigrationEvents = async (options: {
     // of requests instead of scanning the contract's whole life first.
     let cursor = toBlock;
     let successfulQueries = 0;
-    let failedQueries = 0;
 
     while (cursor >= fromBlock && chunkSize >= 10_000) {
         const start = Math.max(fromBlock, cursor - chunkSize + 1);
@@ -352,6 +352,7 @@ export const fetchMigrationEvents = async (options: {
             for (const log of logs) {
                 try {
                     const parsed = interface_.parseLog({ topics: [...log.topics], data: log.data });
+                    if (!parsed) continue;
                     records.push({
                         txHash: log.transactionHash,
                         blockNumber: log.blockNumber,
@@ -366,9 +367,8 @@ export const fetchMigrationEvents = async (options: {
 
             if (records.length >= limit) break;
             cursor = start - 1;
-        } catch (error) {
+        } catch {
             // The endpoint refused this range: halve it and try again.
-            failedQueries += 1;
             chunkSize = Math.floor(chunkSize / 2);
         }
     }
@@ -397,7 +397,7 @@ export const fetchMigrationEvents = async (options: {
 };
 
 /** V1 held by the burn wallet and the dead address - the migrated supply. */
-export const getMigratedSupply = async (provider: any): Promise<bigint> => {
+export const getMigratedSupply = async (provider: Provider): Promise<bigint> => {
     const { ethers } = await getEthers();
     const dead = '0x000000000000000000000000000000000000dEaD';
     const contract = new ethers.Contract(SGCOIN_V1_CONTRACT_ADDRESS, ERC20_ABI, provider);
@@ -419,7 +419,7 @@ export const getMigratedSupply = async (provider: any): Promise<bigint> => {
  * allowance on the V1 token for the lifetime of the approval. An exact
  * approval is spent in full by the migration, so nothing is left open.
  */
-export const approveExactAmount = async (signer: any, amountRaw: bigint): Promise<string> => {
+export const approveExactAmount = async (signer: Signer, amountRaw: bigint): Promise<string> => {
     const { ethers } = await getEthers();
     const token = new ethers.Contract(SGCOIN_V1_CONTRACT_ADDRESS, ERC20_ABI, signer);
     const tx = await token.approve(SGCOIN_MIGRATOR_ADDRESS, amountRaw);
@@ -428,7 +428,7 @@ export const approveExactAmount = async (signer: any, amountRaw: bigint): Promis
 };
 
 /** Set the migrator allowance back to zero (undo an unused approval). */
-export const revokeApproval = async (signer: any): Promise<string> => {
+export const revokeApproval = async (signer: Signer): Promise<string> => {
     const { ethers } = await getEthers();
     const token = new ethers.Contract(SGCOIN_V1_CONTRACT_ADDRESS, ERC20_ABI, signer);
     const tx = await token.approve(SGCOIN_MIGRATOR_ADDRESS, 0n);
@@ -446,7 +446,7 @@ export interface MigrationExecution {
     gasUsed: bigint | null;
 }
 
-export const estimateMigrationGas = async (provider: any, amountRaw: bigint): Promise<bigint | null> => {
+export const estimateMigrationGas = async (provider: Provider, amountRaw: bigint): Promise<bigint | null> => {
     const { ethers } = await getEthers();
     try {
         const migrator = new ethers.Contract(SGCOIN_MIGRATOR_ADDRESS, MIGRATION_ABI, provider);
@@ -460,7 +460,7 @@ export const estimateMigrationGas = async (provider: any, amountRaw: bigint): Pr
 /**
  * Run the migration and read the real numbers out of the receipt.
  */
-export const executeMigration = async (signer: any, amountRaw: bigint): Promise<MigrationExecution> => {
+export const executeMigration = async (signer: Signer, amountRaw: bigint): Promise<MigrationExecution> => {
     const { ethers } = await getEthers();
     const migrator = new ethers.Contract(SGCOIN_MIGRATOR_ADDRESS, MIGRATION_ABI, signer);
     const interface_ = new ethers.Interface(MIGRATION_ABI);
@@ -476,6 +476,7 @@ export const executeMigration = async (signer: any, amountRaw: bigint): Promise<
         for (const log of receipt.logs || []) {
             try {
                 const parsed = interface_.parseLog({ topics: [...log.topics], data: log.data });
+                if (!parsed) continue;
                 if (parsed.name === 'Migrated') {
                     v1Raw = parsed.args.v1Amount;
                     v2Raw = parsed.args.v2Amount;

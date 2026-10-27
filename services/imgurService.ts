@@ -53,7 +53,7 @@ export async function uploadToImgur(
 
         const data = await response.json();
         return data.url;
-    } catch (error: any) {
+    } catch (error) {
         console.error('Imgur Upload Service Error:', error);
         throw error;
     }
@@ -92,7 +92,7 @@ export async function syncProductsToCode(): Promise<{
         }
 
         return await response.json();
-    } catch (error: any) {
+    } catch (error) {
         console.error('Sync Service Error:', error);
         throw error;
     }

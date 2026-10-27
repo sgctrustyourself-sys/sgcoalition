@@ -193,11 +193,6 @@ async function notifyAdminLabelFailure(orderId: string, reason: string): Promise
     }
 }
 
-/** Tiny local esc for the alert email (single use, keeps imports minimal). */
-function esc(v: unknown): string {
-    return String(v ?? '').replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>').replace(/"/g, '"').replace(/'/g, '');
-}
-
 /** Whop webhook handler for card payment events. */
 export default async function handler(
     req: {

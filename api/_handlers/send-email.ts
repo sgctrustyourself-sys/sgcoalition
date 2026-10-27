@@ -1,6 +1,11 @@
 import { resendClient } from '../../api/_services.js';
 import { setCorsHeaders } from '../_helpers.js';
 import { isSharedSecretAdmin } from '../_adminAuth.js';
+import { errorMessage } from '../../utils/errorMessage.js';
+import type { ApiRequest, ApiResponse, ResendEmailPayload } from '../_types.js';
+
+// Recipient/subject/body the client posts. Validated below before use.
+type SendEmailBody = { to?: string; subject?: string; html?: string };
 
 // Anti-relay auth gate (pinned by tests/sendEmailGate.test.ts):
 //   - Authorization: Bearer <ADMIN_API_TOKEN or ADMIN_PASSPHRASE>
@@ -33,14 +38,20 @@ function normalizeRecipient(raw: unknown): string {
     return String(raw ?? '').trim().toLowerCase();
 }
 
-async function sendResendEmail(payload: any) {
+async function sendResendEmail(payload: ResendEmailPayload) {
     const resend = resendClient();
-    const result = await resend.emails.send({
+    // Resend's options are a discriminated union (template vs html/text), and
+    // spreading the union collapses it into an ambiguous shape. The assembled
+    // object is exactly what the call expects, so assert the SDK type here
+    // rather than loosening the payload type every caller shares.
+    const options = {
         ...payload,
         from: getResendFromAddress(),
-    });
+    } as Parameters<typeof resend.emails.send>[0];
 
-    const error = (result as any)?.error;
+    const result = await resend.emails.send(options);
+
+    const error = (result as { error?: { message?: string } } | null)?.error;
     if (error) {
         throw new Error(error.message || 'Resend rejected the email request.');
     }
@@ -48,7 +59,7 @@ async function sendResendEmail(payload: any) {
     return result;
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
     setCorsHeaders(req, res, { methods: 'POST,OPTIONS' });
 
     if (req.method === 'OPTIONS') {
@@ -62,7 +73,7 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const { to, subject, html } = req.body;
+        const { to, subject, html } = (req.body ?? {}) as SendEmailBody;
 
         if (!to || !subject || !html) {
             res.status(400).json({ error: 'Missing required fields: to, subject, html' });
@@ -88,8 +99,8 @@ export default async function handler(req: any, res: any) {
         });
 
         res.status(200).json({ success: true, data });
-    } catch (err: any) {
+    } catch (err) {
         console.error('Send email error:', err);
-        res.status(500).json({ error: err.message || 'Failed to send email' });
+        res.status(500).json({ error: errorMessage(err) || 'Failed to send email' });
     }
 }

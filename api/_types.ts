@@ -3,7 +3,6 @@
 // and Resend types are available. Kept structurally assignable to the router
 // Handler type at api/[...slug].ts so existing dispatch continues to work.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { CreateEmailOptions } from 'resend';
 
 // Re-export so consumers (api/_handlers/*) don't need to depend on supabase-js directly.
 export type { SupabaseClient };

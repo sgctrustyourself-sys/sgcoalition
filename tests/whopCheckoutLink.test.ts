@@ -121,7 +121,7 @@ function whopRequestBody(): any {
 // =========================================================================
 
 describe('POST /api/create-whop-checkout-link', () => {
-    let handler: (req: any, res: any) => Promise<void>;
+    let handler: Awaited<ReturnType<typeof loadHandler>>;
 
     beforeEach(async () => {
         mockSupabaseFrom.mockReset();

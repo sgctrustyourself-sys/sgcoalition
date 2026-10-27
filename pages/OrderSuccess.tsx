@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CheckCircle, Package, Hexagon, Home, Loader, Copy, Check, Users } from 'lucide-react';
+import { CheckCircle, Hexagon, Home, Loader, Copy, Check, Users } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { getCartItemUnitPrice, getCartItemLineTotal, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { getReferralStats, generateReferralLink, type ReferralStats } from '../utils/referralSystem';
@@ -41,10 +41,26 @@ const loadReturnedCheckoutState = (): ReturnedCheckoutState | null => {
     try {
         const raw = sessionStorage.getItem(CHECKOUT_STATE_KEY);
         return raw ? JSON.parse(raw) : null;
-    } catch (error) {
+    } catch {
         sessionStorage.removeItem(CHECKOUT_STATE_KEY);
         return null;
     }
+};
+
+// Display shape for the confirmation list: the recorded row uses camelCase,
+// the older cart fallback used the item's own field names, so both are read.
+type DisplayOrderItem = {
+    id?: string;
+    productId?: string;
+    name?: string;
+    productName?: string;
+    image?: string;
+    productImage?: string;
+    size?: string;
+    selectedSize?: string;
+    quantity?: number;
+    price?: number;
+    addOnLabel?: string;
 };
 
 const OrderSuccess = () => {
@@ -254,7 +270,7 @@ const OrderSuccess = () => {
                         const displayOrder = {
                             id: savedOrder.order_number || savedOrder.id,
                             userId: savedOrder.user_id,
-                            items: (savedOrder.items || []).map((i: any) => ({
+                            items: (savedOrder.items || []).map((i: DisplayOrderItem) => ({
                                 id: i.productId,
                                 name: i.productName || i.name,
                                 price: i.price,
@@ -285,7 +301,7 @@ const OrderSuccess = () => {
                         // createOrder usually clears it, but the redirect-return
                         // never reaches that path). The attempt is settled, so
                         // the next purchase mints a new id.
-                        try { sessionStorage.removeItem(CHECKOUT_STATE_KEY); } catch (e) { /* ignore */ }
+                        try { sessionStorage.removeItem(CHECKOUT_STATE_KEY); } catch { /* ignore */ }
                         clearCheckoutAttempt();
                         // Award SGCoin reward (parity with the in-page flow).
                         if (user) {
@@ -400,7 +416,9 @@ const OrderSuccess = () => {
                         shippingCost,
                     },
                     notes: txHash ? `Transaction hash: ${txHash}` : '',
-                } as any);
+                // Recovered from this tab's own checkout state, which predates
+                    // the server's pricing, so it is filled in from storage below
+                } as unknown as Parameters<typeof addOrder>[0]);
 
                 // The server response is authoritative for the confirmation UI.
                 // Keep only display-shape aliases here; never recreate its money.
@@ -415,7 +433,7 @@ const OrderSuccess = () => {
                 clearCart();
                 // Consume persisted checkout state on the fallback path too
                 // (the Stripe redirect-return branch may have fallen through).
-                try { sessionStorage.removeItem(CHECKOUT_STATE_KEY); } catch (e) { /* ignore */ }
+                try { sessionStorage.removeItem(CHECKOUT_STATE_KEY); } catch { /* ignore */ }
                 // This attempt is settled: the next purchase mints a new id.
                 clearCheckoutAttempt();
             } catch (error) {
@@ -522,7 +540,7 @@ const OrderSuccess = () => {
                     <div className="mb-6 pb-6 border-b border-gray-200">
                         <h3 className="font-display text-lg font-bold mb-3 text-left">Order Items</h3>
                         <div className="space-y-3">
-                            {orderDetails.items.map((item: any, index: number) => (
+                            {orderDetails.items.map((item: DisplayOrderItem, index: number) => (
                                 <div key={index} className="flex items-center gap-3 text-left">
                                     <img src={item.image || item.productImage} alt={item.name || item.productName} className="w-16 h-16 object-cover rounded bg-gray-100" />
                                     <div className="flex-1">

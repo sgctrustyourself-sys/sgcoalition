@@ -19,6 +19,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { LOCAL_DEV_ORIGINS } from '../_helpers.js';
+import type { ApiRequest, ApiResponse } from '../_types.js';
+import { errorMessage } from '../../utils/errorMessage.js';
 import { withAdminAuth } from '../_adminAuth.js';
 import { refreshSeed, type ProductRow, type SeedMergeReport } from '../../scripts/productSeed.js';
 
@@ -118,7 +120,7 @@ async function syncConstantsHandler(req: any) {
     return { success: true, hash, report: outcome.report };
 }
 
-function getAction(req: any): string | undefined {
+function getAction(req: ApiRequest): string | undefined {
     const q = req.query?.action;
     if (typeof q === 'string') return q;
     if (Array.isArray(q) && typeof q[0] === 'string') return q[0];
@@ -129,7 +131,7 @@ function getAction(req: any): string | undefined {
 // gate runs BEFORE this body — the property this endpoint lacked when an
 // anonymous POST could commit to origin/main through the server's GITHUB_TOKEN
 // with a caller-supplied commit message. Pinned by tests/gitOperationsGate.test.ts.
-const handler = async (req: any, res: any) => {
+const handler = async (req: ApiRequest, res: ApiResponse) => {
     const action = getAction(req);
     if (!action) {
         res.status(400).json({ error: 'Missing required query parameter: action' });
@@ -263,11 +265,12 @@ const handler = async (req: any, res: any) => {
                 res.status(400).json({ error: 'Invalid action' });
                 return;
         }
-    } catch (error: any) {
-        const status = Number(error?.status || 500);
-        console.error('[git-operations]', action, error?.message || error);
+    } catch (error) {
+        const details = error as Partial<{ status: number }>;
+        const status = Number(details.status || 500);
+        console.error('[git-operations]', action, errorMessage(error));
         res.status(status).json({
-            error: error?.message || 'Internal server error',
+            error: errorMessage(error) || 'Internal server error',
             // Surface a structured hint on git-binary-missing errors so the
             // operator can tell dev-only calls apart from config bugs.
             devOnly: isGitNotFoundError(error),
@@ -281,7 +284,7 @@ export default withAdminAuth(handler, {
 
 // Tight regex anchored on git-context so unrelated ENOENTs (e.g. missing
 // constants.ts) don't get mis-labeled as dev-only.
-function isGitNotFoundError(error: any): boolean {
-    const msg = String(error?.message || error || '');
+function isGitNotFoundError(error: unknown): boolean {
+    const msg = errorMessage(error);
     return /git:\s*(?:command )?not found|git executable not found|ENOENT.*git|GIT_TERMINAL/i.test(msg);
 }

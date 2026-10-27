@@ -83,8 +83,9 @@ async function connect(): Promise<{ client: pg.PoolClient; pool: pg.Pool }> {
             const client = await pool.connect();
             console.log(`Connected via ${label} (project ${projectRef})`);
             return { client, pool };
-        } catch (err: any) {
-            console.log(`  ${label}: ${err.message.slice(0, 100)}`);
+        } catch (err) {
+            const reason = err instanceof Error ? err.message : String(err);
+            console.log(`  ${label}: ${reason.slice(0, 100)}`);
             await pool.end().catch(() => {});
         }
     }
@@ -155,8 +156,8 @@ async function main() {
         }
 
         console.log('\nDone.');
-    } catch (err: any) {
-        console.error('Migration failed:', err.message);
+    } catch (err) {
+        console.error('Migration failed:', err instanceof Error ? err.message : String(err));
         process.exit(1);
     } finally {
         client.release();

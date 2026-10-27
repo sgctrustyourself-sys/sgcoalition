@@ -1,5 +1,20 @@
 import { stripeClient } from '../../api/_services.js';
 import { createLogger } from '../../utils/logger.js';
+import { errorMessage } from '../../utils/errorMessage.js';
+import type { ApiRequest, ApiResponse } from '../_types.js';
+
+// Shape the client posts to this endpoint. Asserted once at the request
+// boundary so the Stripe payload is built from named fields instead of `any`.
+type CheckoutLineItem = {
+    name: string;
+    price: number;
+    quantity: number;
+    selectedSize?: string;
+    keychainClipOn?: boolean;
+    images?: string[];
+};
+
+type CheckoutSessionBody = { items?: CheckoutLineItem[] };
 
 const checkoutSessionLog = createLogger('create-checkout-session');
 
@@ -9,7 +24,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 
 const stripe = stripeClient();
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app');
@@ -31,7 +46,7 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const { items } = req.body;
+        const { items } = (req.body ?? {}) as CheckoutSessionBody;
 
         if (!items || items.length === 0) {
             res.status(400).json({ error: 'No items in cart' });
@@ -48,9 +63,11 @@ export default async function handler(req: any, res: any) {
 
         // Fallback 2: Request Headers
         if (!origin) {
-            const host = req.headers.host;
+            const hostHeader = req.headers?.host;
+            const host = typeof hostHeader === 'string' ? hostHeader : undefined;
             if (host) {
-                const protocol = req.headers['x-forwarded-proto'] || 'http';
+                const protoHeader = req.headers?.['x-forwarded-proto'];
+                const protocol = typeof protoHeader === 'string' && protoHeader ? protoHeader : 'http';
                 origin = `${protocol}://${host}`;
             }
         }
@@ -73,7 +90,7 @@ export default async function handler(req: any, res: any) {
         // Create Stripe Checkout Session
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
-            line_items: items.map((item: any) => {
+            line_items: items.map((item: CheckoutLineItem) => {
                 // Fix image URLs: Stripe requires absolute URLs
                 let itemImages: string[] = [];
                 if (item.images && item.images.length > 0) {
@@ -107,8 +124,8 @@ export default async function handler(req: any, res: any) {
         });
 
         res.status(200).json({ sessionId: session.id, url: session.url });
-    } catch (err: any) {
+    } catch (err) {
         console.error('Stripe error:', err);
-        res.status(500).json({ error: err.message || 'Internal server error' });
+        res.status(500).json({ error: errorMessage(err) || 'Internal server error' });
     }
 }

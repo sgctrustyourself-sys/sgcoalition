@@ -29,7 +29,7 @@ export async function uploadProductImage(
 
     try {
         // Upload to Supabase Storage
-        const { data, error } = await supabase.storage
+        const { error } = await supabase.storage
             .from(bucketName)
             .upload(filePath, file, {
                 cacheControl: '3600',

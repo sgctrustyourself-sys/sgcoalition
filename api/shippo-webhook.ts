@@ -40,13 +40,19 @@ function tokenOk(received: string | undefined, expected: string): boolean {
     return diff === 0;
 }
 
-function pickTrackingNumber(body: any): string {
-    const b = body || {};
+/** Reads a JSON object field bag without assuming any of its keys. */
+function asRecord(value: unknown): Record<string, unknown> {
+    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+}
+
+function pickTrackingNumber(body: unknown): string {
+    const b = asRecord(body);
+    const data = asRecord(b.data);
     return String(
         b.tracking_number
         || b.trackingNumber
-        || b.data?.tracking_number
-        || b.data?.trackingNumber
+        || data.tracking_number
+        || data.trackingNumber
         || '',
     ).trim();
 }
@@ -57,10 +63,12 @@ function pickTrackingNumber(body: any): string {
  * yields "[object Object]". Read the object when present, fall back to flat
  * fields for the bare-payload shape.
  */
-function pickStatus(body: any): { status: string; statusDetails: string; statusDate: string } {
-    const b = body || {};
-    const ts = b.tracking_status ?? b.data?.tracking_status;
-    if (ts && typeof ts === 'object') {
+function pickStatus(body: unknown): { status: string; statusDetails: string; statusDate: string } {
+    const b = asRecord(body);
+    const data = asRecord(b.data);
+    const tsRaw = b.tracking_status ?? data.tracking_status;
+    if (tsRaw && typeof tsRaw === 'object') {
+        const ts = asRecord(tsRaw);
         return {
             status: String(ts.status ?? '').trim(),
             statusDetails: String(ts.status_details ?? '').trim(),
@@ -74,10 +82,11 @@ function pickStatus(body: any): { status: string; statusDetails: string; statusD
     };
 }
 
-function pickField(body: any, ...keys: string[]): string {
-    const b = body || {};
+function pickField(body: unknown, ...keys: string[]): string {
+    const b = asRecord(body);
+    const data = asRecord(b.data);
     for (const k of keys) {
-        const v = b[k] ?? b.data?.[k];
+        const v = b[k] ?? data[k];
         if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
     }
     return '';
@@ -88,13 +97,15 @@ function pickField(body: any, ...keys: string[]): string {
  * under `location` on some exception payloads): read city/state/zip and pass
  * through only what exists.
  */
-function pickLocation(body: any): { city?: string; state?: string; zip?: string } | undefined {
-    const b = body || {};
-    const loc = b.location ?? b.data?.location;
-    if (!loc || typeof loc !== 'object') return undefined;
+function pickLocation(body: unknown): { city?: string; state?: string; zip?: string } | undefined {
+    const b = asRecord(body);
+    const data = asRecord(b.data);
+    const locRaw = b.location ?? data.location;
+    if (!locRaw || typeof locRaw !== 'object') return undefined;
+    const loc = asRecord(locRaw);
     const out: { city?: string; state?: string; zip?: string } = {};
     for (const k of ['city', 'state', 'zip'] as const) {
-        const v = (loc as Record<string, unknown>)[k];
+        const v = loc[k];
         if (v !== undefined && v !== null && String(v).trim() !== '') out[k] = String(v).trim();
     }
     return Object.keys(out).length ? out : undefined;

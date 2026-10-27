@@ -4,13 +4,14 @@
 // Lambda; cold start defers per-library init to the first matching request,
 // keeping the initial Lambda well under Hobby's 50MB function-size cap.
 //
-// Request/response are typed `any` to match the existing 13 handlers'
-// (req: any, res: any) signature and avoid pulling in @vercel/node as a
-// hard dependency; Vercel provides the runtime types automatically.
+// Request/response use the structural ApiRequest/ApiResponse shapes from
+// _types.ts rather than @vercel/node, so this file stays dependency-free while
+// still type-checking the dispatch and rate-limit calls.
 
 import { withRateLimit } from './_helpers.js';
+import type { ApiRequest, ApiResponse } from './_types.js';
 
-type Handler = (req: any, res: any) => unknown | Promise<unknown>;
+type Handler = (req: ApiRequest, res: ApiResponse) => unknown | Promise<unknown>;
 type Loader = () => Promise<{ default: Handler }>;
 
 const handlers: Record<string, Loader> = {
@@ -67,7 +68,7 @@ const READ_LIMITED_SLUGS = new Set([
     'sgcoin-v2-rate',
 ]);
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
     // Vercel's catch-all `[...slug]` populates `req.query.slug` as an array
     // of path segments (e.g. /api/send-email -> ['send-email']). For nested
     // probes (e.g. /api/send-email/health), return 404 explicitly because

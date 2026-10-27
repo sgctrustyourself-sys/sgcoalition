@@ -34,7 +34,7 @@ import {
   verifyUrls,
 } from './dropKit';
 import type { AssetSide } from './dropKit';
-import { argValue, hasFlag, logHeader, logRow } from './cli';
+import { hasFlag, logHeader, logRow } from './cli';
 import { getDrop } from './story-reveal-specs/drops';
 
 const MAX_EDGE = 1600;

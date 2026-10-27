@@ -21,7 +21,7 @@ import { readFileSync } from 'node:fs';
 const mockSend = vi.fn();
 let resendConstructs = 0;
 
-const ResendCtor = vi.fn(function (this: any) {
+const ResendCtor = vi.fn(function (this: Record<string, unknown>) {
     resendConstructs += 1;
     this.emails = { send: mockSend };
 });
