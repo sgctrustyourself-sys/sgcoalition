@@ -4,30 +4,71 @@
 // Lambda; cold start defers per-library init to the first matching request,
 // keeping the initial Lambda well under Hobby's 50MB function-size cap.
 //
-// Request/response are typed `any` to match the existing 13 handlers'
-// (req: any, res: any) signature and avoid pulling in @vercel/node as a
-// hard dependency; Vercel provides the runtime types automatically.
+// Request/response use the structural ApiRequest/ApiResponse shapes from
+// _types.ts rather than @vercel/node, so this file stays dependency-free while
+// still type-checking the dispatch and rate-limit calls.
 
-type Handler = (req: any, res: any) => unknown | Promise<unknown>;
+import { withRateLimit } from './_helpers.js';
+import type { ApiRequest, ApiResponse } from './_types.js';
+
+type Handler = (req: ApiRequest, res: ApiResponse) => unknown | Promise<unknown>;
 type Loader = () => Promise<{ default: Handler }>;
 
 const handlers: Record<string, Loader> = {
-    'ai-chat': () => import('./_handlers/ai-chat'),
-    'complete-order': () => import('./_handlers/complete-order'),
-    'create-checkout-session': () => import('./_handlers/create-checkout-session'),
-    'create-payment-intent': () => import('./_handlers/create-payment-intent'),
-    'create-subscription-session': () => import('./_handlers/create-subscription-session'),
-    'git-operations': () => import('./_handlers/git-operations'),
-    'paypal-order': () => import('./_handlers/paypal-order'),
-    'place-order-credits': () => import('./_handlers/place-order-credits'),
-    'send-email': () => import('./_handlers/send-email'),
-    'send-order-confirmation': () => import('./_handlers/send-order-confirmation'),
-    'subscribe-drop': () => import('./_handlers/subscribe-drop'),
-    'unsubscribe': () => import('./_handlers/unsubscribe'),
-    'verify-subscription': () => import('./_handlers/verify-subscription'),
+    'admin-buy-label': () => import('./_handlers/admin-buy-label.js'),
+    'admin-point-claims': () => import('./_handlers/admin-point-claims.js'),
+    'admin-products': () => import('./_handlers/admin-products.js'),
+    'admin-refund': () => import('./_handlers/admin-refund.js'),
+    'admin-sgcoin-grant': () => import('./_handlers/admin-sgcoin-grant.js'),
+    'admin-sgcoin-grants': () => import('./_handlers/admin-sgcoin-grants.js'),
+    'admin-sgcoin-members': () => import('./_handlers/admin-sgcoin-members.js'),
+    'admin-sgcoin-reverse': () => import('./_handlers/admin-sgcoin-reverse.js'),
+    'admin-shipments': () => import('./_handlers/admin-shipments.js'),
+    'admin-verify': () => import('./_handlers/admin-verify.js'),
+    'ai-chat': () => import('./_handlers/ai-chat.js'),
+    'complete-order': () => import('./_handlers/complete-order.js'),
+    'csp-report': () => import('./_handlers/csp-report.js'),
+    'create-checkout-session': () => import('./_handlers/create-checkout-session.js'),
+    'create-payment-intent': () => import('./_handlers/create-payment-intent.js'),
+    'create-subscription-session': () => import('./_handlers/create-subscription-session.js'),
+    'crypto-verify': () => import('./_handlers/crypto-verify.js'),
+    'crypto-review-queue': () => import('./_handlers/crypto-review-queue.js'),
+    'create-whop-checkout-link': () => import('./_handlers/create-whop-checkout-link.js'),
+    'git-operations': () => import('./_handlers/git-operations.js'),
+    'health': () => import('./_handlers/health.js'),
+    'marketing-optout': () => import('./_handlers/marketing-optout.js'),
+    'marketing-send': () => import('./_handlers/marketing-send.js'),
+    'marketing-subscribe': () => import('./_handlers/marketing-subscribe.js'),
+    'marketing-stats': () => import('./_handlers/marketing-stats.js'),
+    'order-attempt': () => import('./_handlers/order-attempt.js'),
+    'payment-settings': () => import('./_handlers/payment-settings.js'),
+    'pricing-preview': () => import('./_handlers/pricing-preview.js'),
+    'product-drift': () => import('./_handlers/product-drift.js'),
+    'report-error': () => import('./_handlers/report-error.js'),
+    'place-order-credits': () => import('./_handlers/place-order-credits.js'),
+    'send-email': () => import('./_handlers/send-email.js'),
+    'send-order-confirmation': () => import('./_handlers/send-order-confirmation.js'),
+    'sgcoin-allocation': () => import('./_handlers/sgcoin-allocation.js'),
+    'sgcoin-v2-rate': () => import('./_handlers/sgcoin-v2-rate.js'),
+    'subscribe-drop': () => import('./_handlers/subscribe-drop.js'),
+    'update-piece-metadata': () => import('./_handlers/update-piece-metadata.js'),
+    'unsubscribe': () => import('./_handlers/unsubscribe.js'),
+    'verify-subscription': () => import('./_handlers/verify-subscription.js'),
 };
 
-export default async function handler(req: any, res: any) {
+// Read-only endpoints that still need a budget. withRateLimit exempts GET by
+// design (it gates mutations), but these are admin reads that query Supabase
+// with the service-role key, and sgcoin-allocation scans the orders table. The
+// exemption would leave them unmetered while the docs call them rate-limited.
+const READ_LIMITED_SLUGS = new Set([
+    'admin-point-claims',
+    'admin-sgcoin-grants',
+    'admin-sgcoin-members',
+    'sgcoin-allocation',
+    'sgcoin-v2-rate',
+]);
+
+export default async function handler(req: ApiRequest, res: ApiResponse) {
     // Vercel's catch-all `[...slug]` populates `req.query.slug` as an array
     // of path segments (e.g. /api/send-email -> ['send-email']). For nested
     // probes (e.g. /api/send-email/health), return 404 explicitly because
@@ -58,6 +99,11 @@ export default async function handler(req: any, res: any) {
         slug = fallback;
     }
 
+    if (!slug) {
+        res.status(404).json({ error: 'Endpoint not found' });
+        return;
+    }
+
     const loader = handlers[slug];
     if (!loader) {
         // Avoid leaking the path name in the response -- only log it server-side.
@@ -65,6 +111,14 @@ export default async function handler(req: any, res: any) {
         res.status(404).json({ error: 'Endpoint not found' });
         return;
     }
+
+    // Enforce the per-slug budget before the handler loads. withRateLimit
+    // writes the 429 itself, so a limited request returns here and never
+    // reaches the handler.
+    const rate = withRateLimit(slug, req, res, {
+        includeReadMethods: READ_LIMITED_SLUGS.has(slug),
+    });
+    if (!rate.allowed) return;
 
     const mod = await loader();
     return mod.default(req, res);

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, BellRing } from 'lucide-react';
+import { errorMessage } from '../utils/errorMessage';
 
 export type NewsletterSource = 'home' | 'shop' | 'about' | 'footer';
 export type NewsletterVariant = 'inline' | 'block';
@@ -49,7 +50,7 @@ const Newsletter: React.FC<NewsletterProps> = ({
         subheading: subheading ?? DEFAULT_HEADINGS[source].subheading,
     };
 
-    const validateEmail = (value: string) => EMAIL_REGEX.test(String(value).toLowerCase());
+    const validateEmail = (value: string): boolean => EMAIL_REGEX.test(String(value).toLowerCase());
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -78,8 +79,8 @@ const Newsletter: React.FC<NewsletterProps> = ({
                 throw new Error(payload?.error || 'Could not subscribe. Please try again.');
             }
             setStatus(payload?.alreadySubscribed ? 'already' : 'success');
-        } catch (err: any) {
-            setError(err?.message || 'Could not subscribe. Please try again.');
+        } catch (err) {
+            setError(errorMessage(err) || 'Could not subscribe. Please try again.');
             setStatus('idle');
         }
     };

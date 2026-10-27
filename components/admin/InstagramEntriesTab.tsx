@@ -1,8 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 import { InstagramGiveawayEntry } from '../../types';
 import { useToast } from '../../context/ToastContext';
-import { Download, Eye, CheckCircle, XCircle, Search, Filter, ExternalLink, Trash2 } from 'lucide-react';
+import { Download, Eye, CheckCircle, XCircle, Search, ExternalLink, Trash2 } from 'lucide-react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
+
+// Shape of a giveaway_entries row as this tab reads it. Each field is typed from
+// the camelCase entry it maps onto, so a mapper that drifts is a compile error.
+type InstagramEntryRow = {
+    id: InstagramGiveawayEntry['id'];
+    giveaway_id: InstagramGiveawayEntry['giveawayId'];
+    name: InstagramGiveawayEntry['name'];
+    email: InstagramGiveawayEntry['email'];
+    instagram_username: InstagramGiveawayEntry['instagramUsername'];
+    screenshot_follow_url: InstagramGiveawayEntry['screenshotFollowUrl'];
+    screenshot_like_url: InstagramGiveawayEntry['screenshotLikeUrl'];
+    screenshot_story_url: InstagramGiveawayEntry['screenshotStoryUrl'];
+    verified: InstagramGiveawayEntry['verified'];
+    created_at: string;
+    ip_address: InstagramGiveawayEntry['ipAddress'];
+};
 
 interface InstagramEntriesTabProps {
     giveawayId: string;
@@ -13,6 +30,25 @@ const InstagramEntriesTab: React.FC<InstagramEntriesTabProps> = ({ giveawayId })
     const [entries, setEntries] = useState<InstagramGiveawayEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedEntry, setSelectedEntry] = useState<InstagramGiveawayEntry | null>(null);
+    // True while a write started from the open sheet is in flight. Escape and
+    // the backdrop both respect it, so an entry cannot be dismissed out from
+    // under its own request (the gate SignalManager puts on its form).
+    const [isSaving, setIsSaving] = useState(false);
+    const detailPanelRef = useRef<HTMLDivElement>(null);
+
+    useFocusTrap({
+        active: selectedEntry !== null,
+        // Mid-write the sheet must survive its own request.
+        escapeLocked: isSaving,
+        containerRef: detailPanelRef,
+        onEscape: () => setSelectedEntry(null),
+        initialFocusRef: detailPanelRef,
+    });
+
+    /** Backdrop dismiss, inert while the sheet's write is outstanding. */
+    const dismissDetail = () => {
+        if (!isSaving) setSelectedEntry(null);
+    };
     const [filter, setFilter] = useState<'all' | 'verified' | 'unverified'>('all');
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -20,8 +56,12 @@ const InstagramEntriesTab: React.FC<InstagramEntriesTabProps> = ({ giveawayId })
         fetchEntries();
     }, [giveawayId]);
 
-    const fetchEntries = async () => {
-        setLoading(true);
+    // `background: true` refreshes the table after a write without flipping the
+    // full-page loading state. That state returns an early spinner for the whole
+    // tab, which unmounted the open detail sheet and remounted it a moment later
+    // — the sheet visibly vanished and reappeared while its own update resolved.
+    const fetchEntries = async ({ background = false }: { background?: boolean } = {}) => {
+        if (!background) setLoading(true);
         const { data, error } = await supabase
             .from('giveaway_entries')
             .select('*')
@@ -32,7 +72,7 @@ const InstagramEntriesTab: React.FC<InstagramEntriesTabProps> = ({ giveawayId })
             console.error('Error fetching entries:', error);
         } else {
             // Map Supabase snake_case to camelCase
-            const mappedEntries: InstagramGiveawayEntry[] = (data || []).map((row: any) => ({
+            const mappedEntries: InstagramGiveawayEntry[] = (data || []).map((row: InstagramEntryRow) => ({
                 id: row.id,
                 giveawayId: row.giveaway_id,
                 name: row.name,
@@ -47,40 +87,53 @@ const InstagramEntriesTab: React.FC<InstagramEntriesTabProps> = ({ giveawayId })
             }));
             setEntries(mappedEntries);
         }
-        setLoading(false);
+        if (!background) setLoading(false);
     };
 
     const toggleVerified = async (entryId: string, currentStatus: boolean) => {
-        const { error } = await supabase
-            .from('giveaway_entries')
-            .update({ verified: !currentStatus })
-            .eq('id', entryId);
+        setIsSaving(true);
+        try {
+            const { error } = await supabase
+                .from('giveaway_entries')
+                .update({ verified: !currentStatus })
+                .eq('id', entryId);
 
-        if (error) {
-            console.error('Error updating entry:', error);
-            addToast('Failed to update verification status', 'error');
-        } else {
-            fetchEntries();
-            if (selectedEntry?.id === entryId) {
-                setSelectedEntry({ ...selectedEntry, verified: !currentStatus });
+            if (error) {
+                console.error('Error updating entry:', error);
+                addToast('Failed to update verification status', 'error');
+            } else {
+                fetchEntries({ background: true });
+                // Patch from the live state, not the closure snapshot: if the
+                // sheet was closed while the request was in flight, `prev` is
+                // null and the resolved update must not resurrect it.
+                setSelectedEntry(prev =>
+                    prev && prev.id === entryId ? { ...prev, verified: !currentStatus } : prev,
+                );
             }
+        } finally {
+            setIsSaving(false);
         }
     };
 
     const deleteEntry = async (entryId: string) => {
         if (!confirm('Delete this entry? This cannot be undone.')) return;
 
-        const { error } = await supabase
-            .from('giveaway_entries')
-            .delete()
-            .eq('id', entryId);
+        setIsSaving(true);
+        try {
+            const { error } = await supabase
+                .from('giveaway_entries')
+                .delete()
+                .eq('id', entryId);
 
-        if (error) {
-            console.error('Error deleting entry:', error);
-            addToast('Failed to delete entry', 'error');
-        } else {
-            fetchEntries();
-            setSelectedEntry(null);
+            if (error) {
+                console.error('Error deleting entry:', error);
+                addToast('Failed to delete entry', 'error');
+            } else {
+                fetchEntries({ background: true });
+                setSelectedEntry(null);
+            }
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -269,8 +322,16 @@ const InstagramEntriesTab: React.FC<InstagramEntriesTabProps> = ({ giveawayId })
 
             {/* Entry Detail Modal */}
             {selectedEntry && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setSelectedEntry(null)}>
-                    <div className="bg-gray-900 border border-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={dismissDetail}>
+                    <div
+                        ref={detailPanelRef}
+                        className="bg-gray-900 border border-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={`Instagram entry ${selectedEntry.name}`}
+                        tabIndex={-1}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="p-6">
                             {/* Header */}
                             <div className="flex justify-between items-start mb-6">
@@ -282,7 +343,8 @@ const InstagramEntriesTab: React.FC<InstagramEntriesTabProps> = ({ giveawayId })
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => toggleVerified(selectedEntry.id, selectedEntry.verified)}
-                                        className={`px-4 py-2 rounded font-bold text-sm uppercase transition ${selectedEntry.verified
+                                        disabled={isSaving}
+                                        className={`px-4 py-2 rounded font-bold text-sm uppercase transition disabled:opacity-50 disabled:cursor-not-allowed ${selectedEntry.verified
                                             ? 'bg-green-500 text-white hover:bg-green-600'
                                             : 'bg-yellow-500 text-black hover:bg-yellow-600'
                                             }`}
@@ -291,7 +353,8 @@ const InstagramEntriesTab: React.FC<InstagramEntriesTabProps> = ({ giveawayId })
                                     </button>
                                     <button
                                         onClick={() => deleteEntry(selectedEntry.id)}
-                                        className="p-2 text-red-400 hover:bg-red-500/10 rounded transition"
+                                        disabled={isSaving}
+                                        className="p-2 text-red-400 hover:bg-red-500/10 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
                                         title="Delete Entry"
                                     >
                                         <Trash2 className="w-5 h-5" />

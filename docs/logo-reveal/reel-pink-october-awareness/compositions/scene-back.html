@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><title>Pink / Silver — Trust Yourself</title></head>
+  <body>
+    <template>
+      <style>
+        * { box-sizing: border-box; }
+        #root { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding: 126px 76px 170px; overflow: hidden; color: #fff; font-family: Arial, sans-serif; background: radial-gradient(ellipse at 50% 38%, #392232 0%, #1c131d 48%, #100b10 100%); }
+        .pattern { position: absolute; inset: 0; opacity: .14; background: url("../assets/leopard-mottle.png") center / 512px 512px repeat; }
+        header { position: relative; z-index: 2; width: 100%; text-align: center; }
+        .eyebrow { color: #ff8fc5; font-size: 26px; line-height: 1.2; font-weight: 700; letter-spacing: .18em; }
+        h2 { margin: 20px 0 0; font-size: 72px; line-height: 1; letter-spacing: -.04em; }
+        .card { position: relative; z-index: 1; display: grid; place-items: center; width: 890px; height: 890px; margin: auto 0; overflow: hidden; border: 3px solid rgba(255,255,255,.78); border-radius: 30px; background: #f5f1f2; box-shadow: 0 28px 90px rgba(0,0,0,.44), 0 0 0 10px rgba(255,143,197,.12); }
+        img { display: block; width: 100%; height: 100%; object-fit: contain; }
+        .note { position: relative; z-index: 2; margin: 18px 0 0; color: #ffb0d4; font-size: 30px; line-height: 1.3; font-weight: 650; letter-spacing: .035em; text-align: center; }
+      </style>
+      <section data-hf-id="hf-k9p1" id="root" data-composition-id="scene-back" data-start="0" data-duration="2" data-width="1080" data-height="1920">
+        <div data-hf-id="hf-qrpt" class="pattern" aria-hidden="true"></div>
+        <header data-hf-id="hf-0drs"><div data-hf-id="hf-r2ot" class="eyebrow">THE OTHER SIDE</div><h2 data-hf-id="hf-ysuq">TRUST YOURSELF.</h2></header>
+        <div data-hf-id="hf-vn2y" class="card"><img data-hf-id="hf-98si" id="back-image" data-start="0" data-duration="2" src="../assets/tee-back.png" alt="Back of the pink leopard Coalition crop tee with silver Trust Yourself puff lettering" /></div>
+        <p data-hf-id="hf-rr3y" class="note">Finished in-house <span data-hf-id="hf-1bmq">·</span> Sized S–XL</p>
+      </section>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#back-image", { scale: 1.025 }, { scale: 1, duration: 1.8, ease: "none" }, 0.1);
+        window.__timelines["scene-back"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

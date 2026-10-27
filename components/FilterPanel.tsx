@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { SlidersHorizontal, X } from 'lucide-react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export interface FilterState {
     categories: string[];
@@ -17,6 +18,12 @@ interface FilterPanelProps {
 
 const FilterPanel: React.FC<FilterPanelProps> = ({ filters, onFilterChange, availableSizes }) => {
     const [isOpen, setIsOpen] = React.useState(false);
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // The toggle only exists below the md breakpoint, so `isOpen` means "the
+    // mobile drawer is showing". On desktop the same panel renders inline and
+    // the trap stays inactive.
+    useFocusTrap({ active: isOpen, containerRef: panelRef, onEscape: () => setIsOpen(false) });
 
     const handleCategoryToggle = (category: string) => {
         const newCategories = filters.categories.includes(category)
@@ -65,7 +72,12 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, onFilterChange, avai
             <div className={`
                 ${isOpen ? 'fixed inset-0 z-50 bg-black/80 backdrop-blur-sm md:relative md:bg-transparent md:backdrop-blur-none' : 'hidden md:block'}
             `}>
-                <div className={`
+                <div
+                    ref={panelRef}
+                    role={isOpen ? 'dialog' : undefined}
+                    aria-modal={isOpen ? true : undefined}
+                    aria-label={isOpen ? 'Product filters' : undefined}
+                    className={`
                     ${isOpen ? 'fixed right-0 top-0 h-full w-80 bg-black border-l border-white/10 overflow-y-auto' : ''}
                     md:relative md:w-full md:border-0
                 `}>
@@ -73,7 +85,11 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, onFilterChange, avai
                     {isOpen && (
                         <div className="md:hidden flex items-center justify-between p-4 border-b border-white/10">
                             <h3 className="font-bold text-lg">Filters</h3>
-                            <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white">
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="text-gray-400 hover:text-white"
+                                aria-label="Close modal"
+                            >
                                 <X className="w-6 h-6" />
                             </button>
                         </div>
@@ -85,7 +101,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, onFilterChange, avai
                             <h4 className="font-bold text-sm uppercase tracking-wider text-gray-400 mb-3">Sort By</h4>
                             <select
                                 value={filters.sortBy}
-                                onChange={(e) => onFilterChange({ ...filters, sortBy: e.target.value as any })}
+                                onChange={(e) => onFilterChange({ ...filters, sortBy: e.target.value as FilterState['sortBy'] })}
                                 className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-white focus:border-blue-500 focus:outline-none"
                             >
                                 <option value="newest">Newest</option>

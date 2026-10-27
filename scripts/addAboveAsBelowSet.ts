@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { clearOtherFeaturedProducts } from '../utils/featuredExclusivity';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,7 +40,11 @@ async function addAboveAsBelowSet() {
         is_limited_edition: true
     };
 
-    let result;
+    // Structural Supabase upsert response shape — this exact subset is
+    // what the retry loop and post-loop consumption need (error.code,
+    // error.message, and data passthrough to console.log). Avoids `any`
+    // while keeping the shape narrow enough to be type-clean.
+    let result: { data: unknown; error: { code?: string; message?: string } | null };
 
     while (true) {
         const optionalColumnNames = Object.keys(optionalColumns);
@@ -51,7 +56,7 @@ async function addAboveAsBelowSet() {
 
         if (result.error?.code !== 'PGRST204') break;
 
-        const missingColumn = optionalColumnNames.find(column => result.error?.message.includes(column));
+        const missingColumn = optionalColumnNames.find(column => result.error?.message?.includes(column));
         if (!missingColumn) break;
 
         console.warn(`products.${missingColumn} is not in the live schema yet; retrying without that optional column.`);
@@ -63,6 +68,15 @@ async function addAboveAsBelowSet() {
     if (error) {
         console.error('Error upserting Above as Below Set:', error);
         process.exit(1);
+    }
+
+    // Mirror api/_handlers/admin-products.ts featured-exclusivity hook
+    // AFTER the retry-loop upsert settles. is_featured is on the live
+    // schema so the retry loop will not strip it; the hook here is the
+    // canonical "this row is now the only featured row" enforcement
+    // for direct-to-supabase CLI scripts.
+    if (product.is_featured) {
+        await clearOtherFeaturedProducts(supabase, product.id, product.is_featured);
     }
 
     console.log('Upserted Above as Below Set:', data);

@@ -42,7 +42,7 @@ const Terms = () => {
                         <h2 className="font-bold text-black text-xl uppercase mb-4">4. Returns and Refunds</h2>
                         <p>
                             We accept returns within 30 days of purchase. Items must be unused and in original packaging.
-                            Please contact support@coalitionbrand.com to initiate a return.
+                            Please contact sgctrustyourself@gmail.com to initiate a return.
                         </p>
                     </section>
 

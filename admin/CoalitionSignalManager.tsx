@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { Mail, MessageSquare, Download, UserX, Search, AlertTriangle, TrendingUp } from 'lucide-react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface Subscriber {
     id: string;
@@ -22,6 +23,24 @@ const CoalitionSignalManager = () => {
     const [loading, setLoading] = useState(true);
     const [showUnsubscribeModal, setShowUnsubscribeModal] = useState(false);
     const [selectedSubscriber, setSelectedSubscriber] = useState<Subscriber | null>(null);
+    // True while the unsubscribe write is in flight. Both dismiss paths and both
+    // buttons are gated on it: the confirmation must survive its own request, or
+    // the operator never sees whether the subscriber was actually removed.
+    const [isUnsubscribing, setIsUnsubscribing] = useState(false);
+    const unsubscribePanelRef = useRef<HTMLDivElement>(null);
+
+    const closeUnsubscribeModal = () => {
+        if (isUnsubscribing) return;
+        setShowUnsubscribeModal(false);
+        setSelectedSubscriber(null);
+    };
+
+    useFocusTrap({
+        active: showUnsubscribeModal && selectedSubscriber !== null,
+        escapeLocked: isUnsubscribing,
+        containerRef: unsubscribePanelRef,
+        onEscape: closeUnsubscribeModal,
+    });
 
     useEffect(() => {
         fetchSubscribers();
@@ -58,19 +77,24 @@ const CoalitionSignalManager = () => {
     };
 
     const confirmUnsubscribe = async () => {
-        if (!selectedSubscriber) return;
+        if (!selectedSubscriber || isUnsubscribing) return;
 
-        const { error } = await supabase
-            .from('coalition_signal_subscribers')
-            .update({ status: 'unsubscribed', unsubscribed_at: new Date().toISOString() })
-            .eq('id', selectedSubscriber.id);
+        setIsUnsubscribing(true);
+        try {
+            const { error } = await supabase
+                .from('coalition_signal_subscribers')
+                .update({ status: 'unsubscribed', unsubscribed_at: new Date().toISOString() })
+                .eq('id', selectedSubscriber.id);
 
-        if (error) {
-            alert('Failed to unsubscribe');
-        } else {
-            fetchSubscribers();
-            setShowUnsubscribeModal(false);
-            setSelectedSubscriber(null);
+            if (error) {
+                alert('Failed to unsubscribe');
+            } else {
+                fetchSubscribers();
+                setShowUnsubscribeModal(false);
+                setSelectedSubscriber(null);
+            }
+        } finally {
+            setIsUnsubscribing(false);
         }
     };
 
@@ -314,7 +338,13 @@ const CoalitionSignalManager = () => {
             {/* Unsubscribe Modal */}
             {showUnsubscribeModal && selectedSubscriber && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-zinc-900 border border-white/10 rounded-xl p-6 max-w-md w-full">
+                    <div
+                        ref={unsubscribePanelRef}
+                        className="bg-zinc-900 border border-white/10 rounded-xl p-6 max-w-md w-full"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Confirm unsubscribe"
+                    >
                         <div className="flex items-start gap-4 mb-4">
                             <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
                                 <AlertTriangle className="w-6 h-6 text-red-400" />
@@ -333,19 +363,18 @@ const CoalitionSignalManager = () => {
                         </div>
                         <div className="flex gap-3">
                             <button
-                                onClick={() => {
-                                    setShowUnsubscribeModal(false);
-                                    setSelectedSubscriber(null);
-                                }}
-                                className="flex-1 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                                onClick={closeUnsubscribeModal}
+                                disabled={isUnsubscribing}
+                                className="flex-1 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={confirmUnsubscribe}
-                                className="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                                disabled={isUnsubscribing}
+                                className="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                                Unsubscribe
+                                {isUnsubscribing ? 'Unsubscribing...' : 'Unsubscribe'}
                             </button>
                         </div>
                     </div>

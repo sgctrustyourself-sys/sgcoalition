@@ -1,4 +1,4 @@
-import { SGCOIN_DISCOUNT_ENABLED, SGCOIN_DISCOUNT_PERCENTAGE } from '../constants';
+import { SGCOIN_DISCOUNT_ENABLED, SGCOIN_DISCOUNT_PERCENTAGE } from '../constants.js';
 
 /**
  * Calculate the SGCoin discounted price

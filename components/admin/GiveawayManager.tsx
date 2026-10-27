@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Giveaway, GiveawayStatus } from '../../types';
-import { Plus, Gift, Calendar, Users, Trophy, Trash2, Copy, AlertCircle, CheckCircle, Instagram, Youtube } from 'lucide-react';
+import { Plus, Gift, Calendar, Users, Trophy, Trash2, Copy, AlertCircle, CheckCircle, Youtube } from 'lucide-react';
 import GiveawayEntriesTab from './GiveawayEntriesTab';
 import YoutubeSubmissionsTab from './YoutubeSubmissionsTab';
 import { getGiveawayTicketCount } from '../../utils/giveawayUtils';

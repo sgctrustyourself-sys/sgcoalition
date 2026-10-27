@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
-import { createRefundException } from '../../services/refunds';
+import { processRefund } from '../../services/refunds';
+import { errorMessage } from '../../utils/errorMessage';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface RefundExceptionModalProps {
     orderId: string;
@@ -23,6 +25,19 @@ const RefundExceptionModal: React.FC<RefundExceptionModalProps> = ({
     const [refundAmount, setRefundAmount] = useState(orderTotal);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // Mounted only while the admin has the dialog open, so the trap follows the
+    // dialog's lifetime. Escape is locked while the refund is being written:
+    // every control here is disabled then (Cancel and the header X included)
+    // because the exception is already on its way, so dismissing would hide the
+    // layer that reports it.
+    useFocusTrap({
+        active: true,
+        escapeLocked: isSubmitting,
+        containerRef: panelRef,
+        onEscape: onClose,
+    });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -41,17 +56,11 @@ const RefundExceptionModal: React.FC<RefundExceptionModalProps> = ({
         setError(null);
 
         try {
-            await createRefundException(
-                orderId,
-                adminWalletAddress,
-                adminWalletAddress,
-                reason,
-                refundAmount
-            );
+            await processRefund(orderId, refundAmount, reason, adminWalletAddress);
             onSuccess();
             onClose();
-        } catch (err: any) {
-            setError(err.message || 'Failed to create exception');
+        } catch (err) {
+            setError(errorMessage(err) || 'Failed to create exception');
         } finally {
             setIsSubmitting(false);
         }
@@ -59,7 +68,13 @@ const RefundExceptionModal: React.FC<RefundExceptionModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div
+                ref={panelRef}
+                className="bg-white rounded-xl shadow-2xl max-w-md w-full"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Issue refund exception"
+            >
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b">
                     <div>
@@ -68,7 +83,8 @@ const RefundExceptionModal: React.FC<RefundExceptionModalProps> = ({
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition"
+                        disabled={isSubmitting}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                         aria-label="Close modal"
                     >
                         <X className="w-5 h-5" />
@@ -142,7 +158,8 @@ const RefundExceptionModal: React.FC<RefundExceptionModalProps> = ({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition"
+                            disabled={isSubmitting}
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Cancel
                         </button>
@@ -151,7 +168,7 @@ const RefundExceptionModal: React.FC<RefundExceptionModalProps> = ({
                             disabled={isSubmitting}
                             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {isSubmitting ? 'Creating...' : 'Create Exception'}
+                            {isSubmitting ? 'Issuing refund...' : 'Issue refund'}
                         </button>
                     </div>
                 </form>

@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from './supabase.js';
 
 export type BrainCategory = 'product_design' | 'brand_guidelines' | 'chat_insight' | 'creative_direction' | 'general';
 export type BrainSource = 'ai_chat' | 'manual' | 'product' | 'design_session';
@@ -12,7 +12,7 @@ export interface BrainEntry {
     source: BrainSource;
     importance: number;
     image_url?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
     created_at: string;
     updated_at: string;
     user_id?: string;
@@ -26,7 +26,7 @@ export interface BrainEntryInput {
     source?: BrainSource;
     importance?: number;
     image_url?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
 }
 
 export const BRAIN_CATEGORIES: { value: BrainCategory; label: string; description: string }[] = [
@@ -52,21 +52,21 @@ export async function getBrainEntry(id: string): Promise<BrainEntry | null> {
 }
 
 export async function createBrainEntry(input: BrainEntryInput): Promise<string> {
-    const insertData: Record<string, any> = {
+    const insertData: Record<string, unknown> = {
         category: input.category, title: input.title, content: input.content,
         tags: input.tags || [], source: input.source || 'manual',
         importance: input.importance || 3, image_url: input.image_url || null,
         metadata: input.metadata || {},
     };
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) (insertData as any).user_id = user.id;
+    if (user) insertData.user_id = user.id;
     const { data, error } = await supabase.from('brain_entries').insert([insertData]).select().single();
     if (error) { console.error('Error creating brain entry:', error); throw new Error('Failed to create brain entry'); }
     return data.id;
 }
 
 export async function updateBrainEntry(id: string, updates: Partial<BrainEntryInput>): Promise<void> {
-    const updateData: Record<string, any> = {};
+    const updateData: Record<string, unknown> = {};
     if (updates.category !== undefined) updateData.category = updates.category;
     if (updates.title !== undefined) updateData.title = updates.title;
     if (updates.content !== undefined) updateData.content = updates.content;

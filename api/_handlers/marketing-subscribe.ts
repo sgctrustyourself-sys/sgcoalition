@@ -5,9 +5,18 @@
 // configured so an unconfigured prod short-circuits gracefully.
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+import { resendClient } from '../../api/_services.js';
+import { errorMessage } from '../../utils/errorMessage.js';
+import type { ApiRequest, ApiResponse } from '../_types.js';
 
-const ALLOWED_SOURCES = new Set(['home', 'shop', 'about', 'footer', 'sms_signup']);
+// The sources a signup can claim itself. `member_signup` is the member
+// account form: signing up for an account to get the 30% member discount also
+// opts the member into drop alerts, which is the whole point of the offer —
+// the member becomes a reachable contact instead of an anonymous discount
+// claim. `sms_signup` is the fallback when a caller states no source.
+const ALLOWED_SOURCES = new Set([
+    'home', 'shop', 'about', 'footer', 'sms_signup', 'product', 'custom_wallets', 'member_signup',
+]);
 
 let cachedAdminClient: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient | null {
@@ -43,11 +52,6 @@ function redactEmail(value: string): string {
     return `${local[0]}***${domain}`;
 }
 
-function redactPhone(value: string): string {
-    if (value.length < 4) return '[redacted]';
-    return '+***' + value.slice(-4);
-}
-
 function getResendFromAddress(): string {
     return process.env.RESEND_FROM_EMAIL || 'SG Coalition <onboarding@resend.dev>';
 }
@@ -61,6 +65,42 @@ function escapeHtml(value: string): string {
         .replace(/'/g, '&#39;');
 }
 
+const ATTRIBUTION_FIELDS = [
+    'utmSource',
+    'utmMedium',
+    'utmCampaign',
+    'utmTerm',
+    'utmContent',
+    'gclid',
+    'fbclid',
+    'ttclid',
+    'ref',
+    'landingPath',
+    'landingSearch',
+    'referrer',
+    'capturedAt',
+] as const;
+
+function optionalString(body: Record<string, unknown>, field: string, maxLength = 240): string | null {
+    const value = body?.[field];
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    return trimmed.slice(0, maxLength);
+}
+
+function buildMetadata(body: Record<string, unknown>, base: Record<string, unknown>): Record<string, unknown> {
+    const metadata = { ...base };
+
+    for (const field of ATTRIBUTION_FIELDS) {
+        const maxLength = field === 'referrer' ? 500 : 240;
+        const value = optionalString(body, field, maxLength);
+        if (value) metadata[field] = value;
+    }
+
+    return metadata;
+}
+
 async function sendEmailConfirmation(opts: { to: string; source: string; unsubscribeToken: string }): Promise<void> {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
@@ -70,8 +110,8 @@ async function sendEmailConfirmation(opts: { to: string; source: string; unsubsc
         );
         return;
     }
-    const resend = new Resend(apiKey);
-    const appUrl = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
+    const resend = resendClient();
+    const appUrl = process.env.VITE_APP_URL || 'sgcoalition-five.vercel.app';
     const unsubscribeUrl = `${appUrl}/api/marketing-optout?token=${encodeURIComponent(opts.unsubscribeToken)}&channel=email`;
     const sourceLabel = opts.source && opts.source !== 'footer' && opts.source !== 'sms_signup'
         ? ` via the ${opts.source} page`
@@ -96,7 +136,7 @@ async function sendEmailConfirmation(opts: { to: string; source: string; unsubsc
         ].join('\n'),
         html: confirmationEmailHtml({ sourceLabel, unsubscribeUrl }),
     });
-    const error = (result as any)?.error;
+    const error = (result as { error?: { message?: string } } | null)?.error;
     if (error) throw new Error(error.message || 'Resend rejected email');
 }
 
@@ -149,9 +189,9 @@ async function writeConsentLog(admin: SupabaseClient, params: {
     }
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://sgcoalition.xyz');
+    res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'sgcoalition-five.vercel.app');
     res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -167,6 +207,8 @@ export default async function handler(req: any, res: any) {
     const rawPhone = body?.phone;
     const rawSource = body?.source ?? 'sms_signup';
     const rawConsentText = body?.consentText;
+    const rawProductId = body?.productId;
+    const rawPagePath = body?.pagePath;
 
     const email = rawEmail == null ? null : validateEmail(rawEmail);
     const phone = rawPhone == null ? null : validatePhone(rawPhone);
@@ -179,11 +221,14 @@ export default async function handler(req: any, res: any) {
     const source = typeof rawSource === 'string' && ALLOWED_SOURCES.has(rawSource) ? rawSource : 'sms_signup';
     const channel: 'sms' | 'email' | 'both' = email && phone ? 'both' : (email ? 'email' : 'sms');
     const consentText = typeof rawConsentText === 'string' && rawConsentText.length > 0 && rawConsentText.length <= 1000 ? rawConsentText : null;
+    const productId = typeof rawProductId === 'string' && rawProductId.length <= 120 ? rawProductId : null;
+    const pagePath = typeof rawPagePath === 'string' && rawPagePath.length <= 240 ? rawPagePath : null;
 
     const ipHeader = req.headers?.['x-forwarded-for'];
     const ip = typeof ipHeader === 'string' ? ipHeader.split(',')[0]?.trim() || null : null;
     const uaHeader = req.headers?.['user-agent'];
     const userAgent = typeof uaHeader === 'string' ? uaHeader.slice(0, 500) : null;
+    const metadata = buildMetadata(body, { ip, userAgent, consentText, productId, pagePath });
 
     const admin = getSupabaseAdmin();
     if (!admin) {
@@ -209,6 +254,20 @@ export default async function handler(req: any, res: any) {
         if (existing && !existing.unsubscribed_at) {
             row = existing;
             alreadySubscribed = true;
+            try {
+                const { error } = await admin.from('marketing_contacts').update({
+                    source,
+                    metadata: {
+                        ...(existing.metadata && typeof existing.metadata === 'object' ? existing.metadata : {}),
+                        ...metadata,
+                    },
+                }).eq('id', existing.id);
+                if (error) {
+                    console.warn('[marketing-subscribe] failed to refresh active contact metadata:', error.message);
+                }
+            } catch (err) {
+                console.warn('[marketing-subscribe] failed to refresh active contact metadata:', err);
+            }
         } else if (existing && existing.unsubscribed_at) {
             const { data: updated, error } = await admin.from('marketing_contacts').update({
                 email: email || existing.email,
@@ -216,6 +275,10 @@ export default async function handler(req: any, res: any) {
                 country_code: extractCountryCode(phone) || existing.country_code,
                 channel,
                 source,
+                metadata: {
+                    ...(existing.metadata && typeof existing.metadata === 'object' ? existing.metadata : {}),
+                    ...metadata,
+                },
                 unsubscribed_at: null,
             }).eq('id', existing.id).select('*').single();
             if (error || !updated) throw new Error(error?.message || 'Could not re-subscribe.');
@@ -228,7 +291,7 @@ export default async function handler(req: any, res: any) {
                 country_code: extractCountryCode(phone),
                 channel,
                 source,
-                metadata: { ip, userAgent, consentText },
+                metadata,
             }).select('*').single();
             if (error || !inserted) throw new Error(error?.message || 'Could not save subscription.');
             row = inserted;
@@ -261,9 +324,9 @@ export default async function handler(req: any, res: any) {
             emailDelivered,
             channel,
         });
-    } catch (err: any) {
+    } catch (err) {
         console.error('[marketing-subscribe] failed:', err);
-        res.status(500).json({ error: err?.message || 'Subscription failed.' });
+        res.status(500).json({ error: errorMessage(err) || 'Subscription failed.' });
     }
 }
 

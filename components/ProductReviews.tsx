@@ -15,7 +15,7 @@ type SortOption = 'recent' | 'highest' | 'lowest' | 'helpful';
 type FilterOption = 'all' | 'verified' | 'photos' | number; // number for star rating
 
 const ProductReviews: React.FC<ProductReviewsProps> = ({ productId }) => {
-    const { user, orders, updateUser } = useApp();
+    const { user, orders } = useApp();
     const { addToast } = useToast();
     const [reviews, setReviews] = useState<Review[]>([]);
     const [rating, setRating] = useState(0);
@@ -196,7 +196,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({ productId }) => {
                     {!isWriting && (
                         <button
                             onClick={() => setIsWriting(true)}
-                            disabled={!user || hasReviewed}
+                            disabled={!user || !!hasReviewed}
                             className="px-6 py-3 bg-white text-black hover:bg-gray-200 font-bold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {hasReviewed ? 'Already Reviewed' : 'Write a Review'}
@@ -250,6 +250,7 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({ productId }) => {
                                     onMouseEnter={() => setHoverRating(star)}
                                     onMouseLeave={() => setHoverRating(0)}
                                     className="transition-transform hover:scale-110"
+                                    aria-label={`Rate ${star} out of 5`}
                                 >
                                     <Star
                                         className={`w-8 h-8 ${star <= (hoverRating || rating)

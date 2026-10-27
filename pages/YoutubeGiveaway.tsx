@@ -8,9 +8,6 @@ import {
     Bell, 
     CheckCircle, 
     Lock, 
-    Clock, 
-    Trophy,
-    Loader2,
     UserPlus
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -56,7 +53,7 @@ const YoutubeGiveaway = () => {
     const [submitted, setSubmitted] = useState(false);
     const [giveawayData, setGiveawayData] = useState<Giveaway | null>(null);
     const [portalStatus, setPortalStatus] = useState<'upcoming' | 'active' | 'ended'>('active');
-    const [loading, setLoading] = useState(true);
+    const [, setLoading] = useState(true);
 
     // Fetch Giveaway Details for Timing
     useEffect(() => {
@@ -213,7 +210,7 @@ const YoutubeGiveaway = () => {
                                     icon={<UserPlus className="w-5 h-5 text-emerald-400" />} 
                                     title="Profile & Newsletter" 
                                     points="+5" 
-                                    desc="Create Account on sgcoalition.xyz"
+                                    desc="Create Account on sgcoalition-five.vercel.app"
                                     href="/login"
                                 />
                                 <PointAction 

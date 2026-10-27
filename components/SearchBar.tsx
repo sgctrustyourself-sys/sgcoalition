@@ -9,13 +9,17 @@ interface SearchBarProps {
     onChange?: (value: string) => void;
     placeholder?: string;
     showSuggestions?: boolean; // New prop to enable/disable suggestions
+    /** Unique input id. The header and the mobile menu can be open at the
+        same time, so a second search field needs its own id. */
+    id?: string;
 }
 
 const SearchBar: React.FC<SearchBarProps> = ({
     value: controlledValue,
     onChange: controlledOnChange,
     placeholder = 'Search products...',
-    showSuggestions = true
+    showSuggestions = true,
+    id = 'search-bar'
 }) => {
     const navigate = useNavigate();
     const { products } = useApp();
@@ -106,7 +110,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 <input
                     ref={inputRef}
-                    id="search-bar"
+                    id={id}
                     name="search"
                     type="text"
                     value={query}
@@ -116,7 +120,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
                     placeholder={placeholder}
                     autoComplete="off"
                     aria-label="Search products"
-                    className="w-full bg-gray-900 border border-gray-800 rounded-lg pl-12 pr-12 py-3 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                    className="w-full min-w-0 bg-gray-900 border border-gray-800 rounded-lg pl-11 pr-10 py-3 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
                 />
                 {query && (
                     <button

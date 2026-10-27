@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface SecurityModalProps {
     isOpen: boolean;
@@ -7,11 +8,20 @@ interface SecurityModalProps {
 }
 
 const SecurityModal: React.FC<SecurityModalProps> = ({ isOpen, onClose }) => {
+    const panelRef = useRef<HTMLDivElement>(null);
+    useFocusTrap({ active: isOpen, containerRef: panelRef, onEscape: onClose });
+
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-gray-900 border-2 border-yellow-500/50 rounded-xl max-w-md w-full p-6 relative">
+            <div
+                ref={panelRef}
+                className="bg-gray-900 border-2 border-yellow-500/50 rounded-xl max-w-md w-full p-6 relative"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Important security warning"
+            >
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded transition"

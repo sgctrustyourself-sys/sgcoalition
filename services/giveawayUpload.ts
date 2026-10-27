@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from './supabase.js';
 
 /**
  * Compress image on the client side before uploading to save bandwidth and storage
@@ -83,7 +83,7 @@ export async function uploadScreenshot(
     const filePath = `${giveawayId}/${filename}`;
 
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
         .from('giveaway-screenshots')
         .upload(filePath, compressedFile, {
             cacheControl: '3600',

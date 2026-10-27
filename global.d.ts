@@ -1,7 +1,6 @@
 // Global type definitions
 interface Window {
     ethereum?: any;
-    paypal?: any;
+    __coalitionBooted?: boolean;
 }
 
-declare module 'ethers';

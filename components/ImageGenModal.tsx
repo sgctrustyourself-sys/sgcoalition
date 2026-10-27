@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { X, Image as ImageIcon, Sparkles, Download, Copy, Check } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { X, Image as ImageIcon, Sparkles, Download } from 'lucide-react';
 import { generateImage } from '../services/aiChat';
 import { useToast } from '../context/ToastContext';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface ImageGenModalProps {
     isOpen: boolean;
@@ -14,6 +15,17 @@ const ImageGenModal: React.FC<ImageGenModalProps> = ({ isOpen, onClose, onImageG
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedImage, setGeneratedImage] = useState<string | null>(null);
     const { addToast } = useToast();
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // Escape is locked while the generation is in flight: the close button is
+    // disabled until the result lands, the same gate the admin write dialogs put
+    // on their own requests. The trap stays mounted, so containment holds.
+    useFocusTrap({
+        active: isOpen,
+        escapeLocked: isGenerating,
+        containerRef: panelRef,
+        onEscape: onClose,
+    });
 
     if (!isOpen) return null;
 
@@ -43,7 +55,13 @@ const ImageGenModal: React.FC<ImageGenModalProps> = ({ isOpen, onClose, onImageG
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-lg bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div
+                ref={panelRef}
+                className="w-full max-w-lg bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Generate image"
+            >
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-800 bg-black/50">
                     <div className="flex items-center gap-2">
@@ -54,7 +72,9 @@ const ImageGenModal: React.FC<ImageGenModalProps> = ({ isOpen, onClose, onImageG
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-white/10 rounded-lg transition text-gray-400 hover:text-white"
+                        disabled={isGenerating}
+                        className="p-2 hover:bg-white/10 rounded-lg transition text-gray-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                        aria-label="Close modal"
                     >
                         <X className="w-5 h-5" />
                     </button>

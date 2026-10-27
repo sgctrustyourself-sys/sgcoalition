@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../services/supabase';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import { errorMessage } from '../utils/errorMessage';
 import { Shield, Send, AlertCircle, Loader, MessageSquarePlus } from 'lucide-react';
 
 const IdeaSubmission = () => {
@@ -49,8 +50,8 @@ const IdeaSubmission = () => {
             setIsOpen(false);
             setTitle('');
             setContent('');
-        } catch (err: any) {
-            addToast(`Failed to submit idea: ${err.message}`, 'error');
+        } catch (err) {
+            addToast(`Failed to submit idea: ${errorMessage(err)}`, 'error');
         } finally {
             setIsSubmitting(false);
         }

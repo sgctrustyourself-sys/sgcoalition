@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from './supabase.js';
 
 export interface PurchaseRequest {
     id: string;
@@ -228,7 +228,26 @@ export async function deletePurchaseRequest(requestId: string): Promise<void> {
 /**
  * Map database record to PurchaseRequest
  */
-function mapToRequest(data: any): PurchaseRequest {
+/** The snake_case row as PostgREST returns it for `sgcoin_purchase_requests`. */
+interface PurchaseRequestRow {
+    id: string;
+    user_id?: string;
+    email: string;
+    wallet_address: string;
+    amount: string;
+    payment_method: string;
+    proof_url?: string;
+    notes?: string;
+    status: PurchaseRequest['status'];
+    rejection_reason?: string;
+    admin_id?: string;
+    admin_wallet_address?: string;
+    created_at: string;
+    updated_at: string;
+    processed_at?: string;
+}
+
+function mapToRequest(data: PurchaseRequestRow): PurchaseRequest {
     return {
         id: data.id,
         userId: data.user_id,

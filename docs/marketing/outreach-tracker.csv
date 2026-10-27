@@ -1,0 +1,26 @@
+date,category,name,handle,platform,link,message_variant,status,follow_up_date,notes,item_sent,item_sent_date,picture_received,picture_date,posted,posted_platform,payment_type,payment_amount,payment_date,commission_paid
+YYYY-MM-DD,Brand,Example Boutique,@exampleboutique,Instagram,https://instagram.com/exampleboutique,A,Contacted,2026-10-27,Wholesale inquiry; sent linktree,,
+YYYY-MM-DD,Model,Example Creator,@examplecreator,Instagram,https://instagram.com/examplecreator,B,Responded,2026-10-27,Wants to see the wallet first,Coalition Parts Wallet,2026-10-26,yes,2026-10-28,yes,Instagram,free,,,
+YYYY-MM-DD,Community,Example Follower,@examplefollower,Instagram,https://instagram.com/examplefollower,A,Closed,2026-10-27,Just wanted them to check it out,,,,
+YYYY-MM-DD,Brand,Example Shop,@exampleshop,Email,https://exampleshop.com,A,Not Interested,2026-10-27,Declined wholesale; no response to follow-up,,,,
+YYYY-MM-DD,Model,Example Athlete,@exampleathlete,TikTok,https://tiktok.com/@exampleathlete,B,Item Sent,2026-11-02,Sent grey wave hoodie; waiting on pics,Coalition Grey Wave Hoodie,2026-10-28,no,,,paid,150.00,2026-10-30,no
+YYYY-MM-DD,Community,Example Commenter,@examplecommenter,Instagram,https://instagram.com/examplecommenter,A,Posted,2026-10-27,Reposted our story; thanked them,,,,
+YYYY-MM-DD,Brand,Example Leather Maker,@exampleleathermaker,Instagram,https://instagram.com/exampleleathermaker,A,Follow Up,2026-11-02,Second follow-up due; shared new drop photo,,,,
+YYYY-MM-DD,Model,Example Artist,@exampleartist,Twitter,https://twitter.com/exampleartist,A,Contacted,2026-10-27,No reply yet,,,,
+YYYY-MM-DD,Community,Example Subscriber,@examplesubscriber,Email,,A,Contacted,2026-10-27,From newsletter list; sent about page link,,,,
+YYYY-MM-DD,Brand,Example Boutique 2,@exampleboutique2,Instagram,https://instagram.com/exampleboutique2,A,Closed,2026-10-27,Not a fit; recycled for 90 days,,,,
+YYYY-MM-DD,Model,Example Creator 2,@examplecreator2,Instagram,https://instagram.com/examplecreator2,B,Picture Collected,2026-11-05,Got pics; need to confirm post date,Coalition Parts Wallet,2026-10-29,yes,2026-11-01,yes,Instagram,free,,,
+YYYY-MM-DD,Community,Example Random,@examplerandom,Discord,,A,Responded,2026-10-27,Discord member; curious about the brand,,,,
+YYYY-MM-DD,Brand,Example Shop 2,@exampleshop2,Email,https://exampleshop2.com,B,Item Sent,2026-11-03,Consignment trial; 3 pieces sent,Coalition Parts Wallet x3,2026-10-30,no,,,paid,225.00,2026-10-31,no
+YYYY-MM-DD,Model,Example Athlete 2,@exampleathlete2,TikTok,https://tiktok.com/@exampleathlete2,A,Posted,2026-11-04,Posted fit check; tagged Coalition,Coalition Grey Wave Hoodie,2026-10-29,yes,2026-11-03,yes,TikTok,paid,200.00,2026-11-04,yes
+YYYY-MM-DD,Community,Example Follower 2,@examplefollower2,Instagram,https://instagram.com/examplefollower2,A,Not Interested,2026-10-27,Declined; no hard feelings,,,,
+YYYY-MM-DD,Brand,Example Leather Maker 2,@exampleleathermaker2,Instagram,https://instagram.com/exampleleathermaker2,A,Follow Up,2026-11-05,Final check-in due; close if no reply,,,,
+YYYY-MM-DD,Model,Example Artist 2,@exampleartist2,Twitter,https://twitter.com/exampleartist2,A,Contacted,2026-10-27,No reply yet,,,,
+YYYY-MM-DD,Community,Example Subscriber 2,@examplesubscriber2,Email,,B,Closed,2026-10-27,Already owns Coalition; thanked them,,,,
+YYYY-MM-DD,Brand,Example Boutique 3,@exampleboutique3,Instagram,https://instagram.com/exampleboutique3,A,Contacted,2026-10-27,Initial outreach today,,,,
+YYYY-MM-DD,Model,Example Creator 3,@examplecreator3,Instagram,https://instagram.com/examplecreator3,B,Contacted,2026-10-27,Initial outreach today,,,,
+YYYY-MM-DD,Community,Example Random 2,@examplerandom2,Discord,,A,Contacted,2026-10-27,Initial outreach today,,,,
+YYYY-MM-DD,Brand,Example Shop 3,@exampleshop3,Email,https://exampleshop3.com,A,Contacted,2026-10-27,Initial outreach today,,,,
+YYYY-MM-DD,Model,Example Athlete 3,@exampleathlete3,TikTok,https://tiktok.com/@exampleathlete3,A,Contacted,2026-10-27,Initial outreach today,,,,
+YYYY-MM-DD,Community,Example Follower 3,@examplefollower3,Instagram,https://instagram.com/examplefollower3,A,Contacted,2026-10-27,Initial outreach today,,,
+YYYY-MM-DD,Model,Example Sponsor,@examplesponsor,Instagram,https://instagram.com/examplesponsor,B,Paid,2026-11-10,Paid collab complete; posted 3x,Coalition Parts Wallet,2026-10-25,yes,2026-10-27,yes,Instagram,paid,300.00,2026-10-28,yes

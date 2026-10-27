@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search as SearchIcon, ArrowLeft } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -8,7 +8,7 @@ import ProductCard from '../components/ProductCard';
 const SearchResults: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const { products } = useApp();
+    const { products, isLoading } = useApp();
     const query = searchParams.get('q') || '';
     const [sortBy, setSortBy] = useState<'relevance' | 'price-low' | 'price-high' | 'name'>('relevance');
 
@@ -59,7 +59,7 @@ const SearchResults: React.FC = () => {
                             <label className="text-sm text-gray-400">Sort by:</label>
                             <select
                                 value={sortBy}
-                                onChange={(e) => setSortBy(e.target.value as any)}
+                                onChange={(e) => setSortBy(e.target.value as Parameters<typeof setSortBy>[0])}
                                 className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-white/40"
                                 aria-label="Sort search results"
                             >
@@ -81,6 +81,16 @@ const SearchResults: React.FC = () => {
                         </h2>
                         <p className="text-gray-400">
                             Use the search bar above to find products
+                        </p>
+                    </div>
+                ) : query.trim() && isLoading && products.length === 0 ? (
+                    <div className="text-center py-20">
+                        <div className="w-8 h-8 border-2 border-t-white/30 border-white/10 rounded-full animate-spin mx-auto mb-4"></div>
+                        <h2 className="text-xl font-bold text-white mb-2">
+                            Searching...
+                        </h2>
+                        <p className="text-gray-400">
+                            Loading products for "{query}"
                         </p>
                     </div>
                 ) : results.length === 0 ? (

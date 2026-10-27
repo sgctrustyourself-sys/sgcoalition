@@ -1,0 +1,25 @@
+# Never upload local secrets or artifacts to Vercel builds.
+# The bare-checkout release gate refuses any build that ships a .env file —
+# CLI deploys do NOT respect .gitignore, so this file is the guardrail.
+#
+# NOTE: enumerated on purpose. A broad `.env.*` pattern also excluded the
+# committed `.env.production.template`, which tests/deploymentEnv.test.ts
+# reads — its anti-vacuity check then failed the release (caught live).
+# `.env.production` (exact) does not match `.env.production.template`.
+.env
+.env.local
+.env.development
+.env.test
+.env.test.local
+.env.production
+.env.vercel*
+
+# Local tooling artifacts
+deploy-log.txt
+server_output.log
+vite.log
+vite_dev.log
+--full-page
+
+# Large local media workspace (reel renders + its node_modules)
+docs/logo-reveal/

@@ -1,18 +1,24 @@
-import React, { useMemo } from 'react';
-import { X, ShoppingBag, Trash2, Hexagon, Sparkles } from 'lucide-react';
+import React, { useMemo, useRef } from 'react';
+import { X, ShoppingBag, Trash2, Hexagon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import NoRefundsBanner from './NoRefundsBanner';
-import FreeShippingBar from './ui/FreeShippingBar';
-import CartUpsells from './CartUpsells';
-import CompleteTheFitCart from './CompleteTheFitCart';
+// FreeShippingBar + CartUpsells were removed as part of the "Peaceful
+// Space" wedge. The gamified "X away from free shipping!" progress bar
+// and the generic "You may also like" recommendations both manufacture
+// cart anxiety. The contextual Above-as-Below set bonus is rendered
+// inline below — that's the only cross-sell copy that earns its place.
 import { SALES_FINAL_ENABLED } from '../constants';
 import { getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { calculateAboveAsBelowSetBonusCents } from '../utils/aboveAsBelowSet';
+import QuantityStepper from './QuantityStepper';
+import { getLineMaxQuantity } from '../context/useCart';
 
 const CartDrawer = () => {
     const navigate = useNavigate();
-    const { isCartOpen, setCartOpen, cart, removeFromCart, cartTotal, calculateReward } = useApp();
+    const { isCartOpen, setCartOpen, cart, setQuantity, removeFromCart, cartTotal, calculateReward } = useApp();
+    const panelRef = useRef<HTMLDivElement>(null);
 
     // Rules of Hooks: ALL hooks must be called unconditionally on every render
     // in the same order, regardless of whether the drawer is open. Earlier
@@ -32,6 +38,16 @@ const CartDrawer = () => {
     const displayTotal = Math.max(0, total - setBonusDollars);
     // setCount removed: bonus is one-shot $30, no quantity multiplier.
 
+    // The drawer covers the page, so it owns the keyboard while open: Tab stays
+    // among the drawer's own controls and Escape closes it. Focus returns to
+    // whatever opened it (the navbar cart button) — the drawer holds no ref to
+    // that button, so the hook falls back to the element focused on open.
+    useFocusTrap({
+        active: isCartOpen,
+        containerRef: panelRef,
+        onEscape: () => setCartOpen(false),
+    });
+
     if (!isCartOpen) return null;
 
     return (
@@ -40,7 +56,17 @@ const CartDrawer = () => {
             <div className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity" onClick={() => setCartOpen(false)} />
 
             {/* Drawer */}
-            <div className="relative w-full max-w-md bg-black h-full shadow-2xl flex flex-col animate-slide-in border-l border-white/10">
+            {/* animationDuration override slows the default animate-slide-in
+                (Tailwind default ~150ms) to a deliberate 500ms ease. The
+                cart drawer should feel like a quiet handoff, not a snap. */}
+            <div
+                ref={panelRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Your Cart"
+                className="relative w-full max-w-md bg-black h-full shadow-2xl flex flex-col animate-slide-in border-l border-white/10"
+                style={{ animationDuration: '500ms', animationTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)' }}
+            >
                 <div className="p-4 flex items-center justify-between border-b border-white/10">
                     <h2 className="font-display text-xl font-bold uppercase text-white">Your Cart</h2>
                     <button onClick={() => setCartOpen(false)} className="p-1 hover:bg-white/10 rounded-full transition text-gray-400 hover:text-white" aria-label="Close cart">
@@ -68,7 +94,16 @@ const CartDrawer = () => {
                                         <p className="text-xs text-gray-400 mt-1">{WALLET_KEYCHAIN_CLIP_LABEL} (+$10)</p>
                                     )}
                                     <div className="flex items-center justify-between mt-4">
-                                        <span className="text-xs text-gray-400">Qty: {item.quantity} • ${getCartItemUnitPrice(item).toFixed(2)} each</span>
+                                        <div className="flex items-center gap-3">
+                                            <QuantityStepper
+                                                value={item.quantity}
+                                                onChange={(next) => setQuantity(item.cartId, next)}
+                                                max={getLineMaxQuantity(item)}
+                                                label={`Quantity for ${item.name}`}
+                                                size="sm"
+                                            />
+                                            <span className="text-xs text-gray-400">${getCartItemUnitPrice(item).toFixed(2)} each</span>
+                                        </div>
                                         <button onClick={() => removeFromCart(item.cartId)} className="text-red-400 hover:text-red-300" aria-label="Remove item">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
@@ -78,45 +113,22 @@ const CartDrawer = () => {
                         ))
                     )}
 
-                    {/* Above-as-Below complete-the-outfit upsell. Renders when exactly */}
-                    {/* one of (tee, shorts) is in cart; stays silent when both are */}
-                    {/* present so the existing set-bonus card isn't doubled up. */}
-                    <CompleteTheFitCart variant="drawer" />
-
-                    {/* Above-as-Below Set Bonus Announcement */}
+                    {/* Above-as-Below Set Bonus — contextual, not gamified. */}
                     {setBonusCents > 0 && (
-                        <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4 flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2">
-                            <Sparkles className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                            <div>
-                                <p className="text-sm font-bold text-green-300 uppercase tracking-wide">
-                                    Save ${setBonusDollars.toFixed(2)} with the set!
-                                </p>
-                                <p className="mt-1 text-xs text-green-200/80 leading-relaxed">
-                                    Above-as-Below tee + shorts matched — $30 set bonus auto-applied.
-                                </p>
-                            </div>
+                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 mb-1">
+                                Set bonus applied
+                            </p>
+                            <p className="text-sm leading-relaxed text-gray-200">
+                                ${setBonusDollars.toFixed(2)} off the pair — the tee and shorts were built as a set.
+                            </p>
                         </div>
                     )}
 
-                    {/* Free Shipping Progress */}
-                    {cart.length > 0 && (
-                        <FreeShippingBar
-                            cartTotal={total}
-                            // hasFreeShippingItems mirrors how CompleteTheFitCart
-                            // already reassures the shopper that the present
-                            // line ships free — without it, the bar would
-                            // still plead "add $X more for free shipping" on
-                            // every cart that contains a wallet, tee, shorts,
-                            // or hoodie (all flagged freeShipping: true).
-                            hasFreeShippingItems={cart.some((item) => item.freeShipping)}
-                            className="mt-6"
-                        />
-                    )}
-
-                    {/* Cart Upsells */}
-                    {cart.length > 0 && (
-                        <CartUpsells cartItems={cart} cartTotal={total} className="mt-6" />
-                    )}
+                    {/* Free shipping progress + generic cart upsells were
+                        removed (see "Peaceful Space" wedge). The
+                        Above-as-Below set bonus above is the only
+                        cross-sell copy that ships in the cart drawer. */}
                 </div>
 
                 {cart.length > 0 && (
@@ -127,7 +139,7 @@ const CartDrawer = () => {
                                 <span>${total.toFixed(2)}</span>
                             </div>
                             {setBonusCents > 0 && (
-                                <div className="flex justify-between text-xs text-green-400">
+                                <div className="flex justify-between text-xs text-gray-400">
                                     <span>Above as Below set bonus</span>
                                     <span>-${setBonusDollars.toFixed(2)}</span>
                                 </div>

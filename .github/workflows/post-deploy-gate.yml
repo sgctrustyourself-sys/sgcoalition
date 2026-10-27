@@ -1,0 +1,153 @@
+name: Post-deploy gate verdict
+
+# The build refuses to finish without the bare-checkout rule's verdict
+# (utils/bareCheckoutGate.mjs), and the deployment publishes that record at
+# /gate-verdict.json. Until this workflow, nothing checked the *deployment* — and
+# a live deployment can be wrong in ways its own build could not see:
+#
+#   - production can serve a deployment built from a different commit than the
+#     one pushed (a deploy that never landed, a rollback, a wrong origin);
+#   - a build that did not go through the gated path carries no record at all;
+#   - or the record is there but describes a run that checked nothing.
+#
+# This runs after the deploy, so it cannot prevent a bad one: it reports one.
+# Prevention is the in-build gate; this is the line that says the deployment
+# which is actually live carries the proof. A red run here means exactly that.
+#
+# The second job, `reversal`, is the same kind of check on a different claim: the
+# commit this deployment was built from still reverses an SGCoin grant correctly.
+# It drives the real admin tab in headless Chromium (confirm -> POST -> ledger
+# re-read) against a stubbed, stateful ledger, so it mints and claws back nothing.
+#
+# Why here and not `npm test`: the release path runs that suite from inside the
+# Vercel build (utils/bareCheckoutGate.mjs), which installs no browser — a
+# browser test in it would fail every production build rather than catch
+# anything. This workflow installs Chromium explicitly, which is the one place in
+# this repo that can afford to. A red run here says the release cannot perform a
+# clawback; it does not un-deploy anything, because by then the deployment is
+# already live.
+#
+# Trigger caveat, the same one checkout-smoke.yml documents: the
+# `deployment_status` path fires only when the Vercel GitHub app reports a
+# deployment, so `workflow_dispatch` is here for a deliberate run against any
+# origin (and because a check whose only trigger can silently stop firing is a
+# check that can silently stop happening).
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Origin to check (blank = the host that currently serves the deployment)'
+        required: false
+      commit:
+        description: 'Commit the deployment was built from (blank = this checkout HEAD)'
+        required: false
+
+jobs:
+  verdict:
+    name: Live gate verdict
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    concurrency:
+      group: post-deploy-gate-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    # Successful production deployments only. A preview answers behind Vercel
+    # Deployment Protection (checkout-smoke.yml covers previews), and a preview's
+    # record is not a release claim. The environment is the deployment's own
+    # report of what it is, so nothing here guesses.
+    #
+    # The environment name is matched loosely because it is not a fixed string:
+    # Vercel names it "Production" for some projects and "Production - <project>"
+    # for others, and this project is the latter. An exact match on 'Production'
+    # made this job skip on every deployment — a check that never ran, which is
+    # the failure mode this workflow exists to prevent.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       startsWith(github.event.deployment.environment, 'Production'))
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # Deliberately no `npm ci`: the checker imports nothing but node builtins
+      # (utils/bareCheckoutGate.mjs is the record's file name, not a dependency),
+      # so it stays fast enough to run on every production deploy.
+      - name: Verify the live deployment's own verdict
+        env:
+          # The origin the deployment actually answers on. sgcoalition-five.vercel.app is
+          # the domain the storefront is moving to, but it serves nothing until
+          # the domain transfer out of Whop completes — checking it now would
+          # read a 404 and call a healthy deployment broken. When the
+          # transfer lands, this becomes sgcoalition-five.vercel.app.
+          TEST_URL: ${{ github.event.inputs.base_url || 'https://sgcoalition-five.vercel.app' }}
+          # The deployment's own commit, straight from the event: that is what
+          # "the commit it was built from" means here, and it is not the same as
+          # whatever the default branch happens to point at now.
+          EXPECTED_COMMIT: ${{ github.event.inputs.commit || github.event.deployment.sha }}
+          EXPECTED_ENVIRONMENT: ${{ github.event_name == 'deployment_status' && 'production' || '' }}
+        run: npm run test:gate-verdict
+
+      # VITE_APP_URL overrides every in-code origin default, so a drifted
+      # production variable silently repoints the CORS echo, the email links
+      # and the webhook URLs at a dead host while the code stays correct.
+      # This reads the value back from the live deployment (/api/health
+      # reports it as origin.configured) and fails unless it is the
+      # canonical origin. Same TEST_URL: the deployment this run is about.
+      - name: Verify VITE_APP_URL is the canonical origin
+        env:
+          TEST_URL: ${{ github.event.inputs.base_url || 'https://sgcoalition-five.vercel.app' }}
+        run: npm run verify:app-url
+
+  # Runs against the checkout, not the live origin: the admin tab is behind a
+  # passphrase and would need a real admin credential to drive over the wire, and
+  # a production round trip would mint and claw back actual SGCoin. The claim it
+  # checks is therefore "this commit's admin tab can perform a clawback", which is
+  # the part of the release a browser can prove deterministically.
+  reversal:
+    name: Reversal click path (browser)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    # Its own group: sharing the verdict job's would make the two cancel each
+    # other out on every deployment.
+    concurrency:
+      group: post-deploy-reversal-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       startsWith(github.event.deployment.environment, 'Production'))
+
+    steps:
+      # The deployed commit, not whatever the default branch points at now: on a
+      # deployment_status event the sha is the one Vercel built. A manual run has
+      # no deployment, so it falls back to the dispatched ref.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      # This job is the one consumer that needs the toolchain, hence npm ci here
+      # where the verdict job deliberately runs without it.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      # A dedicated config, not a positional filter: vitest 4 drops the filter
+      # through vitest.config.ts's exclude list, and the file is excluded there
+      # on purpose so the release build's bare-checkout suite stays browser-free.
+      - name: Drive the admin SGCoin tab's Reverse button
+        run: npm run test:sgcoin-reverse

@@ -1,4 +1,5 @@
-import { supabase } from './supabase';
+import { supabase } from './supabase.js';
+import { errorMessage } from '../utils/errorMessage.js';
 
 export interface ChatSession {
     id: string;
@@ -40,9 +41,9 @@ export const uploadImage = async (file: File): Promise<{ success: boolean; url?:
             .getPublicUrl(filePath);
 
         return { success: true, url: publicUrl };
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error uploading image:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: errorMessage(error) };
     }
 };
 
@@ -72,9 +73,9 @@ export const createChatSession = async (title: string = 'New Chat'): Promise<{ s
         }
 
         return { success: true, sessionId: data.id };
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error creating chat session:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: errorMessage(error) };
     }
 };
 
@@ -109,9 +110,9 @@ export const saveMessage = async (
             .eq('id', sessionId);
 
         return { success: true };
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error saving message:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: errorMessage(error) };
     }
 };
 
@@ -183,9 +184,9 @@ export const updateChatTitle = async (sessionId: string, title: string): Promise
         }
 
         return { success: true };
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error updating chat title:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: errorMessage(error) };
     }
 };
 
@@ -205,9 +206,9 @@ export const deleteChatSession = async (sessionId: string): Promise<{ success: b
         }
 
         return { success: true };
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error deleting chat session:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: errorMessage(error) };
     }
 };
 

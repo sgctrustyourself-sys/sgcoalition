@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, MapPin, ExternalLink, Info } from 'lucide-react';
+import { Heart, MapPin, ExternalLink } from 'lucide-react';
 import { getImpactDetails, ImpactMessageData } from '../services/impactService';
 
 interface ImpactMessageProps {

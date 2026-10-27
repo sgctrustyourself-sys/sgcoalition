@@ -84,7 +84,7 @@ const TutorialLayout: React.FC<TutorialLayoutProps> = ({
                     <div className="flex gap-4">
                         {/* Help Link */}
                         <a
-                            href="mailto:support@sgcoalition.xyz"
+                            href="mailto:sgctrustyourself@gmail.com"
                             className="flex items-center gap-2 px-6 py-3 bg-white/5 border border-white/10 text-gray-400 rounded-lg hover:text-white hover:border-white/30 transition"
                         >
                             <HelpCircle className="w-5 h-5" />

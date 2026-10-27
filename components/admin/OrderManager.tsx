@@ -1,31 +1,200 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 import { Order } from '../../types';
-import { Search, Filter, Eye, Download, Trash2, X, Plus, ChevronLeft, ChevronRight, FileText, Gift, User, Mail, Phone, Calendar, Hash, DollarSign, CreditCard, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Search, Eye, Download, Trash2, X, Plus, FileText, AlertCircle, WalletCards, Package } from 'lucide-react';
+import { reconcileBalancePayment } from '../../services/reconcilePayment';
+import { buyLabelForOrder } from '../../services/buyLabel';
+import { fetchShipmentStatuses, type ShipmentStatusRow } from '../../services/adminShipments';
+import { STALE_PENDING_DAYS, ageDays } from '../../utils/orderAge';
+import { errorMessage } from '../../utils/errorMessage';
 import ManualOrderForm from '../ManualOrderForm';
+import PaymentRecordModal from './PaymentRecordModal';
 import Invoice from '../Invoice';
+import CustomerLinkModal from './CustomerLinkModal';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
+
+// Wholesale placeholder strings are the same privacy-anonymized values
+// locked in tests/liveOrdersFeed.test.ts + scripts/upsertFriiqyDenimPatchwork.ts:
+// the wholesale buyer (friiqy) is identified by his Instagram handle, not by
+// his real name. The admin UI surfaces a "WHOLESALE" chip + the
+// @instagramUsername attribution (when set) so a single glance tells the
+// operator that the row is an offline-bundle placeholder, NOT a real
+// customer order -- without breaking the locked test contracts that pin
+// the literal placeholder strings.
+const WHOLESALE_CUSTOMER_NAME = 'Wholesale Customer';
+const WHOLESALE_BADGE_LABEL = 'WHOLESALE';
+
+const SHIPMENT_BADGE_STYLES: Record<string, string> = {
+    purchased: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30',
+    pending: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+    buying: 'bg-blue-500/10 text-blue-300 border-blue-500/30',
+    failed: 'bg-red-500/10 text-red-300 border-red-500/30',
+};
+
+const ShipmentBadge: React.FC<{ shipment: ShipmentStatusRow }> = ({ shipment }) => {
+    const cls = SHIPMENT_BADGE_STYLES[shipment.status] || SHIPMENT_BADGE_STYLES.pending;
+    if (shipment.status === 'purchased' && shipment.tracking_number) {
+        const delivered = Boolean(shipment.delivered_email_sent_at);
+        const shipped = Boolean(shipment.shipped_email_sent_at);
+        const stage = delivered ? 'delivered' : shipped ? 'in transit' : 'label ready';
+        return (
+            <span
+                className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border font-bold uppercase ${cls}`}
+                title={`${shipment.carrier || 'Carrier'} ${shipment.service || ''} — $${((shipment.rate_cents || 0) / 100).toFixed(2)}${shipment.error_reason ? ' — ' + shipment.error_reason : ''}`}
+            >
+                {shipment.tracking_url ? (
+                    <a
+                        href={shipment.tracking_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline decoration-dotted underline-offset-2 hover:text-white"
+                        onClick={(e) => e.stopPropagation()}
+                        data-testid="shipment-tracking-link"
+                    >
+                        {shipment.tracking_number}
+                    </a>
+                ) : (
+                    <span data-testid="shipment-tracking-number">{shipment.tracking_number}</span>
+                )}
+                <span className="text-[9px] opacity-70">· {stage}</span>
+            </span>
+        );
+    }
+    const label = shipment.status === 'failed'
+        ? `Label failed${shipment.error_reason ? ': ' + shipment.error_reason : ''}`
+        : shipment.status === 'buying' ? 'Label buying…' : 'Label pending';
+    return (
+        <span className={`inline-flex items-center text-xs px-2.5 py-1 rounded-lg border font-bold uppercase ${cls}`} title={shipment.error_reason || ''}>
+            {label}
+        </span>
+    );
+};
+
+const renderCustomerAttribution = (order: Order): React.ReactNode => {
+    // STRICT gate: surface the chip ONLY when the privacy-anonymized customerName
+    // placeholder is set. instagramUsername-by-itself (e.g. a future legitimate
+    // order where the admin manually types an IG handle on ManualOrderForm) is NOT
+    // wholesale. This prevents legit IG-linked orders from being misflagged as
+    // wholesale bundles -- the @handle sub-element still renders if customerName is
+    // the placeholder AND instagramUsername is set (e.g. friiqy on the May 2026
+    // wholesale bundle), but only as a social-attribution signal, not a wholesale
+    // detector. tests/orderManagerRender.test.tsx > INSTAGRAM_ONLY_GATE locks this.
+    const isWholesale = order.customerName === WHOLESALE_CUSTOMER_NAME;
+    if (!isWholesale) return null;
+    return (
+        <div className="mt-1 flex items-center gap-1.5" data-testid="wholesale-attribution">
+            <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded font-bold uppercase tracking-widest inline-block">
+                {WHOLESALE_BADGE_LABEL}
+            </span>
+            {order.instagramUsername && (
+                <span className="text-[10px] text-amber-400/70 font-mono">
+                    @{order.instagramUsername}
+                </span>
+            )}
+        </div>
+    );
+};
 
 const OrderManager: React.FC = () => {
     const { orders, updateOrderStatus, deleteOrder } = useApp();
     const { addToast } = useToast();
-    const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [filterType, setFilterType] = useState<string>('all');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [pendingStatus, setPendingStatus] = useState<string>('');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+    // True while the confirmed delete is being written. The confirmation must
+    // outlive its own request: every control in it is disabled then, so Escape
+    // or Cancel would strand the operator with no result and no layer to read it
+    // in.
+    const [isDeleting, setIsDeleting] = useState(false);
     const [showManualOrderForm, setShowManualOrderForm] = useState(false);
     const [showInvoice, setShowInvoice] = useState<Order | null>(null);
+    const [selectedCustomerOrder, setSelectedCustomerOrder] = useState<Order | null>(null);
+    const [reconcilingOrderId, setReconcilingOrderId] = useState<string | null>(null);
+    const [showPaymentModal, setShowPaymentModal] = useState<Order | null>(null);
+    const [buyingLabelFor, setBuyingLabelFor] = useState<string | null>(null);
+    // Shipment state per order (label purchased? tracking? milestone emails
+    // sent?), from the read-only /api/admin-shipments feed. Refetched when the
+    // Orders tab mounts and after every Buy Label action.
+    const [shipments, setShipments] = useState<Record<string, ShipmentStatusRow>>({});
+    const [shipmentsLoadFailed, setShipmentsLoadFailed] = useState(false);
+
+    // Escape + focus containment for the two overlays this tab owns. Every one
+    // of them is opened from a button in the table below, so the trap returns
+    // focus to the exact control the operator pressed.
+    const detailsDialogRef = useRef<HTMLDivElement>(null);
+    const deleteConfirmRef = useRef<HTMLDivElement>(null);
+
+    // Recording a payment succeeds by CLOSING both layers, and the trap only
+    // restores focus on Escape — a click-close deliberately moves nothing. That
+    // left the keyboard user on <body>, with the row they came from somewhere
+    // above them and nothing announced. The row's own trigger is where they were,
+    // so park its id and put focus back there once the sheet is gone.
+    const rowTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+    const [focusRowId, setFocusRowId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!focusRowId) return;
+        rowTriggerRefs.current[focusRowId]?.focus();
+        setFocusRowId(null);
+    }, [focusRowId]);
+
+    // The details panel is the base layer: the payment recorder, the customer-link
+    // overlay, the invoice and the delete confirmation all stack on top of it, and
+    // while any of them is open focus belongs to that layer rather than to the
+    // panel underneath.
+    //
+    // The panel also owns three writes of its own — the status save, the balance
+    // reconcile and Buy Label — so Escape is locked on them the same way the
+    // stacked dialogs lock theirs: a save must not be dismissed out from under
+    // itself, losing the panel the result would have been shown in.
+    const detailsBusy = isUpdatingStatus || reconcilingOrderId !== null || buyingLabelFor !== null;
+    useFocusTrap({
+        active: Boolean(selectedOrder) && !showPaymentModal && !selectedCustomerOrder && !showInvoice && !showDeleteConfirm,
+        escapeLocked: detailsBusy,
+        containerRef: detailsDialogRef,
+        onEscape: () => setSelectedOrder(null),
+    });
+    useFocusTrap({
+        active: Boolean(showDeleteConfirm),
+        escapeLocked: isDeleting,
+        containerRef: deleteConfirmRef,
+        onEscape: () => setShowDeleteConfirm(null),
+    });
+
+    const [searchTerm, setSearchTerm] = useState(() => {
+        // One-shot handoff from pages/Admin.tsx: a webhook alert email links
+        // to /#/admin?tab=orders&q=<order id>, Admin stores the q param in
+        // sessionStorage and this seeds the search box on first mount so the
+        // operator lands pre-filtered on the exact order row.
+        try {
+            return sessionStorage.getItem('admin_order_search') || '';
+        } catch {
+            return '';
+        }
+    });
+
+    // The seed is one-shot: consume it after the first render so a later
+    // navigation to the orders tab doesn't resurrect a stale search.
+    useEffect(() => {
+        try { sessionStorage.removeItem('admin_order_search'); } catch { /* private mode */ }
+    }, []);
 
     // Filter and search orders
     const filteredOrders = useMemo(() => {
         return orders.filter(order => {
+            const term = searchTerm.toLowerCase();
             const matchesSearch =
-                order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                order.customerEmail.toLowerCase().includes(searchTerm.toLowerCase());
+                order.orderNumber.toLowerCase().includes(term) ||
+                order.customerName.toLowerCase().includes(term) ||
+                order.customerEmail.toLowerCase().includes(term) ||
+                // Alert-email deep links search by the raw order id
+                // (order_<ts>), which is not the same as orderNumber
+                // (ORD-<ts>) — match both so the id always finds the row.
+                ((order as { id?: string }).id ?? '').toLowerCase().includes(term);
 
             const matchesStatus = filterStatus === 'all' || order.paymentStatus === filterStatus;
             const matchesType = filterType === 'all' || order.orderType === filterType;
@@ -63,13 +232,56 @@ const OrderManager: React.FC = () => {
     };
 
     const handleDelete = async (orderId: string) => {
+        setIsDeleting(true);
         try {
             await deleteOrder(orderId);
             setShowDeleteConfirm(null);
         } catch (error) {
             console.error('Failed to delete order:', error);
             addToast('Failed to delete order', 'error');
+        } finally {
+            setIsDeleting(false);
         }
+    };
+
+    // Cash App + crypto are manual off-platform payments: the order lands
+    // PENDING and the owner must verify the transfer before fulfillment.
+    // This flags exactly those rows so they're visible at a glance.
+    const needsManualVerification = (order: Order): boolean => {
+        if (order.paymentStatus !== 'pending') return false;
+        const method = (order.paymentMethod || '').toLowerCase();
+        return method === 'cashapp' || method === 'crypto';
+    };
+
+    const manualVerificationMethodLabel = (order: Order): string => {
+        const method = (order.paymentMethod || '').toLowerCase();
+        return method === 'cashapp' ? 'Cash App' : method === 'crypto' ? 'Crypto' : 'Payment';
+    };
+
+    // Every row shows how long the order has been open; a PENDING row past
+    // STALE_PENDING_DAYS gets a red STALE marker — the same cutoff the live
+    // catalog audit warns on (utils/orderAge.ts owns it), so this list and
+    // RUN_LIVE_AUDIT=1 soldYetBuyableAudit can never disagree about what
+    // counts as an abandoned checkout.
+    const renderOrderAge = (order: Order) => {
+        const days = ageDays(order.createdAt);
+        if (days == null) return null;
+        const stale = order.paymentStatus === 'pending' && days >= STALE_PENDING_DAYS;
+        return (
+            <span
+                data-testid="order-age"
+                title={stale
+                    ? `Open ${days} days with no payment — an abandoned checkout, not a transfer in flight; the live audit warns about this row too`
+                    : `Opened ${new Date(order.createdAt).toLocaleString()}`}
+                className={
+                    stale
+                        ? 'ml-2 inline-flex items-center text-xs font-black px-1.5 py-0.5 rounded border bg-red-500/20 border-red-500/50 text-red-300'
+                        : 'ml-2 inline-flex items-center text-xs font-bold px-1.5 py-0.5 rounded border bg-white/5 border-white/10 text-gray-500'
+                }
+            >
+                {stale ? `${days}d STALE` : `${days}d`}
+            </span>
+        );
     };
 
     const getStatusColor = (status: string) => {
@@ -86,12 +298,99 @@ const OrderManager: React.FC = () => {
         }
     };
 
+    const handleReconcileBalance = async (orderId: string) => {
+        setReconcilingOrderId(orderId);
+        try {
+            const result = await reconcileBalancePayment(orderId);
+            if (result.success) {
+                addToast(`Balance of $${(result.balance_paid || 0).toFixed(2)} reconciled. Order is now fully paid.`, 'success');
+                // Optimistic UI update: flip the local order state immediately
+                // so the table row badge turns green without waiting for a re-fetch.
+                updateOrderStatus(orderId, 'paid');
+                setSelectedOrder(null);
+            } else {
+                addToast(result.error || 'Failed to reconcile balance.', 'error');
+            }
+        } catch (err) {
+            console.error('Reconcile balance failed:', err);
+            addToast(errorMessage(err) || 'Failed to reconcile balance payment.', 'error');
+        } finally {
+            setReconcilingOrderId(null);
+        }
+    };
+
+    useEffect(() => {
+        let mounted = true;
+        fetchShipmentStatuses()
+            .then((rows) => {
+                if (!mounted) return;
+                const map: Record<string, ShipmentStatusRow> = {};
+                for (const r of rows) map[r.order_id] = r;
+                setShipments(map);
+            })
+            .catch((e) => {
+                console.warn('Shipment feed unavailable:', e);
+                if (mounted) setShipmentsLoadFailed(true);
+            });
+        return () => { mounted = false; };
+    }, []);
+
+    // One-click label purchase for orders the Stripe webhook does not cover
+    // (crypto, Cash App cashtag, cash, Venmo, store credit — anything the
+    // operator verifies manually). Reuses the exact production service, so the
+    // claim-row idempotency and the rate cap are identical to the automatic
+    // path; a second click can never buy a second label.
+    const canBuyLabel = (order: Order): boolean =>
+        order.paymentStatus === 'paid' && (order.paymentMethod || '').toLowerCase() !== 'stripe';
+
+    const handleBuyLabel = async (orderId: string) => {
+        setBuyingLabelFor(orderId);
+        try {
+            const result = await buyLabelForOrder(orderId);
+            if (result.outcome === 'purchased' && result.shipment) {
+                // Optimistic row update + refetch: the new shipment row lands
+                // in the feed within moments; the optimistic write covers the gap.
+                setShipments(prev => ({
+                    ...prev,
+                    [orderId]: {
+                        order_id: orderId,
+                        status: 'purchased',
+                        carrier: result.shipment!.carrier,
+                        service: result.shipment!.service,
+                        tracking_number: result.shipment!.trackingNumber,
+                        tracking_url: result.shipment!.trackingUrl,
+                        rate_cents: result.shipment!.rateCents,
+                        error_reason: null,
+                        shipped_email_sent_at: null,
+                        delivered_email_sent_at: null,
+                        updated_at: new Date().toISOString(),
+                    },
+                }));
+                addToast(`Label bought: ${result.shipment.carrier} ${result.shipment.service} — $${(result.shipment.rateCents / 100).toFixed(2)} · tracking ${result.shipment.trackingNumber}`, 'success');
+                if (result.shipment.labelUrl) window.open(result.shipment.labelUrl, '_blank', 'noopener');
+            } else if (result.outcome === 'skipped') {
+                addToast(result.reason === 'already_claimed'
+                    ? 'A label was already bought (or is being bought) for this order.'
+                    : `Label skipped: ${result.reason}.`, 'info');
+            } else if (result.outcome === 'failed') {
+                addToast(`Label failed: ${result.reason}. Fix the cause and click again, or buy manually in Shippo.`, 'error');
+            } else {
+                addToast(`Label purchase hit a transient error (${result.reason}). Click again in a moment.`, 'error');
+            }
+        } catch (err) {
+            console.error('Buy label failed:', err);
+            addToast(errorMessage(err) || 'Failed to buy label.', 'error');
+        } finally {
+            setBuyingLabelFor(null);
+        }
+    };
+
     const handleUpdateStatus = async (orderId: string) => {
         if (!pendingStatus) return;
         setIsUpdatingStatus(true);
         try {
             await updateOrderStatus(orderId, pendingStatus);
-            setSelectedOrder(prev => prev ? { ...prev, paymentStatus: pendingStatus as any } : null);
+            setSelectedOrder(prev => prev ? { ...prev, paymentStatus: pendingStatus as Order['paymentStatus'] } : null);
         } catch (error) {
             console.error('Failed to update status:', error);
         } finally {
@@ -142,6 +441,14 @@ const OrderManager: React.FC = () => {
                     <p className="text-2xl font-bold text-yellow-400 mt-1">
                         {orders.filter(o => o.paymentStatus === 'pending').length}
                     </p>
+                    {(() => {
+                        const manualCount = orders.filter(needsManualVerification).length;
+                        return manualCount > 0 ? (
+                            <p className="mt-1 text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                                {manualCount} need manual verification
+                            </p>
+                        ) : null;
+                    })()}
                 </div>
                 <div className="bg-white/5 border border-white/10 p-5 rounded-xl backdrop-blur-sm">
                     <p className="text-xs font-bold text-gray-400 uppercase">Manual</p>
@@ -197,13 +504,14 @@ const OrderManager: React.FC = () => {
                                 <th className="p-4">Customer</th>
                                 <th className="p-4">Total</th>
                                 <th className="p-4">Status</th>
+                                <th className="p-4">Shipment</th>
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {filteredOrders.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="p-12 text-center text-gray-500">
+                                    <td colSpan={7} className="p-12 text-center text-gray-500">
                                         No orders found
                                     </td>
                                 </tr>
@@ -213,16 +521,44 @@ const OrderManager: React.FC = () => {
                                         <td className="p-4 font-mono text-sm text-brand-accent">{order.orderNumber}</td>
                                         <td className="p-4 text-sm text-gray-400">
                                             {new Date(order.createdAt).toLocaleDateString()}
+                                            {renderOrderAge(order)}
                                         </td>
                                         <td className="p-4">
-                                            <div className="text-sm font-bold text-white">{order.customerName}</div>
-                                            <div className="text-xs text-gray-500">{order.customerEmail}</div>
+                                            <div className="space-y-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedCustomerOrder(order)}
+                                                    className="text-left hover:opacity-80 transition block"
+                                                    title="View customer"
+                                                    data-testid="customer-link-trigger"
+                                                >
+                                                    <div className="text-sm font-bold text-white underline decoration-dotted underline-offset-2">{order.customerName}</div>
+                                                    <div className="text-xs text-gray-500">{order.customerEmail}</div>
+                                                </button>
+                                                {renderCustomerAttribution(order)}
+                                            </div>
                                         </td>
                                         <td className="p-4 font-bold text-white">${order.total.toFixed(2)}</td>
                                         <td className="p-4">
-                                            <span className={`text-xs px-2 py-1 rounded border font-bold uppercase ${getStatusColor(order.paymentStatus)}`}>
-                                                {order.paymentStatus}
-                                            </span>
+                                            {needsManualVerification(order) ? (
+                                                <span
+                                                    className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border font-bold uppercase animate-pulse bg-amber-500/20 border-amber-500/50 text-amber-300"
+                                                    title={`${manualVerificationMethodLabel(order)} payment sent off-platform — verify the transfer, then mark as paid`}
+                                                    data-testid="manual-verification-badge"
+                                                >
+                                                    <AlertCircle size={13} />
+                                                    Verify {manualVerificationMethodLabel(order)}
+                                                </span>
+                                            ) : (
+                                                <span className={`text-xs px-2 py-1 rounded border font-bold uppercase ${getStatusColor(order.paymentStatus)}`}>
+                                                    {order.paymentStatus}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="p-4" data-testid={`shipment-cell-${order.id}`}>
+                                            {shipments[order.id]
+                                                ? <ShipmentBadge shipment={shipments[order.id]} />
+                                                : <span className="text-xs text-gray-600" title={shipmentsLoadFailed ? 'Shipment feed unavailable' : 'No label yet'}>—</span>}
                                         </td>
                                         <td className="p-4">
                                             <div className="flex items-center justify-end gap-2">
@@ -231,6 +567,7 @@ const OrderManager: React.FC = () => {
                                                         setSelectedOrder(order);
                                                         setPendingStatus(order.paymentStatus);
                                                     }}
+                                                    ref={(node) => { rowTriggerRefs.current[order.id] = node; }}
                                                     className="p-2 text-blue-400 hover:bg-blue-500/10 rounded transition"
                                                     title="View Details"
                                                 >
@@ -243,6 +580,35 @@ const OrderManager: React.FC = () => {
                                                 >
                                                     <FileText size={16} />
                                                 </button>
+                                                {order.balanceDue != null && order.balanceDue > 0 && order.paymentStatus === 'pending' && (
+                                                    <button
+                                                        onClick={() => handleReconcileBalance(order.id)}
+                                                        disabled={reconcilingOrderId === order.id}
+                                                        className="p-2 text-amber-400 hover:bg-amber-500/10 rounded transition"
+                                                        title={`Mark $${order.balanceDue.toFixed(2)} balance as paid`}
+                                                    >
+                                                        {reconcilingOrderId === order.id ? (
+                                                            <div className="w-4 h-4 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+                                                        ) : (
+                                                            <WalletCards size={16} />
+                                                        )}
+                                                    </button>
+                                                )}
+                                                {canBuyLabel(order) && (
+                                                    <button
+                                                        onClick={() => handleBuyLabel(order.id)}
+                                                        disabled={buyingLabelFor === order.id}
+                                                        className="p-2 text-cyan-400 hover:bg-cyan-500/10 rounded transition"
+                                                        title="Buy shipping label via Shippo (opens the PDF)"
+                                                        data-testid="buy-label-button"
+                                                    >
+                                                        {buyingLabelFor === order.id ? (
+                                                            <div className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+                                                        ) : (
+                                                            <Package size={16} />
+                                                        )}
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={() => setShowDeleteConfirm(order.id)}
                                                     className="p-2 text-red-400 hover:bg-red-500/10 rounded transition"
@@ -263,12 +629,19 @@ const OrderManager: React.FC = () => {
             {/* Order Details Modal */}
             {selectedOrder && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="bg-gray-900 border border-white/10 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div
+                        ref={detailsDialogRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="order-details-title"
+                        className="bg-gray-900 border border-white/10 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                    >
                         <div className="p-6 border-b border-white/10 flex justify-between items-center">
-                            <h2 className="text-xl font-bold text-white uppercase">Order Details</h2>
+                            <h2 id="order-details-title" className="text-xl font-bold text-white uppercase">Order Details</h2>
                             <button
                                 onClick={() => setSelectedOrder(null)}
-                                className="text-gray-400 hover:text-white transition"
+                                disabled={detailsBusy}
+                                className="text-gray-400 hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
                                 aria-label="Close modal"
                             >
                                 <X size={24} />
@@ -283,11 +656,23 @@ const OrderManager: React.FC = () => {
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-bold mb-1">Date</p>
                                     <p className="text-white">{new Date(selectedOrder.createdAt).toLocaleString()}</p>
+                                    {renderOrderAge(selectedOrder)}
                                 </div>
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-bold mb-1">Customer</p>
-                                    <p className="text-white font-bold">{selectedOrder.customerName}</p>
-                                    <p className="text-gray-400 text-sm">{selectedOrder.customerEmail}</p>
+                                    <div className="space-y-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedCustomerOrder(selectedOrder)}
+                                            className="text-left hover:opacity-80 transition block"
+                                            title="View customer"
+                                            data-testid="customer-link-trigger-detail"
+                                        >
+                                            <p className="text-white font-bold underline decoration-dotted underline-offset-2">{selectedOrder.customerName}</p>
+                                            <p className="text-gray-400 text-sm">{selectedOrder.customerEmail}</p>
+                                        </button>
+                                        {renderCustomerAttribution(selectedOrder)}
+                                    </div>
                                 </div>
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-bold mb-1">Status Management</p>
@@ -318,11 +703,48 @@ const OrderManager: React.FC = () => {
                                             {isUpdatingStatus ? '...' : 'Save'}
                                         </button>
                                     </div>
-                                    <div className="mt-2">
+                                    <div className="mt-2 flex items-center gap-2 flex-wrap">
                                         <span className={`inline-block text-[10px] px-2 py-0.5 rounded border ${getStatusColor(selectedOrder.paymentStatus)}`}>
                                             Current: {selectedOrder.paymentStatus}
                                         </span>
+                                        {needsManualVerification(selectedOrder) && (
+                                            <span
+                                                className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border font-bold uppercase bg-amber-500/20 border-amber-500/50 text-amber-300 animate-pulse"
+                                                data-testid="manual-verification-badge-modal"
+                                            >
+                                                <AlertCircle size={11} />
+                                                Verify {manualVerificationMethodLabel(selectedOrder)} payment
+                                            </span>
+                                        )}
                                     </div>
+                                    {selectedOrder.balanceDue != null && selectedOrder.balanceDue > 0 && selectedOrder.paymentStatus === 'pending' && (
+                                        <div className="mt-3 pt-3 border-t border-amber-500/20">
+                                            <p className="text-xs text-amber-400 font-bold mb-2">
+                                                Partial deposit: ${selectedOrder.paidAmount?.toFixed(2) || '0.00'} paid / ${selectedOrder.balanceDue.toFixed(2)} owed
+                                            </p>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => setShowPaymentModal(selectedOrder)}
+                                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-amber-500/20 border border-amber-500/30 text-amber-300 rounded-lg hover:bg-amber-500/30 transition text-sm font-bold uppercase tracking-wider"
+                                                >
+                                                    <WalletCards size={16} />
+                                                    Record Payment
+                                                </button>
+                                                <button
+                                                    onClick={() => handleReconcileBalance(selectedOrder.id)}
+                                                    disabled={reconcilingOrderId === selectedOrder.id}
+                                                    className="px-3 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/20 transition text-xs"
+                                                    title="Quick full-pay: marks entire balance as paid"
+                                                >
+                                                    {reconcilingOrderId === selectedOrder.id ? (
+                                                        <div className="w-3.5 h-3.5 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+                                                    ) : (
+                                                        'Full Pay'
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -360,26 +782,59 @@ const OrderManager: React.FC = () => {
             {/* Delete Confirmation */}
             {showDeleteConfirm && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="bg-gray-900 border border-white/10 rounded-xl p-6 max-w-sm w-full text-center">
+                    <div
+                        ref={deleteConfirmRef}
+                        role="alertdialog"
+                        aria-modal="true"
+                        aria-labelledby="delete-order-title"
+                        className="bg-gray-900 border border-white/10 rounded-xl p-6 max-w-sm w-full text-center"
+                    >
                         <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                        <h3 className="text-lg font-bold text-white mb-2">Delete Order?</h3>
+                        <h3 id="delete-order-title" className="text-lg font-bold text-white mb-2">Delete Order?</h3>
                         <p className="text-gray-400 mb-6">This action cannot be undone.</p>
                         <div className="flex gap-3 justify-center">
                             <button
                                 onClick={() => setShowDeleteConfirm(null)}
-                                className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20"
+                                disabled={isDeleting}
+                                className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={() => handleDelete(showDeleteConfirm)}
-                                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                                disabled={isDeleting}
+                                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                                Delete
+                                {isDeleting ? 'Deleting...' : 'Delete'}
                             </button>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Payment Record Modal */}
+            {showPaymentModal && (
+                <PaymentRecordModal
+                    orderId={showPaymentModal.id}
+                    orderNumber={showPaymentModal.orderNumber}
+                    customerName={showPaymentModal.customerName}
+                    balanceDue={showPaymentModal.balanceDue || 0}
+                    paidAmount={showPaymentModal.paidAmount || 0}
+                    total={showPaymentModal.total}
+                    onClose={() => setShowPaymentModal(null)}
+                    onRecorded={(result) => {
+                        const rowId = showPaymentModal.id;
+                        if (result.fullyReconciled) {
+                            updateOrderStatus(rowId, 'paid');
+                        }
+                        setShowPaymentModal(null);
+                        setSelectedOrder(null);
+                        // Both layers close on success rather than on Escape, so
+                        // the trap has no return target to work with: send focus
+                        // back to the row's trigger, not to <body>.
+                        setFocusRowId(rowId);
+                    }}
+                />
             )}
 
             {/* Manual Order Form */}
@@ -387,6 +842,18 @@ const OrderManager: React.FC = () => {
                 <ManualOrderForm
                     onClose={() => setShowManualOrderForm(false)}
                     onSuccess={() => setShowManualOrderForm(false)}
+                />
+            )}
+
+            {/* Customer link overlay (stacked above detail modal at z-[60] so
+                closing it preserves the order-detail context). */}
+            {selectedCustomerOrder && (
+                <CustomerLinkModal
+                    userId={selectedCustomerOrder.userId}
+                    customerEmail={selectedCustomerOrder.customerEmail}
+                    customerName={selectedCustomerOrder.customerName}
+                    orderId={selectedCustomerOrder.id}
+                    onClose={() => setSelectedCustomerOrder(null)}
                 />
             )}
 

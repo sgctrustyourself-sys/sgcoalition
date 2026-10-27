@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
 import {
     getRobustProvider
 } from '../services/web3Service';
@@ -9,6 +8,15 @@ import {
     WPOL_ADDRESS,
     LIQUIDITY_TARGET_POL
 } from '../constants';
+import { errorMessage } from '../utils/errorMessage';
+
+// Lazy-loaded ethers — ~100 KB chunk only downloaded when the liquidity
+// hook is first called (TreasuryPage, WizardsPortal). Cached after first call.
+let ethersModule: Promise<typeof import('ethers')> | null = null;
+const getEthers = () => {
+    if (!ethersModule) ethersModule = import('ethers');
+    return ethersModule;
+};
 
 const ERC20_ABI = [
     'function balanceOf(address owner) view returns (uint256)',
@@ -24,6 +32,7 @@ export const useLiquidity = () => {
     const fetchLiquidity = async () => {
         try {
             setIsLoading(true);
+            const { ethers } = await getEthers();
 
             // Use a more robust provider initialization
             const provider = await getRobustProvider();
@@ -54,7 +63,7 @@ export const useLiquidity = () => {
 
             // 4. Fetch POL price (using DexScreener WPOL/USDC or similar)
             try {
-                const provider = await getRobustProvider();
+                await getRobustProvider();
                 const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${WPOL_ADDRESS}`);
                 const data = await res.json();
                 if (data.pairs && data.pairs.length > 0) {
@@ -65,9 +74,9 @@ export const useLiquidity = () => {
             }
 
             setError(null);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Error fetching liquidity data:', err);
-            setError(err.message || 'Failed to fetch liquidity');
+            setError(errorMessage(err) || 'Failed to fetch liquidity');
 
             // Use previous liquidity or the hardcoded fallback if everything fails
             if (liquidity === 0) {

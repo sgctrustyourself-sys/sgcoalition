@@ -1,6 +1,5 @@
 const { exec } = require('child_process');
 const { promisify } = require('util');
-const path = require('path');
 
 const execAsync = promisify(exec);
 
@@ -47,7 +46,7 @@ async function createCommit(message, author) {
 
         // Create commit
         const authorFlag = author ? `--author="${author}"` : '';
-        const result = await executeGitCommand(
+        await executeGitCommand(
             `git commit -m "${sanitizedMessage}" ${authorFlag}`
         );
 
@@ -75,7 +74,7 @@ async function getCommitHistory(limit = 50) {
         }
 
         const commits = log.split('\n').map(line => {
-            const [hash, message, author, date, refs] = line.split('|');
+            const [hash, message, author, date] = line.split('|');
             return {
                 hash: hash.trim(),
                 message: message.trim(),
@@ -115,7 +114,7 @@ async function getBranches() {
 async function switchBranch(branchName) {
     try {
         // Sanitize branch name
-        const sanitizedBranch = branchName.replace(/[^a-zA-Z0-9_\-\/]/g, '');
+        const sanitizedBranch = branchName.replace(/[^a-zA-Z0-9_\-/]/g, '');
         await executeGitCommand(`git checkout ${sanitizedBranch}`);
     } catch (error) {
         throw new Error(`Failed to switch branch: ${error.message}`);

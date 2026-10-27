@@ -71,6 +71,8 @@ async function testGeminiVision() {
     }
 }
 
+// Skipped at the call site (Auth restrictions); kept for re-enabling.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function testSupabaseStorage() {
     console.log('\nTesting Supabase Storage...');
     try {
@@ -81,7 +83,7 @@ async function testSupabaseStorage() {
         const password = 'testpassword123';
 
         console.log(`Creating test user: ${email}...`);
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        const { error: authError } = await supabase.auth.signUp({
             email,
             password,
         });
