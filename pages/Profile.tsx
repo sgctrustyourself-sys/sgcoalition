@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Hexagon, Package, Truck, CheckCircle, Clock, Settings, Wallet, Link as LinkIcon, AlertCircle, CheckCircle2, Copy, Check, DollarSign, Star, Ticket, Heart, Users } from 'lucide-react';
+import { Hexagon, Package, Truck, CheckCircle, Clock, Settings, Wallet, Link as LinkIcon, AlertCircle, CheckCircle2, Copy, Check, DollarSign, Star, Ticket, Heart, Users, ArrowRight } from 'lucide-react';
 import { getReferralStats, generateReferralLink, type ReferralStats } from '../utils/referralSystem';
 import { trackReferralShare } from '../utils/referralAnalytics';
 import { useApp } from '../context/AppContext';
@@ -185,6 +185,17 @@ const Profile = () => {
                                     <div className="text-xs text-gray-400 mt-2">
                                         Current Value: ${(user.sgCoinBalance * 0.002).toFixed(2)} USD
                                     </div>
+                                    {/* The points on an order placed before this account
+                                        existed were never credited anywhere; this is the
+                                        only route to them, so it sits with the balance
+                                        rather than in a menu. */}
+                                    <Link
+                                        to="/claim"
+                                        className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-brand-accent hover:text-white transition-colors"
+                                    >
+                                        <ArrowRight className="w-3 h-3" />
+                                        Claim points from a past order
+                                    </Link>
                                 </div>
 
                                 {/* Quick-access referral code card */}

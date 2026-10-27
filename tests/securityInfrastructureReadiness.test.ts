@@ -376,6 +376,7 @@ describe('source invariants: admin authorization has one gate', () => {
     const GATED: Record<string, { policy: AdminPolicy; why: string }> = {
         'git-operations': { policy: 'shared', why: 'repo writes' },
         'admin-buy-label': { policy: 'shared', why: 'one-click Shippo label purchase from Admin -> Orders — spends real postage money' },
+        'admin-point-claims': { policy: 'shared', why: 'reviews buyer-filed SGCoin claims; approving mints through grant_sgcoin — a money-moving write, and the queue itself lists who was paid how much' },
         'admin-refund': { policy: 'shared', why: 'issues a real Stripe refund from Admin -> Orders — moves customer money' },
         'admin-shipments': { policy: 'shared', why: 'read-only shipment/tracking feed for the admin orders view (shipments is RLS-locked)' },
         'admin-sgcoin-grant': { policy: 'shared', why: 'mints SGCoin into a member balance — a money-moving write' },

@@ -6,6 +6,10 @@ import {
     getAdminAuthHeaders,
     handleAdminAuthFailure,
 } from '../services/adminSession';
+// Claims buyers filed themselves (guests, and orders that predate their
+// account). They live in this tab because approving one IS a distribution — it
+// pays through grant_sgcoin, so its ledger row lands in Recent Grants below.
+import PointClaimQueue from '../components/admin/PointClaimQueue';
 
 /**
  * A row from GET /api/admin-sgcoin-members (public.profiles).
@@ -620,6 +624,8 @@ const SGCoinDistribution = () => {
                     </ul>
                 )}
             </div>
+
+            <PointClaimQueue />
         </div>
     );
 };

@@ -15,6 +15,7 @@ type Loader = () => Promise<{ default: Handler }>;
 
 const handlers: Record<string, Loader> = {
     'admin-buy-label': () => import('./_handlers/admin-buy-label.js'),
+    'admin-point-claims': () => import('./_handlers/admin-point-claims.js'),
     'admin-products': () => import('./_handlers/admin-products.js'),
     'admin-refund': () => import('./_handlers/admin-refund.js'),
     'admin-sgcoin-grant': () => import('./_handlers/admin-sgcoin-grant.js'),
@@ -59,6 +60,7 @@ const handlers: Record<string, Loader> = {
 // with the service-role key, and sgcoin-allocation scans the orders table. The
 // exemption would leave them unmetered while the docs call them rate-limited.
 const READ_LIMITED_SLUGS = new Set([
+    'admin-point-claims',
     'admin-sgcoin-grants',
     'admin-sgcoin-members',
     'sgcoin-allocation',

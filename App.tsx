@@ -67,6 +67,10 @@ const CustomWallets = React.lazy(() => import('./pages/CustomWallets'));
 const BuySGCoin = React.lazy(() => import('./pages/BuySGCoin'));
 const Favorites = React.lazy(() => import('./pages/Favorites'));
 const OrderHistory = React.lazy(() => import('./pages/OrderHistory'));
+// Public on purpose: the people who need it are guests who never had an
+// account (the page signs them up in place), so it cannot sit behind
+// ProtectedRoute.
+const Claim = React.lazy(() => import('./pages/Claim'));
 const SavedAddresses = React.lazy(() => import('./pages/SavedAddresses'));
 const MyReviews = React.lazy(() => import('./pages/MyReviews'));
 const SearchResults = React.lazy(() => import('./pages/SearchResults'));
@@ -212,6 +216,7 @@ const App = () => {
                     <Route path="/order/:orderId" element={<OrderDetails />} />
                     <Route path="/order/success" element={<OrderSuccess />} />
                     <Route path="/order/cancel" element={<OrderCancel />} />
+                    <Route path="/claim" element={<Claim />} />
                     <Route path="/admin" element={
                       <ProtectedRoute requireAdmin={true}>
                         <Admin />
