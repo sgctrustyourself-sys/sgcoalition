@@ -901,13 +901,13 @@ export const INITIAL_PRODUCTS: Product[] = [
       "One Size"
     ],
     "sizeInventory": {
-      "One Size": 10
+      "One Size": 0
     },
     "nft": null,
-    "archived": false,
-    "archivedAt": null,
+    "archived": true,
+    "archivedAt": "2026-10-18T00:00:00+00:00",
     "releasedAt": null,
-    "soldAt": null
+    "soldAt": "2026-10-18T00:00:00+00:00"
   },
   {
     "id": "Coalition_Ghost_Riders_After_Dark_Wallet_1_1",
