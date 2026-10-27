@@ -486,6 +486,34 @@ describe('admin manager modals: Escape + focus containment', () => {
             expect(topDialog().contains(document.activeElement)).toBe(true);
         });
 
+        it('recording a payment returns focus to the row that opened the sheet', async () => {
+            m.recordPartialPayment.mockResolvedValue({
+                success: true, fully_reconciled: true, new_balance_due: 0,
+            });
+
+            await mount(loadOrderManager);
+
+            // Row 2 is SG-101: pending with a $30 balance due, the one row that
+            // offers Record Payment.
+            const rowTrigger = buttonByTitle('View Details', 1);
+            await activate(rowTrigger);
+            await activate(buttonByText('Record Payment'));
+            expect(container.querySelector('#record-payment-title')).toBeTruthy();
+
+            await activate(buttonByText('Record $30.00 Payment', 0, topDialog()));
+            await flush();
+
+            // Success closes both layers, so the Escape return path never runs...
+            expect(container.querySelector('#record-payment-title')).toBeNull();
+            expect(container.innerHTML).not.toContain('Order Details');
+            // ...and the row is still mounted behind them.
+            expect(document.body.contains(rowTrigger)).toBe(true);
+            // The keyboard user is back on the control they opened the sheet from
+            // rather than dropped on <body>.
+            expect(document.activeElement).toBe(rowTrigger);
+            expect(document.activeElement).not.toBe(document.body);
+        });
+
         it('with the customer link overlay stacked on top, Escape closes only that overlay', async () => {
             await mount(loadOrderManager);
             await activate(buttonByTitle('View Details'));

@@ -128,6 +128,20 @@ const OrderManager: React.FC = () => {
     const detailsDialogRef = useRef<HTMLDivElement>(null);
     const deleteConfirmRef = useRef<HTMLDivElement>(null);
 
+    // Recording a payment succeeds by CLOSING both layers, and the trap only
+    // restores focus on Escape — a click-close deliberately moves nothing. That
+    // left the keyboard user on <body>, with the row they came from somewhere
+    // above them and nothing announced. The row's own trigger is where they were,
+    // so park its id and put focus back there once the sheet is gone.
+    const rowTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+    const [focusRowId, setFocusRowId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!focusRowId) return;
+        rowTriggerRefs.current[focusRowId]?.focus();
+        setFocusRowId(null);
+    }, [focusRowId]);
+
     // The details panel is the base layer: the payment recorder, the customer-link
     // overlay, the invoice and the delete confirmation all stack on top of it, and
     // while any of them is open focus belongs to that layer rather than to the
@@ -553,6 +567,7 @@ const OrderManager: React.FC = () => {
                                                         setSelectedOrder(order);
                                                         setPendingStatus(order.paymentStatus);
                                                     }}
+                                                    ref={(node) => { rowTriggerRefs.current[order.id] = node; }}
                                                     className="p-2 text-blue-400 hover:bg-blue-500/10 rounded transition"
                                                     title="View Details"
                                                 >
@@ -808,11 +823,16 @@ const OrderManager: React.FC = () => {
                     total={showPaymentModal.total}
                     onClose={() => setShowPaymentModal(null)}
                     onRecorded={(result) => {
+                        const rowId = showPaymentModal.id;
                         if (result.fullyReconciled) {
-                            updateOrderStatus(showPaymentModal.id, 'paid');
+                            updateOrderStatus(rowId, 'paid');
                         }
                         setShowPaymentModal(null);
                         setSelectedOrder(null);
+                        // Both layers close on success rather than on Escape, so
+                        // the trap has no return target to work with: send focus
+                        // back to the row's trigger, not to <body>.
+                        setFocusRowId(rowId);
                     }}
                 />
             )}
