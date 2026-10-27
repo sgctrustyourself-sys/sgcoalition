@@ -192,15 +192,16 @@ describe('dialog focus traps', () => {
             await renderConfirm({ onClose, onConfirm, isLoading: true });
 
             // Every control in the dialog is disabled for this window, so there is
-            // nothing to trap; what matters is that Escape neither closes it nor
-            // moves focus out from under the operation that is running.
+            // nothing to cycle; what matters is that Escape neither closes it nor
+            // moves focus out from under the operation that is running. The key is
+            // consumed (`escapeLocked`) rather than passed through to the page.
             expect(stopsWithin(dialog())).toHaveLength(0);
 
             const event = await press('Escape');
 
             expect(onClose).not.toHaveBeenCalled();
             expect(document.activeElement).toBe(opener);
-            expect(event.defaultPrevented).toBe(false);
+            expect(event.defaultPrevented).toBe(true);
         });
 
         it('traps again once the action settles', async () => {

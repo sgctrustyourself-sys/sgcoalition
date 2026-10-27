@@ -31,7 +31,15 @@ const WizardDetailModal: React.FC<WizardDetailModalProps> = ({ wizard, isOpen, o
     const [isUpgrading, setIsUpgrading] = useState(false);
 
     const panelRef = useRef<HTMLDivElement>(null);
-    useFocusTrap({ active: isOpen, containerRef: panelRef, onEscape: onClose });
+    // The trap, the backdrop and the close button all wait for the ascension
+    // write: while `isUpgrading` the panel is the only place the result is
+    // reported, so none of the three may dismiss it mid-request.
+    useFocusTrap({
+        active: isOpen,
+        escapeLocked: isUpgrading,
+        containerRef: panelRef,
+        onEscape: onClose,
+    });
 
     if (!isOpen) return null;
 
@@ -60,7 +68,7 @@ const WizardDetailModal: React.FC<WizardDetailModalProps> = ({ wizard, isOpen, o
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    onClick={onClose}
+                    onClick={isUpgrading ? undefined : onClose}
                     className="absolute inset-0 bg-black/90 backdrop-blur-md"
                 />
 
@@ -86,9 +94,10 @@ const WizardDetailModal: React.FC<WizardDetailModalProps> = ({ wizard, isOpen, o
                     {/* Close Button */}
                     <button
                         onClick={onClose}
+                        disabled={isUpgrading}
                         title="Close details"
                         aria-label="Close"
-                        className="absolute top-8 right-8 z-10 p-3 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all text-gray-400 hover:text-white"
+                        className="absolute top-8 right-8 z-10 p-3 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all text-gray-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                         <X size={20} />
                     </button>

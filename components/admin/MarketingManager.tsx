@@ -258,7 +258,9 @@ const ComposerView: React.FC<{ onSent: () => void }> = ({ onSent }) => {
   // The confirmation is the last gate before a send to the live audience; Escape
   // is the same as Cancel, and the trap keeps focus off the composer behind it.
   useFocusTrap({
-    active: confirmOpen && !sending,
+    active: confirmOpen,
+    // Mid-send the gate must survive its own request.
+    escapeLocked: sending,
     containerRef: confirmPanelRef,
     onEscape: () => setConfirmOpen(false),
   });
@@ -357,7 +359,9 @@ const ComposerView: React.FC<{ onSent: () => void }> = ({ onSent }) => {
               </div>
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setConfirmOpen(false)} className="flex-1 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-bold transition-colors">Cancel</button>
+              {/* Escape is locked on `sending`; Cancel must be inert too, or the
+                  confirmation could be dismissed while the blast is going out. */}
+              <button onClick={() => setConfirmOpen(false)} disabled={sending} className="flex-1 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Cancel</button>
               <button onClick={sendNow} disabled={sending} className="flex-1 bg-white text-black px-4 py-2 rounded-lg font-bold transition-colors disabled:opacity-50">{sending ? 'Sending...' : 'Send'}</button>
             </div>
           </div>

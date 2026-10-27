@@ -37,12 +37,14 @@ const PaymentRecordModal: React.FC<PaymentRecordModalProps> = ({
     const parsedAmount = parseFloat(amount);
     const isValidAmount = !isNaN(parsedAmount) && parsedAmount > 0 && parsedAmount <= balanceDue;
 
-    // Escape + focus containment while the recorder is open. Gated on
-    // `!isSubmitting` to match the disabled Cancel button: once the recording is
+    // Escape + focus containment while the recorder is open. Escape is locked on
+    // `isSubmitting` to match the disabled Cancel button: once the recording is
     // in flight every control including Cancel is inert, so Escape must not
-    // close the dialog (and drag focus out of it) mid-write.
+    // close the dialog (and drag focus out of it) mid-write. The trap stays
+    // mounted, so containment and focus return are unaffected.
     useFocusTrap({
-        active: !isSubmitting,
+        active: true,
+        escapeLocked: isSubmitting,
         containerRef: dialogRef,
         onEscape: onClose,
     });
@@ -103,7 +105,9 @@ const PaymentRecordModal: React.FC<PaymentRecordModalProps> = ({
                             <h2 id="record-payment-title" className="text-lg font-bold text-white uppercase">Record Payment</h2>
                             <p className="text-xs text-gray-400 mt-0.5">{orderNumber} — {customerName}</p>
                         </div>
-                        <button type="button" onClick={onClose} className="text-gray-400 hover:text-white transition" aria-label="Close record payment dialog"><X size={20} /></button>
+                        {/* Gated like Cancel and Escape: the header X was the one
+                            control that still closed the recorder mid-write. */}
+                        <button type="button" onClick={onClose} disabled={isSubmitting} className="text-gray-400 hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed" aria-label="Close record payment dialog"><X size={20} /></button>
                     </div>
                     <div className="p-5 space-y-5">
                         <div className="bg-white/5 border border-white/10 rounded-lg p-4">

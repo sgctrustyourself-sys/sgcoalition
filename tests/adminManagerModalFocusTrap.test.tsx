@@ -232,6 +232,16 @@ const typeInto = async (field: HTMLInputElement | HTMLTextAreaElement, value: st
     });
 };
 
+/** Same, for a <select>: set the value natively, then fire the change. */
+const selectValue = async (field: HTMLSelectElement, value: string) => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set as
+        (this: HTMLSelectElement, v: string) => void;
+    await act(async () => {
+        setter.call(field, value);
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+};
+
 describe('admin manager modals: Escape + focus containment', () => {
     // Module-scoped container: the harness owns the root and the teardown, this
     // file just keeps the handle the assertions read by name.
@@ -386,6 +396,66 @@ describe('admin manager modals: Escape + focus containment', () => {
             expect(document.activeElement).toBe(trash);
             // Nothing was deleted: Escape is a cancel, not a second confirm.
             expect(useAppMock.mock.results[0]?.value?.deleteOrder).not.toHaveBeenCalled();
+        });
+
+        it('Escape is inert while the order status save is being written', async () => {
+            let settle: () => void = () => {};
+            const updateOrderStatus = vi.fn(
+                () => new Promise<void>((resolve) => { settle = resolve; }),
+            );
+            mockAppContext({ orders: ORDERS, updateOrderStatus });
+
+            await mount(loadOrderManager);
+            await activate(buttonByTitle('View Details'));
+            const panel = topDialog();
+
+            await selectValue(panel.querySelector('select')!, 'shipped');
+            const save = buttonByText('Save', 0, panel);
+            await activate(save);
+            expect(save.disabled).toBe(true);
+            expect(updateOrderStatus).toHaveBeenCalledWith('o-102', 'shipped');
+
+            await press('Escape');
+
+            // Still open, focus still inside: the save has its panel to land in.
+            expect(container.innerHTML).toContain('Order Details');
+            expect(panel.contains(document.activeElement)).toBe(true);
+
+            await act(async () => { settle(); });
+            await flush();
+
+            // Settled: Escape is a close again.
+            await press('Escape');
+            expect(container.innerHTML).not.toContain('Order Details');
+        });
+
+        it('Escape is inert while the confirmed delete is being written', async () => {
+            let settle: () => void = () => {};
+            const deleteOrder = vi.fn(
+                () => new Promise<void>((resolve) => { settle = resolve; }),
+            );
+            mockAppContext({ orders: ORDERS, deleteOrder });
+
+            await mount(loadOrderManager);
+            await activate(buttonByTitle('Delete'));
+
+            const confirmPanel = topDialog();
+            const remove = buttonByText('Delete', 0, confirmPanel);
+            await activate(remove);
+            expect(remove.disabled).toBe(true);
+            expect(buttonByText('Deleting...', 0, confirmPanel)).toBeTruthy();
+            expect(deleteOrder).toHaveBeenCalledTimes(1);
+
+            await press('Escape');
+
+            expect(container.innerHTML).toContain('Delete Order?');
+            expect(confirmPanel.contains(document.activeElement)).toBe(true);
+            expect(buttonByText('Cancel', 0, confirmPanel).disabled).toBe(true);
+
+            await act(async () => { settle(); });
+            await flush();
+
+            expect(container.innerHTML).not.toContain('Delete Order?');
         });
 
         it('with the payment recorder stacked on top, Escape closes the recorder and leaves the detail panel open', async () => {
@@ -605,6 +675,37 @@ describe('admin manager modals: Escape + focus containment', () => {
             expect(container.innerHTML).toContain('Purchase Request Details');
             expect(m.rejectPurchaseRequest).not.toHaveBeenCalled();
             expect(topDialog().contains(document.activeElement)).toBe(true);
+        });
+
+        it('Escape is inert while the purchase approval is being written', async () => {
+            // Approving asks for confirmation first, like the real operator flow.
+            vi.spyOn(window, 'confirm').mockReturnValue(true);
+            let settle: (value: boolean) => void = () => {};
+            m.approvePurchaseRequest.mockImplementation(
+                () => new Promise<boolean>((resolve) => { settle = resolve; }),
+            );
+
+            await render();
+            await activate(buttonByText('View'));
+            const panel = topDialog();
+
+            const approve = buttonByText('Approve', 0, panel);
+            await activate(approve);
+            expect(approve.disabled).toBe(true);
+            expect(m.approvePurchaseRequest).toHaveBeenCalledTimes(1);
+
+            await press('Escape');
+
+            // The panel approves in place, so it is the write's own surface and
+            // must stay put until the ledger row lands.
+            expect(container.innerHTML).toContain('Purchase Request Details');
+            expect(panel.contains(document.activeElement)).toBe(true);
+
+            await act(async () => { settle(true); });
+            await flush();
+
+            await press('Escape');
+            expect(container.innerHTML).not.toContain('Purchase Request Details');
         });
     });
 

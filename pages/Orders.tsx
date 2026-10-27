@@ -15,16 +15,24 @@ export const Orders: React.FC = () => {
     const [filterType, setFilterType] = useState<string>('all');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+    // True while the confirmed delete is being written. The confirmation has to
+    // survive its own request: its buttons are disabled then, so Escape or Cancel
+    // would dismiss the layer the outcome is reported in.
+    const [isDeleting, setIsDeleting] = useState(false);
     const detailPanelRef = useRef<HTMLDivElement>(null);
     const deletePanelRef = useRef<HTMLDivElement>(null);
 
+    // The detail sheet is the base layer; the delete confirmation stacks on top
+    // of it, so while the confirmation is open one Escape must close only that
+    // layer rather than both.
     useFocusTrap({
-        active: selectedOrder !== null,
+        active: selectedOrder !== null && showDeleteConfirm === null,
         containerRef: detailPanelRef,
         onEscape: () => setSelectedOrder(null),
     });
     useFocusTrap({
         active: showDeleteConfirm !== null,
+        escapeLocked: isDeleting,
         containerRef: deletePanelRef,
         onEscape: () => setShowDeleteConfirm(null),
     });
@@ -75,12 +83,15 @@ export const Orders: React.FC = () => {
     };
 
     const handleDelete = async (orderId: string) => {
+        setIsDeleting(true);
         try {
             await deleteOrder(orderId);
             setShowDeleteConfirm(null);
         } catch (error) {
             console.error('Failed to delete order:', error);
             addToast('Failed to delete order', 'error');
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -420,15 +431,17 @@ export const Orders: React.FC = () => {
                             <div className="flex gap-3 justify-end">
                                 <button
                                     onClick={() => setShowDeleteConfirm(null)}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                                    disabled={isDeleting}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={() => handleDelete(showDeleteConfirm)}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                                    disabled={isDeleting}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Delete
+                                    {isDeleting ? 'Deleting...' : 'Delete'}
                                 </button>
                             </div>
                         </div>

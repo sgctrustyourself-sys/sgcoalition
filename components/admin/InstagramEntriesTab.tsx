@@ -37,7 +37,9 @@ const InstagramEntriesTab: React.FC<InstagramEntriesTabProps> = ({ giveawayId })
     const detailPanelRef = useRef<HTMLDivElement>(null);
 
     useFocusTrap({
-        active: selectedEntry !== null && !isSaving,
+        active: selectedEntry !== null,
+        // Mid-write the sheet must survive its own request.
+        escapeLocked: isSaving,
         containerRef: detailPanelRef,
         onEscape: () => setSelectedEntry(null),
         initialFocusRef: detailPanelRef,

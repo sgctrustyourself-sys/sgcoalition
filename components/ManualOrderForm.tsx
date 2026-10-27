@@ -16,13 +16,14 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
     const { addToast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Escape + focus containment for this full-screen form. Gated on
-    // `!isSubmitting`: while the order is being written the Submit and Cancel
+    // Escape + focus containment for this full-screen form. Escape is locked on
+    // `isSubmitting`: while the order is being written the Submit and Cancel
     // buttons are both disabled, so Escape must not close the form (and pull
     // focus back to the toolbar behind it) mid-write.
     const dialogRef = useRef<HTMLDivElement>(null);
     useFocusTrap({
-        active: !isSubmitting,
+        active: true,
+        escapeLocked: isSubmitting,
         containerRef: dialogRef,
         onEscape: onClose,
     });
@@ -189,7 +190,10 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
                 {/* Header */}
                 <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
                     <h2 id="manual-order-title" className="text-2xl font-bold text-gray-900">Create Manual Order</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close form">
+                    {/* Escape is locked on `isSubmitting`; the header X and the
+                        Cancel button were the two paths that still dropped a
+                        half-built order mid-write. */}
+                    <button onClick={onClose} disabled={isSubmitting} className="text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Close form">
                         <X size={24} />
                     </button>
                 </div>
@@ -508,7 +512,8 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
+                            disabled={isSubmitting}
+                            className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Cancel
                         </button>

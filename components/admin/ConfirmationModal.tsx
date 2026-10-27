@@ -34,15 +34,15 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     // admin button that raised the confirmation, which is the element the hook
     // captures as focused on open.
     //
-    // The trap is unmounted while `isLoading`, because that is exactly when the
-    // close controls are disabled: the confirmed action is in flight (a payout
-    // being approved, a refund issued) and this dialog must not be dismissed out
-    // from under it. Leaving the trap mounted while Escape did nothing would be
-    // worse than not trapping — the hook restores focus on Escape whatever the
-    // handler decides, so a single keypress would pull focus out of a dialog
-    // that is still open.
+    // Escape is locked while `isLoading`, because that is exactly when the close
+    // controls are disabled: the confirmed action is in flight (a payout being
+    // approved, a refund issued) and this dialog must not be dismissed out from
+    // under it. The trap itself stays mounted, so Tab containment holds and the
+    // button that raised the dialog is still what Escape returns focus to once
+    // the action settles.
     useFocusTrap({
-        active: isOpen && !isLoading,
+        active: isOpen,
+        escapeLocked: isLoading,
         containerRef: panelRef,
         onEscape: onClose,
     });

@@ -30,10 +30,12 @@ const ShirtGeneratorModal: React.FC<ShirtGeneratorModalProps> = ({ isOpen, onClo
     }
   }, [isOpen]);
 
-  // While a design is being generated the close control is disabled, so the trap
-  // is too: dismissing mid-request would abandon work the user cannot recover.
+  // While a design is being generated the close control is disabled and Escape
+  // is locked: dismissing mid-request would abandon work the user cannot
+  // recover. The trap stays mounted, so containment holds throughout.
   useFocusTrap({
-    active: isOpen && !isProcessing,
+    active: isOpen,
+    escapeLocked: isProcessing,
     containerRef: panelRef,
     onEscape: onClose,
   });

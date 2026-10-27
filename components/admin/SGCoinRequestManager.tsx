@@ -28,15 +28,21 @@ const SGCoinRequestManager: React.FC<SGCoinRequestManagerProps> = ({ adminWallet
 
     // The details panel is the base layer; the rejection dialog stacks on top
     // of it and owns focus, and Escape, while it is open.
+    //
+    // The panel also approves purchases in place, so Escape waits for that write:
+    // every control in the panel is disabled while `isProcessing`, and dismissing
+    // the panel would hide the only place the result could be read.
     useFocusTrap({
         active: Boolean(selectedRequest) && !showRejectModal,
+        escapeLocked: isProcessing,
         containerRef: detailsDialogRef,
         onEscape: () => setSelectedRequest(null),
     });
-    // Escape is inert while the rejection is being written: its controls are
+    // Escape is locked while the rejection is being written: its controls are
     // all disabled then, so closing would strand the operator with no result.
     useFocusTrap({
-        active: showRejectModal && Boolean(selectedRequest) && !isProcessing,
+        active: showRejectModal && Boolean(selectedRequest),
+        escapeLocked: isProcessing,
         containerRef: rejectDialogRef,
         onEscape: () => { setShowRejectModal(false); setRejectionReason(''); },
     });
@@ -237,7 +243,8 @@ const SGCoinRequestManager: React.FC<SGCoinRequestManagerProps> = ({ adminWallet
                             <h2 id="purchase-details-title" className="text-2xl font-bold text-white">Purchase Request Details</h2>
                             <button
                                 onClick={() => setSelectedRequest(null)}
-                                className="p-2 hover:bg-gray-800 rounded-lg transition"
+                                disabled={isProcessing}
+                                className="p-2 hover:bg-gray-800 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                                 aria-label="Close details"
                             >
                                 <X className="w-5 h-5 text-gray-400" />

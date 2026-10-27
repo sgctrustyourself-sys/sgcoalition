@@ -17,7 +17,9 @@ const AIChatWidget = () => {
     const passwordPanelRef = useRef<HTMLDivElement>(null);
 
     useFocusTrap({
-        active: showPasswordModal && !isUnlocking,
+        active: showPasswordModal,
+        // Mid-unlock the panel must survive its own request.
+        escapeLocked: isUnlocking,
         containerRef: passwordPanelRef,
         onEscape: () => {
             setShowPasswordModal(false);
@@ -257,7 +259,10 @@ const AIChatWidget = () => {
                                     setShowPasswordModal(false);
                                     setPasswordInput('');
                                 }}
-                                className="flex-1 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded font-bold transition"
+                                // Escape is locked while the check is in flight; the
+                                // Cancel button has to wait for the same answer.
+                                disabled={isUnlocking}
+                                className="flex-1 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Cancel
                             </button>

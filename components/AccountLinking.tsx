@@ -33,15 +33,17 @@ const AccountLinking: React.FC = () => {
     const linkModalRef = useRef<HTMLDivElement>(null);
     const instagramModalRef = useRef<HTMLDivElement>(null);
 
-    // One trap per dialog; both are mounted conditionally, and Escape must not
-    // dismiss either while its link request is in flight.
+    // One trap per dialog; both are mounted conditionally, and Escape is locked on
+    // either while its link request is in flight.
     useFocusTrap({
-        active: showLinkModal && !submitting,
+        active: showLinkModal,
+        escapeLocked: submitting,
         containerRef: linkModalRef,
         onEscape: () => setShowLinkModal(false),
     });
     useFocusTrap({
-        active: showInstagramModal && !submitting,
+        active: showInstagramModal,
+        escapeLocked: submitting,
         containerRef: instagramModalRef,
         onEscape: () => setShowInstagramModal(false),
     });

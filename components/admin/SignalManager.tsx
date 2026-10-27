@@ -36,7 +36,9 @@ const SignalManager: React.FC = () => {
     // matches MarketingManager's send confirmation, so a half-finished save is
     // not dismissed out from under its own request.
     useFocusTrap({
-        active: showForm && !isSaving,
+        active: showForm,
+        // Mid-write the form must survive its own request.
+        escapeLocked: isSaving,
         containerRef: formPanelRef,
         onEscape: () => setShowForm(false),
     });

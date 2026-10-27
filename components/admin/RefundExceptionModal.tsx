@@ -27,9 +27,17 @@ const RefundExceptionModal: React.FC<RefundExceptionModalProps> = ({
     const [error, setError] = useState<string | null>(null);
     const panelRef = useRef<HTMLDivElement>(null);
 
-    // Mounted only while the admin has the dialog open, so the trap is active for
-    // the whole lifetime of this surface.
-    useFocusTrap({ active: true, containerRef: panelRef, onEscape: onClose });
+    // Mounted only while the admin has the dialog open, so the trap follows the
+    // dialog's lifetime. Escape is locked while the refund is being written:
+    // every control here is disabled then (Cancel and the header X included)
+    // because the exception is already on its way, so dismissing would hide the
+    // layer that reports it.
+    useFocusTrap({
+        active: true,
+        escapeLocked: isSubmitting,
+        containerRef: panelRef,
+        onEscape: onClose,
+    });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -75,7 +83,8 @@ const RefundExceptionModal: React.FC<RefundExceptionModalProps> = ({
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition"
+                        disabled={isSubmitting}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
                         aria-label="Close modal"
                     >
                         <X className="w-5 h-5" />
@@ -149,7 +158,8 @@ const RefundExceptionModal: React.FC<RefundExceptionModalProps> = ({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition"
+                            disabled={isSubmitting}
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Cancel
                         </button>

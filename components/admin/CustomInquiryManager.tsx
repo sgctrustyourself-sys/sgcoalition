@@ -35,7 +35,10 @@ const CustomInquiryManager: React.FC = () => {
     // This detail sheet has no close control of its own (backdrop or Escape), so
     // focus starts on the panel rather than on the destructive header action.
     useFocusTrap({
-        active: selectedInquiry !== null && !isSaving,
+        active: selectedInquiry !== null,
+        // Mid-write the sheet must survive its own request: Escape is locked and
+        // every control in it is disabled.
+        escapeLocked: isSaving,
         containerRef: detailPanelRef,
         onEscape: () => setSelectedInquiry(null),
         initialFocusRef: detailPanelRef,

@@ -19,10 +19,11 @@ interface HarnessProps {
     useAnchor?: boolean;
     useReturnRef?: boolean;
     initialFocus?: 'default' | 'second';
+    escapeLocked?: boolean;
     onEscape?: () => void;
 }
 
-const Harness = ({ initialOpen = true, useAnchor = false, useReturnRef = true, initialFocus = 'default', onEscape }: HarnessProps) => {
+const Harness = ({ initialOpen = true, useAnchor = false, useReturnRef = true, initialFocus = 'default', escapeLocked = false, onEscape }: HarnessProps) => {
     const [open, setOpen] = useState(initialOpen);
     const panelRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
@@ -34,6 +35,7 @@ const Harness = ({ initialOpen = true, useAnchor = false, useReturnRef = true, i
         anchorRef: useAnchor ? triggerRef : undefined,
         returnFocusRef: useReturnRef ? triggerRef : undefined,
         initialFocusRef: initialFocus === 'second' ? secondRef : undefined,
+        escapeLocked,
         onEscape: () => {
             onEscape?.();
             setOpen(false);
@@ -196,6 +198,37 @@ describe('useFocusTrap', () => {
         const event = await press('Escape');
 
         expect(event.defaultPrevented).toBe(true);
+        expect(onEscape).toHaveBeenCalledTimes(1);
+        expect(container.querySelector('[role="dialog"]')).toBeNull();
+        expect(document.activeElement).toBe(q('trigger'));
+    });
+
+    it('escapeLocked swallows Escape until the write settles, without losing the return target', async () => {
+        const onEscape = vi.fn();
+        await render({ escapeLocked: true, onEscape });
+
+        const first = q('first') as HTMLElement;
+        first.focus();
+        const event = await press('Escape');
+
+        // Consumed, but nothing else happened: the overlay is still open and
+        // focus did not move out of it.
+        expect(event.defaultPrevented).toBe(true);
+        expect(onEscape).not.toHaveBeenCalled();
+        expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+        expect(document.activeElement).toBe(first);
+
+        // Tab containment keeps working while locked.
+        (q('last') as HTMLElement).focus();
+        const tab = await press('Tab');
+        expect(tab.defaultPrevented).toBe(true);
+        expect(document.activeElement).toBe(q('first'));
+
+        // Unlocked (the write settled): Escape closes and returns focus to the
+        // trigger, proving the lock never restarted the effect and re-captured a
+        // target from inside the overlay.
+        await render({ escapeLocked: false, onEscape });
+        await press('Escape');
         expect(onEscape).toHaveBeenCalledTimes(1);
         expect(container.querySelector('[role="dialog"]')).toBeNull();
         expect(document.activeElement).toBe(q('trigger'));

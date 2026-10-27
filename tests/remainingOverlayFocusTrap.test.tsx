@@ -22,6 +22,11 @@ import ImageGenModal from '../components/ImageGenModal';
 import { ToastProvider } from '../context/ToastContext';
 import { accessibleName } from './_helpers/accessibleName';
 import type { Product } from '../types';
+// The mocked services below, imported so a case can hold its write open. The
+// component sees the same mock module — vi.mock replaces it for this file.
+import { generateImage } from '../services/aiChat';
+import { submitCustomInquiry } from '../services/customInquiry';
+import { processRefund } from '../services/refunds';
 
 // Same opt-in the other createRoot-based suites use, so React's act() warnings
 // reflect real leakage rather than a missing flag.
@@ -71,6 +76,29 @@ describe('remaining overlay focus traps', () => {
             document.activeElement?.dispatchEvent(
                 new KeyboardEvent('keydown', { key: 'Tab', shiftKey, bubbles: true, cancelable: true }),
             );
+        });
+    };
+
+    /** Click without moving focus — a real mouse click does not focus a button. */
+    const click = async (element: Element) => {
+        await act(async () => { (element as HTMLElement).click(); });
+    };
+
+    const buttonIn = (scope: ParentNode, text: string): HTMLButtonElement => {
+        const match = [...scope.querySelectorAll('button')]
+            .find((button) => (button.textContent || '').includes(text));
+        expect(match, `no button containing "${text}"`).toBeTruthy();
+        return match as HTMLButtonElement;
+    };
+
+    /** Write through the native setter so React's onChange sees the keystroke. */
+    const typeInto = async (field: HTMLInputElement | HTMLTextAreaElement, value: string) => {
+        const proto = field instanceof HTMLTextAreaElement ? HTMLTextAreaElement : HTMLInputElement;
+        const setter = Object.getOwnPropertyDescriptor(proto.prototype, 'value')?.set as
+            (this: HTMLInputElement | HTMLTextAreaElement, v: string) => void;
+        await act(async () => {
+            setter.call(field, value);
+            field.dispatchEvent(new Event('input', { bubbles: true }));
         });
     };
 
@@ -159,6 +187,124 @@ describe('remaining overlay focus traps', () => {
 
         pressEscape();
 
+        expect(onClose).toHaveBeenCalledTimes(1);
+        expect(document.activeElement).toBe(opener);
+    });
+
+    // ------------------------------------------------------------------
+    // A write in flight owns the dialog: no dismiss path may end it early
+    // ------------------------------------------------------------------
+    //
+    // Each case starts the surface's own request, holds it open, and proves
+    // Escape is inert (and every close control disabled) until it settles. None
+    // of them had that gate: Escape or the header X closed the dialog mid-write
+    // and the operator never saw the outcome.
+
+    it('RefundExceptionModal: Escape is inert while the refund is being written', async () => {
+        let settle: () => void = () => {};
+        vi.mocked(processRefund).mockImplementationOnce(
+            () => new Promise<void>((resolve) => { settle = resolve; }),
+        );
+
+        const onClose = vi.fn();
+        await mount(createElement(RefundExceptionModal, {
+            orderId: 'order-1',
+            orderNumber: 'SG-1',
+            orderTotal: 40,
+            adminWalletAddress: '0x0000000000000000000000000000000000000000',
+            onClose,
+            onSuccess: vi.fn(),
+        }));
+
+        await typeInto(dialog()!.querySelector('textarea')!, 'Defective seam');
+        await click(buttonIn(dialog()!, 'Issue refund'));
+        expect(buttonIn(dialog()!, 'Issuing refund...').disabled).toBe(true);
+        expect(buttonIn(dialog()!, 'Cancel').disabled).toBe(true);
+        expect((dialog()!.querySelector('button[aria-label="Close modal"]') as HTMLButtonElement).disabled).toBe(true);
+
+        pressEscape();
+
+        expect(onClose).not.toHaveBeenCalled();
+        expect(dialog()!.contains(document.activeElement)).toBe(true);
+
+        await act(async () => { settle(); });
+
+        // The write landed and its own success path closed the dialog: nothing
+        // was dismissed out from under the request.
+        expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('RequestSimilarModal: the close button and Escape are inert while the request is being sent', async () => {
+        let settle: () => void = () => {};
+        vi.mocked(submitCustomInquiry).mockImplementationOnce(
+            () => new Promise<void>((resolve) => { settle = resolve; }),
+        );
+        // The submit path falls through to the notify email; keep it offline.
+        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+            { ok: true, json: async () => ({}) } as unknown as Response,
+        );
+
+        const onClose = vi.fn();
+        await mount(createElement(RequestSimilarModal, { product: PRODUCT, onClose }));
+
+        const inputs = [...dialog()!.querySelectorAll<HTMLInputElement>('input')];
+        await typeInto(inputs[0], 'Ada Lovelace');
+        await typeInto(inputs[1], 'ada@example.com');
+        await typeInto(dialog()!.querySelector('textarea')!, 'Neon hoodie, size M');
+
+        await click(buttonIn(dialog()!, 'Send Request'));
+        expect(buttonIn(dialog()!, 'Sending...').disabled).toBe(true);
+        expect((dialog()!.querySelector('button[title="Close"]') as HTMLButtonElement).disabled).toBe(true);
+
+        pressEscape();
+
+        expect(onClose).not.toHaveBeenCalled();
+        expect(dialog()!.contains(document.activeElement)).toBe(true);
+
+        await act(async () => { settle(); });
+        await act(async () => {});
+        fetchSpy.mockRestore();
+
+        // The request was delivered, not abandoned: the modal moved to success.
+        expect(dialog()!.textContent).toContain('Request Sent!');
+    });
+
+    it('ImageGenModal: the close button and Escape are inert while the art is generating', async () => {
+        let settle: (value: { success: boolean; imageUrl?: string }) => void = () => {};
+        vi.mocked(generateImage).mockImplementationOnce(
+            () => new Promise<{ success: boolean; imageUrl?: string }>((resolve) => { settle = resolve; }),
+        );
+
+        const onClose = vi.fn();
+        await mount(createElement(
+            ToastProvider,
+            null,
+            createElement(ImageGenModal, {
+                isOpen: true,
+                onClose,
+                onImageGenerated: vi.fn(),
+            }),
+        ));
+
+        await typeInto(dialog()!.querySelector('textarea')!, 'Neon hoodie');
+        await click(buttonIn(dialog()!, 'Generate Art'));
+        expect(buttonIn(dialog()!, 'Generating...').disabled).toBe(true);
+        expect((dialog()!.querySelector('button[aria-label="Close modal"]') as HTMLButtonElement).disabled).toBe(true);
+
+        pressEscape();
+
+        expect(onClose).not.toHaveBeenCalled();
+        expect(dialog()!.contains(document.activeElement)).toBe(true);
+
+        await act(async () => { settle({ success: true, imageUrl: '/generated.png' }); });
+
+        // Still the same dialog, now showing the result.
+        expect(dialog()!.querySelector('img')?.getAttribute('src')).toBe('/generated.png');
+
+        // Once the write settles Escape is a close again — and because the trap
+        // never restarted, focus returns to the opener rather than to a control
+        // inside the dialog.
+        pressEscape();
         expect(onClose).toHaveBeenCalledTimes(1);
         expect(document.activeElement).toBe(opener);
     });

@@ -61,7 +61,9 @@ const YoutubeSubmissionsTab: React.FC<YoutubeSubmissionsTabProps> = ({ giveawayI
     // panel itself; Escape or a backdrop click dismisses it — except while the
     // verification write is outstanding.
     useFocusTrap({
-        active: selectedEntry !== null && !isSaving,
+        active: selectedEntry !== null,
+        // Mid-write the viewer must survive its own request.
+        escapeLocked: isSaving,
         containerRef: detailPanelRef,
         onEscape: () => setSelectedEntry(null),
         initialFocusRef: detailPanelRef,

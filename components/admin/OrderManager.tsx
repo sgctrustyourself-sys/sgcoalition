@@ -105,6 +105,11 @@ const OrderManager: React.FC = () => {
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [pendingStatus, setPendingStatus] = useState<string>('');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+    // True while the confirmed delete is being written. The confirmation must
+    // outlive its own request: every control in it is disabled then, so Escape
+    // or Cancel would strand the operator with no result and no layer to read it
+    // in.
+    const [isDeleting, setIsDeleting] = useState(false);
     const [showManualOrderForm, setShowManualOrderForm] = useState(false);
     const [showInvoice, setShowInvoice] = useState<Order | null>(null);
     const [selectedCustomerOrder, setSelectedCustomerOrder] = useState<Order | null>(null);
@@ -123,16 +128,25 @@ const OrderManager: React.FC = () => {
     const detailsDialogRef = useRef<HTMLDivElement>(null);
     const deleteConfirmRef = useRef<HTMLDivElement>(null);
 
-    // The details panel is the base layer: the payment recorder and the
-    // customer-link overlay both stack on top of it, and while either is open
-    // focus belongs to that layer rather than to the panel underneath.
+    // The details panel is the base layer: the payment recorder, the customer-link
+    // overlay, the invoice and the delete confirmation all stack on top of it, and
+    // while any of them is open focus belongs to that layer rather than to the
+    // panel underneath.
+    //
+    // The panel also owns three writes of its own — the status save, the balance
+    // reconcile and Buy Label — so Escape is locked on them the same way the
+    // stacked dialogs lock theirs: a save must not be dismissed out from under
+    // itself, losing the panel the result would have been shown in.
+    const detailsBusy = isUpdatingStatus || reconcilingOrderId !== null || buyingLabelFor !== null;
     useFocusTrap({
-        active: Boolean(selectedOrder) && !showPaymentModal && !selectedCustomerOrder && !showInvoice,
+        active: Boolean(selectedOrder) && !showPaymentModal && !selectedCustomerOrder && !showInvoice && !showDeleteConfirm,
+        escapeLocked: detailsBusy,
         containerRef: detailsDialogRef,
         onEscape: () => setSelectedOrder(null),
     });
     useFocusTrap({
         active: Boolean(showDeleteConfirm),
+        escapeLocked: isDeleting,
         containerRef: deleteConfirmRef,
         onEscape: () => setShowDeleteConfirm(null),
     });
@@ -204,12 +218,15 @@ const OrderManager: React.FC = () => {
     };
 
     const handleDelete = async (orderId: string) => {
+        setIsDeleting(true);
         try {
             await deleteOrder(orderId);
             setShowDeleteConfirm(null);
         } catch (error) {
             console.error('Failed to delete order:', error);
             addToast('Failed to delete order', 'error');
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -608,7 +625,8 @@ const OrderManager: React.FC = () => {
                             <h2 id="order-details-title" className="text-xl font-bold text-white uppercase">Order Details</h2>
                             <button
                                 onClick={() => setSelectedOrder(null)}
-                                className="text-gray-400 hover:text-white transition"
+                                disabled={detailsBusy}
+                                className="text-gray-400 hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
                                 aria-label="Close modal"
                             >
                                 <X size={24} />
@@ -762,15 +780,17 @@ const OrderManager: React.FC = () => {
                         <div className="flex gap-3 justify-center">
                             <button
                                 onClick={() => setShowDeleteConfirm(null)}
-                                className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20"
+                                disabled={isDeleting}
+                                className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={() => handleDelete(showDeleteConfirm)}
-                                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                                disabled={isDeleting}
+                                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                                Delete
+                                {isDeleting ? 'Deleting...' : 'Delete'}
                             </button>
                         </div>
                     </div>

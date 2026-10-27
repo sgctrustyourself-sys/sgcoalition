@@ -117,12 +117,13 @@ const SGCoinPayoutTab: React.FC<SGCoinPayoutTabProps> = ({ userId, balance }) =>
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [copyHint, setCopyHint] = useState<string | null>(null);
 
-    // Escape, Tab containment and focus return come from the shared hook. The
-    // trap is off while the request is in flight: every control in the modal is
-    // disabled at that point, so there is nothing to cycle, and Escape must not
-    // dismiss a payout that has already been submitted.
+    // Escape, Tab containment and focus return come from the shared hook. Escape
+    // is locked while the request is in flight: every control in the modal is
+    // disabled at that point, and dismissing would abandon a payout that has
+    // already been submitted.
     useFocusTrap({
-        active: isModalOpen && !isSubmitting,
+        active: isModalOpen,
+        escapeLocked: isSubmitting,
         containerRef: panelRef,
         initialFocusRef: amountInputRef,
         returnFocusRef: payoutTriggerRef,

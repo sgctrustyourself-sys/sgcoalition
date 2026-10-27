@@ -17,7 +17,15 @@ const ImageGenModal: React.FC<ImageGenModalProps> = ({ isOpen, onClose, onImageG
     const { addToast } = useToast();
     const panelRef = useRef<HTMLDivElement>(null);
 
-    useFocusTrap({ active: isOpen, containerRef: panelRef, onEscape: onClose });
+    // Escape is locked while the generation is in flight: the close button is
+    // disabled until the result lands, the same gate the admin write dialogs put
+    // on their own requests. The trap stays mounted, so containment holds.
+    useFocusTrap({
+        active: isOpen,
+        escapeLocked: isGenerating,
+        containerRef: panelRef,
+        onEscape: onClose,
+    });
 
     if (!isOpen) return null;
 
@@ -64,7 +72,8 @@ const ImageGenModal: React.FC<ImageGenModalProps> = ({ isOpen, onClose, onImageG
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-white/10 rounded-lg transition text-gray-400 hover:text-white"
+                        disabled={isGenerating}
+                        className="p-2 hover:bg-white/10 rounded-lg transition text-gray-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
                         aria-label="Close modal"
                     >
                         <X className="w-5 h-5" />

@@ -259,11 +259,11 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
     // upload button in ProductManager, ImageManager, or the review form.
     //
     // Not while `isSubmitting`: the crop is being written and every control
-    // including Cancel is disabled for that window, so Escape must not dismiss
-    // it. See ConfirmationModal for why the trap is unmounted rather than left
-    // running with a no-op handler.
+    // including Cancel is disabled for that window, so Escape is locked. The
+    // trap stays mounted, so containment and focus return keep working.
     useFocusTrap({
-        active: open && Boolean(file) && !isSubmitting,
+        active: open && Boolean(file),
+        escapeLocked: isSubmitting,
         containerRef: dialogRef,
         onEscape: onCancel,
     });

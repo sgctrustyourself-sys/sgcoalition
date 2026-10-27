@@ -66,16 +66,18 @@ const SGCoinPayoutManager: React.FC<SGCoinPayoutManagerProps> = ({ adminUserId }
         containerRef: detailsDialogRef,
         onEscape: () => setSelectedRequest(null),
     });
-    // Escape is inert while a write is in flight: every control in these two
+    // Escape is locked while a write is in flight: every control in these two
     // dialogs is disabled then, so backing out would strand the operator mid
     // transfer with no state feedback.
     useFocusTrap({
-        active: showCompleteModal && Boolean(selectedRequest) && !isProcessing,
+        active: showCompleteModal && Boolean(selectedRequest),
+        escapeLocked: isProcessing,
         containerRef: completeDialogRef,
         onEscape: () => { setShowCompleteModal(false); setTxHash(''); setAdminNotes(''); },
     });
     useFocusTrap({
-        active: showRejectModal && Boolean(selectedRequest) && !isProcessing,
+        active: showRejectModal && Boolean(selectedRequest),
+        escapeLocked: isProcessing,
         containerRef: rejectDialogRef,
         onEscape: () => { setShowRejectModal(false); setRejectionReason(''); },
     });

@@ -121,7 +121,9 @@ const OutreachTracker: React.FC = () => {
     // matches MarketingManager's send confirmation, so the in-flight save owns
     // the form until it settles.
     useFocusTrap({
-        active: editing !== null && !isSaving,
+        active: editing !== null,
+        // Mid-write the form must survive its own request.
+        escapeLocked: isSaving,
         containerRef: editPanelRef,
         onEscape: () => setEditing(null),
     });

@@ -22,8 +22,17 @@ const RequestSimilarModal: React.FC<Props> = ({ product, onClose }) => {
     const [errorMsg, setErrorMsg] = useState('');
     const panelRef = useRef<HTMLDivElement>(null);
 
-    // The parent mounts this surface only while it is open.
-    useFocusTrap({ active: true, containerRef: panelRef, onEscape: onClose });
+    // The parent mounts this surface only while it is open, so the trap follows
+    // its lifetime. Escape is locked while the request is being sent: the submit
+    // button is disabled then (`status === 'sending'`), and the header close
+    // would otherwise let the buyer walk away from an inquiry already being
+    // written.
+    useFocusTrap({
+        active: true,
+        escapeLocked: status === 'sending',
+        containerRef: panelRef,
+        onEscape: onClose,
+    });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -96,7 +105,12 @@ const RequestSimilarModal: React.FC<Props> = ({ product, onClose }) => {
                         <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white">Request Similar Style</h2>
                         <p className="text-xs text-gray-500 mt-0.5 uppercase tracking-widest">{product.name}</p>
                     </div>
-                    <button onClick={onClose} title="Close" className="p-1.5 hover:bg-white/10 transition-colors rounded-sm">
+                    <button
+                        onClick={onClose}
+                        disabled={status === 'sending'}
+                        title="Close"
+                        className="p-1.5 hover:bg-white/10 transition-colors rounded-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
                         <X className="w-4 h-4 text-gray-400" />
                     </button>
                 </div>
