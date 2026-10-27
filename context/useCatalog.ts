@@ -56,13 +56,13 @@ export function useCatalog(
                         archiveNote: PRODUCT_LOCAL_OVERRIDES[item.id]?.archiveNote
                     };
                 });
-                const uniqueProducts = mapped.reduce((acc: any[], current) => {
+                const uniqueProducts = mapped.reduce((acc: Product[], current) => {
                     if (!acc.find(item => item.id === current.id)) return acc.concat([current]);
                     console.warn('[products] dropping duplicate id row:', current.id, current.name);
                     return acc;
                 }, []);
                 const initialProductMap = new Map(INITIAL_PRODUCTS.map(p => [p.id, p]));
-                const interceptedProducts = uniqueProducts.map((sp: any) => {
+                const interceptedProducts = uniqueProducts.map((sp: Product) => {
                     const local = initialProductMap.get(sp.id);
                     if (local) return { ...local, ...sp, isFeatured: typeof sp.isFeatured === 'boolean' ? sp.isFeatured : local.isFeatured };
                     return sp;
@@ -82,7 +82,7 @@ export function useCatalog(
                 const finalMerged = interceptedProducts;
                 const finalWithOverrides = applyLocalProductOverrides(finalMerged);
                 const numberedIds = finalWithOverrides.filter(p => p.editionSize && p.pricingTiers && p.pricingTiers.length > 0).map(p => p.id);
-                const countsByProduct = numberedIds.length > 0 ? await fetchPaidCountsByProduct(numberedIds) : {};
+                const countsByProduct: Record<string, number> = numberedIds.length > 0 ? await fetchPaidCountsByProduct(numberedIds) : {};
                 const enrichedProducts = finalWithOverrides.map(p =>
                     countsByProduct[p.id] !== undefined ? { ...p, editionSoldCount: countsByProduct[p.id] } : p
                 );

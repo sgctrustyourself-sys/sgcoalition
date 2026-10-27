@@ -33,7 +33,8 @@
 //   - Structural CLS: font loading, CSS transitions, React hydration
 //
 // EXCLUDED from default vitest run (see vitest.config.ts). Run directly:
-//   npx vitest run tests/clsRegression.test.tsimport { describe, it, expect, beforeAll, afterAll } from 'vitest';
+//   npx vitest run tests/clsRegression.test.ts
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { chromium, Browser, Page } from 'playwright';
 import { createServer, ViteDevServer } from 'vite';
 import path from 'path';
@@ -47,6 +48,18 @@ const TEST_PORT = 5199;
 const CLS_THRESHOLD = 0.1;
 const LOAD_TIMEOUT_MS = 10_000;
 const ROOT = path.resolve(__dirname, '..');
+
+/** The page globals this file installs inside the browser context. */
+type ClsWindow = Window & {
+    __clsValue: number;
+    __clsEntries: { value: number; sources: string[] }[];
+};
+
+type LayoutShiftLike = {
+    value: number;
+    hadRecentInput: boolean;
+    sources?: { node?: { nodeName?: string; localName?: string } }[];
+};
 
 // Mock DexScreener WPOL pairs response. The Ecosystem page calls
 // fetchPolUsdPrice() → api.dexscreener.com/latest/dex/tokens/{WPOL_ADDRESS}.
@@ -137,17 +150,17 @@ async function collectCls(page: Page, url: string): Promise<{
     // fires synchronously for buffered entries, then asynchronously for
     // new shifts during async data loading.
     await page.evaluate(() => {
-        (window as any).__clsValue = 0;
-        (window as any).__clsEntries = [];
+        (window as unknown as ClsWindow).__clsValue = 0;
+        (window as unknown as ClsWindow).__clsEntries = [];
         const observer = new PerformanceObserver((list) => {
             for (const entry of list.getEntries()) {
-                const ls = entry as any;
+                const ls = entry as unknown as LayoutShiftLike;
                 if (!ls.hadRecentInput) {
-                    (window as any).__clsValue += ls.value;
-                    (window as any).__clsEntries.push({
+                    (window as unknown as ClsWindow).__clsValue += ls.value;
+                    (window as unknown as ClsWindow).__clsEntries.push({
                         value: ls.value,
                         sources: (ls.sources || []).map(
-                            (s: any) => s.node?.nodeName || s.node?.localName || 'unknown',
+                            (s) => s.node?.nodeName || s.node?.localName || 'unknown',
                         ),
                     });
                 }
@@ -164,9 +177,9 @@ async function collectCls(page: Page, url: string): Promise<{
     await page.waitForTimeout(LOAD_TIMEOUT_MS);
 
     const cls = await page.evaluate(() =>
-        typeof (window as any).__clsValue === 'number' ? (window as any).__clsValue : 0,
+        typeof (window as unknown as ClsWindow).__clsValue === 'number' ? (window as unknown as ClsWindow).__clsValue : 0,
     );
-    const entries = await page.evaluate(() => (window as any).__clsEntries || []);
+    const entries = await page.evaluate(() => (window as unknown as ClsWindow).__clsEntries || []);
     return { cls, entries };
 }
 
@@ -219,4 +232,23 @@ describe('CLS Regression', () => {
     }, 45_000);
 
     // ── Home ───────────────────────────────────────────────────────
-    it(`Home page C
+    it(`Home page CLS < ${CLS_THRESHOLD}`, async () => {
+        const { cls, entries } = await collectCls(page, `${baseUrl}/`);
+        warnIfHigh('Home', cls, entries);
+        expect(cls, `Home CLS (${cls.toFixed(4)}) should be < ${CLS_THRESHOLD}`).toBeLessThan(CLS_THRESHOLD);
+    }, 45_000);
+
+    // ── Shop ───────────────────────────────────────────────────────
+    it(`Shop page CLS < ${CLS_THRESHOLD}`, async () => {
+        const { cls, entries } = await collectCls(page, `${baseUrl}/shop`);
+        warnIfHigh('Shop', cls, entries);
+        expect(cls, `Shop CLS (${cls.toFixed(4)}) should be < ${CLS_THRESHOLD}`).toBeLessThan(CLS_THRESHOLD);
+    }, 45_000);
+
+    // ── Product detail (PDP) ───────────────────────────────────────
+    it(`Product detail page CLS < ${CLS_THRESHOLD}`, async () => {
+        const { cls, entries } = await collectCls(page, `${baseUrl}/product/${encodeURIComponent(PRODUCT_IDS.FEATURED_WALLET)}`);
+        warnIfHigh('PDP', cls, entries);
+        expect(cls, `PDP CLS (${cls.toFixed(4)}) should be < ${CLS_THRESHOLD}`).toBeLessThan(CLS_THRESHOLD);
+    }, 45_000);
+});

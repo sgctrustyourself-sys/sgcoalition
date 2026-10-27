@@ -2,12 +2,12 @@
 //
 // REGRESSION CATCH for the React render-flow of components/admin/CustomerProfileAdmin.tsx.
 //
-// First .tsx test in the project. Three synthetic profiles are stubbed into
-// buildCustomerProfile + buildCustomerProfileByEmail via auto-mocked
-// vi.mock('../utils/customerProfile'), then the component is mounted via
-// react-dom/client's createRoot and the form-submit handler is dispatched via
-// a native submit event under React 19's act() to flush state + Promise
-// settlements.
+// Three synthetic profiles are stubbed into buildCustomerProfile +
+// buildCustomerProfileByEmail via auto-mocked vi.mock('../utils/customerProfile'),
+// then the component is mounted through tests/_helpers/adminSurface.tsx (which
+// owns the contexts, the container/root pair and the teardown) and the
+// form-submit handler is dispatched via a native submit event under React 19's
+// act() to flush state + Promise settlements.
 //
 // Explicit DOM assertions instead of toMatchSnapshot(): Lucide icons render
 // as inline SVGs that drift between lucide-react minor versions, Tailwind
@@ -16,9 +16,13 @@
 // branch render?") not markup-diff terms.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createElement, act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { mockSupabase } from './_helpers/supabaseClientMock';
+import {
+    appContextStub,
+    renderAdminSurface,
+    toastContextStub,
+} from './_helpers/adminSurface';
 import {
     buildCustomerProfile,
     buildCustomerProfileByEmail,
@@ -106,18 +110,30 @@ vi.mock('../services/supabase', () => ({
     supabase: mockSupabase.client,
 }));
 
-vi.mock('../context/ToastContext', () => ({
-    useToast: () => ({ addToast: vi.fn() }),
-}));
-
 // Auto-mock: every export from utils/customerProfile becomes a vi.fn(). We
 // re-define per-test using vi.mocked(...).mockResolvedValue(...) so each
 // describe gets a different fixture return without cross-test state-creep.
 vi.mock('../utils/customerProfile');
 
-// Static import comes AFTER the mocks register, so the component picks up
-// the auto-mocked builders rather than the real implementation.
-import CustomerProfileAdmin from '../components/admin/CustomerProfileAdmin';
+// The harness cannot register the contexts for us — vitest scopes module mocks
+// to the file that calls them (see the harness header). Two lines, once per
+// file, and the surface arrives as a loader — which also matters here because
+// the component must resolve against the auto-mocked builders above rather than
+// the real implementation.
+vi.doMock('../context/AppContext', appContextStub);
+vi.doMock('../context/ToastContext', toastContextStub);
+
+const loadCustomerProfileAdmin = () => import('../components/admin/CustomerProfileAdmin');
+
+// Module-scoped because the helpers below read it by name; each render assigns
+// the harness's own container.
+let container: HTMLDivElement;
+
+const renderSurface = async () => {
+    const surface = await renderAdminSurface(loadCustomerProfileAdmin);
+    container = surface.container;
+    return surface;
+};
 
 async function mountAndSearch(queryValue: string): Promise<void> {
     const form = document.body.querySelector('form');
@@ -143,8 +159,6 @@ async function mountAndSearch(queryValue: string): Promise<void> {
 }
 
 describe('CustomerProfileAdmin render flow', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -154,9 +168,6 @@ describe('CustomerProfileAdmin render flow', () => {
 
         // Fresh mount per test so internal state never crosses describe
         // boundaries (prev-by-design: see useEffect for localStorage recents).
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
 
         // Reset per-test so the auto-mocked builders start neutral. updateLifetimeStats
         // is reset for symmetry even though no test currently asserts on it - prevents
@@ -166,21 +177,12 @@ describe('CustomerProfileAdmin render flow', () => {
         vi.mocked(updateLifetimeStats).mockReset();
     });
 
-    afterEach(() => {
-        act(() => {
-            root.unmount();
-        });
-        if (container.parentNode === document.body) {
-            document.body.removeChild(container);
-        }
-    });
+    // Teardown (unmount + container removal) is the harness's own afterEach.
 
     it('AUTH_USER: renders VIP badge, full stat grid, referral code, and admin actions block', async () => {
         vi.mocked(buildCustomerProfile).mockResolvedValue(AUTH_PROFILE);
 
-        await act(async () => {
-            root.render(createElement(CustomerProfileAdmin));
-        });
+        await renderSurface();
 
         await mountAndSearch(AUTH_UUID);
 
@@ -214,9 +216,7 @@ describe('CustomerProfileAdmin render flow', () => {
     it('METAMASK: renders wallet-derived displayName + "Web3 Wallet" badge + disabled stat cards + NO admin actions', async () => {
         vi.mocked(buildCustomerProfile).mockResolvedValue(META_MASK_PROFILE);
 
-        await act(async () => {
-            root.render(createElement(CustomerProfileAdmin));
-        });
+        await renderSurface();
 
         await mountAndSearch(META_MASK_USER_ID);
 
@@ -248,9 +248,7 @@ describe('CustomerProfileAdmin render flow', () => {
     it('EMAIL_ONLY: renders the email as h2, "Verified Buyer" badge, and the 4-card guest stat block', async () => {
         vi.mocked(buildCustomerProfileByEmail).mockResolvedValue(GUEST_PROFILE);
 
-        await act(async () => {
-            root.render(createElement(CustomerProfileAdmin));
-        });
+        await renderSurface();
 
         await mountAndSearch(GUEST_EMAIL);
 
@@ -285,9 +283,7 @@ describe('CustomerProfileAdmin render flow', () => {
     it('PAYOUT_HISTORY_WITH_REQUESTS: renders Payout History header (2), table rows with wallet short codes, status badges, aggregate stats, polygonscan link', async () => {
         vi.mocked(buildCustomerProfile).mockResolvedValue(RICH_PAYOUT_PROFILE);
 
-        await act(async () => {
-            root.render(createElement(CustomerProfileAdmin));
-        });
+        await renderSurface();
 
         await mountAndSearch(AUTH_UUID);
 
@@ -319,9 +315,7 @@ describe('CustomerProfileAdmin render flow', () => {
     it('PAYOUT_HISTORY_EMPTY_STATE: with empty payoutRequests, renders the section header (0), empty-state copy, 0 totals, and only the orders table', async () => {
         vi.mocked(buildCustomerProfile).mockResolvedValue(AUTH_PROFILE);
 
-        await act(async () => {
-            root.render(createElement(CustomerProfileAdmin));
-        });
+        await renderSurface();
 
         await mountAndSearch(AUTH_UUID);
 

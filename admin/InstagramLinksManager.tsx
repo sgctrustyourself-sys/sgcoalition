@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Instagram, CheckCircle, Wallet, Mail, Clock, ExternalLink, RefreshCw, Copy, AlertCircle } from 'lucide-react';
+import { Instagram, CheckCircle, Mail, Clock, ExternalLink, RefreshCw, Copy, AlertCircle } from 'lucide-react';
 import { getPendingInstagramLinks, markRewardSent } from '@/services/socialLinking';
 import { useToast } from '@/context/ToastContext';
 import ConfirmationModal from '@/components/admin/ConfirmationModal';

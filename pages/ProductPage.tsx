@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Button } from '../components/ui/Button';
-import { Heart, ChevronRight, ArrowLeft, Star, Coins } from 'lucide-react';
+import { Heart, ArrowLeft, Star, Coins } from 'lucide-react';
 import { SG_COIN_RATE } from '../constants';
 
 export const ProductPage: React.FC = () => {
@@ -132,6 +132,7 @@ export const ProductPage: React.FC = () => {
                  <button 
                     onClick={() => toggleFavorite(product.id)}
                     className={`p-4 border border-gray-200 rounded-none hover:border-black transition-colors ${isFavorite ? 'text-red-500 border-red-500' : 'text-gray-400'}`}
+                    aria-label={isFavorite ? 'Remove from wishlist' : 'Add to wishlist'}
                  >
                      <Heart fill={isFavorite ? "currentColor" : "none"} />
                  </button>
@@ -194,6 +195,7 @@ export const ProductPage: React.FC = () => {
                                                 type="button"
                                                 onClick={() => setRatingInput(num)}
                                                 className={`focus:outline-none ${num <= ratingInput ? 'text-yellow-500' : 'text-gray-300'}`}
+                                                aria-label={`Rate ${num} out of 5`}
                                             >
                                                 <Star fill="currentColor" size={24} />
                                             </button>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Loader, Wallet, Copy, Check, Sparkles, Heart, Info, ShieldCheck, Truck, RefreshCw, Mail, Headphones, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Loader, Wallet, Copy, Check, Sparkles, Heart, Info, ShieldCheck, RefreshCw, Mail, Headphones, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { OrderStatus } from '../types';
 import { useToast } from '../context/ToastContext';
@@ -12,14 +12,22 @@ import { resolveCryptoDiscountCents } from '../utils/cryptoDiscount';
 import { trackReferralEvent } from '../utils/referralAnalytics';
 import { processReferralOnPurchase, clearReferralCode } from '../utils/referralSystem';
 import { validateCouponCode, validateDiscountCoupon, applyCouponCode, getAppliedCouponCode } from '../utils/couponSystem';
-import { getCartItemAddOnPrice, getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
+import { getCartItemLineTotal, getCartItemUnitPrice, WALLET_KEYCHAIN_CLIP_LABEL } from '../utils/walletAddOns';
 import { isMemberPromoActive } from '../utils/memberDiscount';
 import { clearCheckoutAttempt, resolveCheckoutAttempt, recordedOrderNumber, mintOrderId } from '../utils/checkoutAttempt';
 import { createLogger } from '../utils/logger';
 
 const checkoutLog = createLogger('Checkout');
 
-const reportErrorToAdmin = async (error: string, context: string, metadata: any = {}) => {
+// The settings endpoint is external JSON: fields arrive unknown and are coerced below.
+type PaymentSettingsPayload = {
+    card_enabled?: unknown;
+    klarna_enabled?: unknown;
+    cashapp_enabled?: unknown;
+    crypto_enabled?: unknown;
+};
+
+const reportErrorToAdmin = async (error: string, context: string, metadata: Record<string, unknown> = {}) => {
     try {
         checkoutLog.info(`Reporting ${context} error to admin...`);
         fetch('/api/report-error', {
@@ -76,15 +84,15 @@ const loadCheckoutState = (): SavedCheckoutState | null => {
     try {
         const raw = sessionStorage.getItem(CHECKOUT_STATE_KEY);
         return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
+    } catch { return null; }
 };
 
 const saveCheckoutState = (state: SavedCheckoutState) => {
-    try { sessionStorage.setItem(CHECKOUT_STATE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+    try { sessionStorage.setItem(CHECKOUT_STATE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
 };
 
 const clearCheckoutState = () => {
-    try { sessionStorage.removeItem(CHECKOUT_STATE_KEY); } catch (e) { /* ignore */ }
+    try { sessionStorage.removeItem(CHECKOUT_STATE_KEY); } catch { /* ignore */ }
 };
 
 // ---- Stripe (card / Klarna / Afterpay) -------------------------------
@@ -204,9 +212,9 @@ const StripePaymentSection: React.FC<StripePaymentSectionProps> = ({ email, tota
             } else {
                 setSectionError('Payment is still processing. Check your email for confirmation or contact support.');
             }
-        } catch (err: any) {
+        } catch (err) {
             console.error('Stripe confirm error:', err);
-            setSectionError(err.message || 'Payment failed. Please try again.');
+            setSectionError((err instanceof Error ? err.message : String(err)) || 'Payment failed. Please try again.');
         } finally {
             setProcessing(false);
         }
@@ -273,7 +281,7 @@ const Checkout: React.FC = () => {
         let mounted = true;
         fetch('/api/payment-settings', { method: 'GET' })
             .then(r => r.json().catch(() => ({})))
-            .then((data: any) => {
+            .then((data: PaymentSettingsPayload) => {
                 if (!mounted) return;
                 if (data && typeof data === 'object' && data.card_enabled !== undefined) {
                     setPaymentSettings({
@@ -748,9 +756,9 @@ const Checkout: React.FC = () => {
             // (acceptCheckout re-prices the order with the same credit the
             // intent applied, or verification fails with "Stripe amount
             // mismatch").
-        } catch (err: any) {
+        } catch (err) {
             console.error('Payment intent error:', err);
-            const message = err.message || 'Failed to initialize payment. Please check your connection.';
+            const message = (err instanceof Error ? err.message : String(err)) || 'Failed to initialize payment. Please check your connection.';
             // A 409 from the pricing authority means a bag line the live
             // products table no longer carries. The self-heal banner above
             // explains it and removes the line, so show that instead of a raw
@@ -797,7 +805,7 @@ const Checkout: React.FC = () => {
     };
 
     const validateShipping = (): boolean => {
-        const missingFields = Object.entries(shippingInfo).filter(([_, value]) => (value as string).trim() === '');
+        const missingFields = Object.entries(shippingInfo).filter(([, value]) => (value as string).trim() === '');
         if (missingFields.length > 0) {
             setValidationError('Please fill in all shipping fields, including email.');
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -919,7 +927,7 @@ const Checkout: React.FC = () => {
                 tax: 0,
                 discount: 0,  // server-authoritative via resolvePricing()
                 total: finalTotal,
-                paymentMethod: paymentMethodUsed as any,
+                paymentMethod: paymentMethodUsed,
                 paymentStatus: paymentMethodUsed === 'crypto' || paymentMethodUsed === 'cashapp' ? OrderStatus.PENDING : OrderStatus.PAID,
                 couponCode: discountCouponCode,
                 // Store credit the server applied to this checkout's price
@@ -1019,9 +1027,9 @@ const Checkout: React.FC = () => {
 
             window.location.href = `/order/success?payment_method=store_credit&shippingMethod=${shippingMethod}&shippingCost=${shippingCost}`;
 
-        } catch (e: any) {
+        } catch (e) {
             console.error(e);
-            addToast(e.message || 'Order failed', 'error');
+            addToast((e instanceof Error ? e.message : String(e)) || 'Order failed', 'error');
             // Cleared on failure only, like the manual confirms below: this
             // write is a reference-less store_credit order, so a click landing
             // between the server's response and the page leaving would place a
@@ -1044,7 +1052,7 @@ const Checkout: React.FC = () => {
             sessionStorage.setItem('orderNumber', orderNumber);
             checkoutLog.info('Crypto order created, redirecting...');
             window.location.href = '/order/success?payment_method=crypto';
-        } catch (error) {
+        } catch {
             addToast('Failed to create order. Please try again.', 'error');
             setIsLoading(false);
         }
@@ -1063,7 +1071,7 @@ const Checkout: React.FC = () => {
             sessionStorage.setItem('orderNumber', orderNumber);
             checkoutLog.info('Cash App order created, redirecting...');
             window.location.href = '/order/success?payment_method=cashapp';
-        } catch (error) {
+        } catch {
             addToast('Failed to create order. Please try again.', 'error');
             setIsLoading(false);
         }
@@ -1080,9 +1088,9 @@ const Checkout: React.FC = () => {
             sessionStorage.setItem('shippingInfo', JSON.stringify(shippingInfo));
             checkoutLog.info('Stripe payment confirmed, redirecting...');
             window.location.href = `/order/success?payment_method=stripe&shippingMethod=${shippingMethod}&shippingCost=${shippingCost}`;
-        } catch (err: any) {
+        } catch (err) {
             console.error('Order creation error:', err);
-            reportErrorToAdmin(err.message || 'Stripe success but API failure', 'Stripe onPaid Process', {
+            reportErrorToAdmin((err instanceof Error ? err.message : String(err)) || 'Stripe success but API failure', 'Stripe onPaid Process', {
                 customerEmail: shippingInfo.email,
                 total: finalTotal
             });

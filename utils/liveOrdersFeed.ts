@@ -1,6 +1,33 @@
 import type { Order } from '../types.js';
 import { PRODUCT_IMAGE_URLS } from './localImageAssets.js';
 
+/** Item fields the feed accepts, in either camelCase or the DB's snake_case. */
+interface FeedOrderItem {
+    productId?: string; product_id?: string; id?: string;
+    productName?: string; name?: string; title?: string;
+    productImage?: string; image?: string; thumbnail?: string;
+    product?: { image?: string };
+    selectedSize?: string; size?: string;
+    quantity?: number | string; qty?: number | string;
+    price?: number | string; unitPrice?: number | string; unit_price?: number | string;
+    total?: number | string; lineTotal?: number | string; line_total?: number | string;
+}
+
+/** Order fields the feed reads, accepting either casing. */
+interface FeedOrder {
+    id?: string;
+    items?: FeedOrderItem[];
+    lineItems?: FeedOrderItem[];
+    createdAt?: string; created_at?: string;
+    paymentStatus?: string; status?: string; orderStatus?: string;
+    shippingAddress?: { state?: string | null; city?: string | null } | null;
+    shippingInfo?: { state?: string | null; city?: string | null } | null;
+    shipping_info?: { state?: string | null; city?: string | null } | null;
+    shipping_state?: string | null; shippingState?: string | null;
+    shipping_city?: string | null; shippingCity?: string | null;
+    state?: string | null; city?: string | null;
+}
+
 export type LiveOrdersTimeRange = '24h' | '7d' | '30d' | '90d' | 'all';
 
 export interface LiveOrdersStateDatum {
@@ -338,7 +365,7 @@ function getStateCode(value?: string | null) {
     return STATE_NAME_TO_CODE.get(normalized) ?? null;
 }
 
-function getShippingState(order: any) {
+function getShippingState(order: FeedOrder) {
     return (
         order?.shippingAddress?.state ||
         order?.shippingInfo?.state ||
@@ -350,7 +377,7 @@ function getShippingState(order: any) {
     );
 }
 
-function getShippingCity(order: any) {
+function getShippingCity(order: FeedOrder) {
     return (
         order?.shippingAddress?.city ||
         order?.shippingInfo?.city ||
@@ -362,10 +389,10 @@ function getShippingCity(order: any) {
     );
 }
 
-function normalizeOrderItems(order: any): NormalizedLiveOrderItem[] {
+function normalizeOrderItems(order: FeedOrder): NormalizedLiveOrderItem[] {
     const rawItems = Array.isArray(order?.items) ? order.items : Array.isArray(order?.lineItems) ? order.lineItems : [];
 
-    return rawItems.map((item: any, index: number) => {
+    return rawItems.map((item: FeedOrderItem, index: number) => {
         const quantity = Math.max(1, Number(item?.quantity || item?.qty || 1));
         const price = Number(item?.price || item?.unitPrice || item?.unit_price || 0);
         const total = Number(item?.total || item?.lineTotal || item?.line_total || price * quantity || 0);
@@ -382,7 +409,7 @@ function normalizeOrderItems(order: any): NormalizedLiveOrderItem[] {
     });
 }
 
-function buildTrackedOrder(order: any, now: number): TrackedLiveOrder | null {
+function buildTrackedOrder(order: Order & FeedOrder): TrackedLiveOrder | null {
     const timestamp = Date.parse(order?.createdAt || order?.created_at || '');
     if (!Number.isFinite(timestamp)) return null;
 
@@ -519,7 +546,7 @@ export function buildLiveOrdersFeed(orders: Order[], timeRange: LiveOrdersTimeRa
     // resolvable US state code to survive this filter.
     const layer1Tracked = orders
         .map((order) => {
-            const trackedOrder = buildTrackedOrder(order, now);
+            const trackedOrder = buildTrackedOrder(order);
             if (!trackedOrder) return null;
             if (trackedOrder.timestamp < windowStart) return null;
             return trackedOrder;

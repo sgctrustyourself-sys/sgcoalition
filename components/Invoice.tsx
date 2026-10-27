@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Order } from '../types';
 import { useToast } from '../context/ToastContext';
 import { X, Printer, Download } from 'lucide-react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface InvoiceProps {
     order: Order;
@@ -10,6 +11,17 @@ interface InvoiceProps {
 
 export const Invoice: React.FC<InvoiceProps> = ({ order, onClose }) => {
     const { addToast } = useToast();
+
+    // Escape + focus containment. The invoice has no `open` prop: it is
+    // rendered only while it should be on screen, so being mounted is being
+    // open. Nothing here disables on submit, hence the unconditional trap.
+    const dialogRef = useRef<HTMLDivElement>(null);
+    useFocusTrap({
+        active: true,
+        containerRef: dialogRef,
+        onEscape: onClose,
+    });
+
     const handlePrint = () => {
         window.print();
     };
@@ -33,10 +45,16 @@ export const Invoice: React.FC<InvoiceProps> = ({ order, onClose }) => {
         <>
             {/* Modal Overlay - Hidden when printing */}
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 print:hidden">
-                <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div
+                    ref={dialogRef}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="invoice-dialog-title"
+                    className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+                >
                     {/* Header with actions - Hidden when printing */}
                     <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between print:hidden">
-                        <h2 className="text-xl font-bold text-gray-900">Invoice</h2>
+                        <h2 id="invoice-dialog-title" className="text-xl font-bold text-gray-900">Invoice</h2>
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={handlePrint}
@@ -52,7 +70,7 @@ export const Invoice: React.FC<InvoiceProps> = ({ order, onClose }) => {
                                 <Download size={18} />
                                 PDF
                             </button>
-                            <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600">
+                            <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600" aria-label="Close invoice">
                                 <X size={24} />
                             </button>
                         </div>

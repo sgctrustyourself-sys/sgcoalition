@@ -7,6 +7,7 @@ import {
     ExternalLink, Globe, AlertTriangle
 } from 'lucide-react';
 import { uploadProductImage } from '../../services/productUpload';
+import { errorMessage } from '../../utils/errorMessage';
 import ImageCropperModal from '../ui/ImageCropperModal';
 import { moveArrayItem } from '../../utils/arrayMove';
 import { normalizeProductSizeData } from '../../utils/productSizes';
@@ -200,8 +201,8 @@ const ImageManager: React.FC = () => {
             setSuccess('Image uploaded!');
             setTimeout(() => setSuccess(null), 2000);
             setPendingCropFile(null);
-        } catch (err: any) {
-            setError('Upload failed: ' + (err.message || 'Unknown error'));
+        } catch (err) {
+            setError('Upload failed: ' + (errorMessage(err) || 'Unknown error'));
             throw err;
         } finally {
             setIsUploading(false);
@@ -369,6 +370,7 @@ const ImageManager: React.FC = () => {
                             <button
                                 onClick={addUrl}
                                 className="bg-white/10 text-white px-4 rounded-lg font-bold uppercase text-xs hover:bg-white/20 transition"
+                                aria-label="Add image URL"
                             >
                                 <Plus className="w-4 h-4" />
                             </button>

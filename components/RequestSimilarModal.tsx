@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { X, Send, Loader2 } from 'lucide-react';
 import { Product } from '../types';
 import { submitCustomInquiry } from '../services/customInquiry';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface Props {
     product: Product;
@@ -19,6 +20,10 @@ const RequestSimilarModal: React.FC<Props> = ({ product, onClose }) => {
     });
     const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
     const [errorMsg, setErrorMsg] = useState('');
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // The parent mounts this surface only while it is open.
+    useFocusTrap({ active: true, containerRef: panelRef, onEscape: onClose });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -42,8 +47,8 @@ const RequestSimilarModal: React.FC<Props> = ({ product, onClose }) => {
                 title: `Similar Style Request: ${product.name}`,
                 description: `Reference Product: ${product.name} ($${product.price})\n\nCustomer's Request:\n${form.description}`,
                 referenceImages: product.images,
-                budgetRange: (form.budgetRange || 'flexible') as any,
-                timeline: (form.timeline || 'flexible') as any
+                budgetRange: (form.budgetRange || 'flexible') as Parameters<typeof submitCustomInquiry>[0]['budgetRange'],
+                timeline: (form.timeline || 'flexible') as Parameters<typeof submitCustomInquiry>[0]['timeline']
             });
         } catch (dbError) {
             console.error('Error saving inquiry to database:', dbError);
@@ -70,7 +75,7 @@ const RequestSimilarModal: React.FC<Props> = ({ product, onClose }) => {
 
             if (!res.ok) throw new Error('Failed to send');
             setStatus('success');
-        } catch (err: any) {
+        } catch {
             setStatus('error');
             setErrorMsg('Something went wrong. Please try again.');
         }
@@ -78,7 +83,13 @@ const RequestSimilarModal: React.FC<Props> = ({ product, onClose }) => {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="relative w-full max-w-lg bg-[#111] border border-white/10 shadow-2xl overflow-hidden">
+            <div
+                ref={panelRef}
+                className="relative w-full max-w-lg bg-[#111] border border-white/10 shadow-2xl overflow-hidden"
+                role="dialog"
+                aria-modal="true"
+                aria-label={`Request a similar style to ${product.name}`}
+            >
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
                     <div>

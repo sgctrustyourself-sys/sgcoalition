@@ -14,9 +14,13 @@ import { Tooltip } from 'react-tooltip';
 // call sites. Fetching it ourselves makes the failure a state we own.
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
 
+// The map library's own geography shape, minus the string (URL) form this
+// component never passes — so the fetched topology and the prop stay in step.
+type GeographyTopology = Exclude<React.ComponentProps<typeof Geographies>['geography'], string>;
+
 type GeometryState =
     | { status: 'loading' }
-    | { status: 'ready'; topology: Record<string, any> }
+    | { status: 'ready'; topology: GeographyTopology }
     | { status: 'unavailable'; reason: string };
 
 const describeGeometryFailure = (error: unknown) =>

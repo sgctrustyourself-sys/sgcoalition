@@ -2,14 +2,10 @@ import React from 'react';
 import { motion } from 'motion/react';
 import {
     LayoutDashboard,
-    Shield,
     Zap,
-    Flame,
     Settings,
     Search,
     Wand2,
-    Crown,
-    Globe,
     Layers,
     ArrowUpRight
 } from 'lucide-react';

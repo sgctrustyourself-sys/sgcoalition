@@ -10,7 +10,27 @@ import { PRODUCT_CROP_ASPECT_OPTIONS } from '../../utils/imageCropper';
 const BlogManager = () => {
     const { addToast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [posts, setPosts] = useState<BlogPost[]>([]);
+    // The table stores snake_case columns; the UI's BlogPost type is the
+    // camelCase view. Keeping the row shape distinct is what makes the
+    // snake_case reads below (post.is_published, post.cover_image) type-safe.
+    type PostRow = {
+        id: string;
+        title: string;
+        slug: string;
+        content: string;
+        excerpt?: string;
+        author: string;
+        category: BlogPost['category'];
+        cover_image?: string;
+        tags?: string[];
+        is_published: boolean;
+        upvote_power: number;
+        downvote_power: number;
+        score: number;
+        published_at?: string | null;
+        created_at?: string;
+    };
+    const [posts, setPosts] = useState<PostRow[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -36,7 +56,7 @@ const BlogManager = () => {
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
-            setPosts(data || []);
+            setPosts((data as PostRow[] | null) || []);
         } catch (err) {
             console.error('Error fetching posts:', err);
         } finally {
@@ -53,7 +73,7 @@ const BlogManager = () => {
         setIsSaving(true);
         try {
             const slug = currentPost.slug || currentPost.title.toLowerCase().replace(/ /g, '-').replace(/[^\w-]/g, '');
-            const postData: any = {
+            const postData = {
                 title: currentPost.title,
                 content: currentPost.content,
                 excerpt: currentPost.excerpt,
@@ -63,12 +83,9 @@ const BlogManager = () => {
                 cover_image: currentPost.coverImage,
                 tags: currentPost.tags,
                 is_published: currentPost.isPublished,
-                published_at: currentPost.isPublished ? (currentPost.publishedAt || new Date().toISOString()) : null
+                published_at: currentPost.isPublished ? (currentPost.publishedAt || new Date().toISOString()) : null,
+                ...(currentPost.id ? { id: currentPost.id } : {}),
             };
-
-            if (currentPost.id) {
-                postData.id = currentPost.id;
-            }
 
             const { error } = await supabase
                 .from('posts')
@@ -80,7 +97,7 @@ const BlogManager = () => {
 
             // --- DISCORD AUTOMATION ---
             // Trigger Discord notification if published
-            if (postData.isPublished) {
+            if (postData.is_published) {
                 try {
                     console.log('Sending Discord notification...');
                     await fetch('http://localhost:5001/webhook/blog', {
@@ -90,7 +107,7 @@ const BlogManager = () => {
                             title: postData.title,
                             summary: postData.content.substring(0, 250) + '...', // Simple summary from content
                             url: `https://sgcoalition-five.vercel.app/blog/${slug}`,
-                            imageUrl: postData.coverImage
+                            imageUrl: postData.cover_image
                         })
                     });
                 } catch (discordError) {
@@ -102,9 +119,9 @@ const BlogManager = () => {
 
             setIsEditing(false);
             fetchPosts();
-        } catch (err: any) {
+        } catch (err) {
             console.error('Save error:', err);
-            addToast(`Error saving post: ${err.message}`, 'error');
+            addToast(`Error saving post: ${err instanceof Error ? err.message : String(err)}`, 'error');
         } finally {
             setIsSaving(false);
         }
@@ -122,8 +139,8 @@ const BlogManager = () => {
             if (error) throw error;
             addToast('Post deleted.', 'success');
             fetchPosts();
-        } catch (err: any) {
-            addToast(`Delete failed: ${err.message}`, 'error');
+        } catch (err) {
+            addToast(`Delete failed: ${err instanceof Error ? err.message : String(err)}`, 'error');
         }
     };
 
@@ -159,8 +176,8 @@ const BlogManager = () => {
             setCurrentPost(prev => ({ ...prev, coverImage: url }));
             addToast('Image uploaded!', 'success');
             setPendingCropFile(null);
-        } catch (err: any) {
-            addToast(`Upload failed: ${err.message}`, 'error');
+        } catch (err) {
+            addToast(`Upload failed: ${err instanceof Error ? err.message : String(err)}`, 'error');
             throw err;
         }
     };
@@ -248,7 +265,7 @@ const BlogManager = () => {
                                 <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 mb-2">Category</label>
                                 <select
                                     value={currentPost.category}
-                                    onChange={(e) => setCurrentPost({ ...currentPost, category: e.target.value as any })}
+                                    onChange={(e) => setCurrentPost({ ...currentPost, category: e.target.value as BlogPost['category'] })}
                                     className="w-full bg-white/5 border border-white/10 rounded-sm px-4 py-3 text-sm focus:border-purple-500 outline-none transition-all appearance-none"
                                     title="Select Post Category"
                                 >
@@ -308,7 +325,7 @@ const BlogManager = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {posts.length > 0 ? posts.map((post: any) => (
+                            {posts.length > 0 ? posts.map((post) => (
                                 <tr key={post.id} className="group hover:bg-white/[0.02] transition-all">
                                     <td className="py-6 px-4">
                                         {post.is_published ? (
@@ -344,7 +361,7 @@ const BlogManager = () => {
                                                         ...post,
                                                         coverImage: post.cover_image,
                                                         isPublished: post.is_published,
-                                                        publishedAt: post.published_at
+                                                        publishedAt: post.published_at ?? undefined
                                                     });
                                                     setIsEditing(true);
                                                 }}

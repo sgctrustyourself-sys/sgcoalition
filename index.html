@@ -172,6 +172,17 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* Hero entrance: the heading rises a fluid distance (scales with the
+       viewport) and fades in once. Skipped for reduced-motion users. */
+    @keyframes hero-rise {
+      from { opacity: 0; transform: translateY(clamp(12px, 3vw, 32px)); }
+      to { opacity: 1; transform: none; }
+    }
+    .hero-rise { animation: hero-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+    @media (prefers-reduced-motion: reduce) {
+      .hero-rise { animation: none; }
+    }
+
     /* No-JS fallback. Only visible when JavaScript is disabled.
        z-index sits above #initial-loader so it covers the spinner. */
     #noscript-fallback {

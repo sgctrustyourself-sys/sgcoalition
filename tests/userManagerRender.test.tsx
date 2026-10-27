@@ -2,8 +2,13 @@
 //
 // REGRESSION CATCH for the React render-flow of components/admin/UserManager.tsx.
 //
-// Replicates the established pattern: createRoot + act + explicit DOM assertions
-// (no snapshots). UserManager only touches Supabase directly (no useApp) and
+// Mounting goes through tests/_helpers/adminSurface.tsx, which owns the
+// AppContext/ToastContext stub registration, the MemoryRouter, the
+// container/root pair and the teardown. This file supplies the two `vi.doMock`
+// lines and a loader (see that helper's header for why vitest forces it).
+//
+// Explicit DOM assertions (no snapshots). UserManager only touches Supabase
+// directly (no useApp) and
 // uses window.URL.createObjectURL for export (jsdom provides a stub - we DO NOT
 // trigger the export in tests, we only assert on the button presence).
 //
@@ -20,19 +25,36 @@
 // DOM traversal is more reliable than brittle regex here.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createElement, act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { mockSupabase } from './_helpers/supabaseClientMock';
+import {
+    appContextStub,
+    renderAdminSurface,
+    toastContextStub,
+} from './_helpers/adminSurface';
 
 // vitest auto-hoists vi.mock above the imports that follow.
 vi.mock('../services/supabase', () => ({
     supabase: mockSupabase.client,
 }));
-vi.mock('../context/ToastContext', () => ({
-    useToast: () => ({ addToast: vi.fn() }),
-}));
 
-import UserManager from '../components/admin/UserManager';
+// The harness cannot register the contexts for us — vitest scopes module mocks
+// to the file that calls them (see the harness header). Two lines, once per
+// file, and the surface itself arrives as a loader so it resolves against them.
+vi.doMock('../context/AppContext', appContextStub);
+vi.doMock('../context/ToastContext', toastContextStub);
+
+const loadUserManager = () => import('../components/admin/UserManager');
+
+// Module-scoped because the assertions below read it by name; each render
+// assigns the harness's own container.
+let container: HTMLDivElement;
+
+const renderUsers = async () => {
+    const surface = await renderAdminSurface(loadUserManager);
+    container = surface.container;
+    return surface;
+};
 
 const DATES = [
     '2026-07-13T10:00:00Z', '2026-07-12T10:00:00Z', '2026-07-11T10:00:00Z',
@@ -82,8 +104,6 @@ const USERS_13: FixtureRow[] = [
 ];
 
 describe('UserManager render flow', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -91,14 +111,9 @@ describe('UserManager render flow', () => {
         localStorage.clear();
         vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
@@ -119,9 +134,7 @@ describe('UserManager render flow', () => {
             { kind: 'resolve', value: { data: USERS_13, error: null } },
         ]);
 
-        await act(async () => {
-            root.render(createElement(UserManager));
-        });
+        await renderUsers();
         const html = container.innerHTML;
 
         // Stat-card labels render.
@@ -169,9 +182,7 @@ describe('UserManager render flow', () => {
             { kind: 'resolve', value: { data: [], error: null } },
         ]);
 
-        await act(async () => {
-            root.render(createElement(UserManager));
-        });
+        await renderUsers();
         const html = container.innerHTML;
 
         // Stat counts go to zero (NaN-leak guard).
@@ -208,8 +219,6 @@ describe('UserManager render flow', () => {
 });
 
 describe('UserManager search filter + export button presence', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -217,14 +226,9 @@ describe('UserManager search filter + export button presence', () => {
         localStorage.clear();
         vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
@@ -233,9 +237,7 @@ describe('UserManager search filter + export button presence', () => {
             { kind: 'resolve', value: { data: USERS_13, error: null } },
         ]);
 
-        await act(async () => {
-            root.render(createElement(UserManager));
-        });
+        await renderUsers();
 
         const searchInput = document.body.querySelector(
             'input[placeholder*="Search by"]',
@@ -274,9 +276,7 @@ describe('UserManager search filter + export button presence', () => {
             { kind: 'resolve', value: { data: USERS_13, error: null } },
         ]);
 
-        await act(async () => {
-            root.render(createElement(UserManager));
-        });
+        await renderUsers();
 
         const html = container.innerHTML;
         expect(html).toContain('Export CRM List');

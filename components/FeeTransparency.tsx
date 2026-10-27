@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Shield, ExternalLink, ArrowRight, Wallet, PieChart, Zap } from 'lucide-react';
-import { getNativeBalance, getRobustProvider, formatAddress as formatEthAddress } from '../services/web3Service';
+import { Shield, ExternalLink, Wallet, PieChart, Zap } from 'lucide-react';
+import { getNativeBalance, getRobustProvider } from '../services/web3Service';
 import { TREASURY_WALLET_ADDRESS } from '../constants';
 
 const WALLETS = {

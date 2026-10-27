@@ -4,13 +4,14 @@
 // Mirrors SGCoinRequestManager.tsx but adds the Approved -> Completed
 // transition (which requires an admin-recorded Polygon tx hash).
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     X, CheckCircle, XCircle, Eye, Calendar, Wallet, Mail,
     DollarSign, FileText, Loader, AlertTriangle, Hash, ArrowRight
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import ConfirmationModal from './ConfirmationModal';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import {
     getAllPayoutRequests, approvePayoutRequest, completePayoutRequest,
     rejectPayoutRequest, getPayoutRequestStats, PayoutRequest,
@@ -51,6 +52,34 @@ const SGCoinPayoutManager: React.FC<SGCoinPayoutManagerProps> = ({ adminUserId }
         totalRequested: 0, totalCompleted: 0,
     });
 
+    // Escape + focus containment for the three overlays in this tab. All of
+    // them are opened from the detail panel or from the row that opened it, so
+    // the trap hands focus back to that control.
+    const detailsDialogRef = useRef<HTMLDivElement>(null);
+    const completeDialogRef = useRef<HTMLDivElement>(null);
+    const rejectDialogRef = useRef<HTMLDivElement>(null);
+
+    // The details panel is the base layer; the confirm/completion/rejection
+    // dialogs stack on top of it and own focus while they are open.
+    useFocusTrap({
+        active: Boolean(selectedRequest) && !showCompleteModal && !showRejectModal && !showApproveConfirm,
+        containerRef: detailsDialogRef,
+        onEscape: () => setSelectedRequest(null),
+    });
+    // Escape is inert while a write is in flight: every control in these two
+    // dialogs is disabled then, so backing out would strand the operator mid
+    // transfer with no state feedback.
+    useFocusTrap({
+        active: showCompleteModal && Boolean(selectedRequest) && !isProcessing,
+        containerRef: completeDialogRef,
+        onEscape: () => { setShowCompleteModal(false); setTxHash(''); setAdminNotes(''); },
+    });
+    useFocusTrap({
+        active: showRejectModal && Boolean(selectedRequest) && !isProcessing,
+        containerRef: rejectDialogRef,
+        onEscape: () => { setShowRejectModal(false); setRejectionReason(''); },
+    });
+
     useEffect(() => { loadRequests(); }, []);
 
     useEffect(() => {
@@ -72,7 +101,7 @@ const SGCoinPayoutManager: React.FC<SGCoinPayoutManagerProps> = ({ adminUserId }
                 totalRequested: s.totalAmountRequested,
                 totalCompleted: s.totalAmountCompleted,
             });
-        } catch (err) {
+        } catch {
             addToast('Failed to load payout requests', 'error');
         } finally {
             setIsLoading(false);
@@ -105,8 +134,8 @@ const SGCoinPayoutManager: React.FC<SGCoinPayoutManagerProps> = ({ adminUserId }
             // Confirm without re-opening the detail modal.
             setShowApproveConfirm(false);
             addToast('Payout approved + customer notified', 'success');
-        } catch (err: any) {
-            addToast('Approve failed: ' + (err?.message || 'Unknown error'), 'error');
+        } catch (err) {
+            addToast('Approve failed: ' + (err instanceof Error ? err.message : 'Unknown error'), 'error');
         } finally {
             setIsProcessing(false);
         }
@@ -128,8 +157,8 @@ const SGCoinPayoutManager: React.FC<SGCoinPayoutManagerProps> = ({ adminUserId }
             setTxHash('');
             setAdminNotes('');
             addToast('Payout completed + customer notified', 'success');
-        } catch (err: any) {
-            addToast('Complete failed: ' + (err?.message || 'Unknown error'), 'error');
+        } catch (err) {
+            addToast('Complete failed: ' + (err instanceof Error ? err.message : 'Unknown error'), 'error');
         } finally {
             setIsProcessing(false);
         }
@@ -151,8 +180,8 @@ const SGCoinPayoutManager: React.FC<SGCoinPayoutManagerProps> = ({ adminUserId }
             setShowRejectModal(false);
             setRejectionReason('');
             addToast('Payout rejected' + (wasApproved ? ' + balance refunded' : ''), 'success');
-        } catch (err: any) {
-            addToast('Reject failed: ' + (err?.message || 'Unknown error'), 'error');
+        } catch (err) {
+            addToast('Reject failed: ' + (err instanceof Error ? err.message : 'Unknown error'), 'error');
         } finally {
             setIsProcessing(false);
         }
@@ -243,9 +272,15 @@ const SGCoinPayoutManager: React.FC<SGCoinPayoutManagerProps> = ({ adminUserId }
 
             {selectedRequest && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-gray-900 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div
+                        ref={detailsDialogRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="payout-details-title"
+                        className="bg-gray-900 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                    >
                         <div className="flex items-center justify-between p-6 border-b border-gray-800">
-                            <h2 className="text-2xl font-bold text-white">Payout Request Details</h2>
+                            <h2 id="payout-details-title" className="text-2xl font-bold text-white">Payout Request Details</h2>
                             <button onClick={() => setSelectedRequest(null)} className="p-2 hover:bg-gray-800 rounded-lg transition" aria-label="Close details">
                                 <X className="w-5 h-5 text-gray-400" />
                             </button>
@@ -309,19 +344,25 @@ const SGCoinPayoutManager: React.FC<SGCoinPayoutManagerProps> = ({ adminUserId }
 
             {showCompleteModal && selectedRequest && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-gray-900 rounded-xl shadow-2xl max-w-md w-full">
+                    <div
+                        ref={completeDialogRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="payout-complete-title"
+                        className="bg-gray-900 rounded-xl shadow-2xl max-w-md w-full"
+                    >
                         <div className="p-6">
-                            <h3 className="text-xl font-bold text-white mb-2">Mark Payout Completed</h3>
+                            <h3 id="payout-complete-title" className="text-xl font-bold text-white mb-2">Mark Payout Completed</h3>
                             <p className="text-gray-400 text-sm mb-4">
                                 Paste the Polygon transaction hash for the on-chain transfer you executed.
                                 Confirm you sent <strong>{selectedRequest.amount.toLocaleString()} SGCOIN</strong> to <code className="break-all">{selectedRequest.walletAddress}</code> before recording.
                             </p>
-                            <label className="block text-xs font-bold uppercase text-gray-400 mb-1">Transaction Hash *</label>
-                            <input value={txHash} onChange={e => setTxHash(e.target.value)} placeholder="0x..." className="w-full bg-gray-800 border border-gray-700 p-3 rounded-lg text-white placeholder-gray-500 focus:border-gray-600 focus:outline-none font-mono text-sm" />
-                            <label className="block text-xs font-bold uppercase text-gray-400 mb-1 mt-4">Admin Notes (optional)</label>
-                            <textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)} placeholder="e.g. used Polygon gas tier 30..." className="w-full bg-gray-800 border border-gray-700 p-3 rounded-lg text-white placeholder-gray-500 focus:border-gray-600 focus:outline-none h-24 resize-none text-sm" />
+                            <label htmlFor="payout-tx-hash" className="block text-xs font-bold uppercase text-gray-400 mb-1">Transaction Hash *</label>
+                            <input id="payout-tx-hash" value={txHash} onChange={e => setTxHash(e.target.value)} placeholder="0x..." className="w-full bg-gray-800 border border-gray-700 p-3 rounded-lg text-white placeholder-gray-500 focus:border-gray-600 focus:outline-none font-mono text-sm" />
+                            <label htmlFor="payout-admin-notes" className="block text-xs font-bold uppercase text-gray-400 mb-1 mt-4">Admin Notes (optional)</label>
+                            <textarea id="payout-admin-notes" value={adminNotes} onChange={e => setAdminNotes(e.target.value)} placeholder="e.g. used Polygon gas tier 30..." className="w-full bg-gray-800 border border-gray-700 p-3 rounded-lg text-white placeholder-gray-500 focus:border-gray-600 focus:outline-none h-24 resize-none text-sm" />
                             <div className="flex gap-3 mt-4">
-                                <button onClick={() => { setShowCompleteModal(false); setTxHash(''); setAdminNotes(''); }} className="flex-1 bg-gray-800 text-white py-2 rounded-lg font-medium hover:bg-gray-700 transition">Cancel</button>
+                                <button onClick={() => { setShowCompleteModal(false); setTxHash(''); setAdminNotes(''); }} disabled={isProcessing} className="flex-1 bg-gray-800 text-white py-2 rounded-lg font-medium hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed">Cancel</button>
                                 <button onClick={handleComplete} disabled={isProcessing || !txHash.trim() || txHash.trim().length < 10} className="flex-1 bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700 transition disabled:opacity-50">
                                     {isProcessing ? 'Recording...' : 'Confirm + Notify Customer'}
                                 </button>
@@ -333,16 +374,22 @@ const SGCoinPayoutManager: React.FC<SGCoinPayoutManagerProps> = ({ adminUserId }
 
             {showRejectModal && selectedRequest && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-gray-900 rounded-xl shadow-2xl max-w-md w-full">
+                    <div
+                        ref={rejectDialogRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="payout-reject-title"
+                        className="bg-gray-900 rounded-xl shadow-2xl max-w-md w-full"
+                    >
                         <div className="p-6">
-                            <h3 className="text-xl font-bold text-white mb-2">Reject Payout Request</h3>
+                            <h3 id="payout-reject-title" className="text-xl font-bold text-white mb-2">Reject Payout Request</h3>
                             {selectedRequest.status === 'approved' && (
                                 <p className="text-yellow-300 text-sm mb-3">This request was already approved. Rejecting will refund the deducted SGCOIN back to the customer's store-credit balance.</p>
                             )}
-                            <label className="block text-xs font-bold uppercase text-gray-400 mb-1">Rejection Reason *</label>
-                            <textarea value={rejectionReason} onChange={e => setRejectionReason(e.target.value)} placeholder="Explain why this payout cannot be processed." className="w-full bg-gray-800 border border-gray-700 p-3 rounded-lg text-white placeholder-gray-500 focus:border-gray-600 focus:outline-none h-32 resize-none text-sm" />
+                            <label htmlFor="payout-reject-reason" className="block text-xs font-bold uppercase text-gray-400 mb-1">Rejection Reason *</label>
+                            <textarea id="payout-reject-reason" value={rejectionReason} onChange={e => setRejectionReason(e.target.value)} placeholder="Explain why this payout cannot be processed." className="w-full bg-gray-800 border border-gray-700 p-3 rounded-lg text-white placeholder-gray-500 focus:border-gray-600 focus:outline-none h-32 resize-none text-sm" />
                             <div className="flex gap-3 mt-4">
-                                <button onClick={() => { setShowRejectModal(false); setRejectionReason(''); }} className="flex-1 bg-gray-800 text-white py-2 rounded-lg font-medium hover:bg-gray-700 transition">Cancel</button>
+                                <button onClick={() => { setShowRejectModal(false); setRejectionReason(''); }} disabled={isProcessing} className="flex-1 bg-gray-800 text-white py-2 rounded-lg font-medium hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed">Cancel</button>
                                 <button onClick={handleReject} disabled={isProcessing || !rejectionReason.trim()} className="flex-1 bg-red-600 text-white py-2 rounded-lg font-bold hover:bg-red-700 transition disabled:opacity-50">
                                     {isProcessing ? 'Rejecting...' : 'Confirm Rejection'}
                                 </button>

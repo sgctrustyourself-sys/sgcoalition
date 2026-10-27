@@ -16,6 +16,31 @@ export interface Transaction {
     type: 'transfer' | 'buy' | 'sell' | 'liquidity';
 }
 
+/** One row of the PolygonScan `tokentx` action. */
+interface PolygonScanTx {
+    hash: string;
+    from: string;
+    to: string;
+    value: string;
+    timeStamp: string;
+    blockNumber: string;
+}
+
+interface PolygonScanResponse {
+    status?: string;
+    message?: string;
+    result?: PolygonScanTx[];
+}
+
+export interface BurnActivity {
+    type: 'migration' | 'burn';
+    txHash: string;
+    amount: string;
+    address: string;
+    timestamp: number;
+    blockNumber: number;
+}
+
 // Fetch recent token transfers
 export const fetchRecentTransactions = async (limit = 20): Promise<Transaction[]> => {
     try {
@@ -29,13 +54,13 @@ export const fetchRecentTransactions = async (limit = 20): Promise<Transaction[]
         console.log('[PolygonScan API] Fetching transactions...');
 
         const response = await fetch(url);
-        const data = await response.json();
+        const data: PolygonScanResponse = await response.json();
 
         console.log('[PolygonScan API] Status:', data.status, 'Message:', data.message);
         console.log('[PolygonScan API] Results:', data.result?.length || 0, 'transactions');
 
         if (data.status === '1' && data.result && Array.isArray(data.result) && data.result.length > 0) {
-            const transactions = data.result.map((tx: any) => {
+            const transactions = data.result.map((tx) => {
                 const value = (parseInt(tx.value) / 1e18).toFixed(0);
                 return {
                     hash: tx.hash,
@@ -62,7 +87,7 @@ export const fetchRecentTransactions = async (limit = 20): Promise<Transaction[]
 /**
  * Fetches burn activity (migration and direct burns) for SGC V1 and V2
  */
-export const fetchBurnActivity = async (limit = 10): Promise<any[]> => {
+export const fetchBurnActivity = async (limit = 10): Promise<BurnActivity[]> => {
     const DEAD_ADDRESS = '0x000000000000000000000000000000000000dEaD';
 
     try {
@@ -76,15 +101,15 @@ export const fetchBurnActivity = async (limit = 10): Promise<any[]> => {
         const v1BurnUrl = `${POLYGONSCAN_API}?chainid=137&module=account&action=tokentx&contractaddress=${SGCOIN_V1_CONTRACT_ADDRESS}&offset=50&sort=desc&apikey=${POLYGONSCAN_API_KEY}`;
 
         const response = await fetch(v1BurnUrl);
-        const data = await response.json();
+        const data: PolygonScanResponse = await response.json();
 
         if (data.status === '1' && data.result) {
             const activities = data.result
-                .filter((tx: any) =>
+                .filter((tx) =>
                     tx.to.toLowerCase() === SGCOIN_BURN_ADDRESS.toLowerCase() ||
                     tx.to.toLowerCase() === DEAD_ADDRESS.toLowerCase()
                 )
-                .map((tx: any) => ({
+                .map((tx): BurnActivity => ({
                     type: tx.to.toLowerCase() === SGCOIN_BURN_ADDRESS.toLowerCase() ? 'migration' : 'burn',
                     txHash: tx.hash,
                     amount: (parseInt(tx.value) / 1e9).toString(), // V1 is 9 decimals
@@ -104,7 +129,7 @@ export const fetchBurnActivity = async (limit = 10): Promise<any[]> => {
 };
 
 // Determine if transaction is buy, sell, transfer, or liquidity add
-const determineTransactionType = (tx: any): 'transfer' | 'buy' | 'sell' | 'liquidity' => {
+const determineTransactionType = (tx: Pick<PolygonScanTx, 'to' | 'from'>): 'transfer' | 'buy' | 'sell' | 'liquidity' => {
     // Simple heuristic: if 'to' is a DEX router, it's likely a buy/sell
     const dexAddresses = [
         '0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff'.toLowerCase(), // QuickSwap V2 Router

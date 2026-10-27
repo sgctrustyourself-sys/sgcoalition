@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import { processRefund } from '../../services/refunds';
+import { errorMessage } from '../../utils/errorMessage';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface RefundExceptionModalProps {
     orderId: string;
@@ -23,6 +25,11 @@ const RefundExceptionModal: React.FC<RefundExceptionModalProps> = ({
     const [refundAmount, setRefundAmount] = useState(orderTotal);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // Mounted only while the admin has the dialog open, so the trap is active for
+    // the whole lifetime of this surface.
+    useFocusTrap({ active: true, containerRef: panelRef, onEscape: onClose });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -44,8 +51,8 @@ const RefundExceptionModal: React.FC<RefundExceptionModalProps> = ({
             await processRefund(orderId, refundAmount, reason, adminWalletAddress);
             onSuccess();
             onClose();
-        } catch (err: any) {
-            setError(err.message || 'Failed to create exception');
+        } catch (err) {
+            setError(errorMessage(err) || 'Failed to create exception');
         } finally {
             setIsSubmitting(false);
         }
@@ -53,7 +60,13 @@ const RefundExceptionModal: React.FC<RefundExceptionModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div
+                ref={panelRef}
+                className="bg-white rounded-xl shadow-2xl max-w-md w-full"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Issue refund exception"
+            >
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b">
                     <div>

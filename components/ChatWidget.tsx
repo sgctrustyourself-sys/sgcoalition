@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, X, Send, Minimize2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { ChatConversation, ChatMessage } from '../types/chatTypes';
+import { ChatConversation } from '../types/chatTypes';
 import {
     getUserConversation,
     createConversation,

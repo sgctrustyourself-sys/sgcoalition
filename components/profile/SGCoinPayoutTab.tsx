@@ -17,12 +17,11 @@
 // All amounts are whole-number SGC (no decimals). The MIN_PAYOUT_SGC floor (5,000 SGC) is
 // enforced client-side for instant feedback + server-side via the UNIQUE INDEX + RPC check.
 
-import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     Hexagon,
-    DollarSign,
     Wallet,
     Clock,
     CheckCircle2,
@@ -34,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
+import { errorMessage } from '../../utils/errorMessage';
 import {
     submitPayoutRequest,
     getUserPayoutRequests,
@@ -42,6 +42,7 @@ import {
 } from '../../services/payoutRequest';
 import { sendAdminPayoutNotification } from '../../services/emailService';
 import { connectWallet, formatAddress } from '../../services/web3Service';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 // Canonical USD rate per SGCoin (matches the rate Profile.tsx header card uses).
 // TODO: extract to constants.ts and reuse across all UI surfaces.
@@ -49,10 +50,6 @@ const SGC_USD_RATE = 0.002;
 
 // Polygon address validation regex (matches Profile.tsx Wallet Settings card).
 const POLYGON_ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
-
-// DOM id for the inner modal container — used by the focus-trap keydown
-// listener to scope Tab cycling to elements inside the modal.
-const MODAL_ROOT_ID = 'sgcoin-payout-modal-content';
 
 // Quick-select percentage chips inside the modal amount picker.
 const AMOUNT_PRESETS = [25, 50, 75, 100] as const;
@@ -105,8 +102,12 @@ const SGCoinPayoutTab: React.FC<SGCoinPayoutTabProps> = ({ userId, balance }) =>
     const [requests, setRequests] = useState<PayoutRequest[]>([]);
     const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
-    // Amount-input ref (used by the modal a11y useEffect for autofocus + Escape close).
+    // Amount-input ref: the shared focus trap focuses it when the modal opens.
     const amountInputRef = useRef<HTMLInputElement>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
+    // Explicit focus-return target, so a failed submit that re-arms the trap
+    // still hands focus back to the card that opened it.
+    const payoutTriggerRef = useRef<HTMLButtonElement>(null);
 
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -116,12 +117,24 @@ const SGCoinPayoutTab: React.FC<SGCoinPayoutTabProps> = ({ userId, balance }) =>
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [copyHint, setCopyHint] = useState<string | null>(null);
 
+    // Escape, Tab containment and focus return come from the shared hook. The
+    // trap is off while the request is in flight: every control in the modal is
+    // disabled at that point, so there is nothing to cycle, and Escape must not
+    // dismiss a payout that has already been submitted.
+    useFocusTrap({
+        active: isModalOpen && !isSubmitting,
+        containerRef: panelRef,
+        initialFocusRef: amountInputRef,
+        returnFocusRef: payoutTriggerRef,
+        onEscape: () => setIsModalOpen(false),
+    });
+
     // Refetch the user's payout-requests history (called on mount + after submit).
     const refetchRequests = useCallback(async () => {
         try {
             const rows = await getUserPayoutRequests(userId);
             setRequests(rows);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to load payout requests:', err);
             addToast('Could not load payout history.', 'error');
         } finally {
@@ -133,58 +146,18 @@ const SGCoinPayoutTab: React.FC<SGCoinPayoutTabProps> = ({ userId, balance }) =>
         refetchRequests();
     }, [refetchRequests]);
 
-    // (a) Focus the amount input synchronously when the modal opens (no flicker).
-    useLayoutEffect(() => {
-        if (!isModalOpen) return;
-        amountInputRef.current?.focus();
-    }, [isModalOpen]);
-
-    // (b) Body scroll-lock + Escape close + focus-trap while the modal is open.
-    // Document-level keydown listener (rather than backdrop onKeyDown) avoids
-    // tabIndex hacks on a plain div.
+    // Body scroll lock while the modal is open. Escape, Tab containment and focus
+    // entry/return belong to the shared useFocusTrap call above.
     useEffect(() => {
         if (!isModalOpen) return;
 
-        // Body scroll lock so the page behind doesn't scroll while modal is open.
         const prevOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
 
-        const focusablesIn = (root: HTMLElement | null): HTMLElement[] => {
-            if (!root) return [];
-            return Array.from(
-                root.querySelectorAll<HTMLElement>(
-                    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-                ),
-            );
-        };
-
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && !isSubmitting) {
-                setIsModalOpen(false);
-                return;
-            }
-            if (e.key === 'Tab') {
-                const modalRoot = document.getElementById(MODAL_ROOT_ID);
-                const focusables = focusablesIn(modalRoot);
-                if (focusables.length === 0) return;
-                const first = focusables[0];
-                const last = focusables[focusables.length - 1];
-                if (e.shiftKey && document.activeElement === first) {
-                    e.preventDefault();
-                    last.focus();
-                } else if (!e.shiftKey && document.activeElement === last) {
-                    e.preventDefault();
-                    first.focus();
-                }
-            }
-        };
-        document.addEventListener('keydown', onKey);
-
         return () => {
             document.body.style.overflow = prevOverflow;
-            document.removeEventListener('keydown', onKey);
         };
-    }, [isModalOpen, isSubmitting]);
+    }, [isModalOpen]);
 
     // When the modal opens, prefill the address from the user's persistent linked wallet
     // (account-linking) or, fall back to the session-bound MetaMask wallet. The AccountLinking
@@ -221,9 +194,9 @@ const SGCoinPayoutTab: React.FC<SGCoinPayoutTabProps> = ({ userId, balance }) =>
             } else {
                 addToast('MetaMask connection cancelled.', 'warning');
             }
-        } catch (err: any) {
+        } catch (err) {
             console.error('MetaMask connect error:', err);
-            addToast(err?.message || 'MetaMask connection failed.', 'error');
+            addToast(errorMessage(err) || 'MetaMask connection failed.', 'error');
         }
     }, [addToast]);
 
@@ -264,7 +237,7 @@ const SGCoinPayoutTab: React.FC<SGCoinPayoutTabProps> = ({ userId, balance }) =>
             // Resend API latency. If the admin notification fails, the request
             // is still in the queue (the Pending row was already committed).
             sendAdminPayoutNotification(email, amount, address, created.id).catch(
-                (notifyErr: any) =>
+                (notifyErr: unknown) =>
                     console.error(
                         'Admin payout notification email failed (non-blocking):',
                         notifyErr,
@@ -278,12 +251,12 @@ const SGCoinPayoutTab: React.FC<SGCoinPayoutTabProps> = ({ userId, balance }) =>
             setIsModalOpen(false);
             setIsLoadingHistory(true);
             await refetchRequests();
-        } catch (err: any) {
+        } catch (err) {
             console.error('Submit payout failed:', err);
             // Surface the RPC error message verbatim — important for the unique-pending
             // constraint case ("Only one pending request allowed per user.").
             addToast(
-                err?.message || 'Payout submission failed. Please try again.',
+                errorMessage(err) || 'Payout submission failed. Please try again.',
                 'error',
                 5000,
             );
@@ -342,6 +315,7 @@ const SGCoinPayoutTab: React.FC<SGCoinPayoutTabProps> = ({ userId, balance }) =>
                 {/* RIGHT — Crypto Payout (opt-in) */}
                 <button
                     type="button"
+                    ref={payoutTriggerRef}
                     onClick={() => setIsModalOpen(true)}
                     disabled={balance < MIN_PAYOUT_SGC}
                     aria-disabled={balance < MIN_PAYOUT_SGC}
@@ -483,7 +457,7 @@ const SGCoinPayoutTab: React.FC<SGCoinPayoutTabProps> = ({ userId, balance }) =>
                         aria-labelledby="sgcoin-payout-modal-title"
                     >
                         <motion.div
-                            id={MODAL_ROOT_ID}
+                            ref={panelRef}
                             initial={{ opacity: 0, scale: 0.95, y: 10 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95 }}

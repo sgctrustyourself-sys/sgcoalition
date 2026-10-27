@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from '../../context/ToastContext';
 import { isTestCampaignName } from '../../utils/marketingAudience';
+import { errorMessage } from '../../utils/errorMessage';
 import { ADMIN_SESSION_EXPIRED_ERROR, getAdminAuthHeaders, handleAdminAuthFailure } from '../../services/adminSession';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import {
     Send, Users, Mail, MessageSquare, Download, AlertTriangle,
     BarChart3, Edit2,
@@ -23,8 +25,8 @@ interface CampaignRow {
   channel: string;
   status: string;
   sent_at: string | null;
-  stats: any;
-  audience_filter: any;
+  stats: { total_sent?: number; total_failed?: number; audience_count?: number } | null;
+  audience_filter: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -85,7 +87,7 @@ const MarketingManager: React.FC = () => {
   );
 };
 
-const SubViewButton: React.FC<{ active: boolean; onClick: () => void; icon: React.FC<any>; children: React.ReactNode }> = ({ active, onClick, icon: Icon, children }) => (
+const SubViewButton: React.FC<{ active: boolean; onClick: () => void; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }> = ({ active, onClick, icon: Icon, children }) => (
   <button onClick={onClick} className={`px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all ${active ? 'bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.3)]' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}>
     <Icon className="w-4 h-4" />{children}
   </button>
@@ -124,8 +126,8 @@ const AudienceView: React.FC = () => {
         if (contact.phone) upsertIntoGroup('sms', contact.phone, source, contact.id);
       }
       setRows(Array.from(groups.values()));
-    } catch (err: any) {
-      addToast(err?.message || 'Could not load the audience.', 'error');
+    } catch (err) {
+      addToast(errorMessage(err) || 'Could not load the audience.', 'error');
       setRows([]);
     } finally {
       setLoading(false);
@@ -229,7 +231,7 @@ const AudienceView: React.FC = () => {
   );
 };
 
-const StatCard: React.FC<{ label: string; value: number; icon: React.FC<any>; accent?: 'green' | 'blue' | 'purple' }> = ({ label, value, icon: Icon, accent }) => {
+const StatCard: React.FC<{ label: string; value: number; icon: React.ComponentType<{ className?: string }>; accent?: 'green' | 'blue' | 'purple' }> = ({ label, value, icon: Icon, accent }) => {
   const accentClass = accent === 'green' ? 'text-green-400' : accent === 'blue' ? 'text-blue-400' : accent === 'purple' ? 'text-purple-400' : 'text-gray-400';
   return (
     <div className="bg-white/5 border border-white/10 rounded-lg p-4">
@@ -251,6 +253,15 @@ const ComposerView: React.FC<{ onSent: () => void }> = ({ onSent }) => {
   const [smsBody, setSmsBody] = useState('');
   const [sending, setSending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const confirmPanelRef = useRef<HTMLDivElement>(null);
+
+  // The confirmation is the last gate before a send to the live audience; Escape
+  // is the same as Cancel, and the trap keeps focus off the composer behind it.
+  useFocusTrap({
+    active: confirmOpen && !sending,
+    containerRef: confirmPanelRef,
+    onEscape: () => setConfirmOpen(false),
+  });
 
   const sendNow = async () => {
     setSending(true);
@@ -270,8 +281,8 @@ const ComposerView: React.FC<{ onSent: () => void }> = ({ onSent }) => {
       setConfirmOpen(false);
       setName(''); setSubject(''); setBodyHtml(''); setBodyText(''); setSmsBody('');
       onSent();
-    } catch (err: any) {
-      addToast(err?.message || 'Send failed', 'error');
+    } catch (err) {
+      addToast(errorMessage(err) || 'Send failed', 'error');
     } finally {
       setSending(false);
     }
@@ -331,7 +342,13 @@ const ComposerView: React.FC<{ onSent: () => void }> = ({ onSent }) => {
 
       {confirmOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-md w-full">
+          <div
+            ref={confirmPanelRef}
+            className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-md w-full"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Confirm send to live audience"
+          >
             <div className="flex items-start gap-4 mb-4">
               <AlertTriangle className="w-8 h-8 text-amber-500 flex-shrink-0" />
               <div>
@@ -366,8 +383,8 @@ const HistoryView: React.FC = () => {
       try {
         const stats = await fetchMarketingStats();
         setRows(stats.campaigns);
-      } catch (err: any) {
-        addToast(err?.message || 'Could not load campaign history.', 'error');
+      } catch (err) {
+        addToast(errorMessage(err) || 'Could not load campaign history.', 'error');
       } finally {
         setLoading(false);
       }

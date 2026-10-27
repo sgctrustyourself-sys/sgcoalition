@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { X, ShoppingBag, Trash2, Hexagon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import NoRefundsBanner from './NoRefundsBanner';
 // FreeShippingBar + CartUpsells were removed as part of the "Peaceful
 // Space" wedge. The gamified "X away from free shipping!" progress bar
@@ -17,6 +18,7 @@ import { getLineMaxQuantity } from '../context/useCart';
 const CartDrawer = () => {
     const navigate = useNavigate();
     const { isCartOpen, setCartOpen, cart, setQuantity, removeFromCart, cartTotal, calculateReward } = useApp();
+    const panelRef = useRef<HTMLDivElement>(null);
 
     // Rules of Hooks: ALL hooks must be called unconditionally on every render
     // in the same order, regardless of whether the drawer is open. Earlier
@@ -36,6 +38,16 @@ const CartDrawer = () => {
     const displayTotal = Math.max(0, total - setBonusDollars);
     // setCount removed: bonus is one-shot $30, no quantity multiplier.
 
+    // The drawer covers the page, so it owns the keyboard while open: Tab stays
+    // among the drawer's own controls and Escape closes it. Focus returns to
+    // whatever opened it (the navbar cart button) — the drawer holds no ref to
+    // that button, so the hook falls back to the element focused on open.
+    useFocusTrap({
+        active: isCartOpen,
+        containerRef: panelRef,
+        onEscape: () => setCartOpen(false),
+    });
+
     if (!isCartOpen) return null;
 
     return (
@@ -48,6 +60,10 @@ const CartDrawer = () => {
                 (Tailwind default ~150ms) to a deliberate 500ms ease. The
                 cart drawer should feel like a quiet handoff, not a snap. */}
             <div
+                ref={panelRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Your Cart"
                 className="relative w-full max-w-md bg-black h-full shadow-2xl flex flex-col animate-slide-in border-l border-white/10"
                 style={{ animationDuration: '500ms', animationTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)' }}
             >

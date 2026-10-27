@@ -2,12 +2,14 @@
 //
 // REGRESSION CATCH for the React render-flow of components/admin/OrderManager.tsx.
 //
-// Replicates the established createRoot + act + explicit-DOM-assertions pattern.
+// Mounting goes through tests/_helpers/adminSurface.tsx, which owns the
+// AppContext/ToastContext stub registration, the MemoryRouter, the
+// container/root pair and the teardown. This file supplies the two `vi.doMock`
+// lines and a loader; the header of that helper explains why vitest forces it.
 //
-// OrderManager's data flows from useApp() (AppContext) - not Supabase - so we
-// mock ../context/AppContext with a vi.fn() that we re-shape per-test via
-// vi.mocked(useApp).mockReturnValue({...}) instead of swapping fixtures through
-// the supabase mock queue.
+// OrderManager's data flows from useApp() (AppContext) - not Supabase - so the
+// fixtures below are installed with the harness's mockAppContext({...}) rather
+// than by swapping rows through the supabase mock queue.
 //
 // The component imports two sibling components at module load:
 //   - ManualOrderForm (../components/ManualOrderForm) - shown when showManualOrderForm=true
@@ -26,14 +28,19 @@
 // (Alice, paid). The MODAL_OPEN test pins SG-102/Cara/Tee/'Current: refunded'.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createElement, act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { mockSupabase } from './_helpers/supabaseClientMock';
+import {
+    addToast,
+    appContextStub,
+    mockAppContext,
+    renderAdminSurface,
+    toastContextStub,
+} from './_helpers/adminSurface';
 
 // Hoisted mock fns — the buy-label service and the toast are controlled per-test
 // through these (vi.mock factories may only reference hoisted bindings).
 const buyLabelMocks = vi.hoisted(() => ({ buyLabelForOrder: vi.fn() }));
-const toastMocks = vi.hoisted(() => ({ addToast: vi.fn() }));
 const shipmentFeedMocks = vi.hoisted(() => ({ fetchShipmentStatuses: vi.fn() }));
 
 // vitest auto-hoists vi.mock above the imports below.
@@ -45,12 +52,6 @@ vi.mock('../services/buyLabel', () => ({
 }));
 vi.mock('../services/adminShipments', () => ({
     fetchShipmentStatuses: (...args: unknown[]) => shipmentFeedMocks.fetchShipmentStatuses(...args),
-}));
-vi.mock('../context/AppContext', () => ({
-    useApp: vi.fn(),
-}));
-vi.mock('../context/ToastContext', () => ({
-    useToast: () => toastMocks,
 }));
 vi.mock('../components/ManualOrderForm', () => ({
     default: () => <div data-testid="manual-order-form-stub" />,
@@ -68,8 +69,23 @@ vi.mock('../components/admin/CustomerLinkModal', () => ({
     default: () => <div data-testid="customer-link-modal" />,
 }));
 
-import { useApp } from '../context/AppContext';
-import OrderManager from '../components/admin/OrderManager';
+// The harness cannot register the contexts for us — vitest scopes module mocks
+// to the file that calls them (see the harness header). Two lines, once per
+// file, and the surface itself arrives as a loader so it resolves against them.
+vi.doMock('../context/AppContext', appContextStub);
+vi.doMock('../context/ToastContext', toastContextStub);
+
+const loadOrderManager = () => import('../components/admin/OrderManager');
+
+// Module-scoped because the assertions below read it by name; each render
+// assigns the harness's own container.
+let container: HTMLDivElement;
+
+const renderOrders = async () => {
+    const surface = await renderAdminSurface(loadOrderManager);
+    container = surface.container;
+    return surface;
+};
 
 interface TestOrder {
     id: string;
@@ -140,8 +156,6 @@ const TEST_ORDERS: TestOrder[] = [
 const EMPTY_ORDERS: TestOrder[] = [];
 
 describe('OrderManager render flow', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -149,9 +163,6 @@ describe('OrderManager render flow', () => {
         localStorage.clear();
         vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
         // Default shipment feed: empty (no labels bought). Shipment-column
         // tests override per-test.
         shipmentFeedMocks.fetchShipmentStatuses.mockResolvedValue([]);
@@ -159,7 +170,7 @@ describe('OrderManager render flow', () => {
         // Baseline useApp - LOADED orders. EMPTY test overrides per-test.
         // Effect handlers (deleteOrder, updateOrderStatus) are kept neutral
         // so they neither await on a real Promise nor trigger addToast noise.
-        vi.mocked(useApp).mockReturnValue({
+        mockAppContext({
             orders: TEST_ORDERS,
             updateOrderStatus: vi.fn().mockResolvedValue(undefined),
             deleteOrder: vi.fn().mockResolvedValue(undefined),
@@ -167,8 +178,6 @@ describe('OrderManager render flow', () => {
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
@@ -181,9 +190,7 @@ describe('OrderManager render flow', () => {
         );
 
     it('LOADED: header + stat grid (3/430/1/1) + 3 rows + green/paid badge + no detail modal', async () => {
-        await act(async () => {
-            root.render(createElement(OrderManager));
-        });
+        await renderOrders();
 
         // Header + buttons.
         expect(container.innerHTML).toContain('Manage customer orders and invoices');
@@ -220,15 +227,13 @@ describe('OrderManager render flow', () => {
     });
 
     it('EMPTY: orders=[] -> stat grid 0/0.00/0/0, "No orders found" empty row, no SG-*', async () => {
-        vi.mocked(useApp).mockReturnValue({
+        mockAppContext({
             orders: EMPTY_ORDERS,
             updateOrderStatus: vi.fn().mockResolvedValue(undefined),
             deleteOrder: vi.fn().mockResolvedValue(undefined),
         });
 
-        await act(async () => {
-            root.render(createElement(OrderManager));
-        });
+        await renderOrders();
         const html = container.innerHTML;
 
         const statValues = pinStatValues();
@@ -251,8 +256,6 @@ describe('OrderManager render flow', () => {
 
 
 describe('OrderManager modal open + status filter interactions', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -260,11 +263,8 @@ describe('OrderManager modal open + status filter interactions', () => {
         localStorage.clear();
         vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
 
-        vi.mocked(useApp).mockReturnValue({
+        mockAppContext({
             orders: TEST_ORDERS,
             updateOrderStatus: vi.fn().mockResolvedValue(undefined),
             deleteOrder: vi.fn().mockResolvedValue(undefined),
@@ -272,8 +272,6 @@ describe('OrderManager modal open + status filter interactions', () => {
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
@@ -283,9 +281,7 @@ describe('OrderManager modal open + status filter interactions', () => {
         );
 
     it(`MODAL_OPEN: clicking Eye[N°0] opens Order Details modal with SG-102 + Cara + 'Current: refunded' + red badge`, async () => {
-        await act(async () => {
-            root.render(createElement(OrderManager));
-        });
+        await renderOrders();
         const html0 = container.innerHTML;
         // Sanity: modal not yet mounted.
         expect(html0).not.toContain('Order Details');
@@ -323,9 +319,7 @@ describe('OrderManager modal open + status filter interactions', () => {
     });
 
     it('CUST_LINK_RENDER: clicking customer name in the first row mounts the CustomerLinkModal stub', async () => {
-        await act(async () => {
-            root.render(createElement(OrderManager));
-        });
+        await renderOrders();
         // Modal should NOT be in the DOM yet.
         expect(document.body.querySelector('[data-testid="customer-link-modal"]')).toBeNull();
 
@@ -341,9 +335,7 @@ describe('OrderManager modal open + status filter interactions', () => {
     });
 
     it('FILTER: setting status select to "paid" filters table to only SG-100 (newest stat grid unchanged)', async () => {
-        await act(async => {
-            root.render(createElement(OrderManager));
-        });
+        await renderOrders();
         // Sanity: 3 orders visible BEFORE the filter change.
         const html0 = container.innerHTML;
         expect(html0).toContain('SG-100');
@@ -402,8 +394,6 @@ describe('OrderManager modal open + status filter interactions', () => {
 // of OrderManager's Customer column doesn't accidentally revert to raw
 // strings.
 describe('OrderManager wholesale badge render', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     // 1 retail row (Alice) + 1 wholesale-bundle row (with friiqy handle).
     // The retail row pins the negative case: the chip must NOT render.
@@ -447,11 +437,8 @@ describe('OrderManager wholesale badge render', () => {
         localStorage.clear();
         vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
 
-        vi.mocked(useApp).mockReturnValue({
+        mockAppContext({
             orders: WHOLESALE_FIXTURE,
             updateOrderStatus: vi.fn().mockResolvedValue(undefined),
             deleteOrder: vi.fn().mockResolvedValue(undefined),
@@ -459,15 +446,11 @@ describe('OrderManager wholesale badge render', () => {
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
     it("WHOLESALE_CHIP: row with instagramUsername='friiqy' renders the WHOLESALE chip + @friiqy handle attribution", async () => {
-        await act(async () => {
-            root.render(createElement(OrderManager));
-        });
+        await renderOrders();
         const html = container.innerHTML;
 
         // Wholesale privacy placeholders must still be the raw strings --
@@ -490,9 +473,7 @@ describe('OrderManager wholesale badge render', () => {
     });
 
     it('NEGATIVE_CASE: a non-wholesale row (Alice SG-100) does NOT render the wholesale attribution', async () => {
-        await act(async () => {
-            root.render(createElement(OrderManager));
-        });
+        await renderOrders();
         // Newest-first sort: SG-100 (Alice, 07-14) is the FIRST row, ahead of
         // the wholesale bundle (05-22). The first trigger's containing <td>
         // MUST NOT contain a [data-testid='wholesale-attribution'] sibling.
@@ -516,8 +497,6 @@ describe('OrderManager wholesale badge render', () => {
     // (cashapp + crypto) and the negative case (stripe pending = NO badge),
     // plus the stat-card "N need manual verification" line.
     describe('OrderManager manual verification badge', () => {
-        let container: HTMLDivElement;
-        let root: Root;
 
         // 1 cashapp pending + 1 crypto pending + 1 stripe pending (negative
         // control: same status, but the payment is automated so no badge).
@@ -563,11 +542,8 @@ describe('OrderManager wholesale badge render', () => {
             localStorage.clear();
             vi.spyOn(console, 'error').mockImplementation(() => {});
 
-            container = document.createElement('div');
-            document.body.appendChild(container);
-            root = createRoot(container);
 
-            vi.mocked(useApp).mockReturnValue({
+            mockAppContext({
                 orders: MANUAL_FIXTURE,
                 updateOrderStatus: vi.fn().mockResolvedValue(undefined),
                 deleteOrder: vi.fn().mockResolvedValue(undefined),
@@ -575,15 +551,11 @@ describe('OrderManager wholesale badge render', () => {
         });
 
         afterEach(() => {
-            act(() => { root.unmount(); });
-            if (container.parentNode === document.body) document.body.removeChild(container);
             vi.restoreAllMocks();
         });
 
         it('BADGE_POSITIVE: cashapp + crypto pending rows render the amber Verify badge with the method label', async () => {
-            await act(async () => {
-                root.render(createElement(OrderManager));
-            });
+        await renderOrders();
             const html = container.innerHTML;
 
             // Two badges - one per manual-verification row.
@@ -615,9 +587,7 @@ describe('OrderManager wholesale badge render', () => {
         });
 
         it('BADGE_NEGATIVE: stripe pending row renders the plain pending badge, NOT the verify badge', async () => {
-            await act(async () => {
-                root.render(createElement(OrderManager));
-            });
+        await renderOrders();
             const html = container.innerHTML;
 
             // Only 2 badges for the manual methods; stripe row has none.
@@ -638,9 +608,7 @@ describe('OrderManager wholesale badge render', () => {
         });
 
         it('BADGE_MODAL: opening the cashapp order detail shows the modal verify badge', async () => {
-            await act(async () => {
-                root.render(createElement(OrderManager));
-            });
+        await renderOrders();
             // Newest-first: SG-CASHAPP (07-16) is the FIRST row, so the first
             // Eye click opens the cashapp order.
             const eyeBtn = document.body.querySelector(
@@ -662,7 +630,7 @@ describe('OrderManager wholesale badge render', () => {
     // instagramUsername. Pre-broaden, this row would have rendered the chip
     // (insta handle was set); post-tighten, it MUST NOT.
     it('INSTAGRAM_ONLY_GATE: row with instagramUsername=set but customerName NOT "Wholesale Customer" does NOT render the chip', async () => {
-        vi.mocked(useApp).mockReturnValue({
+        mockAppContext({
             orders: [{
                 id: 'real-cust-1', orderNumber: 'SG-REAL-1',
                 customerName: 'Real Customer',
@@ -680,9 +648,7 @@ describe('OrderManager wholesale badge render', () => {
             deleteOrder: vi.fn().mockResolvedValue(undefined),
         });
 
-        await act(async () => {
-            root.render(createElement(OrderManager));
-        });
+        await renderOrders();
         // The chip-and-handle <div data-testid="wholesale-attribution"> MUST NOT
         // render -- the customerName 'Real Customer' is NOT the canonical
         // 'Wholesale Customer' placeholder, so the gate is false regardless of
@@ -696,7 +662,7 @@ describe('OrderManager wholesale badge render', () => {
     // tests/adminBuyLabel.test.ts against the endpoint; here the button's
     // presence/absence and the spinner state are pinned via DOM.
     it('BUY_LABEL_GATE: paid non-stripe order shows the button; stripe and unpaid orders do not', async () => {
-        vi.mocked(useApp).mockReturnValue({
+        mockAppContext({
             orders: [
                 {
                     id: 'manual-paid-1', orderNumber: 'SG-MANUAL-1',
@@ -727,9 +693,7 @@ describe('OrderManager wholesale badge render', () => {
             deleteOrder: vi.fn().mockResolvedValue(undefined),
         });
 
-        await act(async () => {
-            root.render(createElement(OrderManager));
-        });
+        await renderOrders();
 
         const buttons = container.querySelectorAll('[data-testid="buy-label-button"]');
         expect(buttons).toHaveLength(1);
@@ -751,9 +715,8 @@ describe('OrderManager wholesale badge render', () => {
                 service: 'USPS Ground Advantage',
             },
         });
-        toastMocks.addToast.mockClear();
 
-        vi.mocked(useApp).mockReturnValue({
+        mockAppContext({
             orders: [{
                 id: 'manual-paid-1', orderNumber: 'SG-MANUAL-1',
                 customerName: 'Manny', customerEmail: 'manny@x.com',
@@ -767,9 +730,7 @@ describe('OrderManager wholesale badge render', () => {
         });
 
         const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-        await act(async () => {
-            root.render(createElement(OrderManager));
-        });
+        await renderOrders();
 
         const button = container.querySelector('[data-testid="buy-label-button"]') as HTMLButtonElement;
         expect(button).toBeTruthy();
@@ -778,7 +739,7 @@ describe('OrderManager wholesale badge render', () => {
         });
 
         expect(buyLabelMocks.buyLabelForOrder).toHaveBeenCalledWith('manual-paid-1');
-        expect(toastMocks.addToast).toHaveBeenCalledWith(expect.stringContaining('9400111899560000000000'), 'success');
+        expect(addToast).toHaveBeenCalledWith(expect.stringContaining('9400111899560000000000'), 'success');
         expect(openSpy).toHaveBeenCalledWith('https://shippo-delivery.s3.amazonaws.com/label.pdf', '_blank', 'noopener');
         openSpy.mockRestore();
     });
@@ -803,7 +764,7 @@ describe('OrderManager wholesale badge render', () => {
                 updated_at: '2026-09-30T10:05:00Z',
             },
         ]);
-        vi.mocked(useApp).mockReturnValue({
+        mockAppContext({
             orders: [{
                 id: 'manual-paid-1', orderNumber: 'SG-MANUAL-1',
                 customerName: 'Manny', customerEmail: 'manny@x.com',
@@ -816,9 +777,7 @@ describe('OrderManager wholesale badge render', () => {
             deleteOrder: vi.fn().mockResolvedValue(undefined),
         });
 
-        await act(async () => {
-            root.render(createElement(OrderManager));
-        });
+        await renderOrders();
 
         const cell = container.querySelector('[data-testid="shipment-cell-manual-paid-1"]');
         expect(cell).toBeTruthy();
@@ -846,7 +805,7 @@ describe('OrderManager wholesale badge render', () => {
                 shipped_email_sent_at: '2026-10-02T14:00:00Z', delivered_email_sent_at: '2026-10-06T15:00:00Z', updated_at: null,
             },
         ]);
-        vi.mocked(useApp).mockReturnValue({
+        mockAppContext({
             orders: [
                 { id: 'o-a', orderNumber: 'SG-A', customerName: 'A', customerEmail: 'a@x.com', paymentMethod: 'crypto', paymentStatus: 'paid', orderType: 'online', total: 45, subtotal: 45, items: [], createdAt: '2026-10-01T10:00:00Z' },
                 { id: 'o-b', orderNumber: 'SG-B', customerName: 'B', customerEmail: 'b@x.com', paymentMethod: 'stripe', paymentStatus: 'paid', orderType: 'online', total: 45, subtotal: 45, items: [], createdAt: '2026-10-01T09:00:00Z' },
@@ -855,9 +814,7 @@ describe('OrderManager wholesale badge render', () => {
             deleteOrder: vi.fn().mockResolvedValue(undefined),
         });
 
-        await act(async () => {
-            root.render(createElement(OrderManager));
-        });
+        await renderOrders();
 
         expect(container.querySelector('[data-testid="shipment-cell-o-a"]')!.textContent).toContain('in transit');
         expect(container.querySelector('[data-testid="shipment-cell-o-b"]')!.textContent).toContain('delivered');
@@ -872,7 +829,7 @@ describe('OrderManager wholesale badge render', () => {
                 shipped_email_sent_at: null, delivered_email_sent_at: null, updated_at: null,
             },
         ]);
-        vi.mocked(useApp).mockReturnValue({
+        mockAppContext({
             orders: [
                 { id: 'o-fail', orderNumber: 'SG-FAIL', customerName: 'F', customerEmail: 'f@x.com', paymentMethod: 'crypto', paymentStatus: 'paid', orderType: 'online', total: 45, subtotal: 45, items: [], createdAt: '2026-10-01T10:00:00Z' },
                 { id: 'o-none', orderNumber: 'SG-NONE', customerName: 'N', customerEmail: 'n@x.com', paymentMethod: 'stripe', paymentStatus: 'paid', orderType: 'online', total: 45, subtotal: 45, items: [], createdAt: '2026-10-01T09:00:00Z' },
@@ -881,9 +838,7 @@ describe('OrderManager wholesale badge render', () => {
             deleteOrder: vi.fn().mockResolvedValue(undefined),
         });
 
-        await act(async () => {
-            root.render(createElement(OrderManager));
-        });
+        await renderOrders();
 
         expect(container.querySelector('[data-testid="shipment-cell-o-fail"]')!.textContent).toContain('incomplete_shipping_address');
         const emptyCell = container.querySelector('[data-testid="shipment-cell-o-none"]');
@@ -892,8 +847,6 @@ describe('OrderManager wholesale badge render', () => {
 });
 
 describe('OrderManager order age (stale pendings visible without the audit)', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     // Relative dates so the assertions hold on any run day: 90d paid (history,
     // never stale), 45d pending (past STALE_PENDING_DAYS), 2d pending (still
@@ -931,19 +884,14 @@ describe('OrderManager order age (stale pendings visible without the audit)', ()
         localStorage.clear();
         vi.spyOn(console, 'error').mockImplementation(() => {});
         shipmentFeedMocks.fetchShipmentStatuses.mockResolvedValue([]);
-        vi.mocked(useApp).mockReturnValue({
+        mockAppContext({
             orders: AGE_ORDERS,
             updateOrderStatus: vi.fn().mockResolvedValue(undefined),
             deleteOrder: vi.fn().mockResolvedValue(undefined),
         });
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
@@ -955,7 +903,7 @@ describe('OrderManager order age (stale pendings visible without the audit)', ()
     };
 
     it('AGE_PER_ROW: every row carries its age next to the date', async () => {
-        await act(async () => { root.render(createElement(OrderManager)); });
+        await renderOrders();
 
         expect(ageIn('SG-AGE-OLDPAID')?.textContent).toBe('90d');
         expect(ageIn('SG-AGE-STALE')?.textContent).toBe('45d STALE');
@@ -963,7 +911,7 @@ describe('OrderManager order age (stale pendings visible without the audit)', ()
     });
 
     it('STALE_PENDING: only pending rows past the cutoff turn red with the abandonment title', async () => {
-        await act(async () => { root.render(createElement(OrderManager)); });
+        await renderOrders();
 
         const stale = ageIn('SG-AGE-STALE')!;
         expect(stale.className).toContain('bg-red-500/20');
@@ -980,7 +928,7 @@ describe('OrderManager order age (stale pendings visible without the audit)', ()
     });
 
     it('MODAL_AGE: the detail modal repeats the age badge next to the full date', async () => {
-        await act(async () => { root.render(createElement(OrderManager)); });
+        await renderOrders();
 
         // Newest-first sort: Eye[0] = fresh (2d), Eye[1] = stale pending (45d).
         const eyes = document.body.querySelectorAll('button[title="View Details"]');

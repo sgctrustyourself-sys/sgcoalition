@@ -2,7 +2,9 @@
 //
 // REGRESSION CATCH for the React render-flow of components/admin/BrainManager.tsx.
 //
-// Replicates the established pattern: createRoot + act + explicit DOM assertions
+// Mounting goes through tests/_helpers/adminSurface.tsx, which owns the
+// AppContext/ToastContext stub registration, the MemoryRouter, the
+// container/root pair and the teardown. Explicit DOM assertions
 // (no snapshots). BrainManager has a MIXED mock surface (thinks user): it imports
 // services/brainService for CRUD helpers (createBrainEntry / updateBrainEntry /
 // deleteBrainEntry) BUT calls services/supabase directly via fetchEntries() to
@@ -23,11 +25,15 @@
 // itself. The BrainEntry type is also from brainService. All auto-mocked.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createElement, act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { mockSupabase } from './_helpers/supabaseClientMock';
 import { pinStatValues } from './_helpers/statCardPinner';
 import { setReactValue } from './_helpers/nativeValueSetter';
+import {
+    appContextStub,
+    renderAdminSurface,
+    toastContextStub,
+} from './_helpers/adminSurface';
 
 // vitest auto-hoists vi.mock above the imports that follow.
 vi.mock('../services/supabase', () => ({
@@ -57,12 +63,26 @@ vi.mock('../services/brainService', async () => {
         getRelevantBrainEntries: vi.fn(),
     };
 });
-vi.mock('../context/ToastContext', () => ({
-    useToast: () => ({ addToast: vi.fn() }),
-}));
+// The harness cannot register the contexts for us — vitest scopes module mocks
+// to the file that calls them (see the harness header). Two lines, once per
+// file, and the surface itself arrives as a loader so it resolves against them.
+vi.doMock('../context/AppContext', appContextStub);
+vi.doMock('../context/ToastContext', toastContextStub);
 
+// A service, not a surface, so a static import is right for it.
 import { createBrainEntry } from '../services/brainService';
-import BrainManager from '../components/admin/BrainManager';
+
+const loadBrainManager = () => import('../components/admin/BrainManager');
+
+// Module-scoped because the assertions below read it by name; each render
+// assigns the harness's own container.
+let container: HTMLDivElement;
+
+const renderSurface = async () => {
+    const surface = await renderAdminSurface(loadBrainManager);
+    container = surface.container;
+    return surface;
+};
 
 interface TestBrainEntry {
     id: string;
@@ -129,8 +149,6 @@ const TEST_ENTRIES: TestBrainEntry[] = [
 const EMPTY_ENTRIES: TestBrainEntry[] = [];
 
 describe('BrainManager render flow', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -138,14 +156,9 @@ describe('BrainManager render flow', () => {
         localStorage.clear();
         vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
@@ -159,7 +172,7 @@ describe('BrainManager render flow', () => {
             { kind: 'resolve', value: { data: TEST_ENTRIES, error: null } },
         ]);
 
-        await act(async => { root.render(createElement(BrainManager)); });
+        await renderSurface();
         const html = container.innerHTML;
 
         // Stat grid - pin via the shared helper.
@@ -196,7 +209,7 @@ describe('BrainManager render flow', () => {
             { kind: 'resolve', value: { data: [], error: null } },
         ]);
 
-        await act(async => { root.render(createElement(BrainManager)); });
+        await renderSurface();
         const html = container.innerHTML;
 
         const statValues = pinStatValues(container, 'div.text-2xl.font-black');
@@ -223,7 +236,7 @@ describe('BrainManager render flow', () => {
         mockSupabase.setOutcomes([
             { kind: 'resolve', value: { data: TEST_ENTRIES, error: null } },
         ]);
-        await act(async => { root.render(createElement(BrainManager)); });
+        await renderSurface();
         expect(container.innerHTML).not.toContain('Save Entry');
 
         // The "New Entry" button is the OUTER one (Lucide Plus icon + text in header).
@@ -266,8 +279,6 @@ describe('BrainManager render flow', () => {
 });
 
 describe('BrainManager save new entry interaction', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -275,14 +286,9 @@ describe('BrainManager save new entry interaction', () => {
         localStorage.clear();
         vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
@@ -301,7 +307,7 @@ describe('BrainManager save new entry interaction', () => {
         // vi.fn() tracked by vitest's mock registry (no need for dynamic import).
         vi.mocked(createBrainEntry).mockResolvedValue('brain-new');
 
-        await act(async => { root.render(createElement(BrainManager)); });
+        await renderSurface();
 
         // Click the New Entry header button to open the form.
         const newBtn = document.body.querySelector(

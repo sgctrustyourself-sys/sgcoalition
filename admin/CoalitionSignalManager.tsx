@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { Mail, MessageSquare, Download, UserX, Search, AlertTriangle, TrendingUp } from 'lucide-react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface Subscriber {
     id: string;
@@ -22,6 +23,18 @@ const CoalitionSignalManager = () => {
     const [loading, setLoading] = useState(true);
     const [showUnsubscribeModal, setShowUnsubscribeModal] = useState(false);
     const [selectedSubscriber, setSelectedSubscriber] = useState<Subscriber | null>(null);
+    const unsubscribePanelRef = useRef<HTMLDivElement>(null);
+
+    const closeUnsubscribeModal = () => {
+        setShowUnsubscribeModal(false);
+        setSelectedSubscriber(null);
+    };
+
+    useFocusTrap({
+        active: showUnsubscribeModal && selectedSubscriber !== null,
+        containerRef: unsubscribePanelRef,
+        onEscape: closeUnsubscribeModal,
+    });
 
     useEffect(() => {
         fetchSubscribers();
@@ -314,7 +327,13 @@ const CoalitionSignalManager = () => {
             {/* Unsubscribe Modal */}
             {showUnsubscribeModal && selectedSubscriber && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-zinc-900 border border-white/10 rounded-xl p-6 max-w-md w-full">
+                    <div
+                        ref={unsubscribePanelRef}
+                        className="bg-zinc-900 border border-white/10 rounded-xl p-6 max-w-md w-full"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Confirm unsubscribe"
+                    >
                         <div className="flex items-start gap-4 mb-4">
                             <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
                                 <AlertTriangle className="w-6 h-6 text-red-400" />

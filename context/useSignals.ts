@@ -5,7 +5,7 @@ export interface Signal {
     id: string; title: string; message: string;
     type: 'info' | 'alert' | 'success' | 'process' | 'urgent';
     is_active: boolean; action_url?: string; action_label?: string;
-    created_at: string; metadata?: any;
+    created_at: string; metadata?: Record<string, unknown>;
 }
 
 export function useSignals(isSupabaseConfigured: boolean) {

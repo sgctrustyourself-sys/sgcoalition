@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp, TrendingDown, Activity, DollarSign, BarChart3, Zap, Shield, Sparkles } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, BarChart3, Zap, Shield, Sparkles } from 'lucide-react';
 import { SGCoinData } from '../types';
 import AnimatedCounter from './AnimatedCounter';
 

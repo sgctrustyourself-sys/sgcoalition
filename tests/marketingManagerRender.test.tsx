@@ -17,21 +17,41 @@
 //   3. The test-campaign advisory still renders the moment a campaign name
 //      contains "test" — the last thing between a mistyped name and a real send.
 //
-// Pattern matches the repo's other render tests: createRoot + act + explicit DOM
-// assertions (no snapshots).
+// Mounting goes through tests/_helpers/adminSurface.tsx, which owns the
+// AppContext/ToastContext stub registration, the MemoryRouter, the
+// container/root pair and the teardown. This file supplies the two `vi.doMock`
+// lines and a loader (see that helper's header for why vitest forces it); the
+// `addToast` asserted below is the harness's sink, so it is an assertion on the
+// component. Explicit DOM assertions, no snapshots.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createElement, act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { pinStatValues } from './_helpers/statCardPinner';
 import { setReactValue } from './_helpers/nativeValueSetter';
+import {
+    addToast,
+    appContextStub,
+    renderAdminSurface,
+    toastContextStub,
+} from './_helpers/adminSurface';
 
-const addToast = vi.fn();
-vi.mock('../context/ToastContext', () => ({
-    useToast: () => ({ addToast }),
-}));
+// The harness cannot register the contexts for us — vitest scopes module mocks
+// to the file that calls them (see the harness header). Two lines, once per
+// file, and the surface itself arrives as a loader so it resolves against them.
+vi.doMock('../context/AppContext', appContextStub);
+vi.doMock('../context/ToastContext', toastContextStub);
 
-import MarketingManager from '../components/admin/MarketingManager';
+const loadMarketingManager = () => import('../components/admin/MarketingManager');
+
+// Module-scoped because the assertions below read it by name; each render
+// assigns the harness's own container.
+let container: HTMLDivElement;
+
+const renderMarketing = async () => {
+    const surface = await renderAdminSurface(loadMarketingManager);
+    container = surface.container;
+    return surface;
+};
 
 const STATS_PAYLOAD = {
     audience: { total: 3, email: 2, sms: 1, by_source: { marketing_contacts: 1, drop_list: 1, sms_signup: 1 } },
@@ -70,8 +90,6 @@ const findButton = (container: HTMLElement, label: string): HTMLButtonElement =>
 };
 
 describe('MarketingManager render flow', () => {
-    let container: HTMLDivElement;
-    let root: Root;
     let fetchMock: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
@@ -82,14 +100,9 @@ describe('MarketingManager render flow', () => {
         fetchMock = vi.fn().mockResolvedValue(jsonResponse(STATS_PAYLOAD));
         vi.stubGlobal('fetch', fetchMock);
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
     });
@@ -97,7 +110,7 @@ describe('MarketingManager render flow', () => {
     it('AUDIENCE_FROM_ENDPOINT: reads the audience from /api/marketing-stats with the admin bearer and renders the union', async () => {
         sessionStorage.setItem('coalition_admin_token', 'test-admin-token');
 
-        await act(async () => { root.render(createElement(MarketingManager)); });
+        await renderMarketing();
 
         // The endpoint is the ONLY source of audience data.
         expect(fetchMock).toHaveBeenCalled();
@@ -120,7 +133,7 @@ describe('MarketingManager render flow', () => {
     });
 
     it('HISTORY_FROM_ENDPOINT: the history view renders campaigns the endpoint returned', async () => {
-        await act(async () => { root.render(createElement(MarketingManager)); });
+        await renderMarketing();
         await act(async () => { findButton(container, 'History').click(); });
 
         const html = container.innerHTML;
@@ -142,7 +155,7 @@ describe('MarketingManager render flow', () => {
         sessionStorage.setItem('coalition_admin_mode', 'true');
         fetchMock.mockResolvedValue(jsonResponse({ error: 'Admin authorization required.' }, 401));
 
-        await act(async () => { root.render(createElement(MarketingManager)); });
+        await renderMarketing();
 
         expect(sessionStorage.getItem('coalition_admin_token')).toBeNull();
         expect(sessionStorage.getItem('coalition_admin_mode')).toBeNull();
@@ -155,7 +168,7 @@ describe('MarketingManager render flow', () => {
     });
 
     it('TEST_CAMPAIGN_ADVISORY: typing "test" into the campaign name warns before the send button is reachable', async () => {
-        await act(async () => { root.render(createElement(MarketingManager)); });
+        await renderMarketing();
         await act(async () => { findButton(container, 'Composer').click(); });
 
         expect(container.querySelector('[data-testid="test-campaign-advisory"]')).toBeNull();

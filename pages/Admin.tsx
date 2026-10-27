@@ -1,7 +1,8 @@
-import React, { useState, Suspense, lazy, useEffect } from 'react';
+import React, { useState, Suspense, lazy, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AdminLayout from '../components/admin/AdminLayout';
 import { useApp } from '../context/AppContext';
+import { AdminTab, isAdminTab } from '../components/admin/adminTabs';
 
 // Lazy load all admin components for code-splitting
 const EcosystemCommandCenter = lazy(() => import('../components/admin/EcosystemCommandCenter'));
@@ -26,6 +27,7 @@ const CustomerProfileAdmin = lazy(() => import('../components/admin/CustomerProf
 const TrustCircleManager = lazy(() => import('../components/admin/TrustCircleManager'));
 const CouponManager = lazy(() => import('../components/admin/CouponManager'));
 const MarketingManager = lazy(() => import('../components/admin/MarketingManager'));
+const OutreachTracker = lazy(() => import('../components/admin/OutreachTracker'));
 
 // Loading component for Suspense fallback
 const LoadingSpinner = () => (
@@ -39,20 +41,28 @@ const LoadingSpinner = () => (
     </div>
 );
 
-// Tabs addressable via ?tab=<id> (deep links from ops emails). Unknown or
-// missing values fall back to the default tab.
-const VALID_TABS = ['command-center', 'products', 'orders', 'blog', 'reviews', 'analytics', 'referrals', 'sgcoin-distribution', 'sgcoin-requests', 'sgcoin-payouts', 'instagram', 'git', 'giveaways', 'inquiries', 'signals', 'marketing', 'users', 'brain', 'settings', 'images', 'customer-profile', 'trust-circle', 'coupons'] as const;
-type Tab = typeof VALID_TABS[number];
 
 const Admin: React.FC = () => {
     const { user } = useApp();
     const [searchParams, setSearchParams] = useSearchParams();
-    // ?tab=<id> seeds the tab (deep links from ops emails); after mount the
-    // state is authoritative so normal tab clicks keep working.
-    const [activeTab, setActiveTab] = useState<Tab>(() => {
-        const t = searchParams.get('tab');
-        return (t && (VALID_TABS as readonly string[]).includes(t) ? t : 'command-center') as Tab;
-    });
+    // ?tab=<id> is the source of truth, not just a mount-time seed: every tab
+    // has a URL, so /admin?tab=orders can be bookmarked, pasted to another
+    // admin, or opened in a new tab and still land on Orders. Derived from the
+    // location rather than mirrored into state, which also makes Back/Forward
+    // step through the tabs the admin actually visited.
+    const requestedTab = searchParams.get('tab');
+    const activeTab: AdminTab = isAdminTab(requestedTab) ? requestedTab : 'command-center';
+
+    const setActiveTab = useCallback((tab: AdminTab) => {
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', tab);
+            // ?q= is an OrderManager search seed, not tab state — never carry it
+            // across a tab switch.
+            next.delete('q');
+            return next;
+        });
+    }, [setSearchParams]);
 
     // ?q=<search> seeds OrderManager's search box (e.g. an order id from a
     // webhook alert email). Applied on mount via sessionStorage; OrderManager
@@ -61,16 +71,14 @@ const Admin: React.FC = () => {
     useEffect(() => {
         if (qApplied) return;
         const q = searchParams.get('q');
-        const tab = searchParams.get('tab');
         if (q) {
             sessionStorage.setItem('admin_order_search', q);
         }
-        // Both params consumed — clean the URL so refreshes don't re-apply a
-        // stale search.
-        if (q || tab) {
+        // Only ?q= is consumed — clean it so a refresh can't re-apply a stale
+        // search. ?tab= stays in the URL so the open tab remains addressable.
+        if (q) {
             const next = new URLSearchParams(searchParams);
             next.delete('q');
-            next.delete('tab');
             setSearchParams(next, { replace: true });
         }
         setQApplied(true);
@@ -102,6 +110,8 @@ const Admin: React.FC = () => {
                 return <SignalManager />;
             case 'marketing':
                 return <MarketingManager />;
+            case 'outreach':
+                return <OutreachTracker />;
             case 'brain':
                 return <BrainManager />;
             case 'images':
@@ -119,19 +129,21 @@ const Admin: React.FC = () => {
                 return <TrustCircleManager />;
             case 'coupons':
                 return <CouponManager />;
-            case 'settings':
-                return (
-                    <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
-                        <p className="text-gray-400">Settings coming soon...</p>
-                    </div>
-                );
+            case 'instagram':
+                return <InstagramLinksManager />;
+            case 'git':
+                return <GitControl />;
+            case 'giveaways':
+                return <GiveawayManager />;
+            case 'inquiries':
+                return <CustomInquiryManager />;
             default:
                 return <ProductManager />;
         }
     };
 
     return (
-        <AdminLayout activeTab={activeTab} onTabChange={setActiveTab}>
+        <AdminLayout activeTab={activeTab}>
             <Suspense fallback={<LoadingSpinner />}>
                 {renderContent()}
             </Suspense>

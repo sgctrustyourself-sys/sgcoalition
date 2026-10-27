@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ArrowUpRight, Instagram, Twitter, Youtube, MessageCircle, Hash, Users, UserPlus, ShoppingBag, Layers } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Instagram, Twitter, Youtube, Hash, Users, UserPlus, ShoppingBag, Layers } from 'lucide-react';
 import LiveOrdersTicker from '../components/LiveOrdersTicker';
 import Seo from '../components/Seo';
 import { BRAND_SAME_AS_LINKS } from '../constants';

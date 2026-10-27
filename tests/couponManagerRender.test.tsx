@@ -2,25 +2,47 @@
 //
 // REGRESSION CATCH for the React render-flow of components/admin/CouponManager.tsx.
 //
-// Replicates the established pattern from tests/customerProfileAdminRender.test.tsx:
-// createRoot + act + explicit DOM assertions (no snapshots). Mock infra is
-// tests/_helpers/supabaseClientMock.ts (singleton .client + setOutcomes queue).
+// Mounting goes through tests/_helpers/adminSurface.tsx, which owns the
+// AppContext/ToastContext stub registration, the MemoryRouter, the
+// container/root pair and the teardown. Explicit DOM assertions (no snapshots).
+// Mock infra is tests/_helpers/supabaseClientMock.ts (singleton .client +
+// setOutcomes queue).
 //
 // CouponManager only touches Supabase directly (no useApp), and `deleteCoupon`
 // gates on window.confirm() which jsdom will block on unless we spy.
 // `vi.restoreAllMocks()` in afterEach releases the spy cleanly between tests.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createElement, act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { mockSupabase } from './_helpers/supabaseClientMock';
+import {
+    appContextStub,
+    renderAdminSurface,
+    toastContextStub,
+} from './_helpers/adminSurface';
 
 // vitest auto-hoists vi.mock above the imports that follow.
 vi.mock('../services/supabase', () => ({
     supabase: mockSupabase.client,
 }));
 
-import CouponManager from '../components/admin/CouponManager';
+// The harness cannot register the contexts for us — vitest scopes module mocks
+// to the file that calls them (see the harness header). Two lines, once per
+// file, and the surface itself arrives as a loader so it resolves against them.
+vi.doMock('../context/AppContext', appContextStub);
+vi.doMock('../context/ToastContext', toastContextStub);
+
+const loadCouponManager = () => import('../components/admin/CouponManager');
+
+// Module-scoped because the assertions below read it by name; each render
+// assigns the harness's own container.
+let container: HTMLDivElement;
+
+const renderSurface = async () => {
+    const surface = await renderAdminSurface(loadCouponManager);
+    container = surface.container;
+    return surface;
+};
 
 const COUPON_ACTIVE = {
     id: 'cp-001', code: 'SUMMER2025',
@@ -43,8 +65,6 @@ const COUPON_EXHAUSTED = {
 
 
 describe('CouponManager render flow', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -54,14 +74,9 @@ describe('CouponManager render flow', () => {
         // Stub confirm() with a sane default. Per-test can override if needed.
         vi.spyOn(window, 'confirm').mockReturnValue(true);
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
@@ -70,9 +85,7 @@ describe('CouponManager render flow', () => {
             { kind: 'resolve', value: { data: [COUPON_ACTIVE, COUPON_INACTIVE, COUPON_EXHAUSTED], error: null } },
         ]);
 
-        await act(async () => {
-            root.render(createElement(CouponManager));
-        });
+        await renderSurface();
 
         const html = container.innerHTML;
         expect(html).toContain('Coupon Manager');
@@ -103,9 +116,7 @@ describe('CouponManager render flow', () => {
             { kind: 'resolve', value: { data: [], error: null } },
         ]);
 
-        await act(async () => {
-            root.render(createElement(CouponManager));
-        });
+        await renderSurface();
 
         const html = container.innerHTML;
         expect(html).toContain('No coupons created yet');
@@ -121,8 +132,6 @@ describe('CouponManager render flow', () => {
 
 
 describe('CouponManager form submit + toggle interactions', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -131,14 +140,9 @@ describe('CouponManager form submit + toggle interactions', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         vi.spyOn(window, 'confirm').mockReturnValue(true);
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
@@ -150,9 +154,7 @@ describe('CouponManager form submit + toggle interactions', () => {
             { kind: 'resolve', value: { data: [], error: null } },
         ]);
 
-        await act(async () => {
-            root.render(createElement(CouponManager));
-        });
+        await renderSurface();
 
         // Toggle button is the OUTER "Create Coupon" (not the inner submit).
         // Both have textContent "Create Coupon"; distinguish by not being inside a <form>.
@@ -212,9 +214,7 @@ describe('CouponManager form submit + toggle interactions', () => {
             { kind: 'resolve', value: { data: [COUPON_INACTIVE], error: null } },
         ]);
 
-        await act(async () => {
-            root.render(createElement(CouponManager));
-        });
+        await renderSurface();
 
         // The row renders one of these buttons with textContent trimmed to 'ACTIVE'.
         const activeBtn = Array.from(document.body.querySelectorAll('button')).find(

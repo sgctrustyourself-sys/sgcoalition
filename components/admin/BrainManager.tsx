@@ -3,6 +3,7 @@ import { supabase } from '../../services/supabase';
 import { BrainEntry, BrainEntryInput, BrainCategory, BrainSource, BRAIN_CATEGORIES, createBrainEntry, updateBrainEntry, deleteBrainEntry } from '../../services/brainService';
 import { Plus, Edit2, Trash2, Save, X, Brain, Search, Filter, Star, Loader, Tag } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { errorMessage } from '../../utils/errorMessage';
 
 const SOURCE_LABELS: Record<BrainSource, string> = {
     ai_chat: 'AI Chat', manual: 'Manual Entry', product: 'Product Design', design_session: 'Design Session',
@@ -62,14 +63,14 @@ const BrainManager: React.FC = () => {
             if (currentEntry.id) { await updateBrainEntry(currentEntry.id, currentEntry); addToast('Brain entry updated!', 'success'); }
             else { await createBrainEntry(currentEntry); addToast('Brain entry created!', 'success'); }
             setIsEditing(false); fetchEntries();
-        } catch (err: any) { addToast('Save failed: ' + err.message, 'error'); }
+        } catch (err) { addToast('Save failed: ' + errorMessage(err), 'error'); }
         finally { setIsSaving(false); }
     };
 
     const handleDelete = async (id: string) => {
         if (!confirm('Delete this brain entry?')) return;
         try { await deleteBrainEntry(id); addToast('Entry deleted.', 'success'); fetchEntries(); }
-        catch (err: any) { addToast('Delete failed: ' + err.message, 'error'); }
+        catch (err) { addToast('Delete failed: ' + errorMessage(err), 'error'); }
     };
 
     const addTag = () => {
@@ -135,14 +136,14 @@ const BrainManager: React.FC = () => {
                                 <div className="flex flex-wrap gap-2 mb-3">
                                     {(currentEntry.tags || []).map(tag => (
                                         <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-[10px] font-bold text-purple-400 uppercase">
-                                            {tag} <button onClick={() => removeTag(tag)} className="hover:text-white transition-colors"><X className="w-3 h-3" /></button>
+                                            {tag} <button onClick={() => removeTag(tag)} className="hover:text-white transition-colors" aria-label={`Remove tag ${tag}`}><X className="w-3 h-3" /></button>
                                         </span>
                                     ))}
                                 </div>
                                 <div className="flex gap-2">
                                     <input type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={handleTagKeyDown}
                                         placeholder="Add tag and press Enter..." className="flex-1 bg-white/5 border border-white/10 rounded-sm px-4 py-2 text-xs focus:border-purple-500 outline-none" />
-                                    <button onClick={addTag} className="px-4 py-2 bg-white/5 border border-white/10 rounded-sm text-xs font-bold uppercase hover:bg-white/10 transition-all"><Tag className="w-3 h-3" /></button>
+                                    <button onClick={addTag} className="px-4 py-2 bg-white/5 border border-white/10 rounded-sm text-xs font-bold uppercase hover:bg-white/10 transition-all" aria-label="Add tag"><Tag className="w-3 h-3" /></button>
                                 </div>
                             </div>
                         </div>

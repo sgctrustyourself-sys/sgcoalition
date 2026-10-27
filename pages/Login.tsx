@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, ArrowRight, Loader2, Shield, Hexagon, Check } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, Hexagon, Check } from 'lucide-react';
 import AuthLayout from '../components/AuthLayout';
 import { signInWithEmail, signInWithDiscord } from '../services/auth';
 import { useApp } from '../context/AppContext';
@@ -54,8 +54,8 @@ const Login = () => {
         try {
             await login(AuthProvider.METAMASK);
             navigate('/');
-        } catch (err: any) {
-            setError(err.message || 'Failed to connect wallet');
+        } catch (err) {
+            setError((err instanceof Error ? err.message : String(err)) || 'Failed to connect wallet');
         }
     };
 

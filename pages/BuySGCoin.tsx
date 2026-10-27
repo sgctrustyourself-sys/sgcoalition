@@ -104,9 +104,9 @@ const BuySGCoin = () => {
             );
 
             setSuccess(true);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Purchase request error:', err);
-            setError(err.message || 'Failed to submit purchase request. Please try again.');
+            setError((err instanceof Error ? err.message : String(err)) || 'Failed to submit purchase request. Please try again.');
         } finally {
             setIsProcessing(false);
         }

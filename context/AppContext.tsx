@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
-import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderStatus, OrderItem, Giveaway, GiveawayEntry, GiveawayStatus, Review, SocialAccount, CustomInquiry, SGCoinPurchaseRequest } from '../types';
-import { INITIAL_SECTIONS, COIN_REWARD_RATE, ADMIN_WALLETS } from '../constants';
-import { supabase } from '../services/supabase';
+import { Product, CartItem, UserProfile, Section, AuthProvider, Order, OrderItem, Giveaway, GiveawayEntry, Review, SocialAccount, CustomInquiry, SGCoinPurchaseRequest } from '../types';
+import { INITIAL_SECTIONS, COIN_REWARD_RATE } from '../constants';
 import { getAdminToken } from '../services/adminSession';
 // signOut is now owned by useAuth hook.
 import { useToast } from './ToastContext';
@@ -11,7 +10,7 @@ import { useCart } from './useCart';
 import { useCatalog } from './useCatalog';
 import { useOrders } from './useOrders';
 import { useAuth } from './useAuth';
-import { useWallets, applyWalletMintsUpdate, applyProductionStateUpdate, type ProductionState } from './useWallets';
+import { useWallets, type ProductionState } from './useWallets';
 // getStoredReferralCode, trackSignupReferral are now owned by useAuth hook.
 
 interface AppState {

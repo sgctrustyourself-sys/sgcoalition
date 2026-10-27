@@ -3,7 +3,7 @@
 // optimistic mutations, realtime sync, and customer-lifetime stats.
 
 import { useState, useEffect, useCallback } from 'react';
-import { Order, OrderStatus } from '../types';
+import { Order, OrderItem, OrderStatus } from '../types';
 import { INITIAL_ORDERS } from '../constants';
 import { supabase } from '../services/supabase';
 import { getAdminAuthHeaders } from '../services/adminSession';
@@ -11,14 +11,60 @@ import { WALLET_KEYCHAIN_CLIP_LABEL, WALLET_KEYCHAIN_CLIP_PRICE } from '../utils
 import { updateLifetimeStats } from '../utils/customerProfile';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 
+/** An item row as stored (snake_case) or as sent by the client (camelCase). */
+interface OrderItemRow {
+    productId?: string; product_id?: string; id?: string;
+    productName?: string; name?: string; title?: string;
+    productImage?: string; image?: string; thumbnail?: string; productImageUrl?: string;
+    selectedSize?: string; size?: string;
+    quantity?: number | string; qty?: number | string;
+    price?: number | string; unit_price?: number | string;
+    total?: number | string; line_total?: number | string;
+    basePrice?: number | string; base_price?: number | string;
+    addOnPrice?: number | string; add_on_price?: number | string;
+    keychainClipOn?: boolean; keychain_clip_on?: boolean;
+    addOnLabel?: string; add_on_label?: string;
+}
+
+/** Display shape: rows can carry an `image` the OrderItem type does not model. */
+type DisplayOrderItem = OrderItem & { image?: string };
+
+/** An order row as stored (snake_case) or as sent by the client (camelCase). */
+interface OrderRow {
+    id?: string;
+    order_number?: string; orderNumber?: string;
+    user_id?: string | null; userId?: string | null;
+    is_guest?: boolean; isGuest?: boolean;
+    customer_name?: string; customerName?: string;
+    customer_email?: string; customerEmail?: string;
+    customer_phone?: string; customerPhone?: string;
+    items?: OrderItemRow[]; line_items?: OrderItemRow[];
+    subtotal?: number | string; sub_total?: number | string;
+    tax?: number | string; discount?: number | string;
+    total?: number | string; total_amount?: number | string;
+    payment_method?: string; paymentMethod?: string;
+    payment_status?: string; paymentStatus?: string; status?: string;
+    order_type?: string; orderType?: string;
+    shipping_address?: Order['shippingAddress'] | null;
+    shipping_info?: Order['shippingAddress'] | null;
+    shippingInfo?: Order['shippingAddress'] | null;
+    shippingAddress?: Order['shippingAddress'] | null;
+    notes?: string;
+    created_at?: string; createdAt?: string;
+    paid_at?: string | null; paidAt?: string | null;
+    sg_coin_reward?: number; sgCoinReward?: number;
+    paid_amount?: number | string | null; paidAmount?: number | string | null;
+    balance_due?: number | string | null; balanceDue?: number | string | null;
+}
+
 // The orders table stores no product image (acceptCheckout writes
 // productImage: ''), so a recorded order is merged with the order the client
 // built for display only: every money field stays the record's.
 function withLocalItemImages(recorded: Order, local: Order): Order {
     return {
         ...recorded,
-        items: recorded.items.map((item: any, index: number) => {
-            const mine: any = local.items[index];
+        items: recorded.items.map((item: DisplayOrderItem, index: number) => {
+            const mine = local.items[index] as DisplayOrderItem | undefined;
             if (!mine) return item;
             return { ...item, image: item.image || mine.image || '', productImage: item.productImage || mine.productImage || '' };
         }),
@@ -37,9 +83,9 @@ export function useOrders(
     // lifetime stats it derives) must be the RECORDED order: the client's own
     // object still carries the pre-coupon estimate, so a comped order would read
     // full price on the confirmation page.
-    const mapOrderRows = useCallback((data: any[]): Order[] => (Array.isArray(data) ? data : []).map((o: any) => {
+    const mapOrderRows = useCallback((data: unknown): Order[] => (Array.isArray(data) ? data : []).map((o: OrderRow) => {
             const items = Array.isArray(o.items) ? o.items : Array.isArray(o.line_items) ? o.line_items : [];
-            const normalizedItems = items.map((item: any, index: number) => {
+            const normalizedItems = items.map((item, index) => {
                 const quantity = Math.max(1, Number(item.quantity || item.qty || 1));
                 const keychainClipOn = Boolean(item.keychainClipOn ?? item.keychain_clip_on);
                 const basePrice = Number(item.basePrice || item.base_price || item.unit_price || item.price || 0);
@@ -61,7 +107,7 @@ export function useOrders(
             return {
                 id: o.id || Math.random().toString(36).substr(2, 9),
                 orderNumber: o.order_number || o.orderNumber || 'ORD-UNKNOWN',
-                userId: o.user_id || o.userId || null, isGuest: o.is_guest ?? o.isGuest ?? true,
+                userId: o.user_id || o.userId || undefined, isGuest: o.is_guest ?? o.isGuest ?? true,
                 customerName: o.customer_name || o.customerName || 'Anonymous',
                 customerEmail: o.customer_email || o.customerEmail || '',
                 customerPhone: o.customer_phone || o.customerPhone || '',
@@ -70,19 +116,19 @@ export function useOrders(
                 tax: Number(o.tax || 0), discount: Number(o.discount || 0),
                 total: Number(o.total || o.total_amount || 0),
                 paymentMethod: o.payment_method || o.paymentMethod || 'unknown',
-                paymentStatus: o.payment_status || o.paymentStatus || o.status || 'pending',
-                orderType: o.order_type || o.orderType || 'online',
-                shippingAddress: o.shipping_address || o.shipping_info || o.shippingInfo || o.shippingAddress || null,
+                paymentStatus: (o.payment_status || o.paymentStatus || o.status || 'pending') as OrderStatus,
+                orderType: (o.order_type || o.orderType || 'online') as Order['orderType'],
+                shippingAddress: o.shipping_address || o.shipping_info || o.shippingInfo || o.shippingAddress || undefined,
                 notes: o.notes || '',
                 createdAt: o.created_at || o.createdAt || new Date().toISOString(),
-                paidAt: o.paid_at || o.paidAt || null,
+                paidAt: o.paid_at || o.paidAt || undefined,
                 sgCoinReward: Number(o.sg_coin_reward || o.sgCoinReward || 0),
                 paidAmount: o.paid_amount != null ? Number(o.paid_amount) : (o.paidAmount != null ? Number(o.paidAmount) : undefined),
                 balanceDue: o.balance_due != null ? Number(o.balance_due) : (o.balanceDue != null ? Number(o.balanceDue) : undefined)
             };
     }), []);
 
-    const mapAndSetOrders = useCallback((data: any[]) => {
+    const mapAndSetOrders = useCallback((data: unknown) => {
         if (!data || !Array.isArray(data)) return orders;
         const mapped = mapOrderRows(data);
         setOrders(mapped);

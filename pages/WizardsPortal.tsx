@@ -6,21 +6,19 @@ import { fetchSGCoinData } from '../utils/sgcoinApi';
 import { useApp } from '../context/AppContext';
 import Seo from '../components/Seo';
 import { getBurnedSGCoinV1, getRobustProvider } from '../services/web3Service';
-import { POLYGON_RPC_URL } from '../constants';
 import { useLiquidity } from '../hooks/useLiquidity';
+import type { SGCoinData } from '../types';
 
 const WizardsPortal = () => {
     const { user } = useApp();
     const walletAddress = user?.walletAddress;
-    const [coinData, setCoinData] = useState<any>(null);
+    const [coinData, setCoinData] = useState<SGCoinData | null>(null);
     const [totalBurned, setTotalBurned] = useState<string>("1,777,161+ SGC");
 
     // Dynamic Liquidity Tracking
     const {
         liquidity,
-        target,
         progress,
-        currentUSDValue,
         isLoading: isLiquidityLoading
     } = useLiquidity();
 
@@ -261,7 +259,7 @@ const WizardsPortal = () => {
                         ].map((stat, idx) => (
                             <div key={idx} className="p-8 rounded-3xl border border-white/5 bg-white/[0.03] backdrop-blur-3xl group hover:border-purple-500/20 transition-all">
                                 <div className={`p-3 rounded-xl bg-${stat.color === 'purple' ? 'purple' : 'blue'}-500/10 border border-${stat.color === 'purple' ? 'purple' : 'blue'}-500/20 w-fit mb-6 group-hover:scale-110 transition-transform`}>
-                                    {React.cloneElement(stat.icon as React.ReactElement<any>, { className: `w-6 h-6 text-${stat.color === 'purple' ? 'purple' : 'blue'}-400` })}
+                                    {React.cloneElement(stat.icon as React.ReactElement<{ className?: string }>, { className: `w-6 h-6 text-${stat.color === 'purple' ? 'purple' : 'blue'}-400` })}
                                 </div>
                                 <div className="text-[10px] uppercase tracking-[0.3em] font-bold text-gray-500 mb-2">{stat.label}</div>
                                 <div className="text-3xl font-black tracking-tight text-white">{stat.value}</div>

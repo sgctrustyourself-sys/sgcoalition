@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, CheckCircle, XCircle, Eye, Calendar, Wallet, Mail, DollarSign, FileText, Loader, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { errorMessage } from '../../utils/errorMessage';
 import { getAllPurchaseRequests, approvePurchaseRequest, rejectPurchaseRequest, PurchaseRequest } from '../../services/purchaseRequest';
 import { sendApprovalEmail, sendRejectionEmail } from '../../services/emailService';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface SGCoinRequestManagerProps {
     adminWalletAddress: string;
@@ -18,6 +20,26 @@ const SGCoinRequestManager: React.FC<SGCoinRequestManagerProps> = ({ adminWallet
     const [isProcessing, setIsProcessing] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
     const [showRejectModal, setShowRejectModal] = useState(false);
+
+    // Escape + focus containment for the two overlays in this tab. Both are
+    // opened from a row in the table, so the trap returns focus there.
+    const detailsDialogRef = useRef<HTMLDivElement>(null);
+    const rejectDialogRef = useRef<HTMLDivElement>(null);
+
+    // The details panel is the base layer; the rejection dialog stacks on top
+    // of it and owns focus, and Escape, while it is open.
+    useFocusTrap({
+        active: Boolean(selectedRequest) && !showRejectModal,
+        containerRef: detailsDialogRef,
+        onEscape: () => setSelectedRequest(null),
+    });
+    // Escape is inert while the rejection is being written: its controls are
+    // all disabled then, so closing would strand the operator with no result.
+    useFocusTrap({
+        active: showRejectModal && Boolean(selectedRequest) && !isProcessing,
+        containerRef: rejectDialogRef,
+        onEscape: () => { setShowRejectModal(false); setRejectionReason(''); },
+    });
 
     useEffect(() => {
         loadRequests();
@@ -59,8 +81,8 @@ const SGCoinRequestManager: React.FC<SGCoinRequestManagerProps> = ({ adminWallet
             await loadRequests();
             setSelectedRequest(null);
             addToast('Request approved and customer notified!', 'success');
-        } catch (error: any) {
-            addToast('Error approving request: ' + error.message, 'error');
+        } catch (error) {
+            addToast('Error approving request: ' + errorMessage(error), 'error');
         } finally {
             setIsProcessing(false);
         }
@@ -82,8 +104,8 @@ const SGCoinRequestManager: React.FC<SGCoinRequestManagerProps> = ({ adminWallet
             setShowRejectModal(false);
             setRejectionReason('');
             addToast('Request rejected and customer notified', 'success');
-        } catch (error: any) {
-            addToast('Error rejecting request: ' + error.message, 'error');
+        } catch (error) {
+            addToast('Error rejecting request: ' + errorMessage(error), 'error');
         } finally {
             setIsProcessing(false);
         }
@@ -203,10 +225,16 @@ const SGCoinRequestManager: React.FC<SGCoinRequestManagerProps> = ({ adminWallet
             {/* Request Detail Modal */}
             {selectedRequest && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-gray-900 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div
+                        ref={detailsDialogRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="purchase-details-title"
+                        className="bg-gray-900 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                    >
                         {/* Header */}
                         <div className="flex items-center justify-between p-6 border-b border-gray-800">
-                            <h2 className="text-2xl font-bold text-white">Purchase Request Details</h2>
+                            <h2 id="purchase-details-title" className="text-2xl font-bold text-white">Purchase Request Details</h2>
                             <button
                                 onClick={() => setSelectedRequest(null)}
                                 className="p-2 hover:bg-gray-800 rounded-lg transition"
@@ -341,9 +369,15 @@ const SGCoinRequestManager: React.FC<SGCoinRequestManagerProps> = ({ adminWallet
             {/* Reject Modal */}
             {showRejectModal && selectedRequest && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-gray-900 rounded-xl shadow-2xl max-w-md w-full">
+                    <div
+                        ref={rejectDialogRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="purchase-reject-title"
+                        className="bg-gray-900 rounded-xl shadow-2xl max-w-md w-full"
+                    >
                         <div className="p-6">
-                            <h3 className="text-xl font-bold text-white mb-4">Reject Request</h3>
+                            <h3 id="purchase-reject-title" className="text-xl font-bold text-white mb-4">Reject Request</h3>
                             <p className="text-gray-400 mb-4">
                                 Please provide a reason for rejecting this request. The customer will receive this in an email.
                             </p>
@@ -351,6 +385,7 @@ const SGCoinRequestManager: React.FC<SGCoinRequestManagerProps> = ({ adminWallet
                                 value={rejectionReason}
                                 onChange={(e) => setRejectionReason(e.target.value)}
                                 placeholder="e.g., Payment proof is unclear, incorrect amount sent, etc."
+                                aria-label="Rejection reason"
                                 className="w-full bg-gray-800 border border-gray-700 p-3 rounded-lg text-white placeholder-gray-500 focus:border-gray-600 focus:outline-none h-32 resize-none"
                             />
                             <div className="flex gap-3 mt-4">
@@ -359,7 +394,8 @@ const SGCoinRequestManager: React.FC<SGCoinRequestManagerProps> = ({ adminWallet
                                         setShowRejectModal(false);
                                         setRejectionReason('');
                                     }}
-                                    className="flex-1 bg-gray-800 text-white py-2 rounded-lg font-medium hover:bg-gray-700 transition"
+                                    disabled={isProcessing}
+                                    className="flex-1 bg-gray-800 text-white py-2 rounded-lg font-medium hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Cancel
                                 </button>

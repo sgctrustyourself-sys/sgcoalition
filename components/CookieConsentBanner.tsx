@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Cookie, X } from 'lucide-react';
 import { useCookieConsent } from '../hooks/useCookieConsent';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
     OPEN_CONSENT_EVENT,
     acceptAllConsent,
@@ -30,12 +31,10 @@ const CookieConsentBanner: React.FC = () => {
     });
 
     const dialogRef = useRef<HTMLDivElement>(null);
-    const restoreFocusRef = useRef<HTMLElement | null>(null);
 
     // Footer "Cookie Settings" (and anything else) can reopen the panel.
     useEffect(() => {
         const openSettings = () => {
-            restoreFocusRef.current = document.activeElement as HTMLElement | null;
             setDraft({ statistics: consent.statistics, marketing: consent.marketing });
             setBannerOpen(false);
             setDetailsOpen(true);
@@ -45,17 +44,16 @@ const CookieConsentBanner: React.FC = () => {
         return () => window.removeEventListener(OPEN_CONSENT_EVENT, openSettings);
     }, [consent.statistics, consent.marketing]);
 
-    // Move focus into the panel and stop the page scrolling behind it.
+    // Stop the page scrolling behind the preferences dialog. Focus entry,
+    // containment and Escape belong to the shared trap below.
     useEffect(() => {
         if (!detailsOpen) return;
 
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
-        dialogRef.current?.focus();
 
         return () => {
             document.body.style.overflow = previousOverflow;
-            restoreFocusRef.current?.focus?.();
         };
     }, [detailsOpen]);
 
@@ -63,6 +61,8 @@ const CookieConsentBanner: React.FC = () => {
         setDetailsOpen(false);
         setBannerOpen(false);
     };
+
+    useFocusTrap({ active: detailsOpen, containerRef: dialogRef, onEscape: close });
 
     const acceptAll = () => {
         acceptAllConsent();
@@ -100,9 +100,6 @@ const CookieConsentBanner: React.FC = () => {
                     aria-modal="true"
                     aria-labelledby="cookie-preferences-title"
                     tabIndex={-1}
-                    onKeyDown={(event) => {
-                        if (event.key === 'Escape') setDetailsOpen(false);
-                    }}
                     className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-sm border border-white/15 bg-[#0b0b0b] p-6 text-white shadow-2xl focus:outline-none sm:p-8"
                 >
                     <div className="flex items-start justify-between gap-4">

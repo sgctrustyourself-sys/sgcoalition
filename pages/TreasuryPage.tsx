@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
 import { Zap, Flame, Shield, Coins, ArrowUpRight, TrendingUp, Info, RefreshCw, Wallet } from 'lucide-react';
 import { getBurnedSGCoinV1, getLiquidityProviderV2Balance, getRecentBurnActivity, BurnActivity, getRobustProvider, getNativeBalance } from '../services/web3Service';
-import { TREASURY_WALLET_ADDRESS, LIQUIDITY_TARGET_POL } from '../constants';
+import { TREASURY_WALLET_ADDRESS } from '../constants';
 import { fetchPoolBreakdown, PoolBreakdown } from '../utils/sgcoinApi';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 
@@ -20,7 +19,7 @@ const TreasuryPage: React.FC = () => {
                 const provider = await getRobustProvider();
 
                 // Fetch burn/treasury stats + pool breakdown in parallel
-                const [burned, v2LpBalance, treasuryBal, activity, breakdown] = await Promise.all([
+                const [burned, , treasuryBal, activity, breakdown] = await Promise.all([
                     getBurnedSGCoinV1(provider),
                     getLiquidityProviderV2Balance(provider),
                     getNativeBalance(TREASURY_WALLET_ADDRESS, provider),
@@ -272,8 +271,16 @@ const TreasuryPage: React.FC = () => {
     );
 };
 
-const StatCard = ({ label, value, subtext, icon, color }: any) => {
-    const colors: any = {
+type StatCardProps = {
+    label: string;
+    value: React.ReactNode;
+    subtext?: string;
+    icon: React.ReactNode;
+    color: 'orange' | 'purple' | 'blue';
+};
+
+const StatCard = ({ label, value, subtext, icon, color }: StatCardProps) => {
+    const colors: Record<StatCardProps['color'], string> = {
         orange: 'bg-orange-500/10 border-orange-500/20 text-orange-400',
         purple: 'bg-purple-500/10 border-purple-500/20 text-purple-400',
         blue: 'bg-blue-500/10 border-blue-500/20 text-blue-400',

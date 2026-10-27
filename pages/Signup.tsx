@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Mail, Lock, User, ArrowRight, Loader2, Phone, MapPin, Bell } from 'lucide-react';
 import AuthLayout from '../components/AuthLayout';
 import { signUpWithEmail, signInWithDiscord } from '../services/auth';
 import { toE164 } from '../utils/phone';
 
 const Signup = () => {
-    const navigate = useNavigate();
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -43,10 +42,12 @@ const Signup = () => {
             console.error('❌ Signup error details:', error);
             // Log full error object for debugging
             if (error instanceof Object) {
-                console.error('Error code:', (error as any).code);
-                console.error('Error details:', (error as any).details);
-                console.error('Error hint:', (error as any).hint);
-                const detailedError = (error as any).details || (error as any).message || JSON.stringify(error);
+                // Supabase auth errors carry these fields beyond Error's own.
+                const detail = error as { code?: string; details?: string; hint?: string; message?: string };
+                console.error('Error code:', detail.code);
+                console.error('Error details:', detail.details);
+                console.error('Error hint:', detail.hint);
+                const detailedError = detail.details || detail.message || JSON.stringify(error);
                 setError(`Database Error: ${detailedError}`);
             } else {
                 setError(String(error));

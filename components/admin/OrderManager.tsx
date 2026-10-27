@@ -1,16 +1,18 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 import { Order } from '../../types';
-import { Search, Filter, Eye, Download, Trash2, X, Plus, ChevronLeft, ChevronRight, FileText, Gift, User, Mail, Phone, Calendar, Hash, DollarSign, CreditCard, CheckCircle, Clock, AlertCircle, WalletCards, Package } from 'lucide-react';
+import { Search, Eye, Download, Trash2, X, Plus, FileText, AlertCircle, WalletCards, Package } from 'lucide-react';
 import { reconcileBalancePayment } from '../../services/reconcilePayment';
 import { buyLabelForOrder } from '../../services/buyLabel';
 import { fetchShipmentStatuses, type ShipmentStatusRow } from '../../services/adminShipments';
 import { STALE_PENDING_DAYS, ageDays } from '../../utils/orderAge';
+import { errorMessage } from '../../utils/errorMessage';
 import ManualOrderForm from '../ManualOrderForm';
 import PaymentRecordModal from './PaymentRecordModal';
 import Invoice from '../Invoice';
 import CustomerLinkModal from './CustomerLinkModal';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 // Wholesale placeholder strings are the same privacy-anonymized values
 // locked in tests/liveOrdersFeed.test.ts + scripts/upsertFriiqyDenimPatchwork.ts:
@@ -115,6 +117,26 @@ const OrderManager: React.FC = () => {
     const [shipments, setShipments] = useState<Record<string, ShipmentStatusRow>>({});
     const [shipmentsLoadFailed, setShipmentsLoadFailed] = useState(false);
 
+    // Escape + focus containment for the two overlays this tab owns. Every one
+    // of them is opened from a button in the table below, so the trap returns
+    // focus to the exact control the operator pressed.
+    const detailsDialogRef = useRef<HTMLDivElement>(null);
+    const deleteConfirmRef = useRef<HTMLDivElement>(null);
+
+    // The details panel is the base layer: the payment recorder and the
+    // customer-link overlay both stack on top of it, and while either is open
+    // focus belongs to that layer rather than to the panel underneath.
+    useFocusTrap({
+        active: Boolean(selectedOrder) && !showPaymentModal && !selectedCustomerOrder && !showInvoice,
+        containerRef: detailsDialogRef,
+        onEscape: () => setSelectedOrder(null),
+    });
+    useFocusTrap({
+        active: Boolean(showDeleteConfirm),
+        containerRef: deleteConfirmRef,
+        onEscape: () => setShowDeleteConfirm(null),
+    });
+
     const [searchTerm, setSearchTerm] = useState(() => {
         // One-shot handoff from pages/Admin.tsx: a webhook alert email links
         // to /#/admin?tab=orders&q=<order id>, Admin stores the q param in
@@ -144,7 +166,7 @@ const OrderManager: React.FC = () => {
                 // Alert-email deep links search by the raw order id
                 // (order_<ts>), which is not the same as orderNumber
                 // (ORD-<ts>) — match both so the id always finds the row.
-                (order as any).id?.toLowerCase?.().includes(term);
+                ((order as { id?: string }).id ?? '').toLowerCase().includes(term);
 
             const matchesStatus = filterStatus === 'all' || order.paymentStatus === filterStatus;
             const matchesType = filterType === 'all' || order.orderType === filterType;
@@ -258,9 +280,9 @@ const OrderManager: React.FC = () => {
             } else {
                 addToast(result.error || 'Failed to reconcile balance.', 'error');
             }
-        } catch (err: any) {
+        } catch (err) {
             console.error('Reconcile balance failed:', err);
-            addToast(err.message || 'Failed to reconcile balance payment.', 'error');
+            addToast(errorMessage(err) || 'Failed to reconcile balance payment.', 'error');
         } finally {
             setReconcilingOrderId(null);
         }
@@ -324,9 +346,9 @@ const OrderManager: React.FC = () => {
             } else {
                 addToast(`Label purchase hit a transient error (${result.reason}). Click again in a moment.`, 'error');
             }
-        } catch (err: any) {
+        } catch (err) {
             console.error('Buy label failed:', err);
-            addToast(err.message || 'Failed to buy label.', 'error');
+            addToast(errorMessage(err) || 'Failed to buy label.', 'error');
         } finally {
             setBuyingLabelFor(null);
         }
@@ -337,7 +359,7 @@ const OrderManager: React.FC = () => {
         setIsUpdatingStatus(true);
         try {
             await updateOrderStatus(orderId, pendingStatus);
-            setSelectedOrder(prev => prev ? { ...prev, paymentStatus: pendingStatus as any } : null);
+            setSelectedOrder(prev => prev ? { ...prev, paymentStatus: pendingStatus as Order['paymentStatus'] } : null);
         } catch (error) {
             console.error('Failed to update status:', error);
         } finally {
@@ -575,9 +597,15 @@ const OrderManager: React.FC = () => {
             {/* Order Details Modal */}
             {selectedOrder && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="bg-gray-900 border border-white/10 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div
+                        ref={detailsDialogRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="order-details-title"
+                        className="bg-gray-900 border border-white/10 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                    >
                         <div className="p-6 border-b border-white/10 flex justify-between items-center">
-                            <h2 className="text-xl font-bold text-white uppercase">Order Details</h2>
+                            <h2 id="order-details-title" className="text-xl font-bold text-white uppercase">Order Details</h2>
                             <button
                                 onClick={() => setSelectedOrder(null)}
                                 className="text-gray-400 hover:text-white transition"
@@ -721,9 +749,15 @@ const OrderManager: React.FC = () => {
             {/* Delete Confirmation */}
             {showDeleteConfirm && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="bg-gray-900 border border-white/10 rounded-xl p-6 max-w-sm w-full text-center">
+                    <div
+                        ref={deleteConfirmRef}
+                        role="alertdialog"
+                        aria-modal="true"
+                        aria-labelledby="delete-order-title"
+                        className="bg-gray-900 border border-white/10 rounded-xl p-6 max-w-sm w-full text-center"
+                    >
                         <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                        <h3 className="text-lg font-bold text-white mb-2">Delete Order?</h3>
+                        <h3 id="delete-order-title" className="text-lg font-bold text-white mb-2">Delete Order?</h3>
                         <p className="text-gray-400 mb-6">This action cannot be undone.</p>
                         <div className="flex gap-3 justify-center">
                             <button

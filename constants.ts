@@ -2,7 +2,6 @@ import { Order, OrderStatus, Product, Section } from "./types";
 
 // Use explicit /index path — './constants' resolves to root constants.ts, not the directory barrel
 export * from './constants/index';
-import { PRODUCT_IMAGE_URLS } from "./utils/localImageAssets";
 import { SITE_NAME } from "./utils/seo";
 
 // Prose only (archiveNote / founderNote). Whether a piece is sold, archived, or

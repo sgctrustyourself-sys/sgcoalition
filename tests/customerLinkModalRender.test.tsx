@@ -4,12 +4,25 @@
 //
 // Tests the modal in isolation by mocking utils/customerProfile's two
 // builders directly. The smart-fallback contract is load-bearing.
+//
+// Mounting goes through tests/_helpers/adminSurface.tsx, which owns the
+// AppContext/ToastContext stubs, the container/root pair and the teardown — the
+// modal reads no context itself, but every admin render test mounts the same way
+// so none of them can drift into hand-rolling its own root.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import React from 'react';
-import { createElement, act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
+import {
+    appContextStub,
+    renderAdminSurface,
+    toastContextStub,
+} from './_helpers/adminSurface';
 
+// Type-only: the component itself is reached through the loader below, because a
+// value import here would resolve against the mocked contexts before the
+// harness gets a chance to check them.
+import type CustomerLinkModal from '../components/admin/CustomerLinkModal';
 vi.mock('lucide-react', async () => {
     const actual = await vi.importActual<any>('lucide-react');
     return {
@@ -66,9 +79,19 @@ const GUEST_PROFILE = {
     isVerifiedBuyer: true,
 };
 
+// The harness cannot register the contexts for us — vitest scopes module mocks
+// to the file that calls them (see the harness header). Two lines, once per
+// file, and the surface itself arrives as a loader so it resolves against them.
+vi.doMock('../context/AppContext', appContextStub);
+vi.doMock('../context/ToastContext', toastContextStub);
+
+const loadCustomerLinkModal = () => import('../components/admin/CustomerLinkModal');
+
+// Module-scoped because the assertions below read it by name; each render
+// assigns the harness's own container.
+let container: HTMLDivElement;
+
 describe('CustomerLinkModal render + state contract', () => {
-    let container: HTMLDivElement;
-    let root: Root;
     let onCloseMock: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
@@ -76,27 +99,25 @@ describe('CustomerLinkModal render + state contract', () => {
         mockedProfileBuilder.mockReset();
         mockedGuestBuilder.mockReset();
         onCloseMock = vi.fn();
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
-    afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
-    });
-
-    const renderModal = (props: Partial<React.ComponentProps<typeof CustomerLinkModal>> = {}) => {
-        act(() => {
-            root.render(createElement(CustomerLinkModal, {
+    // Every render goes through the harness, so the second call in
+    // STATE_PROPAGATION mounts a fresh surface with the new props instead of
+    // re-rendering the old tree — the state under test is the mount's, not a
+    // leftover of the first one.
+    const renderModal = async (props: Partial<React.ComponentProps<typeof CustomerLinkModal>> = {}) => {
+        const surface = await renderAdminSurface(loadCustomerLinkModal, {
+            props: {
                 userId: 'user-real-123',
                 customerEmail: 'real@buyer.com',
                 customerName: 'Real Buyer',
                 orderId: 'order-test-001',
                 onClose: onCloseMock,
                 ...props,
-            }));
+            },
         });
+        container = surface.container;
+        return surface;
     };
 
     const flushPromises = async () => {
@@ -106,9 +127,19 @@ describe('CustomerLinkModal render + state contract', () => {
     };
 
     it('PROFILE_PATH: userId is real auth -> buildCustomerProfile returns profile -> renders PROFILE state with LTV', async () => {
-        mockedProfileBuilder.mockResolvedValueOnce(FULL_PROFILE);
-        renderModal();
+        // Held open deliberately: the harness's render flushes a microtask, so a
+        // resolved-once mock would already be in PROFILE state here. A controlled
+        // promise makes the loading assertion deterministic instead of
+        // timing-dependent.
+        let releaseProfile: (profile: unknown) => void = () => {};
+        mockedProfileBuilder.mockReturnValueOnce(
+            new Promise((resolve) => { releaseProfile = resolve; }),
+        );
+
+        await renderModal();
         expect(container.querySelector('[data-state="loading"]')).toBeTruthy();
+
+        releaseProfile(FULL_PROFILE);
         await flushPromises();
         expect(container.querySelector('[data-state="profile"]')).toBeTruthy();
         expect(container.innerHTML).toContain('LTV');
@@ -121,7 +152,7 @@ describe('CustomerLinkModal render + state contract', () => {
     it('GUEST_PATH: profile returns null + email set -> falls back to buildCustomerProfileByEmail -> renders GUEST state', async () => {
         mockedProfileBuilder.mockResolvedValueOnce(null);
         mockedGuestBuilder.mockResolvedValueOnce(GUEST_PROFILE);
-        renderModal();
+        await renderModal();
         await flushPromises();
         expect(container.querySelector('[data-state="guest"]')).toBeTruthy();
         expect(container.querySelector('[data-state="profile"]')).toBeNull();
@@ -132,7 +163,7 @@ describe('CustomerLinkModal render + state contract', () => {
 
     it('METAMASK_FALLBACK: userId starts with "user_eth_" + email -> skips profile path entirely', async () => {
         mockedGuestBuilder.mockResolvedValueOnce(GUEST_PROFILE);
-        renderModal({ userId: 'user_eth_0xabc123def456abc123def456abc123def456abc1', customerEmail: 'metamask@wallet.com' });
+        await renderModal({ userId: 'user_eth_0xabc123def456abc123def456abc123def456abc1', customerEmail: 'metamask@wallet.com' });
         await flushPromises();
         expect(mockedProfileBuilder).not.toHaveBeenCalled();
         expect(mockedGuestBuilder).toHaveBeenCalledWith('metamask@wallet.com');
@@ -141,7 +172,7 @@ describe('CustomerLinkModal render + state contract', () => {
 
     it('EMAIL_ONLY: no userId provided -> goes straight to GUEST path', async () => {
         mockedGuestBuilder.mockResolvedValueOnce(GUEST_PROFILE);
-        renderModal({ userId: undefined, customerEmail: 'email-only@buyer.com' });
+        await renderModal({ userId: undefined, customerEmail: 'email-only@buyer.com' });
         await flushPromises();
         expect(mockedProfileBuilder).not.toHaveBeenCalled();
         expect(mockedGuestBuilder).toHaveBeenCalledWith('email-only@buyer.com');
@@ -152,7 +183,7 @@ describe('CustomerLinkModal render + state contract', () => {
         vi.spyOn(console, 'warn').mockImplementation(() => {});
         mockedProfileBuilder.mockRejectedValueOnce(new Error('profile lookup down'));
         mockedGuestBuilder.mockRejectedValueOnce(new Error('guest lookup down'));
-        renderModal({ customerEmail: 'broken@example.com' });
+        await renderModal({ customerEmail: 'broken@example.com' });
         await flushPromises();
         const errorBlock = container.querySelector('[data-state="error"]');
         expect(errorBlock).toBeTruthy();
@@ -162,7 +193,7 @@ describe('CustomerLinkModal render + state contract', () => {
 
     it('CLOSE_BUTTON: clicking the X button fires onClose callback exactly once', async () => {
         mockedProfileBuilder.mockResolvedValueOnce(FULL_PROFILE);
-        renderModal();
+        await renderModal();
         await flushPromises();
         expect(onCloseMock).not.toHaveBeenCalled();
         const closeBtn = container.querySelector('[data-testid="customer-link-modal-close"]') as HTMLButtonElement | null;
@@ -174,7 +205,7 @@ describe('CustomerLinkModal render + state contract', () => {
     it('STATE_PROPAGATION: passing userId change re-runs the resolver (MetaMask triggers email path)', async () => {
         // First render: real user -> PROFILE state via mocked profile builder.
         mockedProfileBuilder.mockResolvedValueOnce(FULL_PROFILE);
-        renderModal({ userId: 'user-real-123', customerEmail: 'real@buyer.com' });
+        await renderModal({ userId: 'user-real-123', customerEmail: 'real@buyer.com' });
         await flushPromises();
         expect(container.querySelector('[data-state="profile"]')).toBeTruthy();
         expect(mockedProfileBuilder).toHaveBeenCalledTimes(1);
@@ -187,14 +218,11 @@ describe('CustomerLinkModal render + state contract', () => {
         // NEW email + the resulting state is guest, not the loading
         // intermediate. Assert both.
         mockedGuestBuilder.mockResolvedValueOnce({ ...GUEST_PROFILE, email: 'metamask@wallet.com' });
-        await act(async () => {
-            root.render(createElement(CustomerLinkModal, {
-                userId: 'user_eth_0xabc123def456abc123def456abc123def456abc1',
-                customerEmail: 'metamask@wallet.com',
-                customerName: 'MetaMask Buyer',
-                orderId: 'order-test-002',
-                onClose: onCloseMock,
-            }));
+        await renderModal({
+            userId: 'user_eth_0xabc123def456abc123def456abc123def456abc1',
+            customerEmail: 'metamask@wallet.com',
+            customerName: 'MetaMask Buyer',
+            orderId: 'order-test-002',
         });
         await flushPromises();
 

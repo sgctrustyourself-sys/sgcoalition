@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Send, Check, Clock, User as UserIcon } from 'lucide-react';
-import { ChatConversation, ChatMessage } from '../../types/chatTypes';
-import { getAllConversations, addMessage, getConversation, saveConversation } from '../../utils/chatUtils';
+import { MessageCircle, Send, Check, User as UserIcon } from 'lucide-react';
+import { ChatConversation } from '../../types/chatTypes';
+import { getAllConversations, addMessage, saveConversation } from '../../utils/chatUtils';
 
 const AdminChatDashboard = () => {
     const [conversations, setConversations] = useState<ChatConversation[]>([]);
@@ -40,7 +40,7 @@ const AdminChatDashboard = () => {
     const handleSend = () => {
         if (!message.trim() || !selectedConversation) return;
 
-        const newMessage = addMessage(
+        addMessage(
             selectedConversation.id,
             'admin',
             'Coalition Support',
@@ -208,6 +208,7 @@ const AdminChatDashboard = () => {
                                         onClick={handleSend}
                                         disabled={!message.trim()}
                                         className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                        aria-label="Send response"
                                     >
                                         <Send className="w-5 h-5" />
                                     </button>

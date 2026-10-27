@@ -56,7 +56,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         try {
             const success = await loginAdmin(adminPassword);
             if (!success) setLoginError(true);
-        } catch (err) {
+        } catch {
             setLoginError(true);
         } finally {
             setIsLoggingIn(false);
@@ -69,7 +69,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         try {
             const success = await loginAdminWallet();
             if (!success) setWalletError(true);
-        } catch (err) {
+        } catch {
             setWalletError(true);
         } finally {
             setIsWalletLogin(false);

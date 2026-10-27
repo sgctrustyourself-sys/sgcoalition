@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface PhotoLightboxProps {
     photos: string[];
@@ -9,11 +10,15 @@ interface PhotoLightboxProps {
 
 const PhotoLightbox: React.FC<PhotoLightboxProps> = ({ photos, initialIndex = 0, onClose }) => {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // Escape and focus containment come from the shared hook; this component
+    // keeps only its own arrow-key navigation below.
+    useFocusTrap({ active: true, containerRef: panelRef, onEscape: onClose });
 
     // Keyboard navigation
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
             if (e.key === 'ArrowLeft') handlePrevious();
             if (e.key === 'ArrowRight') handleNext();
         };
@@ -32,7 +37,11 @@ const PhotoLightbox: React.FC<PhotoLightboxProps> = ({ photos, initialIndex = 0,
 
     return (
         <div
+            ref={panelRef}
             className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Photo viewer"
             onClick={onClose}
         >
             {/* Close Button */}

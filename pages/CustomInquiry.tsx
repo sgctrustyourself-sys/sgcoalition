@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shirt, Scissors, Box, Sparkles, Upload, CheckCircle, AlertCircle, Loader2, ArrowLeft, X, Layers, Wallet } from 'lucide-react'; // Removed unused icons
 import { uploadAllInquiryImages, validateInquiryImage } from '../services/inquiryUpload';
-import { useApp } from '../context/AppContext';
 import { motion, AnimatePresence } from 'motion/react';
+import type { CustomInquiry as CustomInquiryPayload } from '../types';
 
 const CustomInquiry = () => {
     const navigate = useNavigate();
@@ -147,9 +147,9 @@ const CustomInquiry = () => {
             setLoading(false);
             window.scrollTo(0, 0);
 
-        } catch (err: any) {
+        } catch (err) {
             console.error('Submission error:', err);
-            setError(err.message || 'Failed to submit inquiry. Please try again.');
+            setError((err instanceof Error ? err.message : String(err)) || 'Failed to submit inquiry. Please try again.');
             setLoading(false);
             window.scrollTo(0, 0);
         }
@@ -426,7 +426,7 @@ const CustomInquiry = () => {
                                 <div className="relative">
                                     <select
                                         value={formData.budgetRange}
-                                        onChange={(e) => setFormData({ ...formData, budgetRange: e.target.value as any })}
+                                        onChange={(e) => setFormData({ ...formData, budgetRange: e.target.value as CustomInquiryPayload['budgetRange'] })}
                                         className="w-full bg-black border border-gray-700 rounded-xl p-4 text-white focus:border-purple-500 outline-none transition appearance-none cursor-pointer"
                                         required
                                         aria-label="Target Budget"
@@ -446,7 +446,7 @@ const CustomInquiry = () => {
                                 <div className="relative">
                                     <select
                                         value={formData.timeline}
-                                        onChange={(e) => setFormData({ ...formData, timeline: e.target.value as any })}
+                                        onChange={(e) => setFormData({ ...formData, timeline: e.target.value as CustomInquiryPayload['timeline'] })}
                                         className="w-full bg-black border border-gray-700 rounded-xl p-4 text-white focus:border-purple-500 outline-none transition appearance-none cursor-pointer"
                                         required
                                         aria-label="Timeline"

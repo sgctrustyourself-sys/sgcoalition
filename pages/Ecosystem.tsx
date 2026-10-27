@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Trophy, ExternalLink, Gift, Clock, Users, CheckCircle, ArrowRight, MessageCircle, Star, Share2, DollarSign, ShoppingBag, Wallet, Flame, Zap, Shield, Sparkles, Activity, Copy, Check, Mail, ChevronDown, RefreshCw } from 'lucide-react';
+import { Trophy, ExternalLink, Gift, Clock, Users, CheckCircle, ArrowRight, MessageCircle, Star, Share2, DollarSign, ShoppingBag, Wallet, Zap, Shield, Sparkles, Activity, Copy, Mail, ChevronDown, RefreshCw } from 'lucide-react';
 import SGCoinCard from '../components/SGCoinCard';
 import LiveTransactions from '../components/LiveTransactions';
 import BurnTracker from '../components/BurnTracker';
@@ -11,8 +11,9 @@ import LiveOrdersTicker from '../components/LiveOrdersTicker';
 import { useApp } from '../context/AppContext';
 import { fetchSGCoinData, fetchPoolBreakdown, PoolBreakdown } from '../utils/sgcoinApi';
 import { getGiveawayTicketCount, isSubscriberEligible } from '../utils/giveawayUtils';
+import type { Giveaway, SGCoinData } from '../types';
 
-import { V2_REWARD_RATE, FOUNDER_WALLET_ADDRESS, TREASURY_WALLET_ADDRESS, QUICKSWAP_SWAP_URL } from '../constants';
+import { V2_REWARD_RATE, FOUNDER_WALLET_ADDRESS } from '../constants';
 import { getBurnedSGCoinV1, getRobustProvider } from '../services/web3Service';
 
 /**
@@ -31,9 +32,9 @@ const formatLastRefreshed = (lastUpdatedAt: Date | null, now: number): string =>
 
 const Ecosystem = () => {
     const { user, giveaways } = useApp();
-    const [coinData, setCoinData] = useState<any>(null);
+    const [coinData, setCoinData] = useState<SGCoinData | null>(null);
     const [totalBurned, setTotalBurned] = useState<string>('1,777,161');
-    const [activeGiveaway, setActiveGiveaway] = useState<any>(null);
+    const [activeGiveaway, setActiveGiveaway] = useState<Giveaway | null>(null);
     const [hasEntered, setHasEntered] = useState(false);
     const [isLoadingCoinData, setIsLoadingCoinData] = useState(true);
     const [poolBreakdown, setPoolBreakdown] = useState<PoolBreakdown | null>(null);
@@ -459,7 +460,7 @@ const Ecosystem = () => {
                                     const cardInner = (
                                         <>
                                             <div className="bg-white/5 w-14 h-14 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform border border-white/5 font-bold">
-                                                {React.cloneElement(way.icon as React.ReactElement<any>, { className: 'w-6 h-6 text-white' })}
+                                                {React.cloneElement(way.icon as React.ReactElement<{ className?: string }>, { className: 'w-6 h-6 text-white' })}
                                             </div>
                                             <h3 className="font-display text-2xl font-black uppercase tracking-tight mb-4">{way.title}</h3>
                                             <p className="text-gray-400 text-sm leading-relaxed font-light">{way.desc}</p>
@@ -503,7 +504,7 @@ const Ecosystem = () => {
                                     ].map((item, idx) => (
                                         <div key={idx} className="flex items-center gap-6 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all font-bold">
                                             <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
-                                                {React.cloneElement(item.icon as React.ReactElement<any>, { className: 'w-5 h-5 text-white' })}
+                                                {React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, { className: 'w-5 h-5 text-white' })}
                                             </div>
                                             <div>
                                                 <h4 className="font-display text-lg font-black uppercase tracking-tight">{item.title}</h4>

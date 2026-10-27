@@ -2,7 +2,9 @@
 //
 // REGRESSION CATCH for the React render-flow of components/admin/SignalManager.tsx.
 //
-// Replicates the established pattern: createRoot + act + explicit DOM assertions
+// Mounting goes through tests/_helpers/adminSurface.tsx, which owns the
+// AppContext/ToastContext stub registration, the MemoryRouter, the
+// container/root pair and the teardown. Explicit DOM assertions
 // (no snapshots). SignalManager uses framer-motion's `motion.div` for modal
 // backdrop + form panel — in jsdom the motion.div renders as a plain <div>
 // (the animation props are CSS-only and never apply), so no stub needed.
@@ -18,20 +20,36 @@
 // per file: Active Signals / Scheduled|Drafts / Broadcast Capacity).
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createElement, act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { mockSupabase } from './_helpers/supabaseClientMock';
 import { pinStatValues } from './_helpers/statCardPinner';
+import {
+    appContextStub,
+    renderAdminSurface,
+    toastContextStub,
+} from './_helpers/adminSurface';
 
 // vitest auto-hoists vi.mock above the imports that follow.
 vi.mock('../services/supabase', () => ({
     supabase: mockSupabase.client,
 }));
-vi.mock('../context/ToastContext', () => ({
-    useToast: () => ({ addToast: vi.fn() }),
-}));
+// The harness cannot register the contexts for us — vitest scopes module mocks
+// to the file that calls them (see the harness header). Two lines, once per
+// file, and the surface itself arrives as a loader so it resolves against them.
+vi.doMock('../context/AppContext', appContextStub);
+vi.doMock('../context/ToastContext', toastContextStub);
 
-import SignalManager from '../components/admin/SignalManager';
+const loadSignalManager = () => import('../components/admin/SignalManager');
+
+// Module-scoped because the assertions below read it by name; each render
+// assigns the harness's own container.
+let container: HTMLDivElement;
+
+const renderSurface = async () => {
+    const surface = await renderAdminSurface(loadSignalManager);
+    container = surface.container;
+    return surface;
+};
 
 interface TestSignal {
     id: string;
@@ -77,8 +95,6 @@ const SIGNAL_URGENT_INACTIVE: TestSignal = {
 };
 
 describe('SignalManager form modal + toggle interactions', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -86,14 +102,9 @@ describe('SignalManager form modal + toggle interactions', () => {
         localStorage.clear();
         vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
@@ -103,9 +114,7 @@ describe('SignalManager form modal + toggle interactions', () => {
         mockSupabase.setOutcomes([
             { kind: 'resolve', value: { data: [], error: null } },
         ]);
-        await act(async () => {
-            root.render(createElement(SignalManager));
-        });
+        await renderSurface();
         expect(container.innerHTML).not.toContain('Create New Signal');
 
         // Click "New Signal" header button - it's the OUTER one (not the modal submit).
@@ -166,9 +175,7 @@ describe('SignalManager form modal + toggle interactions', () => {
             { kind: 'resolve', value: { error: null } },
         ]);
 
-        await act(async () => {
-            root.render(createElement(SignalManager));
-        });
+        await renderSurface();
 
         // Toggle button on the active signal has aria-label="Deactivate signal".
         // (Inactive signal would have aria-label="Activate signal" - but we have only
@@ -200,8 +207,6 @@ describe('SignalManager form modal + toggle interactions', () => {
 });
 
 describe('SignalManager render flow', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -209,14 +214,9 @@ describe('SignalManager render flow', () => {
         localStorage.clear();
         vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
@@ -231,9 +231,7 @@ describe('SignalManager render flow', () => {
             { kind: 'resolve', value: { data: [SIGNAL_INFO_ACTIVE, SIGNAL_ALERT_ACTIVE, SIGNAL_URGENT_INACTIVE], error: null } },
         ]);
 
-        await act(async () => {
-            root.render(createElement(SignalManager));
-        });
+        await renderSurface();
         const html = container.innerHTML;
 
         // Header + action button.
@@ -285,9 +283,7 @@ describe('SignalManager render flow', () => {
             { kind: 'resolve', value: { data: [], error: null } },
         ]);
 
-        await act(async () => {
-            root.render(createElement(SignalManager));
-        });
+        await renderSurface();
         const html = container.innerHTML;
 
         // Stat counts go to zero (NaN-leak guard).

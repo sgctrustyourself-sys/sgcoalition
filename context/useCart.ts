@@ -85,7 +85,7 @@ export function useCart() {
     const removeFromCart = (cartId: string) => updateCart(prev => prev.filter(item => item.cartId !== cartId));
     const clearCart = () => {
         setCart([]);
-        try { localStorage.removeItem(CART_STORAGE_KEY); } catch (e) { /* ignore */ }
+        try { localStorage.removeItem(CART_STORAGE_KEY); } catch { /* ignore */ }
     };
     const cartTotal = () => cart.reduce((sum, item) => sum + getCartItemLineTotal(item), 0);
 

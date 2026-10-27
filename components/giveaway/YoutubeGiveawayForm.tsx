@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Upload, CheckCircle, AlertCircle, Loader2, Info } from 'lucide-react';
 import { uploadScreenshot, validateImage } from '../../services/giveawayUpload';
 import { supabase } from '../../services/supabase';
-import { YoutubeGiveawayEntry } from '../../types';
+import { errorMessage } from '../../utils/errorMessage';
 
 interface YoutubeGiveawayFormProps {
     giveawayId: string;
@@ -158,9 +158,9 @@ const YoutubeGiveawayForm: React.FC<YoutubeGiveawayFormProps> = ({ giveawayId, o
             if (dbError) throw dbError;
 
             onSuccess();
-        } catch (err: any) {
+        } catch (err) {
             console.error('Submission error:', err);
-            setError(err.message || 'Failed to submit entry. Please try again.');
+            setError(errorMessage(err) || 'Failed to submit entry. Please try again.');
         } finally {
             setLoading(false);
         }

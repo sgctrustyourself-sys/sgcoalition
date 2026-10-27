@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { HelpCircle, X, Rocket, ExternalLink, Wallet, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { QUICKSWAP_SWAP_URL } from '../constants';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const FloatingHelpButton: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    useFocusTrap({ active: isOpen, containerRef: panelRef, onEscape: () => setIsOpen(false) });
     const navigate = useNavigate();
 
     const handleNavigate = (path: string) => {
@@ -27,7 +31,13 @@ const FloatingHelpButton: React.FC = () => {
             {/* Modal */}
             {isOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-gray-900 border border-white/20 rounded-xl max-w-md w-full p-6 relative shadow-2xl">
+                    <div
+                        ref={panelRef}
+                        className="bg-gray-900 border border-white/20 rounded-xl max-w-md w-full p-6 relative shadow-2xl"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="sgcoin-help-title"
+                    >
                         <button
                             onClick={() => setIsOpen(false)}
                             className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded transition"
@@ -36,7 +46,7 @@ const FloatingHelpButton: React.FC = () => {
                             <X className="w-5 h-5 text-gray-400" />
                         </button>
 
-                        <h2 className="text-2xl font-bold text-white mb-2">SGCoin Help</h2>
+                        <h2 id="sgcoin-help-title" className="text-2xl font-bold text-white mb-2">SGCoin Help</h2>
                         <p className="text-gray-400 text-sm mb-6">
                             Need help getting started with SGCoin? Choose an option below:
                         </p>

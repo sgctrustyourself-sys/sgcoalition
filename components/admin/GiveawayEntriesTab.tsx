@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -6,6 +6,7 @@ import {
     ExternalLink, Trash2, Trophy, Youtube, Instagram,
     Shirt, Star, Mail, RefreshCw
 } from 'lucide-react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -72,6 +73,24 @@ const GiveawayEntriesTab: React.FC<GiveawayEntriesTabProps> = ({ giveawayId }) =
     const [entries, setEntries] = useState<GiveawayEntryRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedEntry, setSelectedEntry] = useState<GiveawayEntryRow | null>(null);
+    // True while a write started from the open sheet is in flight (verify, mark
+    // email sent, delete). The sheet must survive its own request: Escape and
+    // the backdrop are both dismissed by this flag, the same gate SignalManager
+    // puts on its form.
+    const [isSaving, setIsSaving] = useState(false);
+    const detailPanelRef = useRef<HTMLDivElement>(null);
+
+    useFocusTrap({
+        active: selectedEntry !== null && !isSaving,
+        containerRef: detailPanelRef,
+        onEscape: () => setSelectedEntry(null),
+        initialFocusRef: detailPanelRef,
+    });
+
+    /** Backdrop dismiss, inert while the sheet's write is outstanding. */
+    const dismissDetail = () => {
+        if (!isSaving) setSelectedEntry(null);
+    };
     const [filter, setFilter] = useState<'all' | 'verified' | 'unverified'>('all');
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -79,8 +98,12 @@ const GiveawayEntriesTab: React.FC<GiveawayEntriesTabProps> = ({ giveawayId }) =
         fetchEntries();
     }, [giveawayId]);
 
-    const fetchEntries = async () => {
-        setLoading(true);
+    // `background: true` refreshes the table after a write without flipping the
+    // full-page loading state. That state returns an early spinner for the whole
+    // tab, which unmounted the open detail sheet and remounted it a moment later
+    // — the sheet visibly vanished and reappeared while its own update resolved.
+    const fetchEntries = async ({ background = false }: { background?: boolean } = {}) => {
+        if (!background) setLoading(true);
         const { data, error } = await supabase
             .from('giveaway_entries')
             .select('*')
@@ -93,53 +116,71 @@ const GiveawayEntriesTab: React.FC<GiveawayEntriesTabProps> = ({ giveawayId }) =
         } else {
             setEntries(data || []);
         }
-        setLoading(false);
+        if (!background) setLoading(false);
     };
 
     const toggleVerified = async (entryId: string, current: boolean) => {
-        const { error } = await supabase
-            .from('giveaway_entries')
-            .update({ verified: !current })
-            .eq('id', entryId);
+        setIsSaving(true);
+        try {
+            const { error } = await supabase
+                .from('giveaway_entries')
+                .update({ verified: !current })
+                .eq('id', entryId);
 
-        if (error) {
-            addToast('Failed to update verification', 'error');
-        } else {
-            addToast(!current ? '✅ Entry verified' : 'Entry unverified', 'success');
-            fetchEntries();
-            if (selectedEntry?.id === entryId) {
-                setSelectedEntry({ ...selectedEntry, verified: !current });
+            if (error) {
+                addToast('Failed to update verification', 'error');
+            } else {
+                addToast(!current ? '✅ Entry verified' : 'Entry unverified', 'success');
+                fetchEntries({ background: true });
+                // Patch from the live state, not the closure snapshot: if the
+                // sheet was closed while the request was in flight, `prev` is
+                // null and the resolved update must not resurrect it.
+                setSelectedEntry(prev =>
+                    prev && prev.id === entryId ? { ...prev, verified: !current } : prev,
+                );
             }
+        } finally {
+            setIsSaving(false);
         }
     };
 
     const markEmailSent = async (entryId: string) => {
-        const { error } = await supabase
-            .from('giveaway_entries')
-            .update({ email_sent: true })
-            .eq('id', entryId);
+        setIsSaving(true);
+        try {
+            const { error } = await supabase
+                .from('giveaway_entries')
+                .update({ email_sent: true })
+                .eq('id', entryId);
 
-        if (error) {
-            addToast('Failed to mark email sent', 'error');
-        } else {
-            addToast('📧 Marked as email sent', 'success');
-            fetchEntries();
+            if (error) {
+                addToast('Failed to mark email sent', 'error');
+            } else {
+                addToast('📧 Marked as email sent', 'success');
+                fetchEntries({ background: true });
+            }
+        } finally {
+            setIsSaving(false);
         }
     };
 
     const deleteEntry = async (entryId: string) => {
         if (!confirm('Delete this entry? This cannot be undone.')) return;
-        const { error } = await supabase
-            .from('giveaway_entries')
-            .delete()
-            .eq('id', entryId);
+        setIsSaving(true);
+        try {
+            const { error } = await supabase
+                .from('giveaway_entries')
+                .delete()
+                .eq('id', entryId);
 
-        if (error) {
-            addToast('Failed to delete entry', 'error');
-        } else {
-            addToast('Entry deleted', 'success');
-            fetchEntries();
-            setSelectedEntry(null);
+            if (error) {
+                addToast('Failed to delete entry', 'error');
+            } else {
+                addToast('Entry deleted', 'success');
+                fetchEntries({ background: true });
+                setSelectedEntry(null);
+            }
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -261,7 +302,7 @@ const GiveawayEntriesTab: React.FC<GiveawayEntriesTabProps> = ({ giveawayId }) =
                         />
                     </div>
                     <button
-                        onClick={fetchEntries}
+                        onClick={() => fetchEntries()}
                         className="bg-white/5 border border-white/10 p-2 rounded-lg hover:bg-white/10 transition"
                         title="Refresh"
                     >
@@ -368,10 +409,15 @@ const GiveawayEntriesTab: React.FC<GiveawayEntriesTabProps> = ({ giveawayId }) =
             {selectedEntry && (
                 <div
                     className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-                    onClick={() => setSelectedEntry(null)}
+                    onClick={dismissDetail}
                 >
                     <div
+                        ref={detailPanelRef}
                         className="bg-[#0A0A0A] border border-white/10 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={`Giveaway entry ${selectedEntry.name}`}
+                        tabIndex={-1}
                         onClick={e => e.stopPropagation()}
                     >
                         <div className="p-6 space-y-6">
@@ -408,7 +454,8 @@ const GiveawayEntriesTab: React.FC<GiveawayEntriesTabProps> = ({ giveawayId }) =
                                 <div className="flex gap-2 flex-wrap justify-end">
                                     <button
                                         onClick={() => toggleVerified(selectedEntry.id, selectedEntry.verified)}
-                                        className={`px-4 py-2 rounded-xl font-bold text-xs uppercase transition ${
+                                        disabled={isSaving}
+                                        className={`px-4 py-2 rounded-xl font-bold text-xs uppercase transition disabled:opacity-50 disabled:cursor-not-allowed ${
                                             selectedEntry.verified
                                                 ? 'bg-green-500 text-white hover:bg-green-600'
                                                 : 'bg-yellow-500 text-black hover:bg-yellow-600'
@@ -419,7 +466,8 @@ const GiveawayEntriesTab: React.FC<GiveawayEntriesTabProps> = ({ giveawayId }) =
                                     {!selectedEntry.email_sent && (
                                         <button
                                             onClick={() => markEmailSent(selectedEntry.id)}
-                                            className="px-4 py-2 rounded-xl font-bold text-xs uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 transition flex items-center gap-1"
+                                            disabled={isSaving}
+                                            className="px-4 py-2 rounded-xl font-bold text-xs uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 transition flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             <Mail className="w-3.5 h-3.5" />
                                             Mark Email Sent
@@ -427,7 +475,8 @@ const GiveawayEntriesTab: React.FC<GiveawayEntriesTabProps> = ({ giveawayId }) =
                                     )}
                                     <button
                                         onClick={() => deleteEntry(selectedEntry.id)}
-                                        className="p-2 text-red-400 hover:bg-red-500/10 rounded-xl transition"
+                                        disabled={isSaving}
+                                        className="p-2 text-red-400 hover:bg-red-500/10 rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
                                         title="Delete"
                                     >
                                         <Trash2 className="w-5 h-5" />

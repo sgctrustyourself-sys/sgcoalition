@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
-import { Star, Edit2, Trash2, MessageSquare, Shield } from 'lucide-react';
+import { Star, Trash2, MessageSquare, Shield } from 'lucide-react';
 import { Review } from '../types';
 
 const MyReviews = () => {

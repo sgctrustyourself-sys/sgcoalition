@@ -22,6 +22,10 @@ import {
     V2_TOTAL_SUPPLY,
 } from '../constants.js';
 
+// Type-only import: erased at build time, so the lazy-imported ethers chunk
+// still stays out of this module's bundle cost.
+import type { JsonRpcProvider } from 'ethers';
+
 // ---------------------------------------------------------------------------
 // Lazy ethers — matches services/web3Service.ts pattern.
 // The ~100 KB ethers chunk only downloads when this module is first called.
@@ -33,7 +37,7 @@ const getEthers = () => {
 };
 
 // Cached RPC provider — reused across 30-second polling intervals
-let cachedProvider: any = null;
+let cachedProvider: JsonRpcProvider | null = null;
 const getProvider = async () => {
     if (cachedProvider) return cachedProvider;
     const { ethers } = await getEthers();

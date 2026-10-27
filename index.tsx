@@ -80,8 +80,6 @@ declare global {
     }
 }
 
-const SKEW_RECOVERY_FLAG = '__coalitionSkewReloadArmed' as const;
-
 // True only for this app's own Vite chunks: same origin, under /assets/.
 //
 // Third-party scripts fail for reasons a reload cannot fix — an analytics

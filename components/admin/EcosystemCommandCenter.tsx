@@ -7,7 +7,6 @@ import {
     TrendingUp,
     Shield,
     Coins,
-    Users,
     ShoppingCart,
     ArrowUpRight,
     Activity,
@@ -25,12 +24,12 @@ import { getGiveawayTicketCount } from '../../utils/giveawayUtils';
 import PaymentStatusCard from './PaymentStatusCard';
 import PaymentOptionsCard from './PaymentOptionsCard';
 import {
-    LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area
+    XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area
 } from 'recharts';
 
 
 const EcosystemCommandCenter: React.FC = () => {
-    const { orders, products, giveaways } = useApp();
+    const { orders, giveaways } = useApp();
     const [realBurned, setRealBurned] = useState<string>('0');
     const [realLiquidity, setRealLiquidity] = useState<string>('0');
     const [isLoadingStats, setIsLoadingStats] = useState(true);
@@ -282,8 +281,16 @@ const EcosystemCommandCenter: React.FC = () => {
     );
 };
 
-const StatusCard = ({ label, value, change, icon, color }: any) => {
-    const colors: any = {
+type StatusColor = 'blue' | 'purple' | 'orange' | 'emerald';
+
+const StatusCard = ({ label, value, change, icon, color }: {
+    label: string;
+    value: React.ReactNode;
+    change: string;
+    icon: React.ReactNode;
+    color: StatusColor;
+}) => {
+    const colors: Record<StatusColor, string> = {
         blue: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
         purple: 'bg-purple-500/10 border-purple-500/20 text-purple-400',
         orange: 'bg-orange-500/10 border-orange-500/20 text-orange-400',
@@ -307,7 +314,12 @@ const StatusCard = ({ label, value, change, icon, color }: any) => {
     );
 };
 
-const ActivityItem = ({ title, status, time, color }: any) => (
+const ActivityItem = ({ title, status, time, color }: {
+    title: string;
+    status: string;
+    time: string;
+    color: string;
+}) => (
     <div className="flex items-center justify-between p-3 bg-black/40 rounded-2xl border border-white/5">
         <div>
             <p className="text-xs font-bold text-white">{title}</p>

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { GripVertical, Eye, EyeOff, ChevronUp, ChevronDown, Plus } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -39,7 +39,7 @@ const Home = () => {
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/50"></div>
 
                         <div className="relative z-10 text-center px-4 max-w-4xl">
-                            <h1 className="font-display text-6xl md:text-8xl font-bold uppercase tracking-tighter mb-6 text-glow">
+                            <h1 className="hero-rise font-display text-6xl md:text-8xl font-bold uppercase tracking-tighter mb-6 text-glow">
                                 {section.title}
                             </h1>
                             <p className="text-lg md:text-2xl text-gray-300 font-light mb-10 tracking-wide max-w-2xl mx-auto">
@@ -141,7 +141,7 @@ const Home = () => {
                     </section>
                 );
                 break;
-            case 'featured':
+            case 'featured': {
                 if (isLoading && (!products || products.length === 0)) {
                     content = (
                         <section className="py-24 px-4 max-w-7xl mx-auto">
@@ -206,6 +206,7 @@ const Home = () => {
                     </section>
                 );
                 break;
+            }
             case 'custom_inquiry_cta':
                 content = (
                     <section className="py-20 px-4 max-w-7xl mx-auto">

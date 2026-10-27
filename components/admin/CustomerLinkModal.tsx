@@ -21,7 +21,9 @@
 //     guest | MetaMask-fallback | error | close contract in isolation.
 //   - tests/orderManagerRender.test.tsx mocks this component to a stub.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { errorMessage } from '../../utils/errorMessage';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import {
     X, Loader2, User, Mail, ShieldCheck, CheckCircle2, AlertCircle,
     ShoppingBag, TrendingUp,
@@ -59,6 +61,19 @@ const CustomerLinkModal: React.FC<CustomerLinkModalProps> = ({
         isVerifiedBuyer: boolean;
     } | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // This overlay has no `open` prop — it is mounted when the admin opens it,
+    // so being mounted IS being open, and the trap is active for its whole life.
+    // Escape closes it and focus returns to the customer name the admin clicked
+    // (whatever held focus when this mounted). It stacks above the order detail
+    // modal, and that parent has no Escape handler of its own, so one keypress
+    // closes only this layer rather than both.
+    useFocusTrap({
+        active: true,
+        containerRef: panelRef,
+        onEscape: onClose,
+    });
 
     useEffect(() => {
         let cancelled = false;
@@ -79,8 +94,8 @@ const CustomerLinkModal: React.FC<CustomerLinkModalProps> = ({
                         setState('profile');
                         return;
                     }
-                } catch (e: any) {
-                    console.warn('[CustomerLinkModal] profile lookup failed:', e?.message);
+                } catch (e) {
+                    console.warn('[CustomerLinkModal] profile lookup failed:', errorMessage(e));
                 }
             }
 
@@ -91,9 +106,9 @@ const CustomerLinkModal: React.FC<CustomerLinkModalProps> = ({
                     setGuest(result);
                     setState('guest');
                     return;
-                } catch (e: any) {
+                } catch (e) {
                     if (!cancelled) {
-                        setErrorMsg(e?.message || 'Lookup failed');
+                        setErrorMsg(errorMessage(e) || 'Lookup failed');
                         setState('error');
                     }
                     return;
@@ -111,8 +126,13 @@ const CustomerLinkModal: React.FC<CustomerLinkModalProps> = ({
 
     return (
         <div
+            ref={panelRef}
             className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 z-[60]"
             role="dialog"
+            // The focus trap keeps the keyboard in this layer; aria-modal is the
+            // same statement to a screen reader, which would otherwise read the
+            // order detail modal underneath as reachable content.
+            aria-modal="true"
             aria-label={`Customer details for ${customerName}`}
             data-testid="customer-link-modal"
         >

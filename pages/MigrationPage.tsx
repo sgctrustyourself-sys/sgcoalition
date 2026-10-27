@@ -138,6 +138,13 @@ const MigrationRow: React.FC<{ record: MigrationRecord; showWallet?: boolean }> 
     );
 };
 
+// Wallet RPC errors carry the useful text on `reason`/`shortMessage` rather
+// than `message`, so read all three from an unknown throw.
+const transactionReason = (err: unknown, fallback: string): string => {
+    const detail = err as { reason?: string; shortMessage?: string; message?: string };
+    return detail?.reason || detail?.shortMessage || detail?.message || fallback;
+};
+
 const MigrationPage: React.FC = () => {
     const { user, loginUser, chainId, switchToPolygon, refreshBalances } = useApp();
     const { addToast } = useToast();
@@ -146,7 +153,7 @@ const MigrationPage: React.FC = () => {
         () => user?.walletAddress || user?.connectedWalletAddress || null,
         [user?.walletAddress, user?.connectedWalletAddress]
     );
-    const hasProvider = typeof window !== 'undefined' && !!(window as any).ethereum;
+    const hasProvider = typeof window !== 'undefined' && !!window.ethereum;
     const isWrongNetwork = chainId !== null && chainId !== POLYGON_CHAIN_ID;
 
     const [amountInput, setAmountInput] = useState('');
@@ -320,9 +327,9 @@ const MigrationPage: React.FC = () => {
             setStatus('');
             addToast('Approved. Nothing is spent until you migrate.', 'success');
             await loadBalances();
-        } catch (err: any) {
+        } catch (err) {
             setStatus('');
-            const reason = err?.reason || err?.shortMessage || err?.message || 'Transaction failed';
+            const reason = transactionReason(err, 'Transaction failed');
             setError(
                 /reject/i.test(reason)
                     ? 'You rejected the approval. Nothing changed.'
@@ -342,8 +349,8 @@ const MigrationPage: React.FC = () => {
             await revokeApproval(signer);
             addToast('Approval revoked — the migrator can no longer spend your V1.', 'success');
             await loadBalances();
-        } catch (err: any) {
-            const reason = err?.reason || err?.shortMessage || err?.message || 'Transaction failed';
+        } catch (err) {
+            const reason = transactionReason(err, 'Transaction failed');
             setError(/reject/i.test(reason) ? 'You rejected the revocation.' : `Revoke failed: ${reason}`);
         } finally {
             setIsRevoking(false);
@@ -370,9 +377,9 @@ const MigrationPage: React.FC = () => {
             setAmountInput('');
             addToast('Migration complete.', 'success');
             await Promise.all([loadBalances(), loadActivity(), refreshBalances()]);
-        } catch (err: any) {
+        } catch (err) {
             setStatus('');
-            const reason = err?.reason || err?.shortMessage || err?.message || 'Unknown error';
+            const reason = transactionReason(err, 'Unknown error');
             setError(
                 /reject/i.test(reason)
                     ? 'You rejected the transaction. Nothing was migrated.'

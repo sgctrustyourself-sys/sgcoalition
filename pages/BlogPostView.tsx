@@ -11,7 +11,7 @@ import Seo from '../components/Seo';
 import { getBlogPostBySlug, mapBlogRowToPost } from '../data/blogPosts';
 import { buildBlogPostJsonLd, getBlogPostSeo } from '../utils/seo';
 
-const safeDate = (dateStr: any) => {
+const safeDate = (dateStr: string | number | Date | null | undefined) => {
     if (!dateStr) return new Date();
     const d = new Date(dateStr);
     return isValid(d) ? d : new Date();

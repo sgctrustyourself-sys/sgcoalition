@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Check, Crop, Image as ImageIcon, Maximize2, Move, RotateCcw, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import {
     DEFAULT_PRODUCT_CROP_RATIO,
     PRODUCT_CROP_ASPECT_OPTIONS,
@@ -37,6 +38,7 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
     onCancel,
     onConfirm,
 }) => {
+    const dialogRef = useRef<HTMLDivElement>(null);
     const frameRef = useRef<HTMLDivElement>(null);
     const imageRef = useRef<HTMLImageElement>(null);
     const dragStateRef = useRef<{
@@ -251,6 +253,21 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
         }
     };
 
+    // A cropper covers the page while it is open, so it owns the keyboard: Tab
+    // cycles its own controls (aspect buttons, zoom slider, apply/cancel) and
+    // Escape cancels the crop, returning focus to whatever opened it — the
+    // upload button in ProductManager, ImageManager, or the review form.
+    //
+    // Not while `isSubmitting`: the crop is being written and every control
+    // including Cancel is disabled for that window, so Escape must not dismiss
+    // it. See ConfirmationModal for why the trap is unmounted rather than left
+    // running with a no-op handler.
+    useFocusTrap({
+        active: open && Boolean(file) && !isSubmitting,
+        containerRef: dialogRef,
+        onEscape: onCancel,
+    });
+
     if (!open || !file) return null;
 
     const displayedSize = frameSize && naturalSize
@@ -259,6 +276,7 @@ const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
 
     return (
         <div
+            ref={dialogRef}
             className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 px-4 py-6 backdrop-blur-md"
             role="dialog"
             aria-modal="true"

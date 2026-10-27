@@ -7,8 +7,7 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../../context/ToastContext';
 import { getAdminToken } from '../../services/adminSession';
-import { CheckCircle, Clock, AlertCircle, Info, Link, Search, ChevronDown } from 'lucide-react';
-import { XCircle } from 'lucide-react';
+import { errorMessage } from '../../utils/errorMessage';
 
 const STATUS_FILTERS = [
     { value: 'all', label: 'All', accent: 'text-gray-400' },
@@ -45,11 +44,9 @@ const CryptoReviewQueue: React.FC<CryptoReviewQueueProps> = ({ initialStatus = '
     const [error, setError] = useState<string | null>(null);
     const [currentFilter, setCurrentFilter] = useState<typeof STATUS_FILTERS[0]>(STATUS_FILTERS[0]);
     const [currentStatus, setCurrentStatus] = useState<string>('all');
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(20);
-    const [total, setTotal] = useState(0);
+    const [, setPage] = useState(1);
+    const [, setTotal] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedOrder, setSelectedOrder] = useState<OrderQueueItem | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
 
     // Fetch orders from the API
@@ -88,9 +85,9 @@ const CryptoReviewQueue: React.FC<CryptoReviewQueueProps> = ({ initialStatus = '
             const data = await response.json();
             setOrders(data.orders || []);
             setTotal((data.totalCount ?? data.orders?.length ?? 0) || 0);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to fetch crypto review queue:', err);
-            setError(err.message || 'Failed to load crypto review queue');
+            setError(errorMessage(err) || 'Failed to load crypto review queue');
             addToast('Failed to load crypto review queue', 'error');
             setOrders([]);
             setTotal(0);
@@ -155,9 +152,9 @@ const CryptoReviewQueue: React.FC<CryptoReviewQueueProps> = ({ initialStatus = '
             } else {
                 addToast(`Order #${orderId}: ${data.status}`, 'info');
             }
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to confirm order:', err);
-            addToast(err.message || 'Failed to confirm order', 'error');
+            addToast(errorMessage(err) || 'Failed to confirm order', 'error');
         }
     };
 
@@ -185,9 +182,9 @@ const CryptoReviewQueue: React.FC<CryptoReviewQueueProps> = ({ initialStatus = '
             const data = await response.json();
             addToast(`Order #${orderId}: ${data.status}`, 'info');
             refresh();
-        } catch (err: any) {
+        } catch (err) {
             console.error('Failed to top-up order:', err);
-            addToast(err.message || 'Failed to top-up order', 'error');
+            addToast(errorMessage(err) || 'Failed to top-up order', 'error');
         }
     };
 

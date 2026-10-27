@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Instagram, MessageCircle, Twitter, Link2, ShoppingBag } from 'lucide-react';
+import { Instagram, MessageCircle, Link2, ShoppingBag } from 'lucide-react';
 import Newsletter from './Newsletter';
 import { useApp } from '../context/AppContext';
 import { MAIN_SHARING_LINK, MAIN_SHARING_LABEL } from '../utils/sharingLinks';

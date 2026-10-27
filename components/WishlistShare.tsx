@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Share2, Link as LinkIcon, Check, X as XIcon } from 'lucide-react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface WishlistShareProps {
     favoriteIds: string[];
@@ -8,6 +9,9 @@ interface WishlistShareProps {
 const WishlistShare: React.FC<WishlistShareProps> = ({ favoriteIds }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [copied, setCopied] = useState(false);
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    useFocusTrap({ active: isOpen, containerRef: panelRef, onEscape: () => setIsOpen(false) });
 
     if (favoriteIds.length === 0) return null;
 
@@ -63,12 +67,19 @@ const WishlistShare: React.FC<WishlistShareProps> = ({ favoriteIds }) => {
                     />
 
                     {/* Modal */}
-                    <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-900 border border-white/10 rounded-xl p-6 w-full max-w-md z-50 shadow-2xl">
+                    <div
+                        ref={panelRef}
+                        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-900 border border-white/10 rounded-xl p-6 w-full max-w-md z-50 shadow-2xl"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Share your wishlist"
+                    >
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-bold">Share Your Wishlist</h3>
                             <button
                                 onClick={() => setIsOpen(false)}
                                 className="text-gray-400 hover:text-white transition"
+                                aria-label="Close modal"
                             >
                                 <XIcon className="w-6 h-6" />
                             </button>

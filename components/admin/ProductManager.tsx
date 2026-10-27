@@ -8,6 +8,7 @@ import { uploadProductImage } from '../../services/productUpload';
 import ImageCropperModal from '../ui/ImageCropperModal';
 import { moveArrayItem } from '../../utils/arrayMove';
 import { getProductEditableSizes, normalizeProductSizeData } from '../../utils/productSizes';
+import { errorMessage } from '../../utils/errorMessage';
 
 const ProductManager: React.FC = () => {
     const { products, addProduct, updateProduct, deleteProduct } = useApp();
@@ -38,9 +39,9 @@ const ProductManager: React.FC = () => {
         try {
             setDriftError(null);
             setDriftReport(await fetchProductDrift());
-        } catch (err: any) {
+        } catch (err) {
             setDriftReport(null);
-            setDriftError(err?.message || 'unknown error');
+            setDriftError(errorMessage(err) || 'unknown error');
         }
     }, []);
 
@@ -232,11 +233,11 @@ const ProductManager: React.FC = () => {
             // leaving a stale count on screen next to a fresh commit.
             void checkDrift();
             setTimeout(() => setSuccess(null), 5000);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Core sync failed:', err);
             // Surface the actual error from the server (was previously hidden
             // by a misleading "make sure the local server is running" message).
-            const detail = err?.message || 'Unknown error';
+            const detail = errorMessage(err) || 'Unknown error';
             setError(`Sync failed: ${detail}. Open the browser console for the full response.`);
         } finally {
             setIsSyncing(false);
@@ -273,9 +274,9 @@ const ProductManager: React.FC = () => {
             setSuccess('Cropped image uploaded successfully!');
             setTimeout(() => setSuccess(null), 3000);
             setPendingCropFile(null);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Upload failed:', err);
-            setError(`Upload failed: ${err.message || 'Unknown error'}`);
+            setError(`Upload failed: ${errorMessage(err) || 'Unknown error'}`);
             throw err;
         } finally {
             setIsUploading(false);
@@ -360,7 +361,7 @@ const ProductManager: React.FC = () => {
     };
 
     // Update form field
-    const updateField = (field: keyof Product, value: any) => {
+    const updateField = (field: keyof Product, value: Product[keyof Product]) => {
         setEditForm(prev => ({ ...prev, [field]: value }));
     };
 

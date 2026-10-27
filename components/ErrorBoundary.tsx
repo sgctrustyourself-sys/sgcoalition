@@ -18,7 +18,7 @@
  *     of unmounting the whole tree.
  */
 
-import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Component, type ReactNode } from 'react';
 
 interface ErrorBoundaryProps {
     children: ReactNode;
@@ -44,7 +44,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         return { error };
     }
 
-    componentDidCatch(_error: Error, _info: ErrorInfo): void {
+    componentDidCatch(): void {
         // No reporting or logging here by design — see the file header. React's
         // root onCaughtError (index.tsx) owns reporting, and React itself logs
         // the component stack in development.

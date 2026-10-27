@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
 import { Plus, Globe, ArrowUpRight, Layers, Shield, Image, Zap, Wand2, Box } from 'lucide-react';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import WizardCard from '../components/dashboard/WizardCard';
@@ -12,8 +11,8 @@ import { MiniWizard } from '../types/MiniWizard';
 const WizardsDashboard: React.FC = () => {
     const { user } = useApp();
     const walletAddress = user?.walletAddress;
-    const [wizards, setWizards] = useState<any[]>(MOCK_WIZARDS);
-    const [filteredWizards, setFilteredWizards] = useState<any[]>(MOCK_WIZARDS);
+    const [wizards, setWizards] = useState<MiniWizard[]>(MOCK_WIZARDS);
+    const [filteredWizards, setFilteredWizards] = useState<MiniWizard[]>(MOCK_WIZARDS);
     const [isLoading, setIsLoading] = useState(false);
     const [filterElement, setFilterElement] = useState<string>('All');
     const [sortBy, setSortBy] = useState<string>('level');

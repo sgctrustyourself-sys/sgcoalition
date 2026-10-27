@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Calendar, Tag, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Tag, AlertCircle } from 'lucide-react';
 import { supabase } from '../../services/supabase';
+import { errorMessage } from '../../utils/errorMessage';
 
 interface Coupon {
     id: string;
@@ -26,7 +27,7 @@ const CouponManager: React.FC = () => {
     const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('percent');
     const [discountValue, setDiscountValue] = useState('');
     const [minOrder, setMinOrder] = useState('0');
-    const [maxUses, setMaxUses] = useState('');
+    const [maxUses] = useState('');
     const [endDate, setEndDate] = useState('');
 
     useEffect(() => {
@@ -70,8 +71,8 @@ const CouponManager: React.FC = () => {
             setNewCode('');
             setDiscountValue('');
             fetchCoupons();
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err) {
+            setError(errorMessage(err));
         }
     };
 
@@ -261,6 +262,7 @@ const CouponManager: React.FC = () => {
                                         <button
                                             onClick={() => deleteCoupon(coupon.id)}
                                             className="p-2 text-gray-500 hover:text-red-400 transition"
+                                            aria-label={`Delete coupon ${coupon.code}`}
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>

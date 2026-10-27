@@ -22,7 +22,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 
 // React 19 only treats act() as a real act when the environment says so.
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const V1_UNIT = 1_000_000_000n;
 const V2_UNIT = 1_000_000_000_000_000_000n;
@@ -116,7 +116,7 @@ describe('migration console render flow', () => {
     beforeEach(async () => {
         allowance = 0n;
         // The page checks for a wallet extension before it shows the console.
-        (window as any).ethereum = {
+        (window as unknown as { ethereum?: unknown }).ethereum = {
             request: vi.fn(async () => '0x89'),
             on: vi.fn(),
             removeListener: vi.fn(),
@@ -137,7 +137,7 @@ describe('migration console render flow', () => {
     afterEach(() => {
         act(() => { root.unmount(); });
         if (container.parentNode === document.body) document.body.removeChild(container);
-        delete (window as any).ethereum;
+        delete (window as unknown as { ethereum?: unknown }).ethereum;
         vi.restoreAllMocks();
     });
 

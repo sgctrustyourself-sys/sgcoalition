@@ -14,6 +14,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { CreditCard, Wallet, Loader, Landmark } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { getAdminToken } from '../../services/adminSession';
+import { errorMessage } from '../../utils/errorMessage';
 
 interface PaymentFlags {
     card: boolean;
@@ -154,10 +155,10 @@ const PaymentOptionsCard: React.FC = () => {
                     : `${ROWS.find(r => r.key === key)?.label} is now OFF for customers.`,
                 'success',
             );
-        } catch (error: any) {
+        } catch (error) {
             console.error('Payment settings save failed:', error);
             setFlags(prev => ({ ...prev, [key]: !next }));
-            addToast(error?.message || 'Failed to save payment settings.', 'error');
+            addToast(errorMessage(error) || 'Failed to save payment settings.', 'error');
         } finally {
             setSavingKey(null);
         }
@@ -194,9 +195,9 @@ const PaymentOptionsCard: React.FC = () => {
             if (typeof body.crypto_merchant_address === 'string') setMerchantAddress(body.crypto_merchant_address);
             if (typeof body.crypto_window_hours === 'number') setWindowHours(String(body.crypto_window_hours));
             addToast('USDC receiving address saved — live at checkout.', 'success');
-        } catch (error: any) {
+        } catch (error) {
             console.error('Merchant address save failed:', error);
-            addToast(error?.message || 'Failed to save merchant address.', 'error');
+            addToast(errorMessage(error) || 'Failed to save merchant address.', 'error');
         } finally {
             setSavingMerchant(false);
         }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     X,
@@ -9,15 +9,14 @@ import {
     TrendingUp,
     Activity,
     Lock,
-    Unlock,
     ChevronRight,
-    Sword,
     Scroll,
     ArrowUpRight
 } from 'lucide-react';
 import { MiniWizard } from '../../types/MiniWizard';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface WizardDetailModalProps {
     wizard: MiniWizard;
@@ -30,6 +29,9 @@ const WizardDetailModal: React.FC<WizardDetailModalProps> = ({ wizard, isOpen, o
     const { user } = useApp();
     const { addToast } = useToast();
     const [isUpgrading, setIsUpgrading] = useState(false);
+
+    const panelRef = useRef<HTMLDivElement>(null);
+    useFocusTrap({ active: isOpen, containerRef: panelRef, onEscape: onClose });
 
     if (!isOpen) return null;
 
@@ -75,6 +77,10 @@ const WizardDetailModal: React.FC<WizardDetailModalProps> = ({ wizard, isOpen, o
                         x: isUpgrading ? { repeat: Infinity, duration: 0.1 } : { duration: 0.3 }
                     }}
                     exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    ref={panelRef}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`${wizard.name} details`}
                     className="relative w-full max-w-6xl bg-[#0a0a0a] border border-white/10 rounded-[3rem] overflow-hidden shadow-[0_0_100px_rgba(168,85,247,0.15)] grid grid-cols-1 lg:grid-cols-2"
                 >
                     {/* Close Button */}
@@ -201,7 +207,7 @@ const WizardDetailModal: React.FC<WizardDetailModalProps> = ({ wizard, isOpen, o
     );
 };
 
-const StatBox = ({ label, value, icon }: any) => (
+const StatBox = ({ label, value, icon }: { label: string; value: React.ReactNode; icon: React.ReactNode }) => (
     <div className="p-6 bg-white/5 border border-white/5 rounded-2xl group hover:border-white/20 transition-all">
         <div className="flex items-center justify-between mb-4">
             <div className="p-2 bg-black/40 rounded-xl border border-white/5 group-hover:bg-white/10 transition-colors">

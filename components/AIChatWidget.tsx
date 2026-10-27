@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, X, Send, Lock, Unlock, Sparkles, Bot } from 'lucide-react';
+import { MessageCircle, X, Send, Lock, Unlock, Bot } from 'lucide-react';
 import { sendChatMessage, verifyFullAIPassword, getWelcomeMessage, type ChatMode, type ChatMessage } from '../services/aiChat';
 import { useToast } from '../context/ToastContext';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const AIChatWidget = () => {
     const { addToast } = useToast();
@@ -13,6 +14,16 @@ const AIChatWidget = () => {
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [passwordInput, setPasswordInput] = useState('');
     const [isUnlocking, setIsUnlocking] = useState(false);
+    const passwordPanelRef = useRef<HTMLDivElement>(null);
+
+    useFocusTrap({
+        active: showPasswordModal && !isUnlocking,
+        containerRef: passwordPanelRef,
+        onEscape: () => {
+            setShowPasswordModal(false);
+            setPasswordInput('');
+        },
+    });
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -57,7 +68,7 @@ const AIChatWidget = () => {
             };
 
             setMessages(prev => [...prev, assistantMessage]);
-        } catch (error) {
+        } catch {
             addToast('Failed to send message. Please try again.', 'error');
         } finally {
             setIsLoading(false);
@@ -99,11 +110,17 @@ const AIChatWidget = () => {
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
+                    // An explicit name, not the hover tooltip below it: the tooltip
+                    // only exists visually (and only on hover), so a screen reader
+                    // would otherwise announce whatever the button happens to
+                    // contain. aria-hidden keeps that copy out of the name and out
+                    // of the browse-mode reading order.
+                    aria-label="Open Coalition AI support chat"
                     className="fixed bottom-6 right-6 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-full p-4 shadow-2xl transition-all duration-300 transform hover:scale-110 z-50 group"
                 >
-                    <MessageCircle className="w-6 h-6" />
-                    <div className="absolute -top-1 -right-1 bg-green-500 w-3 h-3 rounded-full animate-pulse"></div>
-                    <div className="absolute bottom-full right-0 mb-2 bg-gray-900 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                    <MessageCircle className="w-6 h-6" aria-hidden="true" />
+                    <div aria-hidden="true" className="absolute -top-1 -right-1 bg-green-500 w-3 h-3 rounded-full animate-pulse"></div>
+                    <div aria-hidden="true" className="absolute bottom-full right-0 mb-2 bg-gray-900 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
                         💬 Need Help? AI-Powered Support
                     </div>
                 </button>
@@ -132,6 +149,7 @@ const AIChatWidget = () => {
                         <button
                             onClick={handleClose}
                             className="text-white hover:bg-white/20 rounded-full p-1 transition"
+                            aria-label="Close chat"
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -198,6 +216,7 @@ const AIChatWidget = () => {
                                 onClick={handleSendMessage}
                                 disabled={isLoading || !input.trim()}
                                 className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white p-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                aria-label="Send message"
                             >
                                 <Send className="w-5 h-5" />
                             </button>
@@ -209,7 +228,13 @@ const AIChatWidget = () => {
             {/* Password Modal */}
             {showPasswordModal && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-                    <div className="bg-gradient-to-br from-purple-900 to-pink-900 rounded-xl border border-purple-500/30 max-w-md w-full p-6">
+                    <div
+                        ref={passwordPanelRef}
+                        className="bg-gradient-to-br from-purple-900 to-pink-900 rounded-xl border border-purple-500/30 max-w-md w-full p-6"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Open AI portal"
+                    >
                         <div className="flex items-center gap-3 mb-4">
                             <Unlock className="w-6 h-6 text-purple-300" />
                             <h3 className="text-xl font-bold text-white">Open AI Portal</h3>

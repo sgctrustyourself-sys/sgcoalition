@@ -4,12 +4,16 @@
 // Mirrors the createRoot + act + vi.mock pattern used by the other admin-tab
 // render-flow tests in this suite (signalManagerRender / productManagerRender / etc).
 //
-// 5 tests:
+// 8 tests:
 //   1. RENDER_HERO - balance=12450 displays formatted number, USD estimate, both action cards.
 //   2. INSUFFICIENT_BALANCE - balance=1000 disables submit + tooltip mentions 5,000.
 //   3. HISTORY_RENDER - 3 mixed-status rows render with correct badges + tx link.
 //   4. OPEN_MODAL_AND_SUBMIT - happy path through submitPayoutRequest vi.mock.
 //   5. ERROR_TOAST - RPC rejection surfaces the error message verbatim via addToast.
+//   6. MODAL_ESCAPE_RETURNS_FOCUS - the shared trap closes on Escape and returns
+//      focus to the payout trigger that opened the modal.
+//   7. MODAL_TAB_WRAPS - Tab from the last enabled control wraps to the first.
+//   8. SUBMITTING_GUARD - Escape is inert while submitPayoutRequest is in flight.
 
 /// <reference types="vitest" />
 import React from 'react';
@@ -25,6 +29,7 @@ import {
     MIN_PAYOUT_SGC,
 } from '../services/payoutRequest';
 import { useToast } from '../context/ToastContext';
+import { dialogNames, dialogsNamed } from './_helpers/accessibleName';
 
 // ---------- MOCKS ----------
 
@@ -386,6 +391,177 @@ describe('SGCoinPayoutTab', () => {
 
         // Modal stays open so the customer can correct the input.
         expect(container.textContent).toContain('Submit Payout Request');
+
+        unmountTab(root);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Focus trap: the payout modal is the last overlay that had its own keydown
+// listener. These pin what the shared hook now owns, including the submitting
+// guard the inline listener used to provide.
+// ---------------------------------------------------------------------------
+
+describe('SGCoinPayoutTab focus trap', () => {
+    const buttonByText = (container: HTMLElement, text: string) =>
+        (Array.from(container.querySelectorAll('button')) as HTMLButtonElement[]).find(
+            (b) => (b.textContent ? b.textContent.trim() : '') === text,
+        );
+
+    const openModal = async (container: HTMLElement) => {
+        const payoutButton = (Array.from(
+            container.querySelectorAll('button'),
+        ) as HTMLButtonElement[]).find((b) =>
+            b.textContent ? b.textContent.indexOf('Request Crypto Payout') !== -1 : false,
+        );
+        expect(payoutButton).toBeTruthy();
+        // A real click focuses the trigger; jsdom's .click() does not, and the
+        // trap returns focus to whatever was focused when it opened.
+        payoutButton?.focus();
+        await act(async () => {
+            payoutButton?.click();
+        });
+        await flush();
+        return payoutButton as HTMLButtonElement;
+    };
+
+    const pressEscape = async () => {
+        act(() => {
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+            );
+        });
+        await flush();
+    };
+
+    it('MODAL_ESCAPE_RETURNS_FOCUS: Escape closes and focus returns to the payout trigger', async () => {
+        const { container, root } = mountTab(12450);
+        await flush();
+
+        const trigger = await openModal(container);
+        const dialog = container.querySelector('[role="dialog"]') as HTMLElement | null;
+        expect(dialog).toBeTruthy();
+
+        // The rendered name comes from the referenced heading, not the id.
+        expect(dialogsNamed(container, 'Request SGCOIN Payout')).toEqual([dialog]);
+        expect(dialogNames(container)).toEqual(['Request SGCOIN Payout']);
+        expect(dialogsNamed(container, 'sgcoin-payout-modal-title')).toHaveLength(0);
+
+        const amountInput = container.querySelector(
+            'input[aria-label="Payout amount in SGCoin"]',
+        ) as HTMLInputElement;
+        expect(document.activeElement).toBe(amountInput);
+
+        // Move focus off the initial stop first: returning to the trigger must
+        // come from the explicit returnFocusRef, not from the opener snapshot.
+        const cancelButton = buttonByText(container, 'Cancel');
+        act(() => {
+            cancelButton.focus();
+        });
+        expect(document.activeElement).toBe(cancelButton);
+
+        await pressEscape();
+
+        expect(document.activeElement).toBe(trigger);
+        expect(container.textContent).toContain('Request Crypto Payout');
+
+        unmountTab(root);
+    });
+
+    it('MODAL_TAB_WRAPS: Tab from the last enabled control wraps to the first', async () => {
+        const { container, root } = mountTab(12450);
+        await flush();
+
+        await openModal(container);
+        const closeButton = container.querySelector(
+            'button[aria-label="Close payout form"]',
+        ) as HTMLButtonElement;
+        const cancelButton = buttonByText(container, 'Cancel');
+        expect(closeButton).toBeTruthy();
+        expect(cancelButton).toBeTruthy();
+
+        act(() => {
+            cancelButton.focus();
+            cancelButton.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }),
+            );
+        });
+        expect(document.activeElement).toBe(closeButton);
+
+        act(() => {
+            closeButton.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }),
+            );
+        });
+        expect(document.activeElement).toBe(cancelButton);
+
+        unmountTab(root);
+    });
+
+    it('SUBMITTING_GUARD: Escape is inert while the payout request is in flight', async () => {
+        const { container, root } = mountTab(12450);
+        await flush();
+
+        await openModal(container);
+
+        const amountInput = container.querySelector(
+            'input[aria-label="Payout amount in SGCoin"]',
+        ) as HTMLInputElement;
+        await act(async () => {
+            const nativeSetter = Object.getOwnPropertyDescriptor(
+                window.HTMLInputElement.prototype,
+                'value',
+            ).set;
+            if (nativeSetter) {
+                nativeSetter.call(amountInput, '6000');
+                amountInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+
+        const disclaimerCheckbox = container.querySelector(
+            'input[type="checkbox"]',
+        ) as HTMLInputElement;
+        await act(async () => {
+            disclaimerCheckbox.click();
+        });
+
+        let resolveSubmit!: (value: unknown) => void;
+        vi.mocked(submitPayoutRequest).mockReturnValueOnce(
+            new Promise((resolve) => { resolveSubmit = resolve; }) as never,
+        );
+
+        const submitButton = buttonByText(container, 'Submit Payout Request');
+        expect(submitButton).toBeTruthy();
+        await act(async () => {
+            submitButton.click();
+        });
+        await flush();
+        expect(vi.mocked(submitPayoutRequest)).toHaveBeenCalledTimes(1);
+
+        await pressEscape();
+
+        // The request is in flight: the modal must still be open, so the only
+        // proof it did not dismiss is that its title is still rendered.
+        expect(container.textContent).toContain('Request SGCOIN Payout');
+
+        await act(async () => {
+            resolveSubmit({
+                id: 'req-guard-1',
+                userId: 'user-123',
+                email: 'caller@sgcoalition.test',
+                walletAddress: '0x1111111111111111111111111111111111111111',
+                amount: 6000,
+                status: 'pending',
+                createdAt: '2026-07-16T09:00:00Z',
+                updatedAt: '2026-07-16T09:00:00Z',
+            });
+        });
+        await flush();
+
+        expect(getAddToastMock()).toHaveBeenCalledWith(
+            expect.stringContaining('Payout request submitted'),
+            'success',
+        );
 
         unmountTab(root);
     });

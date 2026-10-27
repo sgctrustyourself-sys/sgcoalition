@@ -39,7 +39,7 @@ const TrustCircleManager: React.FC = () => {
     const [members, setMembers] = useState<CircleMemberRow[]>([]);
     const [applicantContext, setApplicantContext] = useState<ApplicantContext[]>([]);
     const [searchEmail, setSearchEmail] = useState('');
-    const [searchResult, setSearchResult] = useState<any>(null);
+    const [searchResult, setSearchResult] = useState<{ id: string; email: string } | null>(null);
     const [busy, setBusy] = useState<string | null>(null);
 
     // Batch-fetch lifetime order stats for the pending applicants so the
@@ -69,9 +69,10 @@ const TrustCircleManager: React.FC = () => {
                 .from('profiles')
                 .select('id, email, full_name')
                 .in('id', rows.map(m => m.user_id));
-            const emailById = new Map<string, { email?: string; full_name?: string }>(
-                ((profiles as any[]) || []).map(p => [p.id, p]),
-            );
+            const emailById = new Map<string, { email?: string | null; full_name?: string | null }>();
+            for (const profile of (profiles as { id: string; email?: string | null; full_name?: string | null }[]) || []) {
+                emailById.set(profile.id, profile);
+            }
             for (const m of rows) {
                 const p = emailById.get(m.user_id);
                 m.email = p?.email || '';

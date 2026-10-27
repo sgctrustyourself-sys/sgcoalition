@@ -9,9 +9,9 @@ import WishlistShare from '../components/WishlistShare';
 const PublicWishlist = () => {
     const { shareId } = useParams<{ shareId: string }>();
     const navigate = useNavigate();
-    const { products, user, addToCart } = useApp();
+    const { user } = useApp();
     const [wishlistOwner, setWishlistOwner] = useState<UserProfile | null>(null);
-    const [wishlistProducts, setWishlistProducts] = useState<Product[]>([]);
+    const [wishlistProducts] = useState<Product[]>([]);
     const [showShareModal, setShowShareModal] = useState(false);
 
     useEffect(() => {

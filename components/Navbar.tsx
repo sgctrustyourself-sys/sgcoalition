@@ -2,12 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ShoppingBag, Menu, X, Shield, Hexagon, Star, ChevronDown, Wallet } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { AuthProvider } from '../types';
 import SearchBar from './SearchBar';
 import { PRODUCT_IDS } from '../constants/productIds';
 
 const Navbar = () => {
-    const { cart, setCartOpen, user, login, logout, isAdminMode, logoutAdmin, products } = useApp();
+    const { cart, setCartOpen, user, logout, isAdminMode, logoutAdmin, products } = useApp();
     const [isScrolled, setIsScrolled] = useState(false);
     const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isResourcesOpen, setIsResourcesOpen] = useState(false);
@@ -16,6 +15,14 @@ const Navbar = () => {
     const [searchParams] = useSearchParams();
 
     const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
+    // The count belongs in the cart's name, not in a badge that the button's own
+    // aria-label silences. Announced as part of the label, a screen reader user
+    // hears both what the control does and how many items are in it; a bare "3"
+    // next to it would say neither.
+    const cartLabel =
+        cartCount > 0
+            ? `Open Cart, ${cartCount} item${cartCount === 1 ? '' : 's'}`
+            : 'Open Cart';
 
     // Wallets dropdown sub-section: show ONLY the one featured live wallet
     // (Coalition Above as Below 1/1). The full archive + past drops now
@@ -241,10 +248,10 @@ const Navbar = () => {
                                 </div>
                             )}
 
-                            <button onClick={() => setCartOpen(true)} className="relative p-2 text-white hover:text-glow transition-all" title="Open Cart">
+                            <button onClick={() => setCartOpen(true)} className="relative p-2 text-white hover:text-glow transition-all" title="Open Cart" aria-label={cartLabel}>
                                 <ShoppingBag className="w-5 h-5" />
                                 {cartCount > 0 && (
-                                    <span className="absolute -top-1 -right-1 bg-brand-accent text-white text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full shadow-lg shadow-blue-500/50">
+                                    <span aria-hidden="true" className="absolute -top-1 -right-1 bg-brand-accent text-white text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full shadow-lg shadow-blue-500/50">
                                         {cartCount}
                                     </span>
                                 )}
@@ -256,10 +263,10 @@ const Navbar = () => {
                             starts at lg (1024px). Below that the burger menu
                             carries the same links (plus search). */}
                         <div className="lg:hidden flex items-center space-x-4">
-                            <button onClick={() => setCartOpen(true)} className="relative p-2 text-white" title="Open Cart">
+                            <button onClick={() => setCartOpen(true)} className="relative p-2 text-white" title="Open Cart" aria-label={cartLabel}>
                                 <ShoppingBag className="w-5 h-5" />
                                 {cartCount > 0 && (
-                                    <span className="absolute -top-1 -right-1 bg-brand-accent text-white text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full">
+                                    <span aria-hidden="true" className="absolute -top-1 -right-1 bg-brand-accent text-white text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full">
                                         {cartCount}
                                     </span>
                                 )}

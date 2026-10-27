@@ -1,4 +1,4 @@
-import { Zap, Lock, Package, Crown, Globe } from 'lucide-react';
+import { Zap, Package, Crown, Globe } from 'lucide-react';
 
 export interface UnlockTier {
     id: string;

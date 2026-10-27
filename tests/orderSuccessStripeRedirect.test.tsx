@@ -3,9 +3,9 @@ import { act, createElement, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
 vi.mock('../context/AppContext', () => ({ useApp: vi.fn() }));
-vi.mock('react-router-dom', () => ({ Link: ({ children }: any) => children, useSearchParams: vi.fn() }));
+vi.mock('react-router-dom', () => ({ Link: ({ children }: { children?: unknown }) => children, useSearchParams: vi.fn() }));
 vi.mock('lucide-react', () => { const Icon = () => null; return { CheckCircle: Icon, Package: Icon, Hexagon: Icon, Home: Icon, Loader: Icon, Copy: Icon, Check: Icon, Users: Icon }; });
-vi.mock('../utils/walletAddOns', () => ({ getCartItemUnitPrice: (i: any) => i.price, getCartItemLineTotal: (i: any) => i.price * i.quantity, WALLET_KEYCHAIN_CLIP_LABEL: 'Keychain clip' }));
+vi.mock('../utils/walletAddOns', () => ({ getCartItemUnitPrice: (i: { price: number; quantity?: number }) => i.price, getCartItemLineTotal: (i: { price: number; quantity: number }) => i.price * i.quantity, WALLET_KEYCHAIN_CLIP_LABEL: 'Keychain clip' }));
 vi.mock('../utils/referralSystem', () => ({ getReferralStats: vi.fn(), generateReferralLink: vi.fn() }));
 vi.mock('../utils/referralAnalytics', () => ({ trackReferralShare: vi.fn() }));
 
@@ -30,7 +30,7 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
   beforeEach(() => {
     vi.clearAllMocks(); sessionStorage.clear(); localStorage.clear();
     vi.spyOn(console, 'error').mockImplementation(() => {}); vi.spyOn(console, 'log').mockImplementation(() => {});
-    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_intent=pi_3ds_123&redirect_status=succeeded'), vi.fn()] as any);
+    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_intent=pi_3ds_123&redirect_status=succeeded'), vi.fn()] as unknown as ReturnType<typeof useSearchParams>);
     container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
   });
   afterEach(() => { act(() => root.unmount()); if (container.parentNode) container.parentNode.removeChild(container); vi.restoreAllMocks(); });
@@ -40,8 +40,8 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
     const fetchFn = vi.fn();
     vi.stubGlobal('fetch', fetchFn);
     sessionStorage.setItem('shippingInfo', JSON.stringify({ name: 'Guest Buyer', email: 'guest@example.com', address1: '1 Coalition Way', city: 'Baltimore', state: 'MD', zip: '21201', country: 'US' }));
-    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=store_credit'), vi.fn()] as any);
-    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: (n: number) => Math.floor(n / 10), clearCart, addOrder, user: null, updateUser: vi.fn() } as any);
+    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=store_credit'), vi.fn()] as unknown as ReturnType<typeof useSearchParams>);
+    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: (n: number) => Math.floor(n / 10), clearCart, addOrder, user: null, updateUser: vi.fn() } as unknown as ReturnType<typeof useApp>);
 
     await act(async () => { root.render(createElement(OrderSuccess)); for (let i = 0; i < 8; i++) await Promise.resolve(); });
 
@@ -57,7 +57,7 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
   it('completes once and clears cart plus persisted checkout state', async () => {
     sessionStorage.setItem(STATE_KEY, JSON.stringify({ shippingInfo: { name: 'Guest Buyer', email: 'guest@example.com', address1: '1 Coalition Way', city: 'Baltimore', state: 'MD', zip: '21201', country: 'US' }, shippingMethod: 'standard', shippingCost: 0, orderSeed: { orderId: 'order-3ds-1', orderNumber: 'ORD-3DS-0001' }, storeCreditApplied: 5, couponCode: 'SAVE10' }));
     const clearCart = vi.fn(); const fetchFn = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => savedOrder() }); vi.stubGlobal('fetch', fetchFn);
-    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: (n: number) => Math.floor(n / 10), clearCart, user: null, updateUser: vi.fn(), addOrder: vi.fn() } as any);
+    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: (n: number) => Math.floor(n / 10), clearCart, user: null, updateUser: vi.fn(), addOrder: vi.fn() } as unknown as ReturnType<typeof useApp>);
     await act(async () => { root.render(createElement(StrictMode, null, createElement(OrderSuccess))); for (let i = 0; i < 8; i++) await Promise.resolve(); });
     expect(fetchFn).toHaveBeenCalledTimes(1);
     // The recovery write is bounded too: this page is a spinner until the
@@ -92,8 +92,8 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
     const clearCart = vi.fn();
     const addOrder = vi.fn().mockResolvedValue(recordedFallbackOrder());
     vi.stubGlobal('fetch', vi.fn());
-    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=crypto'), vi.fn()] as any);
-    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: () => 4, clearCart, addOrder, user: null, updateUser: vi.fn() } as any);
+    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=crypto'), vi.fn()] as unknown as ReturnType<typeof useSearchParams>);
+    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: () => 4, clearCart, addOrder, user: null, updateUser: vi.fn() } as unknown as ReturnType<typeof useApp>);
 
     await act(async () => {
       root.render(createElement(OrderSuccess));
@@ -104,7 +104,7 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
     // Second entry: the auth context hydrates while the first write is in
     // flight, which re-runs the effect with the cart still populated (the real
     // clearCart only lands once addOrder resolves).
-    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: () => 4, clearCart, addOrder, user: { uid: 'user-1' }, updateUser: vi.fn() } as any);
+    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: () => 4, clearCart, addOrder, user: { uid: 'user-1' }, updateUser: vi.fn() } as unknown as ReturnType<typeof useApp>);
     await act(async () => {
       root.render(createElement(OrderSuccess));
       for (let i = 0; i < 8; i++) await Promise.resolve();
@@ -134,8 +134,8 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
       .mockRejectedValueOnce(new Error('network'))
       .mockResolvedValue(recordedFallbackOrder());
     vi.stubGlobal('fetch', vi.fn());
-    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=crypto'), vi.fn()] as any);
-    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: () => 4, clearCart, addOrder, user: null, updateUser: vi.fn() } as any);
+    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=crypto'), vi.fn()] as unknown as ReturnType<typeof useSearchParams>);
+    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: () => 4, clearCart, addOrder, user: null, updateUser: vi.fn() } as unknown as ReturnType<typeof useApp>);
 
     await act(async () => {
       root.render(createElement(OrderSuccess));
@@ -154,7 +154,7 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
     });
 
     expect(addOrder).toHaveBeenCalledTimes(2);
-    const [first, second] = addOrder.mock.calls.map((c: any[]) => c[0]);
+    const [first, second] = addOrder.mock.calls.map((c: unknown[]) => c[0] as { id: string });
     expect(first.id).toMatch(/^order_\d+_[a-z0-9]+$/);
     expect(second.id).toBe(first.id);
   });
@@ -173,8 +173,8 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
     const clearCart = vi.fn();
     const addOrder = vi.fn().mockRejectedValue(new Error(timedOut));
     vi.stubGlobal('fetch', vi.fn());
-    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=crypto'), vi.fn()] as any);
-    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: () => 4, clearCart, addOrder, user: null, updateUser: vi.fn() } as any);
+    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=crypto'), vi.fn()] as unknown as ReturnType<typeof useSearchParams>);
+    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: () => 4, clearCart, addOrder, user: null, updateUser: vi.fn() } as unknown as ReturnType<typeof useApp>);
 
     await act(async () => {
       root.render(createElement(OrderSuccess));
@@ -199,8 +199,8 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
     const clearCart = vi.fn();
     const addOrder = vi.fn().mockResolvedValue(recordedFallbackOrder());
     vi.stubGlobal('fetch', vi.fn());
-    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=store_credit'), vi.fn()] as any);
-    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: () => 4, clearCart, addOrder, user: null, updateUser: vi.fn() } as any);
+    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=store_credit'), vi.fn()] as unknown as ReturnType<typeof useSearchParams>);
+    vi.mocked(useApp).mockReturnValue({ cart: [item], cartTotal: () => 45, calculateReward: () => 4, clearCart, addOrder, user: null, updateUser: vi.fn() } as unknown as ReturnType<typeof useApp>);
 
     // The attempt as Checkout left it. The record carries no age at all now —
     // whether it is settled is the server's answer, not the clock's — so the
@@ -226,11 +226,11 @@ describe('OrderSuccess Stripe redirect-return recovery', () => {
     sessionStorage.setItem(STATE_KEY, '{checkout-state-not-json');
     sessionStorage.setItem('shippingInfo', '{not-json');
     sessionStorage.setItem('pendingOrder', '{also-not-json');
-    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=store_credit'), vi.fn()] as any);
+    vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams('payment_method=store_credit'), vi.fn()] as unknown as ReturnType<typeof useSearchParams>);
     vi.mocked(useApp).mockReturnValue({
       cart: [], cartTotal: () => 0, calculateReward: () => 0,
       clearCart: vi.fn(), user: null, updateUser: vi.fn(), addOrder: vi.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useApp>);
 
     await act(async () => {
       root.render(createElement(OrderSuccess));

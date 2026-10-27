@@ -2,7 +2,9 @@
 //
 // REGRESSION CATCH for the React render-flow of components/admin/GiveawayManager.tsx.
 //
-// Replicates the established pattern: createRoot + act + explicit DOM assertions
+// Mounting goes through tests/_helpers/adminSurface.tsx, which owns the
+// AppContext/ToastContext stub registration, the MemoryRouter, the
+// container/root pair and the teardown. Explicit DOM assertions
 // (no snapshots). GiveawayManager has the most complex mock surface of the
 // 4 admin render-flow files because it pulls state from AppContext AND mounts
 // 2 sub-components (GiveawayEntriesTab + YoutubeSubmissionsTab) inside the
@@ -34,13 +36,14 @@
 // exactly 3 such cards: Total Tickets, Status, Days Left.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createElement, act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { pinStatValues } from './_helpers/statCardPinner';
-
-vi.mock('../context/AppContext', () => ({
-    useApp: vi.fn(),
-}));
+import {
+    appContextStub,
+    mockAppContext,
+    renderAdminSurface,
+    toastContextStub,
+} from './_helpers/adminSurface';
 
 vi.mock('../components/admin/GiveawayEntriesTab', () => ({
     default: () => <div data-testid="stub-entries-tab" />,
@@ -65,8 +68,23 @@ vi.mock('../utils/giveawayUtils', () => ({
 // deliberately do NOT vi.mock ./admin/GiveawayManager because vi.mock
 // replaces the module wholesale and would render an empty stub instead.
 
-import { useApp } from '../context/AppContext';
-import GiveawayManager from '../components/admin/GiveawayManager';
+// The harness cannot register the contexts for us — vitest scopes module mocks
+// to the file that calls them (see the harness header). Two lines, once per
+// file, and the surface itself arrives as a loader so it resolves against them.
+vi.doMock('../context/AppContext', appContextStub);
+vi.doMock('../context/ToastContext', toastContextStub);
+
+const loadGiveawayManager = () => import('../components/admin/GiveawayManager');
+
+// Module-scoped because the assertions below read it by name; each render
+// assigns the harness's own container.
+let container: HTMLDivElement;
+
+const renderSurface = async () => {
+    const surface = await renderAdminSurface(loadGiveawayManager);
+    container = surface.container;
+    return surface;
+};
 
 interface TestGiveawayEntry {
     id: string;
@@ -162,8 +180,6 @@ const baselineUseApp = (giveaways: TestGiveaway[]) => ({
 });
 
 describe('GiveawayManager render flow', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -177,21 +193,16 @@ describe('GiveawayManager render flow', () => {
         // even assigned root. None of the 4 tests click Copy Link so the spy
         // is dead code anyway.
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
     it('LOADED_ACTIVE: 3 giveaways in default active tab filters out 1 ENDED -> renders 2 cards (Weekly Merch, NF-Tee Launch). Title block + 3-tab sub-row render.', async () => {
-        vi.mocked(useApp).mockReturnValue(baselineUseApp(TEST_GIVEAWAYS) as any);
+        mockAppContext(baselineUseApp(TEST_GIVEAWAYS) as any);
 
-        await act(async => { root.render(createElement(GiveawayManager)); });
+        await renderSurface();
         const html = container.innerHTML;
 
         // Top-level header rendered.
@@ -213,9 +224,9 @@ describe('GiveawayManager render flow', () => {
     });
 
     it('EMPTY_ACTIVE: 0 giveaways -> "No giveaways found" empty state + gift icon (no cards rendered)', async () => {
-        vi.mocked(useApp).mockReturnValue(baselineUseApp(EMPTY_GIVEAWAYS) as any);
+        mockAppContext(baselineUseApp(EMPTY_GIVEAWAYS) as any);
 
-        await act(async => { root.render(createElement(GiveawayManager)); });
+        await renderSurface();
         const html = container.innerHTML;
 
         // Default 'active' tab. Empty state.
@@ -233,8 +244,6 @@ describe('GiveawayManager render flow', () => {
 });
 
 describe('GiveawayManager form modal + detail view interactions', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -244,22 +253,17 @@ describe('GiveawayManager form modal + detail view interactions', () => {
         // navigator.clipboard.writeText spy intentionally OMITTED - see note
         // in Describe 1's beforeEach. None of the 4 tests click Copy Link.
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
     it('CREATE_TAB_OPEN: clicking "+ Create" mounts launch form (Title input + Prize input + Start datetime + End datetime + Description textarea + Launch Giveaway button)', async () => {
         const addGiveaway = vi.fn().mockResolvedValue(undefined);
-        vi.mocked(useApp).mockReturnValue({ ...baselineUseApp(TEST_GIVEAWAYS), addGiveaway } as any);
+        mockAppContext({ ...baselineUseApp(TEST_GIVEAWAYS), addGiveaway } as any);
 
-        await act(async => { root.render(createElement(GiveawayManager)); });
+        await renderSurface();
 
         // Click the + Create tab button. The textContent is '+ Create'.
         const createBtn = Array.from(document.body.querySelectorAll('button')).find(
@@ -291,9 +295,9 @@ describe('GiveawayManager form modal + detail view interactions', () => {
     });
 
     it('DETAIL_SELECT: clicking Weekly Merch card mounts detail panel - 3 stat cards (Total Tickets, Status, Days Left) + 3 sub-tab buttons (Overview, Entries, Youtube Details) + Edit Copy/Delete action buttons', async () => {
-        vi.mocked(useApp).mockReturnValue(baselineUseApp(TEST_GIVEAWAYS) as any);
+        mockAppContext(baselineUseApp(TEST_GIVEAWAYS) as any);
 
-        await act(async => { root.render(createElement(GiveawayManager)); });
+        await renderSurface();
 
         // Click the Weekly Merch card (the .onClick is on the .map'd card div).
         const cardTitleText = 'Weekly Merch Drop';

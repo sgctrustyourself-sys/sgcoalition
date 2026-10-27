@@ -24,7 +24,7 @@ import {
 // contained (no cross-page util import — the about page renders the same
 // shape but inline). If pages/Blog.tsx's safeDate evolves, mirror the
 // change here.
-const safeDate = (dateStr: any) => {
+const safeDate = (dateStr: string | number | Date | null | undefined) => {
     if (!dateStr) return new Date();
     const d = new Date(dateStr);
     return isValid(d) ? d : new Date();
@@ -68,8 +68,8 @@ const AboutRecentPosts: React.FC = () => {
                 } else {
                     setPosts(filterBlogPostsByCategory(blogFallbackPosts, 'all').slice(0, 3));
                 }
-            } catch (err: any) {
-                console.error('AboutRecentPosts fetch failed:', err?.message || err);
+            } catch (err) {
+                console.error('AboutRecentPosts fetch failed:', err instanceof Error ? err.message : err);
                 if (!cancelled) {
                     setPosts(filterBlogPostsByCategory(blogFallbackPosts, 'all').slice(0, 3));
                 }
@@ -366,7 +366,7 @@ const Story = () => {
                             <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                             <div className="relative z-10">
                                 <div className={`p-4 rounded-2xl bg-${item.color === 'purple' ? 'purple' : 'blue'}-500/10 border border-${item.color === 'purple' ? 'purple' : 'blue'}-500/20 w-fit mb-6 group-hover:scale-110 transition-transform`}>
-                                    {React.cloneElement(item.icon as React.ReactElement<any>, { className: `w-8 h-8 text-${item.color === 'purple' ? 'purple' : 'blue'}-400` })}
+                                    {React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, { className: `w-8 h-8 text-${item.color === 'purple' ? 'purple' : 'blue'}-400` })}
                                 </div>
                                 <h3 className="text-2xl font-display font-bold uppercase mb-4">{item.title}</h3>
                                 <p className="text-gray-400 text-lg leading-loose">{item.desc}</p>

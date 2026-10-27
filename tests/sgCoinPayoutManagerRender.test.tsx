@@ -4,8 +4,11 @@
 // components/admin/SGCoinPayoutManager.tsx (admin tab for SGCOIN withdrawal
 // requests: approve / complete-with-tx-hash / reject).
 //
-// Pattern mirrors tests/orderManagerRender.test.tsx:
-//   createRoot + act + explicit-DOM-assertions + vi.mock per service.
+// Mounting goes through tests/_helpers/adminSurface.tsx, which owns the
+// AppContext/ToastContext stub registration, the MemoryRouter, the
+// container/root pair and the teardown. Pattern mirrors
+// tests/orderManagerRender.test.tsx: explicit-DOM-assertions + vi.mock per
+// service; the `addToast` the flows assert on is the harness's sink.
 //
 // The component imports services/payoutRequest (RPC wrappers, not raw supabase
 // calls) so we mock that module entirely instead of using the supabase mock
@@ -13,8 +16,13 @@
 // real email send paths never fire during tests.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createElement, act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
+import {
+    addToast,
+    appContextStub,
+    renderAdminSurface,
+    toastContextStub,
+} from './_helpers/adminSurface';
 
 // ---------- HOISTED MOCKS ----------
 
@@ -35,9 +43,11 @@ vi.mock('../services/emailService', () => ({
     sendRejectionEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('../context/ToastContext', () => ({
-    useToast: vi.fn(),
-}));
+// The harness cannot register the contexts for us — vitest scopes module mocks
+// to the file that calls them (see the harness header). Two lines, once per
+// file, and the surface itself arrives as a loader so it resolves against them.
+vi.doMock('../context/AppContext', appContextStub);
+vi.doMock('../context/ToastContext', toastContextStub);
 
 import {
     getAllPayoutRequests,
@@ -46,8 +56,19 @@ import {
     rejectPayoutRequest,
     getPayoutRequestStats,
 } from '../services/payoutRequest';
-import { useToast } from '../context/ToastContext';
-import SGCoinPayoutManager from '../components/admin/SGCoinPayoutManager';
+const loadPayoutManager = () => import('../components/admin/SGCoinPayoutManager');
+
+// Module-scoped because the assertions below read it by name; each render
+// assigns the harness's own container.
+let container: HTMLDivElement;
+
+const renderSurface = async () => {
+    const surface = await renderAdminSurface(loadPayoutManager, {
+        props: { adminUserId: 'admin-123' },
+    });
+    container = surface.container;
+    return surface;
+};
 
 // ---------- FIXTURES ----------
 
@@ -115,49 +136,28 @@ function setupDefaultMocks() {
 }
 
 function getAddToastMock() {
-    return vi.mocked(useToast).mock.results[0]?.value?.addToast as ReturnType<
-        typeof vi.fn
-    >;
+    return addToast as unknown as ReturnType<typeof vi.fn>;
 }
 
 // ---------- 1. LOADED + 2. STATUS FILTER ----------
 
 describe('SGCoinPayoutManager render flow', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
         localStorage.clear();
         vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        vi.mocked(useToast).mockReturnValue({
-            addToast: vi.fn(),
-            removeToast: vi.fn(),
-            toasts: [],
-        });
-
         setupDefaultMocks();
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
-    afterEach(async () => {
-        await act(async () => {
-            root.unmount();
-        });
-        if (container.parentNode === document.body) document.body.removeChild(container);
+    afterEach(() => {
         vi.restoreAllMocks();
     });
 
     it('LOADED: 5 stat cards (3/1/1/1/0) + 3 table rows + color badges + no detail modal', async () => {
-        await act(async () => {
-            root.render(
-                createElement(SGCoinPayoutManager, { adminUserId: 'admin-123' }),
-            );
-        });
+        await renderSurface();
         await flush();
 
         // 5 stat cards: Total / Pending / Approved / Completed / Rejected.
@@ -190,11 +190,7 @@ describe('SGCoinPayoutManager render flow', () => {
     });
 
     it('STATUS_FILTER: clicking "Pending" narrows to 1 row (alice only); stat grid unchanged', async () => {
-        await act(async () => {
-            root.render(
-                createElement(SGCoinPayoutManager, { adminUserId: 'admin-123' }),
-            );
-        });
+        await renderSurface();
         await flush();
 
         expect(container.innerHTML).toContain('alice@sgcoalition.test');
@@ -228,39 +224,20 @@ describe('SGCoinPayoutManager render flow', () => {
 // ---------- 3. APPROVE + 4. COMPLETE + 5. REJECT MODAL FLOWS ----------
 
 describe('SGCoinPayoutManager admin action flows', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(async () => {
         vi.clearAllMocks();
         localStorage.clear();
         vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        vi.mocked(useToast).mockReturnValue({
-            addToast: vi.fn(),
-            removeToast: vi.fn(),
-            toasts: [],
-        });
-
         setupDefaultMocks();
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
 
-        await act(async () => {
-            root.render(
-                createElement(SGCoinPayoutManager, { adminUserId: 'admin-123' }),
-            );
-        });
+        await renderSurface();
         await flush();
     });
 
-    afterEach(async () => {
-        await act(async () => {
-            root.unmount();
-        });
-        if (container.parentNode === document.body) document.body.removeChild(container);
+    afterEach(() => {
         vi.restoreAllMocks();
     });
 

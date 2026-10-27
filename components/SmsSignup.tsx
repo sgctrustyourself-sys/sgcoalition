@@ -44,11 +44,12 @@ const SmsSignup = () => {
             setPhone('');
             // Reset success message after 5 seconds
             setTimeout(() => setStatus('idle'), 5000);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Subscription error:', err);
             setStatus('error');
             // Provide more descriptive error for debugging
-            const msg = err.message || err.details || (typeof err === 'string' ? err : 'Unknown subscription failure');
+            const details = err as { message?: string; details?: string };
+            const msg = details.message || details.details || (typeof err === 'string' ? err : 'Unknown subscription failure');
             setErrorMsg(msg);
             setTimeout(() => setStatus('idle'), 5000);
         }

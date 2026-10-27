@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { GitBranch, GitCommit, History, RotateCcw, Download, FileText, Clock, User } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { GitBranch, GitCommit, History, RotateCcw, FileText, Clock, User } from 'lucide-react';
 import { buildGitOperationsUrl } from '../services/apiBase';
+import { errorMessage } from '../utils/errorMessage';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface GitCommit {
     hash: string;
@@ -22,6 +24,13 @@ const GitManager: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [selectedCommit, setSelectedCommit] = useState<string | null>(null);
     const [showDiff, setShowDiff] = useState(false);
+    const diffPanelRef = useRef<HTMLDivElement>(null);
+
+    useFocusTrap({
+        active: showDiff && selectedCommit !== null,
+        containerRef: diffPanelRef,
+        onEscape: () => setShowDiff(false),
+    });
 
     // Fetch Git status on component mount
     useEffect(() => {
@@ -133,9 +142,9 @@ const GitManager: React.FC = () => {
 
                 await fetchGitStatus();
                 alert('Commit created successfully');
-            } catch (error: any) {
+            } catch (error) {
                 console.error('Failed to create commit:', error);
-                alert(error.message || 'Failed to create commit');
+                alert(errorMessage(error) || 'Failed to create commit');
             } finally {
                 setIsLoading(false);
             }
@@ -305,7 +314,13 @@ const GitManager: React.FC = () => {
             {/* Diff Viewer Modal */}
             {showDiff && selectedCommit && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+                    <div
+                        ref={diffPanelRef}
+                        className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={`Commit diff ${selectedCommit}`}
+                    >
                         <div className="flex items-center justify-between p-6 border-b-2 border-gray-200">
                             <h3 className="font-display text-xl font-bold uppercase">
                                 Commit Diff: {selectedCommit}

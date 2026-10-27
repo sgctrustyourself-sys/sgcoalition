@@ -74,7 +74,7 @@ const CustomWallets = () => {
 
   const wallets = useMemo(() => {
     return (products || [])
-      .filter((p) => isWalletProduct(p) || (p as any).category === 'wallet' || /wallet/i.test(p.name))
+      .filter((p) => isWalletProduct(p) || (p as { category?: string }).category === 'wallet' || /wallet/i.test(p.name))
       .sort((a, b) => {
         if (!!a.archived !== !!b.archived) return a.archived ? 1 : -1;
         return a.name.localeCompare(b.name);
@@ -133,7 +133,7 @@ const CustomWallets = () => {
       });
 
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({} as any));
+        const errData: { error?: string } = await response.json().catch(() => ({}));
         throw new Error((errData && errData.error) || 'Failed to submit inquiry');
       }
 
@@ -141,8 +141,8 @@ const CustomWallets = () => {
       setName('');
       setEmail('');
       setDirection('');
-    } catch (err: any) {
-      setError((err && err.message) || 'Submission failed. Please try again.');
+    } catch (err) {
+      setError((err instanceof Error ? err.message : String(err)) || 'Submission failed. Please try again.');
     } finally {
       setLoading(false);
     }

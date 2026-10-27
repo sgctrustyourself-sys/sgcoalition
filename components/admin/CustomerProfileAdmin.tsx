@@ -26,9 +26,10 @@ import type { PayoutRequest } from '../../services/payoutRequest';
 import { supabase } from '../../services/supabase';
 import { useToast } from '../../context/ToastContext';
 import { buildCustomerProfile, buildCustomerProfileByEmail, CustomerProfile } from '../../utils/customerProfile';
+import { errorMessage } from '../../utils/errorMessage';
 
 interface RecentSearch { query: string; mode: 'userId' | 'email'; timestamp: number; }
-interface OrderRow { id: string; total: number | string; created_at: string; payment_status: string; items: any[]; }
+interface OrderRow { id: string; total: number | string; created_at: string; payment_status: string; items: unknown; }
 
 const RECENT_KEY = 'sgc_admin_recent_customer_searches';
 const MAX_RECENT = 8;
@@ -594,7 +595,7 @@ const CustomerProfileAdmin: React.FC<{ onNavigateToPayouts?: () => void }> = ({ 
                 .limit(50);
             if (err) throw err;
             setOrders((data || []) as OrderRow[]);
-        } catch (e: any) {
+        } catch (e) {
             console.error('Failed to fetch orders:', e);
             setOrders([]);
         }
@@ -624,9 +625,9 @@ const CustomerProfileAdmin: React.FC<{ onNavigateToPayouts?: () => void }> = ({ 
                     await fetchOrders(value);
                 }
             }
-        } catch (e: any) {
+        } catch (e) {
             console.error('Customer profile search failed:', e);
-            setError(e?.message || 'Search failed');
+            setError(errorMessage(e) || 'Search failed');
         } finally {
             setIsLoading(false);
         }
@@ -649,8 +650,8 @@ const CustomerProfileAdmin: React.FC<{ onNavigateToPayouts?: () => void }> = ({ 
             if (err) throw err;
             setProfile({ ...profile, customerNotes: notes || null });
             addToast('Notes saved', 'success');
-        } catch (e: any) {
-            addToast(e?.message || 'Failed to save notes', 'error');
+        } catch (e) {
+            addToast(errorMessage(e) || 'Failed to save notes', 'error');
             throw e;
         }
     }, [profile, addToast]);
@@ -663,8 +664,8 @@ const CustomerProfileAdmin: React.FC<{ onNavigateToPayouts?: () => void }> = ({ 
             if (err) throw err;
             setProfile({ ...profile, isVIP: newVal });
             addToast(newVal ? 'VIP granted' : 'VIP revoked', 'success');
-        } catch (e: any) {
-            addToast(e?.message || 'Failed to update VIP status', 'error');
+        } catch (e) {
+            addToast(errorMessage(e) || 'Failed to update VIP status', 'error');
             throw e;
         }
     }, [profile, addToast]);
@@ -677,8 +678,8 @@ const CustomerProfileAdmin: React.FC<{ onNavigateToPayouts?: () => void }> = ({ 
             if (err) throw err;
             setProfile({ ...profile, storeCredit: newCredit });
             addToast(delta >= 0 ? `Added $${delta.toFixed(2)} credit` : `Subtracted $${Math.abs(delta).toFixed(2)} credit`, 'success');
-        } catch (e: any) {
-            addToast(e?.message || 'Failed to update store credit', 'error');
+        } catch (e) {
+            addToast(errorMessage(e) || 'Failed to update store credit', 'error');
             throw e;
         }
     }, [profile, addToast]);

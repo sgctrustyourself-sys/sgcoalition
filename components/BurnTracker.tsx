@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Flame, ArrowUpRight, TrendingUp, ShoppingBag, Zap, Ticket, ExternalLink } from 'lucide-react';
+import { Flame, TrendingUp, ShoppingBag, Zap, Ticket, ExternalLink } from 'lucide-react';
 import { SGCOIN_V2_CONTRACT_ADDRESS } from '../constants';
 
 // PolygonScan URL for the V2 token contract (same destination LiveTransactions uses for its

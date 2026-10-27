@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, CreditCard, ShoppingBag, Check, Star, Zap, X } from 'lucide-react';
-import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 
 const API_BASE = import.meta.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app';
@@ -25,9 +24,9 @@ const Membership = () => {
             }
             // Redirect shopper to Whop Checkout to complete payment.
             window.location.href = data.whopCheckoutUrl;
-        } catch (err: any) {
+        } catch (err) {
             setIsCreatingSession(false);
-            addToast(err.message || 'Could not start checkout. Please try again.', 'error');
+            addToast((err instanceof Error ? err.message : String(err)) || 'Could not start checkout. Please try again.', 'error');
         }
     };
 

@@ -4,14 +4,36 @@
 // (components/admin/PaymentStatusCard.tsx). The card polls /api/health and
 // renders the Stripe key status + enabled payment methods at a glance.
 //
-// Replicates the established admin render-test pattern (createRoot + act +
-// explicit DOM assertions). Only the global fetch is mocked — the card is
-// self-contained and has no AppContext/supabase dependencies.
+// Mounting goes through tests/_helpers/adminSurface.tsx, which owns the
+// container/root pair and the teardown (the card reads no context itself, but
+// every admin render test mounts the same way). Only the global fetch is mocked
+// — the card is self-contained and has no AppContext/supabase dependencies.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createElement, act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
-import PaymentStatusCard from '../components/admin/PaymentStatusCard';
+import { act } from 'react';
+import {
+    appContextStub,
+    renderAdminSurface,
+    toastContextStub,
+} from './_helpers/adminSurface';
+
+// The harness cannot register the contexts for us — vitest scopes module mocks
+// to the file that calls them (see the harness header). Two lines, once per
+// file, and the surface itself arrives as a loader so it resolves against them.
+vi.doMock('../context/AppContext', appContextStub);
+vi.doMock('../context/ToastContext', toastContextStub);
+
+const loadPaymentStatusCard = () => import('../components/admin/PaymentStatusCard');
+
+// Module-scoped because the helpers below read it by name; each render assigns
+// the harness's own container.
+let container: HTMLDivElement;
+
+const renderSurface = async () => {
+    const surface = await renderAdminSurface(loadPaymentStatusCard);
+    container = surface.container;
+    return surface;
+};
 
 function jsonResponse(status: number, body: unknown): Response {
     return {
@@ -50,31 +72,22 @@ const DEGRADED_BODY = {
 };
 
 describe('PaymentStatusCard render flow', () => {
-    let container: HTMLDivElement;
-    let root: Root;
     let fetchMock: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
         vi.clearAllMocks();
         vi.spyOn(console, 'error').mockImplementation(() => {});
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
         fetchMock = vi.fn();
         vi.stubGlobal('fetch', fetchMock);
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
     });
 
     async function renderCard() {
-        await act(async () => {
-            root.render(createElement(PaymentStatusCard));
-        });
+        await renderSurface();
         // Flush the mocked-fetch microtask so the state update lands.
         await act(async () => { await Promise.resolve(); });
     }

@@ -3,7 +3,9 @@
 // REGRESSION CATCH for components/admin/TrustCircleManager.tsx — the admin
 // Trust Circle tab (application queue, invite, members, drop vouchers).
 //
-// Replicates the createRoot + act + explicit-DOM-assertions pattern.
+// Mounting goes through tests/_helpers/adminSurface.tsx, which owns the
+// AppContext/ToastContext stub registration, the MemoryRouter, the
+// container/root pair and the teardown.
 //
 // Mock surface:
 //   - ../../services/supabase -> mockSupabase singleton (profiles + members
@@ -22,18 +24,17 @@
 //   3. SECTIONS: Invite + Current Members headers render.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createElement, act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { mockSupabase } from './_helpers/supabaseClientMock';
+import {
+    appContextStub,
+    mockAppContext,
+    renderAdminSurface,
+    toastContextStub,
+} from './_helpers/adminSurface';
 
 vi.mock('../services/supabase', () => ({
     supabase: mockSupabase.client,
-}));
-vi.mock('../context/AppContext', () => ({
-    useApp: vi.fn(),
-}));
-vi.mock('../context/ToastContext', () => ({
-    useToast: () => ({ addToast: vi.fn() }),
 }));
 vi.mock('../services/trustCircle', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../services/trustCircle')>();
@@ -70,33 +71,43 @@ vi.mock('../services/emailService', () => ({
     sendDropVoucherEmail: vi.fn(async () => {}),
 }));
 
-// Static imports below the vi.mock block (established hoisting pattern).
-import { useApp } from '../context/AppContext';
-import TrustCircleManager from '../components/admin/TrustCircleManager';
+// Static imports below the vi.mock block (established hoisting pattern). These
+// are services, not surfaces, so the loader rule does not apply to them.
 import { reviewApplication, issueDropVoucher } from '../services/trustCircle';
 import { sendDropVoucherEmail } from '../services/emailService';
+
+// The harness cannot register the contexts for us — vitest scopes module mocks
+// to the file that calls them (see the harness header). Two lines, once per
+// file, and the surface itself arrives as a loader so it resolves against them.
+vi.doMock('../context/AppContext', appContextStub);
+vi.doMock('../context/ToastContext', toastContextStub);
+
+const loadTrustCircleManager = () => import('../components/admin/TrustCircleManager');
+
+// Module-scoped because the assertions below read it by name; each render
+// assigns the harness's own container.
+let container: HTMLDivElement;
+
+const renderSurface = async () => {
+    const surface = await renderAdminSurface(loadTrustCircleManager);
+    container = surface.container;
+    return surface;
+};
 
 const ADMIN_USER = { uid: 'admin-1' };
 
 describe('TrustCircleManager render', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
         mockSupabase.setOutcomes([]);
-        vi.mocked(useApp).mockReturnValue({ user: ADMIN_USER } as any);
+        mockAppContext({ user: ADMIN_USER } as any);
         vi.spyOn(console, 'error').mockImplementation(() => {});
         vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
@@ -108,9 +119,7 @@ describe('TrustCircleManager render', () => {
             { kind: 'resolve', value: { data: [], error: null } },
         ]);
 
-        await act(async () => {
-            root.render(createElement(TrustCircleManager));
-        });
+        await renderSurface();
         const html = container.innerHTML;
 
         // Header + application copy.
@@ -151,9 +160,7 @@ describe('TrustCircleManager render', () => {
             { kind: 'resolve', value: { error: null } },
         ]);
 
-        await act(async () => {
-            root.render(createElement(TrustCircleManager));
-        });
+        await renderSurface();
         expect(container.innerHTML).toContain('member@example.com');
 
         const dropBtn = Array.from(document.body.querySelectorAll('button')).find(
@@ -186,9 +193,7 @@ describe('TrustCircleManager render', () => {
             { kind: 'resolve', value: { data: [], error: null } },
         ]);
 
-        await act(async () => {
-            root.render(createElement(TrustCircleManager));
-        });
+        await renderSurface();
 
         const approveBtn = Array.from(document.body.querySelectorAll('button')).find(
             (b) => (b.textContent || '').trim().toUpperCase().includes('APPROVE'),

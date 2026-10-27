@@ -9,16 +9,15 @@ import {
     ExternalLink,
     Shield,
     ShieldAlert,
-    MoreVertical,
     ChevronLeft,
     ChevronRight,
     Loader2,
-    Clock,
     UserCircle,
     MapPin,
     Globe
 } from 'lucide-react';
 import { supabase } from '../../services/supabase';
+import { errorMessage } from '../../utils/errorMessage';
 import { useToast } from '../../context/ToastContext';
 
 interface UserProfile {
@@ -59,8 +58,8 @@ const UserManager: React.FC = () => {
 
             if (error) throw error;
             setUsers(data || []);
-        } catch (err: any) {
-            addToast(err.message || 'Failed to fetch users', 'error');
+        } catch (err) {
+            addToast(errorMessage(err) || 'Failed to fetch users', 'error');
         } finally {
             setIsLoading(false);
         }

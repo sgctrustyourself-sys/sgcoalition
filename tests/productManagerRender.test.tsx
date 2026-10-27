@@ -2,13 +2,17 @@
 //
 // REGRESSION CATCH for the React render-flow of components/admin/ProductManager.tsx.
 //
-// Replicates the established pattern: createRoot + act + explicit DOM assertions.
+// Mounting goes through tests/_helpers/adminSurface.tsx, which owns the
+// AppContext/ToastContext stub registration, the MemoryRouter, the
+// container/root pair and the teardown. This file supplies the two `vi.doMock`
+// lines and a loader (see that helper's header for why vitest forces it).
 //
 // Mock surface:
 //   - ../services/supabase (mockSupabase singleton) - ProductManager doesn't call
 //     supabase directly, but vi.mock keeps the chain-shaped client reference stable.
 //   - ../context/AppContext - useApp() returns products[] + 3 action fns (addProduct,
-//     updateProduct, deleteProduct). Per-test mockReturnValue via vi.mocked(useApp).
+//     updateProduct, deleteProduct). Installed per-test through the harness's
+//     mockAppContext({...}).
 //   - ../services/imgurService - syncProductsToCode stubbed with default
 //     mockResolvedValue({ hash: 'abc123' }) so the Sync Code button can succeed
 //     without exercising the real sync logic.
@@ -25,16 +29,18 @@
 // logic impact is minimal (a regression in dnd would be visually obvious in dev).
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createElement, act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { mockSupabase } from './_helpers/supabaseClientMock';
+import {
+    appContextStub,
+    mockAppContext,
+    renderAdminSurface,
+    toastContextStub,
+} from './_helpers/adminSurface';
 
 // vitest auto-hoists vi.mock above the imports that follow.
 vi.mock('../services/supabase', () => ({
     supabase: mockSupabase.client,
-}));
-vi.mock('../context/AppContext', () => ({
-    useApp: vi.fn(),
 }));
 vi.mock('../services/imgurService', () => ({
     // Carries the seed-merge report, because the success message is built from it:
@@ -74,8 +80,23 @@ vi.mock('../components/ui/ImageCropperModal', () => ({
     default: () => <div data-testid="image-cropper-stub" />,
 }));
 
-import { useApp } from '../context/AppContext';
-import ProductManager from '../components/admin/ProductManager';
+// The harness cannot register the contexts for us — vitest scopes module mocks
+// to the file that calls them (see the harness header). Two lines, once per
+// file, and the surface itself arrives as a loader so it resolves against them.
+vi.doMock('../context/AppContext', appContextStub);
+vi.doMock('../context/ToastContext', toastContextStub);
+
+const loadProductManager = () => import('../components/admin/ProductManager');
+
+// Module-scoped because the assertions below read it by name; each render
+// assigns the harness's own container.
+let container: HTMLDivElement;
+
+const renderProducts = async () => {
+    const surface = await renderAdminSurface(loadProductManager);
+    container = surface.container;
+    return surface;
+};
 
 interface TestProduct {
     id: string;
@@ -137,8 +158,6 @@ const TEST_PRODUCTS: TestProduct[] = [
 const EMPTY_PRODUCTS: TestProduct[] = [];
 
 describe('ProductManager edit form open + sync code interactions', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -147,11 +166,8 @@ describe('ProductManager edit form open + sync code interactions', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         vi.spyOn(window, 'confirm').mockReturnValue(true);
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
 
-        vi.mocked(useApp).mockReturnValue({
+        mockAppContext({
             products: TEST_PRODUCTS,
             addProduct: vi.fn().mockResolvedValue(undefined),
             updateProduct: vi.fn().mockResolvedValue(undefined),
@@ -160,15 +176,11 @@ describe('ProductManager edit form open + sync code interactions', () => {
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
     it('EDIT_FORM_OPEN: clicking Edit[0] mounts form with Name + Price + Category select + Sizes + Featured checkbox; image grid renders 2 images for Coalition Tee', async () => {
-        await act(async () => {
-            root.render(createElement(ProductManager));
-        });
+        await renderProducts();
         expect(container.innerHTML).not.toContain('Edit Product');
 
         // Click first Edit button (Coalition Tee since fixtures are rendered in order).
@@ -225,9 +237,7 @@ describe('ProductManager edit form open + sync code interactions', () => {
     });
 
     it('SYNC_BUTTON: clicking Sync Code -> confirm() spy fires -> syncProductsToCode mock called -> success msg renders with hash', async () => {
-        await act(async () => {
-            root.render(createElement(ProductManager));
-        });
+        await renderProducts();
 
         // Click Sync Code button (title attribute matches JSX). The beforeEach
         // ALREADY installed vi.spyOn(window, 'confirm').mockReturnValue(true) so
@@ -267,8 +277,6 @@ describe('ProductManager edit form open + sync code interactions', () => {
 });
 
 describe('ProductManager render flow', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -277,12 +285,9 @@ describe('ProductManager render flow', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         vi.spyOn(window, 'confirm').mockReturnValue(true);
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
 
         // Baseline useApp - LOADED products. EMPTY test overrides per-test.
-        vi.mocked(useApp).mockReturnValue({
+        mockAppContext({
             products: TEST_PRODUCTS,
             addProduct: vi.fn().mockResolvedValue(undefined),
             updateProduct: vi.fn().mockResolvedValue(undefined),
@@ -291,15 +296,11 @@ describe('ProductManager render flow', () => {
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
     it('LOADED_PRODUCTS: header + 4 action buttons (Search/Sync/Add) + 3 product cards render + no edit form mounted', async () => {
-        await act(async () => {
-            root.render(createElement(ProductManager));
-        });
+        await renderProducts();
         const html = container.innerHTML;
 
         // Header.
@@ -332,9 +333,7 @@ describe('ProductManager render flow', () => {
     });
 
     it('SEARCH_FILTER: typing "tee" filters grid to only Coalition Tee (Hoodie + Snapback drop out)', async () => {
-        await act(async () => {
-            root.render(createElement(ProductManager));
-        });
+        await renderProducts();
 
         const searchInput = document.body.querySelector(
             'input[placeholder="Search products..."]',
@@ -368,8 +367,6 @@ describe('ProductManager render flow', () => {
 // the three states an operator can be in, because the dangerous one is silence: a
 // failed check must never be indistinguishable from an in-sync catalog.
 describe('ProductManager catalog drift line', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     const clickShowDifferences = () => {
         const toggle = [...document.body.querySelectorAll('button')].find(
@@ -396,11 +393,8 @@ describe('ProductManager catalog drift line', () => {
         };
         driftHolder.error = null;
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
 
-        vi.mocked(useApp).mockReturnValue({
+        mockAppContext({
             products: TEST_PRODUCTS,
             addProduct: vi.fn().mockResolvedValue(undefined),
             updateProduct: vi.fn().mockResolvedValue(undefined),
@@ -409,15 +403,11 @@ describe('ProductManager catalog drift line', () => {
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         vi.restoreAllMocks();
     });
 
     it('DRIFT_CLEAN: an agreed catalog says so, with the counts', async () => {
-        await act(async () => {
-            root.render(createElement(ProductManager));
-        });
+        await renderProducts();
 
         const html = container.innerHTML;
         expect(html).toContain('in sync with the products table');
@@ -431,9 +421,7 @@ describe('ProductManager catalog drift line', () => {
             { id: 'prod_1773860269374', field: 'price', seed: '60', db: '40' },
         ];
 
-        await act(async () => {
-            root.render(createElement(ProductManager));
-        });
+        await renderProducts();
 
         expect(container.innerHTML).toContain('1 difference between constants/products.ts and the products table');
         // Collapsed: the count is the alarm, the detail is on demand.
@@ -450,9 +438,7 @@ describe('ProductManager catalog drift line', () => {
     it('DRIFT_ERROR: a failed check says so instead of rendering nothing', async () => {
         driftHolder.error = new Error('Catalog drift check failed (HTTP 401)');
 
-        await act(async () => {
-            root.render(createElement(ProductManager));
-        });
+        await renderProducts();
 
         const html = container.innerHTML;
         expect(html).toContain("Couldn't check the catalog against the products table");

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search as SearchIcon, ArrowLeft } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -59,7 +59,7 @@ const SearchResults: React.FC = () => {
                             <label className="text-sm text-gray-400">Sort by:</label>
                             <select
                                 value={sortBy}
-                                onChange={(e) => setSortBy(e.target.value as any)}
+                                onChange={(e) => setSortBy(e.target.value as Parameters<typeof setSortBy>[0])}
                                 className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-white/40"
                                 aria-label="Sort search results"
                             >

@@ -1,7 +1,7 @@
 // context/useAuth.ts
 // Domain hook for Auth
 import { useState, useEffect, useCallback } from 'react';
-import { UserProfile, AuthProvider, SocialAccount } from '../types';
+import { UserProfile, AuthProvider, SocialAccount, CustomInquiry, SGCoinPurchaseRequest } from '../types';
 import { ADMIN_WALLETS } from '../constants';
 import { supabase } from '../services/supabase';
 import { signOut } from '../services/auth';
@@ -10,10 +10,32 @@ import { buildAdminWalletLoginMessage, generateLoginNonce } from '../utils/admin
 
 import { safeJsonParse } from '../utils/storage';
 import { ADMIN_MODE_KEY, ADMIN_TOKEN_KEY } from '../services/adminSession';
+
+/** The slice of EIP-1193 used here, declared locally so `window.ethereum` needs no `any`. */
+interface EthereumProvider {
+    request: (args: { method: string }) => Promise<string>;
+    on: (event: string, handler: (value: string) => void) => void;
+    removeListener: (event: string, handler: (value: string) => void) => void;
+    selectedAddress?: string | null;
+}
+
+/** The fields this hook reads from a Supabase auth session. */
+interface AuthSession {
+    user?: {
+        id: string;
+        email?: string | null;
+        user_metadata?: { full_name?: string };
+    };
+}
+
+const getEthereum = (): EthereumProvider | undefined =>
+    typeof window === 'undefined'
+        ? undefined
+        : (window as Window & { ethereum?: EthereumProvider }).ethereum;
 const loadWalletActions = () => import('../services/walletActions');
 const loadWalletBalances = () => import('../services/walletBalances');
 
-export function useAuth(isSupabaseConfigured: boolean, addToast: any) {
+export function useAuth(isSupabaseConfigured: boolean, addToast: (message: string, type: 'success' | 'error' | 'info') => void) {
     const [user, setUser] = useState<UserProfile | null>(null);
     const [isAdminMode, setIsAdminMode] = useState(() => {
         if (typeof window !== 'undefined') return sessionStorage.getItem(ADMIN_MODE_KEY) === 'true';
@@ -27,8 +49,8 @@ export function useAuth(isSupabaseConfigured: boolean, addToast: any) {
     }, []);
 
     useEffect(() => {
-        if (typeof window !== 'undefined' && (window as any).ethereum) {
-            const ethereum = (window as any).ethereum;
+        const ethereum = getEthereum();
+        if (ethereum) {
             const handleChainChanged = (hexChainId: string) => setChainId(parseInt(hexChainId, 16));
             ethereum.request({ method: 'eth_chainId' }).then((hexId: string) => setChainId(parseInt(hexId, 16))).catch(() => { });
             ethereum.on('chainChanged', handleChainChanged);
@@ -40,8 +62,9 @@ export function useAuth(isSupabaseConfigured: boolean, addToast: any) {
         try {
             const { switchToPolygon: switchFn } = await loadWalletActions();
             const success = await switchFn();
-            if (success && typeof window !== 'undefined' && (window as any).ethereum) {
-                const hexId = await (window as any).ethereum.request({ method: 'eth_chainId' });
+            const ethereum = getEthereum();
+            if (success && ethereum) {
+                const hexId = await ethereum.request({ method: 'eth_chainId' });
                 setChainId(parseInt(hexId, 16));
             }
             return success;
@@ -83,27 +106,30 @@ export function useAuth(isSupabaseConfigured: boolean, addToast: any) {
             await trackSignupReferral(storedCode, userId);
         };
 
-        const handleAuthChange = async (event: string, session: any) => {
+        const handleAuthChange = async (event: string, session: AuthSession | null) => {
             if (!mounted) return;
             console.log('Auth Event:', event);
 
             if (session?.user) {
                 try {
-                    const userId = session.user.id;
+                    // Narrowed once: the closures below outlive this branch, and TS does not
+                    // carry the session?.user check into them.
+                    const authUser = session.user;
+                    const userId = authUser.id;
                     const savedFavorites = safeJsonParse('coalition_favorites_' + userId, []);
 
                     if (mounted) {
                         setUser(prev => ({
                             uid: userId,
-                            displayName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-                            email: session.user.email || null,
+                            displayName: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+                            email: authUser.email || null,
                             walletAddress: prev?.walletAddress || null,
                             connectedWalletAddress: prev?.connectedWalletAddress || undefined,
                             sgCoinBalance: prev?.sgCoinBalance || 0,
                             favorites: savedFavorites,
                             isAdmin: prev?.isAdmin || false,
                             socialAccounts: prev?.socialAccounts || []
-                        } as any));
+                        } as UserProfile));
                     }
 
                     const [linkedWalletRes, profileRes, adminRes, socialsRes] = await Promise.all([
@@ -116,7 +142,7 @@ export function useAuth(isSupabaseConfigured: boolean, addToast: any) {
                     const walletAddress = linkedWalletRes.data?.wallet_address || null;
                     const profile = profileRes.data;
                     let isAdmin = !!adminRes.data;
-                    const activeWallet = walletAddress || (typeof window !== 'undefined' && (window as any).ethereum?.selectedAddress);
+                    const activeWallet = walletAddress || getEthereum()?.selectedAddress;
                     if (!isAdmin && activeWallet && ADMIN_WALLETS.some(w => w.toLowerCase() === activeWallet.toLowerCase())) {
                         isAdmin = true;
                     }
@@ -124,8 +150,8 @@ export function useAuth(isSupabaseConfigured: boolean, addToast: any) {
                     if (mounted) {
                         setUser({
                             uid: userId,
-                            displayName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-                            email: session.user.email || null,
+                            displayName: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+                            email: authUser.email || null,
                             walletAddress,
                             connectedWalletAddress: walletAddress || undefined,
                             walletConnectionMethod: walletAddress ? 'metamask' : undefined,
@@ -144,7 +170,7 @@ export function useAuth(isSupabaseConfigured: boolean, addToast: any) {
                     }
                 } catch (err) { console.error('Error in auth session handling:', err); }
             } else {
-                const metamaskAddress = typeof window !== 'undefined' && (window as any).ethereum?.selectedAddress;
+                const metamaskAddress = getEthereum()?.selectedAddress;
                 if (metamaskAddress) {
                     const { formatAddress: formatEthAddress } = await loadWalletActions();
                     const isAdmin = ADMIN_WALLETS.some(w => w.toLowerCase() === metamaskAddress.toLowerCase());
@@ -192,13 +218,13 @@ export function useAuth(isSupabaseConfigured: boolean, addToast: any) {
         }
     }, [addToast]);
     const loginUser = login;
-    const logout = useCallback(async () => { try { await signOut(); setUser(null); } catch (e) { setUser(null); } }, []);
+    const logout = useCallback(async () => { try { await signOut(); setUser(null); } catch { setUser(null); } }, []);
     const updateUser = useCallback(async (data: Partial<UserProfile>) => {
         if (!user) return;
         setUser({ ...user, ...data });
         if (isSupabaseConfigured && !user.uid.startsWith('user_eth_')) {
             try {
-                const updates: any = {};
+                const updates: Record<string, unknown> = {};
                 if (data.sgCoinBalance !== undefined) updates.sg_coin_balance = data.sgCoinBalance;
                 if (data.isVIP !== undefined) updates.is_vip = data.isVIP;
                 if (data.storeCredit !== undefined) updates.store_credit = data.storeCredit;
@@ -276,20 +302,20 @@ export function useAuth(isSupabaseConfigured: boolean, addToast: any) {
     const linkSocialAccount = useCallback(async (platform: SocialAccount['platform'], username: string) => {
         if (!user) return;
         try { await supabase.from('social_accounts').insert([{ user_id: user.uid, platform, username, verified: false }]); addToast('Linked!', 'success'); }
-        catch (err) { addToast('Link failed.', 'error'); }
+        catch { addToast('Link failed.', 'error'); }
     }, [user, addToast]);
     const unlinkSocialAccount = useCallback(async (p: SocialAccount['platform']) => {
         if (!user) return { success: false };
         try { await supabase.from('social_accounts').delete().eq('user_id', user.uid).eq('platform', p); setUser(prev => prev ? { ...prev, socialAccounts: prev.socialAccounts?.filter(a => a.platform !== p) } : null); return { success: true }; }
-        catch (err) { return { success: false }; }
+        catch { return { success: false }; }
     }, [user]);
-    const submitCustomInquiry = useCallback(async (data: any) => {
-        try { const d: any = { ...data, status: 'new' }; if (user?.uid && !user.uid.startsWith('user_eth_')) d.user_id = user.uid; await supabase.from('custom_inquiries').insert([d]); addToast('Submitted!', 'success'); }
-        catch (err) { addToast('Failed.', 'error'); }
+    const submitCustomInquiry = useCallback(async (data: Omit<CustomInquiry, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => {
+        try { const d: Record<string, unknown> = { ...data, status: 'new' }; if (user?.uid && !user.uid.startsWith('user_eth_')) d.user_id = user.uid; await supabase.from('custom_inquiries').insert([d]); addToast('Submitted!', 'success'); }
+        catch { addToast('Failed.', 'error'); }
     }, [user, addToast]);
-    const submitPurchaseRequest = useCallback(async (data: any) => {
+    const submitPurchaseRequest = useCallback(async (data: Omit<SGCoinPurchaseRequest, 'id' | 'createdAt' | 'status'>) => {
         try { await supabase.from('sgcoin_purchase_requests').insert([{ ...data, user_id: user?.uid, status: 'pending' }]); addToast('Submitted!', 'success'); }
-        catch (err) { addToast('Failed.', 'error'); }
+        catch { addToast('Failed.', 'error'); }
     }, [user, addToast]);
 
     return {

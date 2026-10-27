@@ -15,6 +15,22 @@
 import { supabase } from '../services/supabase.js';
 import { mapToRequest, type PayoutRequest } from '../services/payoutRequest.js';
 
+/** Columns selected from `orders`; the Supabase client is untyped here. */
+type SpendOrderRow = {
+    id?: string | null;
+    total?: number | string | null;
+    created_at?: string | null;
+    payment_status?: string | null;
+    items?: Array<{ productId?: string; product_id?: string }> | null;
+};
+
+/** Columns selected from `social_accounts`. */
+type SocialRow = {
+    platform: string;
+    username: string;
+    verified: boolean;
+};
+
 export interface CustomerProfile {
     userId: string;
     displayName: string;
@@ -124,8 +140,8 @@ export const buildCustomerProfile = async (userId: string): Promise<CustomerProf
         ]);
 
         const profile = profileRes.data;
-        const userOrders = ordersRes.data || [];
-        const socials = socialsRes.data || [];
+        const userOrders: SpendOrderRow[] = ordersRes.data || [];
+        const socials: SocialRow[] = socialsRes.data || [];
         const referralStats = referralStatsRes.data;
         // Map payoutsRes rows (snake_case DB -> camelCase PayoutRequest).
         // The union type is loose on purpose so that an unknown future column
@@ -157,10 +173,10 @@ export const buildCustomerProfile = async (userId: string): Promise<CustomerProf
         };
 
         // Calculate enriched order data
-        const paidOrders = userOrders.filter((o: any) =>
+        const paidOrders = userOrders.filter((o) =>
             ['paid', 'completed', 'shipped', 'delivered'].includes(String(o.payment_status || '').toLowerCase())
         );
-        const totalSpend = paidOrders.reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
+        const totalSpend = paidOrders.reduce((sum: number, o) => sum + Number(o.total || 0), 0);
         const firstOrderDate = paidOrders.length > 0
             ? paidOrders[paidOrders.length - 1]?.created_at || null
             : null;
@@ -208,7 +224,7 @@ export const buildCustomerProfile = async (userId: string): Promise<CustomerProf
             firstOrderDate,
             lastOrderDate,
             favoriteCategories,
-            socialAccounts: (socials || []).map((s: any) => ({
+            socialAccounts: (socials || []).map((s) => ({
                 platform: s.platform,
                 username: s.username,
                 verified: s.verified,
@@ -301,10 +317,10 @@ export const buildCustomerProfileByEmail = async (email: string): Promise<{
 
         if (error) throw error;
 
-        const paidOrders = (orders || []).filter((o: any) =>
+        const paidOrders = (orders || []).filter((o: SpendOrderRow) =>
             ['paid', 'completed', 'shipped', 'delivered'].includes(String(o.payment_status || '').toLowerCase())
         );
-        const totalSpend = paidOrders.reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
+        const totalSpend = paidOrders.reduce((sum: number, o) => sum + Number(o.total || 0), 0);
 
         return {
             email,

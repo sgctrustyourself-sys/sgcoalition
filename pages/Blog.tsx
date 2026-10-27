@@ -27,7 +27,7 @@ const BLOG_PAGE_LD = structuredDataGraph([
     }),
 ]);
 
-const safeDate = (dateStr: any) => {
+const safeDate = (dateStr: string | number | Date | null | undefined) => {
     if (!dateStr) return new Date();
     const d = new Date(dateStr);
     return isValid(d) ? d : new Date();

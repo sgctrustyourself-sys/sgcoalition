@@ -2,15 +2,12 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { ShoppingBag, Star, ArrowRight, ShieldCheck, Zap, Scissors, Eye, Sparkles, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
 import { SGCOIN_V2_CONTRACT_ADDRESS } from '../constants';
 
 // Local branded hero imagery
 const heroImg = "/story-hero.png";
 
 const SGCoalitionPortal = () => {
-    const { user } = useApp();
-
     return (
         <div className="bg-[#050505] text-white min-h-screen font-sans selection:bg-orange-500/30 overflow-x-hidden">
 

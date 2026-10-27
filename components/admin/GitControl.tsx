@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { GitBranch, GitCommit, History, RotateCcw, FileText, Clock, User, AlertCircle, CheckCircle } from 'lucide-react';
+import { GitBranch, GitCommit, History, FileText, Clock, User, AlertCircle, CheckCircle } from 'lucide-react';
 import { buildGitOperationsUrl } from '../../services/apiBase';
+import { errorMessage } from '../../utils/errorMessage';
 import { ADMIN_SESSION_EXPIRED_ERROR, getAdminAuthHeaders, handleAdminAuthFailure } from '../../services/adminSession';
 import { useApp } from '../../context/AppContext';
 
@@ -24,7 +25,7 @@ const GitControl: React.FC = () => {
     const [currentBranch, setCurrentBranch] = useState<string>('master');
     const [isLoading, setIsLoading] = useState(false);
     const [selectedCommit, setSelectedCommit] = useState<string | null>(null);
-    const [showDiff, setShowDiff] = useState(false);
+    const [, setShowDiff] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
@@ -136,9 +137,9 @@ const GitControl: React.FC = () => {
                 await fetchGitStatus();
                 setSuccess('Commit created successfully');
                 setTimeout(() => setSuccess(null), 3000);
-            } catch (err: any) {
+            } catch (err) {
                 console.error('Failed to create commit:', err);
-                setError(err.message || 'Failed to create commit');
+                setError(errorMessage(err) || 'Failed to create commit');
                 setTimeout(() => setError(null), 3000);
             } finally {
                 setIsLoading(false);
@@ -278,6 +279,7 @@ const GitControl: React.FC = () => {
                                                 setSelectedCommit(commit.hash);
                                             }}
                                             className="p-2 text-blue-400 hover:bg-blue-500/10 rounded transition"
+                                            aria-label={`View diff for commit ${commit.hash.substring(0, 7)}`}
                                         >
                                             <FileText className="w-4 h-4" />
                                         </button>

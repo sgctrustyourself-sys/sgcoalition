@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
-import { Order, OrderStatus } from '../types';
-import { Download, Search, Filter, Eye, Edit2, Trash2, FileText, Plus } from 'lucide-react';
+import { Order } from '../types';
+import { Download, Search, Eye, Trash2, FileText, Plus } from 'lucide-react';
 import ManualOrderForm from '../components/ManualOrderForm';
 import Invoice from '../components/Invoice';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export const Orders: React.FC = () => {
     const { orders, deleteOrder } = useApp();
@@ -14,6 +15,19 @@ export const Orders: React.FC = () => {
     const [filterType, setFilterType] = useState<string>('all');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+    const detailPanelRef = useRef<HTMLDivElement>(null);
+    const deletePanelRef = useRef<HTMLDivElement>(null);
+
+    useFocusTrap({
+        active: selectedOrder !== null,
+        containerRef: detailPanelRef,
+        onEscape: () => setSelectedOrder(null),
+    });
+    useFocusTrap({
+        active: showDeleteConfirm !== null,
+        containerRef: deletePanelRef,
+        onEscape: () => setShowDeleteConfirm(null),
+    });
     const [showManualOrderForm, setShowManualOrderForm] = useState(false);
     const [showInvoice, setShowInvoice] = useState<Order | null>(null);
 
@@ -270,7 +284,13 @@ export const Orders: React.FC = () => {
                 {/* Order Details Modal */}
                 {selectedOrder && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                        <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div
+                            ref={detailPanelRef}
+                            className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label={`Order ${selectedOrder.orderNumber}`}
+                        >
                             <div className="p-6 border-b border-gray-200">
                                 <div className="flex items-center justify-between">
                                     <h2 className="text-2xl font-bold text-gray-900">Order Details</h2>
@@ -386,7 +406,13 @@ export const Orders: React.FC = () => {
                 {/* Delete Confirmation Modal */}
                 {showDeleteConfirm && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                        <div className="bg-white rounded-lg max-w-md w-full p-6">
+                        <div
+                            ref={deletePanelRef}
+                            className="bg-white rounded-lg max-w-md w-full p-6"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label="Delete order"
+                        >
                             <h3 className="text-lg font-bold text-gray-900 mb-4">Delete Order?</h3>
                             <p className="text-gray-600 mb-6">
                                 Are you sure you want to delete this order? This action cannot be undone.

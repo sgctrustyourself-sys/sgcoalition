@@ -4,4 +4,3 @@ interface Window {
     __coalitionBooted?: boolean;
 }
 
-declare module 'ethers';

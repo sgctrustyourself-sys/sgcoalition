@@ -3,20 +3,39 @@
 // Render tests for the admin PaymentOptionsCard — the live on/off toggles for
 // which payment options customers see at checkout.
 //
-// Replicates the established harness: createRoot + act + DOM assertions with
-// global fetch stubbed at the boundary (GET /api/payment-settings on mount,
-// PATCH on toggle). The admin token comes from sessionStorage
-// ('coalition_admin_token').
+// Mounting goes through tests/_helpers/adminSurface.tsx, which owns the
+// AppContext/ToastContext stubs, the MemoryRouter, the container/root pair and
+// the teardown; the toast asserted on is the harness's sink. Global fetch is
+// stubbed at the boundary (GET /api/payment-settings on mount, PATCH on
+// toggle). The admin token comes from sessionStorage ('coalition_admin_token').
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createElement, act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
-import { useToast } from '../context/ToastContext';
-import PaymentOptionsCard from '../components/admin/PaymentOptionsCard';
+import { act } from 'react';
+import {
+    addToast,
+    appContextStub,
+    renderAdminSurface,
+    toastContextStub,
+} from './_helpers/adminSurface';
 
-vi.mock('../context/ToastContext', () => ({
-    useToast: vi.fn(),
-}));
+// The harness cannot register the contexts for us — vitest scopes module mocks
+// to the file that calls them (see the harness header). Two lines, once per
+// file, and the surface itself arrives as a loader so it resolves against them.
+vi.doMock('../context/AppContext', appContextStub);
+vi.doMock('../context/ToastContext', toastContextStub);
+
+const loadPaymentOptionsCard = () => import('../components/admin/PaymentOptionsCard');
+
+// Module-scoped because the helpers below read it by name; each render assigns
+// the harness's own container. The toast asserted on is the harness's sink, so
+// the assertion is on the component.
+let container: HTMLDivElement;
+
+const renderSurface = async () => {
+    const surface = await renderAdminSurface(loadPaymentOptionsCard);
+    container = surface.container;
+    return surface;
+};
 
 const ALL_ON = {
     card_enabled: true,
@@ -48,30 +67,22 @@ function mockFetch(settings: Record<string, boolean> = ALL_ON, patchStatus = 200
 }
 
 describe('PaymentOptionsCard', () => {
-    let container: HTMLDivElement;
-    let root: Root;
 
     beforeEach(() => {
         vi.clearAllMocks();
         sessionStorage.clear();
         sessionStorage.setItem('coalition_admin_token', 'admin-test-token');
-        vi.mocked(useToast).mockReturnValue({ addToast: vi.fn() } as any);
         vi.spyOn(console, 'error').mockImplementation(() => {});
-        container = document.createElement('div');
-        document.body.appendChild(container);
-        root = createRoot(container);
     });
 
     afterEach(() => {
-        act(() => { root.unmount(); });
-        if (container.parentNode === document.body) document.body.removeChild(container);
         sessionStorage.clear();
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
     });
 
     async function renderCard() {
-        await act(async () => { root.render(createElement(PaymentOptionsCard)); });
+        await renderSurface();
         await act(async () => { await Promise.resolve(); });
     }
 
@@ -128,7 +139,7 @@ describe('PaymentOptionsCard', () => {
         // Reverted to the server truth after the failed write.
         expect(toggleFor('crypto').getAttribute('aria-checked')).toBe('true');
         // The card surfaces the real server error (not the fallback string).
-        expect(vi.mocked(useToast).mock.results[0].value.addToast).toHaveBeenCalledWith(
+        expect(addToast).toHaveBeenCalledWith(
             expect.stringContaining('Admin authorization required.'),
             'error',
         );
@@ -145,7 +156,7 @@ describe('PaymentOptionsCard', () => {
             String(init?.method || '').toUpperCase() === 'PATCH');
         expect(patchCalls).toHaveLength(0);
         expect(toggleFor('card').getAttribute('aria-checked')).toBe('true');
-        expect(vi.mocked(useToast).mock.results[0].value.addToast).toHaveBeenCalledWith(
+        expect(addToast).toHaveBeenCalledWith(
             expect.stringContaining('Admin session expired'),
             'error',
         );

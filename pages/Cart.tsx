@@ -14,7 +14,7 @@ import { getLineMaxQuantity } from '../context/useCart';
 // Both references resolve to the same component instance.
 export const Cart: React.FC = () => {
     const navigate = useNavigate();
-    const { cart, setQuantity, removeFromCart, clearCart, user } = useApp();
+    const { cart, setQuantity, removeFromCart, user } = useApp();
 
     const total = cart.reduce((sum, item) => sum + getCartItemLineTotal(item), 0);
     const potentialCoins = Math.floor(total * COIN_REWARD_RATE);

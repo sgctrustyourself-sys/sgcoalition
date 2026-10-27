@@ -4,6 +4,21 @@ import { Giveaway, GiveawayEntry, GiveawayStatus, UserProfile } from '../types';
 import { supabase } from '../services/supabase';
 import { ensureSubscriberGiveawayEntries, pickWeightedGiveawayWinners } from '../utils/giveawayUtils';
 
+/** A `giveaways` row as stored (snake_case); the Supabase client is untyped. */
+interface GiveawayRow {
+    id: string;
+    title: string;
+    prize: string;
+    description?: string | null;
+    prize_image?: string | null;
+    start_date: string;
+    end_date: string;
+    status: string;
+    requirements?: string[] | null;
+    max_entries_per_user?: number | null;
+    created_at: string;
+}
+
 export function useGiveaways(isSupabaseConfigured: boolean, user: UserProfile | null) {
     const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
     const fetchGiveaways = async () => {
@@ -11,7 +26,7 @@ export function useGiveaways(isSupabaseConfigured: boolean, user: UserProfile | 
             const { data, error } = await supabase.from('giveaways').select('*').order('created_at', { ascending: false });
             if (error) throw error;
             if (data && data.length > 0) {
-                setGiveaways(data.map((row: any) => ({
+                setGiveaways(data.map((row: GiveawayRow) => ({
                     id: row.id, title: row.title, prize: row.prize,
                     description: row.description || '', prizeImage: row.prize_image || '',
                     startDate: row.start_date, endDate: row.end_date,
