@@ -3,6 +3,13 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
     test: {
         environment: 'jsdom',
+        // The jsdom render tests are heavy; on slower machines (this repo runs
+        // on a Windows dev box) the first test in a file can exceed Vitest's
+        // 5s default while the environment warms up. 20s keeps a slow local run
+        // honest without masking a real hang — the release pipeline runs this
+        // same config on faster CI hardware.
+        testTimeout: 20000,
+        hookTimeout: 20000,
         include: ['tests/**/*.test.{ts,tsx}'],
         // Exclude tests that require external processes or heavyweight
         // browser infrastructure from the default `vitest run`:
