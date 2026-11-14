@@ -18,6 +18,7 @@
     "test:sgcoin-reverse": "vitest run --config vitest.browser.config.ts",
     "test:referral": "node scripts/verify-referral-self-heal.mjs",
     "smoke:checkout": "node scripts/smoke-checkout.mjs",
+    "check:stripe-3ds": "node scripts/check-stripe-3ds.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",
     "verify:webhook": "node scripts/verify-webhook-endpoint.mjs",
     "verify:app-url": "node scripts/verify-app-url.mjs",
