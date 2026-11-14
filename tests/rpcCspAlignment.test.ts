@@ -58,3 +58,42 @@ describe('Polygon RPC list vs Content-Security-Policy', () => {
         }
     });
 });
+
+/**
+ * The policy string is a security contract, and it drifted once already: the
+ * header shipped 'unsafe-eval' while the docs described a strict policy, and
+ * `report-uri` was missing entirely, so /api/csp-report could never fire. These
+ * assertions pin exactly the three things that drifted. They read vercel.json
+ * the way a browser does — as the shipped policy — so a well-meant "cleanup"
+ * that widens it fails here instead of in production.
+ */
+const policyValue = (): string => {
+    const afterKey = vercelConfig.split('Content-Security-Policy')[1] ?? '';
+    const match = afterKey.match(/"value"\s*:\s*"([^"]*)"/);
+    return match ? match[1] : '';
+};
+
+describe('Content-Security-Policy header contract', () => {
+    it('ships a policy at all', () => {
+        expect(policyValue()).toContain("default-src 'self'");
+    });
+
+    it('reports violations to /api/csp-report so the handler can fire', () => {
+        // The handler, its route and its docs all predate this directive; for
+        // months the endpoint was wired up and unreachable. Keep it reachable.
+        expect(policyValue()).toContain('report-uri /api/csp-report');
+    });
+
+    it("denies framing with frame-ancestors 'none'", () => {
+        // Pairs with X-Frame-Options: DENY, which this header block also sets.
+        expect(policyValue()).toContain("frame-ancestors 'none'");
+    });
+
+    it("never re-adds 'unsafe-eval'", () => {
+        // The production bundle contains zero eval() and zero new Function()
+        // calls, and dist/ boots under this policy with no
+        // securitypolicyviolation events. Re-adding 'unsafe-eval' silently
+        // undoes that; if something genuinely needs it, prove it with a build.
+        expect(policyValue()).not.toContain("'unsafe-eval'");
+    });
+});

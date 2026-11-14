@@ -361,7 +361,7 @@ The handler at `api/_handlers/csp-report.ts` parses the browser POST body in CSP
 
 The handler is intentionally minimal today — a future pass will write rows to a `csp_reports` Supabase table and surface counts in the Admin dashboard. The minimum viable contract is "endpoint exists and returns 204" so the browser does not retry-flood the 404 case.
 
-**What is actually locked:** `connect-src` is asserted against the app's real RPC host list by `tests/rpcCspAlignment.test.ts` and `tests/clientFetchCsp.test.ts`, so adding an RPC without updating the policy (or leaving a dead host in it) fails the suite. `script-src`, `frame-ancestors` and `report-uri` have no automated lock — `tests/securityInfrastructureReadiness.test.ts` covers the ErrorBoundary and the rate limiter, not the policy string.
+**What is actually locked:** `connect-src` is asserted against the app's real RPC host list by `tests/rpcCspAlignment.test.ts` and `tests/clientFetchCsp.test.ts`, so adding an RPC without updating the policy (or leaving a dead host in it) fails the suite. The contract that drifted is now pinned in the same file: `report-uri /api/csp-report` must be present, `frame-ancestors 'none'` must be present, and `'unsafe-eval'` must not be. What remains unasserted is the wider `script-src` allowlist and the `img-src`/`style-src` values.
 
 ### Where to read it
 

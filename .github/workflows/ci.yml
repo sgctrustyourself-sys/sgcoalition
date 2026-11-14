@@ -146,3 +146,47 @@ jobs:
       # (vi.stubEnv in a vi.hoisted block), not in this workflow.
       - name: Assert the premise, then run the suite bare
         run: npm run gate:bare
+
+  # Neither ESLint nor tsc ran in CI, and both stayed quiet about real drift:
+  # the working tree once carried 79 lint errors (three untracked recovery
+  # artifacts at the repo root, invisible to `npm test` and `npm run build`)
+  # and the README described a CSP the header did not ship. Nothing here needs
+  # secrets, a browser, or a database — it is the cheapest gate in this file
+  # and the one that would have caught both.
+  static-checks:
+    name: ESLint + TypeScript (no emit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    # Its own group: sharing `ci-...` with the `test` job would make one cancel
+    # the other, which is why `bare-checkout` has a private group too.
+    concurrency:
+      group: ci-static-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 456 is the ceiling the repo already runs under locally, and the tree
+      # sits at ~454 — deliberately tight, so a new `any` fails a build rather
+      # than accumulating. Errors fail regardless; warnings only fail past the
+      # cap. If this trips on an unrelated change, fix the warning rather than
+      # raising the number (see README: warnings are the one thing the gate
+      # cannot see through).
+      - name: ESLint (0 errors required)
+        run: npx eslint . --max-warnings 456
+
+      # `tsc` reads tsconfig.json, which excludes `tests/` and `*.test.ts`.
+      # That is the shipped surface only: app code, `api/`, and the scripts
+      # that are not excluded. The suite's types are NOT checked here.
+      - name: TypeScript typecheck (no emit)
+        run: npx tsc --noEmit
