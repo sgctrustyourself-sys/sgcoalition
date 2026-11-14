@@ -23,6 +23,7 @@ import {
     parseRegistryPosts,
     postArticleHtml,
     renderPostBody,
+    productDate,
     STATIC_ROUTES,
 } from '../scripts/generateSeoArtifacts.mjs';
 import { sanitizeBlogHtml } from '../utils/blogSanitize';
@@ -260,6 +261,24 @@ describe('SEO sitemap priorities', () => {
     });
 });
 
+// A malformed date in one field is not evidence that the next field is absent.
+// The chain used to stop at the first truthy value, so `soldAt: "not a date"`
+// returned '' and threw away a valid archivedAt / releasedAt — the row lost its
+// <lastmod> even though it carried a real date.
+describe('productDate — first value that actually parses', () => {
+    it('skips a malformed soldAt and uses archivedAt', () => {
+        expect(productDate({
+            soldAt: 'not a date',
+            archivedAt: '2024-03-04T00:00:00Z',
+            releasedAt: '2024-01-01T00:00:00Z',
+        })).toBe('2024-03-04');
+    });
+
+    it('returns empty when every candidate is missing or malformed', () => {
+        expect(productDate({ soldAt: 'nope', archivedAt: null, releasedAt: '' })).toBe('');
+    });
+});
+
 // A route advertised in sitemap.xml but missing from STATIC_ROUTES would ship
 // no prerendered page, so its URL would serve the generic SPA shell whose
 // canonical is "/" — every sitemap route silently claiming to be the homepage.
@@ -344,6 +363,11 @@ describe('SEO sitemap — blog posts', () => {
         expect(xml).toMatch(
             /<loc>https:\/\/sgcoalition-five\.vercel\.app\/blog\/coalition-pink-silver-crop-top<\/loc>\s*<lastmod>2026-09-17<\/lastmod>/,
         );
+    });
+
+    it('falls through a malformed publishedAt to createdAt', () => {
+        const xml = buildSitemap([], [post({ publishedAt: 'not a date', createdAt: '2026-08-01T00:00:00.000Z' })]);
+        expect(xml).toMatch(/<lastmod>2026-08-01<\/lastmod>/);
     });
 
     // The complement of the test above: a row with no usable date carries no

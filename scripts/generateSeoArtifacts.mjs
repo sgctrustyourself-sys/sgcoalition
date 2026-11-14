@@ -969,9 +969,21 @@ const postDescription = (post) =>
       || `${post.title} — a Coalition drop, written when it shipped.`
   );
 
+// First candidate that actually parses wins. A malformed non-empty string must
+// not mask a later valid one — a truthy check alone is what let a bad soldAt
+// hide a good archivedAt. Both <lastmod> chains (products and posts) share this.
+const firstParsedDate = (values) => {
+  for (const raw of values) {
+    if (!raw) continue;
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return null;
+};
+
 const postDate = (post) => {
-  const parsed = new Date(post.publishedAt || post.createdAt || '');
-  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString();
+  const parsed = firstParsedDate([post.publishedAt, post.createdAt]);
+  return parsed ? parsed.toISOString() : '';
 };
 
 // drops.ts is TypeScript and this script is plain Node, so it is parsed the same
@@ -1439,17 +1451,12 @@ export const postArticleHtml = (post) => {
 };
 
 // A product's own date, newest evidence first: the day it sold, else the day it
-// was archived, else the day it was released. constants/products.ts leaves all
-// three null until the event happens, so an active drop legitimately has no date
-// — and then it gets no <lastmod> rather than the build clock. Verified: 17 rows
-// carry soldAt, 16 carry archivedAt, and releasedAt is still null on all 33, so
-// the two archive dates are the only real product dates the registry holds today.
+// was archived, else the day it was released. The fields stay null until the
+// event happens, so an active drop has no date and ships no <lastmod> rather
+// than the build clock.
 export const productDate = (product) => {
-  const raw = [product.soldAt, product.archivedAt, product.releasedAt].find((value) => value);
-  if (!raw) return '';
-
-  const parsed = new Date(raw);
-  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+  const parsed = firstParsedDate([product.soldAt, product.archivedAt, product.releasedAt]);
+  return parsed ? parsed.toISOString().slice(0, 10) : '';
 };
 
 export const buildSitemap = (products, posts = []) => {
