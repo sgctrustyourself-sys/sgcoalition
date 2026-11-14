@@ -89,6 +89,30 @@ describe('Content-Security-Policy header contract', () => {
         expect(policyValue()).toContain("frame-ancestors 'none'");
     });
 
+    it('pins the directives that do not inherit from default-src', () => {
+        // base-uri has no fallback: without it an injected <base> can retarget
+        // every relative script URL. object-src is plugin surface this app does
+        // not have, and form-action is what stops a rewritten form from posting
+        // credentials to another origin.
+        expect(policyValue()).toContain("base-uri 'self'");
+        expect(policyValue()).toContain("object-src 'none'");
+        expect(policyValue()).toContain("form-action 'self'");
+    });
+
+    it('does not restate default-src with a redundant font-src', () => {
+        // font-src 'self' was identical to the default-src fallback, so it
+        // constrained nothing and only invited the next reader to think the
+        // policy was wider than it is.
+        expect(policyValue()).not.toContain('font-src');
+    });
+
+    it('allows the Stripe frame and no same-origin frame the app never uses', () => {
+        // The one iframe in the app is Discord's widget on pages/Community.tsx,
+        // and it is cross-origin; no route mounts a same-origin frame.
+        expect(policyValue()).toContain('frame-src https://js.stripe.com');
+        expect(policyValue()).not.toContain("frame-src 'self'");
+    });
+
     it("never re-adds 'unsafe-eval'", () => {
         // The production bundle contains zero eval() and zero new Function()
         // calls, and dist/ boots under this policy with no
