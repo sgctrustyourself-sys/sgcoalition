@@ -320,7 +320,7 @@ npm.cmd run build
 
 ## Security & resilience
 
-Three defensive layers were added this session without changing feature surface. They are: a global ErrorBoundary that catches unhandled render errors, an in-memory API rate limiter that gates every `/api/*` route, and a strict CSP header on every page response with a stub `/api/csp-report` endpoint that acknowledges browser reports. All three are observability-agnostic; they work even if downstream services (Sentry, Supabase) are unconfigured. Each layer is locked by `tests/securityInfrastructureReadiness.test.ts` so a future refactor cannot silently regress any of them.
+Three defensive layers were added this session without changing feature surface. They are: a global ErrorBoundary that catches unhandled render errors, an in-memory API rate limiter that gates every `/api/*` route, and a CSP header on every page response that reports violations to the stub `/api/csp-report` endpoint. All three are observability-agnostic; they work even if downstream services (Sentry, Supabase) are unconfigured. The ErrorBoundary and the rate limiter are locked by `tests/securityInfrastructureReadiness.test.ts`; the policy's `connect-src` host list is locked by `tests/rpcCspAlignment.test.ts`. The rest of the policy has no automated lock yet.
 
 ### Global ErrorBoundary
 
@@ -346,13 +346,22 @@ Locked by `tests/securityInfrastructureReadiness.test.ts > Feature 2` (25 assert
 
 ### CSP header + csp-report endpoint
 
-`vercel.json > headers[0].value` ships a strict Content-Security-Policy on every page response, with violations reported to `/api/csp-report`. The policy explicitly denies `script-src` and `frame-ancestors` outside the small allow-list, and uses `report-uri /api/csp-report` so the operator can watch for unexpected inline scripts or third-party iframes that snuck past review. Notable allowlist entries from this session: `https://browser.sentry-cdn.com` in `script-src`, `https://*.ingest.sentry.io` and `https://*.ingest.us.sentry.io` in `connect-src`.
+`vercel.json > headers[0].value` ships this Content-Security-Policy on every page response. Each directive is deliberate — read this list before widening it:
+
+- `default-src 'self'` — anything not named below is same-origin only.
+- `script-src 'self' 'unsafe-inline' https://js.stripe.com` — `'unsafe-inline'` is **required** by the three inline boot scripts in `index.html` (stale service-worker unregister, the 15-second boot-timeout recovery screen, and the reload handler). They sit outside the module graph on purpose: they must run even when `index.tsx` never executes. Moving them to hashes would let `'unsafe-inline'` go; until then it stays. There is **no `'unsafe-eval'`** — the production bundle contains zero `eval(` and zero `new Function(` calls, so dynamic code evaluation is denied outright (verified against `dist/assets/*.js`).
+- `style-src 'self' 'unsafe-inline'` — inline style attributes and `motion` transitions.
+- `img-src 'self' data: https:` — product imagery is hosted off-site, so any `https:` host is allowed here.
+- `frame-src 'self' https://js.stripe.com` — Stripe's payment iframes only.
+- `frame-ancestors 'none'` — nobody may frame the storefront. This pairs with `X-Frame-Options: DENY` in the same header block: the CSP directive is the modern half, the legacy header covers browsers that ignore it.
+- `connect-src` — Supabase REST/realtime, Stripe, the Polygon RPC hosts, Dexscreener/Etherscan, the us-atlas CDN, and the Sentry ingest hosts. This list is the one part of the policy under automated test.
+- `report-uri /api/csp-report` — violations POST here. Note the history: the endpoint and this documentation existed before the policy actually referenced it, so it received zero reports. It is now reachable.
 
 The handler at `api/_handlers/csp-report.ts` parses the browser POST body in CSP-report-spec shape, logs the structured violation server-side (`[csp-report] { document, directive, blocked, source, line, col }`), and returns 204. The intent: the report is acknowledged; the browser does not retry-flood the 404 case. 400 on garbage bodies — browsers do not retry 4xx so the report is effectively dropped without a log line on misbehaving clients (the per-slug rate-limit caps the abuse surface further). CORS is set globally by the catch-all in `api/[...slug].ts` before this handler runs, so the handler does not call `setCorsHeaders` itself.
 
 The handler is intentionally minimal today — a future pass will write rows to a `csp_reports` Supabase table and surface counts in the Admin dashboard. The minimum viable contract is "endpoint exists and returns 204" so the browser does not retry-flood the 404 case.
 
-Locked by `tests/securityInfrastructureReadiness.test.ts > Feature 3 + Feature 4`.
+**What is actually locked:** `connect-src` is asserted against the app's real RPC host list by `tests/rpcCspAlignment.test.ts` and `tests/clientFetchCsp.test.ts`, so adding an RPC without updating the policy (or leaving a dead host in it) fails the suite. `script-src`, `frame-ancestors` and `report-uri` have no automated lock — `tests/securityInfrastructureReadiness.test.ts` covers the ErrorBoundary and the rate limiter, not the policy string.
 
 ### Where to read it
 
@@ -375,7 +384,7 @@ Sentry is wired into the browser bundle for unhandled error capture in productio
 - `components/ErrorBoundary.tsx` — global class component. `componentDidCatch` calls `Sentry.captureException(error, { extra: { componentStack }, tags: { errorBoundary: 'global' }, level: 'error' })`. `console.error` is kept as a local backup so observability does not depend solely on Sentry being healthy.
 - `App.tsx > ErrorBoundaryWithNavReset` — parent that forwards `location.pathname` as `resetKey` so route changes drop the recovery UI without remounting children.
 - `index.tsx` — `initSentry()` runs at module-load (before `ReactDOM.createRoot`) so module-link errors that throw before React mounts are still captured. Then `createRoot()` registers both React 19 error options: `onUncaughtError` (escaped every boundary → `tags.source = react19-root-uncaught`) and `onCaughtError` (caught by a boundary but forwarded → `tags.source = react19-root-caught`). Both at `level: 'error'`.
-- `vercel.json` — CSP `script-src` allows `https://browser.sentry-cdn.com`; `connect-src` allows `https://*.ingest.sentry.io` and `https://*.ingest.us.sentry.io` so the SDK can POST events.
+- `vercel.json` — CSP `connect-src` allows `https://*.ingest.sentry.io` and `https://*.ingest.us.sentry.io` so the SDK can POST events. No `script-src` CDN entry is needed: `@sentry/react` is bundled from npm, not loaded by a loader script. (An earlier revision of this doc claimed a `browser.sentry-cdn.com` allowlist that never existed in the header.)
 
 ### The two gates (the safety property itself)
 
