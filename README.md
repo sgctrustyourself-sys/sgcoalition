@@ -346,16 +346,15 @@ Locked by `tests/securityInfrastructureReadiness.test.ts > Feature 2` (25 assert
 
 ### CSP header + csp-report endpoint
 
-`vercel.json > headers[0].value` ships this Content-Security-Policy on every page response. Each directive is deliberate — read this list before widening it:
+`vercel.json > headers[0].value` ships this Content-Security-Policy on every page response; `default-src 'self'` bounds everything not named below. Each clause below carries the evidence for it; widen nothing without the same check:
 
-- `default-src 'self'` — anything not named below is same-origin only.
-- `script-src 'self' 'unsafe-inline' https://js.stripe.com` — `'unsafe-inline'` is **required** by the three inline boot scripts in `index.html` (stale service-worker unregister, the 15-second boot-timeout recovery screen, and the reload handler). They sit outside the module graph on purpose: they must run even when `index.tsx` never executes. Moving them to hashes would let `'unsafe-inline'` go; until then it stays. There is **no `'unsafe-eval'`** — the production bundle contains zero `eval(` and zero `new Function(` calls, so dynamic code evaluation is denied outright (verified against `dist/assets/*.js`).
-- `style-src 'self' 'unsafe-inline'` — inline style attributes and `motion` transitions.
-- `img-src 'self' data: https:` — product imagery is hosted off-site, so any `https:` host is allowed here.
-- `frame-src 'self' https://js.stripe.com` — Stripe's payment iframes only.
-- `frame-ancestors 'none'` — nobody may frame the storefront. This pairs with `X-Frame-Options: DENY` in the same header block: the CSP directive is the modern half, the legacy header covers browsers that ignore it.
-- `connect-src` — Supabase REST/realtime, Stripe, the Polygon RPC hosts, Dexscreener/Etherscan, the us-atlas CDN, and the Sentry ingest hosts. This list is the one part of the policy under automated test.
-- `report-uri /api/csp-report` — violations POST here. Note the history: the endpoint and this documentation existed before the policy actually referenced it, so it received zero reports. It is now reachable.
+- `script-src 'self' 'unsafe-inline' https://js.stripe.com` — `'unsafe-inline'` is **required** by the three inline boot scripts in `index.html` (stale-service-worker unregister, the 15s boot-timeout recovery screen, the reload handler). Replaying the policy without the token produces exactly three violations, one per script. No `'unsafe-eval'`: the production bundle contains zero `eval(`, zero `new Function(` and zero WebAssembly, so dynamic code evaluation is denied outright.
+- `style-src 'self' 'unsafe-inline'` — required by an inline `<style>` element injected at runtime, **not** by markup style attributes: `index.html` ships none, and React `style` props go through CSSOM, which `style-src` does not govern. Removing the token yields exactly one violation.
+- `img-src 'self' data: https:` — product imagery is hosted off-site, so the clause allows any `https:` host instead of an enumerated list. This is the loosest clause in the policy; it stays because the image host set changes with each drop.
+- `frame-src 'self' https://js.stripe.com` — Stripe's payment iframes, plus same-origin frames via `'self'`.
+- `frame-ancestors 'none'` — nobody may frame the storefront. Pairs with `X-Frame-Options: DENY` in the same header block for browsers that predate the directive.
+- `connect-src` — the host allowlist: Supabase REST + realtime, Stripe, the Polygon RPCs, Dexscreener, Etherscan, zippopotam.us (ZIP lookup), Pinata (IPFS), jsDelivr (us-atlas), Sentry ingest. The one part of the policy under automated test.
+- `report-uri /api/csp-report` — violations POST here. The endpoint predated this directive and therefore received nothing for months; it is reachable now.
 
 The handler at `api/_handlers/csp-report.ts` parses the browser POST body in CSP-report-spec shape, logs the structured violation server-side (`[csp-report] { document, directive, blocked, source, line, col }`), and returns 204. The intent: the report is acknowledged; the browser does not retry-flood the 404 case. 400 on garbage bodies — browsers do not retry 4xx so the report is effectively dropped without a log line on misbehaving clients (the per-slug rate-limit caps the abuse surface further). CORS is set globally by the catch-all in `api/[...slug].ts` before this handler runs, so the handler does not call `setCorsHeaders` itself.
 
