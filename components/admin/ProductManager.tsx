@@ -7,6 +7,7 @@ import { fetchProductDrift, type ProductDriftReport } from '../../services/produ
 import { uploadProductImage } from '../../services/productUpload';
 import ImageCropperModal from '../ui/ImageCropperModal';
 import { moveArrayItem } from '../../utils/arrayMove';
+import { IMAGE_PLACEHOLDER } from '../../utils/imagePlaceholder';
 import { getProductEditableSizes, normalizeProductSizeData } from '../../utils/productSizes';
 import { errorMessage } from '../../utils/errorMessage';
 
@@ -1039,7 +1040,7 @@ const ProductManager: React.FC = () => {
                                                         src={product.images[0]}
                                                         alt={product.name}
                                                         className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500"
-                                                        onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/100?text=No+Img')}
+                                                        onError={(e) => (e.currentTarget.src = IMAGE_PLACEHOLDER)}
                                                     />
                                                 </div>
                                                 <div>

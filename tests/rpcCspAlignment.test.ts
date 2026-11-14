@@ -119,5 +119,9 @@ describe('Content-Security-Policy header contract', () => {
         // securitypolicyviolation events. Re-adding 'unsafe-eval' silently
         // undoes that; if something genuinely needs it, prove it with a build.
         expect(policyValue()).not.toContain("'unsafe-eval'");
+        // Netlify's header was the stale copy that still carried it; parity is
+        // not enough here because both sides could regress together.
+        const netlify = fs.readFileSync(path.join(projectRoot, 'netlify.toml'), 'utf8');
+        expect(netlify).not.toContain("'unsafe-eval'");
     });
 });

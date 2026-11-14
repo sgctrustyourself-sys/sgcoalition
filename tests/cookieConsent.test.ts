@@ -191,8 +191,10 @@ describe('no pre-consent third parties', () => {
     it('does not embed a Cookiebot loader or CSP allowance', () => {
         const html = read('index.html');
         const vercel = read('vercel.json');
+        const netlify = read('netlify.toml');
         expect(html).not.toMatch(/cookiebot/i);
         expect(vercel).not.toMatch(/cookiebot/i);
+        expect(netlify).not.toMatch(/cookiebot/i);
     });
 
     it('loads analytics only through the consent gate', () => {

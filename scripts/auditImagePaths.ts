@@ -34,7 +34,7 @@
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import { urlsEqual } from '../utils/imageUrlEquality';
@@ -42,15 +42,49 @@ import { urlsEqual } from '../utils/imageUrlEquality';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const CONSTANTS_PATH = join(__dirname, '..', 'constants.ts');
+const VERCEL_CONFIG_PATH = join(__dirname, '..', 'vercel.json');
 dotenv.config({ path: join(__dirname, '..', '.env') });
 
 // ── URL classification ──────────────────────────────────────────────────────
 
-// Canonical hosts the storefront's <img> tags can resolve cleanly.
-const CANONICAL_PATTERNS: ReadonlyArray<RegExp> = [
-    /^https:\/\/i\.imgur\.com\//i,
-    /^https:\/\/tvacscfbzcmjlcekjcsn\.supabase\.co\/storage\//i,
-];
+// Canonical hosts come from the CSP itself: the same `img-src` list the browser
+// enforces. Keeping a second, hand-maintained list here is how the audit and the
+// policy drift apart — the audit would keep passing hosts the browser now blocks,
+// or fail hosts the policy allows.
+//
+// A bare `https:` / `*` token is rejected outright: with a wildcard there is no
+// host contract left to audit, and silently passing every URL is worse than
+// stopping the operator with an explanation.
+export function parsePolicyImageHosts(policySource: string): string[] {
+    const match = policySource.match(/img-src([^;"\\]*)/);
+    if (!match) throw new Error('vercel.json has no img-src directive to audit against.');
+
+    const tokens = match[1].trim().split(/\s+/).filter(Boolean);
+    if (tokens.includes('https:') || tokens.includes('*')) {
+        throw new Error(
+            'img-src still allows every https host (bare `https:` or `*`); ' +
+            'pin it to the hosts the app uses before auditing image paths.',
+        );
+    }
+
+    const hosts = tokens
+        .filter((token) => /^https:\/\//i.test(token))
+        .map((token) => new URL(token).hostname.toLowerCase());
+
+    if (hosts.length === 0) {
+        throw new Error('img-src contains no https hosts; nothing for the audit to validate against.');
+    }
+    return [...new Set(hosts)];
+}
+
+const POLICY_IMAGE_HOSTS = parsePolicyImageHosts(readFileSync(VERCEL_CONFIG_PATH, 'utf8'));
+
+/** Exact host match, with CSP-style `*.example.com` subdomain support
+ *  (a wildcard matches subdomains only, not the bare domain). */
+const hostMatches = (hostname: string, pattern: string): boolean => {
+    if (!pattern.startsWith('*.')) return hostname === pattern;
+    return hostname.endsWith(`.${pattern.slice(2)}`);
+};
 
 const BROKEN_PATTERNS: ReadonlyArray<{ name: BrokenReason; re: RegExp }> = [
     { name: 'LOCAL_RELATIVE_PATH', re: /^\/(?!\/)/ },
@@ -89,14 +123,24 @@ function unescape(s: string): string {
         .replace(/\\t/g, '\t');
 }
 
-function classify(url: string): BrokenReason | null {
-    if (CANONICAL_PATTERNS.some((re) => re.test(url))) return null;
+export function classifyImageUrl(url: string, hosts: readonly string[]): BrokenReason | null {
     for (const p of BROKEN_PATTERNS) {
         if (p.re.test(url)) return p.name;
     }
-    if (!/^https?:\/\//i.test(url)) return 'OTHER';
-    return 'NON_CANONICAL_HOST';
+
+    let parsed: URL;
+    try {
+        parsed = new URL(url);
+    } catch {
+        return 'OTHER';
+    }
+    if (parsed.protocol !== 'https:') return 'OTHER';
+
+    const hostname = parsed.hostname.toLowerCase();
+    return hosts.some((host) => hostMatches(hostname, host)) ? null : 'NON_CANONICAL_HOST';
 }
+
+const classify = (url: string): BrokenReason | null => classifyImageUrl(url, POLICY_IMAGE_HOSTS);
 
 // ── Section 1: Local audit (constants.ts) ──────────────────────────────────
 
@@ -394,7 +438,10 @@ function printReport(
     }
 }
 
-(async () => {
+const isMain = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
+
+if (isMain) {
+    (async () => {
     try {
         const src = readFileSync(CONSTANTS_PATH, 'utf8');
         const { products: local, dupIds } = auditLocal(src);
@@ -417,4 +464,5 @@ function printReport(
         console.error(err);
         process.exit(1);
     }
-})();
+    })();
+}

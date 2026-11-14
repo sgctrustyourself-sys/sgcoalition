@@ -10,6 +10,7 @@ import { uploadProductImage } from '../../services/productUpload';
 import { errorMessage } from '../../utils/errorMessage';
 import ImageCropperModal from '../ui/ImageCropperModal';
 import { moveArrayItem } from '../../utils/arrayMove';
+import { IMAGE_PLACEHOLDER } from '../../utils/imagePlaceholder';
 import { normalizeProductSizeData } from '../../utils/productSizes';
 
 // Types of image URL accessibility
@@ -342,7 +343,7 @@ const ImageManager: React.FC = () => {
                                 src={editImages[0] || selectedProduct.images[0]}
                                 alt={selectedProduct.name}
                                 className="w-full h-full object-cover"
-                                onError={(e) => { (e.currentTarget as HTMLImageElement).src = 'https://via.placeholder.com/100?text=No+Img'; }}
+                                onError={(e) => { (e.currentTarget as HTMLImageElement).src = IMAGE_PLACEHOLDER; }}
                             />
                         </div>
                         <div className="min-w-0">
@@ -414,7 +415,7 @@ const ImageManager: React.FC = () => {
                                         src={img}
                                         alt={`${index + 1}`}
                                         className="w-full h-full object-cover"
-                                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = 'https://via.placeholder.com/200?text=Broken'; }}
+                                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = IMAGE_PLACEHOLDER; }}
                                     />
                                     <div className="absolute left-1 top-1 flex items-center gap-1">
                                         <span className="rounded-full border border-white/10 bg-black/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-white">
@@ -565,7 +566,7 @@ const ImageManager: React.FC = () => {
                                         src={product.images[0]}
                                         alt={product.name}
                                         className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
-                                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = 'https://via.placeholder.com/200?text=No+Img'; }}
+                                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = IMAGE_PLACEHOLDER; }}
                                     />
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                     <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
