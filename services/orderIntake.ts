@@ -620,6 +620,54 @@ export async function notifyAdminClientError(input: {
     }
 }
 
+// Ops alert: a browser CSP report blocked a Stripe request that checkout
+// depends on. This is the one CSP class that costs money when it regresses —
+// a missing frame-src host blocks the 3DS challenge, a missing connect-src
+// host blocks PaymentIntent confirmation — so it goes to the same operator
+// inbox as the payment webhook alerts. Fire-and-forget by contract: never
+// throws, never changes the browser's 204. Dedupe lives in the report handler
+// (one email per directive family + Stripe host per window).
+export async function notifyAdminCspViolation(input: {
+    directive: string;
+    host: string;
+    blockedUri: string;
+    documentUri: string;
+    sourceFile?: string;
+    sample?: string;
+    dedupeMinutes: number;
+}): Promise<void> {
+    try {
+        const key = process.env.RESEND_API_KEY;
+        const rcpts = adminRcpt();
+        if (!key || !rcpts.length) return;
+        const r = resendClient();
+        const adminUrl = 'https://sgcoalition-five.vercel.app/#/admin';
+        const html = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#fff;color:#111827;">'
+            + '<h2 style="letter-spacing:1px;text-transform:uppercase;">CSP blocked Stripe</h2>'
+            + '<p>A browser reported that the Content-Security-Policy blocked a Stripe request. If this fired during checkout, the buyer could not finish payment — verify the deployed header before changing anything else.</p>'
+            + '<p><a href="' + esc(adminUrl) + '" style="background:#111827;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">Open Admin &rarr; CSP violations</a></p>'
+            + '<table cellpadding="8" style="border:1px solid #e5e7eb;border-radius:8px;margin:16px 0;">'
+            + '<tr><td style="background:#f9fafb;"><strong>Directive</strong></td><td><code>' + esc(input.directive) + '</code></td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Stripe host</strong></td><td><code>' + esc(input.host) + '</code></td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Blocked URI</strong></td><td><code>' + esc(input.blockedUri) + '</code></td></tr>'
+            + '<tr><td style="background:#f9fafb;"><strong>Page</strong></td><td><code>' + esc(input.documentUri) + '</code></td></tr>'
+            + (input.sourceFile ? '<tr><td style="background:#f9fafb;"><strong>Source</strong></td><td><code>' + esc(input.sourceFile) + '</code></td></tr>' : '')
+            + (input.sample ? '<tr><td style="background:#f9fafb;"><strong>Sample</strong></td><td><code>' + esc(input.sample) + '</code></td></tr>' : '')
+            + '<tr><td style="background:#f9fafb;"><strong>Time (UTC)</strong></td><td>' + esc(new Date().toISOString()) + '</td></tr>'
+            + '</table>'
+            + '<p style="color:#6b7280;">Repeats of this directive and host are suppressed for ' + esc(String(input.dedupeMinutes)) + ' minutes so one broken page cannot flood the inbox. The report is persisted in Admin &rarr; CSP violations.</p>'
+            + '</div>';
+        await r.emails.send({
+            from: fromAddr(),
+            to: rcpts,
+            subject: 'ACTION REQUIRED: CSP blocked Stripe ' + input.directive + ' (' + input.host + ')',
+            html,
+        });
+    } catch (e) {
+        console.warn('[OrderIntake] CSP alert email failed:', e);
+    }
+}
+
 export async function sendOrderEmails(record: OrderRow): Promise<void> {
     try { await sendCust(record); } catch (e) { console.warn('[OrderIntake] Cust email failed:', e); }
     try { await sendAdm(record); } catch (e) { console.warn('[OrderIntake] Admin email failed:', e); }

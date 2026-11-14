@@ -23,10 +23,19 @@
 // the admin card reports "table missing — apply the migration" rather than the
 // endpoint starting to fail.
 //
+// ALERTING
+//   A report that blocks script-src, frame-src or connect-src on a stripe.com
+//   host is revenue-critical (3DS frames, Stripe.js, PaymentIntent confirms),
+//   so it also emails the ops inbox. Alerts are deduped by directive family +
+//   blocked host over a rolling window: one broken page cannot send one email
+//   per violation. Only a report that actually persisted can alert.
+//
 // NOTE: CORS is set globally by the catch-all in api/[...slug].ts before this
 // handler is invoked, so this handler does NOT call setCorsHeaders itself.
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { notifyAdminCspViolation } from '../../services/orderIntake.js';
+import { classifyStripeCspAlert, type StripeCspAlert } from '../../utils/cspAlerts.js';
 import type { ApiRequest, ApiResponse } from '../_types.js';
 
 interface CspReportBody {
@@ -52,6 +61,10 @@ const MAX_DIRECTIVE = 256;
 const MAX_SAMPLE = 500;
 const MAX_DISPOSITION = 32;
 
+/** One alert per directive family + Stripe host in this window. */
+export const CSP_ALERT_DEDUPE_MINUTES = 30;
+const ALERT_QUERY_LIMIT = 500;
+
 let cachedClient: SupabaseClient | null = null;
 
 function getSupabaseAdmin(): SupabaseClient | null {
@@ -74,6 +87,59 @@ const asInt = (value: unknown): number | null => {
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed >= 0 ? Math.trunc(parsed) : null;
 };
+
+interface RecentReportRow {
+    violated_directive?: string | null;
+    effective_directive?: string | null;
+    blocked_uri?: string | null;
+}
+
+/**
+ * Has this directive + host already alerted inside the window?
+ *
+ * This reads the reports that were just persisted — no extra table or
+ * migration. Look back before inserting the current report so a first offender
+ * always alerts. Dedupe is intentionally per host, not per path: 100 reports
+ * for /v3/ and /v3/foo are one broken host, not 100 emails.
+ *
+ * A failed lookup fails open (false): one extra email is better than silently
+ * missing a checkout outage.
+ */
+async function wasStripeAlertSentRecently(
+    supabase: SupabaseClient,
+    alert: StripeCspAlert,
+): Promise<boolean> {
+    const cutoff = new Date(Date.now() - CSP_ALERT_DEDUPE_MINUTES * 60_000).toISOString();
+    try {
+        const { data, error } = await supabase
+            .from('csp_reports')
+            .select('violated_directive, effective_directive, blocked_uri')
+            .gte('created_at', cutoff)
+            // LIKE catches script-src-elem/attr, which share the script-src policy.
+            .like('violated_directive', `${alert.directive}%`)
+            .limit(ALERT_QUERY_LIMIT);
+
+        if (error) {
+            console.warn('[csp-report] alert dedupe query failed:', error.message);
+            return false;
+        }
+
+        return ((data ?? []) as RecentReportRow[]).some((row) => {
+            const prior = classifyStripeCspAlert({
+                violatedDirective: row.violated_directive,
+                effectiveDirective: row.effective_directive,
+                blockedUri: row.blocked_uri,
+            });
+            return prior?.key === alert.key;
+        });
+    } catch (error) {
+        console.warn(
+            '[csp-report] alert dedupe query threw:',
+            error instanceof Error ? error.message : String(error),
+        );
+        return false;
+    }
+}
 
 export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
     if (req.method === 'OPTIONS') {
@@ -108,6 +174,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
     // the source-file contains a quote.
     const effective = asText(report['effective-directive'], MAX_DIRECTIVE);
     const violated = asText(report['violated-directive'], MAX_DIRECTIVE) || effective;
+    const documentUri = asText(report['document-uri'], MAX_URI);
+    const blockedUri = asText(report['blocked-uri'], MAX_URI);
+    const sourceFile = asText(report['source-file'], MAX_URI);
+    const sample = asText(report['sample'], MAX_SAMPLE);
+    const stripeAlert = classifyStripeCspAlert({
+        violatedDirective: violated,
+        effectiveDirective: effective,
+        blockedUri,
+    });
 
     const supabase = getSupabaseAdmin();
     if (!supabase) {
@@ -119,16 +194,23 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
         return;
     }
 
+    // Checked before the insert: the current report must not count as its own
+    // recent duplicate. If the insert then fails, no alert is sent.
+    const alreadyAlerted = stripeAlert
+        ? await wasStripeAlertSentRecently(supabase, stripeAlert)
+        : false;
+
+    let persisted = false;
     try {
         const { error } = await supabase.from('csp_reports').insert({
-            document_uri: asText(report['document-uri'], MAX_URI),
+            document_uri: documentUri,
             violated_directive: violated,
             effective_directive: effective || null,
-            blocked_uri: asText(report['blocked-uri'], MAX_URI) || null,
-            source_file: asText(report['source-file'], MAX_URI) || null,
+            blocked_uri: blockedUri || null,
+            source_file: sourceFile || null,
             line_number: asInt(report['line-number']),
             column_number: asInt(report['column-number']),
-            sample: asText(report['sample'], MAX_SAMPLE) || null,
+            sample: sample || null,
             disposition: asText(report['disposition'], MAX_DISPOSITION) || null,
         });
 
@@ -136,9 +218,32 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
             // Includes "relation does not exist": the migration is pending. The
             // admin card surfaces that state; the browser still gets 204.
             console.error('[csp-report] persist failed:', error.message);
+        } else {
+            persisted = true;
         }
     } catch (error) {
         console.error('[csp-report] persist threw:', error instanceof Error ? error.message : String(error));
+    }
+
+    if (persisted && stripeAlert && !alreadyAlerted) {
+        try {
+            await notifyAdminCspViolation({
+                directive: stripeAlert.directive,
+                host: stripeAlert.host,
+                blockedUri: blockedUri || '(not reported)',
+                documentUri: documentUri || '(not reported)',
+                sourceFile: sourceFile || undefined,
+                sample: sample || undefined,
+                dedupeMinutes: CSP_ALERT_DEDUPE_MINUTES,
+            });
+        } catch (error) {
+            // notifyAdminCspViolation already swallows its own failures; this
+            // is belt-and-braces so the browser still receives its 204.
+            console.warn(
+                '[csp-report] alert notification threw:',
+                error instanceof Error ? error.message : String(error),
+            );
+        }
     }
 
     // 204 No Content: the report is acknowledged; no body needed.

@@ -4,25 +4,59 @@
 //   1. the handler still returns 204 for a valid report — including when the
 //      insert fails, because the browser must never see a persistence error;
 //   2. the insert is bounded (browser-authored strings are attacker-shaped);
-//   3. the migration enables RLS with no policies and indexes recency;
-//   4. the route table, rate-limit read exemption and dashboard card stay wired.
+//   3. Stripe checkout violations alert the ops inbox, deduped by directive +
+//      host, and only after a row actually persisted;
+//   4. the migration enables RLS with no policies and indexes recency;
+//   5. the route table, rate-limit read exemption and dashboard card stay wired.
 //
-// The Supabase client is mocked, so these tests assert the shape of the row and
-// the response contract, not a live database.
+// The Supabase client and the ops-email owner are mocked, so these tests assert
+// the shape of the row, the alert decision, and the response contract — not a
+// live database or inbox.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const insert = vi.fn();
+const db = vi.hoisted(() => {
+    const state: {
+        rows: Array<{
+            violated_directive?: string | null;
+            effective_directive?: string | null;
+            blocked_uri?: string | null;
+        }>;
+        error: { message: string } | null;
+    } = { rows: [], error: null };
+
+    const insert = vi.fn();
+    const builder = {
+        select: vi.fn(),
+        gte: vi.fn(),
+        like: vi.fn(),
+        limit: vi.fn(),
+    };
+    builder.select.mockReturnValue(builder);
+    builder.gte.mockReturnValue(builder);
+    builder.like.mockReturnValue(builder);
+    builder.limit.mockImplementation(async () => ({ data: state.rows, error: state.error }));
+
+    const from = vi.fn(() => ({ insert, ...builder }));
+    return { state, insert, from, builder };
+});
+
+const alerts = vi.hoisted(() => ({ notifyAdminCspViolation: vi.fn() }));
 
 vi.mock('@supabase/supabase-js', () => ({
-    createClient: () => ({
-        from: () => ({ insert }),
-    }),
+    createClient: () => ({ from: db.from }),
 }));
 
-import handler from '../api/_handlers/csp-report';
+vi.mock('../services/orderIntake', () => ({
+    notifyAdminCspViolation: alerts.notifyAdminCspViolation,
+}));
+
+import handler, { CSP_ALERT_DEDUPE_MINUTES } from '../api/_handlers/csp-report';
+import { classifyStripeCspAlert } from '../utils/cspAlerts';
+
+const insert = db.insert;
 
 const read = (relativePath: string): string =>
     readFileSync(path.join(process.cwd(), relativePath), 'utf8');
@@ -60,12 +94,26 @@ const makeResponse = (): FakeResponse => {
 const makeRequest = (method: string, body: unknown) =>
     ({ method, body, headers: {} }) as never;
 
+const stripeReport = (overrides: Record<string, unknown> = {}) =>
+    makeRequest('POST', {
+        'csp-report': {
+            'document-uri': 'https://sgcoalition.test/checkout',
+            'effective-directive': 'frame-src',
+            'blocked-uri': 'https://hooks.stripe.com/3ds/challenge',
+            ...overrides,
+        },
+    });
+
 describe('POST /api/csp-report persistence', () => {
     let errorSpy: ReturnType<typeof vi.spyOn>;
     let warnSpy: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
         insert.mockReset();
+        db.state.rows = [];
+        db.state.error = null;
+        Object.values(db.builder).forEach((mock) => mock.mockClear());
+        alerts.notifyAdminCspViolation.mockReset();
         process.env.SUPABASE_URL = 'https://example.supabase.co';
         process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-test-key';
         errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -194,6 +242,177 @@ describe('POST /api/csp-report persistence', () => {
 
         expect(res.statusCode).toBe(405);
         expect(insert).not.toHaveBeenCalled();
+    });
+});
+
+describe('Stripe CSP alert classification', () => {
+    it('normalizes script-src-elem to script-src and resolves the host', () => {
+        expect(classifyStripeCspAlert({
+            effectiveDirective: 'script-src-elem',
+            blockedUri: 'https://js.stripe.com/v3/',
+        })).toEqual({
+            directive: 'script-src',
+            host: 'js.stripe.com',
+            key: 'script-src|js.stripe.com',
+        });
+    });
+
+    it('classifies frame-src and connect-src hosts', () => {
+        expect(classifyStripeCspAlert({
+            effectiveDirective: 'frame-src',
+            blockedUri: 'https://hooks.stripe.com/3ds',
+        })?.key).toBe('frame-src|hooks.stripe.com');
+
+        expect(classifyStripeCspAlert({
+            effectiveDirective: 'connect-src',
+            blockedUri: 'https://api.stripe.com/v1/payment_intents',
+        })?.key).toBe('connect-src|api.stripe.com');
+    });
+
+    it('accepts a scheme-less blocked URI', () => {
+        expect(classifyStripeCspAlert({
+            effectiveDirective: 'frame-src',
+            blockedUri: 'js.stripe.com:443/3ds',
+        })?.host).toBe('js.stripe.com');
+    });
+
+    it('ignores non-checkout directives and non-Stripe hosts', () => {
+        expect(classifyStripeCspAlert({
+            effectiveDirective: 'img-src',
+            blockedUri: 'https://js.stripe.com/icon.png',
+        })).toBeNull();
+
+        expect(classifyStripeCspAlert({
+            effectiveDirective: 'frame-src',
+            blockedUri: 'https://example.test/frame',
+        })).toBeNull();
+
+        expect(classifyStripeCspAlert({
+            effectiveDirective: 'script-src',
+            blockedUri: 'inline',
+        })).toBeNull();
+
+        // Suffix must be a real subdomain boundary.
+        expect(classifyStripeCspAlert({
+            effectiveDirective: 'script-src',
+            blockedUri: 'https://notstripe.com/x.js',
+        })).toBeNull();
+    });
+});
+
+describe('Stripe CSP alert delivery and dedupe', () => {
+    let warnSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+        insert.mockReset();
+        insert.mockResolvedValue({ error: null });
+        db.state.rows = [];
+        db.state.error = null;
+        Object.values(db.builder).forEach((mock) => mock.mockClear());
+        alerts.notifyAdminCspViolation.mockReset();
+        alerts.notifyAdminCspViolation.mockResolvedValue(undefined);
+        process.env.SUPABASE_URL = 'https://example.supabase.co';
+        process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-test-key';
+        warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        warnSpy.mockRestore();
+    });
+
+    it('emails once for a persisted Stripe frame-src block', async () => {
+        const res = makeResponse();
+        await handler(stripeReport(), res as never);
+
+        expect(res.statusCode).toBe(204);
+        expect(insert).toHaveBeenCalledTimes(1);
+        expect(alerts.notifyAdminCspViolation).toHaveBeenCalledTimes(1);
+        expect(alerts.notifyAdminCspViolation).toHaveBeenCalledWith(
+            expect.objectContaining({
+                directive: 'frame-src',
+                host: 'hooks.stripe.com',
+                blockedUri: 'https://hooks.stripe.com/3ds/challenge',
+                documentUri: 'https://sgcoalition.test/checkout',
+                dedupeMinutes: CSP_ALERT_DEDUPE_MINUTES,
+            }),
+        );
+        expect(db.builder.gte).toHaveBeenCalledWith('created_at', expect.any(String));
+        expect(db.builder.like).toHaveBeenCalledWith('violated_directive', 'frame-src%');
+    });
+
+    it('persists a repeat but suppresses the email inside the window', async () => {
+        db.state.rows = [{
+            violated_directive: 'frame-src',
+            effective_directive: 'frame-src',
+            // Different path, same host — still the same offender.
+            blocked_uri: 'https://hooks.stripe.com/3ds/earlier-attempt',
+        }];
+
+        const res = makeResponse();
+        await handler(stripeReport(), res as never);
+
+        expect(res.statusCode).toBe(204);
+        expect(insert).toHaveBeenCalledTimes(1);
+        expect(alerts.notifyAdminCspViolation).not.toHaveBeenCalled();
+    });
+
+    it('alerts for a different Stripe host in the same directive', async () => {
+        db.state.rows = [{
+            violated_directive: 'script-src',
+            effective_directive: 'script-src',
+            blocked_uri: 'https://js.stripe.com/v3/',
+        }];
+
+        await handler(stripeReport({
+            'effective-directive': 'script-src-elem',
+            'violated-directive': 'script-src-elem',
+            'blocked-uri': 'https://m.stripe.com/4',
+        }), makeResponse() as never);
+
+        expect(alerts.notifyAdminCspViolation).toHaveBeenCalledWith(
+            expect.objectContaining({ directive: 'script-src', host: 'm.stripe.com' }),
+        );
+    });
+
+    it('does not query or alert for a Stripe img-src violation', async () => {
+        await handler(stripeReport({
+            'effective-directive': 'img-src',
+            'blocked-uri': 'https://js.stripe.com/icon.png',
+        }), makeResponse() as never);
+
+        expect(db.builder.select).not.toHaveBeenCalled();
+        expect(insert).toHaveBeenCalledTimes(1);
+        expect(alerts.notifyAdminCspViolation).not.toHaveBeenCalled();
+    });
+
+    it('does not alert when persistence failed', async () => {
+        insert.mockResolvedValue({ error: { message: 'insert failed' } });
+
+        await handler(stripeReport(), makeResponse() as never);
+
+        expect(alerts.notifyAdminCspViolation).not.toHaveBeenCalled();
+    });
+
+    it('fails open when the dedupe lookup errors', async () => {
+        db.state.error = { message: 'dedupe query down' };
+
+        await handler(stripeReport(), makeResponse() as never);
+
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[csp-report] alert dedupe query failed:',
+            'dedupe query down',
+        );
+        expect(alerts.notifyAdminCspViolation).toHaveBeenCalledTimes(1);
+    });
+
+    it('still returns 204 when the alert transport rejects', async () => {
+        alerts.notifyAdminCspViolation.mockRejectedValue(new Error('mail down'));
+
+        const res = makeResponse();
+        await handler(stripeReport(), res as never);
+
+        expect(res.statusCode).toBe(204);
+        expect(res.ended).toBe(true);
     });
 });
 
