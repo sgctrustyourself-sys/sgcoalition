@@ -180,7 +180,7 @@ describe('SEO sitemap priorities', () => {
     const rowRegex = (id: string, changefreq: 'weekly' | 'monthly', priority: '0.8' | '0.6') =>
         new RegExp(
             `<loc>${`https://sgcoalition-five.vercel.app/product/${id}`}<\\/loc>\\s*` +
-                `<lastmod>[\\d-]+<\\/lastmod>\\s*` +
+                `(?:<lastmod>[\\d-]{10}<\\/lastmod>\\s*)?` +
                 `<changefreq>${changefreq}<\\/changefreq>\\s*` +
                 `<priority>${priority}<\\/priority>`,
         );
@@ -238,6 +238,25 @@ describe('SEO sitemap priorities', () => {
             { id: soldNoArchiveLimited, archived: false, soldAt: '2026-03-06T00:00:00+00:00', isLimitedEdition: true },
         ]);
         expect(xml).toMatch(rowRegex(soldNoArchiveLimited, 'weekly', '0.8'));
+    });
+
+    // The sitemap used to stamp every row with the build date, so the file changed
+    // on every build and told a crawler nothing. These two pin the replacement:
+    // a row's lastmod is its own date, or there is no lastmod at all.
+    it('dates a sold product by its own soldAt date', () => {
+        const xml = sitemapFor([
+            { id: ARCHIVED_STANDARD, archived: true, soldAt: '2026-03-06T00:00:00+00:00', isLimitedEdition: false },
+        ]);
+        const row = xml.split('<url>').find((chunk) => chunk.includes(ARCHIVED_STANDARD)) || '';
+        expect(row).toContain('<lastmod>2026-03-06</lastmod>');
+    });
+
+    it('omits lastmod for a product that has no date of its own', () => {
+        const xml = sitemapFor([
+            { id: ACTIVE_STANDARD, archived: false, soldAt: null, isLimitedEdition: false },
+        ]);
+        const row = xml.split('<url>').find((chunk) => chunk.includes(ACTIVE_STANDARD)) || '';
+        expect(row).not.toContain('<lastmod>');
     });
 });
 
@@ -327,10 +346,13 @@ describe('SEO sitemap — blog posts', () => {
         );
     });
 
-    it('falls back to the build date when a post has no usable date', () => {
-        const today = new Date().toISOString().slice(0, 10);
+    // The complement of the test above: a row with no usable date carries no
+    // lastmod at all. Stamping the build date is what made every build dirty
+    // public/sitemap.xml, and a date that is always "today" says nothing.
+    it('omits lastmod when a post has no usable date (never stamps the build date)', () => {
         const xml = buildSitemap([], [post({ publishedAt: 'not a date' })]);
-        expect(xml).toContain(`<lastmod>${today}</lastmod>`);
+        const row = xml.split('<url>').find((chunk) => chunk.includes('/blog/coalition-pink-silver-crop-top')) || '';
+        expect(row).not.toContain('<lastmod>');
     });
 
     it('keeps posts out of the sitemap when there are none (no stray /blog/ entries)', () => {

@@ -347,6 +347,7 @@ export const parseProducts = () => {
       archived: /['"]?\barchived\b['"]?\s*:\s*true/.test(block),
       soldAt: readStringField(block, 'soldAt'),
       archivedAt: readStringField(block, 'archivedAt'),
+      releasedAt: readStringField(block, 'releasedAt'),
       stock: readStock(block),
       isLimitedEdition: /['"]?\bisLimitedEdition\b['"]?\s*:\s*true/.test(block),
     }))
@@ -1437,8 +1438,21 @@ export const postArticleHtml = (post) => {
   return lines.join('\n');
 };
 
+// A product's own date, newest evidence first: the day it sold, else the day it
+// was archived, else the day it was released. constants/products.ts leaves all
+// three null until the event happens, so an active drop legitimately has no date
+// — and then it gets no <lastmod> rather than the build clock. Verified: 17 rows
+// carry soldAt, 16 carry archivedAt, and releasedAt is still null on all 33, so
+// the two archive dates are the only real product dates the registry holds today.
+export const productDate = (product) => {
+  const raw = [product.soldAt, product.archivedAt, product.releasedAt].find((value) => value);
+  if (!raw) return '';
+
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+};
+
 export const buildSitemap = (products, posts = []) => {
-  const today = new Date().toISOString().slice(0, 10);
   // Derived from STATIC_ROUTES so the sitemap and the prerendered pages can
   // never disagree about which static routes exist. '/' leads (it is the
   // homepage and the highest priority) and is the one route with no separate
@@ -1460,24 +1474,33 @@ export const buildSitemap = (products, posts = []) => {
       loc: productPath(product.id),
       priority: isDemoted ? '0.6' : '0.8',
       changefreq: isDemoted ? 'monthly' : 'weekly',
+      lastmod: productDate(product),
     };
   });
   // Blog posts are advertised from the same list the prerenderer writes pages
   // for: a URL in sitemap.xml with no page behind it serves the shell whose
   // canonical is "/", and a page with no sitemap entry is invisible. lastmod is
-  // the post's own publication date, which is a real signal, instead of the
-  // build date every other entry carries.
+  // the post's own publication date — one of the few entries that has a real one.
   const postPages = posts.map((post) => ({
     loc: blogPostPath(post.slug),
     priority: '0.6',
     changefreq: 'monthly',
-    lastmod: postDate(post).slice(0, 10) || today,
+    lastmod: postDate(post).slice(0, 10),
   }));
   const urls = [...staticPages, ...productPages, ...postPages];
 
+  // <lastmod> is emitted per entry, or not at all — never from the build clock.
+  // A date that changes on every build is one a crawler learns to ignore, and it
+  // made every build dirty public/sitemap.xml in git for no gain. An absent
+  // <lastmod> is valid sitemap and is the honest answer for content with no
+  // recorded date: see productDate for products, and the static routes, whose
+  // copy ships with the code and has no per-route date to tell the truth with.
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
     .map(
-      (entry) => `  <url>\n    <loc>${absoluteUrl(entry.loc)}</loc>\n    <lastmod>${entry.lastmod || today}</lastmod>\n    <changefreq>${entry.changefreq}</changefreq>\n    <priority>${entry.priority}</priority>\n  </url>`
+      (entry) =>
+        `  <url>\n    <loc>${absoluteUrl(entry.loc)}</loc>\n`
+        + (entry.lastmod ? `    <lastmod>${entry.lastmod}</lastmod>\n` : '')
+        + `    <changefreq>${entry.changefreq}</changefreq>\n    <priority>${entry.priority}</priority>\n  </url>`
     )
     .join('\n')}\n</urlset>\n`;
 };
