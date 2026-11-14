@@ -371,7 +371,7 @@ The handler is intentionally minimal today — a future pass will write rows to 
 - Rate-limit gate wiring: `api/[...slug].ts`
 - CSP header: `vercel.json > headers[0] > value`
 - CSP report endpoint: `api/_handlers/csp-report.ts`
-- Operator kill switch + env template: `.env.example` (`DISABLE_RATE_LIMIT` flag, callouts on response cadence)
+- Operator kill switch + env template: `.env.production.template` (`DISABLE_RATE_LIMIT` flag, callouts on response cadence)
 - Lock: `tests/securityInfrastructureReadiness.test.ts` (Features 1–4)
 
 ## Sentry error monitoring
@@ -402,7 +402,7 @@ When both pass, every `Sentry.captureException` call becomes a real network post
 - Downgrading caught to `warning` would mask the signal from any Sentry alert rule that fires on `error`-level events — the default SaaS rule.
 - The operator configures one manual alert rule that asserts `tags.source = react19-root-uncaught` so caught errors don't page on-call.
 
-This trade-off is documented in `.env.example` under the Sentry section. If the alert rule is not set up, caught errors will page just as loudly as uncaught ones — by design. See [FOLLOWUPS.md](./FOLLOWUPS.md) for the operator steps.
+This trade-off is documented in `.env.production.template` under the Sentry section. If the alert rule is not set up, caught errors will page just as loudly as uncaught ones — by design. See [FOLLOWUPS.md](./FOLLOWUPS.md) for the operator steps.
 
 ### Session replay — intentionally deferred
 
@@ -415,7 +415,7 @@ Replay is intentionally NOT wired. To enable later, BOTH `Sentry.replayIntegrati
 - App.tsx wrapper: `App.tsx > ErrorBoundaryWithNavReset`
 - React 19 root handlers: `index.tsx`
 - CSP additions: `vercel.json > headers[0].value > script-src / connect-src`
-- Env template: `.env.example > ---------- Sentry ----------`
+- Env template: `.env.production.template > SENTRY — production error reporting (optional)`
 - Lock: `tests/securityInfrastructureReadiness.test.ts` (Feature 5 + onCaughtError level consistency — 15 assertions)
 - Operator follow-ups: [FOLLOWUPS.md](./FOLLOWUPS.md) — provision the Sentry project + configure the alert rule.
 

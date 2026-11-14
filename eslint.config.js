@@ -14,9 +14,6 @@ export default tseslint.config(
       // Throwaway debug scripts: one has an unterminated string literal.
       'scripts/_debug-regex.mjs',
       'scripts/debug-parser.mjs',
-      // Truncated mid-statement in its only commit; cannot be parsed. Tracked
-      // separately: the Home and Shop CLS assertions must be restored first.
-      'tests/clsRegression.test.ts',
     ],
   },
   js.configs.recommended,
