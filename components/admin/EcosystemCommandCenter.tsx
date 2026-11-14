@@ -23,6 +23,7 @@ import {
 import { getGiveawayTicketCount } from '../../utils/giveawayUtils';
 import PaymentStatusCard from './PaymentStatusCard';
 import PaymentOptionsCard from './PaymentOptionsCard';
+import CspReportCard from './CspReportCard';
 import {
     XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area
 } from 'recharts';
@@ -85,6 +86,9 @@ const EcosystemCommandCenter: React.FC = () => {
 
             {/* Payment Options — live on/off toggles for what customers see at checkout */}
             <PaymentOptionsCard />
+
+            {/* CSP violations — persisted reports from /api/csp-report */}
+            <CspReportCard />
 
             {/* Top Level Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
