@@ -103,3 +103,10 @@ docs/parts-reel/snapshots/
 docs/parts-reel/.hyperframes/
 docs/parts-reel/.thumbnails/
 docs/logo-reveal/reel-pink-october-awareness/.hyperframes/
+
+# Recovery debris: node_modules files and an older code snapshot swept in
+# beside the real source. Deleted 2026-11-14; these rules stop a future
+# recovery sweep from re-importing them into the tracked tree.
+/_recovered_source/
+/helpers.ts
+/src/
