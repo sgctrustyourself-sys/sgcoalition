@@ -422,7 +422,6 @@ export function withRateLimit(
     // caller without a forwarded header would share one bucket
     // and a single misrouted request would DoS the slug.
     if (!ip) {
-        // eslint-disable-next-line no-console
         console.warn(`[rate-limit] no client IP for ${slug}; bypassing limit`);
         return { allowed: true, limit, remaining: limit, resetAt: 0, retryAfterSeconds: 0 };
     }

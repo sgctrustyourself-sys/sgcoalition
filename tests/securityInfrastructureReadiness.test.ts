@@ -30,7 +30,6 @@ import {
     isSharedSecretAdmin,
     getSharedAdminSecrets,
     extractBearerToken,
-    ADMIN_UNAUTHORIZED_ERROR,
     type AdminPolicy,
 } from '../api/_adminAuth';
 

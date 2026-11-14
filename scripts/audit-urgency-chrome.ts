@@ -130,7 +130,7 @@ const RULES: Rule[] = [
   {
     id: 'URG-DEPRECATED-IMPORT',
     description: 'Import of removed or @deprecated urgency component',
-    pattern: /from\s+['"](?:[\.]{1,2}\/)+components\/(?:PromoBar|ui\/CountdownTimer|CartUpsells|ui\/FreeShippingBar)(?:\.\w+)?['"]/,
+    pattern: /from\s+['"](?:[.]{1,2}\/)+components\/(?:PromoBar|ui\/CountdownTimer|CartUpsells|ui\/FreeShippingBar)(?:\.\w+)?['"]/,
     allowlist: [],
   },
   /**

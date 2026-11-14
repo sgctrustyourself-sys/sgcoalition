@@ -180,13 +180,12 @@ describe('productionState realtime-driven shop-floor texture', () => {
 describe('mobile browser build compatibility', () => {
     it('targets Safari 12 so older iPad Safari can parse the entry bundle', () => {
         const viteConfig = read('vite.config.ts');
-        expect(viteConfig).toMatch(/target:\s*['\"]safari12['\"]/);
+        expect(viteConfig).toMatch(/target:\s*['"]safari12['"]/);
     });
 });
 
 describe('device boot recovery', () => {
     const indexHtml = read('index.html');
-    const indexTsx = read('index.tsx');
     const vercel = read('vercel.json');
 
     it('keeps an inline recovery path outside the React module graph', () => {

@@ -134,7 +134,7 @@ export function validateImage(file: File): { valid: boolean; error?: string } {
 export function generateUniqueFilename(
     originalName: string,
     type: string,
-    giveawayId: string
+    _giveawayId: string
 ): string {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);

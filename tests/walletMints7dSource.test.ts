@@ -6,8 +6,6 @@ const read = (rel: string) =>
     fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
 
 describe('walletMints7d realtime-driven count', () => {
-    const home = read('pages/Home.tsx');
-    const wallets = read('pages/Wallets.tsx');
     const ctx = read('context/useWallets.ts');
     const appCtx = read('context/AppContext.tsx');
     const view = read('supabase/migrations/20260721_create_wallet_mints_7d_view.sql');

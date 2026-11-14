@@ -130,12 +130,6 @@ vi.mock('../services/emailService', () => ({
     sendPayoutRejectedEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
-import OrderManager from '../components/admin/OrderManager';
-import SGCoinPayoutManager from '../components/admin/SGCoinPayoutManager';
-import SGCoinRequestManager from '../components/admin/SGCoinRequestManager';
-import PaymentRecordModal from '../components/admin/PaymentRecordModal';
-import ManualOrderForm from '../components/ManualOrderForm';
-import Invoice from '../components/Invoice';
 
 // ---------- FIXTURES ----------
 

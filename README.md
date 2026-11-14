@@ -1486,6 +1486,35 @@ vercel.json             # Vercel deployment config and rewrites
 - Same variables but with LIVE Stripe keys
 - Update `VITE_APP_URL` to your production domain
 
+## Lint and typecheck gate
+
+Two static checks run on every push and PR (`.github/workflows/ci.yml > static-checks`):
+
+```bash
+npx eslint . --max-warnings 395   # errors always fail; warnings fail past the cap
+npx tsc --noEmit                  # no npm script — run it directly
+```
+
+The cap is a **ratchet, not a target**. It exists so the warning count cannot grow without someone noticing, not to certify the tree as clean. When you fix warnings, lower the number in the same commit; when the budget runs out, fix warnings rather than extending it; raising it requires the reason in the commit message and in this section.
+
+Baseline on 2026-11-14: **379 warnings, 0 errors.** The cap sits 16 above that on purpose. The first version of this gate allowed two slots of headroom, which meant any unrelated change could turn CI red; this one has sixteen, and the tree is 75 warnings lighter than the day the gate was added.
+
+| Rule | Count |
+| --- | ---: |
+| `@typescript-eslint/no-explicit-any` | 332 |
+| `react-hooks/exhaustive-deps` | 40 |
+| `@typescript-eslint/no-unused-vars` | 3 |
+| `@typescript-eslint/no-require-imports` | 3 |
+| `@typescript-eslint/triple-slash-reference` | 1 |
+
+Where they live matters more than the total: **293 of 379 (77%) are in `tests/` and `scripts/`** — not shipped code. The shipped surface (`api/`, `components/`, `pages/`, `context/`, `services/`, `hooks/`) carries **86 warnings across 50 files**, more than a quarter of them in `api/_handlers/ai-chat.ts` (23); the next three files sit at 3 each. Cleanup should start there.
+
+Nothing left is auto-fixable — `eslint --fix` offers no fixes here. The two big categories are semantic: typing 332 `any`s (most of them test mocks where the type is doing real work) and adding 40 hook dependencies (which changes when effects re-run) both need judgment per site, not a sweep that makes a number smaller.
+
+Why 395 and not 456: the cap is global, so a warning added in a test fixture spends the same budget as one in `api/`. Rather than raise it and leave the debt alone, a pass cleared 75 warnings first — 29 dead imports, placeholder bindings and unused parameters, 15 unused `async` arrow parameters in the suite, 15 unnecessary regex escapes, one double-spaced regex literal, three stale `eslint-disable no-console` directives that suppressed nothing, and the `_`-prefix/`ignoreRestSiblings` conventions the code already followed but the config never encoded. The three that remain are two dead handlers in `pages/AIPortal.tsx` and the Discord login helper `pages/Login.tsx` keeps for future activation.
+
+The better shape, not yet done: split the gate into two invocations — tight cap over the shipped surface, separate looser cap over `tests/` + `scripts/` — so test fixtures stop competing with `api/` for the same budget.
+
 ## Contributing
 
 This is a private project. For questions, contact the development team.

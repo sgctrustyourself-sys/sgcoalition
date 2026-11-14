@@ -386,7 +386,7 @@ describe('the reversal migration keeps the clawback auditable and gated', () => 
     });
 
     it('makes the row shape enforce kind, sign and target together', () => {
-        expect(sql).toMatch(/CHECK \(\s*\(kind = 'grant'    AND amount > 0 AND reverses_grant_id IS NULL\)/);
+        expect(sql).toMatch(/CHECK \(\s*\(kind = 'grant' {4}AND amount > 0 AND reverses_grant_id IS NULL\)/);
         expect(sql).toMatch(/OR \(kind = 'reversal' AND amount < 0 AND reverses_grant_id IS NOT NULL\)/);
     });
 

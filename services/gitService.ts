@@ -142,7 +142,7 @@ export async function getBranches(): Promise<GitBranch[]> {
 export async function switchBranch(branchName: string): Promise<void> {
     try {
         // Sanitize branch name
-        const sanitizedBranch = branchName.replace(/[^a-zA-Z0-9_\-\/]/g, '');
+        const sanitizedBranch = branchName.replace(/[^a-zA-Z0-9_\-/]/g, '');
 
         // Check if branch exists
         const branches = await getBranches();

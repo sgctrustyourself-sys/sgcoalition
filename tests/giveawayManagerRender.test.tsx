@@ -271,7 +271,7 @@ describe('GiveawayManager form modal + detail view interactions', () => {
         ) as HTMLButtonElement | undefined;
         expect(createBtn).toBeTruthy();
 
-        await act(async => { createBtn!.click(); });
+        await act(() => { createBtn!.click(); });
         const html = container.innerHTML;
 
         expect(html).toContain('Create New Giveaway');
@@ -306,7 +306,7 @@ describe('GiveawayManager form modal + detail view interactions', () => {
                 d.className.includes('cursor-pointer'),
         ) as HTMLDivElement | undefined;
         expect(cardDiv).toBeTruthy();
-        await act(async => { cardDiv!.click(); });
+        await act(() => { cardDiv!.click(); });
         const html = container.innerHTML;
 
         // Detail header loaded.

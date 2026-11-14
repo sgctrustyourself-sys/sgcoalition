@@ -155,7 +155,6 @@ const TEST_PRODUCTS: TestProduct[] = [
     PROD_COALITION_HOODIE,
     PROD_COALITION_SNAPBACK,
 ];
-const EMPTY_PRODUCTS: TestProduct[] = [];
 
 describe('ProductManager edit form open + sync code interactions', () => {
 
@@ -189,7 +188,7 @@ describe('ProductManager edit form open + sync code interactions', () => {
         ) as HTMLButtonElement | null;
         expect(firstEditBtn).toBeTruthy();
 
-        await act(async => { firstEditBtn!.click(); });
+        await act(() => { firstEditBtn!.click(); });
 
         const html = container.innerHTML;
 
@@ -250,7 +249,7 @@ describe('ProductManager edit form open + sync code interactions', () => {
         ) as HTMLButtonElement | null;
         expect(syncBtn).toBeTruthy();
 
-        await act(async => { syncBtn!.click(); });
+        await act(() => { syncBtn!.click(); });
 
         const html = container.innerHTML;
 
@@ -346,7 +345,7 @@ describe('ProductManager render flow', () => {
         protoSetter.call(searchInput!, 'tee');
         searchInput!.dispatchEvent(new Event('input', { bubbles: true }));
 
-        await act(async => { /* allow React to flush the re-render */ });
+        await act(() => { /* allow React to flush the re-render */ });
         const html = container.innerHTML;
 
         // Coalition Tee (name contains 'tee') survives.

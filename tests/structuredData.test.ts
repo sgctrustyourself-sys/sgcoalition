@@ -16,8 +16,6 @@
 //      NO structured data once hydrated, no matter what the generator wrote.
 
 import { describe, it, expect } from 'vitest';
-import fs from 'node:fs';
-import path from 'node:path';
 import { ROUTE_PAGES, pageExists, readPage } from './_helpers/routePages';
 import {
     buildRouteStructuredData,
@@ -41,7 +39,6 @@ import {
     type StructuredDataNode,
 } from '../utils/structuredData';
 
-const read = (relativePath: string) => fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
 
 const SAME_AS = parseBrandSameAs();
 const ROUTE_CONTEXT = { sameAs: SAME_AS, faqs: parseHelpFaqs() };

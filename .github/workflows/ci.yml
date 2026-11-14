@@ -176,14 +176,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 456 is the ceiling the repo already runs under locally, and the tree
-      # sits at ~454 — deliberately tight, so a new `any` fails a build rather
-      # than accumulating. Errors fail regardless; warnings only fail past the
-      # cap. If this trips on an unrelated change, fix the warning rather than
-      # raising the number (see README: warnings are the one thing the gate
-      # cannot see through).
+      # 395 is the ceiling documented in README > "Lint and typecheck gate",
+      # and the tree sits at 379 warnings. The cap is a ratchet, not a target:
+      # it was 456 against 454 until a pass cleared 75 warnings, and it came
+      # down with them. Raise it only with a stated reason. The 16 slots of
+      # headroom are deliberate — at 454/456 two unrelated `any`s turned CI
+      # red, and a gate that fails for unrelated reasons gets routed around
+      # instead of obeyed. Errors fail regardless of the cap.
       - name: ESLint (0 errors required)
-        run: npx eslint . --max-warnings 456
+        run: npx eslint . --max-warnings 395
 
       # `tsc` reads tsconfig.json, which excludes `tests/` and `*.test.ts`.
       # That is the shipped surface only: app code, `api/`, and the scripts

@@ -50,7 +50,7 @@ const CryptoReviewQueue: React.FC<CryptoReviewQueueProps> = ({ initialStatus = '
     const [refreshKey, setRefreshKey] = useState(0);
 
     // Fetch orders from the API
-    const fetchOrders = async (force = false) => {
+    const fetchOrders = async (_force = false) => {
         if (!adminToken) {
             setError('Admin session required - log in via /api/admin-verify first');
             setLoading(false);

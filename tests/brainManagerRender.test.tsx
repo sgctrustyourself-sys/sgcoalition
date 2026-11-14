@@ -146,7 +146,6 @@ const TEST_ENTRIES: TestBrainEntry[] = [
     ENTRY_BRAND_GUIDELINES,
     ENTRY_CHAT_INSIGHT,
 ];
-const EMPTY_ENTRIES: TestBrainEntry[] = [];
 
 describe('BrainManager render flow', () => {
 
@@ -246,7 +245,7 @@ describe('BrainManager render flow', () => {
         expect(newBtn).toBeTruthy();
         expect(newBtn!.textContent).toContain('New Entry');
 
-        await act(async => { newBtn!.click(); });
+        await act(() => { newBtn!.click(); });
 
         const html = container.innerHTML;
 
@@ -314,7 +313,7 @@ describe('BrainManager save new entry interaction', () => {
             'button.bg-purple-600',
         ) as HTMLButtonElement | null;
         expect(newBtn).toBeTruthy();
-        await act(async => { newBtn!.click(); });
+        await act(() => { newBtn!.click(); });
 
         // Fill the Title input (placeholder says 'e.g., NF-Tee Design Philosophy').
         // setReactValue uses the per-prototype descriptor setter so React's
@@ -339,7 +338,7 @@ describe('BrainManager save new entry interaction', () => {
         expect(saveBtn).toBeTruthy();
         expect(saveBtn!.textContent).toContain('Save Entry');
 
-        await act(async => { saveBtn!.click(); });
+        await act(() => { saveBtn!.click(); });
 
         // 1) brainService.createBrainEntry spy called with our input payload
         //    (defaults added for missing fields: importance=3, source='manual',

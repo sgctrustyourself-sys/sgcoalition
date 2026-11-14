@@ -60,7 +60,6 @@ const ForgotPassword = React.lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
 const UpdatePassword = React.lazy(() => import('./pages/UpdatePassword'));
 const GiveawayEntry = React.lazy(() => import('./pages/GiveawayEntry'));
-const YoutubeGiveaway = React.lazy(() => import('./pages/YoutubeGiveaway'));
 const CustomInquiry = React.lazy(() => import('./pages/CustomInquiry'));
 const Wallets = React.lazy(() => import('./pages/Wallets'));
 const CustomWallets = React.lazy(() => import('./pages/CustomWallets'));

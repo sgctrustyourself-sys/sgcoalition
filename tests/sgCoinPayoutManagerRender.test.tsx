@@ -179,9 +179,9 @@ describe('SGCoinPayoutManager render flow', () => {
         expect(html).toContain('3,000');
         expect(html).toContain('2,000');
 
-        expect(html).toMatch(/bg-yellow-500[^\"]*\"[^>]*>\s*pending/);
-        expect(html).toMatch(/bg-blue-500[^\"]*\"[^>]*>\s*approved/);
-        expect(html).toMatch(/bg-green-500[^\"]*\"[^>]*>\s*completed/);
+        expect(html).toMatch(/bg-yellow-500[^"]*"[^>]*>\s*pending/);
+        expect(html).toMatch(/bg-blue-500[^"]*"[^>]*>\s*approved/);
+        expect(html).toMatch(/bg-green-500[^"]*"[^>]*>\s*completed/);
 
         expect(html).not.toContain('Payout Request Details');
         expect(html).not.toContain('Mark Payout Completed');

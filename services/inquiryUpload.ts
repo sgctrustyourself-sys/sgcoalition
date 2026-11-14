@@ -71,7 +71,7 @@ export function validateInquiryImage(file: File): { valid: boolean; error?: stri
  */
 export function generateUniqueFilename(
     originalName: string,
-    inquiryId: string
+    _inquiryId: string
 ): string {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);

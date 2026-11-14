@@ -15,7 +15,7 @@
 // rather than business-logic branches. Picks domain terms ("did the VIP
 // branch render?") not markup-diff terms.
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { act } from 'react';
 import { mockSupabase } from './_helpers/supabaseClientMock';
 import {

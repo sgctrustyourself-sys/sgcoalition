@@ -52,6 +52,10 @@ const OWNER_PREFIXES = [
   'ADMIN_',
   'SGCOIN',
   'ORDER_',
+  // Operator kill switches (DISABLE_RATE_LIMIT). A deployment sets it and the
+  // app reads it, so a test leaning on it is as deployment-bound as one leaning
+  // on a key; the prefix covers the next switch without a list to remember.
+  'DISABLE_',
   // Shippo label automation. SHIPPO_API_TOKEN is already covered by the
   // _TOKEN shape, but the prefixes make the integration explicit and cover
   // SHIPPO_* and SHIP_FROM_* names (NAME/CITY/STATE/ZIP/PHONE) whose shapes

@@ -123,7 +123,7 @@ describe('SignalManager form modal + toggle interactions', () => {
         ) as HTMLButtonElement | undefined;
         expect(newSignalBtn).toBeTruthy();
 
-        await act(async => { newSignalBtn!.click(); });
+        await act(() => { newSignalBtn!.click(); });
 
         const html = container.innerHTML;
 
@@ -185,7 +185,7 @@ describe('SignalManager form modal + toggle interactions', () => {
         ) as HTMLButtonElement | null;
         expect(deactivateBtn).toBeTruthy();
 
-        await act(async => { deactivateBtn!.click(); });
+        await act(() => { deactivateBtn!.click(); });
 
         const html = container.innerHTML;
 

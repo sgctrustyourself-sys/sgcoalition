@@ -34,7 +34,18 @@ export default tseslint.config(
       'prefer-const': 'error',
       // Style-level findings that exist across the codebase: report, don't block.
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': 'warn',
+      // `_`-prefixed bindings are deliberate placeholders, which the suite
+      // already names that way, and `ignoreRestSiblings` is what makes the
+      // `({ node, ...props })` render-prop pattern legal: the omitted key
+      // exists to be kept out of the rest object, not to be read.
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          ignoreRestSiblings: true,
+        },
+      ],
       '@typescript-eslint/no-require-imports': 'warn',
       'react-hooks/exhaustive-deps': 'warn',
       'no-useless-escape': 'warn',

@@ -309,7 +309,7 @@ const ProfileDetail: React.FC<ProfileDetailProps> = ({
                                     <tr key={o.id} className="hover:bg-white/5 transition-colors">
                                         <td className="px-4 py-3">
                                             <span className="text-[10px] font-mono text-white break-all" title={o.id}>
-                                                {o.id.length > 14 ? `${o.id.slice(0, 8)}\…${o.id.slice(-4)}` : o.id}
+                                                {o.id.length > 14 ? `${o.id.slice(0, 8)}…${o.id.slice(-4)}` : o.id}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3"><span className="text-[10px] text-gray-400 font-bold">{formatDate(o.created_at)}</span></td>

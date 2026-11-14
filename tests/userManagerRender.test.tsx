@@ -250,7 +250,7 @@ describe('UserManager search filter + export button presence', () => {
         protoSetter.call(searchInput!, 'alice');
         searchInput!.dispatchEvent(new Event('input', { bubbles: true }));
 
-        await act(async => { /* allow React to flush the re-render */ });
+        await act(() => { /* allow React to flush the re-render */ });
 
         const html = container.innerHTML;
 

@@ -72,7 +72,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
     // response body; the browser does not need a payload and
     // echoing risks a small XSS surface if the source-file
     // contains a quote.
-    // eslint-disable-next-line no-console
     console.warn('[csp-report]', {
         document: report['document-uri'],
         directive: report['violated-directive'] || report['effective-directive'],

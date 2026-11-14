@@ -22,7 +22,6 @@ import path from 'node:path';
 import { INITIAL_PRODUCTS } from '../constants/products';
 import {
     formatSeedMergeReport,
-    mapDbRowToSeedEntry,
     mergeSeedProducts,
     parseSeedEntries,
     replaceSeedArray,

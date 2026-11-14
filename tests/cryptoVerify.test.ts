@@ -255,7 +255,7 @@ describe('POST /api/crypto-verify', () => {
     });
 
     it('falls back to notes markers when the crypto_* columns are absent', async () => {
-        const columnError = { data: null, error: { code: '42703', message: 'column \"crypto_status\" of relation \"orders\" does not exist' } };
+        const columnError = { data: null, error: { code: '42703', message: 'column "crypto_status" of relation "orders" does not exist' } };
         mockDb({
             orders: [ok(cryptoOrder()), { data: [], error: null }, columnError, ok({ data: null, error: null })],
             payment_settings: [ok({ id: 1 })],

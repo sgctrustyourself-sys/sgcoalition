@@ -294,7 +294,7 @@ describe('OrderManager modal open + status filter interactions', () => {
         ) as HTMLButtonElement | null;
         expect(eyeBtn).toBeTruthy();
 
-        await act(async => { eyeBtn!.click(); });
+        await act(() => { eyeBtn!.click(); });
 
         const html = container.innerHTML;
         expect(html).toContain('Order Details');
@@ -329,7 +329,7 @@ describe('OrderManager modal open + status filter interactions', () => {
         ) as HTMLButtonElement | null;
         expect(trigger).toBeTruthy();
 
-        await act(async => { trigger!.click(); });
+        await act(() => { trigger!.click(); });
         expect(document.body.querySelector('[data-testid="customer-link-modal"]')).toBeTruthy();
         expect(mockSupabase.getRemainingOutcomes()).toBe(0);
     });
@@ -354,7 +354,7 @@ describe('OrderManager modal open + status filter interactions', () => {
         selectSetter.call(statusSelect!, 'paid');
         statusSelect!.dispatchEvent(new Event('change', { bubbles: true }));
 
-        await act(async => { /* flush the re-render */ });
+        await act(() => { /* flush the re-render */ });
 
         // Filter is local to the table - SG-100 (paid) survives, SG-101 (pending)
         // + SG-102 (refunded) drop.

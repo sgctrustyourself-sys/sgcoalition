@@ -127,7 +127,6 @@ describe('audit-urgency-chrome module', () => {
       //      in docs/peaceful-space.md "Kept Patterns".
       const violations = scan();
       if (violations.length > 0) {
-        // eslint-disable-next-line no-console
         console.error('Diagnostic dump of first 10 violations:', violations.slice(0, 10));
       }
       expect(violations).toEqual([]);

@@ -38,8 +38,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { clearOtherFeaturedProducts } from '../utils/featuredExclusivity';
 import {
     makeSupabaseClient,
-    type SupabaseOutcome,
-    type SupabaseMock,
 } from './_helpers/supabaseClientMock';
 
 describe('utils/featuredExclusivity', () => {

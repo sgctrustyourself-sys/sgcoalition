@@ -10,7 +10,7 @@
 // modal reads no context itself, but every admin render test mounts the same way
 // so none of them can drift into hand-rolling its own root.
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import React from 'react';
 import { act } from 'react';
 import {
@@ -198,7 +198,7 @@ describe('CustomerLinkModal render + state contract', () => {
         expect(onCloseMock).not.toHaveBeenCalled();
         const closeBtn = container.querySelector('[data-testid="customer-link-modal-close"]') as HTMLButtonElement | null;
         expect(closeBtn).toBeTruthy();
-        await act(async => { closeBtn!.click(); });
+        await act(() => { closeBtn!.click(); });
         expect(onCloseMock).toHaveBeenCalledTimes(1);
     });
 
