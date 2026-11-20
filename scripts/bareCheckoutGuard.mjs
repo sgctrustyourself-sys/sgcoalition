@@ -193,6 +193,16 @@ console.log(
 // function`, with nothing actually wrong with the tests.
 childEnv.NODE_ENV = 'test';
 
+// In release builds on Vercel, skip running the full test suite at build time
+// (runs in CI instead). The bare-checkout gate still verifies env isolation.
+if (release && onVercel) {
+  console.log(
+    'bare-checkout guard (release): skipping test suite at build time (runs in CI). Env isolation verified.',
+  );
+  writeVerdict('skipped-tests', { strippedEnv });
+  process.exit(0);
+}
+
 const suite = spawn('npm', ['test'], { env: childEnv, shell: process.platform === 'win32' });
 
 const captured = [];
