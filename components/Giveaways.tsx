@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { Giveaway, GiveawayStatus } from '../types';
-import { Plus, Gift, Calendar, Users, Trophy, Trash2, ExternalLink, Copy, Check } from 'lucide-react';
+import { Plus, Gift, Calendar, Users, Trophy, Trash2, Copy } from 'lucide-react';
 import { getGiveawayTicketCount } from '../utils/giveawayUtils';
 
 const Giveaways: React.FC = () => {

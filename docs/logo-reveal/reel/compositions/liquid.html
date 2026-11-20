@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: transparent; }
+      #liquidStage { position: absolute; inset: 0; }
+
+      #gooGroup { position: absolute; inset: 0; filter: url(#goo); }
+
+      .satellite {
+        position: absolute; border-radius: 50%;
+        background: radial-gradient(circle at 34% 30%, #ffffff 0%, #f4f8ff 34%, #d9e6f2 68%, #b8c6d4 100%);
+        will-change: transform;
+      }
+      /* specular + occlusion: one light source, upper-left */
+      .bead-shade {
+        position: absolute; inset: 0; border-radius: 50%;
+        background:
+          radial-gradient(circle at 30% 26%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 26%),
+          radial-gradient(circle at 72% 80%, rgba(20,24,32,0.35) 0%, rgba(20,24,32,0) 42%);
+      }
+
+      /* hero bead carries the mark. Bead size is unchanged from the 1080p
+         landscape master — the mark inside it keeps its measured legibility
+         margin, and the frame is even more ground around it in vertical. */
+      #heroBead {
+        position: absolute; left: 50%; top: 50%;
+        width: 420px; height: 420px; margin-left: -210px; margin-top: -210px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 34% 30%, #ffffff 0%, #f6faff 30%, #e2ecf5 62%, #c2d0dd 100%);
+      }
+      /* the mark inside the bead — distorted past legibility by the refract filter.
+         Cropped to the mark's measured bbox (449x166, aspect 2.705). Scaled 0.5625
+         with the canvas width; the refract displacement and noise frequency are
+         scaled by the same factor so distortion strength per mark-pixel is identical. */
+      #carriedMark {
+        position: absolute; left: 50%; top: 50%;
+        width: 315px; height: 116px; margin-left: -157px; margin-top: -58px;
+        opacity: 0.9; object-fit: contain;
+      }
+
+      /* glass specular on the hero: one highlight, one occlusion */
+      #heroSpec {
+        position: absolute; left: 50%; top: 50%;
+        width: 420px; height: 420px; margin-left: -210px; margin-top: -210px;
+        border-radius: 50%; pointer-events: none;
+        background:
+          radial-gradient(circle at 32% 26%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0) 24%),
+          radial-gradient(circle at 74% 82%, rgba(13,13,16,0.45) 0%, rgba(13,13,16,0) 44%);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="liquidStage" data-composition-id="liquid" data-start="0" data-duration="3.7" data-width="1080" data-height="1920">
+      <div id="gooGroup">
+        <!-- stamped satellite table — authored, not generated. 15 satellites.
+             Same table as the landscape master, remapped x·0.5625 / y·1.7778
+             for the 1080x1920 canvas. -->
+        <div class="satellite" data-layout-allow-overflow style="left:118px;  top:338px; width:150px; height:150px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:928px;  top:409px; width:130px; height:130px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:242px;  top:1422px; width:120px; height:120px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:838px;  top:1476px; width:110px; height:110px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:68px;   top:960px; width:90px;  height:90px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:990px;  top:924px; width:85px;  height:85px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:394px;  top:213px; width:80px;  height:80px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:647px;  top:1689px; width:78px;  height:78px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:186px;  top:693px; width:70px;  height:70px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:878px;  top:747px; width:66px;  height:66px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:506px;  top:1653px; width:60px;  height:60px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:338px;  top:1707px; width:52px;  height:52px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:748px;  top:196px; width:50px;  height:50px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:45px;   top:533px; width:46px;  height:46px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:1029px; top:1351px; width:42px;  height:42px;"></div>
+
+        <div id="heroBead">
+          <img id="carriedMark" src="assets/logo-carried.png" alt="" style="filter:url(#refract);" />
+          <div class="bead-shade"></div>
+        </div>
+      </div>
+
+      <div id="heroSpec"></div>
+    </div>
+
+    <!-- Filters are scoped to this composition. -->
+    <svg width="0" height="0" style="position:absolute">
+      <defs>
+        <!-- GOO: blur + hard alpha snap. Applied to the group, never per element.
+             blur and alpha slope scaled 0.5625 from the 1080p master so the merge
+             threshold behaves identically at this resolution. -->
+        <filter id="goo" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="13" result="blur"/>
+          <feColorMatrix in="blur" type="matrix"
+            values="1 0 0 0 0
+                    0 1 0 0 0
+                    0 0 1 0 0
+                    0 0 0 15 -7" result="goo"/>
+          <feBlend in="SourceGraphic" in2="goo"/>
+        </filter>
+        <!-- REFRACT: the carried mark. Seeded. scale is the legibility control.
+             Displacement and base frequency scaled 0.5625 with the mark so the
+             distortion per mark-pixel matches the master. -->
+        <filter id="refract" x="-30%" y="-30%" width="160%" height="160%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.0214 0.0356"
+                        numOctaves="2" seed="7" result="noise"/>
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="48"
+                             xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+      </defs>
+    </svg>
+
+    <script>
+      /* All liquid motion lives here. The rupture at 3.43s is the anchor;
+         the parent composition mounts this file for 0–3.7s only.
+         Timings are identical to the 1080p landscape master. */
+      const tl = gsap.timeline({ paused: true, defaults: { immediateRender: false } });
+
+      /* ── Beat 1 · gather (0.00–1.00) ── */
+      const sats = document.querySelectorAll('.satellite');
+      const startVars = [
+        { x: -394, y: -747 }, { x: 428,  y: -640 }, { x: -315, y: 960 },  { x: 394,  y: 853 },
+        { x: -270, y: -284 }, { x: 293,  y: 249 },  { x: -169, y: -924 }, { x: 146,  y: 996 },
+        { x: -236, y: 427 },  { x: 259,  y: -391 }, { x: -135, y: 818 },  { x: 101,  y: 747 },
+        { x: 191,  y: -782 }, { x: -293, y: -142 }, { x: 304,  y: 569 }
+      ];
+      sats.forEach((sat, i) => {
+        const v = startVars[i];
+        gsap.set(sat, { x: v.x, y: v.y, scale: 0.4, opacity: 0 });
+        tl.to(sat, { x: 0, y: 0, scale: 1, opacity: 1, duration: 0.85, ease: 'power2.out' }, 0.08 + (i % 5) * 0.05);
+      });
+
+      /* ── Beat 2 · drift (1.00–3.00) — the bead travels slowly, carrying the mark ── */
+      tl.fromTo('#heroBead',
+        { x: -79, y: -89, scale: 0.72 },
+        { x: 79,  y: 89,  scale: 1.0, duration: 2.0, ease: 'sine.inOut' },
+        1.0);
+      tl.fromTo('#heroSpec',
+        { x: -79, y: -89, scale: 0.72 },
+        { x: 79,  y: 89,  scale: 1.0, duration: 2.0, ease: 'sine.inOut' },
+        1.0);
+      tl.fromTo('#carriedMark',
+        { rotation: -8 },
+        { rotation: 6, duration: 2.0, ease: 'sine.inOut' },
+        1.0);
+
+      /* ── Beat 3 · hold (3.00–3.43) — the only still moment. 13 frames. Nothing animates. ── */
+
+      /* ── Beat 4 · rupture (3.43–3.63) — collapse in six frames (~0.2s). Fast. ── */
+      tl.set('#heroBead', { x: 79, y: 89, scale: 1.0 }, 3.43);
+      tl.set('#heroSpec', { x: 79, y: 89, scale: 1.0 }, 3.43);
+      tl.to('#heroBead', { scale: 0, opacity: 0, duration: 0.2, ease: 'power4.in' }, 3.43);
+      tl.to('#heroSpec', { scale: 0, opacity: 0, duration: 0.2, ease: 'power4.in' }, 3.43);
+      tl.set('#carriedMark', { opacity: 0 }, 3.43);
+
+      /* ── Beat 5 · scatter (3.43–4.61) — launch vectors point AWAY from hero centre. ──
+         Same stamped vectors as the master, remapped for the vertical canvas.
+         Speeds vary ~2x; two or three leave slowly enough to still be on frame when
+         the lockup lands. Stamped, not random. */
+      const launch = [
+        { x: -647, y: -1280, d: 1.05 }, { x: 686,  y: -1138, d: 0.95 }, { x: -529, y: 1564, d: 1.10 },
+        { x: 608,  y: 1351,  d: 0.90 }, { x: -461, y: -498,  d: 1.15 }, { x: 506,  y: 427,  d: 0.85 },
+        { x: -293, y: -1529, d: 1.00 }, { x: 247,  y: 1600,  d: 1.12 }, { x: -394, y: 711,  d: 0.95 },
+        { x: 428,  y: -676,  d: 1.08 }, { x: -225, y: 1351,  d: 0.88 }, { x: 169,  y: 1244, d: 1.18 },
+        { x: 315,  y: -1316, d: 0.92 }, { x: -484, y: -249,  d: 1.05 }, { x: 495,  y: 924,  d: 0.85 }
+      ];
+      sats.forEach((sat, i) => {
+        const L = launch[i];
+        tl.to(sat, { x: L.x, y: L.y, scale: 0.55, opacity: 0, duration: L.d, ease: 'power2.out' }, 3.43);
+      });
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['liquid'] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

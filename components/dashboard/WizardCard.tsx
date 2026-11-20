@@ -1,6 +1,7 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { MiniWizard } from '../../types/MiniWizard';
+import { IMAGE_PLACEHOLDER } from '../../utils/imagePlaceholder';
 import { Zap, Flame, Shield, Sparkles } from 'lucide-react';
 
 interface WizardCardProps {
@@ -40,7 +41,7 @@ const WizardCard: React.FC<WizardCardProps> = ({ wizard, onClick }) => {
                 {/* Image Container */}
                 <div className="relative aspect-square rounded-2xl mb-5 overflow-hidden bg-black/40 border border-white/5">
                     <img
-                        src={wizard.image || 'https://via.placeholder.com/400?text=Arcane+Wizard'}
+                        src={wizard.image || IMAGE_PLACEHOLDER}
                         alt={wizard.name}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                     />

@@ -3,7 +3,7 @@ import TutorialLayout from '../../components/tutorial/TutorialLayout';
 import StepCard from '../../components/tutorial/StepCard';
 import DownloadButton from '../../components/tutorial/DownloadButton';
 import SecurityModal from '../../components/tutorial/SecurityModal';
-import { Shield, Download, Key, CheckCircle } from 'lucide-react';
+import { Shield, Key, CheckCircle } from 'lucide-react';
 
 const MetaMask: React.FC = () => {
     const [showSecurityModal, setShowSecurityModal] = useState(false);

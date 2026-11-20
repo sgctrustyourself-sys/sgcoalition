@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { PRODUCT_IMAGE_URLS } from '../utils/localImageAssets';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,10 +27,10 @@ async function addAboveAsBelowShorts() {
         price: 75,
         stock: Object.values(sizeInventory).reduce((sum, count) => sum + count, 0),
         images: [
-            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.front,
-            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.back,
-            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setFront,
-            PRODUCT_IMAGE_URLS.aboveAsBelowShorts.setBack
+            '/images/above-as-below-shorts-front.png',
+            '/images/above-as-below-shorts-back.png',
+            '/images/above-as-below-set-front.png',
+            '/images/above-as-below-set-back.png'
         ],
         description: "The matching Above as Below shorts. Same hand-crafted red-and-white Coalition lineage as the tee - heavyweight cotton, deep set pocket, raw-hem finished. Sold at $75 individually, or grab the set with the tee for $120 and save $30.",
         category: 'apparel',
@@ -45,7 +44,10 @@ async function addAboveAsBelowShorts() {
         is_limited_edition: true
     };
 
-    let result;
+    // Structural Supabase upsert response shape — narrowed to the subset
+    // the retry loop + post-loop consumption need (error.code, error.message,
+    // data passthrough). Avoids `any` while keeping a clean inferred type.
+    let result: { data: unknown; error: { code?: string; message?: string } | null };
 
     while (true) {
         const optionalColumnNames = Object.keys(optionalColumns);
@@ -57,7 +59,10 @@ async function addAboveAsBelowShorts() {
 
         if (result.error?.code !== 'PGRST204') break;
 
-        const missingColumn = optionalColumnNames.find(column => result.error?.message.includes(column));
+        // Double optional chain: result.error itself is optional, and
+        // .message on that is also optional in the structural Supabase
+        // type. Both can be undefined; .includes on undefined would throw.
+        const missingColumn = optionalColumnNames.find(column => result.error?.message?.includes(column));
         if (!missingColumn) break;
 
         console.warn(`products.${missingColumn} is not in the live schema yet; retrying without that optional column.`);
@@ -71,7 +76,52 @@ async function addAboveAsBelowShorts() {
         process.exit(1);
     }
 
+    // Fix the live Supabase record in case it still has the old wrong images
+    await fixLiveSupabaseRecord(supabase, product.id, [
+        '/images/above-as-below-shorts-front.png',
+        '/images/above-as-below-shorts-back.png',
+        '/images/above-as-below-set-front.png',
+        '/images/above-as-below-set-back.png'
+    ]);
+
     console.log('Upserted Above as Below Shorts:', data);
+}
+
+async function fixLiveSupabaseRecord(client: any, productId: string, correctImages: string[]) {
+    const { data: existing, error: fetchError } = await client
+        .from('products')
+        .select('images')
+        .eq('id', productId)
+        .single();
+
+    if (fetchError) {
+        console.warn('Could not verify existing Supabase images:', fetchError.message);
+        return;
+    }
+
+    const currentImages = JSON.stringify(existing?.images);
+    const targetImages = JSON.stringify(correctImages);
+
+    if (currentImages === targetImages) {
+        console.log('Supabase images already correct ✓');
+        return;
+    }
+
+    console.log('Fixing live Supabase images...');
+    console.log('  Current:', currentImages);
+    console.log('  Target:', targetImages);
+
+    const { error: updateError } = await client
+        .from('products')
+        .update({ images: correctImages })
+        .eq('id', productId);
+
+    if (updateError) {
+        console.error('Failed to fix Supabase images:', updateError.message);
+        return;
+    }
+
+    console.log('Supabase images fixed ✓');
 }
 
 addAboveAsBelowShorts();

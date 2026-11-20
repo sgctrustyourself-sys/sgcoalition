@@ -4,23 +4,37 @@ import { useApp } from '../context/AppContext';
 import { Calendar, Package, Clock, ArrowUpRight } from 'lucide-react';
 import Seo from '../components/Seo';
 import { buildItemListJsonLd } from '../utils/seo';
+import { buildOrganizationJsonLd, buildWebPageJsonLd, structuredDataGraph } from '../utils/structuredData';
+import { sortArchivedProducts } from '../utils/archiveSort';
+
+// Mirrors the /archive entry in STATIC_ROUTES (scripts/generateSeoArtifacts.mjs).
+// The whole graph is supplied here because <Seo> removes the prerendered
+// JSON-LD before injecting its own — anything omitted is lost after hydration.
+const ARCHIVE_PAGE_TITLE = 'Coalition | Archive';
+const ARCHIVE_PAGE_DESCRIPTION =
+    'Explore the Coalition archive of sold-out drops, 1/1 customs, limited wallets, and past releases.';
 
 const Archive: React.FC = () => {
-    const { products, isLoading } = useApp();
+    const { products } = useApp();
 
-    // Filter for archived products and sort by soldAt (newest first)
+    // Filter for archived products and sort by soldAt (newest first).
+    // The sort logic lives in utils/archiveSort.ts so it can be unit-tested
+    // without React. Tied dates fall back to alphabetical name order so the
+    // display is deterministic regardless of INITIAL_PRODUCTS array order.
     const archivedProducts = React.useMemo(
-        () => products
-            .filter(p => p.archived)
-            .sort((a, b) => {
-                const dateA = new Date(a.soldAt || a.archivedAt || 0).getTime();
-                const dateB = new Date(b.soldAt || b.archivedAt || 0).getTime();
-                return dateB - dateA;
-            }),
+        () => sortArchivedProducts(products.filter(p => p.archived)),
         [products]
     );
     const archiveJsonLd = React.useMemo(
-        () => buildItemListJsonLd(archivedProducts, 'Coalition Archive', '/archive'),
+        () => structuredDataGraph([
+            buildOrganizationJsonLd(),
+            buildWebPageJsonLd({
+                path: '/archive',
+                name: ARCHIVE_PAGE_TITLE,
+                description: ARCHIVE_PAGE_DESCRIPTION,
+            }),
+            buildItemListJsonLd(archivedProducts, 'Coalition Archive', '/archive'),
+        ]),
         [archivedProducts]
     );
 
@@ -36,8 +50,8 @@ const Archive: React.FC = () => {
     return (
         <>
             <Seo
-                title="Archive"
-                description="Explore the Coalition archive of sold-out drops, 1/1 customs, limited wallets, and past releases."
+                title={ARCHIVE_PAGE_TITLE}
+                description={ARCHIVE_PAGE_DESCRIPTION}
                 canonicalPath="/archive"
                 jsonLd={archiveJsonLd}
             />
@@ -57,12 +71,6 @@ const Archive: React.FC = () => {
                         <Package className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                         <h3 className="text-xl font-bold text-white mb-2">The Archive is Empty</h3>
                         <p className="text-gray-400">No products have been archived yet.</p>
-                        <div className="mt-8 p-4 bg-black text-left text-xs font-mono text-green-400 overflow-auto max-h-64">
-                            <p className="mb-2 font-bold text-white">DEBUG INFO:</p>
-                            <p>Is Loading: {isLoading ? 'YES' : 'NO'}</p>
-                            <p>Products Count: {products.length}</p>
-                            {JSON.stringify(products.map(p => ({ id: p.id, name: p.name, archived: p.archived })), null, 2)}
-                        </div>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -119,6 +127,12 @@ const Archive: React.FC = () => {
                                             </div>
                                         )}
                                     </div>
+
+                                    {product.archiveNote && (
+                                        <p className="text-xs text-gray-500 italic mt-3 pt-3 border-t border-white/5 leading-relaxed">
+                                            {product.archiveNote}
+                                        </p>
+                                    )}
 
                                     <div className="pt-2 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-gray-500 group-hover:text-white transition-colors">
                                         <span>Open Product Page</span>

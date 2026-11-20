@@ -25,11 +25,11 @@ const PRODUCT_IMAGES = [
 const BASE_SELECT_COLUMNS = 'id,name,price,stock,images,archived,size_inventory';
 
 async function addGreyWaveWallet22() {
-    const sizeInventory = { 'One Size': 1 };
+    const sizeInventory = { 'One Size': 0 };
     const product = {
         id: 'Coalition_Grey_Wave_Wallet_2_2',
         name: "Coalition 'Grey Wave' Wallet 2/2",
-        price: 35,
+        price: 85,
         stock: Object.values(sizeInventory).reduce((sum, count) => sum + count, 0),
         images: PRODUCT_IMAGES,
         description: "Second and final piece in the Coalition 'Grey Wave' wallet run. Hand-finished with a storm-grey wave pattern, raw edge stitching, copper grommet, and Coalition mark. Built as a limited 2/2 collectible - once sold, it's gone forever.",
@@ -37,7 +37,7 @@ async function addGreyWaveWallet22() {
         is_featured: false,
         sizes: ['One Size'],
         size_inventory: sizeInventory,
-        archived: false
+        archived: true
     };
 
     const optionalColumns: Record<string, unknown> = {
@@ -45,7 +45,7 @@ async function addGreyWaveWallet22() {
         making_video_url: MAKING_VIDEO_URL
     };
 
-    let result;
+    let result: { data: unknown; error: { code?: string; message?: string } | null };
 
     while (true) {
         const optionalColumnNames = Object.keys(optionalColumns);
@@ -57,7 +57,7 @@ async function addGreyWaveWallet22() {
 
         if (result.error?.code !== 'PGRST204') break;
 
-        const missingColumn = optionalColumnNames.find(column => result.error?.message.includes(column));
+        const missingColumn = optionalColumnNames.find(column => result.error?.message?.includes(column));
         if (!missingColumn) break;
 
         console.warn(`products.${missingColumn} is not in the live schema yet; retrying without that optional column.`);

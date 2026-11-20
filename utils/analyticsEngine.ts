@@ -1,4 +1,4 @@
-import { Order, Product } from '../types';
+import { Order, Product } from '../types.js';
 
 export interface SalesMetrics {
     totalRevenue: number;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, X, Send, Minimize2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { ChatConversation, ChatMessage } from '../types/chatTypes';
+import { ChatConversation } from '../types/chatTypes';
 import {
     getUserConversation,
     createConversation,
@@ -76,7 +76,7 @@ const ChatWidget = () => {
                     conversation.id,
                     'admin',
                     'Coalition Support',
-                    "Thanks for your message! We're currently offline (Mon-Fri 9am-5pm EST). We'll respond within 24 hours. For urgent matters, email support@sgcoalition.xyz",
+                    "Thanks for your message! We're currently offline (Mon-Fri 9am-5pm EST). We'll respond within 24 hours. For urgent matters, email sgctrustyourself@gmail.com",
                     'system'
                 );
 

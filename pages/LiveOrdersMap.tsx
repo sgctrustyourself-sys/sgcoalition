@@ -1,12 +1,21 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useMemo, useState } from 'react';
+import { motion } from 'motion/react';
 import { ArrowLeft, Clock, MapPin, Activity, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import LiveMap from '../components/LiveMap';
 import StateLeaderboard from '../components/StateLeaderboard';
 import DropCountdown from '../components/DropCountdown';
+import Seo from '../components/Seo';
+import { buildOrganizationJsonLd, buildWebPageJsonLd, structuredDataGraph } from '../utils/structuredData';
 import { buildLiveOrdersFeed, type LiveOrdersTimeRange } from '../utils/liveOrdersFeed';
+
+// Mirrors the /live-orders entry in STATIC_ROUTES
+// (scripts/generateSeoArtifacts.mjs) — the prerendered head and this route
+// must describe the page the same way.
+const LIVE_ORDERS_TITLE = 'Coalition | Recently Ordered';
+const LIVE_ORDERS_DESCRIPTION =
+    'A live feed of real Coalition orders moving across the country — recently ordered pieces, updated as they ship.';
 
 interface SummaryCardProps {
     label: string;
@@ -45,6 +54,8 @@ const RANGE_LABELS: Record<LiveOrdersTimeRange, string> = {
     '24h': 'Last 24 hours',
     '7d': 'Last 7 days',
     '30d': 'Last 30 days',
+    '90d': 'Last 90 days',
+    'all': 'All time',
 };
 
 const LiveOrdersMap = () => {
@@ -58,7 +69,9 @@ const LiveOrdersMap = () => {
         {
             label: 'Orders',
             value: feed.summary.totalOrders.toLocaleString(),
-            helper: `Live window: ${RANGE_LABELS[timeRange]}`,
+            helper: timeRange === 'all'
+                ? 'Showing all real sales since the first drop'
+                : `Live window: ${RANGE_LABELS[timeRange]}`,
             icon: <Activity className="w-5 h-5 text-purple-300" />,
             accentClass: 'from-purple-500/20 via-purple-500/5 to-transparent',
         },
@@ -91,8 +104,29 @@ const LiveOrdersMap = () => {
         },
     ];
 
+    // Brand entity + this page. The map is fed by public order data (state-level
+    // only), so the graph describes the page and its publisher, nothing per-customer.
+    const jsonLd = useMemo(
+        () =>
+            structuredDataGraph([
+                buildOrganizationJsonLd(),
+                buildWebPageJsonLd({
+                    path: '/live-orders',
+                    name: LIVE_ORDERS_TITLE,
+                    description: LIVE_ORDERS_DESCRIPTION,
+                }),
+            ]),
+        []
+    );
+
     return (
         <div className="min-h-screen bg-black px-4 py-12 text-white selection:bg-purple-500/30">
+            <Seo
+                title={LIVE_ORDERS_TITLE}
+                description={LIVE_ORDERS_DESCRIPTION}
+                canonicalPath="/live-orders"
+                jsonLd={jsonLd}
+            />
             <div className="mx-auto max-w-7xl">
                 {/* Header */}
                 <div className="mb-8 flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
@@ -118,8 +152,8 @@ const LiveOrdersMap = () => {
                     </div>
 
                     {/* Filters */}
-                    <div className="flex rounded-xl border border-gray-800 bg-gray-900 p-1">
-                        {(['24h', '7d', '30d'] as const).map((range) => (
+                    <div className="flex flex-wrap rounded-xl border border-gray-800 bg-gray-900 p-1">
+                        {(['24h', '7d', '30d', '90d', 'all'] as const).map((range) => (
                             <button
                                 key={range}
                                 onClick={() => setTimeRange(range)}
@@ -196,6 +230,14 @@ const LiveOrdersMap = () => {
                                                     {item.time}
                                                 </span>
                                             </div>
+                                            {item.productLink && (
+                                                <button
+                                                    onClick={() => navigate(item.productLink ?? '/')}
+                                                    className="shrink-0 rounded-lg border border-gray-800 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500 opacity-0 transition-all group-hover:opacity-100 hover:border-purple-500/50 hover:text-purple-300"
+                                                >
+                                                    View
+                                                </button>
+                                            )}
                                         </motion.div>
                                     ))
                                 ) : (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Sparkles, ArrowLeft, Zap, Copy, Check, MessageSquare, Plus, Trash2, Menu, X as XIcon, Paperclip, Image as ImageIcon, X, Bot, LogOut, Shirt } from 'lucide-react';
+import { Send, Sparkles, Copy, Check, MessageSquare, Plus, Menu, Paperclip, Image as ImageIcon, X, Bot, LogOut, Shirt } from 'lucide-react';
 import { clearFullAIUnlock, generateImage, sendChatMessage, validateFullAIUnlock, type ChatMessage } from '../services/aiChat';
 import {
     createChatSession,
@@ -9,8 +9,7 @@ import {
     deleteChatSession,
     generateChatTitle,
     uploadImage,
-    type ChatSession,
-    type ChatMessage as DbChatMessage
+    type ChatSession
 } from '../services/chatHistory';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -34,7 +33,7 @@ const AIPortal = () => {
     // Default sidebar to closed on mobile, open on desktop
     const [isSidebarOpen, setIsSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+    const [, setIsHistoryLoading] = useState(false);
     const [hasFullAccess, setHasFullAccess] = useState(false);
     const [isAccessChecking, setIsAccessChecking] = useState(true);
 
@@ -42,7 +41,7 @@ const AIPortal = () => {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [isGenerating, setIsGenerating] = useState(false);
+    const [, setIsGenerating] = useState(false);
     const [showImageGenModal, setShowImageGenModal] = useState(false);
     const [showShirtGenModal, setShowShirtGenModal] = useState(false);
 
@@ -358,6 +357,7 @@ const AIPortal = () => {
                         <button
                             onClick={() => setIsSidebarOpen(false)}
                             className="md:hidden p-2 hover:bg-white/10 rounded-lg transition"
+                            aria-label="Close AI menu"
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -417,6 +417,7 @@ const AIPortal = () => {
                         <button
                             onClick={() => setIsSidebarOpen(true)}
                             className="md:hidden p-2 hover:bg-white/10 rounded-lg transition"
+                            aria-label="Open AI menu"
                         >
                             <Menu className="w-5 h-5" />
                         </button>
@@ -450,12 +451,14 @@ const AIPortal = () => {
                         <button
                             onClick={() => setShowShirtGenModal(true)}
                             className="md:hidden p-2 hover:bg-white/10 rounded-lg text-brand-accent mr-1"
+                            aria-label="Open shirt designer"
                         >
                             <Shirt className="w-5 h-5" />
                         </button>
                         <button
                             onClick={() => setShowImageGenModal(true)}
                             className="md:hidden p-2 hover:bg-white/10 rounded-lg text-purple-400"
+                            aria-label="Open image generator"
                         >
                             <ImageIcon className="w-5 h-5" />
                         </button>
@@ -492,7 +495,7 @@ const AIPortal = () => {
                                                 ul: ({ node, ...props }) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
                                                 ol: ({ node, ...props }) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
                                                 li: ({ node, ...props }) => <li className="text-gray-200" {...props} />,
-                                                code: ({ node, inline, ...props }: any) =>
+                                                code: ({ inline, ...props }: { inline?: boolean } & React.HTMLAttributes<HTMLElement>) =>
                                                     inline ?
                                                         <code className="bg-gray-900 px-1.5 py-0.5 rounded text-purple-300 font-mono text-xs" {...props} /> :
                                                         <code className="block bg-gray-900 p-3 rounded-lg overflow-x-auto font-mono text-xs text-purple-300 my-2" {...props} />,
@@ -560,6 +563,7 @@ const AIPortal = () => {
                                 <button
                                     onClick={clearFile}
                                     className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition"
+                                    aria-label="Remove attached image"
                                 >
                                     <X className="w-3 h-3" />
                                 </button>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>GHOST RIDERS — corner &amp; collage zoom</title>
+<style>
+  html,body{margin:0;background:#141416;color:#e8dcc8;font:13px/1.45 Arial,sans-serif}
+  h2{font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:18px 14px 6px;color:#c9bfae}
+  .note{margin:0 14px 8px;color:#8f897f;font-size:12px}
+  .panel{position:relative;overflow:hidden;margin:0 14px 4px;background:#0b0b0d;border:1px solid #33333a}
+  .panel img{position:absolute;width:1080px;height:1350px;transform-origin:0 0;display:block}
+  .cap{margin:0 14px 10px;color:#8f897f;font-size:12px}
+  #stats{position:sticky;top:0;z-index:5;background:#1b1b1f;border-bottom:1px solid #34343c;padding:10px 14px;font:12px/1.6 Consolas,monospace;white-space:pre-wrap}
+  .guide{position:absolute;top:0;bottom:0;width:0;border-left:1px dashed #ff5f6d}
+  .guide.g2{border-left-color:#3ddc97}
+  .guide.blue{border-left-color:#4ea8ff}
+  .gap{position:absolute;top:6px;font:11px Consolas,monospace;background:rgba(0,0,0,.72);color:#ffd166;padding:2px 5px;border-radius:3px;white-space:nowrap}
+  .hline{position:absolute;left:0;right:0;height:0;border-top:1px dashed #4ea8ff}
+  .hline.red{border-top-color:#ff5f6d}
+  #measure{position:absolute;width:1080px;height:1350px;transform-origin:0 0}
+</style></head><body>
+<div id="stats">loading…</div>
+
+<h2>1 · top-right corner — &lt;img&gt; surface @3× (embedded fonts — identical to direct-open)</h2>
+<p class="note">Region x 655–1080, y 40–185 in SVG units. Red dashed = label text right edge, green dashed = badge circle left edge (957). Fonts are embedded as base64 @font-face (scripts/embed-art-fonts.mjs), so this &lt;img&gt; render is pixel-identical to a direct open — 0 / 1,458,000 px differ. The old two-state split is gone.</p>
+<div class="panel" id="p1" style="width:1275px;height:435px"><img id="i1" src="ghost-riders-after-dark.svg"></div>
+<p class="cap" id="cap1"></p>
+
+<h2>2 · collage edge — card 2 (front photo) right side + “1 OF 1” star @2.5×</h2>
+<p class="note">Region x 770–1080, y 420–720. Blue dashed = card-2 frame painted right edge (rotated bbox, 962.3).</p>
+<div class="panel" id="p2" style="width:775px;height:750px"><img id="i2" src="ghost-riders-after-dark.svg"></div>
+<p class="cap" id="cap2"></p>
+
+<h2>3 · collage edges — card 2 bottom / card 3 (back photo) overlap @2.5×</h2>
+<p class="note">Region x 520–1010, y 840–1140. Blue dashed = card-2 frame bottom (1058.6), red = card-3 top edge (871.5). Rotations differ: card2 +2.5°, card3 +5° — layered overlap is by design.</p>
+<div class="panel" id="p3" style="width:1225px;height:750px"><img id="i3" src="ghost-riders-after-dark.svg"></div>
+<p class="cap" id="cap3"></p>
+
+<h2>4 · SAME corner — direct-open @3× (reference; now identical to panels 1–3)</h2>
+<p class="note">Identical region to panel 1, but this copy is inlined in the page so its Google-Fonts @import can fetch Orbitron — the font the artwork was designed against. Red = label text right edge (Orbitron), green = badge circle left edge (957).</p>
+<div class="panel" id="p4" style="width:1275px;height:435px"><div id="measure"></div></div>
+<p class="cap" id="cap4"></p>
+
+<script>
+const REGION1 = {x:655, y:40, s:3};
+const REGIONS = [
+  {id:'i1', panel:'p1', x:655, y:40,  s:3},
+  {id:'i2', panel:'p2', x:770, y:420, s:2.5},
+  {id:'i3', panel:'p3', x:520, y:840, s:2.5},
+];
+const MS = 3; // #measure (panel 4) is rendered at the same 3× as panel 1
+
+function positionPanels(){
+  for (const r of REGIONS){
+    const img = document.getElementById(r.id);
+    img.style.left = (-r.x * r.s) + 'px';
+    img.style.top  = (-r.y * r.s) + 'px';
+    img.style.transform = 'scale(' + r.s + ')';
+  }
+}
+
+// Tight axis-aligned bounds of an element inside #measure, in SVG user units.
+// #measure renders at 3×, so divide the screen deltas by MS.
+function units(el){
+  const root = document.getElementById('measure').getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  const u = v => v / MS;
+  return {left:u(r.left-root.left), right:u(r.right-root.left),
+          top:u(r.top-root.top), bottom:u(r.bottom-root.top),
+          w:u(r.width), h:u(r.height)};
+}
+const find = (sel, needle) => [...document.querySelectorAll('#measure ' + sel)]
+  .find(e => (e.textContent||'').includes(needle));
+
+function guide(panelId, region, unitX, cls){
+  const px = (unitX - region.x) * region.s;
+  const g = document.createElement('div');
+  g.className = 'guide ' + (cls || '');
+  g.style.left = px + 'px';
+  document.getElementById(panelId).appendChild(g);
+}
+function gapTag(panelId, leftPx, rightPx, topPx, text){
+  const t = document.createElement('div');
+  t.className = 'gap';
+  t.style.left = ((leftPx + rightPx) / 2 - 50) + 'px';
+  t.style.top = topPx + 'px';
+  t.textContent = text;
+  document.getElementById(panelId).appendChild(t);
+}
+
+async function run(){
+  positionPanels();
+  const svgText = await (await fetch('ghost-riders-after-dark.svg')).text();
+  const m = document.getElementById('measure');
+  m.style.left = (-REGION1.x * MS) + 'px';
+  m.style.top  = (-REGION1.y * MS) + 'px';
+  m.style.transform = 'scale(' + MS + ')';
+  m.innerHTML = svgText;
+
+  // The @import fetches Orbitron asynchronously. Measuring before it lands
+  // yields the fallback numbers — that race is exactly what made an earlier
+  // run report 937.4 and the next one 956.5 for the same element.
+  try {
+    await Promise.all([
+      document.fonts.load('700 17px Orbitron'),
+      document.fonts.load('900 30px Orbitron'),
+      document.fonts.load('400 40px "Titan One"'),
+    ]);
+    await document.fonts.ready;
+  } catch (e) { /* fall through; fonts.check below reports the truth */ }
+
+  const pillText = find('text', 'Y2K ARCHIVE');
+  const labelG = pillText.closest('g');
+  const pillBox = labelG.querySelector('rect');          // green shadow rect → right 954
+  const badgeCircle = [...document.querySelectorAll('#measure circle')]
+      .find(c => Math.abs(c.getAttribute('cx') - 985) < 1 && Math.abs(c.getAttribute('cy') - 92) < 1); // shadow → left 961
+  const starPath = [...document.querySelectorAll('#measure path')].find(p => (p.getAttribute('d')||'').startsWith('M938 460'));
+  const starText = [...document.querySelectorAll('#measure text')]
+      .find(e => e.classList.contains('display') && e.textContent.trim() === '1 OF 1');
+  const card2Frame = [...document.querySelectorAll('#measure rect')]
+      .find(r => r.getAttribute('x')==='545' && r.getAttribute('y')==='475' && r.getAttribute('width')==='405');
+  const card3Frame = [...document.querySelectorAll('#measure rect')]
+      .find(r => r.getAttribute('x')==='665' && r.getAttribute('y')==='885' && r.getAttribute('width')==='320');
+
+  const BADGE_MAIN = 985 - 28;   // 957 — nearest painted edge of the cream circle
+  const PILL_DARK  = 680 + 270;  // 950
+  const PILL_SHADOW = PILL_DARK + 4; // 954
+
+  // --- state A: Orbitron loaded (panel 4 / direct-open render) ------------
+  const orb = {label: units(pillText), star: units(starText)};
+
+  // --- state B: webfont blocked (panels 1–3, every <img> surface) ---------
+  // Force the exact fallbacks from the SVG's font stacks: .micro → monospace,
+  // .display → Arial Black. Layout reflows synchronously on the next read.
+  pillText.style.fontFamily = 'monospace';
+  const fbLabel = units(pillText);
+  pillText.style.fontFamily = '';
+  starText.style.fontFamily = 'Arial Black';
+  const fbStar = units(starText);
+  starText.style.fontFamily = '';
+
+  const p = units(pillBox), b = units(badgeCircle),
+        st = units(starPath), c2 = units(card2Frame), c3 = units(card3Frame);
+
+  const ok = n => n > 0 ? 'NO OVERLAP ✓' : 'OVERLAP ✗';
+  const lines = [
+    `ORBITRON (loaded — panel 4; direct-open of the .svg)  font loaded: ${document.fonts.check('700 17px Orbitron')}`,
+    `  label text   : ${orb.label.left.toFixed(1)} .. ${orb.label.right.toFixed(1)}  (width ${orb.label.w.toFixed(1)})`,
+    `  vs pill 680..950 (shadow 954) : overflows pill by ${(orb.label.right - PILL_DARK).toFixed(1)}u, ${(orb.label.right - PILL_SHADOW).toFixed(1)}u past its shadow; left edge sticks out ${(680 - orb.label.left).toFixed(1)}u`,
+    `  gap label text -> badge circle (957) : ${(BADGE_MAIN - orb.label.right).toFixed(1)}u   ${ok(BADGE_MAIN - orb.label.right)}`,
+    `  star "1 OF 1" text width : ${orb.star.w.toFixed(1)} (fallback ${fbStar.w.toFixed(1)}) — star bbox x ${st.left.toFixed(0)}..${st.right.toFixed(0)}`,
+    ``,
+    `FALLBACK (SYNTHETIC — fonts forced off, kept only as the degraded-case reference)`,
+    `  label text   : ${fbLabel.left.toFixed(1)} .. ${fbLabel.right.toFixed(1)}  (width ${fbLabel.w.toFixed(1)})`,
+    `  vs pill 680..950 : margins ${(fbLabel.left - 680).toFixed(1)}u left / ${(PILL_DARK - fbLabel.right).toFixed(1)}u right  FITS ✓`,
+    `  gap label text -> badge circle (957) : ${(BADGE_MAIN - fbLabel.right).toFixed(1)}u   ${ok(BADGE_MAIN - fbLabel.right)}`,
+    `  gap pill shadow (954) -> badge circle (957) : ${(BADGE_MAIN - PILL_SHADOW).toFixed(1)}u painted minimum, font-independent`,
+    ``,
+    `COLLAGE (all font-independent geometry)`,
+    `  star sticker bbox : x ${st.left.toFixed(0)}..${st.right.toFixed(0)}, y ${st.top.toFixed(0)}..${st.bottom.toFixed(0)} — ${(st.top - p.bottom).toFixed(0)}u below the label pill`,
+    `  card2 frame right : ${c2.right.toFixed(1)} painted incl. stroke, rotated (unrotated right 952.5); star overlaps ${(c2.right - st.left).toFixed(0)}u — decorative, by design`,
+    `  card2 frame bottom ${c2.bottom.toFixed(1)} / card3 top ${c3.top.toFixed(1)} — cards layer with different rotations (+2.5° / +5°)`,
+  ];
+  document.getElementById('stats').textContent = lines.join('\n');
+
+  // Guides: panels 1 and 4 both render embedded Orbitron now, so both get the
+  // loaded-position guides. The synthetic-fallback numbers live in stats only.
+  guide('p1', REGION1, orb.label.right, '');
+  guide('p1', REGION1, BADGE_MAIN, 'g2');
+  gapTag('p1', (orb.label.right - REGION1.x) * REGION1.s, (BADGE_MAIN - REGION1.x) * REGION1.s, 240,
+         `gap ${(BADGE_MAIN - orb.label.right).toFixed(1)}u @3×`);
+
+  guide('p4', REGION1, orb.label.right, '');
+  guide('p4', REGION1, BADGE_MAIN, 'g2');
+  gapTag('p4', (orb.label.right - REGION1.x) * REGION1.s, (BADGE_MAIN - REGION1.x) * REGION1.s, 240,
+         `gap ${(BADGE_MAIN - orb.label.right).toFixed(1)}u @3×`);
+
+  // Card-edge guides on panels 2/3.
+  guide('p2', REGIONS[1], c2.right, 'blue');
+  const h3top = document.createElement('div');
+  h3top.className = 'hline red';
+  h3top.style.top = ((c3.top - REGIONS[2].y) * REGIONS[2].s) + 'px';
+  document.getElementById('p3').appendChild(h3top);
+  const h3bot = document.createElement('div');
+  h3bot.className = 'hline';
+  h3bot.style.top = ((c2.bottom - REGIONS[2].y) * REGIONS[2].s) + 'px';
+  document.getElementById('p3').appendChild(h3bot);
+}
+run().catch(e => { document.getElementById('stats').textContent = 'ERROR: ' + e; });
+</script>
+</body></html>

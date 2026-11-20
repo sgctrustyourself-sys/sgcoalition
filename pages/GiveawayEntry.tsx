@@ -4,7 +4,7 @@ import {
     Youtube, Instagram, Upload, CheckCircle, AlertCircle,
     Loader2, ArrowLeft, Trophy, Star, Gift, Shirt, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { uploadScreenshot, validateImage } from '../services/giveawayUpload';
+import { uploadScreenshot } from '../services/giveawayUpload';
 import { supabase } from '../services/supabase';
 import { YoutubeGiveawayEntry } from '../types';
 import GiveawayCountdown from '../components/giveaway/GiveawayCountdown';
@@ -298,9 +298,9 @@ const GiveawayEntry = () => {
             setSubmittedPoints(points);
             setSuccess(true);
 
-        } catch (err: any) {
+        } catch (err) {
             console.error('Submission error:', err);
-            setError(err.message || 'Something went wrong. Please try again.');
+            setError((err instanceof Error ? err.message : String(err)) || 'Something went wrong. Please try again.');
         } finally {
             setLoading(false);
         }

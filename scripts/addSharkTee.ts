@@ -61,7 +61,7 @@ async function addSharkTee() {
     }
 
     console.log('✅ Successfully upserted Coalition Shark Tee (1/1):', data);
-    console.log('🔗 View at: https://sgcoalition.xyz/#/shop');
+    console.log('🔗 View at: https://sgcoalition-five.vercel.app/#/shop');
     console.log('🏷️  is_limited_edition=true — the Limited Edition badge will render on the deployed shop.');
 }
 

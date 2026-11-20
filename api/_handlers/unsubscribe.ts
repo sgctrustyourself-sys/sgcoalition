@@ -5,6 +5,7 @@
 // the link works in browsers and markdown email clients alike.
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { ApiRequest, ApiResponse } from '../_types.js';
 
 let cachedAdminClient: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient | null {
@@ -55,8 +56,8 @@ Coalition &middot; Baltimore, Maryland
 </html>`;
 }
 
-export default async function handler(req: any, res: any) {
-    const appUrl = process.env.VITE_APP_URL || 'https://sgcoalition.xyz';
+export default async function handler(req: ApiRequest, res: ApiResponse) {
+    const appUrl = process.env.VITE_APP_URL || 'https://sgcoalition-five.vercel.app';
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Access-Control-Allow-Origin', appUrl);
 
@@ -77,7 +78,12 @@ export default async function handler(req: any, res: any) {
         return;
     }
 
-    const tokenRaw = (req.query?.token ?? req.body?.token) as unknown;
+    // The body is `unknown` at the request boundary; narrow it to the one
+    // field this handler accepts rather than assuming its shape.
+    const bodyToken = typeof req.body === 'object' && req.body !== null
+        ? (req.body as { token?: unknown }).token
+        : undefined;
+    const tokenRaw: unknown = req.query?.token ?? bodyToken;
     const token = typeof tokenRaw === 'string' ? tokenRaw.trim() : '';
     if (!token) {
         res.status(400).send(renderHtml({
@@ -128,7 +134,7 @@ export default async function handler(req: any, res: any) {
             body: 'Your email has been removed from the Coalition drop list. We will not email you again until you sign up from the site.',
             appUrl,
         }));
-    } catch (err: any) {
+    } catch (err) {
         console.error('[unsubscribe] failed:', err);
         res.status(500).send(renderHtml({
             ok: false,

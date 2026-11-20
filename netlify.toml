@@ -1,0 +1,22 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+# Mirrors the "headers" block in vercel.json.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(self)"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://*.js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.imgur.com https://tvacscfbzcmjlcekjcsn.supabase.co https://gateway.pinata.cloud; frame-src https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.dexscreener.com https://polygon.gateway.tenderly.co https://polygon-bor.publicnode.com https://polygon.drpc.org https://rpc.ankr.com/polygon https://api.stripe.com https://m.stripe.com https://api.zippopotam.us https://cdn.jsdelivr.net/npm/us-atlas@3/ https://api.etherscan.io https://gateway.pinata.cloud https://*.ingest.sentry.io https://*.ingest.us.sentry.io; report-uri /api/csp-report"
+
+# Mirrors the "rewrites" block in vercel.json (SPA fallback for client routes).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

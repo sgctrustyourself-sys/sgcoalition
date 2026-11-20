@@ -1,5 +1,7 @@
 // Referral Analytics Tracking
-import { supabase } from '../services/supabase';
+import { supabase } from '../services/supabase.js';
+
+export type ReferralShareSurface = 'pdp' | 'order_success' | 'profile_header';
 
 export interface ReferralAnalytics {
     id: string;
@@ -50,6 +52,50 @@ export const trackReferralEvent = async (
             console.error('Error tracking referral event:', error);
         } else {
             console.log(`[Referral Analytics] Tracked ${eventType} for code: ${referralCode}`);
+        }
+    } catch (error) {
+        console.error('Error tracking referral event:', error);
+    }
+};
+
+/**
+ * Track a referral share click from a specific surface (PDP, order
+ * success page, profile header). Fires a 'share_click' event with the
+ * surface name embedded in the referrer_url so the admin dashboard can
+ * attribute shares to the originating surface without needing a new RPC
+ * parameter or a separate table.
+ *
+ * Fire-and-forget — never blocks the caller (usually a copy-to-clipboard
+ * handler). The tracking event is best-effort; failures log to console
+ * and are silently swallowed.
+ *
+ * Uses the existing 'click' event type (guaranteed to persist rows in the
+ * RPC) and encodes the surface name in the referrer_url prefix so the
+ * admin dashboard can distinguish share_click events from organic clicks
+ * without requiring a migration to the Supabase RPC.
+ */
+export const trackReferralShare = async (
+    referralCode: string,
+    surface: ReferralShareSurface,
+): Promise<void> => {
+    try {
+        const referrerUrl = typeof window !== 'undefined'
+            ? `share:${surface}|${window.location.href}`
+            : `share:${surface}|`;
+
+        const { error } = await supabase.rpc('track_referral_event', {
+            p_referral_code: referralCode,
+            p_event_type: 'click',
+            p_user_id: null,
+            p_visitor_ip: null,
+            p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+            p_referrer_url: referrerUrl,
+        });
+
+        if (error) {
+            console.error('Error tracking referral share:', error);
+        } else {
+            console.log(`[Referral Analytics] Tracked share on surface: ${surface} for code: ${referralCode}`);
         }
     } catch (error) {
         console.error('Error tracking referral event:', error);

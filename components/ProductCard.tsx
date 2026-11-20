@@ -5,7 +5,10 @@ import { useApp } from '../context/AppContext';
 import { Product } from '../types';
 import PriceDisplay from './PriceDisplay';
 import UrgencyBadge from './ui/UrgencyBadge';
-import { getStockUrgency, getStockCount, generateViewCount, getMintFraction } from '../utils/urgencyUtils';
+import OptimizedImage, { SimpleOptimizedImage } from './ui/OptimizedImage';
+import { getProductCardImages } from '../utils/imageOptimization';
+import { PRODUCT_IDS, WHITE_BG_PRODUCT_IDS } from '../constants/productIds';
+import { getStockUrgency, getStockCount, getMintFraction } from '../utils/urgencyUtils';
 import RequestSimilarModal from './RequestSimilarModal';
 
 const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
@@ -13,13 +16,11 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     const isFav = user?.favorites.includes(product.id);
     const isSold = product.archived && !!product.soldAt;
     const [showRequestModal, setShowRequestModal] = useState(false);
-    const primaryImage = product.images && product.images.length > 0 ? product.images[0] : '/images/logo.png';
-    const hoverImage = product.images && product.images.length > 1 ? product.images[1] : primaryImage;
-    const hasHoverImage = hoverImage !== primaryImage;
-    const shouldFitFullImage = product.id === 'prod_tee_above_as_below'
-        || product.id === 'prod_shorts_above_as_below'
-        || product.id === 'prod_hoodie_overwhelmingly_patient';
-    const keepImageClear = product.id === 'Coalition_NF_Tee';
+    const images = product.images && product.images.length > 0 ? product.images : ['/images/logo.png'];
+    const { primary, hover, primaryAvif, hoverAvif, lqip } = getProductCardImages(images);
+    const hasHoverImage = hover !== primary;
+    const shouldFitFullImage = WHITE_BG_PRODUCT_IDS.has(product.id);
+    const keepImageClear = product.id === PRODUCT_IDS.NF_TEE;
     const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-gray-900';
     const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';
     const hoverScaleClass = shouldFitFullImage ? 'group-hover:scale-[1.02]' : 'group-hover:scale-105';
@@ -28,7 +29,6 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     const stockUrgency = getStockUrgency(product);
     const stockCount = getStockCount(product);
     const mintFraction = getMintFraction(product);
-    const viewCount = generateViewCount(product);
     const showLowStock = stockUrgency !== 'normal' && !product.archived;
 
     const cardLink = `/product/${product.id}`;
@@ -37,26 +37,42 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
         <>
             <div className={`group relative bg-transparent ${isSold ? 'opacity-60' : ''}`}>
                 <div className={`aspect-[4/5] overflow-hidden ${imageFrameClass} relative border border-white/5`}>
-                    <img
-                        src={primaryImage}
+                    <picture>
+                      <source srcSet={primaryAvif} type="image/avif" />
+                      <source srcSet={primary} type="image/webp" />
+                      <img
+                        src={primary}
                         alt={product.name}
                         loading="lazy"
                         className={`absolute inset-0 h-full w-full ${imageObjectClass} object-center transition duration-700 ease-in-out ${
                             hasHoverImage ? 'opacity-100 group-hover:opacity-0' : `${hoverScaleClass} group-hover:grayscale`
                         }`}
-                    />
+                      />
+                    </picture>
                     {hasHoverImage && (
+                      <picture>
+                        <source srcSet={hoverAvif} type="image/avif" />
+                        <source srcSet={hover} type="image/webp" />
                         <img
-                            src={hoverImage}
-                            alt={`${product.name} alternate view`}
-                            loading="lazy"
-                            className={`absolute inset-0 h-full w-full ${imageObjectClass} object-center opacity-0 group-hover:opacity-100 ${hoverScaleClass} transition duration-700 ease-in-out`}
+                          src={hover}
+                          alt={`${product.name} alternate view`}
+                          loading="lazy"
+                          className={`absolute inset-0 h-full w-full ${imageObjectClass} object-center opacity-0 group-hover:opacity-100 ${hoverScaleClass} transition duration-700 ease-in-out`}
                         />
+                      </picture>
                     )}
+                    {/* Blur placeholder */}
+                    <img
+                      src={lqip}
+                      alt=""
+                      aria-hidden="true"
+                      className="absolute inset-0 w-full h-full object-cover blur-[20px] scale-110 transition-opacity duration-500"
+                      style={{ opacity: 1 }}
+                    />
                     {isSold && (
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
                             <span className="bg-black border border-white/30 text-white text-[10px] font-bold px-4 py-1.5 uppercase tracking-widest">
-                                SOLD
+                                Claimed
                             </span>
                         </div>
                     )}

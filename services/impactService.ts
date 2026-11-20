@@ -1,5 +1,3 @@
-import { useState, useEffect } from 'react';
-
 export interface ImpactPartner {
     id: string;
     name: string;

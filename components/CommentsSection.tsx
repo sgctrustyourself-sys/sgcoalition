@@ -5,8 +5,9 @@ import { useToast } from '../context/ToastContext';
 import { BlogComment } from '../types';
 import { MessageSquare, Send, User, Loader, Trash2 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
+import { errorMessage } from '../utils/errorMessage';
 
-const safeDate = (dateStr: any) => {
+const safeDate = (dateStr: string | number | Date | null | undefined) => {
     if (!dateStr) return new Date();
     const d = new Date(dateStr);
     return isValid(d) ? d : new Date();
@@ -106,8 +107,8 @@ const CommentsSection: React.FC<CommentsSectionProps> = ({ postId }) => {
             }
             setNewComment('');
             addToast('Comment added!', 'success');
-        } catch (err: any) {
-            addToast(`Failed to post comment: ${err.message}`, 'error');
+        } catch (err) {
+            addToast(`Failed to post comment: ${errorMessage(err)}`, 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -130,8 +131,8 @@ const CommentsSection: React.FC<CommentsSectionProps> = ({ postId }) => {
             if (error) throw error;
             setComments(prev => prev.filter(c => c.id !== commentId));
             addToast('Comment removed.', 'success');
-        } catch (err: any) {
-            addToast(`Delete failed: ${err.message}`, 'error');
+        } catch (err) {
+            addToast(`Delete failed: ${errorMessage(err)}`, 'error');
         }
     };
 

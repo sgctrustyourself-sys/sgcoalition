@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { X, Send, Loader2 } from 'lucide-react';
 import { Product } from '../types';
 import { submitCustomInquiry } from '../services/customInquiry';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface Props {
     product: Product;
@@ -19,6 +20,19 @@ const RequestSimilarModal: React.FC<Props> = ({ product, onClose }) => {
     });
     const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
     const [errorMsg, setErrorMsg] = useState('');
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // The parent mounts this surface only while it is open, so the trap follows
+    // its lifetime. Escape is locked while the request is being sent: the submit
+    // button is disabled then (`status === 'sending'`), and the header close
+    // would otherwise let the buyer walk away from an inquiry already being
+    // written.
+    useFocusTrap({
+        active: true,
+        escapeLocked: status === 'sending',
+        containerRef: panelRef,
+        onEscape: onClose,
+    });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -30,8 +44,8 @@ const RequestSimilarModal: React.FC<Props> = ({ product, onClose }) => {
             // Map the product category to the expected types, or fallback to 'other'
             const categoryRaw = product.category?.toLowerCase() || '';
             let mappedType: 'apparel-pants' | 'apparel-shirt' | '3d-printed' | 'other' = 'other';
-            if (categoryRaw.includes('pant') || categoryRaw.includes('denim') || categoryRaw.includes('jean') || categoryRaw === 'shorts') mappedType = 'apparel-pants';
-            else if (categoryRaw.includes('shirt') || categoryRaw.includes('tee') || categoryRaw.includes('hoodie') || categoryRaw === 'sweatshirt') mappedType = 'apparel-shirt';
+            if (categoryRaw.includes('pant') || categoryRaw.includes('denim') || categoryRaw.includes('jean')) mappedType = 'apparel-pants';
+            else if (categoryRaw.includes('shirt') || categoryRaw.includes('tee') || categoryRaw.includes('hoodie')) mappedType = 'apparel-shirt';
             else if (categoryRaw.includes('3d')) mappedType = '3d-printed';
 
             await submitCustomInquiry({
@@ -42,8 +56,8 @@ const RequestSimilarModal: React.FC<Props> = ({ product, onClose }) => {
                 title: `Similar Style Request: ${product.name}`,
                 description: `Reference Product: ${product.name} ($${product.price})\n\nCustomer's Request:\n${form.description}`,
                 referenceImages: product.images,
-                budgetRange: (form.budgetRange || 'flexible') as any,
-                timeline: (form.timeline || 'flexible') as any
+                budgetRange: (form.budgetRange || 'flexible') as Parameters<typeof submitCustomInquiry>[0]['budgetRange'],
+                timeline: (form.timeline || 'flexible') as Parameters<typeof submitCustomInquiry>[0]['timeline']
             });
         } catch (dbError) {
             console.error('Error saving inquiry to database:', dbError);
@@ -70,7 +84,7 @@ const RequestSimilarModal: React.FC<Props> = ({ product, onClose }) => {
 
             if (!res.ok) throw new Error('Failed to send');
             setStatus('success');
-        } catch (err: any) {
+        } catch {
             setStatus('error');
             setErrorMsg('Something went wrong. Please try again.');
         }
@@ -78,14 +92,25 @@ const RequestSimilarModal: React.FC<Props> = ({ product, onClose }) => {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="relative w-full max-w-lg bg-[#111] border border-white/10 shadow-2xl overflow-hidden">
+            <div
+                ref={panelRef}
+                className="relative w-full max-w-lg bg-[#111] border border-white/10 shadow-2xl overflow-hidden"
+                role="dialog"
+                aria-modal="true"
+                aria-label={`Request a similar style to ${product.name}`}
+            >
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
                     <div>
                         <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white">Request Similar Style</h2>
                         <p className="text-xs text-gray-500 mt-0.5 uppercase tracking-widest">{product.name}</p>
                     </div>
-                    <button onClick={onClose} title="Close" className="p-1.5 hover:bg-white/10 transition-colors rounded-sm">
+                    <button
+                        onClick={onClose}
+                        disabled={status === 'sending'}
+                        title="Close"
+                        className="p-1.5 hover:bg-white/10 transition-colors rounded-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
                         <X className="w-4 h-4 text-gray-400" />
                     </button>
                 </div>

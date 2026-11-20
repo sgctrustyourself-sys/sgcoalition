@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
-import { Package, Calendar, ChevronRight, Clock3, CheckCircle2, Truck, CircleX, RotateCcw, DollarSign, ShoppingBag } from 'lucide-react';
+import { Package, Calendar, ChevronRight, DollarSign, ShoppingBag } from 'lucide-react';
 import { OrderStatus } from '../types';
 import { getOrderItemAddOnLabel } from '../utils/walletAddOns';
 

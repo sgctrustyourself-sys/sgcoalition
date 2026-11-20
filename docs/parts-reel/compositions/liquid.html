@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: transparent; }
+      #liquidStage { position: absolute; inset: 0; background: #0d0d10; overflow: hidden; }
+      #endCard { position: absolute; inset: 0; background: #0d0d10; }
+      #walletCrop {
+        position: absolute; left: 50%; top: 43%; width: 900px; height: 940px;
+        margin-left: -450px; margin-top: -470px; overflow: hidden; border-radius: 24px;
+        opacity: 0; box-shadow: 0 38px 100px rgba(0,0,0,0.5);
+      }
+      #walletShot { width: 100%; height: 100%; object-fit: cover; object-position: 50% 57%; }
+      #stitched-frame { position: absolute; inset: 32px; width: calc(100% - 64px); height: calc(100% - 64px); overflow: visible; }
+      #stitched-frame path { fill: none; stroke: #e7d8c8; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 2 13; vector-effect: non-scaling-stroke; }
+      #stitch-shadow { fill: none; stroke: #74182a; stroke-width: 11; stroke-linecap: round; stroke-dasharray: 2 13; stroke-dashoffset: 7; vector-effect: non-scaling-stroke; }
+      #brandMark {
+        position: absolute; left: 50%; top: 80%; width: 660px; height: 244px;
+        margin-left: -330px; margin-top: -122px; opacity: 0; object-fit: contain;
+        filter: drop-shadow(0 5px 0 #74182a) drop-shadow(0 14px 28px rgba(0,0,0,0.55));
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-kgtt" id="liquidStage" data-composition-id="liquid" data-start="0" data-duration="4.6" data-width="1080" data-height="1920">
+      <div data-hf-id="hf-endcard" id="endCard">
+        <div data-hf-id="hf-walletcrop" id="walletCrop">
+          <img data-hf-id="hf-walletshot" id="walletShot" src="assets/ending-wallet.png" alt="" />
+          <svg data-hf-id="hf-stitchsvg" id="stitched-frame" viewBox="0 0 836 876" preserveAspectRatio="none" aria-hidden="true">
+            <path data-hf-id="hf-stitchshadow" id="stitch-shadow" d="M 32 12 H 804 Q 824 12 824 32 V 844 Q 824 864 804 864 H 32 Q 12 864 12 844 V 32 Q 12 12 32 12 Z" />
+            <path data-hf-id="hf-stitchline" id="stitch-line" d="M 32 12 H 804 Q 824 12 824 32 V 844 Q 824 864 804 864 H 32 Q 12 864 12 844 V 32 Q 12 12 32 12 Z" />
+          </svg>
+        </div>
+        <img data-hf-id="hf-brandmark" id="brandMark" src="assets/logo-lockup-cream.png" alt="Coalition" />
+      </div>
+    </div>
+    <script>
+      const tl = gsap.timeline({ paused: true, defaults: { immediateRender: false } });
+      const stitch = document.querySelector('#stitch-line');
+      const stitchLength = stitch.getTotalLength();
+      gsap.set(['#stitch-line', '#stitch-shadow'], { strokeDasharray: `2 13`, strokeDashoffset: stitchLength });
+
+      /* Wallet reveal replaces the former bead scatter. */
+      tl.fromTo('#walletCrop', { scale: 0.93, y: 68, opacity: 0 },
+        { scale: 1, y: 0, opacity: 1, duration: 0.9, ease: 'power2.out' }, 0.12);
+      tl.to(['#stitch-line', '#stitch-shadow'], { strokeDashoffset: 0, duration: 1.05, ease: 'power1.inOut' }, 0.65);
+      tl.fromTo('#brandMark', { y: 28, scale: 0.96, opacity: 0 },
+        { y: -2, scale: 1, opacity: 1, duration: 0.65, ease: 'power2.out' }, 2.15);
+      tl.to('#walletCrop', { scale: 1.025, duration: 2.0, ease: 'none' }, 2.6);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['liquid'] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

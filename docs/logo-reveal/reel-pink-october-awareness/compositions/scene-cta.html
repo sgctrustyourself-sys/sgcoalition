@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><title>Pink / Silver — Shop</title></head>
+  <body>
+    <template>
+      <style>
+        * { box-sizing: border-box; }
+        #root { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 118px 80px 184px; overflow: hidden; color: #fff; font-family: Arial, sans-serif; text-align: center; background: radial-gradient(ellipse at 50% 34%, #54283f 0%, #241722 48%, #100b10 100%); }
+        .pattern { position: absolute; inset: 0; opacity: .15; background: url("../assets/leopard-mottle.png") center / 560px 560px repeat; }
+        .brand { position: relative; z-index: 2; width: 250px; height: 92px; display: block; object-fit: contain; }
+        .art { position: relative; z-index: 2; display: grid; place-items: center; width: 640px; height: 640px; overflow: hidden; border: 3px solid rgba(255,255,255,.75); border-radius: 28px; background: #f6f1f3; box-shadow: 0 24px 70px rgba(0,0,0,.38); }
+        .art img { display: block; width: 100%; height: 100%; object-fit: contain; }
+        .copy { position: relative; z-index: 2; }
+        .kicker { margin: 0 0 16px; color: #ffd4e9; font-size: 27px; line-height: 1.25; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
+        h2 { margin: 0; font-size: 60px; line-height: 1.05; font-weight: 800; letter-spacing: -.035em; }
+        .details { margin: 18px 0 0; font-size: 35px; line-height: 1.25; font-weight: 700; }
+        .pink { color: #ff9dc9; }
+        .url { display: inline-block; margin-top: 28px; padding: 20px 34px; border: 2px solid #ffd4e9; border-radius: 999px; color: #fff; background: rgba(12,8,12,.4); font-size: 31px; line-height: 1; font-weight: 750; letter-spacing: .03em; }
+        .tagline { position: relative; z-index: 2; margin: 24px 0 0; color: #ffd4e9; font-size: 25px; line-height: 1.2; font-weight: 700; letter-spacing: .19em; text-transform: uppercase; }
+      </style>
+      <section data-hf-id="hf-kgv7" id="root" data-composition-id="scene-cta" data-start="0" data-duration="3.2" data-width="1080" data-height="1920">
+        <div data-hf-id="hf-qrpt" class="pattern" aria-hidden="true"></div>
+        <img data-hf-id="hf-9ev1" id="brand" class="brand" src="../assets/logo-lockup.png" alt="Coalition" />
+        <div data-hf-id="hf-x8a8" id="art" class="art"><img data-hf-id="hf-dtyx" id="tee" src="../assets/tee-front.png" alt="Front of pink leopard Coalition crop tee" /></div>
+        <div data-hf-id="hf-ngem" id="copy" class="copy">
+          <p data-hf-id="hf-w2vn" class="kicker">WOMEN’S LEOPARD PRINT CROP T-SHIRT</p>
+          <h2 data-hf-id="hf-nxbj">PINK / SILVER</h2>
+          <p data-hf-id="hf-2uxk" class="details">$45 <span data-hf-id="hf-l5uu" class="pink">·</span> S–XL</p>
+          <div data-hf-id="hf-w4hv" class="url">linktr.ee/sgcoalition</div>
+        </div>
+        <p data-hf-id="hf-jpna" class="tagline">Trust Yourself.</p>
+      </section>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#art", { y: 20, scale: 0.97, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.52, ease: "power2.out" }, 0.15);
+        tl.fromTo("#copy", { y: 22, opacity: 0 }, { y: 0, opacity: 1, duration: 0.48, ease: "power2.out" }, 0.44);
+        window.__timelines["scene-cta"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

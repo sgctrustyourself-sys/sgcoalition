@@ -1,4 +1,5 @@
-import { supabase } from './supabase';
+import { supabase } from './supabase.js';
+import { errorMessage } from '../utils/errorMessage.js';
 
 export interface SocialAccount {
     id: string;
@@ -75,8 +76,8 @@ export const linkSocialAccount = async (
         }
 
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message || 'Unknown error' };
+    } catch (error) {
+        return { success: false, error: errorMessage(error) || 'Unknown error' };
     }
 };
 
@@ -164,15 +165,26 @@ export const unlinkSocialAccount = async (
         }
 
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message || 'Unknown error' };
+    } catch (error) {
+        return { success: false, error: errorMessage(error) || 'Unknown error' };
     }
 };
 
 /**
- * Admin: Get all pending Instagram links (reward not sent)
+ * Admin: Get all pending Instagram links (reward not sent).
+ *
+ * The select joins the account's email and wallet row(s); the admin table reads
+ * both, so they are declared here rather than leaving the result untyped. The
+ * caller still guards them (`?.[0]`, `link.wallet && ...`), so a row whose join
+ * came back empty reads the same as before.
  */
-export const getPendingInstagramLinks = async (): Promise<any[]> => {
+export interface PendingInstagramLink extends SocialAccount {
+    user: { email: string };
+    wallet: Array<{ wallet_address: string }>;
+    wallet_address?: string | null;
+}
+
+export const getPendingInstagramLinks = async (): Promise<PendingInstagramLink[]> => {
     try {
         const { data, error } = await supabase
             .from('social_accounts')
@@ -223,7 +235,7 @@ export const markRewardSent = async (
         }
 
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message || 'Unknown error' };
+    } catch (error) {
+        return { success: false, error: errorMessage(error) || 'Unknown error' };
     }
 };

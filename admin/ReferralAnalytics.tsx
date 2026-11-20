@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Users, DollarSign, Eye, MousePointerClick, ShoppingCart, Award } from 'lucide-react';
-import { getTopReferrers, getDetailedReferrerStats } from '../utils/referralAnalytics';
+import { TrendingUp, DollarSign, Eye, MousePointerClick, ShoppingCart, Award } from 'lucide-react';
+import { getTopReferrers } from '../utils/referralAnalytics';
 
 interface TopReferrer {
     user_id: string;

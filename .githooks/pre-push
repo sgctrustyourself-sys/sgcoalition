@@ -1,0 +1,61 @@
+#!/bin/sh
+#
+# Pre-push hook: refuse to push a commit whose relative imports do not
+# resolve against the committed tree.
+#
+# Why this exists. This repo carries a large body of uncommitted work and
+# untracked new files. If a committed file imports a path that only exists
+# untracked, the committed tree does not build — but the working tree does,
+# because the untracked file is sitting right there. `npm run build` cannot
+# tell the difference, so a push can quietly ship a broken deployment.
+#
+# The live instance: pages/Checkout.tsx imports
+# ../components/checkout/CheckoutOrderSummary, and components/checkout/ was
+# still untracked. The working tree built fine; the committed tree would not
+# have, and the failure would have surfaced as a red Vercel build rather
+# than as anything a local command could have caught.
+#
+# Why a hook and not a CI step: CI runs on a fresh checkout, where every
+# referenced file IS present by definition. The bug this catches only
+# exists on a machine where the working tree and the committed tree
+# disagree — which is precisely where a push happens.
+#
+# Enable it once per clone with:
+#   git config core.hooksPath .githooks
+
+set -e
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+if [ -z "$(command -v node)" ]; then
+    echo "pre-push: node not found — skipping the import check." >&2
+    exit 0
+fi
+
+# The commits this push carries. A new branch (no remote sha) is checked at
+# its tip only; a normal update checks every commit being pushed, because
+# a broken commit in the middle of a range is still a commit somebody will
+# push a branch from.
+new_refs=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+    zero=0000000000000000000000000000000000000000
+    [ "$local_sha" = "$zero" ] && continue
+    new_refs=1
+    if [ "$remote_sha" = "$zero" ]; then
+        shas="$local_sha"
+    else
+        shas=$(git rev-list "$remote_sha..$local_sha" 2>/dev/null || echo "$local_sha")
+    fi
+    for sha in $shas; do
+        if ! node scripts/check-imports-resolve.mjs "$sha"; then
+            echo "" >&2
+            echo "pre-push: the commit $sha does not build — its imports do not" >&2
+            echo "resolve against the files in that commit. Commit the missing" >&2
+            echo "files, or fix the imports. Nothing was pushed." >&2
+            exit 1
+        fi
+    done
+done
+
+exit 0

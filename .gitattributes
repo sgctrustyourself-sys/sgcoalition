@@ -1,0 +1,17 @@
+# Markdown endings are pinned so a one-line edit can never show as a whole-file
+# change. README.md and DEPLOYMENT_CHECKLIST.md were stored with CRLF, so any
+# tool that wrote the file back with LF endings flipped every line into the repo:
+# a zero-content rewrite showed as 2,203 changed lines, and it blocked a
+# fast-forward on a two-line change. Storing and checking out LF in both
+# directions fixes both, whichever way an editor writes the file.
+#
+# `text` is explicit rather than `auto`, which cannot recover a file already
+# stored the wrong way. Binary files are unaffected.
+*.md text eol=lf
+
+# Generated on every build by scripts/generateSeoArtifacts.mjs, which writes LF.
+# core.autocrlf=true hands these back with CRLF on checkout, so the first build
+# after a clean checkout showed a whole-file line-ending diff for content that
+# never changed. Pin both artifacts to LF in the index and the working tree.
+public/sitemap.xml text eol=lf
+public/robots.txt text eol=lf

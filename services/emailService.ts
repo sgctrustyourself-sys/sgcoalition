@@ -8,6 +8,9 @@ export interface EmailData {
     subject: string;
     html: string;
 }
+import { renderReferralCodeOnboardingHtml, REFERRAL_CODE_EMAIL_SUBJECT } from '../utils/referralEmailTemplate.js';
+import { renderDropVoucherEmailHtml, DROP_VOUCHER_EMAIL_SUBJECT } from '../utils/dropVoucherEmailTemplate.js';
+import { getAdminAuthHeaders } from './adminSession.js';
 
 /**
  * Send approval email to customer
@@ -50,12 +53,12 @@ export async function sendApprovalEmail(
                     
                     <p>You can verify the transaction in your wallet or on a blockchain explorer.</p>
                     
-                    <a href="https://sgcoalition.xyz/#/profile" class="button">View My Profile</a>
+                    <a href="https://sgcoalition-five.vercel.app/#/profile" class="button">View My Profile</a>
                     
                     <p>Thank you for being part of the Coalition!</p>
                 </div>
                 <div class="footer">
-                    <p>SG Coalition | <a href="https://sgcoalition.xyz">sgcoalition.xyz</a></p>
+                    <p>SG Coalition | <a href="https://sgcoalition-five.vercel.app">sgcoalition-five.vercel.app</a></p>
                     <p>This is an automated email. Please do not reply.</p>
                 </div>
             </div>
@@ -106,12 +109,12 @@ export async function sendRejectionEmail(
                     
                     <p>If you believe this was an error or have questions, please contact our support team.</p>
                     
-                    <a href="mailto:support@sgcoalition.xyz" class="button">Contact Support</a>
+                    <a href="mailto:sgctrustyourself@gmail.com" class="button">Contact Support</a>
                     
                     <p>You can submit a new request at any time through our website.</p>
                 </div>
                 <div class="footer">
-                    <p>SG Coalition | <a href="https://sgcoalition.xyz">sgcoalition.xyz</a></p>
+                    <p>SG Coalition | <a href="https://sgcoalition-five.vercel.app">sgcoalition-five.vercel.app</a></p>
                     <p>This is an automated email. Please do not reply.</p>
                 </div>
             </div>
@@ -150,7 +153,7 @@ export async function sendGiveawayValidationEmail(
         <body>
             <div class="container">
                 <div class="header">
-                    <img src="https://sgcoalition.xyz/logo-white.png" alt="Coalition" style="height: 30px; margin-bottom: 20px;">
+                    <img src="https://sgcoalition-five.vercel.app/logo-white.png" alt="Coalition" style="height: 30px; margin-bottom: 20px;">
                     <h1 style="font-family: 'Helvetica', sans-serif; font-weight: 900; margin: 0; letter-spacing: -2px; font-style: italic;">ACCESS CONFIRMED</h1>
                 </div>
                 <div class="content">
@@ -165,14 +168,14 @@ export async function sendGiveawayValidationEmail(
                     <p>We're tracking your engagement. The winner will be selected via weighted raffle and announced on the official SGCoalition YouTube channel.</p>
                     
                     <div style="text-align: center;">
-                        <a href="https://sgcoalition.xyz/#/ecosystem" class="button">Visit the Ecosystem</a>
+                        <a href="https://sgcoalition-five.vercel.app/#/ecosystem" class="button">Visit the Ecosystem</a>
                     </div>
                     
                     <p style="color: #666; font-size: 14px; line-height: 1.8;">Stay focused. Trust Yourself.</p>
                 </div>
                 <div class="footer">
                     <p>Coalition Access Protocol • Private Secure Cloud</p>
-                    <p>sgcoalition.xyz</p>
+                    <p>sgcoalition-five.vercel.app</p>
                 </div>
             </div>
         </body>
@@ -187,9 +190,14 @@ export async function sendGiveawayValidationEmail(
  */
 async function sendEmail(data: EmailData): Promise<void> {
     try {
+        // /api/send-email is an anti-relay-gated endpoint: admin sessions may
+        // email any recipient; anonymous callers may only reach the owner
+        // notification address. getAdminAuthHeaders() is empty without a
+        // session, which is exactly the anonymous case.
+        const headers: Record<string, string> = { 'Content-Type': 'application/json', ...getAdminAuthHeaders() };
         const response = await fetch('/api/send-email', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
                 to: data.to,
                 subject: data.subject,
@@ -239,10 +247,10 @@ export async function sendAdminNotification(
                 </div>
                 <div class="content">
                     <div class="message">${message}</div>
-                    <p style="margin-top: 20px;"><a href="https://sgcoalition.xyz/#/admin" style="background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Review in Admin Dashboard</a></p>
+                    <p style="margin-top: 20px;"><a href="https://sgcoalition-five.vercel.app/#/admin" style="background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Review in Admin Dashboard</a></p>
                 </div>
                 <div class="footer">
-                    <p>SG Coalition | <a href="https://sgcoalition.xyz">sgcoalition.xyz</a></p>
+                    <p>SG Coalition | <a href="https://sgcoalition-five.vercel.app">sgcoalition-five.vercel.app</a></p>
                 </div>
             </div>
         </body>
@@ -252,4 +260,204 @@ export async function sendAdminNotification(
     // Send to admin email
     const adminEmail = 'sgctrustyourself@gmail.com';
     await sendEmail({ to: adminEmail, subject, html });
+}
+
+/**
+ * Send admin notification when a customer submits a new SGCOIN payout request.
+ * Routed to the admin email so the review queue gets a heads-up.
+ */
+export async function sendAdminPayoutNotification(
+    email: string,
+    amount: number,
+    walletAddress: string,
+    requestId: string
+): Promise<void> {
+    const subject = `New SGCOIN Payout Request: ${amount.toLocaleString()} SGC`;
+    const message = `
+New SGCOIN payout request received.
+
+Amount Requested: ${amount.toLocaleString()} SGCoin
+Polygon Wallet:    ${walletAddress}
+Customer Email:   ${email}
+Request ID:       ${requestId}
+
+Action required: review the queue, then Approve (decrements balance) or Reject (with reason).
+    `.trim();
+    await sendAdminNotification(email, subject, message);
+}
+
+/**
+ * Send approval email to customer (Pending -> Approved).
+ * Balance has been decremented at this point.
+ */
+export async function sendPayoutApprovedEmail(
+    email: string,
+    amount: number,
+    walletAddress: string
+): Promise<void> {
+    const subject = 'Your SGCOIN Payout Request Has Been Approved';
+    const html = `
+        <!DOCTYPE html>
+        <html><body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                    <h1>SGCOIN Payout Approved</h1>
+                </div>
+                <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                    <p>Your SGCOIN payout request has been reviewed and approved.</p>
+                    <div style="background: #e0e7ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                        <strong>Amount:</strong> ${amount.toLocaleString()} SGCoin<br>
+                        <strong>Wallet Address:</strong> ${walletAddress}
+                    </div>
+                    <p>${amount.toLocaleString()} SGCoin has been deducted from your store-credit balance and is queued for on-chain transfer to your Polygon wallet. You will receive a follow-up email once the transaction is confirmed on-chain.</p>
+                    <p>The transaction typically completes within 24 hours.</p>
+                    <a href="https://sgcoalition-five.vercel.app/#/profile" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0;">View My Profile</a>
+                </div>
+                <div style="text-align: center; margin-top: 30px; color: #666; font-size: 12px;">
+                    <p>SG Coalition | <a href="https://sgcoalition-five.vercel.app">sgcoalition-five.vercel.app</a></p>
+                </div>
+            </div>
+        </body></html>
+    `;
+    await sendEmail({ to: email, subject, html });
+}
+
+/**
+ * Send completed email (Approved -> Completed with on-chain tx hash).
+ */
+export async function sendPayoutCompletedEmail(
+    email: string,
+    amount: number,
+    txHash: string
+): Promise<void> {
+    const subject = 'Your SGCOIN Has Been Sent';
+    const polkascan = `https://polkascan.io/polygon-erc20/transaction/${txHash}`;
+    const html = `
+        <!DOCTYPE html>
+        <html><body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                    <h1>SGCOIN Sent</h1>
+                </div>
+                <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                    <p>${amount.toLocaleString()} SGCoin has been sent to your wallet. The on-chain transaction is complete.</p>
+                    <div style="background: #d1fae5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                        <strong>Amount:</strong> ${amount.toLocaleString()} SGCoin<br>
+                        <strong>Transaction Hash:</strong> <code style="word-break: break-all;">${txHash}</code>
+                    </div>
+                    <p>Verify on a Polygon block explorer:</p>
+                    <a href="${polkascan}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0;">View on Block Explorer</a>
+                    <p>Thank you for being part of the Coalition.</p>
+                </div>
+                <div style="text-align: center; margin-top: 30px; color: #666; font-size: 12px;">
+                    <p>SG Coalition | <a href="https://sgcoalition-five.vercel.app">sgcoalition-five.vercel.app</a></p>
+                </div>
+            </div>
+        </body></html>
+    `;
+    await sendEmail({ to: email, subject, html });
+}
+
+/**
+ * Send a single referral-code onboarding email to a verified user.
+ *
+ * Lives in services/emailService.ts because the Resend API key is held
+ * server-side at /api/send-email. The HTML body itself is rendered by
+ * `renderReferralCodeOnboardingHtml` in utils/referralEmailTemplate.ts
+ * so the same template is shared with `scripts/sendReferralCodeEmails.ts`
+ * (the bulk-send dry-run routine) and the snapshot test.
+ */
+export async function sendReferralCodeOnboardingEmail(
+    email: string,
+    displayName: string | null,
+    referralCode: string,
+    referralUrl: string,
+    currentTier: number = 1,
+    verifiedDate: string | null = null,
+): Promise<void> {
+    const html = renderReferralCodeOnboardingHtml(
+        {
+            email,
+            displayName: (displayName || "").trim(),
+            referralCode,
+            referralUrl,
+            currentTier,
+            verifiedDate,
+        },
+        "https://sgcoalition-five.vercel.app",
+    );
+
+    await sendEmail({
+        to: email,
+        subject: REFERRAL_CODE_EMAIL_SUBJECT,
+        html,
+    });
+}
+
+/**
+ * Send the Trust Circle drop-voucher redemption email: tells the member
+ * their one-time 100%-off code is live and where to enter it. Triggered by
+ * the admin TrustCircleManager right after issueDropVoucher succeeds.
+ */
+export async function sendDropVoucherEmail(
+    email: string,
+    displayName: string | null,
+    couponCode: string,
+): Promise<void> {
+    const html = renderDropVoucherEmailHtml(
+        {
+            email,
+            displayName: (displayName || "").trim(),
+            couponCode,
+            checkoutUrl: "https://sgcoalition-five.vercel.app/checkout",
+            profileUrl: "https://sgcoalition-five.vercel.app/#/profile",
+        },
+        "https://sgcoalition-five.vercel.app",
+    );
+
+    await sendEmail({
+        to: email,
+        subject: DROP_VOUCHER_EMAIL_SUBJECT,
+        html,
+    });
+}
+
+/**
+ * Send rejection email (Pending or Approved -> Rejected). If approved and
+ * then rejected, the customer's balance has been refunded; for Pending
+ * rejections no balance change is needed since nothing was deducted.
+ */
+export async function sendPayoutRejectedEmail(
+    email: string,
+    amount: number,
+    reason: string,
+    wasRefunded: boolean
+): Promise<void> {
+    const subject = 'Update on Your SGCOIN Payout Request';
+    const refundNote = wasRefunded
+        ? `<p style="color: #059669;"><strong>${amount.toLocaleString()} SGCoin has been refunded to your store-credit balance.</strong></p>`
+        : `<p>Your store-credit balance was not affected since the request was still under review when it was rejected.</p>`;
+    const html = `
+        <!DOCTYPE html>
+        <html><body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                    <h1>Payout Request Update</h1>
+                </div>
+                <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                    <p>We were unable to complete your SGCOIN payout request of ${amount.toLocaleString()} SGCoin.</p>
+                    <div style="background: #fee2e2; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ef4444;">
+                        <strong>Reason:</strong><br>${reason}
+                    </div>
+                    ${refundNote}
+                    <p>You can submit a new request at any time. If you have questions, contact support.</p>
+                    <a href="mailto:sgctrustyourself@gmail.com" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0;">Contact Support</a>
+                </div>
+                <div style="text-align: center; margin-top: 30px; color: #666; font-size: 12px;">
+                    <p>SG Coalition | <a href="https://sgcoalition-five.vercel.app">sgcoalition-five.vercel.app</a></p>
+                </div>
+            </div>
+        </body></html>
+    `;
+    await sendEmail({ to: email, subject, html });
 }

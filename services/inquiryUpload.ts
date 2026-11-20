@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from './supabase.js';
 
 /**
  * Upload a reference image for custom inquiry
@@ -21,7 +21,7 @@ export async function uploadInquiryImage(
     const filePath = `${inquiryId}/${filename}`;
 
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
         .from('custom-inquiry-images')
         .upload(filePath, file, {
             cacheControl: '3600',
@@ -71,7 +71,7 @@ export function validateInquiryImage(file: File): { valid: boolean; error?: stri
  */
 export function generateUniqueFilename(
     originalName: string,
-    inquiryId: string
+    _inquiryId: string
 ): string {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);

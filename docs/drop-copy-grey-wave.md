@@ -42,7 +42,7 @@ Hand-finished charcoal dye. Inspired by Baltimore harbor at dawn — the moment 
 
 When it's gone, it's gone. Trust Yourself.
 
-🔗 Link in bio → sgcoalition.xyz/shop
+🔗 Link in bio → linktr.ee/sgcoalition
 
 #Coalition #GreyWave #BaltimoreStreetwear #TrustYourself #LimitedEdition #Streetwear #1of2 #Drop
 ```
@@ -70,7 +70,7 @@ When it's gone, it's gone.
 ## X — single tweet (≤280 chars)
 
 ```
-🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $35. Hand-finished charcoal dye. Inspired by Baltimore harbor at dawn. Limited 1/2. Once it's gone, it's gone. sgcoalition.xyz/shop
+🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $35. Hand-finished charcoal dye. Inspired by Baltimore harbor at dawn. Limited 1/2. Once it's gone, it's gone. linktr.ee/sgcoalition
 ```
 
 **Length:** ~199 chars.
@@ -78,7 +78,7 @@ When it's gone, it's gone.
 Hashtag-ified variant (still within limit):
 
 ```
-🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $35. Limited 1/2. Once it's gone, it's gone. sgcoalition.xyz/shop
+🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $35. Limited 1/2. Once it's gone, it's gone. linktr.ee/sgcoalition
 
 #Coalition #GreyWave #TrustYourself
 ```
@@ -96,7 +96,7 @@ Hashtag-ified variant (still within limit):
 
 Coalition 'Grey Wave' Wallet 1/2 — $35. Hand-finished charcoal dye inspired by Baltimore harbor at dawn. Once it's gone, it's gone.
 
-sgcoalition.xyz/shop
+linktr.ee/sgcoalition
 ```
 
 *Pair image:* drop-kit Slide 1 hero (1200×628 X crop, with header band).
@@ -183,11 +183,11 @@ Coalition is action. Show up.  (32 px body, #6B6B6B)
 ```
 GREY WAVE / WALLET 1/2         (eyebrow, 26 px, #6B6B6B)
 SHOP NOW →                     (70 px Display, white; arrow in #C8C8C8)
-sgcoalition.xyz/shop           (28 px body, #C8C8C8)
+linktr.ee/sgcoalition           (28 px body, #C8C8C8)
 ```
 
 **Stickers:**
-- Link sticker (on the `→` mark, URL field = `sgcoalition.xyz/shop` — the actual Story → PDP conversion path)
+- Link sticker (on the `→` mark, URL field = `linktr.ee/sgcoalition` — the actual Story → PDP conversion path)
 - `@sgcoalition` mention sticker (bottom-left)
 
 ---
@@ -241,7 +241,7 @@ Pick A for pure scarcity push, B for narrative-led engagement, C for collector /
 For internal Slack, Discord, or pre-launch email subject lines use this 153-char line:
 
 ```
-🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $35. 1 of 2. Hand-finished charcoal dye. sgcoalition.xyz/shop
+🌊 GREY WAVE. Coalition 'Grey Wave' Wallet 1/2 — $35. 1 of 2. Hand-finished charcoal dye. linktr.ee/sgcoalition
 ```
 
 Fits Slack embed previews, Discord 200-char message previews, and most SMS previews.

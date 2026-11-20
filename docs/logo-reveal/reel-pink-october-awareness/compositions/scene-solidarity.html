@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><title>October — Standing together</title></head>
+  <body>
+    <template>
+      <style>
+        * { box-sizing: border-box; }
+        #root { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 132px 86px 170px; overflow: hidden; color: #fff; font-family: Arial, sans-serif; text-align: center; background: radial-gradient(ellipse at 50% 12%, #542a43 0%, #21151f 40%, #100b10 100%); }
+        .pattern { position: absolute; inset: 0; opacity: .12; background: url("../assets/leopard-mottle.png") center / 600px 600px repeat; }
+        .eyebrow { position: relative; z-index: 2; color: #ffb0d4; font-size: 27px; line-height: 1.2; font-weight: 700; letter-spacing: .18em; }
+        .photo-frame { position: relative; z-index: 1; width: 650px; height: 610px; margin: 42px auto 70px; overflow: hidden; border: 3px solid rgba(255,210,232,.9); border-radius: 28px; box-shadow: 0 20px 70px rgba(0,0,0,.4); }
+        .photo { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 42%; }
+        h2 { position: relative; z-index: 2; margin: 0 0 26px; font-size: 54px; line-height: 1.05; font-weight: 800; letter-spacing: .11em; }
+        .line { position: relative; z-index: 2; max-width: 900px; margin: 0; font-size: 54px; line-height: 1.24; font-weight: 620; letter-spacing: -.025em; }
+        strong { color: #ffb0d4; font-weight: 750; }
+      </style>
+      <section data-hf-id="hf-9j6e" id="root" data-composition-id="scene-solidarity" data-start="0" data-duration="4" data-width="1080" data-height="1920">
+        <div data-hf-id="hf-qrpt" class="pattern" aria-hidden="true"></div>
+        <div data-hf-id="hf-s46p" class="eyebrow">THIS OCTOBER</div>
+        <div data-hf-id="hf-4aao" class="photo-frame"><img data-hf-id="hf-g265" id="maker-image" class="photo" data-start="0" data-duration="4" src="../assets/maker-sewing.png" alt="Coalition maker focused on her work at a sewing machine" /></div>
+        <h2 data-hf-id="hf-lm4w" id="together">STANDING TOGETHER</h2>
+        <p data-hf-id="hf-m3hp" id="solidarity-line" class="line">This October, we stand with every <strong data-hf-id="hf-lceq">woman and family impacted by breast cancer.</strong></p>
+      </section>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#maker-image", { scale: 1.035 }, { scale: 1, duration: 3.8, ease: "none" }, 0.1);
+        tl.fromTo("#together", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power2.out" }, 0.75);
+        tl.fromTo("#solidarity-line", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 1.1);
+        window.__timelines["scene-solidarity"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

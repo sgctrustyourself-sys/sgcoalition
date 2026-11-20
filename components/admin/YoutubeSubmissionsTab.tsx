@@ -1,10 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 import { YoutubeGiveawayEntry } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { sendGiveawayValidationEmail } from '../../services/emailService';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
+
+// Shape of a giveaway_entries row as this tab reads it. Each field is typed from
+// the camelCase entry it maps onto, so a mapper that drifts is a compile error.
+type YoutubeEntryRow = {
+    id: YoutubeGiveawayEntry['id'];
+    giveaway_id: YoutubeGiveawayEntry['giveawayId'];
+    name: YoutubeGiveawayEntry['name'];
+    email: YoutubeGiveawayEntry['email'];
+    instagram_username: YoutubeGiveawayEntry['instagramUsername'];
+    youtube_handle: YoutubeGiveawayEntry['youtubeHandle'];
+    shirt_size: YoutubeGiveawayEntry['shirtSize'];
+    screenshot_sub_url: YoutubeGiveawayEntry['screenshotSubUrl'];
+    screenshot_comment_url: YoutubeGiveawayEntry['screenshotCommentUrl'];
+    screenshot_story_url: YoutubeGiveawayEntry['screenshotStoryUrl'];
+    screenshot_bonus_urls: YoutubeGiveawayEntry['screenshotBonusUrls'];
+    claimed_points: YoutubeGiveawayEntry['claimedPoints'];
+    verified: YoutubeGiveawayEntry['verified'];
+    email_sent: YoutubeGiveawayEntry['emailSent'];
+    created_at: string;
+    ip_address: string;
+};
 import { 
-    Download, 
     Eye, 
     CheckCircle, 
     XCircle, 
@@ -17,8 +38,6 @@ import {
     Instagram, 
     Clock,
     User,
-    ChevronLeft,
-    ChevronRight,
     Loader2
 } from 'lucide-react';
 
@@ -32,6 +51,28 @@ const YoutubeSubmissionsTab: React.FC<YoutubeSubmissionsTabProps> = ({ giveawayI
     const [entries, setEntries] = useState<YoutubeGiveawayEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedEntry, setSelectedEntry] = useState<YoutubeGiveawayEntry | null>(null);
+    // True while a write started from the open viewer is in flight. Escape and
+    // the backdrop both respect it, so the proof viewer cannot be dismissed out
+    // from under its own request.
+    const [isSaving, setIsSaving] = useState(false);
+    const detailPanelRef = useRef<HTMLDivElement>(null);
+
+    // This proof viewer has no in-panel close control, so focus starts on the
+    // panel itself; Escape or a backdrop click dismisses it — except while the
+    // verification write is outstanding.
+    useFocusTrap({
+        active: selectedEntry !== null,
+        // Mid-write the viewer must survive its own request.
+        escapeLocked: isSaving,
+        containerRef: detailPanelRef,
+        onEscape: () => setSelectedEntry(null),
+        initialFocusRef: detailPanelRef,
+    });
+
+    /** Backdrop dismiss, inert while the viewer's write is outstanding. */
+    const dismissDetail = () => {
+        if (!isSaving) setSelectedEntry(null);
+    };
     const [filter, setFilter] = useState<'all' | 'verified' | 'unverified'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [isPickingWinner, setIsPickingWinner] = useState(false);
@@ -40,8 +81,12 @@ const YoutubeSubmissionsTab: React.FC<YoutubeSubmissionsTabProps> = ({ giveawayI
         fetchEntries();
     }, [giveawayId]);
 
-    const fetchEntries = async () => {
-        setLoading(true);
+    // `background: true` refreshes the table after a write without flipping the
+    // full-page loading state. That state returns an early spinner for the whole
+    // tab, which unmounted the open proof viewer and remounted it a moment later
+    // — the viewer visibly vanished and reappeared while its own update resolved.
+    const fetchEntries = async ({ background = false }: { background?: boolean } = {}) => {
+        if (!background) setLoading(true);
         const { data, error } = await supabase
             .from('giveaway_entries')
             .select('*')
@@ -53,7 +98,7 @@ const YoutubeSubmissionsTab: React.FC<YoutubeSubmissionsTabProps> = ({ giveawayI
             addToast('Failed to load entries', 'error');
         } else {
             // Map Supabase snake_case to camelCase
-            const mappedEntries: YoutubeGiveawayEntry[] = (data || []).map((row: any) => ({
+            const mappedEntries: YoutubeGiveawayEntry[] = (data || []).map((row: YoutubeEntryRow) => ({
                 id: row.id,
                 giveawayId: row.giveaway_id,
                 name: row.name,
@@ -73,23 +118,34 @@ const YoutubeSubmissionsTab: React.FC<YoutubeSubmissionsTabProps> = ({ giveawayI
             }));
             setEntries(mappedEntries);
         }
-        setLoading(false);
+        if (!background) setLoading(false);
     };
 
     const toggleVerified = async (entryId: string, currentStatus: boolean) => {
-        const { error } = await supabase
-            .from('giveaway_entries')
-            .update({ verified: !currentStatus })
-            .eq('id', entryId);
+        setIsSaving(true);
+        try {
+            const { error } = await supabase
+                .from('giveaway_entries')
+                .update({ verified: !currentStatus })
+                .eq('id', entryId);
 
-        if (error) {
-            addToast('Failed to update status', 'error');
-        } else {
-            setEntries(entries.map(e => e.id === entryId ? { ...e, verified: !currentStatus } : e));
-            if (selectedEntry?.id === entryId) {
-                setSelectedEntry({ ...selectedEntry, verified: !currentStatus });
+            if (error) {
+                addToast('Failed to update status', 'error');
+            } else {
+                setEntries(prev =>
+                    prev.map(e => (e.id === entryId ? { ...e, verified: !currentStatus } : e)),
+                );
+                // Patch from the live state, not the closure snapshot: if the
+                // viewer was closed while the request was in flight, `prev` is
+                // null and the resolved update must not resurrect it.
+                setSelectedEntry(prev =>
+                    prev && prev.id === entryId ? { ...prev, verified: !currentStatus } : prev,
+                );
+                fetchEntries({ background: true });
+                addToast(currentStatus ? 'Entry marked as pending' : 'Entry verified!', 'success');
             }
-            addToast(currentStatus ? 'Entry marked as pending' : 'Entry verified!', 'success');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -111,7 +167,7 @@ const YoutubeSubmissionsTab: React.FC<YoutubeSubmissionsTabProps> = ({ giveawayI
                 setEntries(entries.map(e => e.id === entry.id ? { ...e, emailSent: true } : e));
             }
             addToast('Confirmation email sent!', 'success');
-        } catch (err) {
+        } catch {
             addToast('Failed to send email', 'error');
         }
     };
@@ -149,17 +205,23 @@ const YoutubeSubmissionsTab: React.FC<YoutubeSubmissionsTabProps> = ({ giveawayI
     const deleteEntry = async (entryId: string) => {
         if (!confirm('Permanently delete this entry?')) return;
 
-        const { error } = await supabase
-            .from('giveaway_entries')
-            .delete()
-            .eq('id', entryId);
+        setIsSaving(true);
+        try {
+            const { error } = await supabase
+                .from('giveaway_entries')
+                .delete()
+                .eq('id', entryId);
 
-        if (error) {
-            addToast('Failed to delete entry', 'error');
-        } else {
-            setEntries(entries.filter(e => e.id !== entryId));
-            setSelectedEntry(null);
-            addToast('Entry deleted', 'success');
+            if (error) {
+                addToast('Failed to delete entry', 'error');
+            } else {
+                setEntries(prev => prev.filter(e => e.id !== entryId));
+                fetchEntries({ background: true });
+                setSelectedEntry(null);
+                addToast('Entry deleted', 'success');
+            }
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -206,10 +268,10 @@ const YoutubeSubmissionsTab: React.FC<YoutubeSubmissionsTabProps> = ({ giveawayI
             {/* Filters */}
             <div className="flex flex-col lg:flex-row gap-4 justify-between items-center bg-white/5 border border-white/10 p-4 rounded-2xl">
                 <div className="flex gap-2">
-                    {['all', 'verified', 'unverified'].map((f) => (
+                    {(['all', 'verified', 'unverified'] as const).map((f) => (
                         <button
                             key={f}
-                            onClick={() => setFilter(f as any)}
+                            onClick={() => setFilter(f)}
                             className={`px-4 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
                                 filter === f ? 'bg-white text-black shadow-lg shadow-white/10' : 'bg-white/5 text-gray-500 hover:text-white'
                             }`}
@@ -326,8 +388,15 @@ const YoutubeSubmissionsTab: React.FC<YoutubeSubmissionsTabProps> = ({ giveawayI
             {/* Entry Detail Modal / Proof Viewer */}
             {selectedEntry && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/95 backdrop-blur-sm" onClick={() => setSelectedEntry(null)} />
-                    <div className="relative bg-gray-950 border border-white/10 w-full max-w-5xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+                    <div className="absolute inset-0 bg-black/95 backdrop-blur-sm" onClick={dismissDetail} />
+                    <div
+                        ref={detailPanelRef}
+                        className="relative bg-gray-950 border border-white/10 w-full max-w-5xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-300"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={`YouTube entry ${selectedEntry.name}`}
+                        tabIndex={-1}
+                    >
                         {/* Modal Header */}
                         <div className="p-8 border-bottom border-white/5 bg-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                             <div>
@@ -341,7 +410,8 @@ const YoutubeSubmissionsTab: React.FC<YoutubeSubmissionsTabProps> = ({ giveawayI
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => toggleVerified(selectedEntry.id, selectedEntry.verified)}
-                                    className={`px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${
+                                    disabled={isSaving}
+                                    className={`px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                                         selectedEntry.verified ? 'bg-green-500 text-black' : 'bg-white text-black'
                                     }`}
                                 >
@@ -349,7 +419,8 @@ const YoutubeSubmissionsTab: React.FC<YoutubeSubmissionsTabProps> = ({ giveawayI
                                 </button>
                                 <button
                                     onClick={() => deleteEntry(selectedEntry.id)}
-                                    className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"
+                                    disabled={isSaving}
+                                    className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                     title="Delete Entry"
                                     aria-label="Delete Entry"
                                 >

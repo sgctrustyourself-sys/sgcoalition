@@ -1,0 +1,117 @@
+/* sgcoin Legacy Message — Blog Page Styles */
+
+:root {
+    --coalition-bg: #0a0a0a;
+    --coalition-text: #e5e5e5;
+    --coalition-accent: #6366f1;
+    --coalition-accent-light: #8b5cf6;
+    --coalition-muted: #888;
+    --coalition-border: #2a2a2a;
+    --coalition-highlight: rgba(99, 102, 241, 0.1);
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--coalition-bg);
+    color: var(--coalition-text);
+    line-height: 1.7;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 3rem;
+    border-bottom: 1px solid var(--coalition-border);
+    padding-bottom: 2rem;
+}
+
+.header h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--coalition-accent), var(--coalition-accent-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+}
+
+.header .date {
+    color: var(--coalition-muted);
+    font-size: 0.9rem;
+}
+
+.header .author {
+    color: var(--coalition-accent-light);
+    font-size: 0.9rem;
+}
+
+.content {
+    font-size: 1.1rem;
+}
+
+.content h2 {
+    color: #fff;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+}
+
+.content p {
+    margin-bottom: 1.5rem;
+}
+
+.content strong {
+    color: #fff;
+}
+
+.content em {
+    color: var(--coalition-accent-light);
+}
+
+.highlight {
+    background: var(--coalition-highlight);
+    border-left: 3px solid var(--coalition-accent);
+    padding: 1rem 1.5rem;
+    margin: 2rem 0;
+    border-radius: 0 8px 8px 0;
+}
+
+.quote {
+    font-style: italic;
+    color: var(--coalition-accent-light);
+    border-left: 2px solid var(--coalition-accent-light);
+    padding-left: 1rem;
+    margin: 1.5rem 0;
+}
+
+.footer {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--coalition-border);
+    text-align: center;
+    color: var(--coalition-muted);
+}
+
+.footer a {
+    color: var(--coalition-accent);
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    body {
+        padding: 1rem;
+    }
+    .header h1 {
+        font-size: 1.75rem;
+    }
+    .content {
+        font-size: 1rem;
+    }
+}

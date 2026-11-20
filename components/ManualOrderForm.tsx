@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { OrderItem, OrderStatus } from '../types';
-import { X, Plus, Trash2, Package } from 'lucide-react';
+import { X, Plus, Trash2 } from 'lucide-react';
+import { mintOrderId } from '../utils/checkoutAttempt';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface ManualOrderFormProps {
     onClose: () => void;
@@ -13,6 +15,18 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
     const { products, addOrder, generateOrderNumber, calculateReward } = useApp();
     const { addToast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Escape + focus containment for this full-screen form. Escape is locked on
+    // `isSubmitting`: while the order is being written the Submit and Cancel
+    // buttons are both disabled, so Escape must not close the form (and pull
+    // focus back to the toolbar behind it) mid-write.
+    const dialogRef = useRef<HTMLDivElement>(null);
+    useFocusTrap({
+        active: true,
+        escapeLocked: isSubmitting,
+        containerRef: dialogRef,
+        onEscape: onClose,
+    });
 
     // Customer information
     const [customerName, setCustomerName] = useState('');
@@ -53,7 +67,7 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
         }
     };
 
-    const updateOrderItem = (index: number, field: string, value: any) => {
+    const updateOrderItem = (index: number, field: keyof (typeof orderItems)[number], value: string | number) => {
         const updated = [...orderItems];
         updated[index] = { ...updated[index], [field]: value };
         setOrderItems(updated);
@@ -127,7 +141,9 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
             });
 
             const order = {
-                id: `order_${Date.now()}`,
+                // One owner for the id format (utils/checkoutAttempt.ts). An
+                // admin order is its own purchase, so it always mints fresh.
+                id: mintOrderId(),
                 orderNumber,
                 customerName,
                 customerEmail,
@@ -140,7 +156,7 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
                 paymentMethod,
                 paymentStatus: OrderStatus.PAID,
                 orderType: 'manual' as const,
-                status: 'pending' as any,
+                status: 'pending',
                 createdAt: new Date(createdAt).toISOString(),
                 updatedAt: new Date().toISOString(),
                 paidAt: new Date().toISOString(),
@@ -164,11 +180,20 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="manual-order-title"
+                className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            >
                 {/* Header */}
                 <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-gray-900">Create Manual Order</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close form">
+                    <h2 id="manual-order-title" className="text-2xl font-bold text-gray-900">Create Manual Order</h2>
+                    {/* Escape is locked on `isSubmitting`; the header X and the
+                        Cancel button were the two paths that still dropped a
+                        half-built order mid-write. */}
+                    <button onClick={onClose} disabled={isSubmitting} className="text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Close form">
                         <X size={24} />
                     </button>
                 </div>
@@ -324,7 +349,7 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
                                 <select
                                     id="paymentMethod"
                                     value={paymentMethod}
-                                    onChange={(e) => setPaymentMethod(e.target.value as any)}
+                                    onChange={(e) => setPaymentMethod(e.target.value as typeof paymentMethod)}
                                     className="w-full border-2 border-gray-400 rounded-lg px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-black focus:border-black"
                                 >
                                     <option value="cash" className="text-gray-900">Cash</option>
@@ -487,7 +512,8 @@ const ManualOrderForm: React.FC<ManualOrderFormProps> = ({ onClose, onSuccess })
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
+                            disabled={isSubmitting}
+                            className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Cancel
                         </button>

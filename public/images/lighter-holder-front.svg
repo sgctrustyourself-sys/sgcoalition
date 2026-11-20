@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+  <defs>
+    <filter id="blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="80"/>
+    </filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="20" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a1a1a"/>
+      <stop offset="100%" stop-color="#050505"/>
+    </radialGradient>
+  </defs>
+  
+  <!-- Dark background -->
+  <rect width="800" height="800" fill="url(#bgGrad)"/>
+  
+  <!-- Blurred lighter holder silhouette -->
+  <g filter="url(#blur)">
+    <!-- Lighter body -->
+    <rect x="280" y="200" width="240" height="400" rx="20" fill="#2a2a2a" opacity="0.6"/>
+    <rect x="300" y="220" width="200" height="360" rx="15" fill="#1a1a1a" opacity="0.7"/>
+    
+    <!-- Lighter cap/top -->
+    <rect x="320" y="180" width="160" height="40" rx="10" fill="#333" opacity="0.5"/>
+    <rect x="350" y="160" width="100" height="25" rx="8" fill="#444" opacity="0.6"/>
+    
+    <!-- Flame area hint -->
+    <ellipse cx="400" cy="150" rx="30" ry="15" fill="#ff6b35" opacity="0.3"/>
+    <ellipse cx="400" cy="145" rx="20" ry="10" fill="#ffaa00" opacity="0.4"/>
+    
+    <!-- Leash/strap attachment loop -->
+    <rect x="500" y="300" width="60" height="20" rx="10" fill="#333" opacity="0.5"/>
+    <ellipse cx="530" cy="310" rx="20" ry="10" fill="transparent" stroke="#444" stroke-width="3" opacity="0.5"/>
+    
+    <!-- Leash strap (blurred curve) -->
+    <path d="M530,310 Q580,250 600,180 Q650,100 680,80" 
+          stroke="#333" stroke-width="8" fill="none" opacity="0.4"
+          stroke-linecap="round"/>
+    <path d="M530,310 Q580,250 600,180 Q650,100 680,80" 
+          stroke="#222" stroke-width="12" fill="none" opacity="0.3"
+          stroke-linecap="round"/>
+    
+    <!-- Lighter body texture hints -->
+    <rect x="300" y="250" width="200" height="2" fill="#333" opacity="0.3"/>
+    <rect x="300" y="300" width="200" height="2" fill="#333" opacity="0.3"/>
+    <rect x="300" y="350" width="200" height="2" fill="#333" opacity="0.3"/>
+    <rect x="300" y="400" width="200" height="2" fill="#333" opacity="0.3"/>
+    <rect x="300" y="450" width="200" height="2" fill="#333" opacity="0.3"/>
+    <rect x="300" y="500" width="200" height="2" fill="#333" opacity="0.3"/>
+    
+    <!-- Side button hint -->
+    <rect x="270" y="340" width="15" height="50" rx="5" fill="#333" opacity="0.4"/>
+    
+    <!-- Bottom -->
+    <rect x="280" y="580" width="240" height="20" rx="10" fill="#111" opacity="0.6"/>
+  </g>
+  
+  <!-- Subtle vignette -->
+  <rect width="800" height="800" fill="url(#vignette)"/>
+  <defs>
+    <radialGradient id="vignette" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="transparent"/>
+      <stop offset="70%" stop-color="transparent"/>
+      <stop offset="100%" stop-color="#050505" stop-opacity="0.8"/>
+    </radialGradient>
+  </defs>
+  
+  <!-- Very subtle brand mark - barely visible -->
+  <text x="400" y="720" text-anchor="middle" 
+        font-family="system-ui, sans-serif" 
+        font-size="10" 
+        font-weight="bold" 
+        fill="#1a1a1a" 
+        opacity="0.15"
+        letter-spacing="0.3em"
+        text-transform="uppercase">
+    COALITION
+  </text>
+</svg>

@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { AlertCircle, X } from 'lucide-react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface ConfirmationModalProps {
     isOpen: boolean;
     onClose: () => void;
     onConfirm: () => void;
     title: string;
-    message: string;
+    // ReactNode (not string) so callers can pass inline <strong>/<em> markup
+    // without a `dangerouslySetInnerHTML` escape hatch. Used by the SGCoin
+    // Payout Manager's approve confirmation to bold the customer's email.
+    message: React.ReactNode;
     confirmText?: string;
     cancelText?: string;
     isDestructive?: boolean;
@@ -24,11 +28,31 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     isDestructive = false,
     isLoading = false
 }) => {
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // Escape closes the dialog and focus returns to whatever opened it — the
+    // admin button that raised the confirmation, which is the element the hook
+    // captures as focused on open.
+    //
+    // Escape is locked while `isLoading`, because that is exactly when the close
+    // controls are disabled: the confirmed action is in flight (a payout being
+    // approved, a refund issued) and this dialog must not be dismissed out from
+    // under it. The trap itself stays mounted, so Tab containment holds and the
+    // button that raised the dialog is still what Escape returns focus to once
+    // the action settles.
+    useFocusTrap({
+        active: isOpen,
+        escapeLocked: isLoading,
+        containerRef: panelRef,
+        onEscape: onClose,
+    });
+
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <div
+                ref={panelRef}
                 className="bg-gray-900 border border-white/10 rounded-xl max-w-md w-full shadow-2xl transform transition-all"
                 role="dialog"
                 aria-modal="true"
@@ -50,6 +74,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                             onClick={onClose}
                             disabled={isLoading}
                             className="text-gray-400 hover:text-white transition disabled:opacity-50"
+                            aria-label="Close modal"
                         >
                             <X className="w-5 h-5" />
                         </button>

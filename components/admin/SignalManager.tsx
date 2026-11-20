@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
     Megaphone,
     Plus,
     Trash2,
     Edit2,
-    Check,
     X,
     Zap,
     AlertCircle,
@@ -17,8 +16,10 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import { useToast } from '../../context/ToastContext';
+import { errorMessage } from '../../utils/errorMessage';
 import { Signal } from '../../context/AppContext';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 const SignalManager: React.FC = () => {
     const { addToast } = useToast();
@@ -29,6 +30,18 @@ const SignalManager: React.FC = () => {
 
     // Form State
     const [showForm, setShowForm] = useState(false);
+    const formPanelRef = useRef<HTMLDivElement>(null);
+
+    // Escape is a cancel, except while the broadcast is being written: the gate
+    // matches MarketingManager's send confirmation, so a half-finished save is
+    // not dismissed out from under its own request.
+    useFocusTrap({
+        active: showForm,
+        // Mid-write the form must survive its own request.
+        escapeLocked: isSaving,
+        containerRef: formPanelRef,
+        onEscape: () => setShowForm(false),
+    });
     const [editingSignal, setEditingSignal] = useState<Signal | null>(null);
     const [formData, setFormData] = useState<Partial<Signal>>({
         title: '',
@@ -53,8 +66,8 @@ const SignalManager: React.FC = () => {
 
             if (error) throw error;
             setSignals(data || []);
-        } catch (err: any) {
-            addToast(err.message || 'Failed to fetch signals', 'error');
+        } catch (err) {
+            addToast(errorMessage(err) || 'Failed to fetch signals', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -82,8 +95,8 @@ const SignalManager: React.FC = () => {
             setEditingSignal(null);
             setFormData({ title: '', message: '', type: 'info', is_active: true, action_url: '', action_label: 'Learn More' });
             fetchSignals();
-        } catch (err: any) {
-            addToast(err.message || 'Failed to save signal', 'error');
+        } catch (err) {
+            addToast(errorMessage(err) || 'Failed to save signal', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -98,8 +111,8 @@ const SignalManager: React.FC = () => {
             if (error) throw error;
             setSignals(prev => prev.map(s => s.id === signal.id ? { ...s, is_active: !s.is_active } : s));
             addToast(`Signal ${!signal.is_active ? 'activated' : 'deactivated'}`, 'info');
-        } catch (err: any) {
-            addToast(err.message || 'Update failed', 'error');
+        } catch (err) {
+            addToast(errorMessage(err) || 'Update failed', 'error');
         }
     };
 
@@ -113,8 +126,8 @@ const SignalManager: React.FC = () => {
             if (error) throw error;
             setSignals(prev => prev.filter(s => s.id !== id));
             addToast('Signal deleted', 'info');
-        } catch (err: any) {
-            addToast(err.message || 'Delete failed', 'error');
+        } catch (err) {
+            addToast(errorMessage(err) || 'Delete failed', 'error');
         }
     };
 
@@ -261,6 +274,10 @@ const SignalManager: React.FC = () => {
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
+                        ref={formPanelRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={editingSignal ? 'Edit signal' : 'Create signal'}
                         className="bg-zinc-900 border border-white/10 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl"
                     >
                         <div className="p-6 border-b border-white/5 flex items-center justify-between">
@@ -269,8 +286,9 @@ const SignalManager: React.FC = () => {
                             </h3>
                             <button
                                 onClick={() => setShowForm(false)}
+                                disabled={isSaving}
                                 aria-label="Close modal"
-                                className="p-2 hover:bg-white/5 rounded-full"
+                                className="p-2 hover:bg-white/5 rounded-full disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -294,7 +312,7 @@ const SignalManager: React.FC = () => {
                                     <select
                                         aria-label="Signal Type"
                                         value={formData.type}
-                                        onChange={e => setFormData({ ...formData, type: e.target.value as any })}
+                                        onChange={e => setFormData({ ...formData, type: e.target.value as Signal['type'] })}
                                         className="w-full bg-zinc-800 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand-accent/50 appearance-none"
                                     >
                                         <option value="info">Information (Blue)</option>
@@ -356,7 +374,8 @@ const SignalManager: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={() => setShowForm(false)}
-                                    className="flex-1 bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-widest py-3 rounded-xl transition-all"
+                                    disabled={isSaving}
+                                    className="flex-1 bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-widest py-3 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     Cancel
                                 </button>

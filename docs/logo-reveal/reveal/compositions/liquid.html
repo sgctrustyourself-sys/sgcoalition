@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; }
+      #liquidStage { position: absolute; inset: 0; }
+
+      #gooGroup { position: absolute; inset: 0; filter: url(#goo); }
+
+      .satellite {
+        position: absolute; border-radius: 50%;
+        background: radial-gradient(circle at 34% 30%, #ffffff 0%, #f4f8ff 34%, #d9e6f2 68%, #b8c6d4 100%);
+        will-change: transform;
+      }
+      /* specular + occlusion: one light source, upper-left */
+      .bead-shade {
+        position: absolute; inset: 0; border-radius: 50%;
+        background:
+          radial-gradient(circle at 30% 26%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 26%),
+          radial-gradient(circle at 72% 80%, rgba(20,24,32,0.35) 0%, rgba(20,24,32,0) 42%);
+      }
+
+      /* hero bead carries the mark */
+      #heroBead {
+        position: absolute; left: 50%; top: 50%;
+        width: 420px; height: 420px; margin-left: -210px; margin-top: -210px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 34% 30%, #ffffff 0%, #f6faff 30%, #e2ecf5 62%, #c2d0dd 100%);
+      }
+      /* the mark inside the bead — distorted past legibility by the refract filter.
+         Cropped to the mark's measured bbox (449x166, aspect 2.705) — no dead margins. */
+      #carriedMark {
+        position: absolute; left: 50%; top: 50%;
+        width: 560px; height: 207px; margin-left: -280px; margin-top: -104px;
+        opacity: 0.9; object-fit: contain;
+      }
+
+      /* glass specular on the hero: one highlight, one occlusion */
+      #heroSpec {
+        position: absolute; left: 50%; top: 50%;
+        width: 420px; height: 420px; margin-left: -210px; margin-top: -210px;
+        border-radius: 50%; pointer-events: none;
+        background:
+          radial-gradient(circle at 32% 26%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0) 24%),
+          radial-gradient(circle at 74% 82%, rgba(13,13,16,0.45) 0%, rgba(13,13,16,0) 44%);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="liquidStage" data-composition-id="liquid" data-start="0" data-duration="3.7" data-width="1920" data-height="1080">
+      <div id="gooGroup">
+        <!-- stamped satellite table — authored, not generated. 15 satellites. -->
+        <div class="satellite" data-layout-allow-overflow style="left:210px;  top:190px; width:150px; height:150px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:1650px; top:230px; width:130px; height:130px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:430px;  top:800px; width:120px; height:120px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:1490px; top:830px; width:110px; height:110px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:120px;  top:540px; width:90px;  height:90px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:1760px; top:520px; width:85px;  height:85px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:700px;  top:120px; width:80px;  height:80px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:1150px; top:950px; width:78px;  height:78px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:330px;  top:390px; width:70px;  height:70px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:1560px; top:420px; width:66px;  height:66px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:900px;  top:930px; width:60px;  height:60px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:600px;  top:960px; width:52px;  height:52px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:1330px; top:110px; width:50px;  height:50px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:80px;   top:300px; width:46px;  height:46px;"></div>
+        <div class="satellite" data-layout-allow-overflow style="left:1830px; top:760px; width:42px;  height:42px;"></div>
+
+        <div id="heroBead">
+          <img id="carriedMark" src="assets/logo-carried.png" alt="" style="filter:url(#refract);" />
+          <div class="bead-shade"></div>
+        </div>
+      </div>
+
+      <div id="heroSpec"></div>
+    </div>
+
+    <!-- Filters are scoped to this composition. -->
+    <svg width="0" height="0" style="position:absolute">
+      <defs>
+        <!-- GOO: blur + hard alpha snap. Applied to the group, never per element. -->
+        <filter id="goo" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="22" result="blur"/>
+          <feColorMatrix in="blur" type="matrix"
+            values="1 0 0 0 0
+                    0 1 0 0 0
+                    0 0 1 0 0
+                    0 0 0 26 -12" result="goo"/>
+          <feBlend in="SourceGraphic" in2="goo"/>
+        </filter>
+        <!-- REFRACT: the carried mark. Seeded. scale is the legibility control. -->
+        <filter id="refract" x="-30%" y="-30%" width="160%" height="160%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.012 0.02"
+                        numOctaves="2" seed="7" result="noise"/>
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="86"
+                             xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+      </defs>
+    </svg>
+
+    <script>
+      /* All liquid motion lives here. The rupture at 3.43s is the anchor;
+         the parent composition mounts this file for 0–3.7s only. */
+      const tl = gsap.timeline({ paused: true, defaults: { immediateRender: false } });
+
+      /* ── Beat 1 · gather (0.00–1.00) ── */
+      const sats = document.querySelectorAll('.satellite');
+      const startVars = [
+        { x: -700, y: -420 }, { x: 760,  y: -360 }, { x: -560, y: 540 }, { x: 700,  y: 480 },
+        { x: -480, y: -160 }, { x: 520,  y: 140 },  { x: -300, y: -520 }, { x: 260, y: 560 },
+        { x: -420, y: 240 },  { x: 460,  y: -220 }, { x: -240, y: 460 },  { x: 180, y: 420 },
+        { x: 340,  y: -440 }, { x: -520, y: -80 },  { x: 540,  y: 320 }
+      ];
+      sats.forEach((sat, i) => {
+        const v = startVars[i];
+        gsap.set(sat, { x: v.x, y: v.y, scale: 0.4, opacity: 0 });
+        tl.to(sat, { x: 0, y: 0, scale: 1, opacity: 1, duration: 0.85, ease: 'power2.out' }, 0.08 + (i % 5) * 0.05);
+      });
+
+      /* ── Beat 2 · drift (1.00–3.00) — the bead travels slowly, carrying the mark ── */
+      tl.fromTo('#heroBead',
+        { x: -140, y: -60, scale: 0.72 },
+        { x: 120,  y: 40,  scale: 1.0, duration: 2.0, ease: 'sine.inOut' },
+        1.0);
+      tl.fromTo('#heroSpec',
+        { x: -140, y: -60, scale: 0.72 },
+        { x: 120,  y: 40,  scale: 1.0, duration: 2.0, ease: 'sine.inOut' },
+        1.0);
+      tl.fromTo('#carriedMark',
+        { rotation: -8 },
+        { rotation: 6, duration: 2.0, ease: 'sine.inOut' },
+        1.0);
+
+      /* ── Beat 3 · hold (3.00–3.43) — the only still moment. 13 frames. Nothing animates. ── */
+
+      /* ── Beat 4 · rupture (3.43–3.63) — collapse in six frames (~0.2s). Fast. ── */
+      tl.set('#heroBead', { x: 120, y: 40, scale: 1.0 }, 3.43);
+      tl.set('#heroSpec', { x: 120, y: 40, scale: 1.0 }, 3.43);
+      tl.to('#heroBead', { scale: 0, opacity: 0, duration: 0.2, ease: 'power4.in' }, 3.43);
+      tl.to('#heroSpec', { scale: 0, opacity: 0, duration: 0.2, ease: 'power4.in' }, 3.43);
+      tl.set('#carriedMark', { opacity: 0 }, 3.43);
+
+      /* ── Beat 5 · scatter (3.43–4.61) — launch vectors point AWAY from hero centre. ──
+         Speeds vary ~2x; two or three leave slowly enough to still be on frame when
+         the lockup lands. Stamped, not random. */
+      const launch = [
+        { x: -1150, y: -720, d: 1.05 }, { x: 1220,  y: -640, d: 0.95 }, { x: -940,  y: 880,  d: 1.10 },
+        { x: 1080,  y: 760,  d: 0.90 }, { x: -820,  y: -280, d: 1.15 }, { x: 900,   y: 240,  d: 0.85 },
+        { x: -520,  y: -860, d: 1.00 }, { x: 440,   y: 900,  d: 1.12 }, { x: -700,  y: 400,  d: 0.95 },
+        { x: 760,   y: -380, d: 1.08 }, { x: -400,  y: 760,  d: 0.88 }, { x: 300,   y: 700,  d: 1.18 },
+        { x: 560,   y: -740, d: 0.92 }, { x: -860,  y: -140, d: 1.05 }, { x: 880,   y: 520,  d: 0.85 }
+      ];
+      sats.forEach((sat, i) => {
+        const L = launch[i];
+        tl.to(sat, { x: L.x, y: L.y, scale: 0.55, opacity: 0, duration: L.d, ease: 'power2.out' }, 3.43);
+      });
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['liquid'] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

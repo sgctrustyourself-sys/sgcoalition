@@ -1,8 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Instagram, MessageCircle, Twitter } from 'lucide-react';
+import { Instagram, MessageCircle, Link2, ShoppingBag } from 'lucide-react';
 import Newsletter from './Newsletter';
 import { useApp } from '../context/AppContext';
+import { MAIN_SHARING_LINK, MAIN_SHARING_LABEL } from '../utils/sharingLinks';
+import { showConsentDialog } from '../services/cookieConsent';
 
 const Footer = () => {
     const { isAdminMode } = useApp();
@@ -39,12 +41,30 @@ const Footer = () => {
                             <li><Link to="/brain" className="hover:text-purple-400 text-purple-500 hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Coalition Brain</Link></li>
                         )}
                         <li><Link to="/archive" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Archive</Link></li>
-                        <li><a href="mailto:support@sgcoalition.xyz" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Contact Us</a></li>
+                        <li><Link to="/privacy" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Privacy Policy</Link></li>
+                        <li><button type="button" onClick={showConsentDialog} className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide text-left">Cookie Settings</button></li>
+                        <li><a href="mailto:sgctrustyourself@gmail.com" className="hover:text-white hover:text-glow transition-all uppercase text-xs font-bold tracking-wide">Contact Us</a></li>
                     </ul>
                 </div>
                 <div>
                     <h4 className="font-bold uppercase mb-6 text-xs tracking-[0.2em] text-gray-400">Community</h4>
                     <div className="flex flex-col items-start space-y-4">
+                        {/* The main sharing link, first in the column because it
+                            is the one that carries everything: the linktree
+                            holds the portfolio next to the shop, so it is the
+                            same URL the brand prints for "link in bio". */}
+                        <a
+                            href={MAIN_SHARING_LINK}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Portfolio and all links (opens ${MAIN_SHARING_LABEL})`}
+                            className="group w-full"
+                        >
+                            <div className="flex items-center justify-center bg-gradient-to-r from-brand-accent/20 to-white/5 border border-brand-accent/30 text-white px-4 py-3 rounded-sm text-xs font-bold uppercase tracking-wide group-hover:border-brand-accent/60 group-hover:bg-brand-accent/20 transition-all">
+                                <Link2 className="w-4 h-4 mr-2 text-brand-accent" />
+                                Portfolio &amp; Links
+                            </div>
+                        </a>
                         <a
                             href="https://www.instagram.com/sgcoalition"
                             target="_blank"
@@ -57,16 +77,14 @@ const Footer = () => {
                             </div>
                         </a>
                         <a
-                            href="https://www.reddit.com/r/SGCoalition/"
+                            href="https://whop.com/sgcoalition-five/"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="group w-full"
                         >
-                            <div className="flex items-center justify-center bg-gradient-to-r from-[#ff4500]/20 to-orange-900/20 border border-white/10 text-white px-4 py-3 rounded-sm text-xs font-bold uppercase tracking-wide group-hover:border-[#ff4500]/50 group-hover:bg-[#ff4500]/20 transition-all">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="mr-2 text-[#ff4500]">
-                                    <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.688-.561-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z" />
-                                </svg>
-                                Join Reddit
+                            <div className="flex items-center justify-center bg-gradient-to-r from-blue-900/20 to-indigo-900/20 border border-white/10 text-white px-4 py-3 rounded-sm text-xs font-bold uppercase tracking-wide group-hover:border-blue-500/50 group-hover:bg-blue-900/20 transition-all">
+                                <ShoppingBag className="w-4 h-4 mr-2 text-blue-400" />
+                                Shop on Whop
                             </div>
                         </a>
                         <a

@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
-import { Order, OrderStatus } from '../types';
-import { Download, Search, Filter, Eye, Edit2, Trash2, FileText, Plus } from 'lucide-react';
+import { Order } from '../types';
+import { Download, Search, Eye, Trash2, FileText, Plus } from 'lucide-react';
 import ManualOrderForm from '../components/ManualOrderForm';
 import Invoice from '../components/Invoice';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export const Orders: React.FC = () => {
     const { orders, deleteOrder } = useApp();
@@ -14,6 +15,27 @@ export const Orders: React.FC = () => {
     const [filterType, setFilterType] = useState<string>('all');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+    // True while the confirmed delete is being written. The confirmation has to
+    // survive its own request: its buttons are disabled then, so Escape or Cancel
+    // would dismiss the layer the outcome is reported in.
+    const [isDeleting, setIsDeleting] = useState(false);
+    const detailPanelRef = useRef<HTMLDivElement>(null);
+    const deletePanelRef = useRef<HTMLDivElement>(null);
+
+    // The detail sheet is the base layer; the delete confirmation stacks on top
+    // of it, so while the confirmation is open one Escape must close only that
+    // layer rather than both.
+    useFocusTrap({
+        active: selectedOrder !== null && showDeleteConfirm === null,
+        containerRef: detailPanelRef,
+        onEscape: () => setSelectedOrder(null),
+    });
+    useFocusTrap({
+        active: showDeleteConfirm !== null,
+        escapeLocked: isDeleting,
+        containerRef: deletePanelRef,
+        onEscape: () => setShowDeleteConfirm(null),
+    });
     const [showManualOrderForm, setShowManualOrderForm] = useState(false);
     const [showInvoice, setShowInvoice] = useState<Order | null>(null);
 
@@ -61,12 +83,15 @@ export const Orders: React.FC = () => {
     };
 
     const handleDelete = async (orderId: string) => {
+        setIsDeleting(true);
         try {
             await deleteOrder(orderId);
             setShowDeleteConfirm(null);
         } catch (error) {
             console.error('Failed to delete order:', error);
             addToast('Failed to delete order', 'error');
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -270,7 +295,13 @@ export const Orders: React.FC = () => {
                 {/* Order Details Modal */}
                 {selectedOrder && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                        <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div
+                            ref={detailPanelRef}
+                            className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label={`Order ${selectedOrder.orderNumber}`}
+                        >
                             <div className="p-6 border-b border-gray-200">
                                 <div className="flex items-center justify-between">
                                     <h2 className="text-2xl font-bold text-gray-900">Order Details</h2>
@@ -386,7 +417,13 @@ export const Orders: React.FC = () => {
                 {/* Delete Confirmation Modal */}
                 {showDeleteConfirm && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                        <div className="bg-white rounded-lg max-w-md w-full p-6">
+                        <div
+                            ref={deletePanelRef}
+                            className="bg-white rounded-lg max-w-md w-full p-6"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label="Delete order"
+                        >
                             <h3 className="text-lg font-bold text-gray-900 mb-4">Delete Order?</h3>
                             <p className="text-gray-600 mb-6">
                                 Are you sure you want to delete this order? This action cannot be undone.
@@ -394,15 +431,17 @@ export const Orders: React.FC = () => {
                             <div className="flex gap-3 justify-end">
                                 <button
                                     onClick={() => setShowDeleteConfirm(null)}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                                    disabled={isDeleting}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={() => handleDelete(showDeleteConfirm)}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                                    disabled={isDeleting}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Delete
+                                    {isDeleting ? 'Deleting...' : 'Delete'}
                                 </button>
                             </div>
                         </div>

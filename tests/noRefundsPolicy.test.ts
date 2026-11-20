@@ -1,9 +1,23 @@
 // Unit Tests for Consent Tracking and Refund Blocking
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 import { validateConsent, captureConsent } from '../services/consentTracking';
-import { validateRefundRequest } from '../services/refunds';
 import { CONSENT_TEXT, SALES_FINAL_ENABLED } from '../constants';
+
+// The suite must not depend on an untracked .env. constants.ts computes
+// SALES_FINAL_ENABLED at module scope from import.meta.env.VITE_SALES_FINAL, and
+// the checkout-flow test at the bottom asserts the policy-ENABLED branch (an
+// unchecked consent box must block checkout) — which is production's state. On a
+// bare checkout the var was absent, the policy read as disabled, and that test
+// failed for a reason unrelated to the behavior it pins. Hoisted so it lands
+// before ../constants evaluates.
+vi.hoisted(() => {
+    vi.stubEnv('VITE_SALES_FINAL', 'true');
+});
+
+// Drop the stub so it cannot leak to whichever file shares this worker; the
+// module-scope read it exists for has already been consumed.
+afterAll(() => { vi.unstubAllEnvs(); });
 
 describe('Consent Tracking', () => {
     describe('validateConsent', () => {
@@ -108,10 +122,10 @@ describe('Refund Blocking', () => {
         it('should block refund if consent exists and no exception', async () => {
             // This would need to mock the Supabase call
             // For now, this is a placeholder for the test structure
-            const orderId = 'order-with-consent';
+            const _orderId = 'order-with-consent';
 
             // Mock Supabase response
-            const mockSupabase = {
+            const _mockSupabase = {
                 rpc: vi.fn().mockResolvedValue({
                     data: [{
                         allowed: false,
@@ -126,10 +140,10 @@ describe('Refund Blocking', () => {
         });
 
         it('should allow refund if admin exception exists', async () => {
-            const orderId = 'order-with-exception';
+            const _orderId = 'order-with-exception';
 
             // Mock Supabase response with exception
-            const mockSupabase = {
+            const _mockSupabase = {
                 rpc: vi.fn().mockResolvedValue({
                     data: [{
                         allowed: true,
@@ -144,10 +158,10 @@ describe('Refund Blocking', () => {
         });
 
         it('should allow refund if no consent on record', async () => {
-            const orderId = 'order-without-consent';
+            const _orderId = 'order-without-consent';
 
             // Mock Supabase response
-            const mockSupabase = {
+            const _mockSupabase = {
                 rpc: vi.fn().mockResolvedValue({
                     data: [{
                         allowed: true,

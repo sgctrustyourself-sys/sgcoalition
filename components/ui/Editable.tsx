@@ -20,7 +20,7 @@ export const EditableText: React.FC<EditableTextProps> = ({ value, onSave, class
   }, [value]);
 
   if (!isAdminMode) {
-    const Tag = tag as any;
+    const Tag = tag as React.ElementType;
     return <Tag className={className}>{value}</Tag>;
   }
 
@@ -42,14 +42,14 @@ export const EditableText: React.FC<EditableTextProps> = ({ value, onSave, class
           />
         )}
         <div className="absolute -top-8 right-0 flex space-x-2 bg-white p-1 rounded shadow">
-          <button onClick={() => { onSave(tempValue); setIsEditing(false); }} className="text-green-600 hover:bg-green-50 p-1 rounded"><Check size={16} /></button>
-          <button onClick={() => setIsEditing(false)} className="text-red-600 hover:bg-red-50 p-1 rounded"><X size={16} /></button>
+          <button onClick={() => { onSave(tempValue); setIsEditing(false); }} className="text-green-600 hover:bg-green-50 p-1 rounded" aria-label="Save change"><Check size={16} /></button>
+          <button onClick={() => setIsEditing(false)} className="text-red-600 hover:bg-red-50 p-1 rounded" aria-label="Cancel edit"><X size={16} /></button>
         </div>
       </div>
     );
   }
 
-  const Tag = tag as any;
+  const Tag = tag as React.ElementType;
   return (
     <div className="relative group inline-block border border-transparent hover:border-blue-500 hover:border-dashed rounded cursor-pointer" onClick={() => setIsEditing(true)}>
        <Tag className={className}>{value}</Tag>

@@ -27,7 +27,7 @@ async function addGreyWaveWallet() {
     const product = {
         id: 'Coalition_Grey_Wave_Wallet_1_2',
         name: "Coalition 'Grey Wave' Wallet 1/2",
-        price: 35,
+        price: 85,
         stock: Object.values(sizeInventory).reduce((sum, count) => sum + count, 0),
         images: [
             PRODUCT_IMAGE_URLS.greyWaveWallet.front,
@@ -62,7 +62,7 @@ async function addGreyWaveWallet() {
     }
 
     console.log("✅ Successfully upserted Coalition 'Grey Wave' Wallet 1/2:", data);
-    console.log('🔗 View at: https://sgcoalition.xyz/#/shop');
+    console.log('🔗 View at: https://sgcoalition-five.vercel.app/#/shop');
     console.log("🏷️  is_limited_edition=true — the Limited Edition badge will render on the deployed shop.");
 }
 

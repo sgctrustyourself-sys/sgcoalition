@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, DollarSign, Wallet, FileText, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { Wallet, FileText, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import { getUserPurchaseRequests, PurchaseRequest } from '../../services/purchaseRequest';
 
 interface PurchaseRequestsTabProps {

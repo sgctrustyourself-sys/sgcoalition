@@ -3,6 +3,7 @@ import { supabase } from '../services/supabase';
 import { useApp } from '../context/AppContext';
 import { ArrowBigUp, ArrowBigDown, Shield, Loader } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { errorMessage } from '../utils/errorMessage';
 
 interface VotingSystemProps {
     postId: string;
@@ -38,7 +39,7 @@ const VotingSystem: React.FC<VotingSystemProps> = ({ postId, initialUpvotePower,
 
     const fetchUserVote = async () => {
         try {
-            const { data, error } = await supabase
+            const { data } = await supabase
                 .from('post_votes')
                 .select('vote_type')
                 .eq('post_id', postId)
@@ -48,7 +49,7 @@ const VotingSystem: React.FC<VotingSystemProps> = ({ postId, initialUpvotePower,
             if (data) {
                 setUserVote(data.vote_type);
             }
-        } catch (err) {
+        } catch {
             // No vote found is fine
         } finally {
             setIsLoading(false);
@@ -121,9 +122,9 @@ const VotingSystem: React.FC<VotingSystemProps> = ({ postId, initialUpvotePower,
                 }
                 setUserVote(type);
             }
-        } catch (err: any) {
+        } catch (err) {
             console.error('Voting error:', err);
-            addToast(`Failed to register vote: ${err.message}`, 'error');
+            addToast(`Failed to register vote: ${errorMessage(err)}`, 'error');
         } finally {
             setIsVoting(false);
         }

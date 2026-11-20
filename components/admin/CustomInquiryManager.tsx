@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { getAllInquiries, updateInquiry, deleteInquiry } from '../../services/customInquiry';
 import { useToast } from '../../context/ToastContext';
-import { Shirt, Scissors, Box, Sparkles, Eye, Trash2, Search, Filter, Download, ExternalLink } from 'lucide-react';
+import { Shirt, Scissors, Box, Sparkles, Eye, Trash2, Search, Download, ExternalLink } from 'lucide-react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface Inquiry {
     id: string;
@@ -25,6 +26,28 @@ const CustomInquiryManager: React.FC = () => {
     const [inquiries, setInquiries] = useState<Inquiry[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
+    // True while a write started from the open sheet is in flight (status,
+    // notes, delete). Escape and the backdrop both respect it, so the sheet
+    // cannot be dismissed out from under its own request.
+    const [isSaving, setIsSaving] = useState(false);
+    const detailPanelRef = useRef<HTMLDivElement>(null);
+
+    // This detail sheet has no close control of its own (backdrop or Escape), so
+    // focus starts on the panel rather than on the destructive header action.
+    useFocusTrap({
+        active: selectedInquiry !== null,
+        // Mid-write the sheet must survive its own request: Escape is locked and
+        // every control in it is disabled.
+        escapeLocked: isSaving,
+        containerRef: detailPanelRef,
+        onEscape: () => setSelectedInquiry(null),
+        initialFocusRef: detailPanelRef,
+    });
+
+    /** Backdrop dismiss, inert while the sheet's write is outstanding. */
+    const dismissDetail = () => {
+        if (!isSaving) setSelectedInquiry(null);
+    };
     const [filter, setFilter] = useState<string>('all');
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -32,51 +55,65 @@ const CustomInquiryManager: React.FC = () => {
         fetchInquiries();
     }, []);
 
-    const fetchInquiries = async () => {
-        setLoading(true);
+    // `background: true` refreshes the queue after a write without flipping the
+    // full-page loading state. That state returns an early spinner for the whole
+    // tab, which unmounted the open detail sheet and remounted it a moment later
+    // — the sheet visibly vanished and reappeared while its own update resolved.
+    const fetchInquiries = async ({ background = false }: { background?: boolean } = {}) => {
+        if (!background) setLoading(true);
         try {
             const data = await getAllInquiries();
             setInquiries(data);
         } catch (error) {
             console.error('Error fetching inquiries:', error);
         }
-        setLoading(false);
+        if (!background) setLoading(false);
     };
 
     const handleStatusUpdate = async (id: string, status: string) => {
+        setIsSaving(true);
         try {
             await updateInquiry(id, { status });
-            fetchInquiries();
-            if (selectedInquiry?.id === id) {
-                setSelectedInquiry({ ...selectedInquiry, status });
-            }
-        } catch (error) {
+            fetchInquiries({ background: true });
+            // Patch from the live state, not the closure snapshot: if the sheet
+            // was closed while the request was in flight, `prev` is null and
+            // the resolved update must not resurrect it.
+            setSelectedInquiry(prev => (prev && prev.id === id ? { ...prev, status } : prev));
+        } catch {
             addToast('Failed to update status', 'error');
+        } finally {
+            setIsSaving(false);
         }
     };
 
     const handleSaveNotes = async () => {
         if (!selectedInquiry) return;
+        setIsSaving(true);
         try {
             await updateInquiry(selectedInquiry.id, {
                 adminNotes: selectedInquiry.admin_notes || undefined,
                 quoteAmount: selectedInquiry.quote_amount || undefined
             });
-            fetchInquiries();
+            fetchInquiries({ background: true });
             addToast('Notes saved successfully', 'success');
-        } catch (error) {
+        } catch {
             addToast('Failed to save notes', 'error');
+        } finally {
+            setIsSaving(false);
         }
     };
 
     const handleDelete = async (id: string) => {
         if (!confirm('Delete this inquiry? This cannot be undone.')) return;
+        setIsSaving(true);
         try {
             await deleteInquiry(id);
-            fetchInquiries();
+            fetchInquiries({ background: true });
             setSelectedInquiry(null);
-        } catch (error) {
+        } catch {
             addToast('Failed to delete inquiry', 'error');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -283,8 +320,16 @@ const CustomInquiryManager: React.FC = () => {
 
             {/* Detail Modal */}
             {selectedInquiry && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setSelectedInquiry(null)}>
-                    <div className="bg-gray-900 border border-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={dismissDetail}>
+                    <div
+                        ref={detailPanelRef}
+                        className="bg-gray-900 border border-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={`Inquiry ${selectedInquiry.title}`}
+                        tabIndex={-1}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="p-6">
                             {/* Header */}
                             <div className="flex justify-between items-start mb-6">
@@ -298,7 +343,8 @@ const CustomInquiryManager: React.FC = () => {
                                 </div>
                                 <button
                                     onClick={() => handleDelete(selectedInquiry.id)}
-                                    className="p-2 text-red-400 hover:bg-red-500/10 rounded transition"
+                                    disabled={isSaving}
+                                    className="p-2 text-red-400 hover:bg-red-500/10 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
                                     title="Delete Inquiry"
                                 >
                                     <Trash2 className="w-5 h-5" />
@@ -346,6 +392,7 @@ const CustomInquiryManager: React.FC = () => {
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="relative group"
+                                                aria-label={`Open reference ${index + 1} in a new tab`}
                                             >
                                                 <img
                                                     src={url}
@@ -371,7 +418,8 @@ const CustomInquiryManager: React.FC = () => {
                                         <select
                                             value={selectedInquiry.status}
                                             onChange={(e) => handleStatusUpdate(selectedInquiry.id, e.target.value)}
-                                            className="w-full bg-black border border-gray-700 rounded-lg p-3 text-white focus:border-purple-500 outline-none"
+                                            disabled={isSaving}
+                                            className="w-full bg-black border border-gray-700 rounded-lg p-3 text-white focus:border-purple-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             <option value="new">New</option>
                                             <option value="reviewing">Reviewing</option>
@@ -405,7 +453,8 @@ const CustomInquiryManager: React.FC = () => {
 
                                 <button
                                     onClick={handleSaveNotes}
-                                    className="w-full bg-white text-black font-bold uppercase py-3 rounded-lg hover:bg-gray-200 transition"
+                                    disabled={isSaving}
+                                    className="w-full bg-white text-black font-bold uppercase py-3 rounded-lg hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Save Changes
                                 </button>

@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Shirt, Upload, Sparkles, Image as ImageIcon, ArrowRight, RefreshCw, Download, Zap, Check, Copy } from 'lucide-react';
 import { designShirtFromReference } from '../services/aiChat';
 import { useToast } from '../context/ToastContext';
+import { errorMessage } from '../utils/errorMessage';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface ShirtGeneratorModalProps {
   isOpen: boolean;
@@ -12,6 +14,7 @@ interface ShirtGeneratorModalProps {
 const ShirtGeneratorModal: React.FC<ShirtGeneratorModalProps> = ({ isOpen, onClose, onDesignGenerated }) => {
   const { addToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<'upload' | 'analyze' | 'generate' | 'result'>('upload');
   const [referenceImage, setReferenceImage] = useState<string | null>(null);
   const [userInstructions, setUserInstructions] = useState('');
@@ -26,6 +29,16 @@ const ShirtGeneratorModal: React.FC<ShirtGeneratorModalProps> = ({ isOpen, onClo
       setDesignPrompt(''); setGeneratedDesign(null); setError(null); setIsProcessing(false);
     }
   }, [isOpen]);
+
+  // While a design is being generated the close control is disabled and Escape
+  // is locked: dismissing mid-request would abandon work the user cannot
+  // recover. The trap stays mounted, so containment holds throughout.
+  useFocusTrap({
+    active: isOpen,
+    escapeLocked: isProcessing,
+    containerRef: panelRef,
+    onEscape: onClose,
+  });
 
   if (!isOpen) return null;
 
@@ -52,8 +65,8 @@ const ShirtGeneratorModal: React.FC<ShirtGeneratorModalProps> = ({ isOpen, onClo
       setStep('result');
       if (result.imageUrl) { addToast('Shirt design generated!', 'success'); }
       else { addToast('Design prompt created but image generation unavailable.', 'warning'); }
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong.'); addToast('Design generation failed', 'error'); setStep('upload');
+    } catch (err) {
+      setError(errorMessage(err) || 'Something went wrong.'); addToast('Design generation failed', 'error'); setStep('upload');
     } finally { setIsProcessing(false); }
   };
 
@@ -77,7 +90,13 @@ const ShirtGeneratorModal: React.FC<ShirtGeneratorModalProps> = ({ isOpen, onClo
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="w-full max-w-2xl bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+      <div
+        ref={panelRef}
+        className="w-full max-w-2xl bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Shirt designer"
+      >
         <div className="flex items-center justify-between p-5 border-b border-gray-800 bg-gradient-to-r from-gray-900 to-black shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center rotate-3">
@@ -88,7 +107,12 @@ const ShirtGeneratorModal: React.FC<ShirtGeneratorModalProps> = ({ isOpen, onClo
               <p className="text-[10px] text-gray-500 uppercase tracking-widest">AI-Powered Coalition Design Lab</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition text-gray-400 hover:text-white" disabled={isProcessing}>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/10 rounded-lg transition text-gray-400 hover:text-white"
+            disabled={isProcessing}
+            aria-label="Close modal"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>

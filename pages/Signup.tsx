@@ -1,14 +1,25 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Mail, Lock, User, ArrowRight, Loader2, Phone, MapPin, Bell } from 'lucide-react';
 import AuthLayout from '../components/AuthLayout';
 import { signUpWithEmail, signInWithDiscord } from '../services/auth';
+import { toE164 } from '../utils/phone';
 
 const Signup = () => {
-    const navigate = useNavigate();
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    // Contact capture — the 30% member offer doubles as an acquisition
+    // offer, so we ask for a way to reach the member and where to ship drops.
+    const [phone, setPhone] = useState('');
+    const [addressLine1, setAddressLine1] = useState('');
+    const [addressCity, setAddressCity] = useState('');
+    const [addressState, setAddressState] = useState('');
+    const [addressZip, setAddressZip] = useState('');
+    // Marketing opt-in. The member offer is an acquisition offer, so a new
+    // member is a contact we can reach — but only if they say yes, and only
+    // with a phone number we can text.
+    const [optIn, setOptIn] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
@@ -18,16 +29,25 @@ const Signup = () => {
         setLoading(true);
         setError(null);
 
-        const { error } = await signUpWithEmail(email, password, fullName);
+        const { error } = await signUpWithEmail(email, password, fullName, {
+            phone,
+            addressLine1,
+            addressCity,
+            addressState,
+            addressZip,
+            addressCountry: 'US',
+        });
 
         if (error) {
             console.error('❌ Signup error details:', error);
             // Log full error object for debugging
             if (error instanceof Object) {
-                console.error('Error code:', (error as any).code);
-                console.error('Error details:', (error as any).details);
-                console.error('Error hint:', (error as any).hint);
-                const detailedError = (error as any).details || (error as any).message || JSON.stringify(error);
+                // Supabase auth errors carry these fields beyond Error's own.
+                const detail = error as { code?: string; details?: string; hint?: string; message?: string };
+                console.error('Error code:', detail.code);
+                console.error('Error details:', detail.details);
+                console.error('Error hint:', detail.hint);
+                const detailedError = detail.details || detail.message || JSON.stringify(error);
                 setError(`Database Error: ${detailedError}`);
             } else {
                 setError(String(error));
@@ -36,6 +56,22 @@ const Signup = () => {
         } else {
             setSuccess(true);
             setLoading(false);
+            // Opt-in contact. Fire-and-forget: a failed subscribe must never
+            // turn a successful account creation into a failed signup. The
+            // phone has to be E.164 — without one we can still reach the
+            // member by email.
+            if (optIn) {
+                const e164 = toE164(phone);
+                void fetch('/api/marketing-subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: email.trim(),
+                        ...(e164 ? { phone: e164 } : {}),
+                        source: 'member_signup',
+                    }),
+                }).catch(() => { /* the account exists; the opt-in can be re-asked later */ });
+            }
         }
     };
 
@@ -69,7 +105,7 @@ const Signup = () => {
     }
 
     return (
-        <AuthLayout title="Create Account" subtitle="Join the Antigravity ecosystem">
+        <AuthLayout title="Create Account" subtitle="Members get 30% off every piece — automatically at checkout">
             {error && (
                 <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded text-red-400 text-xs text-center break-words">
                     <p className="font-bold">Signup Failed</p>
@@ -124,6 +160,77 @@ const Signup = () => {
                         />
                     </div>
                 </div>
+
+                <div className="space-y-1">
+                    <label className="text-xs font-bold uppercase text-gray-500 ml-1">Phone Number</label>
+                    <div className="relative group">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-white transition-colors" />
+                        <input
+                            type="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white placeholder-gray-600 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all text-sm"
+                            placeholder="(410) 555-0123"
+                            autoComplete="tel"
+                        />
+                    </div>
+                    <p className="text-[10px] text-gray-600 mt-1 ml-1">Optional — drop alerts and early access, nothing else.</p>
+                </div>
+
+                <div className="space-y-1">
+                    <label className="text-xs font-bold uppercase text-gray-500 ml-1">Shipping Address</label>
+                    <div className="relative group">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-white transition-colors" />
+                        <input
+                            type="text"
+                            value={addressLine1}
+                            onChange={(e) => setAddressLine1(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white placeholder-gray-600 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all text-sm"
+                            placeholder="Street address"
+                            autoComplete="address-line1"
+                        />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                        <input
+                            type="text"
+                            value={addressCity}
+                            onChange={(e) => setAddressCity(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg py-3 px-3 text-white placeholder-gray-600 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all text-sm"
+                            placeholder="City"
+                            autoComplete="address-level2"
+                        />
+                        <input
+                            type="text"
+                            value={addressState}
+                            onChange={(e) => setAddressState(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg py-3 px-3 text-white placeholder-gray-600 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all text-sm"
+                            placeholder="State"
+                            autoComplete="address-level1"
+                        />
+                        <input
+                            type="text"
+                            value={addressZip}
+                            onChange={(e) => setAddressZip(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg py-3 px-3 text-white placeholder-gray-600 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all text-sm"
+                            placeholder="ZIP"
+                            autoComplete="postal-code"
+                        />
+                    </div>
+                    <p className="text-[10px] text-gray-600 mt-1 ml-1">Optional — so a drop can ship to you without another form.</p>
+                </div>
+
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                        type="checkbox"
+                        checked={optIn}
+                        onChange={(e) => setOptIn(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 accent-pink-500 flex-shrink-0"
+                    />
+                    <span className="text-xs text-gray-400 leading-relaxed">
+                        <Bell className="w-3 h-3 inline mr-1 -mt-0.5" />
+                        Text me when a drop goes live. One message per drop, unsubscribe any time.
+                    </span>
+                </label>
 
                 <button
                     type="submit"

@@ -8,7 +8,8 @@
  *   - x     : 1200 × 628  X feed images (single-post + 3 thread crops)
  *
  * For each output the renderer:
- *   1. Reads `scripts/story-reveal-specs/{slug}.ts` (the per-slide data, mirroring
+ *   1. Reads the release's DropSpec from the single registry at
+ *      `scripts/story-reveal-specs/drops.ts` (the per-slide data, mirroring
  *      docs/drop-kit-{slug}.md) and the format-specific template at
  *      `scripts/templates/{format}-slide.html`.
  *   2. Substitutes placeholders (__SLUG__, __SLIDE_N__, __LAYOUT_NAME__,
@@ -25,22 +26,19 @@
  *   `npm run grid:reveal  -- --slug grey-wave`      (1080×1350 IG carousel)
  *   `npm run x:reveal     -- --slug grey-wave`      (1200×628 X — single-post + thread×3)
  *
+ * One command for every format a release posts to, or for the whole registry:
+ *   `npm run drop:render -- --slug grey-wave`       (story + grid + x)
+ *   `npm run drop:render -- --all`                  (every release in the registry)
+ *   `--formats story,grid` narrows the set; `--format <one>` still works alone.
+ *
  * First-time use: `npx playwright install chromium` (~150 MB browser binary).
  */
 import { chromium } from 'playwright-core';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { pathToFileURL, fileURLToPath } from 'url';
-import type { DropSpec, SlideSpec } from './story-reveal-specs/grey-wave';
-
-/**
- * Drop-spec export-name convention: kebab-case slug → camelCase + `Spec` suffix
- * (e.g. `grey-wave` → `greyWaveSpec`, `throwaway` → `throwawaySpec`).
- * Lets the renderer load any slug via dynamic import without a hardcoded dispatch table.
- */
-function slugToExportName(slug: string): string {
-    return slug.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()) + 'Spec';
-}
+import { getDrop, listDropSlugs, assetRelPath } from './story-reveal-specs/drops';
+import type { DropSpec, SlideSpec } from './story-reveal-specs/drops';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -99,64 +97,47 @@ interface CliArgs {
   template: string;
 }
 
-function parseArgs(argv: string[]): CliArgs {
-  const args: Record<string, string> = {};
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a.startsWith('--')) {
-      const key = a.slice(2);
-      const next = argv[i + 1];
-      if (next && !next.startsWith('--')) {
-        args[key] = next;
-        i++;
-      } else {
-        args[key] = 'true';
-      }
+function argValue(argv: string[], key: string): string | null {
+  const i = argv.indexOf(`--${key}`);
+  if (i === -1) return null;
+  const next = argv[i + 1];
+  return next && !next.startsWith('--') ? next : null;
+}
+
+interface RunRequest {
+  slugs: string[];
+  formats: DropFormat[];
+  out: string | null;
+  template: string | null;
+}
+
+/**
+ * Parses one run: which releases (one slug, or the whole registry with --all) at
+ * which formats (comma-separated --formats, singular --format, default story).
+ */
+function parseRun(argv: string[]): RunRequest {
+  const formatsRaw = argValue(argv, 'formats') ?? argValue(argv, 'format') ?? 'story';
+  const formats = formatsRaw.split(',').map((f) => f.trim()).filter(Boolean);
+  for (const f of formats) {
+    if (!(f in FORMATS)) {
+      throw new Error(`Unsupported --format "${f}". Use one of: ${Object.keys(FORMATS).join(', ')}.`);
     }
   }
-  const fmtRaw = args.format || 'story';
-  if (!(fmtRaw in FORMATS)) {
-    const supported = Object.keys(FORMATS).join(', ');
-    throw new Error(`Unsupported --format "${fmtRaw}". Use one of: ${supported}.`);
-  }
-  const format = fmtRaw as DropFormat;
-  const fmtSpec = FORMATS[format];
   return {
-    slug: args.slug || 'grey-wave',
-    format,
-    out: args.out || path.join(PROJECT_ROOT, fmtSpec.outSubdir),
-    template: args.template || path.join(PROJECT_ROOT, fmtSpec.templateRel),
+    slugs: argv.includes('--all') ? listDropSlugs() : [argValue(argv, 'slug') || 'grey-wave'],
+    formats: formats as DropFormat[],
+    out: argValue(argv, 'out'),
+    template: argValue(argv, 'template'),
   };
 }
 
 /**
- * Lazy-loads the per-drop DropSpec from `scripts/story-reveal-specs/{slug}.ts`.
- * Convention: every spec file exports a single value matching `{camelSlug}Spec`
- * (e.g. `grey-wave` → `greyWaveSpec`, `throwaway` → `throwawaySpec`).
- * To add a new drop: `cp grey-wave.ts new-slug.ts` + find/replace the tokens — no
- * renderer edits needed.
+ * Resolves a release's DropSpec from the single registry.
+ * Adding a drop is one entry in scripts/story-reveal-specs/drops.ts — no
+ * renderer edits, and no per-slug file to keep in sync.
  */
-async function loadSpec(slug: string): Promise<DropSpec> {
-    if (!/^[a-z][a-z0-9-]*$/.test(slug)) {
-        throw new Error(`Invalid slug "${slug}". Expected kebab-case (a-z, 0-9, dashes).`);
-    }
-    const exportName = slugToExportName(slug);
-    try {
-        const mod = await import(`./story-reveal-specs/${slug}.ts`);
-        const candidate = mod[exportName] ?? mod.default ?? Object.values(mod)[0];
-        if (!candidate) {
-            throw new Error(`Spec at scripts/story-reveal-specs/${slug}.ts exported nothing.`);
-        }
-        return candidate as DropSpec;
-    } catch (err) {
-        if (err instanceof Error && /Cannot find module/.test(err.message)) {
-            throw new Error(
-                `Unknown drop slug: "${slug}". Add a spec at scripts/story-reveal-specs/${slug}.ts ` +
-                `exporting a ${exportName} (or default) value of type DropSpec.`,
-            );
-        }
-        throw err;
-    }
+function loadSpec(slug: string): DropSpec {
+    return getDrop(slug).spec;
 }
 
 /** Index of the slide spec used to feed each output (default = sequential mapping). */
@@ -177,8 +158,7 @@ function fileIdFor(outputIndex: number, mapping: Mapping): string {
   return mapping[outputIndex - 1];
 }
 
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+async function renderOne(args: CliArgs): Promise<void> {
   const fmtSpec = FORMATS[args.format];
   const outDirAbs = path.resolve(args.out);
   const templateAbs = path.resolve(args.template);
@@ -190,7 +170,32 @@ async function main(): Promise<void> {
   console.log(`   output dir : ${outDirAbs}`);
   console.log(`   template   : ${templateAbs}`);
 
-  const spec = await loadSpec(args.slug);
+  const spec = loadSpec(args.slug);
+
+  // Preflight: the templates reference `spec.images.*` relative to the rendered
+  // HTML. A missing file used to render a clean-looking slide with an empty image
+  // well, so a drop could be posted with 15 broken PNGs and no error at all.
+  const missing = (
+    await Promise.all(
+      (['front', 'back'] as const).map(async (which) => {
+        const abs = path.join(PROJECT_ROOT, assetRelPath(spec, which));
+        try {
+          await fs.access(abs);
+          return null;
+        } catch {
+          return assetRelPath(spec, which);
+        }
+      }),
+    )
+  ).filter((p): p is string => p !== null);
+  if (missing.length) {
+    throw new Error(
+      `Release "${args.slug}" is missing its source image(s):\n` +
+        missing.map((m) => `    ${m}`).join('\n') +
+        `\n  Add the photos there, then re-run. Nothing was rendered.`,
+    );
+  }
+
   const template = await fs.readFile(templateAbs, 'utf8');
 
   if (spec.slides.length < 5 && args.format !== 'x') {
@@ -275,6 +280,24 @@ async function main(): Promise<void> {
     if (page) await page.close();
     if (context) await context.close();
     await browser.close();
+  }
+}
+
+async function main(): Promise<void> {
+  const argv = process.argv.slice(2);
+  const run = parseRun(argv);
+  console.log(
+    `🎬 Coalition Drop Renderer — ${run.slugs.length} release(s) × ${run.formats.join(' + ')}\n`,
+  );
+  for (const slug of run.slugs) {
+    for (const format of run.formats) {
+      await renderOne({
+        slug,
+        format,
+        out: run.out ?? path.join(PROJECT_ROOT, FORMATS[format].outSubdir),
+        template: run.template ?? path.join(PROJECT_ROOT, FORMATS[format].templateRel),
+      });
+    }
   }
 }
 
