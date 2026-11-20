@@ -1086,6 +1086,12 @@ const loadLocalEnv = () => {
 };
 
 export const fetchPublishedPosts = async () => {
+  // Allow skipping Supabase entirely (e.g., when IP allowlist blocks Vercel build IPs)
+  if (process.env.SKIP_SUPABASE === '1') {
+    console.log('[seo] SKIP_SUPABASE=1 — skipping live posts table, using drop registry.');
+    return null;
+  }
+
   loadLocalEnv();
 
   const url = process.env.VITE_SUPABASE_URL;
