@@ -1,4 +1,6 @@
 -- supabase/migrations/20260725_add_paid_amount_balance_due_to_orders.sql
+-- Clean up any existing trigger that might reference wallet_mints_7d
+DROP TRIGGER IF EXISTS trg_wallet_mints_7d_refresh ON public.orders;
 --
 -- Adds partial-payment columns to public.orders so admins can track
 -- paid_amount and balance_due for pending deposit orders (e.g. Travis's
@@ -73,5 +75,5 @@ SET
         )::numeric,
         0
     )
-WHERE payment_status = 'pending'
+WHERE status = 'pending'
   AND notes ~ 'DEP \$[0-9]+(\.[0-9]+)? paid / BAL \$[0-9]+(\.[0-9]+)? owes';

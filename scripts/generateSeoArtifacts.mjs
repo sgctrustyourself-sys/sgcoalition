@@ -461,11 +461,25 @@ const ORGANIZATION_LOGO = absoluteUrl('/images/logo.png');
 // disagree about the order of the same products.
 // tests/structuredData.test.ts compares this against the utility over a
 // multi-product fixture (including a soldAt/archivedAt fallback and a name tie).
+// First candidate that actually parses wins. A malformed non-empty string must
+// not mask a later valid one — a truthy check alone is what let a bad soldAt
+// hide a good archivedAt. Shared by archive sorting, the byline and <lastmod>.
+const firstParsedDate = (values) => {
+  for (const raw of values) {
+    if (!raw) continue;
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return null;
+};
+
 export const sortArchivedProducts = (products) =>
   [...products].sort((a, b) => {
-    const dateA = new Date(a.soldAt || a.archivedAt || 0).getTime();
-    const dateB = new Date(b.soldAt || b.archivedAt || 0).getTime();
-    if (dateB !== dateA) return dateB - dateA;
+    const dateA = firstParsedDate([a.soldAt, a.archivedAt]);
+    const dateB = firstParsedDate([b.soldAt, b.archivedAt]);
+    const timeA = dateA ? dateA.getTime() : 0;
+    const timeB = dateB ? dateB.getTime() : 0;
+    if (timeB !== timeA) return timeB - timeA;
     return a.name.localeCompare(b.name);
   });
 
@@ -969,21 +983,22 @@ const postDescription = (post) =>
       || `${post.title} — a Coalition drop, written when it shipped.`
   );
 
-// First candidate that actually parses wins. A malformed non-empty string must
-// not mask a later valid one — a truthy check alone is what let a bad soldAt
-// hide a good archivedAt. Both <lastmod> chains (products and posts) share this.
-const firstParsedDate = (values) => {
-  for (const raw of values) {
-    if (!raw) continue;
-    const parsed = new Date(raw);
-    if (!Number.isNaN(parsed.getTime())) return parsed;
-  }
-  return null;
-};
-
 const postDate = (post) => {
   const parsed = firstParsedDate([post.publishedAt, post.createdAt]);
   return parsed ? parsed.toISOString() : '';
+};
+
+// <lastmod> is the newer of publication and last edit. updated_at moves whenever
+// an operator edits a post; without it the sitemap kept advertising the original
+// publication date and never told a crawler the page had changed. A malformed
+// value on either side is ignored rather than poisoning the comparison.
+const postLastmod = (post) => {
+  const dates = [post.publishedAt, post.updatedAt]
+    .map((value) => firstParsedDate([value]))
+    .filter(Boolean);
+  if (dates.length === 0) return '';
+  const newest = dates.reduce((latest, date) => (date > latest ? date : latest));
+  return newest.toISOString().slice(0, 10);
 };
 
 // drops.ts is TypeScript and this script is plain Node, so it is parsed the same
@@ -1083,7 +1098,7 @@ export const fetchPublishedPosts = async () => {
   try {
     const response = await fetch(
       `${url.replace(/\/+$/, '')}/rest/v1/posts`
-        + '?select=slug,title,excerpt,cover_image,tags,published_at,category,author,content,is_published'
+        + '?select=slug,title,excerpt,cover_image,tags,published_at,updated_at,category,author,content,is_published'
         + '&is_published=eq.true&order=published_at.desc',
       { headers: { apikey: key, authorization: `Bearer ${key}` }, signal: controller.signal }
     );
@@ -1104,6 +1119,7 @@ export const fetchPublishedPosts = async () => {
         author: row.author || 'Coalition',
         coverImage: row.cover_image || '',
         publishedAt: row.published_at || '',
+        updatedAt: row.updated_at || '',
         tags: Array.isArray(row.tags) ? row.tags : [],
         category: row.category || 'drop',
       }));
@@ -1408,8 +1424,10 @@ const articleByline = (post) => {
   const parts = [];
   if (post.category) parts.push(escapeText(post.category));
 
-  const parsed = new Date(post.publishedAt || post.createdAt || '');
-  if (!Number.isNaN(parsed.getTime())) {
+  // A malformed publishedAt must not suppress a valid createdAt — the same
+  // first-truthy bug the <lastmod> chain had.
+  const parsed = firstParsedDate([post.publishedAt, post.createdAt]);
+  if (parsed) {
     const label = new Intl.DateTimeFormat('en-US', {
       month: 'long',
       day: '2-digit',
@@ -1492,7 +1510,7 @@ export const buildSitemap = (products, posts = []) => {
     loc: blogPostPath(post.slug),
     priority: '0.6',
     changefreq: 'monthly',
-    lastmod: postDate(post).slice(0, 10),
+    lastmod: postLastmod(post),
   }));
   const urls = [...staticPages, ...productPages, ...postPages];
 

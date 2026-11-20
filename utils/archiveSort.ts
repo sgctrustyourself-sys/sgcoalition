@@ -9,10 +9,9 @@ import { Product } from '../types.js';
  * can be unit-tested without React (see `tests/archiveSort.test.ts`).
  *
  * Sort contract:
- * 1. Primary key: `soldAt` (preferred) or `archivedAt` (fallback). The
- *    expression `new Date(p.soldAt || p.archivedAt || 0).getTime()` is the
- *    exact fallback chain - a product with only `archivedAt` still surfaces
- *    in the grid at its archive date; a product with both null falls to
+ * 1. Primary key: `soldAt` (preferred) or `archivedAt` (fallback), using the
+ *    first value that actually parses. A malformed `soldAt` must not mask a
+ *    valid `archivedAt`; a product with both missing or unparseable falls to
  *    epoch 0 (sorts to the bottom, never throws).
  * 2. Direction: descending (newest sales first).
  * 3. Tie-break: `name.localeCompare(b.name)` (case-insensitive, locale-aware).
@@ -29,10 +28,20 @@ import { Product } from '../types.js';
  * Returns a NEW array (never mutates the input). Safe to call inside a
  * React useMemo without triggering exhaustive-deps lints.
  */
+/** Epoch milliseconds for the first parsable archive date, or 0. */
+function archivedTime(product: Product): number {
+    for (const raw of [product.soldAt, product.archivedAt]) {
+        if (!raw) continue;
+        const parsed = new Date(raw);
+        if (!Number.isNaN(parsed.getTime())) return parsed.getTime();
+    }
+    return 0;
+}
+
 export function sortArchivedProducts(products: Product[]): Product[] {
     return [...products].sort((a, b) => {
-        const dateA = new Date(a.soldAt || a.archivedAt || 0).getTime();
-        const dateB = new Date(b.soldAt || b.archivedAt || 0).getTime();
+        const dateA = archivedTime(a);
+        const dateB = archivedTime(b);
         if (dateB !== dateA) return dateB - dateA;
         return a.name.localeCompare(b.name);
     });

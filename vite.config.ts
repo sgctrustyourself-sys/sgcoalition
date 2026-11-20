@@ -4,9 +4,12 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { bareCheckoutGate } from './utils/bareCheckoutGate.mjs';
+import { deployTreeGuard } from './utils/deployTreeGuard.mjs';
 import { stripeEnvPolicy } from './utils/stripeEnvPolicy.mjs';
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+  const analyze = mode === 'analyze';
+  const debug = mode === 'debug';
   return {
     server: {
       port: 3000,
@@ -31,14 +34,21 @@ export default defineConfig(() => {
       // above — it rides in the build, where no build command can skip it. See
       // utils/stripeEnvPolicy.mjs.
       stripeEnvPolicy(),
+      // Vite copies public/ before closeBundle and writes the bundle there too,
+      // so this checks the actual deploy tree. It is a build hook rather than an
+      // npm postbuild hook because `npx vite build` skips npm lifecycle scripts.
+      // See utils/deployTreeGuard.mjs.
+      deployTreeGuard(),
       react(),
       tailwindcss(),
-      visualizer({
-        filename: 'dist/stats.html',
+      // Bundle reports are build diagnostics, not site assets. Keep the
+      // treemap out of dist and only generate it for an explicit analyze build.
+      ...(analyze ? [visualizer({
+        filename: path.resolve(__dirname, 'bundle-analysis/stats.html'),
         open: false,
         gzipSize: true,
         brotliSize: true,
-      }),
+      })] : []),
     ],
     resolve: {
       alias: {
@@ -56,6 +66,13 @@ export default defineConfig(() => {
     // splitting moves code, it never pulls new modules in. Everything not
     // matched below keeps Rollup's default per-export tree-shaking.
     build: {
+      // Analyze/debug builds are deliberately outside dist so neither a treemap
+      // nor a source map can be published by the normal Netlify/Vercel build.
+      outDir: analyze
+        ? 'bundle-analysis/analyze-dist'
+        : debug
+          ? 'bundle-analysis/debug-dist'
+          : 'dist',
       rollupOptions: {
         output: {
           manualChunks(id: string) {
@@ -104,7 +121,10 @@ export default defineConfig(() => {
       // parseable so a syntax rejection cannot strand users behind the
       // inline #initial-loader before React mounts.
       target: 'safari12',
-      sourcemap: true,
+      // Source maps expose the full source tree. Production ships none; use
+      // `npm run build:debug` to keep a map-bearing build under
+      // bundle-analysis/debug-dist for local debugging or a Sentry CLI upload.
+      sourcemap: debug,
     },
   };
 });

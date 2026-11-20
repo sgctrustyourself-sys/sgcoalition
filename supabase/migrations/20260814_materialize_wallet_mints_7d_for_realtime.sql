@@ -41,8 +41,8 @@ SELECT 1,
 FROM public.orders o
 CROSS JOIN LATERAL jsonb_array_elements(o.items) AS item
 JOIN public.products p
-    ON p.id = (item->>'productId')
-WHERE o.payment_status = 'paid'
+    ON p.id = (item->>'productId')::uuid
+WHERE o.status = 'completed'
   AND o.created_at >= (NOW() - INTERVAL '7 days')
   AND p.category = 'wallet'
 ON CONFLICT (id) DO NOTHING;
@@ -75,8 +75,8 @@ BEGIN
     FROM public.orders o
     CROSS JOIN LATERAL jsonb_array_elements(o.items) AS item
     JOIN public.products p
-        ON p.id = (item->>'productId')
-    WHERE o.payment_status = 'paid'
+        ON p.id = (item->>'productId')::uuid
+    WHERE o.status = 'completed'
       AND o.created_at >= (NOW() - INTERVAL '7 days')
       AND p.category = 'wallet';
 

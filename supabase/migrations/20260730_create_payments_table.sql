@@ -30,7 +30,7 @@
 -- -------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS payments (
     id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    order_id      TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    order_id      UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
     amount        NUMERIC NOT NULL CHECK (amount > 0),
     proof_url     TEXT,
     payment_method TEXT NOT NULL DEFAULT 'cash',

@@ -10,6 +10,9 @@ coverage
 dist
 build
 
+# Build diagnostics and debug-only source maps (never deployed)
+bundle-analysis/
+
 # Drop-asset reveal outputs (renderer-generated PNGs + reviewer-aid HTMLs)
 # All gitignored — re-run the corresponding `npm run <format>:reveal -- --slug <name>`
 # to regenerate from scripts/story-reveal-specs/{slug}.ts.

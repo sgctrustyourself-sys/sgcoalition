@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS public.point_claims (
     -- 'order_<timestamp>_<rand>' (services/orderIntake.ts), and the FK below
     -- settles it — 20260730_create_payments_table.sql already references
     -- orders(id) as TEXT, and a uuid column could not hold either shape.
-    order_id       TEXT REFERENCES public.orders(id) ON DELETE SET NULL,
+    order_id       UUID REFERENCES public.orders(id) ON DELETE SET NULL,
     order_number   TEXT NOT NULL,
     -- The email the claimant typed, not the account email: a buyer who ordered
     -- with a different address is the normal case here.

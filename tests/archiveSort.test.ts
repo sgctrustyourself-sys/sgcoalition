@@ -137,43 +137,35 @@ describe('sortArchivedProducts', () => {
             expect(sorted.map(x => x.id)).toEqual(['has', 'no-date']);
         });
 
-        it('does not throw on malformed date strings', () => {
+        it('uses archivedAt when soldAt is malformed', () => {
+            const products = [
+                p({ id: 'malformed-sold', name: 'Alpha', soldAt: 'not-a-date', archivedAt: '2026-06-01T00:00:00Z' }),
+                p({ id: 'valid-sold', name: 'Beta', soldAt: '2025-01-01T00:00:00Z' }),
+            ];
+            // The unparseable soldAt is skipped, so Alpha sorts by its newer archivedAt.
+            expect(sortArchivedProducts(products).map(x => x.id)).toEqual(['malformed-sold', 'valid-sold']);
+        });
+
+        it('treats an unparseable date as no date instead of NaN', () => {
             const products = [
                 p({ id: 'bad',  name: 'Bad date',  soldAt: 'not-a-date' }),
                 p({ id: 'good', name: 'Good date', soldAt: '2026-01-01T00:00:00Z' }),
             ];
-            // `new Date('not-a-date').getTime()` returns NaN; NaN comparisons
-            // are always false, so the bad date falls through to the name
-            // tie-break. The test asserts the function does NOT throw.
+            // A bad value no longer becomes NaN in the comparator; it falls to
+            // epoch 0, so the real date sorts above it.
             expect(() => sortArchivedProducts(products)).not.toThrow();
-            const sorted = sortArchivedProducts(products);
-            expect(sorted).toHaveLength(2);
+            expect(sortArchivedProducts(products).map(x => x.id)).toEqual(['good', 'bad']);
         });
 
-        it('NaN-date products stay in their original position (undefined sort behavior, pinned)', () => {
-            // PINNED UNDEFINED BEHAVIOR: When `new Date(p.soldAt).getTime()`
-            // returns NaN, the comparator hits `dateB - dateA` which is also
-            // NaN. Array.prototype.sort treats a NaN comparator return as 0
-            // (no swap), so NaN products do NOT move relative to their input
-            // position. This test pins that behavior so a future refactor
-            // (e.g. `dateB - dateA || 0` to coerce NaN to 0) can't silently
-            // change where malformed-date products land in the grid.
-            //
-            // Input layout: [valid-LATE, NaN, valid-EARLY]
-            // The valid-LATE should still come before valid-EARLY (real dates
-            // sort correctly). The NaN product stays at index 1.
+        it('products with only unparseable dates sort to the bottom', () => {
             const products = [
                 p({ id: 'valid-late',  name: 'Z-late',  soldAt: '2026-06-01T00:00:00Z' }),
-                p({ id: 'nan',         name: 'M-nan',   soldAt: 'not-a-date' }),
+                p({ id: 'unparseable', name: 'M-bad',   soldAt: 'not-a-date' }),
                 p({ id: 'valid-early', name: 'A-early', soldAt: '2025-01-01T00:00:00Z' }),
             ];
-            const sorted = sortArchivedProducts(products);
-            const expected = ['valid-late', 'nan', 'valid-early'];
-            const actual = sorted.map(x => x.id);
-            // NaN product stays at index 1 (its original position). The two
-            // valid products swap (Z-late has a newer date, sorts before
-            // A-early).
-            expect(actual, 'NaN pinning. Expected: ' + expected.join(', ') + '. Actual: ' + actual.join(', ')).toEqual(expected);
+            // The malformed value is treated as no date (epoch 0), not NaN, so
+            // it sorts below both real dates instead of keeping its input slot.
+            expect(sortArchivedProducts(products).map(x => x.id)).toEqual(['valid-late', 'valid-early', 'unparseable']);
         });
     });
 

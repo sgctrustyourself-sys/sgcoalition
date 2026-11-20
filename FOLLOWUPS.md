@@ -125,7 +125,7 @@ Highest-leverage targets are the always-mounted surfaces rather than the three n
 
 Expected outcome: drop another ~22 KB gzipped off the eager bucket, the next-largest lever after the CartDrawer lazy-carve + ProfileModal deletion this session already shipped (ProfileModal was removed entirely, not just lazy-loaded; see README "Bundle analyzer and lazy-loaded chunks").
 
-Verification: re-run `node scripts/parseStatsHtml.mjs` against `npx.cmd vite build --mode analyze` and confirm the lazy chunks land with the expected gzip weights.
+Verification: re-run `npm run build:analyze` and inspect `bundle-analysis/stats.html` for the lazy chunks and the expected gzip weights.
 
 Not blocking; do when bundle slices accumulate.
 

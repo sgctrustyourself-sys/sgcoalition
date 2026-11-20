@@ -388,6 +388,10 @@ Sentry is wired into the browser bundle for unhandled error capture in productio
 - `index.tsx` — `initSentry()` runs at module-load (before `ReactDOM.createRoot`) so module-link errors that throw before React mounts are still captured. Then `createRoot()` registers both React 19 error options: `onUncaughtError` (escaped every boundary → `tags.source = react19-root-uncaught`) and `onCaughtError` (caught by a boundary but forwarded → `tags.source = react19-root-caught`). Both at `level: 'error'`.
 - `vercel.json` — CSP `connect-src` allows `https://*.ingest.sentry.io` and `https://*.ingest.us.sentry.io` so the SDK can POST events. No `script-src` CDN entry is needed: `@sentry/react` is bundled from npm, not loaded by a loader script. (An earlier revision of this doc claimed a `browser.sentry-cdn.com` allowlist that never existed in the header.)
 
+### Source maps
+
+Production builds emit no source maps: publishing them exposes the full source tree, and there is no Sentry upload step in this repository that consumes them today. `npm run build:debug` writes a map-bearing build under `bundle-analysis/debug-dist` for local stack traces or a future `sentry-cli` upload. That directory is outside `dist` and gitignored; never copy its `.map` files into the deploy root.
+
 ### The two gates (the safety property itself)
 
 Both gates are deliberate. Don't remove either — the two-gate design IS the safety property:
@@ -822,19 +826,19 @@ Both wrappers use `fallback={null}` because the surfaces are off-screen by defau
 
 #### Empirical carve-out (post-refactor, July 2026)
 
-Running `node scripts/parseStatsHtml.mjs` against a fresh `vite build --mode analyze` reports the eager chunk dropping from **696 KB to ~678 KB** on-disk. `ProfileModal.tsx` was later deleted entirely (its trigger in the navbar was removed; MY PROFILE now navigates to `/profile`), so the eager chunk drops an additional `~15.8 KB raw / ~3.3 KB gzipped` of the full component beyond the lazy-carve baseline. The three `framer-motion` internals (totaling ~104 KB raw / ~22 KB gzipped) **stay** in the eager chunk because `SignalAlert`, `RewardActivation`, and `components/ui/ToastContainer` still import `framer-motion` synchronously. Tracked as the next-largest lever; lazy-loading those three would drop the eager chunk by another ~22 KB gzipped with no AppContext/Supabase impact (none of them touch auth or realtime state).
+The analyzer data from a fresh `npm run build:analyze` reports the eager chunk dropping from **696 KB to ~678 KB** on-disk. `ProfileModal.tsx` was later deleted entirely (its trigger in the navbar was removed; MY PROFILE now navigates to `/profile`), so the eager chunk drops an additional `~15.8 KB raw / ~3.3 KB gzipped` of the full component beyond the lazy-carve baseline. The three `framer-motion` internals (totaling ~104 KB raw / ~22 KB gzipped) **stay** in the eager chunk because `SignalAlert`, `RewardActivation`, and `components/ui/ToastContainer` still import `framer-motion` synchronously. Tracked as the next-largest lever; lazy-loading those three would drop the eager chunk by another ~22 KB gzipped with no AppContext/Supabase impact (none of them touch auth or realtime state).
 
 #### Bundle analyzer workflow
 
 ```bash
-npm.cmd run build                                   # regular production build, NO dist/stats.html
-npx.cmd vite build --mode analyze                   # emits dist/stats.html (~1.55 MB treemap HTML)
-node scripts/parseStatsHtml.mjs                     # prints top contributors (raw | gzip | brotli)
+npm.cmd run build          # production: no stats.html, no source maps
+npm.cmd run build:analyze  # emits bundle-analysis/stats.html + analyze-dist
+npm.cmd run build:debug    # emits bundle-analysis/debug-dist with source maps
 ```
 
-`scripts/parseStatsHtml.mjs` bracket-matches the inline `const data = {...}` literal in `dist/stats.html`, walks the tree (inline objects down to leaves that carry a `uid`), and reads byte weights from `data.nodeParts[uid].{renderedLength,gzipLength,brotliLength}`. It outputs raw / gzipped / brotli bytes per module, ranked by raw size, split into the eager `index-*.js` bucket vs. lazy-loaded chunks. Use it whenever you do a meaningful dependency bump or add a new global UI surface.
+`bundle-analysis/` is outside `dist` and gitignored, so neither the treemap nor a debug source map can be published by the normal Netlify/Vercel build. Open `bundle-analysis/stats.html` directly for the treemap; the analyze build's JS is under `bundle-analysis/analyze-dist`. Use `build:analyze` whenever you do a meaningful dependency bump or add a new global UI surface.
 
-Vite's chunk-size warning limit sits at 800 KB (`vite.config.ts > build.chunkSizeWarningLimit`) to suppress the pre-existing 500 KB noise without masking future 800+ KB regressions. The analyzer only emits `dist/stats.html` when invoked with `--mode analyze`; regular `npm.cmd run build` skips it.
+Vite's chunk-size warning limit sits at 800 KB (`vite.config.ts > build.chunkSizeWarningLimit`) to suppress the pre-existing 500 KB noise without masking future 800+ KB regressions. Production builds emit no source maps; the only map-bearing output is the explicitly non-deployable `build:debug` directory.
 
 #### Hard constraints preserved
 

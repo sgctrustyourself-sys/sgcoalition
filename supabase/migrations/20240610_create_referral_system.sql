@@ -68,36 +68,43 @@ ALTER TABLE referral_stats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE referral_analytics ENABLE ROW LEVEL SECURITY;
 
 -- Referrals: Users can view their own referrals
+DROP POLICY IF EXISTS "Users can view own referrals" ON referrals;
 CREATE POLICY "Users can view own referrals"
   ON referrals FOR SELECT
   USING (auth.uid() = referrer_id);
 
 -- Referrals: System can insert (for tracking)
+DROP POLICY IF EXISTS "System can insert referrals" ON referrals;
 CREATE POLICY "System can insert referrals"
   ON referrals FOR INSERT
   WITH CHECK (true);
 
 -- Referrals: System can update (for status changes)
+DROP POLICY IF EXISTS "System can update referrals" ON referrals;
 CREATE POLICY "System can update referrals"
   ON referrals FOR UPDATE
   USING (true);
 
 -- Referral Stats: Users can view their own stats
+DROP POLICY IF EXISTS "Users can view own stats" ON referral_stats;
 CREATE POLICY "Users can view own stats"
   ON referral_stats FOR SELECT
   USING (auth.uid() = user_id);
 
 -- Referral Stats: System can manage stats
+DROP POLICY IF EXISTS "System can manage stats" ON referral_stats;
 CREATE POLICY "System can manage stats"
   ON referral_stats FOR ALL
   USING (true);
 
 -- Referral Analytics: Users can view their own analytics
+DROP POLICY IF EXISTS "Users can view own analytics" ON referral_analytics;
 CREATE POLICY "Users can view own analytics"
   ON referral_analytics FOR SELECT
   USING (auth.uid() = referrer_id);
 
 -- Referral Analytics: System can insert analytics
+DROP POLICY IF EXISTS "System can insert analytics" ON referral_analytics;
 CREATE POLICY "System can insert analytics"
   ON referral_analytics FOR INSERT
   WITH CHECK (true);
@@ -111,6 +118,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_referral_stats_timestamp ON referral_stats;
 CREATE TRIGGER update_referral_stats_timestamp
   BEFORE UPDATE ON referral_stats
   FOR EACH ROW
@@ -124,21 +132,22 @@ DECLARE
 BEGIN
   -- Generate unique referral code
   new_code := 'SG-' || UPPER(SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 6));
-  
+
   -- Ensure uniqueness
   WHILE EXISTS (SELECT 1 FROM referral_stats WHERE referral_code = new_code) LOOP
     new_code := 'SG-' || UPPER(SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 6));
   END LOOP;
-  
+
   -- Insert initial stats
   INSERT INTO referral_stats (user_id, referral_code)
   VALUES (NEW.id, new_code);
-  
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger: Auto-create referral stats on user signup
+DROP TRIGGER IF EXISTS create_referral_stats_on_signup ON auth.users;
 CREATE TRIGGER create_referral_stats_on_signup
   AFTER INSERT ON auth.users
   FOR EACH ROW
@@ -169,12 +178,12 @@ BEGIN
   SELECT user_id INTO v_referrer_id
   FROM referral_stats
   WHERE referral_code = p_referral_code;
-  
+
   -- If referral code doesn't exist, exit
   IF v_referrer_id IS NULL THEN
     RETURN;
   END IF;
-  
+
   -- Insert analytics event
   INSERT INTO referral_analytics (
     referral_code,
@@ -191,29 +200,29 @@ BEGIN
     p_user_agent,
     p_referrer_url
   );
-  
+
   -- Update aggregated stats based on event type
   CASE p_event_type
     WHEN 'click' THEN
       UPDATE referral_stats
       SET total_clicks = total_clicks + 1
       WHERE user_id = v_referrer_id;
-      
+
     WHEN 'view' THEN
       UPDATE referral_stats
       SET total_views = total_views + 1
       WHERE user_id = v_referrer_id;
-      
+
     WHEN 'signup' THEN
       UPDATE referral_stats
       SET total_referrals = total_referrals + 1
       WHERE user_id = v_referrer_id;
-      
+
     WHEN 'purchase' THEN
       UPDATE referral_stats
       SET successful_referrals = successful_referrals + 1
       WHERE user_id = v_referrer_id;
-      
+
       -- Mark the analytics event as converted
       UPDATE referral_analytics
       SET converted_to_sale = TRUE
@@ -226,25 +235,25 @@ BEGIN
             AND event_type = 'signup'
         );
   END CASE;
-  
+
   -- Recalculate conversion rate
   SELECT total_clicks, total_views, successful_referrals
   INTO v_total_clicks, v_total_views, v_successful_referrals
   FROM referral_stats
   WHERE user_id = v_referrer_id;
-  
+
   -- Calculate conversion rate (successful referrals / total clicks)
   IF v_total_clicks > 0 THEN
     v_conversion_rate := (v_successful_referrals::DECIMAL / v_total_clicks::DECIMAL) * 100;
   ELSE
     v_conversion_rate := 0.00;
   END IF;
-  
+
   -- Update conversion rate
   UPDATE referral_stats
   SET conversion_rate = v_conversion_rate
   WHERE user_id = v_referrer_id;
-  
+
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

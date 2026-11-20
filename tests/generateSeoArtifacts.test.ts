@@ -24,6 +24,7 @@ import {
     postArticleHtml,
     renderPostBody,
     productDate,
+    sortArchivedProducts,
     STATIC_ROUTES,
 } from '../scripts/generateSeoArtifacts.mjs';
 import { sanitizeBlogHtml } from '../utils/blogSanitize';
@@ -279,6 +280,16 @@ describe('productDate — first value that actually parses', () => {
     });
 });
 
+describe('sortArchivedProducts — first value that actually parses', () => {
+    it('falls through a malformed soldAt to archivedAt', () => {
+        const products = [
+            { id: 'b', name: 'B', soldAt: '2026-01-01T00:00:00Z', archivedAt: null },
+            { id: 'a', name: 'A', soldAt: 'not a date', archivedAt: '2026-05-01T00:00:00Z' },
+        ];
+        expect(sortArchivedProducts(products).map((product) => product.id)).toEqual(['a', 'b']);
+    });
+});
+
 // A route advertised in sitemap.xml but missing from STATIC_ROUTES would ship
 // no prerendered page, so its URL would serve the generic SPA shell whose
 // canonical is "/" — every sitemap route silently claiming to be the homepage.
@@ -365,8 +376,22 @@ describe('SEO sitemap — blog posts', () => {
         );
     });
 
-    it('falls through a malformed publishedAt to createdAt', () => {
-        const xml = buildSitemap([], [post({ publishedAt: 'not a date', createdAt: '2026-08-01T00:00:00.000Z' })]);
+    it('uses the newer of publishedAt and updatedAt for lastmod', () => {
+        // An edit after publication is the case this exists for.
+        const edited = buildSitemap([], [post({ updatedAt: '2026-10-01T00:00:00.000Z' })]);
+        expect(edited).toMatch(/<lastmod>2026-10-01<\/lastmod>/);
+
+        // An older updatedAt (or a scheduled post) must not move the date back.
+        const notNewer = buildSitemap([], [post({ updatedAt: '2026-09-01T00:00:00.000Z' })]);
+        expect(notNewer).toMatch(/<lastmod>2026-09-17<\/lastmod>/);
+
+        // A malformed updatedAt is ignored, not treated as the newer date.
+        const malformed = buildSitemap([], [post({ updatedAt: 'not a date' })]);
+        expect(malformed).toMatch(/<lastmod>2026-09-17<\/lastmod>/);
+    });
+
+    it('falls through a malformed publishedAt to updatedAt', () => {
+        const xml = buildSitemap([], [post({ publishedAt: 'not a date', updatedAt: '2026-08-01T00:00:00.000Z' })]);
         expect(xml).toMatch(/<lastmod>2026-08-01<\/lastmod>/);
     });
 
@@ -481,6 +506,11 @@ describe('SEO prerender — the post text is in the served HTML', () => {
         expect(html).toContain('<h1>Women\'s Leopard Print Crop T-Shirt</h1>');
         expect(html).toContain('<time datetime="2026-09-17T16:00:00.000Z">September 17, 2026</time>');
         expect(html).toContain('<p>Two prints on one piece.</p>');
+    });
+
+    it('keeps the byline date when publishedAt is malformed but createdAt is valid', () => {
+        const html = postArticleHtml(post({ publishedAt: 'not a date', createdAt: '2026-08-01T00:00:00.000Z' }));
+        expect(html).toContain('<time datetime="2026-08-01T00:00:00.000Z">August 01, 2026</time>');
     });
 
     it('falls back to the excerpt when a row carries no body', () => {
@@ -653,6 +683,7 @@ describe('SEO prerender — the post text is in the served HTML', () => {
             content: '<h2>THE BUILD</h2>',
             cover_image: '/images/a.png',
             published_at: '2026-09-17T16:00:00.000Z',
+            updated_at: '2026-10-02T00:00:00.000Z',
             tags: [],
             category: 'drop',
             author: 'Founder',
@@ -670,8 +701,11 @@ describe('SEO prerender — the post text is in the served HTML', () => {
             const rows = await fetchPublishedPosts();
             // Without `content` in the select the served article would be empty.
             expect(String(fetchMock.mock.calls[0][0])).toContain('content');
+            // Without updated_at the sitemap can never see an edit.
+            expect(String(fetchMock.mock.calls[0][0])).toContain('updated_at');
             expect(rows).toHaveLength(1);
             expect(rows[0].content).toBe('<h2>THE BUILD</h2>');
+            expect(rows[0].updatedAt).toBe('2026-10-02T00:00:00.000Z');
             expect(postArticleHtml(rows[0])).toContain('<h2>THE BUILD</h2>');
         } finally {
             globalThis.fetch = originalFetch;

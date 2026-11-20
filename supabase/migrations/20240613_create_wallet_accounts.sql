@@ -19,16 +19,19 @@ CREATE INDEX IF NOT EXISTS idx_wallet_accounts_user ON wallet_accounts(user_id);
 ALTER TABLE wallet_accounts ENABLE ROW LEVEL SECURITY;
 
 -- Users can view their own wallet links
+DROP POLICY IF EXISTS "Users can view own wallet links" ON wallet_accounts;
 CREATE POLICY "Users can view own wallet links"
   ON wallet_accounts FOR SELECT
   USING (auth.uid() = user_id);
 
 -- Users can link their own wallets
+DROP POLICY IF EXISTS "Users can link their own wallets" ON wallet_accounts;
 CREATE POLICY "Users can link their own wallets"
   ON wallet_accounts FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 -- Users can unlink their own wallets
+DROP POLICY IF EXISTS "Users can unlink their own wallets" ON wallet_accounts;
 CREATE POLICY "Users can unlink their own wallets"
   ON wallet_accounts FOR DELETE
   USING (auth.uid() = user_id);
@@ -42,7 +45,7 @@ BEGIN
   SELECT user_id INTO v_user_id
   FROM wallet_accounts
   WHERE LOWER(wallet_address) = LOWER(p_wallet_address);
-  
+
   RETURN v_user_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -57,24 +60,24 @@ BEGIN
   SELECT user_id INTO v_existing_link
   FROM wallet_accounts
   WHERE LOWER(wallet_address) = LOWER(p_wallet_address);
-  
+
   IF v_existing_link IS NOT NULL THEN
     RAISE EXCEPTION 'Wallet already linked to another account';
   END IF;
-  
+
   -- Check if current user already has a wallet linked
   SELECT user_id INTO v_existing_link
   FROM wallet_accounts
   WHERE user_id = auth.uid();
-  
+
   IF v_existing_link IS NOT NULL THEN
     RAISE EXCEPTION 'User already has a wallet linked';
   END IF;
-  
+
   -- Create the link
   INSERT INTO wallet_accounts (wallet_address, user_id)
   VALUES (p_wallet_address, auth.uid());
-  
+
   RETURN TRUE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

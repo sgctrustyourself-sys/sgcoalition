@@ -29,14 +29,15 @@
 --    (only paid order line-items that are already public via /orders).
 -- =========================================================================
 
+DROP TABLE IF EXISTS public.wallet_mints_7d;
 CREATE OR REPLACE VIEW public.wallet_mints_7d AS
 SELECT
     COALESCE(SUM((item->>'quantity')::bigint), 0)::bigint AS mint_count
 FROM public.orders o
 CROSS JOIN LATERAL jsonb_array_elements(o.items) AS item
 JOIN public.products p
-    ON p.id = (item->>'productId')
-WHERE o.payment_status = 'paid'
+    ON p.id = (item->>'productId')::uuid
+WHERE o.status = 'completed'
     AND o.created_at >= (NOW() - INTERVAL '7 days')
     AND p.category = 'wallet';
 

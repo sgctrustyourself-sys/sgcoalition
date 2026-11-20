@@ -9,6 +9,8 @@ import RequestSimilarModal from '../components/RequestSimilarModal';
 import ImageCropperModal from '../components/ui/ImageCropperModal';
 import PageLoader from '../components/ui/PageLoader';
 import Seo from '../components/Seo';
+import OptimizedImage from '../components/ui/OptimizedImage';
+import { getProductDetailImages } from '../utils/imageOptimization';
 import { checkNftOwnership, switchToPolygon } from '../services/web3Service';
 import { uploadProductImage } from '../services/productUpload';
 import { moveArrayItem, remapIndexAfterMove } from '../utils/arrayMove';
@@ -209,6 +211,7 @@ const ProductDetails = () => {
     const tierInfo = isNumbered ? formatTierCalloutCopy(product, soldCount) : null;
     const editableSizes = getProductEditableSizes(editForm.sizes, editForm.sizeInventory);
     const galleryImages = isEditing && editForm.images ? editForm.images : product.images;
+    const optimizedGalleryImages = getProductDetailImages(galleryImages);
     const shouldFitFullImage = WHITE_BG_PRODUCT_IDS.has(product.id);
     const imageFrameClass = shouldFitFullImage ? 'bg-white' : 'bg-dark';
     const imageObjectClass = shouldFitFullImage ? 'object-contain' : 'object-cover';
@@ -480,10 +483,13 @@ const ProductDetails = () => {
                     {/* Image Gallery */}
                     <div className="space-y-4">
                         <div className={`aspect-[4/5] ${imageFrameClass} overflow-hidden rounded-sm relative border border-white/5 box-glow`}>
-                            <img
+                            <OptimizedImage
                                 src={galleryImages[activeImageIndex]}
                                 alt={product.name}
+                                priority={true}
                                 className={`w-full h-full ${imageObjectClass} opacity-90 hover:opacity-100 transition-opacity`}
+                                sizes="50vw"
+                                widths={[600, 1200, 1600, 2400]}
                             />
                             <div className="absolute left-4 top-4 flex max-w-[calc(100%-2rem)] flex-wrap gap-2">
                                 <span className={`border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] backdrop-blur-md ${
@@ -520,7 +526,13 @@ const ProductDetails = () => {
                                     onClick={() => setActiveImageIndex(idx)}
                                     className={`relative w-24 h-28 flex-shrink-0 overflow-hidden rounded-sm border-2 transition-all ${shouldFitFullImage ? 'bg-white' : ''} ${activeImageIndex === idx ? 'border-brand-accent' : 'border-white/10 opacity-50 hover:opacity-100'}`}
                                 >
-                                    <img src={img} alt={`View ${idx + 1}`} className={`w-full h-full ${imageObjectClass}`} />
+                                    <OptimizedImage
+                                        src={img}
+                                        alt={`View ${idx + 1}`}
+                                        className={`w-full h-full ${imageObjectClass}`}
+                                        width={96}
+                                        height={112}
+                                    />
                                 </button>
                             ))}
                         </div>
@@ -655,7 +667,13 @@ const ProductDetails = () => {
                                                         } ${isDragged ? 'opacity-50 scale-[0.98]' : ''}`}
                                                     title="Drag to reorder"
                                                 >
-                                                    <img src={img} alt={`Product thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                                                    <OptimizedImage
+                                                      src={img}
+                                                      alt={`Product thumbnail ${idx + 1}`}
+                                                      className="w-full h-full object-cover"
+                                                      width={200}
+                                                      height={250}
+                                                    />
 
                                                     <div className="absolute left-1 top-1 flex items-center gap-1">
                                                         <span className="rounded-full border border-white/10 bg-black/70 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white">

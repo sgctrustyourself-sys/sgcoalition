@@ -35,6 +35,24 @@
                     "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://*.js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.imgur.com https://tvacscfbzcmjlcekjcsn.supabase.co https://gateway.pinata.cloud; frame-src https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.dexscreener.com https://polygon.gateway.tenderly.co https://polygon-bor.publicnode.com https://polygon.drpc.org https://rpc.ankr.com/polygon https://api.stripe.com https://m.stripe.com https://api.zippopotam.us https://cdn.jsdelivr.net/npm/us-atlas@3/ https://api.etherscan.io https://gateway.pinata.cloud https://*.ingest.sentry.io https://*.ingest.us.sentry.io; report-uri /api/csp-report"
                 }
             ]
+        },
+        {
+            "source": "/images/(.*)",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=31536000, immutable"
+                }
+            ]
+        },
+        {
+            "source": "/assets/(.*)",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=31536000, immutable"
+                }
+            ]
         }
     ]
 }
